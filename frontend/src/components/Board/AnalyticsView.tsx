@@ -3,6 +3,7 @@ import { getBoardAnalytics } from "../../api/boards";
 
 interface StalledCard {
   id: number;
+  uid: string;
   title: string;
   days_since_move: number;
 }

@@ -812,7 +812,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-50 transition"
+                            className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-40 transition"
                           >
                             {uploading ? "Uploading…" : "+ Upload"}
                           </button>
@@ -991,7 +991,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <button
               onClick={handleMoveSubmit}
               disabled={moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
-              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >{moveSubmitting ? "Moving…" : "Move"}</button>
           </div>
         </div>

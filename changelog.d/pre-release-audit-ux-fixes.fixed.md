@@ -1,0 +1,5 @@
+- Disabled form submit buttons now use the correct reduced opacity (40%) matching the design spec, replacing the previous value across all forms.
+- ViewToggle inactive tab hover background corrected to match the dark toolbar design token, preventing the tab from appearing lighter than intended on hover.
+- AdminPage AddUserModal and OffboardingModal now use the shared ModalWrapper component, ensuring consistent focus trapping, overlay behavior, and keyboard dismissal across all admin modals.
+- Analytics stalled-cards endpoint now includes a `uid` field on each entry alongside the existing `id`, allowing clients to reference cards by their public identifier without a secondary lookup.
+- Columns now enforce a unique name per board at the database level, preventing duplicate column names that would silently corrupt analytics responses.

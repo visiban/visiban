@@ -107,7 +107,7 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="submit"
             disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>

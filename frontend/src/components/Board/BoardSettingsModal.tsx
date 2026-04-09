@@ -321,7 +321,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           <button
                             onClick={() => setPendingRemove(m.user.id)}
                             disabled={isDisabled}
-                            className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-50 w-5 text-center"
+                            className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-40 w-5 text-center"
                             title="Remove direct board role"
                           >
                             ✕
@@ -360,7 +360,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <button
                           onClick={() => handleRemoveConfirm(m.user.id)}
                           disabled={isDisabled}
-                          className="text-red-400 hover:text-red-300 font-medium transition disabled:opacity-50"
+                          className="text-red-400 hover:text-red-300 font-medium transition disabled:opacity-40"
                         >
                           Confirm
                         </button>

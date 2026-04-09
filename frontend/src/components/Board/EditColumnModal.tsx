@@ -128,7 +128,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           type="button"
           onClick={() => { onClose(); onRequestDelete(column); }}
           disabled={cardCount > 0}
-          className="w-full px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+          className="w-full px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
         >
           Delete column
         </button>
@@ -139,7 +139,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? "Saving…" : "Save"}
         </button>

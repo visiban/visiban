@@ -399,6 +399,7 @@ class BoardAnalyticsMixin:
                     if not last_col_is_done and last_moved_at is not None and last_moved_at < stall_cutoff:
                         stalled_cards.append({
                             "id": card.id,
+                            "uid": card.uid,
                             "title": card.title,
                             "days_since_move": (now - last_moved_at).days,
                         })

@@ -14,6 +14,7 @@ import {
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
 import Navbar from "../components/Layout/Navbar";
+import ModalWrapper from "../components/shared/ModalWrapper";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 
@@ -109,7 +110,6 @@ interface AddUserModalProps {
 }
 
 function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
-  useEscapeStack(onClose, 40);
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -151,20 +151,8 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="add-user-title" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-md w-full">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-700">
-          <h2 id="add-user-title" className="text-white text-lg font-semibold">Add User</h2>
-          <button
-            onClick={onClose}
-            className="hover:bg-slate-700 p-1 rounded transition text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <ModalWrapper open onClose={onClose} title="Add User" maxWidth="max-w-md">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm text-slate-400">
             Username
             <input
@@ -228,14 +216,13 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {saving ? "Creating…" : "Create user"}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalWrapper>
   );
 }
 
@@ -374,7 +361,7 @@ function InviteLinksTab() {
         <button
           type="submit"
           disabled={creating}
-          className="self-start px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="self-start px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {creating ? "Creating…" : "Create link"}
         </button>
@@ -475,11 +462,9 @@ interface OffboardingModalProps {
 }
 
 function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProps) {
-  useEscapeStack(onClose, 40);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = modalRef.current;
+    const el = contentRef.current;
     if (!el) return;
     const focusable = Array.from(
       el.querySelectorAll<HTMLElement>(
@@ -556,28 +541,8 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="offboard-title"
-        className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-lg w-full"
-      >
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-700">
-          <h2 id="offboard-title" className="text-white text-lg font-semibold">
-            Transfer boards &amp; deactivate
-          </h2>
-          <button
-            ref={closeBtnRef}
-            onClick={onClose}
-            className="hover:bg-slate-700 p-1 rounded transition text-slate-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
+    <ModalWrapper open onClose={onClose} title="Transfer boards & deactivate" maxWidth="max-w-lg" headerBorder>
+      <div ref={contentRef}>
         <p className="text-sm text-slate-300 mb-4">
           <span className="font-medium text-white">{user.display_name || user.username}</span> owns the boards below.
           Assign a new owner for each before deactivating.
@@ -633,13 +598,13 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
           <button
             onClick={handleConfirm}
             disabled={saving || !allAssigned}
-            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>
         </div>
       </div>
-    </div>
+    </ModalWrapper>
   );
 }
 
@@ -794,7 +759,7 @@ function SettingsTab() {
             aria-checked={settings?.uploads_enabled ?? true}
             onClick={handleUploadsToggle}
             disabled={saving}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               settings?.uploads_enabled ? "bg-blue-600" : "bg-slate-600"
             }`}
           >
@@ -1112,7 +1077,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-50 transition"
+                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
                 >
                   ← Prev
                 </button>
@@ -1122,7 +1087,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-50 transition"
+                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
                 >
                   Next →
                 </button>

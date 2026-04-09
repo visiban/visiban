@@ -97,7 +97,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                     <button
                       onClick={() => setConfirmRemoveUserId(m.user.id)}
                       disabled={isDisabled}
-                      className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-50"
+                      className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-40"
                       title="Remove direct board role"
                     >
                       &#10005;

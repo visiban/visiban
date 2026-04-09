@@ -289,7 +289,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40 transition"
             >
               {creating ? "Creating…" : "Create link"}
             </button>

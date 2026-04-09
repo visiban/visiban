@@ -191,7 +191,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-5 py-2 rounded-lg transition"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg transition"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -299,7 +299,7 @@ function SecurityTab({ user }: { user: User }) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-5 py-2 rounded-lg transition"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg transition"
         >
           {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
@@ -420,7 +420,7 @@ function AccessTokensTab() {
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded transition"
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm px-3 py-1.5 rounded transition"
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}
@@ -553,7 +553,7 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
               aria-checked={prefs[key]}
               disabled={saving === key}
               onClick={() => toggle(key)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
                 prefs[key] ? "bg-blue-600" : "bg-slate-600"
               }`}
             >
@@ -656,7 +656,7 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
             aria-checked={user.close_editor_on_enter ?? true}
             disabled={saving}
             onClick={toggleCloseOnEnter}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
               (user.close_editor_on_enter ?? true) ? "bg-blue-600" : "bg-slate-600"
             }`}
           >

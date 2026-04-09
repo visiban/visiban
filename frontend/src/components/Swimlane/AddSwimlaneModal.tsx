@@ -72,7 +72,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? "Adding…" : "Add Swimlane"}
         </button>
