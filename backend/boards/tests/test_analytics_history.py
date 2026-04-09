@@ -443,6 +443,19 @@ class TestAnalyticsDoneColumns(AnalyticsHistorySetup):
         stalled_ids = [s["id"] for s in resp.data["swimlanes"][0]["stalled_cards"]]
         self.assertNotIn(self.card.pk, stalled_ids)
 
+    def test_stalled_card_entry_includes_uid(self):
+        """Each stalled_cards entry must include both id and uid so clients can
+        address the card by its stable external identifier."""
+        self._move(self.card, self.col_todo, days_ago=30)
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._analytics_url() + "?stalled_days=7")
+        self.assertEqual(resp.status_code, 200)
+        stalled = resp.data["swimlanes"][0]["stalled_cards"]
+        self.assertTrue(len(stalled) > 0, "Expected at least one stalled card")
+        entry = next(s for s in stalled if s["id"] == self.card.pk)
+        self.assertEqual(entry["uid"], self.card.uid)
+
     def test_active_column_dwell_still_tracked(self):
         """Dwell time in non-done columns must still be calculated correctly."""
         # Card spent 5 days in To Do, then moved to Done.
