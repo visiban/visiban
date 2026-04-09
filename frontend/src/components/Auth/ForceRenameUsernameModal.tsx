@@ -111,7 +111,7 @@ export default function ForceRenameUsernameModal({ user, onChanged }: Props) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? "Saving\u2026" : "Set username"}
         </button>

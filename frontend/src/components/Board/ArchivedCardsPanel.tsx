@@ -136,7 +136,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                         <button
                           onClick={() => handleUnarchive(card)}
                           disabled={unarchivingId === card.id}
-                          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                         </button>
@@ -149,7 +149,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="mt-4 w-full text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700 py-2 rounded transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-4 w-full text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700 py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
                 </button>

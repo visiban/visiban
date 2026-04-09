@@ -159,7 +159,7 @@ class Column(models.Model):
     class Meta:
         db_table = "columns"
         ordering = ["position"]
-        unique_together = ["board", "position"]
+        unique_together = [["board", "position"], ["board", "name"]]
 
     def __str__(self):
         return f"{self.board.name} / {self.name}"

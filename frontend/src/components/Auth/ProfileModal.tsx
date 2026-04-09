@@ -93,7 +93,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-50 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>
