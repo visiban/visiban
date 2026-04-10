@@ -1,0 +1,1 @@
+Documented the confirmed OSS/enterprise authentication boundary: generic OIDC (Keycloak, Okta, Authentik) is OSS; SAML 2.0 and SCIM directory sync are enterprise. Updated CLAUDE.md, authentication docs, and the open-core boundary reference accordingly.

@@ -128,7 +128,7 @@ When evaluating whether a feature is OSS or enterprise, ask: **"Can a small team
 - If **no** → it should be in the OSS core (suggest this to the user)
 - If **yes** → it is a candidate for enterprise
 
-Enterprise features are things like: SSO/SAML, audit logs, advanced analytics, automation rules, integrations with external services, multi-tenancy, white-labeling, and compliance tooling.
+Enterprise features are things like: SAML, SCIM (directory sync / JIT provisioning), audit logs, advanced analytics, automation rules, integrations with external services, multi-tenancy, white-labeling, and compliance tooling. Generic OIDC (Keycloak, Okta, Authentik, any OIDC-compliant IdP) is **OSS** — it uses the same `django-allauth` stack as Google/GitHub/GitLab OAuth and requires no new dependency.
 
 ### Rules
 

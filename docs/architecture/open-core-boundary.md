@@ -42,6 +42,7 @@ This document records the OSS vs enterprise classification for every feature are
 | PATs (user-tied, full-access) | OSS | Machine credentials for CI/CD | — |
 | Service account tokens (board-scoped, read-only/write) | Enterprise | Strict security policy orgs; small teams work around it with PATs | enterprise #17 |
 | SAML 2.0 / ADFS | Enterprise | Separate library; enterprise identity buyers | enterprise #4 |
+| SCIM directory sync / JIT provisioning | Enterprise | Identity management at scale; invite links cover OSS onboarding | #714 |
 | Automation rules (if/then triggers) | Enterprise | Advanced automation; small teams work without it | enterprise #8 |
 | IP allowlisting | Enterprise | Organization-scale access control | enterprise #7 |
 | Custom RBAC roles | Enterprise | Granular permissions beyond admin/member/viewer | enterprise #6 |
@@ -64,23 +65,24 @@ This document records the OSS vs enterprise classification for every feature are
 
 ## Detailed rulings
 
-### OIDC authentication (OSS) vs SAML (Enterprise)
+### OIDC authentication (OSS) vs SAML / SCIM (Enterprise)
 
-Generic OIDC via `allauth.socialaccount.providers.openid_connect` is OSS. It is an extension of the Google/GitHub/GitLab OAuth stack already in the codebase; the library (`django-allauth`) is already a dependency, so no new package is required.
+**Decided — #714.** Generic OIDC via `allauth.socialaccount.providers.openid_connect` is OSS. It is an extension of the Google/GitHub/GitLab OAuth stack already in the codebase; the library (`django-allauth`) is already a dependency, so no new package is required. Keeping OIDC in OSS was confirmed as the right boundary before 1.0 — removing it post-1.0 would be a breaking API change.
 
-SAML and ADFS require a separate library (e.g. `python3-saml` or `djangosaml2`) and serve a different customer segment — enterprises with centralized identity management. SAML remains enterprise.
-
-> **Status: Tech Preview.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; the feature is not yet ready for production use. See also: [Authentication docs](../administration/authentication.md).
+SAML and ADFS require a separate library (e.g. `python3-saml` or `djangosaml2`) and serve organizations with centralized IdP-managed identity. SCIM 2.0 directory sync and JIT provisioning are the additional enterprise identity differentiators — they handle automatic account lifecycle management at scale, which invite-link-based onboarding covers sufficiently for small teams in OSS.
 
 | Method | Classification | Status | Library |
 |---|---|---|---|
 | Google OAuth | OSS | Shipped | `allauth` (already present) |
 | GitHub OAuth | OSS | Shipped | `allauth` (already present) |
 | GitLab OAuth | OSS | Shipped | `allauth` (already present) |
-| Generic OIDC | OSS | **Tech Preview — end-to-end untested** | `allauth` (already present) |
+| Generic OIDC | OSS | Tech Preview (see [#349](https://gitlab.com/visiban/visiban/-/issues/349)) | `allauth` (already present) |
 | SAML 2.0 / ADFS | Enterprise | Planned | separate library required |
+| SCIM directory sync / JIT | Enterprise | Planned | separate library required |
 
-**Issue:** #349
+> **OIDC tech preview note.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; see [Authentication docs](../administration/authentication.md) for the current production-readiness status.
+
+**Issues:** #349 (OIDC implementation), #714 (boundary decision), enterprise #4 (SAML), enterprise — (SCIM)
 
 ---
 
@@ -198,6 +200,8 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 
 | Extension point | Required by | Status |
 |---|---|---|
+| Enterprise URL extension point (`enterprise.urls.enterprise_urlpatterns`) | All enterprise URL registrations | ✅ Implemented — `visiban/urls.py` (#715) |
+| Enterprise settings include (`enterprise.settings.*`) | All enterprise settings overrides | ✅ Implemented — `visiban/settings.py` (#716) |
 | `post_board_created/deleted/member_added/removed` signals | Enterprise audit log (enterprise #28) | Not yet implemented |
 | `VISIBAN_AUDIT_BACKEND` setting | Enterprise audit log | Not yet implemented |
 | `post_card_created/moved/closed/updated` signals | Enterprise webhooks (enterprise #39), automation (enterprise #8) | Not yet implemented |
