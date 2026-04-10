@@ -390,3 +390,12 @@ LOGGING = {
         },
     },
 }
+
+# Enterprise settings include — the enterprise package may override or extend
+# any setting defined above (e.g. INSTALLED_APPS, MIDDLEWARE, REST_FRAMEWORK,
+# AUTHENTICATION_BACKENDS). If the enterprise package is not installed, this
+# block is silently skipped and the OSS defaults are used as-is.
+try:
+    from enterprise.settings import *  # type: ignore[import]  # noqa: F401,F403
+except ImportError:
+    pass

@@ -55,3 +55,12 @@ urlpatterns = [
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="swagger-ui"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="redoc"),
 ]
+
+# Enterprise extension point — the enterprise package registers additional URL
+# patterns here without modifying this file. If the enterprise package is not
+# installed, this block is silently skipped and the OSS URL set is used as-is.
+try:
+    from enterprise.urls import enterprise_urlpatterns  # type: ignore[import]
+    urlpatterns += enterprise_urlpatterns
+except ImportError:
+    pass
