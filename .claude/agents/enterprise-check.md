@@ -64,6 +64,14 @@ If the feature is enterprise but requires OSS hooks:
 - The enterprise repo plugs in without modifying OSS files
 - Identify what extension points are needed and whether they already exist
 
+When evaluating whether existing extension points are adequate, verify **all three** are present and functional in the OSS codebase:
+
+1. **URL extension point** — `visiban/urls.py` must contain a mechanism (e.g. `try: from enterprise.urls import enterprise_urlpatterns`) that lets the enterprise repo register routes without modifying OSS files. If absent, any enterprise URL registration requires forking `urls.py`, which is a coupling violation.
+
+2. **Settings include mechanism** — `visiban/settings.py` (or its split files) must contain a settings include hook (e.g. `try: from enterprise_settings import *`) so enterprise can inject config without touching OSS settings. If absent, enterprise must fork the settings file.
+
+3. **Hook call sites** — For every hook or signal declared in `hooks.py` (or equivalent), verify there is an OSS call site that invokes it. A hook with no OSS call site is a broken public commitment — it signals an extension point that enterprise can't actually use. Check that the hook is called at the right point in the transaction (before vs after commit matters for side effects).
+
 ### 4. Output
 
 State clearly:

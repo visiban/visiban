@@ -90,7 +90,7 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 |---|---|---|
 | `name` | Yes | Board display name |
 | `description` | No | Optional free-text description |
-| `template` | No | Template name to pre-populate columns/swimlanes. Valid values: `kanban`, `scrum`, `crm` |
+| `template` | No | Template slug to pre-populate columns. Valid values match those from `GET /api/v1/boards/templates/` (e.g. `simple_kanban`, `sales_pipeline`, `customer_support`). Default: `simple_kanban`. |
 | `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"Swimlane"` |
 
 ### `GET /api/v1/groups/{id}/descendant-boards/`

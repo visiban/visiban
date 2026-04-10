@@ -45,25 +45,34 @@ Notification.objects.select_related("card", "board")
 
 If new relations are added to a model or serializer, verify they are added to the relevant prefetch chain.
 
-### 3. Check transaction boundaries
+### 3. Check post-create serialization
+
+When a view creates an object and immediately serializes it (e.g. `Movement.objects.create(...)` followed by `Serializer(movement).data`), check:
+- Is the object re-fetched with `select_related` before serialization? The in-memory object returned by `create()` does not have FK fields pre-loaded — accessing `obj.related_field` on it issues an extra query per field.
+- Pattern to flag: `obj = Model.objects.create(...)` followed directly by a serializer call without an intervening `.select_related(...)` re-fetch.
+- Suggested fix: add a `refresh_from_db()`-equivalent re-fetch or restructure to fetch the object with the needed relations before serializing.
+
+Also check annotated queryset serializers. When a `SerializerMethodField` uses annotation-based fallback queries (i.e., reads `getattr(obj, 'annotated_field', None)` and falls back to a DB query when the annotation is absent), verify the calling view always provides the annotation. A bare FK traversal on a non-annotated instance silently issues a per-row query.
+
+### 4. Check transaction boundaries
 
 - Are bulk operations (reorders, multi-card updates) wrapped in `@transaction.atomic`?
-- Does any new endpoint perform multiple writes without atomicity?
+- Does any new endpoint perform multiple writes without atomicity? This includes sequences that create multiple model objects in a single request (e.g. Board + Membership + Columns + Swimlane) — these must all succeed or all fail together.
 - Are there any `select_for_update()` opportunities on contested resources (card position, WIP counts)?
 
-### 4. Check broadcast calls
+### 5. Check broadcast calls
 
 - Does the endpoint call `broadcast_board_event()` inside a loop? This is synchronous — one broadcast per mutation is acceptable; N broadcasts per request is not.
 - Should the broadcast be deferred until after the transaction commits? (Use `transaction.on_commit()` for post-atomic broadcasts.)
 
-### 5. Check the full board endpoint impact
+### 6. Check the full board endpoint impact
 
 `GET /api/boards/{id}/full/` is the most performance-sensitive endpoint — it fetches the entire board state in one request. If any new model or relation is added that should appear on the board, verify:
 - It is included in `BoardFullSerializer`
 - The queryset for the full fetch includes the necessary prefetch
 - The payload size is not significantly increased without justification
 
-### 6. Output
+### 7. Output
 
 Produce a summary:
 - ✅ No performance issues found

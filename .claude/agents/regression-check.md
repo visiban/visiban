@@ -63,6 +63,13 @@ For each changed backend serializer field or frontend API function:
 
 Flag any mock or fixture that does not reflect the current API as a **stale mock regression**.
 
+**Enum and union type fixture audit** — when a test fixture assigns a string value to a field that maps to a TypeScript union type or Python enum (e.g. `Priority`, `Role`, `RegistrationMode`, `CardStatus`), verify the string value is a current member of that type:
+- Search test files for `as Priority`, `as Role`, `as RegistrationMode` (or any `as <TypeName>` cast on fixture objects) — these casts silence TypeScript errors and can mask stale enum values
+- Cross-reference each cast value against the current type definition in `frontend/src/types/index.ts` (or the relevant Python enum in `models.py`)
+- Flag any fixture value that no longer appears in the type definition as a **stale enum fixture**
+
+This matters because TypeScript `as` casts disable exhaustiveness checking — a value like `"viewer"` that was removed from `Role` in favour of `"member"` will compile fine in a fixture but produce silent runtime failures in the component under test.
+
 ### 4. Check permission boundary regressions
 
 For any changed view or permission class:

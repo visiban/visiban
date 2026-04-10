@@ -18,6 +18,7 @@ List all cards on the board. Pagination is disabled — all cards are returned i
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
 | `?overdue=true` | Cards past their due date (due date is set and is before today) |
+| `?ordering=<field>` | Sort results. Prefix with `-` for descending. Allowed fields: `position` (default), `due_date`, `created_at`, `priority`. Example: `?ordering=-due_date` |
 
 ### `POST /api/v1/boards/{board_id}/cards/`
 Create a card. Requires member or above. The target column must have `allow_card_creation` enabled.
@@ -37,7 +38,7 @@ Create a card. Requires member or above. The target column must have `allow_card
 ```
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/`
-Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only.
+Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only. The response also includes a `version` integer that increments on every mutation; clients may pass this value back on the [move endpoint](#move) as an optimistic concurrency token.
 
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
@@ -154,7 +155,7 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
     "to_swimlane": 1,
     "to_swimlane_name": "Acme Corp",
     "to_swimlane_uid": "deadbeef01234567",
-    "moved_by": { "id": 7, "username": "alice" },
+    "moved_by": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null },
     "moved_at": "2026-03-15T09:41:22Z",
     "movement_type": "move",
     "notes": ""
@@ -164,7 +165,7 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 
 | Field | Type | Description |
 |---|---|---|
-| `moved_by` | object | User who performed the move — contains `id` (integer) and `username` (string) |
+| `moved_by` | object | User who performed the move — `{ id, username, display_name, avatar_url }` |
 | `movement_type` | string | Always `"move"` for explicit card moves via this endpoint |
 | `notes` | string | Optional notes recorded at move time (empty string by default) |
 

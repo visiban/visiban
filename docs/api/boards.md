@@ -46,7 +46,7 @@ Update board fields. Both `PUT` and `PATCH` are accepted — all fields are opti
 Delete board. Requires board owner or site admin.
 
 ### `GET /api/v1/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (admin-only, see `GET /api/v1/boards/{id}/` above). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
+Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
@@ -169,7 +169,7 @@ Time-in-stage heatmap derived from `CardMovement` records.
       "throughput_is_outlier": { "Backlog": false, "In Progress": true },
       "deal_velocity_days": 12.3,
       "stalled_cards": [
-        { "id": 42, "title": "Fix login bug", "days_since_move": 14 }
+        { "id": 42, "uid": "3a9f1c2d7e4b8a05", "title": "Fix login bug", "days_since_move": 14 }
       ]
     }
   ]
@@ -195,7 +195,7 @@ Time-in-stage heatmap derived from `CardMovement` records.
 | `swimlanes[].throughput_card_count_per_column` | object | Number of cards that exited each active column during the period window. `0` means no cards exited. |
 | `swimlanes[].throughput_is_outlier` | object | Whether `throughput_avg_days_per_column` for each active column meets or exceeds `staleness_threshold_days`. |
 | `swimlanes[].deal_velocity_days` | number or null | Average days between a card's first and last movement within the period for this swimlane. `null` when there is no velocity data. |
-| `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "title", "days_since_move" }`. |
+| `swimlanes[].stalled_cards` | array | Cards that have not moved for longer than `stalled_threshold_days`. Each entry is `{ "id", "uid", "title", "days_since_move" }`. |
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
@@ -247,7 +247,7 @@ When neither `moved_after` nor `moved_before` is specified, the full movement hi
       "to_swimlane": 1,
       "to_swimlane_name": "Acme Corp",
       "to_swimlane_uid": "sw1mabcdef123401",
-      "moved_by": { "display_name": "Alice" },
+      "moved_by": { "id": 3, "username": "alice", "display_name": "Alice Smith", "avatar_url": null },
       "moved_at": "2026-03-25T14:30:00Z",
       "movement_type": "move",
       "notes": ""
@@ -269,7 +269,7 @@ Each result object fields:
 | `from_swimlane`, `to_swimlane` | integer / null | Swimlane FK IDs (may be `null` if swimlane was deleted) |
 | `from_swimlane_name`, `to_swimlane_name` | string | Denormalized swimlane names |
 | `from_swimlane_uid`, `to_swimlane_uid` | string | Denormalized swimlane UIDs |
-| `moved_by` | object | User who performed the move (`display_name` only) |
+| `moved_by` | object | User who performed the move — `{ id, username, display_name, avatar_url }` |
 | `moved_at` | string | ISO 8601 timestamp |
 | `movement_type` | string | One of `move`, `archived`, `unarchived` |
 | `notes` | string | Optional notes recorded at move time |
