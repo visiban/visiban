@@ -15,6 +15,11 @@ spec:
       labels:
         {{- include "visiban.backend.selectorLabels" . | nindent 8 }}
     spec:
+      volumes:
+        # Shared between the bootstrap init container and the backend container so
+        # the one-time admin password file survives from bootstrap into the running pod.
+        - name: admin-password
+          emptyDir: {}
       initContainers:
         - name: migrate
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
@@ -22,6 +27,17 @@ spec:
           command: ["python", "manage.py", "migrate", "--noinput"]
           env:
             {{- include "visiban.backendEnv" . | nindent 12 }}
+        - name: bootstrap
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "manage.py", "ensure_site_admin"]
+          env:
+            {{- include "visiban.backendEnv" . | nindent 12 }}
+            - name: VISIBAN_ADMIN_PASSWORD_FILE
+              value: /run/visiban/admin_password
+          volumeMounts:
+            - name: admin-password
+              mountPath: /run/visiban
       containers:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
@@ -33,6 +49,11 @@ spec:
               protocol: TCP
           env:
             {{- include "visiban.backendEnv" . | nindent 12 }}
+            - name: VISIBAN_ADMIN_PASSWORD_FILE
+              value: /run/visiban/admin_password
+          volumeMounts:
+            - name: admin-password
+              mountPath: /run/visiban
           livenessProbe:
             httpGet:
               path: /api/health/liveness/
