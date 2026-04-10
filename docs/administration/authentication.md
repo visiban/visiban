@@ -10,6 +10,7 @@ Visiban supports several authentication methods. Some are available in the OSS e
 | GitLab OAuth | Yes | — |
 | Generic OIDC | Yes | — |
 | SAML 2.0 / ADFS | — | Yes |
+| SCIM directory sync / JIT provisioning | — | Yes |
 
 ## OAuth (Google, GitHub, GitLab)
 
@@ -86,6 +87,12 @@ where `<provider-id>` is the slug you set in the **Provider ID** field.
 > **Visiban Enterprise** — This feature is available in [Visiban Enterprise](https://visiban.com/enterprise).
 
 SAML 2.0 and ADFS authentication are available in the enterprise edition. They require a separate library and are configured through the enterprise settings. Contact your Visiban Enterprise account team for setup instructions.
+
+## SCIM directory sync / JIT provisioning
+
+> **Visiban Enterprise** — This feature is available in [Visiban Enterprise](https://visiban.com/enterprise).
+
+SCIM 2.0 directory sync (automatic user provisioning and deprovisioning from your IdP) and just-in-time (JIT) account creation on first login are enterprise features. They are intended for organizations with centralized identity management at scale. For smaller teams, manual user invitation via invite links covers the same onboarding workflow in the OSS edition.
 
 ## Classification rationale
 
