@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders, getSiteConfig } from "../../api/auth";
 import type { User } from "../../types";
 
@@ -38,6 +38,7 @@ interface Props {
 export default function LoginPage({ onLogin }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<"login" | "register">(
     (location.state as { authMode?: string } | null)?.authMode === "register" ? "register" : "login"
   );
@@ -55,8 +56,7 @@ export default function LoginPage({ onLogin }: Props) {
     getSiteConfig().then((c) => setRegistrationOpen(c.registration_open)).catch(() => setRegistrationOpen(true));
 
     // Handle auth_error from OAuth callback redirect.
-    const params = new URLSearchParams(window.location.search);
-    const authError = params.get("auth_error");
+    const authError = searchParams.get("auth_error");
     if (authError) {
       setError(AUTH_ERROR_MESSAGES[authError] ?? "Something went wrong during authentication. Please try again.");
       // Clear dead invite tokens on token-specific errors.
@@ -67,7 +67,7 @@ export default function LoginPage({ onLogin }: Props) {
       // Clean the error from the URL so a refresh doesn't re-show it.
       navigate("/", { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
