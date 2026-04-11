@@ -141,17 +141,23 @@ def run_smoke_test(
     print("  ✓ Received IdP login form")
 
     # ── Step 3: Submit credentials ─────────────────────────────────────────────
+    # The login page is served by Keycloak and the form posts back to Keycloak —
+    # a same-origin navigation in browser terms.  Browsers do not send an Origin
+    # header for same-origin navigations, and Keycloak 24 validates Origin against
+    # the client's registered webOrigins when the header is present.  Sending
+    # Origin: http://keycloak:8080 triggers that check and results in a 400 because
+    # the Docker-internal hostname is not in webOrigins.  We omit Origin entirely
+    # and send Referer instead, which is what a real browser would do.
+    login_page_url = r.url  # final URL after any Keycloak-internal redirects
     payload = dict(parser.inputs)
     payload["username"] = username
     payload["password"] = password
-    keycloak_host = urllib.parse.urlparse(parser.action).netloc
     print(f"  Submitting to form action: {parser.action}")
-    print(f"  Form fields: {[k for k in payload]}")
-    print(f"  Session cookies: {[(c.name, c.domain) for c in session.cookies]}")
+    print(f"  Form fields (redacted): {[k for k in payload]}")
     r = session.post(
         parser.action,
         data=payload,
-        headers={"Origin": f"http://{keycloak_host}"},
+        headers={"Referer": login_page_url},
         allow_redirects=False,
     )
     if r.status_code not in (301, 302):
