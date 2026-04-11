@@ -1,0 +1,43 @@
+# Auto detect text files and ensure LF line endings
+* text=auto eol=lf
+
+# Explicit text files
+*.md    text
+*.txt   text
+*.yml   text
+*.yaml  text
+*.json  text
+*.toml  text
+*.cfg   text
+*.ini   text
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.sql   text eol=lf
+
+# Lock files — union merge to reduce conflicts
+package-lock.json merge=union
+yarn.lock         merge=union
+uv.lock           merge=union
+
+# Binary files — no diff, no merge
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.svg   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.pdf   binary
+*.zip   binary
+*.tar   binary
+*.gz    binary

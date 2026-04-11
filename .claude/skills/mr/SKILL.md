@@ -1,3 +1,10 @@
+---
+name: mr
+description: Open a GitLab MR for the current branch with pre-flight checks and structured description.
+disable-model-invocation: true
+argument-hint: "[branch or change description]"
+---
+
 # Open Merge Request
 
 You are creating a GitLab MR for the current branch. Every change — including docs, chores, and hotfixes — goes through an MR. Follow the project conventions exactly.

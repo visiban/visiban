@@ -1,3 +1,9 @@
+---
+name: pre-release
+description: Run a pre-release audit of the full Visiban codebase before cutting a release tag.
+argument-hint: "<full|security|performance|frontend|docs|contracts|deps|enterprise|tests>"
+---
+
 # Pre-Release Audit
 
 You are running a pre-release audit of the full Visiban codebase. Unlike day-to-day agents (which are scoped to what changed in a branch), every agent here audits the **entire codebase** through a "public contract" lens — asking "what becomes a commitment we can't take back at 1.0+?" rather than "is this change correct?".

@@ -1,3 +1,9 @@
+---
+name: ci-debug
+description: Diagnose a failing GitLab CI pipeline and prescribe a specific fix.
+argument-hint: "<pipeline ID, MR number, or job name>"
+---
+
 # CI Debug
 
 You are diagnosing a failing GitLab CI pipeline for the visiban project. Your job is to identify the root cause, not just describe the symptom, and give a specific fix.

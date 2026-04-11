@@ -1,3 +1,10 @@
+---
+name: release
+description: Create a Visiban release with version bumps, changelog rotation, and docs deployment.
+disable-model-invocation: true
+argument-hint: "[version string, e.g. 1.2.0]"
+---
+
 # Release
 
 You are creating a release for Visiban. Follow these steps exactly — the release script handles the git, MR, pipeline, tagging, and docs deployment automatically. Do not attempt to replicate what the script does manually.
