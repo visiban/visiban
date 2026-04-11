@@ -148,15 +148,24 @@ def run_smoke_test(
     # Origin: http://keycloak:8080 triggers that check and results in a 400 because
     # the Docker-internal hostname is not in webOrigins.  We omit Origin entirely
     # and send Referer instead, which is what a real browser would do.
+    #
+    # Keycloak sets AUTH_SESSION_ID with domain "keycloak.local" (Keycloak's default
+    # internal domain).  Python's http.cookiejar RFC 2965 domain-matching refuses to
+    # send a "keycloak.local" cookie to the host "keycloak" (no TLD match), causing
+    # a 400 from Keycloak.  Passing the cookies as a plain dict forces requests to
+    # create them with domain="" (no restriction), bypassing the domain check.
     login_page_url = r.url  # final URL after any Keycloak-internal redirects
     payload = dict(parser.inputs)
     payload["username"] = username
     payload["password"] = password
+    kc_cookie_names = {"AUTH_SESSION_ID", "AUTH_SESSION_ID_LEGACY", "KC_RESTART"}
+    kc_cookies = {c.name: c.value for c in session.cookies if c.name in kc_cookie_names}
     print(f"  Submitting to form action: {parser.action}")
-    print(f"  Form fields (redacted): {[k for k in payload]}")
+    print(f"  Keycloak session cookies forwarded: {list(kc_cookies)}")
     r = session.post(
         parser.action,
         data=payload,
+        cookies=kc_cookies,  # dict cookies bypass http.cookiejar domain matching
         headers={"Referer": login_page_url},
         allow_redirects=False,
     )
