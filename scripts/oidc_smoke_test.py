@@ -144,11 +144,19 @@ def run_smoke_test(
     payload = dict(parser.inputs)
     payload["username"] = username
     payload["password"] = password
-    r = session.post(parser.action, data=payload, allow_redirects=False)
+    print(f"  Submitting to form action: {parser.action}")
+    print(f"  Form fields (redacted): {[k for k in payload]}")
+    r = session.post(
+        parser.action,
+        data=payload,
+        headers={"Origin": f"http://{urllib.parse.urlparse(parser.action).netloc}"},
+        allow_redirects=False,
+    )
     if r.status_code not in (301, 302):
         raise AssertionError(
             f"Credential submission returned {r.status_code} — "
-            "login may have failed (wrong username/password, or IdP rejected the client)."
+            "login may have failed (wrong username/password, or IdP rejected the client).\n"
+            f"Response body (first 500 chars): {r.text[:500]}"
         )
     callback_url = r.headers["Location"]
     print("  ✓ IdP accepted credentials; got callback redirect")
