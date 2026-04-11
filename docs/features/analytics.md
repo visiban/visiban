@@ -75,7 +75,7 @@ Dwell-time calculations use only `movement_type = move` events. Archive and rest
 
 ### Stalled cards
 
-Below the heatmap, cards that have not moved in more than the effective stalled-days threshold are listed with their swimlane, column, assignee, and days since last movement. The stalled cards section scrolls independently and shows a count badge (for example, "3 cards stalled"). Click any row to open the card detail panel directly — no need to navigate back to the board view first.
+Below the heatmap, cards that have not moved in more than the effective stalled-days threshold are displayed in a paginated table. The table shows **Swimlane**, **Card** (title), and **Days Stalled** columns, paginated at 25 rows per page with next/previous navigation. A count badge on the section header (for example, "3 cards stalled") shows the total. Click any row to open the card detail panel directly — no need to navigate back to the board view first.
 
 The default threshold is the board's `staleness_threshold_days` setting. You can override it for a single request by passing the `stalled_days` query parameter — this affects only the stalled cards list and does not change the heatmap coloring.
 

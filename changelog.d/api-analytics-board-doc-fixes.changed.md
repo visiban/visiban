@@ -1,0 +1,1 @@
+Documentation corrections for the movements API and analytics view: added `assignee_id` and `moved_by_id` filter parameters to all movement history references, updated stalled cards description to reflect the paginated table (25 rows/page), and corrected the date-range default from "last 30 days" to "full history returned when no range is specified".

@@ -268,10 +268,11 @@ All filters are URL-synced and persist across page reloads.
 | **Swimlane** | Limit results to cards currently in a specific swimlane |
 | **To column** | Limit results to movements whose destination was a specific column |
 | **Assignee** | Limit results to cards assigned to a specific member |
+| **Moved by** | Limit results to movements performed by a specific member |
 | **Moved after** | Lower bound date (inclusive) |
 | **Moved before** | Upper bound date (inclusive) |
 
-When no date range is specified, the view defaults to the last 30 days.
+When no date range is specified, the full movement history is shown.
 
 #### Detail panel
 
