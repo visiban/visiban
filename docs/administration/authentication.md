@@ -28,6 +28,8 @@ See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step config
 
 Generic OIDC is available in the OSS edition via `allauth.socialaccount.providers.openid_connect`, which is already included in the `django-allauth` dependency. No additional packages are required.
 
+The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the `oidc-smoke` job. See `docker-compose.oidc.yml` for local development with Keycloak.
+
 Use this when your identity provider supports standard OIDC but is not one of the pre-configured providers (Google, GitHub, GitLab). Common examples: Keycloak, Authentik, Dex, Okta, and any other OIDC-compliant IdP.
 
 ### Configuration via environment variables (recommended)
@@ -67,23 +69,36 @@ The callback URL to register with your IdP:
 https://<your-domain>/accounts/oidc/oidc/login/callback/
 ```
 
+!!! note "Why does the URL contain `oidc` twice?"
+    The path has two separate `oidc` segments with different meanings:
+
+    ```
+    /accounts / oidc / oidc / login/callback/
+       │          │      │
+       │          │      └─ provider_id — the slug assigned to this OIDC app.
+       │          │         Visiban's env-var configuration defaults this to "oidc".
+       │          │
+       │          └─ allauth's OPENID_CONNECT_URL_PREFIX — a fixed namespace
+       │             for all openid_connect providers (default value: "oidc").
+       │
+       └─ allauth's base URL prefix — all allauth routes live under /accounts/.
+    ```
+
+    The `oidc/oidc/` pattern is correct and expected for the default configuration.
+    It is not a misconfiguration. Keycloak, Okta, Authentik, and Dex all accept
+    this URL without issue.
+
+    If you configure a custom `provider_id` (e.g. `keycloak`) via the Django admin,
+    the callback URL becomes:
+    `https://<your-domain>/accounts/oidc/keycloak/login/callback/`
+
 ### Multi-provider support
 
-The env-var approach configures a single OIDC provider. If you need multiple OIDC providers simultaneously (for example, separate realms for staff and contractors), configure additional providers through the Django admin at `/admin/socialaccount/socialapp/` with provider type `openid_connect`. Each additional provider requires a unique **Provider ID** slug.
+The env-var approach configures a single OIDC provider. If you need multiple OIDC providers simultaneously (for example, separate realms for staff and contractors), configure additional providers through the Django admin at `/admin/socialaccount/socialapp/` with provider type `openid_connect`. Each additional provider requires a unique **Provider ID** slug, and its callback URL follows the pattern in the note above.
 
 ### Disabling password login when OIDC is active
 
 Setting OIDC env vars makes the OIDC login button appear alongside existing username/password and OAuth options — it does not disable them. A future release will add an env var to restrict login to OIDC only. Until then, you can enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.
-
-### Callback URL (legacy / Django admin method)
-
-If you configure additional providers via the Django admin rather than env vars, the callback URL pattern is:
-
-```
-https://<your-domain>/accounts/oidc/<provider-id>/login/callback/
-```
-
-where `<provider-id>` is the slug you set in the **Provider ID** field.
 
 ## SAML 2.0 / ADFS
 

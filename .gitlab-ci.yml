@@ -346,6 +346,89 @@ backend-schema-validate:
     - python manage.py spectacular --validate
   allow_failure: false
 
+# ─── OIDC smoke test ─────────────────────────────────────────────────────────
+#
+# End-to-end smoke test for the OIDC authorization code flow.  Exercises:
+#   - Discovery endpoint parsing (/.well-known/openid-configuration)
+#   - IdP login form submission and code exchange
+#   - Visiban callback routing and session creation
+#   - Identity claim mapping (email, username) via allauth
+#
+# Runs a real Keycloak 24 instance as a service.  The realm, client, and test
+# user are provisioned by scripts/oidc_provision.py via the Admin REST API so
+# no custom Docker image or file mount is needed.
+#
+# The backend is started with `runserver` in the background (not daphne) so
+# that the process exits cleanly when the job ends without a SIGKILL dance.
+#
+# FRONTEND_URL is pointed at the liveness endpoint so the post-login redirect
+# resolves inside the job without needing the React dev server running.
+#
+# Runs on any change to OIDC-related files, and always on the default branch.
+# allow_failure: true — Keycloak startup is non-deterministic; a transient
+# container boot failure should not block unrelated MRs.  The job is still
+# reported in the pipeline summary so flakiness is visible.
+
+oidc-smoke:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/accounts/**/*
+        - backend/visiban/settings.py
+        - scripts/oidc_provision.py
+        - scripts/oidc_smoke_test.py
+        - oidc/**/*
+        - docker-compose.oidc.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  allow_failure: true
+  services:
+    - name: quay.io/keycloak/keycloak:24.0.5
+      alias: keycloak
+      command: ["start-dev"]
+      variables:
+        KEYCLOAK_ADMIN: admin
+        KEYCLOAK_ADMIN_PASSWORD: admin
+    - name: postgres:17-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://redis:6379/0"
+    REDIS_CACHE_URL: "redis://redis:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost,127.0.0.1"
+    OIDC_CLIENT_ID: "visiban"
+    OIDC_SECRET: "test-oidc-secret"
+    OIDC_SERVER_URL: "http://keycloak:8080/realms/visiban-test"
+    OIDC_PROVIDER_NAME: "Keycloak"
+    # Point post-login redirect back to the liveness endpoint so the full
+    # callback flow resolves without needing the frontend running.
+    FRONTEND_URL: "http://localhost:8000/api/health/liveness/"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt requests
+    # Provision Keycloak: waits for readiness, then creates realm/client/user
+    - python scripts/oidc_provision.py --keycloak-url http://keycloak:8080
+    # Run migrations
+    - cd backend && python manage.py migrate --noinput
+    # Start the backend in the background; give it a few seconds to bind
+    - python manage.py runserver 0.0.0.0:8000 &
+    - sleep 5
+    - cd ..
+  script:
+    - python scripts/oidc_smoke_test.py
+        --base-url http://localhost:8000
+        --username testuser
+        --password testpassword
+        --expected-email testuser@example.com
+
 # ─── Helm — lint ─────────────────────────────────────────────────────────────
 #
 # Validates the Helm chart renders without errors against the default values.

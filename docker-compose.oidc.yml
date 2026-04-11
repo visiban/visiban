@@ -1,0 +1,50 @@
+# Docker Compose override for local OIDC development and testing.
+#
+# Starts a Keycloak instance pre-seeded with the visiban-test realm, client,
+# and a test user. Use this alongside the main docker-compose.yml to exercise
+# the OIDC login flow end-to-end against a real identity provider.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.oidc.yml up
+#
+# Then log in at http://localhost:5173 using the "Keycloak" SSO button.
+# Test credentials:  username: testuser  /  password: testpassword
+# Keycloak admin UI: http://localhost:8080  (admin / admin)
+#
+# The callback URL registered in Keycloak's client config is:
+#   http://localhost:8000/accounts/oidc/oidc/login/callback/
+# The first 'oidc' is allauth's OPENID_CONNECT_URL_PREFIX (default "oidc").
+# The second 'oidc' is the provider_id from SOCIALACCOUNT_PROVIDERS.
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./oidc/keycloak-realm.json:/opt/keycloak/data/import/visiban-realm.json:ro
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          curl -sf
+          http://localhost:8080/realms/visiban-test/.well-known/openid-configuration
+          || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  backend:
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      OIDC_CLIENT_ID: visiban
+      OIDC_SECRET: test-oidc-secret
+      OIDC_SERVER_URL: http://keycloak:8080/realms/visiban-test
+      OIDC_PROVIDER_NAME: Keycloak
