@@ -124,6 +124,8 @@ The change takes effect immediately with no restart required. Existing sessions 
 
 When registration mode is set to Invite-only, go to **Admin → Invite Links** to create links for new users.
 
+Invite links work for both password-based and OAuth registration. When a user follows an invite link and chooses to sign up via Google, GitHub, GitLab, or OIDC, the token is carried through the OAuth redirect and consumed on successful signup — no manual token entry required.
+
 **To create a link:**
 
 1. Open the **Admin** panel (`/admin`) and go to the **Invite Links** tab.
