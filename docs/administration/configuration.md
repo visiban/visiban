@@ -78,9 +78,15 @@ Pass sensitive values via `--set` or a `values.secret.yaml` file. **Never commit
 |---|---|
 | `secret.djangoSecretKey` | Production Django signing key |
 | `postgresql.auth.password` | PostgreSQL password |
+| `backend.settings.frontendUrl` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
+| `backend.settings.siteDomain` | Public hostname for OAuth callback URLs |
 | `backend.oauth.google.*` | Google OAuth credentials |
 | `backend.oauth.github.*` | GitHub OAuth credentials |
 | `backend.oauth.gitlab.*` | GitLab OAuth credentials |
+| `backend.oauth.oidc.serverUrl` | OIDC issuer URL — set all three OIDC fields to enable generic OIDC login |
+| `backend.oauth.oidc.clientId` | OIDC client ID |
+| `backend.oauth.oidc.clientSecret` | OIDC client secret |
+| `backend.oauth.oidc.providerName` | Label on the OIDC login button (default: `SSO`) |
 | `backend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
 | `frontend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
 
@@ -90,6 +96,8 @@ Example:
 helm upgrade --install visiban ./helm/visiban \
   --set secret.djangoSecretKey="your-secret-key" \
   --set postgresql.auth.password="your-db-password" \
+  --set backend.settings.frontendUrl="https://boards.example.com" \
+  --set backend.settings.siteDomain="boards.example.com" \
   --set backend.image.tag="v1.0.0-rc.11" \
   --set frontend.image.tag="v1.0.0-rc.11"
 ```
