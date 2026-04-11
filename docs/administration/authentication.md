@@ -96,9 +96,15 @@ https://<your-domain>/accounts/oidc/oidc/login/callback/
 
 The env-var approach configures a single OIDC provider. If you need multiple OIDC providers simultaneously (for example, separate realms for staff and contractors), configure additional providers through the Django admin at `/admin/socialaccount/socialapp/` with provider type `openid_connect`. Each additional provider requires a unique **Provider ID** slug, and its callback URL follows the pattern in the note above.
 
+### OAuth/OIDC with invite-only registration
+
+When the instance is set to **invite-only** registration mode (Settings > Registration), users who receive an invite link can register using any configured OAuth or OIDC provider — not just email and password. The invite token is passed through the OAuth flow automatically.
+
+Existing users can log in via OAuth regardless of the registration mode setting. The registration mode controls who may **join**; the authentication method controls how they **prove identity**. These are independent.
+
 ### Disabling password login when OIDC is active
 
-Setting OIDC env vars makes the OIDC login button appear alongside existing username/password and OAuth options — it does not disable them. A future release will add an env var to restrict login to OIDC only. Until then, you can enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.
+Setting OIDC env vars makes the OIDC login button appear alongside existing username/password and OAuth options — it does not disable them. A future release will add an admin toggle to disable password authentication entirely when SSO is configured. Until then, you can enforce OIDC-only access at the IdP level by issuing credentials only to users who should have access.
 
 ## SAML 2.0 / ADFS
 

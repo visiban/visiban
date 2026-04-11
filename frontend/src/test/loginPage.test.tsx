@@ -223,4 +223,123 @@ describe('LoginPage', () => {
     renderLoginPage()
     expect(await screen.findByText('Continue with Acme Corp')).toBeInTheDocument()
   })
+
+  // ---------------------------------------------------------------------------
+  // OAuth invite token flow
+  // ---------------------------------------------------------------------------
+
+  describe('OAuth invite token in URLs', () => {
+    it('includes invite_token in OAuth URLs in register mode with token', async () => {
+      mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      sessionStorage.setItem('invite_token', 'vbnl_test_token_123')
+      renderLoginPage({ authMode: 'register' })
+
+      const googleLink = await screen.findByText('Continue with Google')
+      const href = googleLink.closest('a')?.getAttribute('href') ?? ''
+      expect(href).toContain('invite_token=vbnl_test_token_123')
+    })
+
+    it('excludes invite_token from OAuth URLs in login mode', async () => {
+      mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
+      sessionStorage.setItem('invite_token', 'vbnl_test_token_123')
+      renderLoginPage()
+
+      const googleLink = await screen.findByText('Continue with Google')
+      const href = googleLink.closest('a')?.getAttribute('href') ?? ''
+      expect(href).not.toContain('invite_token')
+    })
+
+    it('excludes invite_token when no token in sessionStorage', async () => {
+      mockGetAuthProviders.mockResolvedValue({ google: true, github: false, gitlab: false, oidc: false, oidc_name: null })
+      renderLoginPage({ authMode: 'register' })
+
+      const googleLink = await screen.findByText('Continue with Google')
+      const href = googleLink.closest('a')?.getAttribute('href') ?? ''
+      expect(href).not.toContain('invite_token')
+    })
+  })
+
+  describe('context banner', () => {
+    it('shows "Complete your registration" in register mode with invite token', async () => {
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      sessionStorage.setItem('invite_token', 'vbnl_abc')
+      renderLoginPage({ authMode: 'register' })
+
+      expect(await screen.findByText('Complete your registration')).toBeInTheDocument()
+    })
+
+    it('hides banner in login mode', async () => {
+      mockGetSiteConfig.mockResolvedValue({ registration_open: false })
+      sessionStorage.setItem('invite_token', 'vbnl_abc')
+      renderLoginPage()
+
+      // Wait for providers to load, then check
+      await screen.findByText('Sign in')
+      expect(screen.queryByText('Complete your registration')).not.toBeInTheDocument()
+    })
+
+    it('hides banner when registration is open', () => {
+      sessionStorage.setItem('invite_token', 'vbnl_abc')
+      renderLoginPage({ authMode: 'register' })
+
+      expect(screen.queryByText('Complete your registration')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('auth_error query param handling', () => {
+    it('shows expired error message from query param', async () => {
+      // Simulate redirect from backend with ?auth_error=invite_expired
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_expired']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText('This invite link has expired. Please ask your administrator for a new one.')).toBeInTheDocument()
+    })
+
+    it('shows used error message from query param', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_used']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText('This invite link has already been used. Please ask your administrator for a new one.')).toBeInTheDocument()
+    })
+
+    it('clears invite_token from sessionStorage on invite errors', async () => {
+      sessionStorage.setItem('invite_token', 'vbnl_abc')
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_expired']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      await screen.findByText(/expired/)
+      expect(sessionStorage.getItem('invite_token')).toBeNull()
+    })
+
+    it('shows generic error for unknown auth_error codes', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=unknown_code']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      expect(await screen.findByText('Something went wrong during authentication. Please try again.')).toBeInTheDocument()
+    })
+
+    it('error element has role="alert" for accessibility', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?auth_error=invite_expired']}>
+          <LoginPage onLogin={vi.fn()} />
+        </MemoryRouter>
+      )
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toBeInTheDocument()
+    })
+  })
 })

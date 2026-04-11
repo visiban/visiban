@@ -89,6 +89,8 @@ Sets `must_change_password = true` on the user. The next time they log in, they 
 
 The **Invite Links** tab lets site admins create and manage invite links for instance-wide registration. Invite links are only relevant when the instance registration mode is set to **Invite-only** (see [Settings tab](#settings-tab)), but links can be created regardless of the current mode and activated later.
 
+Invite links work for both password-based and OAuth registration (Google, GitHub, GitLab, OIDC). When a new user follows a join link and chooses OAuth, the token is carried through the IdP redirect automatically and consumed on successful signup.
+
 ### Link list
 
 Each row in the list shows:

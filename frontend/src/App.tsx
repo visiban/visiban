@@ -32,9 +32,12 @@ export default function App() {
   // handleLogin is never called. If the user arrived via a group invite link and
   // clicked an OAuth button, JoinPage stored the raw token in pendingJoinToken before
   // the redirect. Consume it here so the user lands in the group instead of the
-  // Dashboard.
+  // Dashboard. Also clean up any site invite token — it was for registration, which
+  // has now completed (or the user already had an account).
   useEffect(() => {
     if (!user || oauthJoinFired.current) return;
+    // Clean up site invite token on any successful OAuth login/signup.
+    sessionStorage.removeItem("invite_token");
     const pendingToken = sessionStorage.getItem("pendingJoinToken");
     if (!pendingToken) return;
     oauthJoinFired.current = true;

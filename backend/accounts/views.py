@@ -1,4 +1,3 @@
-import hashlib
 import re
 from datetime import timedelta
 
@@ -20,7 +19,8 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from rest_framework import status
-from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, InviteLink, get_registration_mode
+from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, get_registration_mode
+from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
 from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
 
 User = get_user_model()
@@ -358,37 +358,20 @@ class InviteRegisterView(RegisterView):
             return super().create(request, *args, **kwargs)
 
         token_raw = (request.data.get("invite_token") or "").strip()
-        if not token_raw:
-            return Response(
-                {"invite_token": ["An invite link is required to register."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
-        token_hash = hashlib.sha256(token_raw.encode()).hexdigest()
         try:
-            link = InviteLink.objects.select_for_update().get(
-                token_hash=token_hash,
-                used_at__isnull=True,
-                revoked_at__isnull=True,
-            )
-        except InviteLink.DoesNotExist:
+            link = validate_invite_token(token_raw)
+        except InviteTokenError as exc:
             return Response(
-                {"invite_token": ["Invalid or expired invite link."]},
+                {"invite_token": [exc.detail]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if link.expires_at and link.expires_at < timezone.now():
-            return Response(
-                {"invite_token": ["This invite link has expired."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Token is valid — proceed with registration then stamp used_at.
+        # Token is valid — proceed with registration then consume.
         # Both happen in the same transaction so a failed registration leaves
         # the token unconsumed.
         response = super().create(request, *args, **kwargs)
-        if response.status_code in (200, 201) and link.single_use:
-            link.used_at = timezone.now()
-            link.save(update_fields=["used_at"])
+        if response.status_code in (200, 201):
+            consume_invite_token(link)
 
         return response

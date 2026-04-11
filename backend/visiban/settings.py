@@ -93,6 +93,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    # Stash invite tokens in the Django session before OAuth redirects so that
+    # the SocialRegistrationAdapter can validate them on the callback.
+    "accounts.middleware.OAuthInviteTokenMiddleware",
 ]
 
 ROOT_URLCONF = "visiban.urls"
@@ -328,6 +331,7 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
+SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # Default to "none" so self-hosted installs work without a configured SMTP server.
 # Set ACCOUNT_EMAIL_VERIFICATION=mandatory to require email confirmation before login,
 # or "optional" to send a verification email but allow login without it.
