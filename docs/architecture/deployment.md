@@ -48,7 +48,7 @@ The Helm chart bundles the following database and cache dependencies:
 | Component | Version | How deployed |
 |---|---|---|
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
-| Redis | 8 | Bitnami `redis` subchart 25.x |
+| Redis | 7.4 | Bitnami `redis` subchart 25.x (pinned to `7.4.3`) |
 
 > **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
 
@@ -61,23 +61,68 @@ The Helm chart bundles the following database and cache dependencies:
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm dependency update helm/visiban
+```
 
+Create a secret values file (never committed — `values.secret.yaml` is gitignored):
+
+```bash
+cp helm/visiban/values.secret.yaml.example helm/visiban/values.secret.yaml
+# Edit values.secret.yaml — set djangoSecretKey and postgresql.auth.password
+```
+
+Then install:
+
+```bash
 helm install visiban helm/visiban \
   --namespace visiban --create-namespace \
+  -f helm/visiban/values.secret.yaml \
   --set ingress.host=boards.example.com \
   --set backend.settings.allowedHosts=boards.example.com \
   --set backend.settings.corsAllowedOrigins=https://boards.example.com \
-  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
-  --set postgresql.auth.password=<strong-password>
+  --set backend.settings.frontendUrl=https://boards.example.com \
+  --set backend.settings.siteDomain=boards.example.com
 ```
+
+!!! warning "Never pass secrets via `--set`"
+    Using `--set secret.djangoSecretKey=...` exposes the value in shell history and the process list. Use a gitignored values file (`-f values.secret.yaml`) or a pre-created Kubernetes Secret (`secret.existingSecret`) instead.
 
 After the install, retrieve the one-time admin password:
 
 ```bash
-kubectl exec -it -n visiban \
+kubectl exec -n visiban \
   $(kubectl get pods -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') \
-  -- python manage.py ensure_site_admin
+  -- cat /run/visiban/admin_password
 ```
+
+### Using an existing Kubernetes Secret
+
+For production clusters managed by Sealed Secrets, External Secrets Operator, or Vault, you can bring your own Secret instead of having the chart create one:
+
+```bash
+# Create the Secret outside Helm (or via your secrets manager)
+kubectl create secret generic visiban-credentials -n visiban \
+  --from-literal=django-secret-key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" \
+  --from-literal=database-url="postgres://visiban:PASSWORD@HOST:5432/visiban" \
+  --from-literal=google-client-id="" \
+  --from-literal=google-client-secret="" \
+  --from-literal=github-client-id="" \
+  --from-literal=github-client-secret="" \
+  --from-literal=gitlab-client-id="" \
+  --from-literal=gitlab-client-secret=""
+
+# Tell the chart to use it
+helm install visiban helm/visiban \
+  --namespace visiban \
+  --set secret.existingSecret=visiban-credentials \
+  --set postgresql.auth.existingSecret=visiban-pg-password \
+  --set ingress.host=boards.example.com \
+  --set backend.settings.allowedHosts=boards.example.com \
+  --set backend.settings.corsAllowedOrigins=https://boards.example.com \
+  --set backend.settings.frontendUrl=https://boards.example.com \
+  --set backend.settings.siteDomain=boards.example.com
+```
+
+The existing Secret must contain the same keys the chart expects: `django-secret-key`, `database-url`, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret must contain a `password` key.
 
 ### TLS with cert-manager
 
@@ -86,14 +131,15 @@ If cert-manager and a `letsencrypt-prod` ClusterIssuer are installed, enable TLS
 ```bash
 helm install visiban helm/visiban \
   --namespace visiban --create-namespace \
+  -f helm/visiban/values.secret.yaml \
   --set ingress.host=boards.example.com \
   --set ingress.tls.enabled=true \
   --set ingress.tls.secretName=boards-example-tls \
   --set "ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod" \
   --set backend.settings.allowedHosts=boards.example.com \
   --set backend.settings.corsAllowedOrigins=https://boards.example.com \
-  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
-  --set postgresql.auth.password=<strong-password>
+  --set backend.settings.frontendUrl=https://boards.example.com \
+  --set backend.settings.siteDomain=boards.example.com
 ```
 
 ### Key Helm values
@@ -105,24 +151,54 @@ helm install visiban helm/visiban \
 | `ingress.tls.secretName` | `visiban-tls` | Secret name for the TLS certificate |
 | `backend.settings.allowedHosts` | `visiban.example.com` | Django `ALLOWED_HOSTS` — **must match `ingress.host`** |
 | `backend.settings.corsAllowedOrigins` | `https://visiban.example.com` | CORS allowed origins — **must match the public URL** |
-| `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` |
-| `postgresql.auth.password` | `visiban` | Database password |
-| `backend.image.tag` | `latest` | Backend image tag |
-| `frontend.image.tag` | `latest` | Frontend image tag |
+| `backend.settings.frontendUrl` | `https://visiban.example.com` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
+| `backend.settings.siteDomain` | `visiban.example.com` | Public hostname for OAuth callback URLs |
+| `backend.oauth.oidc.serverUrl` | `""` | OIDC issuer URL (e.g. `https://sso.example.com/realms/my-realm`) — set all three OIDC fields to enable |
+| `backend.oauth.oidc.clientId` | `""` | OIDC client ID |
+| `backend.oauth.oidc.clientSecret` | `""` | OIDC client secret |
+| `backend.oauth.oidc.providerName` | `SSO` | Label shown on the OIDC login button |
+| `backend.mediaPersistence.enabled` | `true` | Persist user-uploaded media (attachments) on a PVC |
+| `backend.mediaPersistence.size` | `5Gi` | Size of the media PVC |
+| `secret.existingSecret` | `""` | Name of a pre-existing K8s Secret — when set, the chart does not create its own |
+| `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` (ignored when `existingSecret` is set) |
+| `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
+| `postgresql.auth.password` | `visiban` | Database password (ignored when `existingSecret` is set) |
+| `backend.image.tag` | `v1.0.0-rc.11` | Backend image tag |
+| `frontend.image.tag` | `v1.0.0-rc.11` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
-| `redis.enabled` | `true` | Use bundled Redis 8; set `false` to use `externalRedis.url` |
-| `externalRedis.url` | `redis://redis:6379/0` | External Redis DSN (used when `redis.enabled: false`) |
+| `redis.enabled` | `true` | Use bundled Redis 7.4; set `false` to use `externalRedis.url` |
+| `externalRedis.url` | `""` | External Redis DSN (used when `redis.enabled: false`) — **must be set** when using external Redis |
 
-### Post-install: create the admin account
+### Init containers
 
-The Helm init container only runs `migrate` — `ensure_site_admin` is not called automatically. After the first install, run it manually:
+The Helm chart runs three init containers on every deploy:
+
+1. **migrate** — `python manage.py migrate --noinput`
+2. **collectstatic** — `python manage.py collectstatic --noinput` (populates whitenoise static files)
+3. **bootstrap** — `python manage.py ensure_site_admin` (creates the admin account on first install and writes the one-time password to `/run/visiban/admin_password`)
+
+After the first install, retrieve the one-time admin password:
 
 ```bash
-kubectl exec -it -n visiban $(kubectl get pod -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') -- python manage.py ensure_site_admin
+kubectl exec -n visiban \
+  $(kubectl get pod -n visiban -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}') \
+  -- cat /run/visiban/admin_password
 ```
 
 See [First Boot](../getting-started/first-boot.md#kubernetes-helm) for details and password reset instructions.
+
+### Media persistence
+
+User-uploaded attachments are stored on a PersistentVolumeClaim (`<release>-visiban-media`). Both the backend pod (read-write) and the frontend nginx pod (read-only, for X-Accel-Redirect) mount this volume.
+
+If the backend and frontend pods may run on different nodes, use a **ReadWriteMany (RWX)** storage class or add a pod affinity rule to co-locate them. With the default **ReadWriteOnce (RWO)**, both pods must land on the same node.
+
+To disable the PVC and use an emptyDir instead (data lost on pod restart):
+
+```bash
+--set backend.mediaPersistence.enabled=false
+```
 
 ### OpenAPI schema
 

@@ -24,6 +24,10 @@ backend:
     allowedHosts: "visiban.example.com"
     # Comma-separated CORS origins for the frontend
     corsAllowedOrigins: "https://visiban.example.com"
+    # Public URL of the frontend SPA — used by allauth for OAuth redirects.
+    frontendUrl: "https://visiban.example.com"
+    # Public hostname for OAuth callback URLs.
+    siteDomain: "visiban.example.com"
 
   # OAuth provider credentials — leave empty to disable a provider
   oauth:
@@ -36,6 +40,22 @@ backend:
     gitlab:
       clientId: ""
       clientSecret: ""
+    # Generic OIDC — for Keycloak, Authentik, Dex, Okta, or any OIDC-compliant IdP.
+    # All three fields (serverUrl, clientId, clientSecret) must be set to enable.
+    oidc:
+      serverUrl: ""
+      clientId: ""
+      clientSecret: ""
+      # Label shown on the login button (default: "SSO").
+      providerName: "SSO"
+
+  # Persistent volume for user-uploaded media (attachments, avatars).
+  mediaPersistence:
+    enabled: true
+    size: 5Gi
+    # storageClassName: ""
+    accessModes:
+      - ReadWriteOnce
 
   resources:
     requests:
@@ -73,9 +93,20 @@ ingress:
     enabled: false
     secretName: visiban-tls
 
-# Secret values — override with --set or a separate secret values file (never commit).
+# Secret values — prefer a gitignored values file (see values.secret.yaml.example)
+# over --set to avoid leaking secrets in shell history and process lists.
+# For production clusters, set existingSecret to a pre-created K8s Secret and
+# leave djangoSecretKey at the default — the chart will not create its own Secret.
 secret:
-  # Django SECRET_KEY — generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  # Name of a pre-existing Kubernetes Secret containing all backend credentials.
+  # When set, the chart skips creating its own Secret and references this one instead.
+  # The Secret must contain these keys: django-secret-key, database-url,
+  # google-client-id, google-client-secret, github-client-id, github-client-secret,
+  # gitlab-client-id, gitlab-client-secret. Add oidc-client-id and oidc-client-secret
+  # if OIDC is enabled. Keys for unused providers can be empty strings.
+  existingSecret: ""
+  # Django SECRET_KEY — only used when existingSecret is empty.
+  # Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
   djangoSecretKey: "change-me-in-production"
 
 # Built-in PostgreSQL subchart (bitnami/postgresql).
@@ -90,7 +121,10 @@ postgresql:
   auth:
     database: visiban
     username: visiban
-    # Override this with --set postgresql.auth.password=...
+    # Name of a pre-existing Secret containing the password (key: "password").
+    # When set, the chart skips creating its own PostgreSQL Secret.
+    existingSecret: ""
+    # Only used when existingSecret is empty.
     password: "visiban"
   primary:
     persistence:
@@ -112,11 +146,21 @@ redis:
   architecture: standalone
   auth:
     enabled: false
+  image:
+    tag: "7.4.3"
   master:
     persistence:
       enabled: false
+  # Override the subchart default which tries to load modules not present
+  # in the standard Bitnami Redis image (redisearch, rejson).
+  commonConfiguration: |-
+    # Enable AOF https://redis.io/topics/persistence#append-only-file
+    appendonly yes
+    # Disable RDB persistence, AOF persistence already enabled.
+    save ""
 
-# External Redis — used only when redis.enabled is false
+# External Redis — used only when redis.enabled is false.
+# You must set both url and cacheUrl to valid Redis connection strings.
 externalRedis:
-  url: "redis://redis:6379/0"
-  cacheUrl: "redis://redis:6379/1"
+  url: ""
+  cacheUrl: ""

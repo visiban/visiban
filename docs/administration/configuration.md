@@ -72,24 +72,37 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 
 ### Helm
 
-Pass sensitive values via `--set` or a `values.secret.yaml` file. **Never commit secret values.**
+Pass sensitive values via a gitignored `values.secret.yaml` file — **never via `--set`** (leaks to shell history and process lists) and **never committed to version control**.
+
+An example file is included at `helm/visiban/values.secret.yaml.example`. Copy it to `values.secret.yaml`, fill in values, and pass it with `-f`:
+
+For production clusters, you can bring your own Kubernetes Secret instead of having the chart create one. Set `secret.existingSecret` to the Secret name and the chart will reference it directly. See [Deployment — Using an existing Kubernetes Secret](../architecture/deployment.md#using-an-existing-kubernetes-secret).
 
 | Key | Description |
 |---|---|
-| `secret.djangoSecretKey` | Production Django signing key |
-| `postgresql.auth.password` | PostgreSQL password |
+| `secret.existingSecret` | Name of a pre-existing K8s Secret — when set, the chart does not create its own |
+| `secret.djangoSecretKey` | Production Django signing key (ignored when `existingSecret` is set) |
+| `postgresql.auth.existingSecret` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
+| `postgresql.auth.password` | PostgreSQL password (ignored when `existingSecret` is set) |
+| `backend.settings.frontendUrl` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
+| `backend.settings.siteDomain` | Public hostname for OAuth callback URLs |
 | `backend.oauth.google.*` | Google OAuth credentials |
 | `backend.oauth.github.*` | GitHub OAuth credentials |
 | `backend.oauth.gitlab.*` | GitLab OAuth credentials |
+| `backend.oauth.oidc.serverUrl` | OIDC issuer URL — set all three OIDC fields to enable generic OIDC login |
+| `backend.oauth.oidc.clientId` | OIDC client ID |
+| `backend.oauth.oidc.clientSecret` | OIDC client secret |
+| `backend.oauth.oidc.providerName` | Label on the OIDC login button (default: `SSO`) |
 | `backend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
 | `frontend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
 
-Example:
+Example using a values file:
 
 ```bash
 helm upgrade --install visiban ./helm/visiban \
-  --set secret.djangoSecretKey="your-secret-key" \
-  --set postgresql.auth.password="your-db-password" \
+  -f helm/visiban/values.secret.yaml \
+  --set backend.settings.frontendUrl="https://boards.example.com" \
+  --set backend.settings.siteDomain="boards.example.com" \
   --set backend.image.tag="v1.0.0-rc.11" \
   --set frontend.image.tag="v1.0.0-rc.11"
 ```

@@ -7,11 +7,27 @@ metadata:
     app.kubernetes.io/component: frontend
 data:
   nginx.conf: |
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
     server {
         listen 80;
         server_name _;
         root /usr/share/nginx/html;
         index index.html;
+
+        # Security headers
+        add_header X-Frame-Options           SAMEORIGIN always;
+        add_header X-Content-Type-Options    nosniff always;
+
+        # Allow file uploads up to 20 MB (matches docker-compose.prod)
+        client_max_body_size 20M;
+
+        # Compression
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
         # Proxy API and auth requests to the backend
         location /api/ {
@@ -39,12 +55,42 @@ data:
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
+        # Attachment downloads — proxied through Django for auth and board-membership checks.
+        # Django returns X-Accel-Redirect to hand off the actual file transfer to Nginx.
+        location /media/ {
+            proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Internal-only location for X-Accel-Redirect from Django.
+        location /protected-media/ {
+            internal;
+            alias /app/media/;
+        }
+
+        # Django admin — restricted to loopback only. Access via:
+        #   kubectl port-forward svc/<release>-visiban-backend 8000:8000
+        location /admin/ {
+            allow 127.0.0.1;
+            allow ::1;
+            deny all;
+
+            proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
         # WebSocket (Django Channels)
         location /ws/ {
             proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_set_header Connection $connection_upgrade;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

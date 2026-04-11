@@ -27,6 +27,11 @@ spec:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: nginx.conf
+            {{- if .Values.backend.mediaPersistence.enabled }}
+            - name: media
+              mountPath: /app/media
+              readOnly: true
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /
@@ -45,3 +50,9 @@ spec:
         - name: nginx-config
           configMap:
             name: {{ include "visiban.fullname" . }}-nginx
+        {{- if .Values.backend.mediaPersistence.enabled }}
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ include "visiban.fullname" . }}-media
+            readOnly: true
+        {{- end }}

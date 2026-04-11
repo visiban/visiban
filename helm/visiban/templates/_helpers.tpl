@@ -60,6 +60,30 @@ app.kubernetes.io/component: frontend
 {{- end }}
 
 {{/*
+Name of the Secret containing backend credentials (Django key, DB URL, OAuth).
+Uses an existing Secret if secret.existingSecret is set, otherwise the chart-managed one.
+*/}}
+{{- define "visiban.secretName" -}}
+{{- if .Values.secret.existingSecret }}
+{{- .Values.secret.existingSecret }}
+{{- else }}
+{{- include "visiban.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Name of the Secret containing the PostgreSQL password.
+Uses an existing Secret if postgresql.auth.existingSecret is set.
+*/}}
+{{- define "visiban.postgresql.secretName" -}}
+{{- if .Values.postgresql.auth.existingSecret }}
+{{- .Values.postgresql.auth.existingSecret }}
+{{- else }}
+{{- printf "%s-postgresql" (include "visiban.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
 Database URL — built from postgresql subchart or externalDatabase values.
 */}}
 {{- define "visiban.databaseUrl" -}}

@@ -4,7 +4,10 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# Run npm ci twice to work around the npm optional-dependency bug on Alpine/musl
+# (https://github.com/npm/cli/issues/4828) where platform-specific packages like
+# @rollup/rollup-linux-arm64-musl are not installed on the first pass.
+RUN npm ci && npm ci
 
 COPY . .
 RUN npm run build
