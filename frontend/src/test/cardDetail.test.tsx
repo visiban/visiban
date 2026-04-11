@@ -310,6 +310,21 @@ describe('CardDetail', () => {
     expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
   })
 
+  it('hides upload button for viewer even when uploads_enabled is true', () => {
+    const props = defaultProps()
+    props.board = makeBoard({ current_user_role: 'viewer' })
+    render(<CardDetail {...props} currentUser={{ ...fakeUser, uploads_enabled: true }} />)
+    expect(screen.queryByText('+ Upload')).not.toBeInTheDocument()
+  })
+
+  it('disables checklist checkboxes for viewer with explanatory title', () => {
+    const props = defaultProps()
+    props.board = makeBoard({ current_user_role: 'viewer' })
+    render(<CardDetail {...props} />)
+    // "Add item" input must not be present for viewers
+    expect(screen.queryByPlaceholderText('Add item (Enter)…')).not.toBeInTheDocument()
+  })
+
   it('hides delete/archive buttons for member who does not own the card', () => {
     const otherUser: User = { ...fakeUser, id: 99, username: 'other' }
     const props = defaultProps()

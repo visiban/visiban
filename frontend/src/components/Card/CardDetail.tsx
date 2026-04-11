@@ -728,6 +728,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             checked={item.is_checked}
                             onChange={canComment ? () => handleToggleChecklistItem(item) : undefined}
                             disabled={!canComment}
+                            title={!canComment ? "Viewers cannot modify checklist items" : undefined}
                             className={`w-3.5 h-3.5 rounded accent-green-500 shrink-0 ${canComment ? "cursor-pointer" : "cursor-default"}`}
                           />
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-slate-600" : "text-slate-300"}`}>
