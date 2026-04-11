@@ -1,0 +1,18 @@
+{{- if .Values.backend.mediaPersistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "visiban.fullname" . }}-media
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  accessModes:
+    {{- toYaml .Values.backend.mediaPersistence.accessModes | nindent 4 }}
+  {{- if .Values.backend.mediaPersistence.storageClassName }}
+  storageClassName: {{ .Values.backend.mediaPersistence.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.mediaPersistence.size }}
+{{- end }}

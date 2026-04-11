@@ -45,7 +45,7 @@ EXPOSE 5173
 # build it by default when no --target is specified.
 # nginx base image CMD keeps the process in the foreground:
 #   nginx -g "daemon off;"
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

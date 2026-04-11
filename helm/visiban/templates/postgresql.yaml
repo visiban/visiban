@@ -26,9 +26,15 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: postgresql
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
       containers:
         - name: postgresql
           image: {{ .Values.postgresql.image | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
           ports:
             - name: postgresql
               containerPort: 5432
@@ -38,7 +44,10 @@ spec:
             - name: POSTGRES_USER
               value: {{ .Values.postgresql.auth.username | quote }}
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgresql.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "visiban.fullname" . }}-postgresql
+                  key: password
             # Use a subdirectory so the official image doesn't trip over
             # lost+found in a freshly provisioned PVC.
             - name: PGDATA
@@ -46,11 +55,24 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgresql.auth.username | quote }}]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
           readinessProbe:
             exec:
               command: ["pg_isready", "-U", {{ .Values.postgresql.auth.username | quote }}]
             initialDelaySeconds: 5
             periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
   {{- if .Values.postgresql.primary.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
@@ -65,6 +87,17 @@ spec:
         - name: data
           emptyDir: {}
   {{- end }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "visiban.fullname" . }}-postgresql
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+type: Opaque
+stringData:
+  password: {{ .Values.postgresql.auth.password | quote }}
 ---
 apiVersion: v1
 kind: Service

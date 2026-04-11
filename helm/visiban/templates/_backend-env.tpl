@@ -18,6 +18,10 @@ Backend environment variables — shared by the init container and main containe
   value: {{ printf "%s,127.0.0.1,localhost" .Values.backend.settings.allowedHosts | quote }}
 - name: CORS_ALLOWED_ORIGINS
   value: {{ .Values.backend.settings.corsAllowedOrigins | quote }}
+- name: FRONTEND_URL
+  value: {{ .Values.backend.settings.frontendUrl | quote }}
+- name: SITE_DOMAIN
+  value: {{ .Values.backend.settings.siteDomain | quote }}
 - name: REDIS_URL
   value: {{ if .Values.redis.enabled }}{{ printf "redis://%s-redis-master:6379/0" (include "visiban.fullname" .) | quote }}{{ else }}{{ .Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL
@@ -52,4 +56,20 @@ Backend environment variables — shared by the init container and main containe
     secretKeyRef:
       name: {{ include "visiban.fullname" . }}
       key: gitlab-client-secret
+{{- if .Values.backend.oauth.oidc.serverUrl }}
+- name: OIDC_SERVER_URL
+  value: {{ .Values.backend.oauth.oidc.serverUrl | quote }}
+- name: OIDC_CLIENT_ID
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "visiban.fullname" . }}
+      key: oidc-client-id
+- name: OIDC_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "visiban.fullname" . }}
+      key: oidc-client-secret
+- name: OIDC_PROVIDER_NAME
+  value: {{ .Values.backend.oauth.oidc.providerName | quote }}
+{{- end }}
 {{- end }}

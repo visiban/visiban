@@ -25,6 +25,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
@@ -47,7 +52,13 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/health/liveness/\")'"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
 
   # Copies the pre-built frontend assets from the release image into the shared
   # volume so nginx can serve them. Exits immediately after the copy completes.
@@ -60,7 +71,7 @@ services:
       - frontend-dist:/dist
 
   nginx:
-    image: nginx:1.25-alpine
+    image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
       - "80:80"
@@ -87,7 +98,7 @@ services:
       frontend-build:
         condition: service_completed_successfully
       backend:
-        condition: service_started
+        condition: service_healthy
 
   # Renews the Let's Encrypt cert every 12 hours (certbot skips if not due).
   certbot:
