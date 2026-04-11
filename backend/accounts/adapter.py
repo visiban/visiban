@@ -10,7 +10,6 @@ from rest_framework.exceptions import PermissionDenied
 
 from .invite_utils import InviteTokenError, consume_invite_token, validate_invite_token
 from .models import (
-    INVITE_LINK_PREFIX,
     SiteSetting,
     get_registration_mode,
     invalidate_registration_mode_cache,  # re-exported so tests can import it from here
