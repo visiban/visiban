@@ -1,4 +1,4 @@
-# Analytics & Summary
+# Analytics & Summary <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
 
 Switch between board views using the toggle in the toolbar: **Board**, **Summary**, **Analytics**.
 

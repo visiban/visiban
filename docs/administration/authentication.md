@@ -16,10 +16,10 @@ Visiban supports several authentication methods. Some are available in the OSS e
 
 See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step configuration of each provider.
 
-## Generic OIDC
+## Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
 
-!!! warning "Tech Preview — not tested against a real identity provider"
-    The OIDC configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. However, **the end-to-end login flow has not been validated against any real identity provider** — Keycloak, Okta, Authentik, Dex, or otherwise. Treat this as a tech preview: the wiring is in place, but you may encounter issues with token exchange, scope mapping, or callback handling that have not yet been discovered.
+!!! info "Beta — not yet validated against a real identity provider"
+    The OIDC configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. However, **the end-to-end login flow has not been validated against any real identity provider** — Keycloak, Okta, Authentik, Dex, or otherwise. The wiring is in place, but you may encounter issues with token exchange, scope mapping, or callback handling that have not yet been discovered.
 
     If you test this against your IdP, please report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
 

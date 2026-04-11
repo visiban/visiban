@@ -8,3 +8,4 @@ Technical documentation for developers and self-hosters.
 | [Data Model](data-model.md) | Database schema, key models, and their relationships |
 | [Deployment](deployment.md) | Docker Compose, production images, Helm chart for Kubernetes |
 | [Scaling](scaling.md) | Single-server ceilings, when to scale each component, and the recommended scaling sequence |
+| [Technology Decisions](decisions.md) | Technology choices and the reasoning behind each decision |
