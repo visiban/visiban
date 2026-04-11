@@ -1,0 +1,55 @@
+{
+  "realm": "visiban-test",
+  "displayName": "Visiban Test Realm",
+  "enabled": true,
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "clients": [
+    {
+      "clientId": "visiban",
+      "name": "Visiban",
+      "description": "Visiban OIDC client for local development and CI smoke tests",
+      "secret": "test-oidc-secret",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "redirectUris": [
+        "http://localhost:8000/accounts/oidc/oidc/login/callback/",
+        "http://backend:8000/accounts/oidc/oidc/login/callback/",
+        "http://127.0.0.1:8000/accounts/oidc/oidc/login/callback/"
+      ],
+      "webOrigins": [
+        "http://localhost:8000",
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": ["openid", "profile", "email"],
+      "attributes": {
+        "pkce.code.challenge.method": ""
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "testuser",
+      "email": "testuser@example.com",
+      "firstName": "Test",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpassword",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
