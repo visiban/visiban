@@ -79,13 +79,19 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                 <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {m.role === "site_admin" ? (
+                  <span className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded" title="Site administrator — role managed at the instance level">
+                    site admin
+                  </span>
+                ) : (
                 <SelectDropdown
-                  value={m.role}
+                  value={m.role as BoardRole}
                   disabled={isDisabled}
                   onChange={(v) => handleRoleChange(m.user.id, v)}
                   options={ROLE_OPTIONS}
                   size="xs"
                 />
+                )}
                 {!isSelf && m.id !== null && (
                   confirmRemoveUserId === m.user.id ? (
                     <div className="flex items-center gap-1.5 shrink-0">

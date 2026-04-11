@@ -220,7 +220,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               >
                 Unassign
               </button>
-              {board.members.map((m) => (
+              {board.members.filter((m) => m.role !== "viewer").map((m) => (
                 <button
                   key={m.user.id}
                   onClick={() => handleAssign(m.user.id)}

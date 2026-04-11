@@ -301,9 +301,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        {isAdmin ? (
+                        {m.role === "site_admin" ? (
+                          <span className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded" title="Site administrator — role managed at the instance level">
+                            site admin
+                          </span>
+                        ) : isAdmin ? (
                           <SelectDropdown
-                            value={m.role}
+                            value={m.role as BoardRole}
                             disabled={isDisabled}
                             onChange={(v) => handleRoleChange(m.user.id, v)}
                             options={ROLE_OPTIONS}
@@ -311,7 +315,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           />
                         ) : (
                           <span
-                            className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded-lg"
+                            className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded"
                             title={ROLES.find((r) => r.value === m.role)?.description}
                           >
                             {m.role}
@@ -331,7 +335,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </div>
 
-                    {isAdmin && m.role === "member" && (
+                    {isAdmin && m.role !== "site_admin" && m.role === "member" && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
                         <label className="flex items-center gap-1.5 cursor-pointer select-none">
                           <input

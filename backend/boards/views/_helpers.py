@@ -15,7 +15,7 @@ from rest_framework.exceptions import PermissionDenied
 from ..models import Board, BoardFavorite, BoardMembership, Card, Label
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import CardSerializer, _card_queryset
-from ..utils import _get_effective_member_ids
+from ..utils import _get_effective_member_ids, _get_assignable_member_ids
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +109,7 @@ def _refetched_card_data(card, request, board):
     per mutation response (avoids 2–4 extra queries each time).
     """
     member_ids = _get_effective_member_ids(board)
+    assignable_ids = _get_assignable_member_ids(board)
     labels_qs = Label.objects.filter(board=board)
     refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
     return CardSerializer(
@@ -117,6 +118,7 @@ def _refetched_card_data(card, request, board):
             "request": request,
             "board": board,
             "_member_ids": member_ids,
+            "_assignable_member_ids": assignable_ids,
             "_board_labels_qs": labels_qs,
         },
     ).data

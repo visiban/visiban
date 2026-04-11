@@ -486,10 +486,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     }}
                     options={[
                       { value: "", label: "Unassigned" },
-                      ...board.members.map((m) => ({
-                        value: String(m.user.id),
-                        label: userDisplayName(m.user),
-                      })),
+                      ...board.members
+                        .filter((m) => m.role !== "viewer")
+                        .map((m) => ({
+                          value: String(m.user.id),
+                          label: userDisplayName(m.user),
+                        })),
                     ]}
                     disabled={!canAssign}
                     disabledReason="Assigning cards requires Moderator or Admin access"
@@ -724,39 +726,44 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <input
                             type="checkbox"
                             checked={item.is_checked}
-                            onChange={() => handleToggleChecklistItem(item)}
-                            className="w-3.5 h-3.5 rounded accent-green-500 shrink-0 cursor-pointer"
+                            onChange={canComment ? () => handleToggleChecklistItem(item) : undefined}
+                            disabled={!canComment}
+                            className={`w-3.5 h-3.5 rounded accent-green-500 shrink-0 ${canComment ? "cursor-pointer" : "cursor-default"}`}
                           />
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-slate-600" : "text-slate-300"}`}>
                             {item.text}
                           </span>
-                          <button
-                            onClick={() => handleDeleteChecklistItem(item.id)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
-                            title="Remove item"
-                          >
-                            ✕
-                          </button>
+                          {canComment && (
+                            <button
+                              onClick={() => handleDeleteChecklistItem(item.id)}
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
+                              title="Remove item"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
                   </>
                 )}
-                <div className="flex gap-2">
-                  <input
-                    value={newItemText}
-                    onChange={(e) => setNewItemText(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
-                    placeholder="Add item (Enter)…"
-                    className="flex-1 text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 placeholder-slate-500"
-                  />
-                  <button
-                    onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
-                    className="text-sm text-blue-400 hover:text-blue-300 font-medium px-2 whitespace-nowrap transition"
-                  >
-                    Bulk
-                  </button>
-                </div>
+                {canComment && (
+                  <div className="flex gap-2">
+                    <input
+                      value={newItemText}
+                      onChange={(e) => setNewItemText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
+                      placeholder="Add item (Enter)…"
+                      className="flex-1 text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 placeholder-slate-500"
+                    />
+                    <button
+                      onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
+                      className="text-sm text-blue-400 hover:text-blue-300 font-medium px-2 whitespace-nowrap transition"
+                    >
+                      Bulk
+                    </button>
+                  </div>
+                )}
 
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
@@ -798,7 +805,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  {attachmentsOpen && (
+                  {attachmentsOpen && canComment && (
                     <>
                       {currentUser?.uploads_enabled === false ? (
                         <span

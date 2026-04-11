@@ -26,8 +26,8 @@ function makeBoard(): BoardFull {
     ],
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' }],
     cards: [
-      { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
-      { id: 101, uid: 'carduid00002', column: 10, swimlane: 20, title: 'Card 2', description: '', priority: 'low', assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+      { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+      { id: 101, uid: 'carduid00002', column: 10, swimlane: 20, title: 'Card 2', description: '', priority: 'low', assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
     ],
     labels: [],
     members: [
@@ -530,7 +530,7 @@ describe('BulkActionToolbar', () => {
     const board = makeBoard()
     board.current_user_role = 'member'
     board.members = [{ id: 2, user: memberUser, role: 'member', is_moderator: false, joined_at: '' }]
-    // cards have created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null }, current user is 99
+    // cards have created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, current user is 99
 
     render(
       <BulkActionToolbar

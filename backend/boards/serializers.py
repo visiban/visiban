@@ -170,10 +170,13 @@ class CardSerializer(serializers.ModelSerializer):
         if board:
             labels_qs = self.context.get("_board_labels_qs") or Label.objects.filter(board=board)
             self.fields["label_ids"].child_relation.queryset = labels_qs
-            from .utils import _get_effective_member_ids
-            member_ids = self.context.get("_member_ids") or _get_effective_member_ids(board)
+            from .utils import _get_assignable_member_ids
+            # Use _assignable_member_ids if pre-computed (viewers excluded); fall
+            # back to computing it now.  _member_ids is NOT used here because it
+            # includes viewer-role users who must not appear as assignee options.
+            assignable_ids = self.context.get("_assignable_member_ids") or _get_assignable_member_ids(board)
             self.fields["assignee_id"].queryset = User.objects.filter(
-                pk__in=member_ids
+                pk__in=assignable_ids
             )
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
@@ -342,7 +345,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         query. ("cards" precedes "members" in Meta.fields so this runs first.)
         """
         from accounts.models import User
-        from .utils import _get_effective_member_ids
+        from .utils import _get_effective_member_ids, _get_assignable_member_ids
         # Pre-fetch site admins once; get_members() will read from context.
         site_admin_users = self.context.get("_site_admin_users")
         if site_admin_users is None:
@@ -355,12 +358,13 @@ class BoardFullSerializer(serializers.ModelSerializer):
         site_admin_ids = {u.pk for u in site_admin_users}
         qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
         member_ids = _get_effective_member_ids(obj, site_admin_ids=site_admin_ids)
+        assignable_ids = _get_assignable_member_ids(obj, site_admin_ids=site_admin_ids)
         # Reuse the labels prefetch loaded by get_board_for_user() rather than
         # issuing a second Label query.  The board must be fetched via
         # get_board_for_user() (which prefetches "labels") for this to hit the
         # cache; a bare Board.objects.get() would fall back to a live query.
         board_labels_qs = obj.labels.all()
-        ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_board_labels_qs": board_labels_qs}
+        ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_assignable_member_ids": assignable_ids, "_board_labels_qs": board_labels_qs}
         return CardSerializer(qs, many=True, context=ctx).data
 
     def get_members(self, obj):
