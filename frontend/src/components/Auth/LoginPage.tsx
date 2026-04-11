@@ -1,9 +1,35 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders, getSiteConfig } from "../../api/auth";
 import type { User } from "../../types";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+/** Map backend auth_error codes to user-facing messages. */
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  invite_expired: "This invite link has expired. Please ask your administrator for a new one.",
+  invite_used: "This invite link has already been used. Please ask your administrator for a new one.",
+  invite_revoked: "This invite link has been revoked. Please ask your administrator for a new one.",
+  invite_required: "An invite link is required to create an account.",
+  invite_invalid: "This invite link is invalid. Please ask your administrator for a new one.",
+  signup_closed: "Registration is currently closed.",
+  oauth_failed: "Something went wrong during authentication. Please try again.",
+};
+
+/**
+ * Build an OAuth redirect URL, optionally appending the invite token.
+ * In register mode with a valid invite token, the token is passed as a query
+ * param so the backend middleware can stash it in the Django session before
+ * redirecting to the IdP.
+ */
+function oauthUrl(provider: string, mode: "login" | "register", hasToken: boolean): string {
+  const base = `${API}/accounts/${provider}/login/?process=login`;
+  if (mode === "register" && hasToken) {
+    const token = sessionStorage.getItem("invite_token");
+    if (token) return `${base}&invite_token=${encodeURIComponent(token)}`;
+  }
+  return base;
+}
 
 interface Props {
   onLogin: (user: User) => void;
@@ -11,6 +37,7 @@ interface Props {
 
 export default function LoginPage({ onLogin }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">(
     (location.state as { authMode?: string } | null)?.authMode === "register" ? "register" : "login"
   );
@@ -26,7 +53,21 @@ export default function LoginPage({ onLogin }: Props) {
   useEffect(() => {
     getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
     getSiteConfig().then((c) => setRegistrationOpen(c.registration_open)).catch(() => setRegistrationOpen(true));
-  }, []);
+
+    // Handle auth_error from OAuth callback redirect.
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error");
+    if (authError) {
+      setError(AUTH_ERROR_MESSAGES[authError] ?? "Something went wrong during authentication. Please try again.");
+      // Clear dead invite tokens on token-specific errors.
+      if (authError.startsWith("invite_")) {
+        sessionStorage.removeItem("invite_token");
+        setHasInviteToken(false);
+      }
+      // Clean the error from the URL so a refresh doesn't re-show it.
+      navigate("/", { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +109,9 @@ export default function LoginPage({ onLogin }: Props) {
       <div className="bg-slate-800 rounded-2xl shadow-2xl p-10 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
+          {mode === "register" && !registrationOpen && hasInviteToken && (
+            <p className="text-sm text-slate-300 text-center mt-3">Complete your registration</p>
+          )}
         </div>
 
         {/* Email/password form */}
@@ -103,7 +147,7 @@ export default function LoginPage({ onLogin }: Props) {
               An invite link is required to create an account.
             </p>
           )}
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && <p className="text-red-400 text-xs" role="alert">{error}</p>}
           <button
             type="submit"
             disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
@@ -138,7 +182,7 @@ export default function LoginPage({ onLogin }: Props) {
             <div className="flex flex-col gap-3">
               {providers.google && (
                 <a
-                  href={`${API}/accounts/google/login/?process=login`}
+                  href={oauthUrl("google", mode, hasInviteToken)}
                   className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GoogleIcon />
@@ -147,7 +191,7 @@ export default function LoginPage({ onLogin }: Props) {
               )}
               {providers.github && (
                 <a
-                  href={`${API}/accounts/github/login/?process=login`}
+                  href={oauthUrl("github", mode, hasInviteToken)}
                   className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition"
                 >
                   <GitHubIcon />
@@ -156,7 +200,7 @@ export default function LoginPage({ onLogin }: Props) {
               )}
               {providers.gitlab && (
                 <a
-                  href={`${API}/accounts/gitlab/login/?process=login`}
+                  href={oauthUrl("gitlab", mode, hasInviteToken)}
                   className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-orange-500 transition"
                 >
                   <GitLabIcon />
@@ -165,7 +209,7 @@ export default function LoginPage({ onLogin }: Props) {
               )}
               {providers.oidc && (
                 <a
-                  href={`${API}/accounts/oidc/login/?process=login`}
+                  href={oauthUrl("oidc", mode, hasInviteToken)}
                   className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Continue with {providers.oidc_name ?? "SSO"}
