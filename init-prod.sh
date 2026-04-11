@@ -115,7 +115,7 @@ case "${TLS_MODE}" in
 esac
 
 # ---------------------------------------------------------------------------
-# Set FORCE_INSECURE_COOKIES for plain-HTTP mode
+# Manage FORCE_INSECURE_COOKIES based on TLS mode
 # ---------------------------------------------------------------------------
 if [[ "${TLS_MODE}" == "none" ]]; then
   # Append FORCE_INSECURE_COOKIES to .env if not already present, so Django
@@ -125,6 +125,17 @@ if [[ "${TLS_MODE}" == "none" ]]; then
     echo "# Auto-set by init-prod.sh for TLS_MODE=none" >> .env
     echo "FORCE_INSECURE_COOKIES=true" >> .env
     echo "==> Set FORCE_INSECURE_COOKIES=true in .env (required for plain-HTTP mode)."
+  fi
+else
+  # Clean up FORCE_INSECURE_COOKIES if it was previously auto-set for TLS_MODE=none.
+  # Leaving it enabled when TLS is active weakens security — Django will refuse to
+  # start if it detects FORCE_INSECURE_COOKIES=true with HTTPS CORS origins.
+  if grep -q '^FORCE_INSECURE_COOKIES=true' .env; then
+    # Remove the setting and its auto-set comment
+    sed -i.bak '/^# Auto-set by init-prod.sh for TLS_MODE=none$/d' .env
+    sed -i.bak '/^FORCE_INSECURE_COOKIES=true$/d' .env
+    rm -f .env.bak
+    echo "==> Removed FORCE_INSECURE_COOKIES=true from .env (not needed for TLS_MODE=${TLS_MODE})."
   fi
 fi
 

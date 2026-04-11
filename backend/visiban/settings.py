@@ -292,6 +292,19 @@ CSRF_COOKIE_SECURE = not DEBUG and not _FORCE_INSECURE_COOKIES
 if _FORCE_INSECURE_COOKIES and not DEBUG:
     import logging as _logging
 
+    # Block the contradictory case: insecure cookies + HTTPS origins.
+    # This catches the scenario where an operator tested with TLS_MODE=none,
+    # then switched to letsencrypt but forgot to remove FORCE_INSECURE_COOKIES.
+    _https_origins = [o for o in CORS_ALLOWED_ORIGINS if o.startswith("https://")]
+    if _https_origins:
+        raise ImproperlyConfigured(
+            "FORCE_INSECURE_COOKIES=true but CORS_ALLOWED_ORIGINS contains HTTPS "
+            f"origins ({', '.join(_https_origins)}). This combination weakens "
+            "security — cookies would be sent without the Secure flag despite TLS "
+            "being available. Either remove FORCE_INSECURE_COOKIES or change "
+            "CORS_ALLOWED_ORIGINS to http:// origins."
+        )
+
     _logging.getLogger("django.security").warning(
         "\u26a0\ufe0f  FORCE_INSECURE_COOKIES is enabled in production. "
         "Session and CSRF cookies will be sent over plain HTTP. "
