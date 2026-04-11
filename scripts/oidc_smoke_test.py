@@ -144,12 +144,14 @@ def run_smoke_test(
     payload = dict(parser.inputs)
     payload["username"] = username
     payload["password"] = password
+    keycloak_host = urllib.parse.urlparse(parser.action).netloc
     print(f"  Submitting to form action: {parser.action}")
-    print(f"  Form fields (redacted): {[k for k in payload]}")
+    print(f"  Form fields: {[k for k in payload]}")
+    print(f"  Session cookies: {[(c.name, c.domain) for c in session.cookies]}")
     r = session.post(
         parser.action,
         data=payload,
-        headers={"Origin": f"http://{urllib.parse.urlparse(parser.action).netloc}"},
+        headers={"Origin": f"http://{keycloak_host}"},
         allow_redirects=False,
     )
     if r.status_code not in (301, 302):
