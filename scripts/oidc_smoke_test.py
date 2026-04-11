@@ -90,12 +90,35 @@ def run_smoke_test(
     requests.packages.urllib3.disable_warnings()
 
     # ── Step 1: Hit Visiban's OIDC login endpoint ──────────────────────────────
+    # allauth's default SOCIALACCOUNT_LOGIN_ON_GET = False renders a confirmation
+    # page (200) on GET before redirecting to the IdP.  We handle this by reading
+    # the CSRF token from the cookie and POSTing to the same URL to proceed.
     login_url = f"{base_url}/accounts/oidc/oidc/login/"
     r = session.get(login_url, allow_redirects=False)
+
+    if r.status_code == 200:
+        # Confirmation page — extract CSRF token and POST to continue
+        csrf_token = (
+            session.cookies.get("csrftoken")
+            or r.cookies.get("csrftoken")
+        )
+        if not csrf_token:
+            # Fall back to parsing the form for csrfmiddlewaretoken
+            csrf_parser = _FormParser()
+            csrf_parser.feed(r.text)
+            csrf_token = csrf_parser.inputs.get("csrfmiddlewaretoken", "")
+        r = session.post(
+            login_url,
+            data={"csrfmiddlewaretoken": csrf_token},
+            headers={"Referer": login_url},
+            allow_redirects=False,
+        )
+
     if r.status_code not in (301, 302):
         raise AssertionError(
             f"Expected a redirect from the OIDC login endpoint; got {r.status_code}.\n"
-            "Is OIDC configured? (OIDC_CLIENT_ID, OIDC_SECRET, OIDC_SERVER_URL)"
+            "Is OIDC configured? (OIDC_CLIENT_ID, OIDC_SECRET, OIDC_SERVER_URL)\n"
+            f"Response body (first 300 chars): {r.text[:300]}"
         )
     idp_auth_url = r.headers["Location"]
     parsed = urllib.parse.urlparse(idp_auth_url)

@@ -149,22 +149,39 @@ def _create_user(base_url: str, token: str) -> None:
     print(f"  Created user '{TEST_USER}' ({TEST_USER_EMAIL}).")
 
 
-def _wait_for_keycloak(base_url: str, timeout: int = 120) -> None:
-    url = f"{base_url}/realms/master/.well-known/openid-configuration"
+def _wait_for_url(url: str, label: str, timeout: int = 60) -> None:
+    """Poll *url* until it returns HTTP 200, or raise RuntimeError after *timeout*."""
     deadline = time.monotonic() + timeout
     attempt = 0
     while time.monotonic() < deadline:
         try:
             r = requests.get(url, timeout=5)
             if r.status_code == 200:
-                print(f"  Keycloak is ready (attempt {attempt + 1}).")
+                print(f"  {label} is ready (attempt {attempt + 1}).")
                 return
         except Exception:
             pass
         attempt += 1
-        print(f"  Waiting for Keycloak... ({attempt})", flush=True)
+        print(f"  Waiting for {label}... ({attempt})", flush=True)
         time.sleep(5)
-    raise RuntimeError(f"Keycloak at {base_url} did not become ready within {timeout}s")
+    raise RuntimeError(f"{label} at {url} did not become ready within {timeout}s")
+
+
+def _wait_for_keycloak(base_url: str, timeout: int = 120) -> None:
+    _wait_for_url(
+        f"{base_url}/realms/master/.well-known/openid-configuration",
+        "Keycloak master realm",
+        timeout=timeout,
+    )
+
+
+def _wait_for_realm(base_url: str, timeout: int = 30) -> None:
+    """Wait for the provisioned realm's discovery endpoint to become accessible."""
+    _wait_for_url(
+        f"{base_url}/realms/{REALM}/.well-known/openid-configuration",
+        f"Keycloak realm '{REALM}' discovery",
+        timeout=timeout,
+    )
 
 
 def main() -> None:
@@ -189,6 +206,12 @@ def main() -> None:
 
     token = _get_admin_token(base_url)
     _create_realm(base_url, token)
+    # Wait for the realm to be accessible at its own discovery endpoint before
+    # provisioning the client.  The Admin API realm creation is synchronous, but
+    # Keycloak's HTTP routing for new realms can take a few extra seconds to
+    # become active.  Django's settings are loaded at startup, so the backend
+    # process must be able to reach the realm discovery URL when it boots.
+    _wait_for_realm(base_url)
     # Token may expire during long waits — re-fetch after realm creation
     token = _get_admin_token(base_url)
     _create_client(base_url, token)
