@@ -365,6 +365,38 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 ---
 
+## Deployment
+
+### Docker Compose (production)
+
+`docker-compose.prod.yml` — production-ready stack with TLS, health checks, and no default credentials:
+
+- Services: `db` (Postgres 17 Alpine), `redis` (Redis 7 Alpine), `backend` (daphne ASGI), `frontend-build` (init container that copies SPA assets into a shared volume), `nginx` (1.27 Alpine), `certbot` (auto-renewing Let's Encrypt every 12 hours)
+- `DB_PASSWORD` is mandatory — the compose file fails fast with a descriptive error if unset; no insecure default
+- `DOMAIN` is mandatory — nginx config is rendered at container startup via `envsubst` so the host never needs to run it manually
+- `APP_VERSION` env var controls which image tag is pulled (defaults to `latest`)
+- Backend health-checked at `/api/health/liveness/` before nginx starts
+- `certbot` container auto-renews every 12 hours; nginx serves `/.well-known/acme-challenge/` for ACME verification
+
+### Helm (Kubernetes)
+
+Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using official `postgres:17` image by default) and Bitnami Redis 7.4 subchart.
+
+**Secret management — two supported patterns:**
+
+| Pattern | How |
+|---|---|
+| **Chart-managed Secret** | Set `secret.djangoSecretKey` (and OAuth credentials) in a gitignored `values.secret.yaml` file; chart creates the Secret automatically |
+| **External / pre-existing Secret** | Create the K8s Secret yourself (via Vault, Sealed Secrets, ESO, etc.) and set `secret.existingSecret: <name>`; the chart references it without creating its own |
+
+The same `existingSecret` pattern applies to the PostgreSQL password (`postgresql.auth.existingSecret`), making the chart compatible with external secrets managers at every credential boundary.
+
+- `values.secret.yaml.example` ships in the repo as a template for the gitignored secrets file approach
+- `backend.oauth.*` block — per-provider `clientId`/`clientSecret` fields; leave empty to disable a provider
+- `backend.oauth.oidc.*` — `serverUrl`, `clientId`, `clientSecret`, `providerName` for generic OIDC
+
+---
+
 ## CI/CD
 
 - GitLab CI pipeline: lint, SAST (Semgrep + Bandit), secret detection, migration check, backend tests (sharded across 3 parallel jobs via pytest-split), frontend tests, docker build, changelog check
