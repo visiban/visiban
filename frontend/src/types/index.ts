@@ -86,7 +86,7 @@ export function userDisplayName(user: Pick<User, "display_name" | "username"> & 
 export interface BoardMembership {
   id: number | null;
   user: BoardUser;
-  role: "admin" | "member" | "collaborator" | "viewer";
+  role: "admin" | "member" | "collaborator" | "viewer" | "site_admin";
   is_moderator: boolean;
   joined_at: string;
 }
@@ -155,7 +155,7 @@ export interface Card {
   due_date: string | null;
   weight: number;
   position: number;
-  created_by: number;
+  created_by: BoardUser | null;
   created_at: string;
   updated_at: string;
   last_moved_at: string | null;

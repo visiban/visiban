@@ -79,7 +79,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   return {
     id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Test Card', description: 'A test card',
     priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
-    position: 0, created_by: 1, created_at: '2026-01-01T00:00:00Z',
+    position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null }, created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
     attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
     version: 1,
@@ -317,7 +317,7 @@ describe('CardDetail', () => {
       current_user_role: 'member',
       members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
     })
-    props.card = makeCard({ created_by: 1 }) // card owned by user 1, current user is 99
+    props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } }) // card owned by user 1, current user is 99
     render(<CardDetail {...props} currentUser={otherUser} />)
     expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
     expect(screen.queryByText('Archive card')).not.toBeInTheDocument()
@@ -329,7 +329,7 @@ describe('CardDetail', () => {
       current_user_role: 'member',
       members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
     })
-    props.card = makeCard({ created_by: 1 })
+    props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } })
     render(<CardDetail {...props} currentUser={fakeUser} />)
     expect(screen.getByText('Delete card')).toBeInTheDocument()
     expect(screen.getByText('Archive card')).toBeInTheDocument()
@@ -342,7 +342,7 @@ describe('CardDetail', () => {
       current_user_role: 'member',
       members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
     })
-    props.card = makeCard({ created_by: 1 }) // card owned by user 1, moderator is 99
+    props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } }) // card owned by user 1, moderator is 99
     render(<CardDetail {...props} currentUser={modUser} />)
     expect(screen.getByText('Delete card')).toBeInTheDocument()
     expect(screen.getByText('Archive card')).toBeInTheDocument()
@@ -783,7 +783,7 @@ describe('CardDetail', () => {
         current_user_role: 'member',
         members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
       })
-      props.card = makeCard({ created_by: 1 }) // fakeUser is the creator
+      props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } }) // fakeUser is the creator
       render(<CardDetail {...props} currentUser={fakeUser} />)
       const trigger = screen.getByRole('button', { name: /Unassigned/ })
       expect(trigger).not.toBeDisabled()
@@ -796,7 +796,7 @@ describe('CardDetail', () => {
         current_user_role: 'member',
         members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
       })
-      props.card = makeCard({ created_by: 1 }) // owned by fakeUser (id 1), not otherUser (id 99)
+      props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } }) // owned by fakeUser (id 1), not otherUser (id 99)
       render(<CardDetail {...props} currentUser={otherUser} />)
       const trigger = screen.getByRole('button', { name: /Assigning cards requires/ })
       expect(trigger).toBeDisabled()
@@ -809,7 +809,7 @@ describe('CardDetail', () => {
         current_user_role: 'member',
         members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
       })
-      props.card = makeCard({ created_by: 1 }) // owned by fakeUser, not modUser
+      props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null } }) // owned by fakeUser, not modUser
       render(<CardDetail {...props} currentUser={modUser} />)
       const trigger = screen.getByRole('button', { name: /Unassigned/ })
       expect(trigger).not.toBeDisabled()
@@ -817,7 +817,7 @@ describe('CardDetail', () => {
 
     it('assignee dropdown is enabled for an admin regardless of ownership', () => {
       const props = defaultProps() // board.current_user_role defaults to 'admin'
-      props.card = makeCard({ created_by: 99 }) // owned by someone else
+      props.card = makeCard({ created_by: { id: 99, username: "other", display_name: "Other", avatar_url: null } }) // owned by someone else
       render(<CardDetail {...props} currentUser={fakeUser} />)
       const trigger = screen.getByRole('button', { name: /Unassigned/ })
       expect(trigger).not.toBeDisabled()

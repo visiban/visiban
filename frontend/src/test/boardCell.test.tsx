@@ -32,7 +32,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
   return {
     id: 1, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Test Card', description: '',
     priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
-    position: 0, created_by: 1, created_at: '', updated_at: '',
+    position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: null }, created_at: '', updated_at: '',
     last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1,
     ...overrides,
   }

@@ -151,6 +151,7 @@ class CardSerializer(serializers.ModelSerializer):
     assignee_id = serializers.PrimaryKeyRelatedField(
         write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
+    created_by = BoardUserSerializer(read_only=True)
     last_moved_at = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):

@@ -325,7 +325,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const canModifyOthersContent =
     role === "admin" || role === "site_admin" || isModerator;
   const isCardOwner =
-    currentUser != null && localCard.created_by === currentUser.id;
+    currentUser != null && localCard.created_by?.id === currentUser.id;
   const canDeleteOrArchive = canEdit && (isCardOwner || canModifyOthersContent);
   const canAssign = canEdit && (isCardOwner || canModifyOthersContent);
 
