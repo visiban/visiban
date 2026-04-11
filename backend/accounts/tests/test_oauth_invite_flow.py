@@ -257,7 +257,7 @@ class SocialRegistrationAdapterIsOpenTests(TestCase):
         from allauth.core.exceptions import ImmediateHttpResponse
         with self.assertRaises(ImmediateHttpResponse) as ctx:
             self.adapter.is_open_for_signup(request, MagicMock())
-        self.assertIn("auth_error=invite_used", ctx.exception.response.url)
+        self.assertIn("auth_error=invite_invalid", ctx.exception.response.url)
 
     def test_invite_only_with_bogus_token_redirects(self):
         set_mode(SiteSetting.RegistrationMode.INVITE_ONLY)

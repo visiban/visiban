@@ -5,15 +5,20 @@ import type { User } from "../../types";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-/** Map backend auth_error codes to user-facing messages. */
+/**
+ * User-facing error messages keyed by backend auth_error codes.
+ * Returned as ?auth_error=<code> when an OAuth callback fails.
+ * Edit this map to change copy — the frontend reads it on mount.
+ */
+const AUTH_ERROR_FALLBACK = "Something went wrong during authentication. Please try again.";
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invite_expired: "This invite link has expired. Please ask your administrator for a new one.",
   invite_used: "This invite link has already been used. Please ask your administrator for a new one.",
   invite_revoked: "This invite link has been revoked. Please ask your administrator for a new one.",
   invite_required: "An invite link is required to create an account.",
-  invite_invalid: "This invite link is invalid. Please ask your administrator for a new one.",
+  invite_invalid: "This invite link is no longer valid. Please ask your administrator for a new one.",
   signup_closed: "Registration is currently closed.",
-  oauth_failed: "Something went wrong during authentication. Please try again.",
+  oauth_failed: AUTH_ERROR_FALLBACK,
 };
 
 /**
@@ -58,7 +63,7 @@ export default function LoginPage({ onLogin }: Props) {
     // Handle auth_error from OAuth callback redirect.
     const authError = searchParams.get("auth_error");
     if (authError) {
-      setError(AUTH_ERROR_MESSAGES[authError] ?? "Something went wrong during authentication. Please try again.");
+      setError(AUTH_ERROR_MESSAGES[authError] ?? AUTH_ERROR_FALLBACK);
       // Clear dead invite tokens on token-specific errors.
       if (authError.startsWith("invite_")) {
         sessionStorage.removeItem("invite_token");

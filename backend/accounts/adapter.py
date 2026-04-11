@@ -91,7 +91,7 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             request.session.pop(PENDING_INVITE_SESSION_KEY, None)
             error_code = {
                 "invite_missing": "invite_required",
-                "invite_invalid": "invite_used",
+                "invite_invalid": "invite_invalid",
                 "invite_expired": "invite_expired",
             }.get(exc.code, "invite_invalid")
             self._redirect_with_error(request, error_code)
