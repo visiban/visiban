@@ -1,3 +1,9 @@
+---
+name: voc
+description: Voice of Customer panel — evaluate a feature from Visiban persona perspectives with scored feedback.
+argument-hint: "<all|persona names> <feature description>"
+---
+
 # Voice of Customer Panel
 
 You are running a structured Voice of Customer (VoC) review. Your job is to evaluate the proposed feature or change from the perspective of each Visiban persona and return a scored panel report.
