@@ -1,56 +1,20 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# init-letsencrypt.sh — one-time setup: obtain a Let's Encrypt certificate
-# and start the production stack.
+# DEPRECATED — use init-prod.sh instead.
 #
-# Usage:
-#   cp .env.example .env   # fill in DOMAIN, CERTBOT_EMAIL, DJANGO_SECRET_KEY
-#   chmod +x init-letsencrypt.sh
-#   ./init-letsencrypt.sh
+# This script is a compatibility shim that calls init-prod.sh with
+# TLS_MODE=letsencrypt. It will be removed in a future release.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
-# Load .env so DOMAIN and CERTBOT_EMAIL are available
-if [[ ! -f .env ]]; then
-  echo "ERROR: .env file not found. Copy .env.example and fill in the required values."
-  exit 1
-fi
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
-
-: "${DOMAIN:?Set DOMAIN=yourdomain.com in .env}"
-: "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL=admin@yourdomain.com in .env}"
-
-# nginx renders nginx/app.conf.template at container startup — no host-side
-# envsubst step needed.
-
-echo "==> Building application images..."
-docker compose -f docker-compose.prod.yml build
-
-if [[ -d "certbot/conf/live/${DOMAIN}" ]]; then
-  echo "==> Certificate already exists — skipping issuance."
-else
-  echo "==> Requesting Let's Encrypt certificate for ${DOMAIN}..."
-  echo "    (certbot will briefly bind port 80 to complete the ACME challenge)"
-  mkdir -p certbot/conf certbot/www
-  docker run --rm \
-    -p 80:80 \
-    -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
-    certbot/certbot certonly --standalone \
-    --email "${CERTBOT_EMAIL}" \
-    --agree-tos \
-    --no-eff-email \
-    -d "${DOMAIN}"
-  echo "==> Certificate obtained."
-fi
-
-echo "==> Starting Visiban..."
-docker compose -f docker-compose.prod.yml up -d
-
 echo ""
-echo "  Visiban is live at https://${DOMAIN}"
+echo "  ============================================================"
+echo "  WARNING: init-letsencrypt.sh is deprecated."
+echo "  Use init-prod.sh instead — it supports all TLS modes."
+echo "  See docs/getting-started/installation.md for details."
+echo "  ============================================================"
 echo ""
-echo "  Logs:    docker compose -f docker-compose.prod.yml logs -f"
-echo "  Stop:    docker compose -f docker-compose.prod.yml down"
+
+# Default to letsencrypt if TLS_MODE is not already set
+export TLS_MODE="${TLS_MODE:-letsencrypt}"
+exec "$(dirname "$0")/init-prod.sh"

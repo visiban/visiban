@@ -28,6 +28,10 @@ backend:
     frontendUrl: "https://visiban.example.com"
     # Public hostname for OAuth callback URLs.
     siteDomain: "visiban.example.com"
+    # Set to true to disable secure cookie flags (SESSION_COOKIE_SECURE,
+    # CSRF_COOKIE_SECURE) and HSTS. Required when ingress.tls.enabled is false
+    # AND there is no upstream TLS terminator setting X-Forwarded-Proto: https.
+    forceInsecureCookies: false
 
   # OAuth provider credentials — leave empty to disable a provider
   oauth:

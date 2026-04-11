@@ -282,10 +282,22 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORI
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_HTTPONLY = False  # Must be False so JS can read it
 SESSION_COOKIE_SAMESITE = "Lax"
-# Mark session and CSRF cookies as Secure in production so they are never
-# transmitted over plain HTTP. Safe to set behind Nginx TLS termination.
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+# Allow operators running behind their own TLS terminator (or on an air-gapped
+# network) to disable secure cookie flags so plain-HTTP deployments work.
+# Default: secure in production (not DEBUG), insecure only when explicitly opted out.
+_FORCE_INSECURE_COOKIES = env.bool("FORCE_INSECURE_COOKIES", default=False)
+SESSION_COOKIE_SECURE = not DEBUG and not _FORCE_INSECURE_COOKIES
+CSRF_COOKIE_SECURE = not DEBUG and not _FORCE_INSECURE_COOKIES
+
+if _FORCE_INSECURE_COOKIES and not DEBUG:
+    import logging as _logging
+
+    _logging.getLogger("django.security").warning(
+        "\u26a0\ufe0f  FORCE_INSECURE_COOKIES is enabled in production. "
+        "Session and CSRF cookies will be sent over plain HTTP. "
+        "Do NOT use this setting when the application is reachable from the public internet."
+    )
+
 # Tell Django that the X-Forwarded-Proto header (set by Nginx) is the
 # authoritative indicator of HTTPS. Required for request.is_secure() to
 # return True behind the Nginx reverse proxy.
@@ -293,7 +305,10 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # HTTP security headers — opt-in Django SecurityMiddleware settings.
 # HSTS tells browsers to always use HTTPS; env override allows operators to
 # set 0 during initial deployment before they have verified HTTPS is stable.
-SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0 if DEBUG else 31536000)
+# When FORCE_INSECURE_COOKIES is set, default HSTS to 0 to avoid locking
+# browsers into HTTPS for a deployment that may not have TLS at all.
+_HSTS_DEFAULT = 0 if (DEBUG or _FORCE_INSECURE_COOKIES) else 31536000
+SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=_HSTS_DEFAULT)
 SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
