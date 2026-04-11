@@ -72,4 +72,8 @@ Backend environment variables — shared by the init container and main containe
 - name: OIDC_PROVIDER_NAME
   value: {{ .Values.backend.oauth.oidc.providerName | quote }}
 {{- end }}
+{{- if .Values.backend.settings.forceInsecureCookies }}
+- name: FORCE_INSECURE_COOKIES
+  value: "true"
+{{- end }}
 {{- end }}

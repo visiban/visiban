@@ -1,10 +1,11 @@
-# Production stack — run via init-letsencrypt.sh on first boot,
+# Production stack — run via init-prod.sh on first boot,
 # then: docker compose -f docker-compose.prod.yml up -d
 #
 # Required .env variables (in addition to the standard ones):
 #   APP_VERSION=v1.0.0-rc.11   (image tag to pull; defaults to "latest" if unset)
 #   DOMAIN=yourdomain.com
-#   CERTBOT_EMAIL=admin@yourdomain.com
+#   TLS_MODE=letsencrypt        (letsencrypt | selfsigned | none)
+#   CERTBOT_EMAIL=admin@yourdomain.com   (required only when TLS_MODE=letsencrypt)
 
 services:
   db:
@@ -76,10 +77,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    # Render the nginx config template at container startup so the host never
-    # needs to run envsubst manually.  envsubst '${DOMAIN}' restricts
-    # substitution to $DOMAIN only — all nginx variables ($host, $uri, etc.)
-    # are left untouched.
+    # init-prod.sh copies the correct nginx template to nginx/active.conf.template
+    # based on TLS_MODE. envsubst renders it at container startup.
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN must be set in .env}
     command: >
@@ -89,7 +88,7 @@ services:
        > /etc/nginx/conf.d/default.conf
        && nginx -g 'daemon off;'"
     volumes:
-      - ./nginx/app.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/active.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
       - frontend-dist:/usr/share/nginx/html:ro
@@ -101,9 +100,11 @@ services:
         condition: service_healthy
 
   # Renews the Let's Encrypt cert every 12 hours (certbot skips if not due).
+  # Only started when TLS_MODE=letsencrypt (via Compose profiles).
   certbot:
     image: certbot/certbot
     restart: unless-stopped
+    profiles: ["letsencrypt"]
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot

@@ -142,6 +142,59 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
+### TLS with self-signed certificates
+
+For staging or internal deployments, use cert-manager's built-in self-signed issuer:
+
+```yaml
+# self-signed-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+```
+
+```bash
+kubectl apply -f self-signed-issuer.yaml
+helm install visiban helm/visiban \
+  --namespace visiban --create-namespace \
+  --set ingress.host=boards.internal \
+  --set ingress.tls.enabled=true \
+  --set ingress.tls.secretName=visiban-selfsigned-tls \
+  --set "ingress.annotations.cert-manager\.io/cluster-issuer=selfsigned-issuer" \
+  --set backend.settings.allowedHosts=boards.internal \
+  --set backend.settings.corsAllowedOrigins=https://boards.internal \
+  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
+  --set postgresql.auth.password=<strong-password>
+```
+
+!!! warning
+    Browsers will show a certificate warning with self-signed certs. This is expected and suitable only for internal or staging environments.
+
+### Deploying without TLS
+
+When TLS is terminated upstream (e.g. by a cloud load balancer) or not needed (air-gapped network), deploy with `ingress.tls.enabled=false` and enable insecure cookies:
+
+```bash
+helm install visiban helm/visiban \
+  --namespace visiban --create-namespace \
+  --set ingress.host=boards.internal \
+  --set ingress.tls.enabled=false \
+  --set backend.settings.forceInsecureCookies=true \
+  --set backend.settings.allowedHosts=boards.internal \
+  --set backend.settings.corsAllowedOrigins=http://boards.internal \
+  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
+  --set postgresql.auth.password=<strong-password>
+```
+
+!!! warning
+    `forceInsecureCookies: true` disables `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE`. Do not enable this when the application is reachable from the public internet without TLS termination upstream.
+
+!!! tip "TLS terminated upstream?"
+    If your load balancer or ingress controller terminates TLS and sets `X-Forwarded-Proto: https`, you do **not** need `forceInsecureCookies: true`. Django reads the header and treats the request as secure. Keep `forceInsecureCookies: false` (the default) and set `corsAllowedOrigins` to `https://...` as usual.
+
 ### Key Helm values
 
 | Value | Default | Description |
@@ -153,6 +206,7 @@ helm install visiban helm/visiban \
 | `backend.settings.corsAllowedOrigins` | `https://visiban.example.com` | CORS allowed origins — **must match the public URL** |
 | `backend.settings.frontendUrl` | `https://visiban.example.com` | Full URL of the SPA — allauth redirects here after OAuth login/logout |
 | `backend.settings.siteDomain` | `visiban.example.com` | Public hostname for OAuth callback URLs |
+| `backend.settings.forceInsecureCookies` | `false` | Disable secure cookie flags for plain-HTTP deployments |
 | `backend.oauth.oidc.serverUrl` | `""` | OIDC issuer URL (e.g. `https://sso.example.com/realms/my-realm`) — set all three OIDC fields to enable |
 | `backend.oauth.oidc.clientId` | `""` | OIDC client ID |
 | `backend.oauth.oidc.clientSecret` | `""` | OIDC client secret |

@@ -21,7 +21,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 - **OAuth & OIDC** — Google, GitHub, and GitLab login out of the box; connect any OIDC provider via environment variables
 - **Personal access tokens** — token-based API access for scripts and integrations
 - **Invite links** — shareable URLs with configurable role, expiry, and single-use options
-- **Production-ready** — Nginx reverse proxy + automatic Let's Encrypt TLS via `docker-compose.prod.yml` and `init-letsencrypt.sh`
+- **Production-ready** — Nginx reverse proxy with flexible TLS (`letsencrypt`, `selfsigned`, or `none`) via `docker-compose.prod.yml` and `init-prod.sh`
 
 ## Quick links
 

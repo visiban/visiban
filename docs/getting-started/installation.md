@@ -140,6 +140,8 @@ A template with comments is at `frontend/.env.local.example`.
 | `OIDC_SECRET` | No | OIDC provider client secret. |
 | `OIDC_SERVER_URL` | No | OIDC issuer URL, e.g. `https://idp.example.com/realms/my-realm`. Must be the issuer root — allauth appends `.well-known/openid-configuration` to discover endpoints. |
 | `OIDC_PROVIDER_NAME` | No | Display name shown on the OIDC login button (default: `SSO`). |
+| `TLS_MODE` | No | TLS mode for the production Docker stack: `letsencrypt` (default), `selfsigned`, or `none`. See [TLS modes](#tls-modes). |
+| `FORCE_INSECURE_COOKIES` | No | Set `true` to disable `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` for plain-HTTP deployments. Automatically set by `init-prod.sh` when `TLS_MODE=none`. Default: `false`. |
 | `MAX_UPLOAD_SIZE_BYTES` | No | Maximum file size for card attachment uploads in bytes (default: `10485760` — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use. |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
@@ -150,9 +152,24 @@ OAuth variables are documented in [OAuth Setup](oauth.md).
 
 A Helm chart is included for Kubernetes deployments. See [Deployment — Kubernetes / Helm](../architecture/deployment.md#kubernetes-helm) for install instructions, configuration values, and upgrade steps.
 
-## Production with HTTPS
+## Production Deployment
 
 > **Tested:** The production Docker Compose stack has been verified end-to-end. If you encounter issues, please open an issue.
+
+### TLS modes
+
+The production stack supports three TLS modes, controlled by the `TLS_MODE` environment variable:
+
+| Mode | Description | Use case |
+|---|---|---|
+| `letsencrypt` | **(default)** Obtain and auto-renew a Let's Encrypt certificate | Public-facing deployments with a DNS A record |
+| `selfsigned` | Generate a self-signed certificate | Staging, internal networks, or development |
+| `none` | Serve over plain HTTP — no TLS | Air-gapped networks or deployments behind an external load balancer that terminates TLS |
+
+!!! warning "Security warnings for non-default modes"
+    **`selfsigned`** — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert. Intended for internal or staging use only.
+
+    **`none`** — All traffic including session cookies and API calls is unencrypted. The init script automatically sets `FORCE_INSECURE_COOKIES=true` so Django does not require HTTPS for cookies. **Do not use this for deployments reachable from the public internet.**
 
 ### Pre-flight security checklist
 
@@ -172,15 +189,17 @@ The production stack (`docker-compose.prod.yml`) replaces the Vite dev server wi
 |---|---|
 | **Nginx** | Serves the compiled React app; proxies `/api/`, `/_allauth/`, `/ws/`, `/admin/`, `/static/`, `/media/` to the backend |
 | **Frontend build** | `npm run build` runs once at startup and outputs static files to a shared volume |
-| **Certbot** | Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
+| **Certbot** | (TLS_MODE=letsencrypt only) Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours |
 
 ### Prerequisites
 
-- A Linux server (VPS, cloud VM, bare metal) reachable on the public internet
-- Ports **80** and **443** open in your firewall / security group
-- A DNS **A record** pointing `yourdomain.com` → your server's public IP
-  (Let's Encrypt verifies domain ownership before issuing a certificate — DNS must resolve before running the init script)
-- **Docker** and **Docker Compose** installed
+- A Linux server (VPS, cloud VM, bare metal)
+- **Docker** and **Docker Compose** (v2.21+ required for Compose profiles)
+- For `TLS_MODE=letsencrypt`:
+    - Ports **80** and **443** open in your firewall / security group
+    - A DNS **A record** pointing `yourdomain.com` → your server's public IP (Let's Encrypt verifies domain ownership before issuing a certificate)
+- For `TLS_MODE=selfsigned`: Port **443** open (and **80** for the HTTP→HTTPS redirect)
+- For `TLS_MODE=none`: Port **80** open
 
 ### Step 1 — Clone and configure
 
@@ -208,13 +227,21 @@ DB_PASSWORD=<strong password>           # required — used by both Django and P
 # REDIS_URL and REDIS_CACHE_URL are set in docker-compose.prod.yml environment block.
 # Only override here if you use an external Redis.
 
-# Let's Encrypt
+# TLS mode — choose one: letsencrypt (default), selfsigned, none
+TLS_MODE=letsencrypt
+
+# Let's Encrypt (required only when TLS_MODE=letsencrypt)
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
 # App version — set to the version you are deploying (see CHANGELOG.md)
 APP_VERSION=1.0.0-rc.11
 ```
+
+!!! tip "Using `TLS_MODE=none` behind an external load balancer"
+    If TLS is terminated by an upstream proxy (AWS ALB, Cloudflare, Traefik, etc.) that sets the `X-Forwarded-Proto: https` header, you do **not** need `FORCE_INSECURE_COOKIES=true`. Django reads the header and treats the request as secure. Set `CORS_ALLOWED_ORIGINS` and `FRONTEND_URL` to `https://...` as usual.
+
+    Only set `FORCE_INSECURE_COOKIES=true` (done automatically by `init-prod.sh` for `TLS_MODE=none`) when there is genuinely no TLS anywhere in the request path.
 
 !!! warning "CORS_ALLOWED_ORIGINS must not contain localhost in production"
     Visiban refuses to start with `DEBUG=False` if `CORS_ALLOWED_ORIGINS` contains a
@@ -236,17 +263,17 @@ APP_VERSION=1.0.0-rc.11
 ### Step 2 — Run the init script
 
 ```bash
-chmod +x init-letsencrypt.sh
-./init-letsencrypt.sh
+chmod +x init-prod.sh
+./init-prod.sh
 ```
 
-The script performs these steps automatically:
+The script performs these steps automatically based on `TLS_MODE`:
 
-1. Builds the backend and frontend Docker images
-2. Runs the **certbot standalone** container — it temporarily binds port 80 to complete the ACME HTTP-01 challenge and obtain the certificate
-3. Starts the full stack: `db`, `redis`, `backend`, `nginx`, `frontend-build`, `certbot`
-
-The nginx container renders `nginx/app.conf.template` into its own config at startup — no separate config generation step is required on the host.
+| TLS_MODE | What the script does |
+|---|---|
+| `letsencrypt` | Runs certbot standalone to obtain the certificate, then starts the full stack including the certbot renewal service |
+| `selfsigned` | Generates a self-signed certificate with `openssl` (valid 365 days), then starts the stack without certbot |
+| `none` | Sets `FORCE_INSECURE_COOKIES=true` in `.env`, selects the HTTP-only nginx config, starts the stack without certbot |
 
 When it finishes you will see:
 
@@ -254,12 +281,17 @@ When it finishes you will see:
   Visiban is live at https://yourdomain.com
 ```
 
+(or `http://` for `TLS_MODE=none`)
+
+!!! note "Migrating from `init-letsencrypt.sh`"
+    The old `init-letsencrypt.sh` script still works — it prints a deprecation warning and delegates to `init-prod.sh` with `TLS_MODE=letsencrypt`. No action is required for existing deployments, but new installs should use `init-prod.sh` directly.
+
 ### Step 3 — Verify
 
 | Check | Expected |
 |---|---|
-| `https://yourdomain.com` loads | React app renders and you can log in |
-| `http://yourdomain.com` | Redirects to HTTPS |
+| `https://yourdomain.com` loads (or `http://` for `TLS_MODE=none`) | React app renders and you can log in |
+| `http://yourdomain.com` (when TLS is enabled) | Redirects to HTTPS |
 | Green **Live** dot in toolbar | WebSocket connected |
 | `https://yourdomain.com/admin/` | Returns 403 from the internet (restricted to loopback — access via SSH tunnel) |
 
@@ -293,9 +325,16 @@ This rebuilds images, re-runs the frontend build (output replaces the previous s
 
 ### Certificate renewal
 
-The `certbot` container calls `certbot renew` every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.
+The `certbot` container (active only with `TLS_MODE=letsencrypt`) calls `certbot renew` every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.
 
-To check renewal status:
+For `TLS_MODE=selfsigned`, the self-signed certificate is valid for 365 days. To regenerate it, delete the certificate directory and re-run the init script:
+
+```bash
+rm -rf certbot/conf/live/yourdomain.com
+./init-prod.sh
+```
+
+To check renewal status (Let's Encrypt only):
 
 ```bash
 docker compose -f docker-compose.prod.yml logs certbot
@@ -355,14 +394,14 @@ docker compose -f docker-compose.prod.yml cp backend:/tmp/media.tar.gz ./media_b
 Something else is already using port 80. Stop it before running the init script:
 ```bash
 sudo systemctl stop nginx apache2   # or whichever service holds port 80
-./init-letsencrypt.sh
+./init-prod.sh
 ```
 
 **`Challenge failed: DNS problem: NXDOMAIN`**
 Your DNS A record hasn't propagated yet. Check with `dig yourdomain.com` — it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.
 
 **Let's Encrypt rate limit**
-If you hit the issuance limit (5 certs per domain per week during testing), add `--staging` to the certbot command in `init-letsencrypt.sh` to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.
+If you hit the issuance limit (5 certs per domain per week during testing), add `--staging` to the certbot command in `init-prod.sh` to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.
 
 **Nginx `502 Bad Gateway`**
 The backend may still be starting up. Check: `docker compose -f docker-compose.prod.yml logs backend`. Wait for the `daphne` line to appear before reloading the page.
