@@ -5,12 +5,12 @@ Backend environment variables — shared by the init container and main containe
 - name: DJANGO_SECRET_KEY
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: django-secret-key
 - name: DATABASE_URL
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: database-url
 - name: DEBUG
   value: {{ .Values.backend.settings.debug | quote }}
@@ -29,32 +29,32 @@ Backend environment variables — shared by the init container and main containe
 - name: GOOGLE_CLIENT_ID
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: google-client-id
 - name: GOOGLE_CLIENT_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: google-client-secret
 - name: GITHUB_CLIENT_ID
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: github-client-id
 - name: GITHUB_CLIENT_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: github-client-secret
 - name: GITLAB_CLIENT_ID
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: gitlab-client-id
 - name: GITLAB_CLIENT_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: gitlab-client-secret
 {{- if .Values.backend.oauth.oidc.serverUrl }}
 - name: OIDC_SERVER_URL
@@ -62,12 +62,12 @@ Backend environment variables — shared by the init container and main containe
 - name: OIDC_CLIENT_ID
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: oidc-client-id
 - name: OIDC_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ include "visiban.fullname" . }}
+      name: {{ include "visiban.secretName" . }}
       key: oidc-client-secret
 - name: OIDC_PROVIDER_NAME
   value: {{ .Values.backend.oauth.oidc.providerName | quote }}

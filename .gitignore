@@ -55,3 +55,4 @@ site/
 # Stray root-level Node artifacts (frontend lives in frontend/)
 /package.json
 /package-lock.json
+values.secret.yaml

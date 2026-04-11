@@ -61,17 +61,30 @@ The Helm chart bundles the following database and cache dependencies:
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm dependency update helm/visiban
+```
 
+Create a secret values file (never committed — `values.secret.yaml` is gitignored):
+
+```bash
+cp helm/visiban/values.secret.yaml.example helm/visiban/values.secret.yaml
+# Edit values.secret.yaml — set djangoSecretKey and postgresql.auth.password
+```
+
+Then install:
+
+```bash
 helm install visiban helm/visiban \
   --namespace visiban --create-namespace \
+  -f helm/visiban/values.secret.yaml \
   --set ingress.host=boards.example.com \
   --set backend.settings.allowedHosts=boards.example.com \
   --set backend.settings.corsAllowedOrigins=https://boards.example.com \
   --set backend.settings.frontendUrl=https://boards.example.com \
-  --set backend.settings.siteDomain=boards.example.com \
-  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
-  --set postgresql.auth.password=<strong-password>
+  --set backend.settings.siteDomain=boards.example.com
 ```
+
+!!! warning "Never pass secrets via `--set`"
+    Using `--set secret.djangoSecretKey=...` exposes the value in shell history and the process list. Use a gitignored values file (`-f values.secret.yaml`) or a pre-created Kubernetes Secret (`secret.existingSecret`) instead.
 
 After the install, retrieve the one-time admin password:
 
@@ -81,6 +94,36 @@ kubectl exec -n visiban \
   -- cat /run/visiban/admin_password
 ```
 
+### Using an existing Kubernetes Secret
+
+For production clusters managed by Sealed Secrets, External Secrets Operator, or Vault, you can bring your own Secret instead of having the chart create one:
+
+```bash
+# Create the Secret outside Helm (or via your secrets manager)
+kubectl create secret generic visiban-credentials -n visiban \
+  --from-literal=django-secret-key="$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')" \
+  --from-literal=database-url="postgres://visiban:PASSWORD@HOST:5432/visiban" \
+  --from-literal=google-client-id="" \
+  --from-literal=google-client-secret="" \
+  --from-literal=github-client-id="" \
+  --from-literal=github-client-secret="" \
+  --from-literal=gitlab-client-id="" \
+  --from-literal=gitlab-client-secret=""
+
+# Tell the chart to use it
+helm install visiban helm/visiban \
+  --namespace visiban \
+  --set secret.existingSecret=visiban-credentials \
+  --set postgresql.auth.existingSecret=visiban-pg-password \
+  --set ingress.host=boards.example.com \
+  --set backend.settings.allowedHosts=boards.example.com \
+  --set backend.settings.corsAllowedOrigins=https://boards.example.com \
+  --set backend.settings.frontendUrl=https://boards.example.com \
+  --set backend.settings.siteDomain=boards.example.com
+```
+
+The existing Secret must contain the same keys the chart expects: `django-secret-key`, `database-url`, plus OAuth provider keys (empty strings for unused providers). The PostgreSQL Secret must contain a `password` key.
+
 ### TLS with cert-manager
 
 If cert-manager and a `letsencrypt-prod` ClusterIssuer are installed, enable TLS:
@@ -88,6 +131,7 @@ If cert-manager and a `letsencrypt-prod` ClusterIssuer are installed, enable TLS
 ```bash
 helm install visiban helm/visiban \
   --namespace visiban --create-namespace \
+  -f helm/visiban/values.secret.yaml \
   --set ingress.host=boards.example.com \
   --set ingress.tls.enabled=true \
   --set ingress.tls.secretName=boards-example-tls \
@@ -95,9 +139,7 @@ helm install visiban helm/visiban \
   --set backend.settings.allowedHosts=boards.example.com \
   --set backend.settings.corsAllowedOrigins=https://boards.example.com \
   --set backend.settings.frontendUrl=https://boards.example.com \
-  --set backend.settings.siteDomain=boards.example.com \
-  --set secret.djangoSecretKey=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))") \
-  --set postgresql.auth.password=<strong-password>
+  --set backend.settings.siteDomain=boards.example.com
 ```
 
 ### Key Helm values
@@ -117,8 +159,10 @@ helm install visiban helm/visiban \
 | `backend.oauth.oidc.providerName` | `SSO` | Label shown on the OIDC login button |
 | `backend.mediaPersistence.enabled` | `true` | Persist user-uploaded media (attachments) on a PVC |
 | `backend.mediaPersistence.size` | `5Gi` | Size of the media PVC |
-| `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` |
-| `postgresql.auth.password` | `visiban` | Database password |
+| `secret.existingSecret` | `""` | Name of a pre-existing K8s Secret — when set, the chart does not create its own |
+| `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` (ignored when `existingSecret` is set) |
+| `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
+| `postgresql.auth.password` | `visiban` | Database password (ignored when `existingSecret` is set) |
 | `backend.image.tag` | `v1.0.0-rc.11` | Backend image tag |
 | `frontend.image.tag` | `v1.0.0-rc.11` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |

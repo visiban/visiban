@@ -46,7 +46,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "visiban.fullname" . }}-postgresql
+                  name: {{ include "visiban.postgresql.secretName" . }}
                   key: password
             # Use a subdirectory so the official image doesn't trip over
             # lost+found in a freshly provisioned PVC.
@@ -88,6 +88,7 @@ spec:
           emptyDir: {}
   {{- end }}
 ---
+{{- if not .Values.postgresql.auth.existingSecret }}
 apiVersion: v1
 kind: Secret
 metadata:
@@ -98,6 +99,7 @@ metadata:
 type: Opaque
 stringData:
   password: {{ .Values.postgresql.auth.password | quote }}
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

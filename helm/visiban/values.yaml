@@ -93,9 +93,20 @@ ingress:
     enabled: false
     secretName: visiban-tls
 
-# Secret values — override with --set or a separate secret values file (never commit).
+# Secret values — prefer a gitignored values file (see values.secret.yaml.example)
+# over --set to avoid leaking secrets in shell history and process lists.
+# For production clusters, set existingSecret to a pre-created K8s Secret and
+# leave djangoSecretKey at the default — the chart will not create its own Secret.
 secret:
-  # Django SECRET_KEY — generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  # Name of a pre-existing Kubernetes Secret containing all backend credentials.
+  # When set, the chart skips creating its own Secret and references this one instead.
+  # The Secret must contain these keys: django-secret-key, database-url,
+  # google-client-id, google-client-secret, github-client-id, github-client-secret,
+  # gitlab-client-id, gitlab-client-secret. Add oidc-client-id and oidc-client-secret
+  # if OIDC is enabled. Keys for unused providers can be empty strings.
+  existingSecret: ""
+  # Django SECRET_KEY — only used when existingSecret is empty.
+  # Generate with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
   djangoSecretKey: "change-me-in-production"
 
 # Built-in PostgreSQL subchart (bitnami/postgresql).
@@ -110,7 +121,10 @@ postgresql:
   auth:
     database: visiban
     username: visiban
-    # Override this with --set postgresql.auth.password=...
+    # Name of a pre-existing Secret containing the password (key: "password").
+    # When set, the chart skips creating its own PostgreSQL Secret.
+    existingSecret: ""
+    # Only used when existingSecret is empty.
     password: "visiban"
   primary:
     persistence:
