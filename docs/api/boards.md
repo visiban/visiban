@@ -216,6 +216,7 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 |---|---|---|
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
+| `assignee_id` | integer | Filter by card assignee |
 | `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
 | `moved_before` | ISO date | Include movements on or before this date |

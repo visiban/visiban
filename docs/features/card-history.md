@@ -98,9 +98,10 @@ GET /api/v1/boards/{id}/movements/
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
 | `assignee_id` | integer | Filter by card assignee |
+| `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Lower bound (inclusive) |
 | `moved_before` | ISO date | Upper bound (inclusive) |
 | `exclude_type` | comma-separated string | Exclude movement types — e.g. `archived,unarchived` |
 | `offset` | integer | Pagination offset (default `0`) |
 
-Page size is fixed at 50. When no date range is supplied, the endpoint defaults to the last 30 days. Archive and unarchive events are excluded by default by the History view UI (via `exclude_type=archived,unarchived`), but the API returns all types unless the parameter is provided.
+Page size is fixed at 50. When no date range is supplied, the endpoint returns the full movement history. Archive and unarchive events are excluded by default by the History view UI (via `exclude_type=archived,unarchived`), but the API returns all types unless the parameter is provided.
