@@ -59,7 +59,8 @@ Explicitly call out any of the following if they apply:
 - **Premature abstraction** — is this adding a layer of indirection that isn't justified yet?
 - **Model design** — are new fields/models placed correctly? Will they need to move later?
 - **Migration risk** — does this require a data migration, a nullable column, or a multi-step deploy?
-- **API surface** — does this add a new endpoint or change an existing one in a way that breaks clients?
+- **API surface** — does this add a new endpoint or change an existing one in a way that breaks clients? For every FK field on a serializer, verify the representation is consistent: if one FK (e.g. `assignee`) is a nested object, all similar FKs (e.g. `created_by`) on the same serializer should also be nested objects — not raw integer PKs. Inconsistent FK representations become irrevocable public contract at 1.0+.
+- **TypeScript interface drift** — when a serializer field is added, changed, or its type is altered, verify the corresponding TypeScript interface in `frontend/src/types/index.ts` matches exactly. Check union types for completeness — if the backend can return a value (e.g. `"site_admin"` for a role field), the TS union must include it.
 - **Coupling** — does this create a dependency between two parts of the codebase that should be independent?
 - **Naming** — are the names accurate, or will they be misleading as the feature evolves?
 - **Test coverage gaps** — what edge cases are likely to be missed?
