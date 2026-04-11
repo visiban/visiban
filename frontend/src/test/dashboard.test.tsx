@@ -189,7 +189,7 @@ describe('Dashboard', () => {
     // which is only shown when both boards and groups lists are empty (the default mock state).
 
     it('navigates to /join/<token> when a full invite URL is pasted', async () => {
-      const user = userEvent.setup()
+      const user = userEvent.setup({ delay: null })
       renderDashboard()
 
       // Wait for the empty-state to appear, then open the join modal
@@ -209,7 +209,7 @@ describe('Dashboard', () => {
     })
 
     it('navigates to /join/<token> when a bare token is pasted', async () => {
-      const user = userEvent.setup()
+      const user = userEvent.setup({ delay: null })
       renderDashboard()
 
       await screen.findByText('Join a group with an invite link')
