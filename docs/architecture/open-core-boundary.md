@@ -76,11 +76,11 @@ SAML and ADFS require a separate library (e.g. `python3-saml` or `djangosaml2`) 
 | Google OAuth | OSS | Shipped | `allauth` (already present) |
 | GitHub OAuth | OSS | Shipped | `allauth` (already present) |
 | GitLab OAuth | OSS | Shipped | `allauth` (already present) |
-| Generic OIDC | OSS | Tech Preview (see [#349](https://gitlab.com/visiban/visiban/-/issues/349)) | `allauth` (already present) |
+| Generic OIDC | OSS | Beta (see [#349](https://gitlab.com/visiban/visiban/-/issues/349)) | `allauth` (already present) |
 | SAML 2.0 / ADFS | Enterprise | Planned | separate library required |
 | SCIM directory sync / JIT | Enterprise | Planned | separate library required |
 
-> **OIDC tech preview note.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; see [Authentication docs](../administration/authentication.md) for the current production-readiness status.
+> **OIDC beta note.** The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; see [Authentication docs](../administration/authentication.md) for the current production-readiness status.
 
 **Issues:** #349 (OIDC implementation), #714 (boundary decision), enterprise #4 (SAML), enterprise — (SCIM)
 

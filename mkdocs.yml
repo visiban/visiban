@@ -91,6 +91,7 @@ nav:
     - Scaling: architecture/scaling.md
     - Open-Core Boundary: architecture/open-core-boundary.md
     - API Versioning: architecture/api-versioning.md
+    - Technology Decisions: architecture/decisions.md
   - Administration:
     - administration/index.md
     - Configuration: administration/configuration.md

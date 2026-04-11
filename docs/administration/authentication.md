@@ -16,12 +16,15 @@ Visiban supports several authentication methods. Some are available in the OSS e
 
 See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step configuration of each provider.
 
-## Generic OIDC
+## Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
 
-!!! warning "Tech Preview — not tested against a real identity provider"
-    The OIDC configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. However, **the end-to-end login flow has not been validated against any real identity provider** — Keycloak, Okta, Authentik, Dex, or otherwise. Treat this as a tech preview: the wiring is in place, but you may encounter issues with token exchange, scope mapping, or callback handling that have not yet been discovered.
+!!! info "Beta — validated against Keycloak; community feedback needed for other providers"
+    The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the `oidc-smoke` job (`docker-compose.oidc.yml`). **Other providers — Okta, Authentik, Dex, and others — have not been tested.** You may encounter issues with token exchange, scope mapping, or callback handling specific to your IdP.
 
-    If you test this against your IdP, please report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
+    If you test this against a non-Keycloak provider, please report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
+
+!!! note "Keycloak default port"
+    Keycloak's default HTTP port is **8080**. Visiban's backend also defaults to port **8000** in the development Docker Compose setup — there is no conflict. When running the local OIDC dev stack (`docker compose -f docker-compose.yml -f docker-compose.oidc.yml up`), Keycloak is available at `http://localhost:8080` and the app at `http://localhost:5173` (frontend) / `http://localhost:8000` (API).
 
 Generic OIDC is available in the OSS edition via `allauth.socialaccount.providers.openid_connect`, which is already included in the `django-allauth` dependency. No additional packages are required.
 
