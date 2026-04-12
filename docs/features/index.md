@@ -325,10 +325,10 @@ Invite links now handle group-access-gated boards correctly. When a new user fol
 ## OIDC authentication
 
 
-Generic OpenID Connect (OIDC) is now configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set `OIDC_CLIENT_ID`, `OIDC_SECRET`, and `OIDC_SERVER_URL` to enable it; the provider is only registered when all three are present.
+Generic OpenID Connect (OIDC) is configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `OIDC_SERVER_URL` to enable it; the provider is only registered when all three are present.
 
-!!! info "Beta"
-    The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested yet — report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
+!!! info "Validated against Keycloak; community feedback welcome for other providers"
+    The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
 
 → [Authentication](../administration/authentication.md#generic-oidc)
 

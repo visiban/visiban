@@ -67,7 +67,7 @@ This notification appears in the bell dropdown and includes a **View board →**
 
 When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).
 
-## Staleness notifications <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
+## Staleness notifications
 
 Cards that haven't moved between columns in a configurable number of days are considered **stale**. The `notify_stale_cards` management command scans all boards and creates notifications for assignees of stale cards.
 

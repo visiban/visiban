@@ -36,10 +36,10 @@ For API details, see [Authentication API — Forgot password](../api/authenticat
 
 See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step configuration of each provider.
 
-## Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
+## Generic OIDC
 
-!!! info "Beta — validated against Keycloak; community feedback needed for other providers"
-    The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the `oidc-smoke` job (`docker-compose.oidc.yml`). **Other providers — Okta, Authentik, Dex, and others — have not been tested.** You may encounter issues with token exchange, scope mapping, or callback handling specific to your IdP.
+!!! info "Validated against Keycloak; community feedback welcome for other providers"
+    The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the `oidc-smoke` job (`docker-compose.oidc.yml`). Other providers — Okta, Authentik, Dex, and others — have not been tested end-to-end. You may encounter issues with token exchange, scope mapping, or callback handling specific to your IdP.
 
     If you test this against a non-Keycloak provider, please report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
 
@@ -143,4 +143,4 @@ SCIM 2.0 directory sync (automatic user provisioning and deprovisioning from you
 
 ## Classification rationale
 
-For the reasoning behind the OSS vs enterprise boundary for these authentication methods, see the [Open-Core Boundary](../architecture/open-core-boundary.md#oidc-authentication-oss-vs-saml-enterprise) reference page.
+For the reasoning behind the OSS vs enterprise boundary for these authentication methods, see the [Open-Core Boundary](../architecture/open-core-boundary.md#oidc-authentication-oss-vs-saml-scim-enterprise) reference page.

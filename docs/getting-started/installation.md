@@ -30,7 +30,7 @@ docker compose up --build
 
 Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
-This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production with HTTPS](#production-with-https) below for a production deployment.
+This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production Deployment](#production-deployment) below for a production deployment.
 
 | Service | URL |
 |---|---|
@@ -137,7 +137,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `SECURE_HSTS_SECONDS` | No | HTTP Strict-Transport-Security max-age in seconds (default: `0` in development, `31536000` — 1 year — in production when `DEBUG=false`). **Warning:** setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. `300`) when first enabling HTTPS, then increase once you confirm everything works. |
 | `DJANGO_ADMIN_ALLOWED_IPS` | No | Comma-separated list of IP addresses (or CIDR blocks) allowed to access `/admin/`. In production the default is loopback only (`127.0.0.1`, `::1`). Set this to your management network range if you need non-loopback access. Also documented in [Secret Rotation](../administration/secret-rotation.md). |
 | `OIDC_CLIENT_ID` | No | OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three `OIDC_*` vars must be set together to enable OIDC login. See [OAuth Setup](oauth.md). |
-| `OIDC_SECRET` | No | OIDC provider client secret. |
+| `OIDC_CLIENT_SECRET` | No | OIDC provider client secret. (`OIDC_SECRET` is a deprecated alias kept for one release cycle — rename it to `OIDC_CLIENT_SECRET` when you next update your environment.) |
 | `OIDC_SERVER_URL` | No | OIDC issuer URL, e.g. `https://idp.example.com/realms/my-realm`. Must be the issuer root — allauth appends `.well-known/openid-configuration` to discover endpoints. |
 | `OIDC_PROVIDER_NAME` | No | Display name shown on the OIDC login button (default: `SSO`). |
 | `TLS_MODE` | No | TLS mode for the production Docker stack: `letsencrypt` (default), `selfsigned`, or `none`. See [TLS modes](#tls-modes). |
