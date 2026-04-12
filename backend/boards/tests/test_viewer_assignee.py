@@ -4,10 +4,15 @@ The fix in CardSerializer.__init__ scopes the assignee_id queryset via
 _get_assignable_member_ids(), which excludes viewer-role memberships.
 These tests confirm the serializer rejects viewer IDs as invalid PKs and
 accepts admin, member, and collaborator IDs.
+
+Also covers the clear_viewer_assignees management command which back-fills
+cards that were assigned to viewers before the serializer fix.
 """
 
+import io
 from unittest.mock import patch
 
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -97,3 +102,139 @@ class ViewerAssigneeRejectionTests(TestCase):
         r = self._patch_card({"assignee_id": self.collaborator_user.id})
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["assignee"]["id"], self.collaborator_user.id)
+
+
+class ClearViewerAssigneesCommandTests(TestCase):
+    """Tests for the clear_viewer_assignees management command."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.viewer = User.objects.create_user(username="viewer", password="pass")
+        self.member = User.objects.create_user(username="member", password="pass")
+
+        self.board = Board.objects.create(name="Board A", owner=self.owner)
+        BoardMembership.objects.create(
+            board=self.board, user=self.owner, role=BoardMembership.Role.ADMIN
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=self.member, role=BoardMembership.Role.MEMBER
+        )
+
+        col = Column.objects.create(
+            board=self.board, name="Todo", position=0, allow_card_creation=True
+        )
+        swim = Swimlane.objects.create(board=self.board, name="General", position=0)
+
+        self.stale_card = Card.objects.create(
+            board=self.board,
+            column=col,
+            swimlane=swim,
+            title="Stale",
+            created_by=self.owner,
+            assignee=self.viewer,
+            position=0,
+        )
+        self.clean_card = Card.objects.create(
+            board=self.board,
+            column=col,
+            swimlane=swim,
+            title="Clean",
+            created_by=self.owner,
+            assignee=self.member,
+            position=1,
+        )
+
+    def _call(self, *args, **kwargs):
+        out = io.StringIO()
+        call_command("clear_viewer_assignees", *args, stdout=out, **kwargs)
+        return out.getvalue()
+
+    def test_dry_run_reports_card_without_modifying(self):
+        """--dry-run prints the affected card but does not clear the assignee."""
+        output = self._call("--dry-run")
+        self.assertIn("[DRY RUN]", output)
+        self.assertIn(self.stale_card.title, output)
+        # assignee must be unchanged after dry run
+        self.stale_card.refresh_from_db()
+        self.assertEqual(self.stale_card.assignee_id, self.viewer.id)
+
+    def test_live_run_clears_viewer_assignee(self):
+        """Running without --dry-run clears the assignee on affected cards."""
+        output = self._call()
+        self.assertIn("Cleared assignee on 1 card(s)", output)
+        self.stale_card.refresh_from_db()
+        self.assertIsNone(self.stale_card.assignee_id)
+
+    def test_live_run_preserves_non_viewer_assignee(self):
+        """Member-assigned cards must not be touched."""
+        self._call()
+        self.clean_card.refresh_from_db()
+        self.assertEqual(self.clean_card.assignee_id, self.member.id)
+
+    def test_board_flag_restricts_to_single_board(self):
+        """--board <id> only scans the specified board."""
+        other_board = Board.objects.create(name="Other", owner=self.owner)
+        BoardMembership.objects.create(
+            board=other_board, user=self.owner, role=BoardMembership.Role.ADMIN
+        )
+        BoardMembership.objects.create(
+            board=other_board, user=self.viewer, role=BoardMembership.Role.VIEWER
+        )
+        col2 = Column.objects.create(
+            board=other_board, name="Todo", position=0, allow_card_creation=True
+        )
+        swim2 = Swimlane.objects.create(board=other_board, name="General", position=0)
+        other_stale = Card.objects.create(
+            board=other_board,
+            column=col2,
+            swimlane=swim2,
+            title="Other Stale",
+            created_by=self.owner,
+            assignee=self.viewer,
+            position=0,
+        )
+
+        # Only scan board A — other_board's card should be untouched
+        self._call("--board", str(self.board.pk))
+
+        other_stale.refresh_from_db()
+        self.assertEqual(other_stale.assignee_id, self.viewer.id)
+
+        self.stale_card.refresh_from_db()
+        self.assertIsNone(self.stale_card.assignee_id)
+
+    def test_board_owner_without_non_viewer_membership_not_cleared(self):
+        """Board owner is exempt even if they hold only a viewer membership.
+
+        The command adds board.owner_id to non_viewer_ids unconditionally.
+        This covers the edge case where the owner's direct membership is VIEWER.
+        """
+        # Create a fresh board where the owner has only a VIEWER membership
+        # (bypasses the normal admin-membership-on-creation flow).
+        owner2 = User.objects.create_user(username="owner2", password="pass")
+        board2 = Board.objects.create(name="Board B", owner=owner2)
+        BoardMembership.objects.create(
+            board=board2, user=owner2, role=BoardMembership.Role.VIEWER
+        )
+        col2 = Column.objects.create(
+            board=board2, name="Todo", position=0, allow_card_creation=True
+        )
+        swim2 = Swimlane.objects.create(board=board2, name="General", position=0)
+        owner_card = Card.objects.create(
+            board=board2,
+            column=col2,
+            swimlane=swim2,
+            title="Owner card",
+            created_by=owner2,
+            assignee=owner2,
+            position=0,
+        )
+
+        self._call()
+
+        # Owner is in non_viewer_ids via owner_id exemption — card must be kept
+        owner_card.refresh_from_db()
+        self.assertEqual(owner_card.assignee_id, owner2.id)
