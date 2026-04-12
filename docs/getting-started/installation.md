@@ -210,6 +210,19 @@ cp .env.example .env
 
 Open `.env` in a text editor and set the following values. Every line marked **required** must be changed before continuing.
 
+!!! tip "Keeping secrets out of shell history"
+    Always edit secrets directly in the `.env` file — never pass them as command-line arguments (e.g. `DB_PASSWORD=hunter2 docker compose up`). Arguments appear in shell history, `/proc/*/cmdline`, and process listings.
+
+    To generate and insert a secret in one step without it touching your history:
+
+    ```bash
+    # Generate DJANGO_SECRET_KEY directly into .env
+    sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')|" .env
+
+    # Generate DB_PASSWORD directly into .env
+    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -base64 32)|" .env
+    ```
+
 ```bash
 # Django
 DJANGO_SECRET_KEY=<long random string>   # required — generate: python -c "import secrets; print(secrets.token_urlsafe(50))"

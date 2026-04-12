@@ -90,7 +90,10 @@ frontend:
 ingress:
   enabled: true
   className: "nginx"
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     # cert-manager.io/cluster-issuer: letsencrypt-prod
   host: visiban.example.com
   tls:
@@ -168,3 +171,9 @@ redis:
 externalRedis:
   url: ""
   cacheUrl: ""
+
+# -- Network policies restrict pod-to-pod traffic to only the paths Visiban
+# needs (ingress→frontend, frontend→backend, backend→postgres/redis).
+# Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, etc.).
+networkPolicy:
+  enabled: false

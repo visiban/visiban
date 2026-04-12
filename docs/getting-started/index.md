@@ -5,6 +5,7 @@ Everything you need to go from zero to a running Visiban instance.
 | Guide | Description |
 |---|---|
 | [Installation](installation.md) | Docker Compose setup, local dev, environment variables |
+| [Kubernetes (Helm)](kubernetes.md) | Deploy to a Kubernetes cluster with the bundled Helm chart |
 | [First Boot](first-boot.md) | Logging in for the first time, changing the generated password |
 | [OAuth Setup](oauth.md) | Configuring Google, GitHub, and GitLab OAuth login |
 | [Board Setup](board-setup.md) | Configuring columns, marking done columns for accurate analytics |

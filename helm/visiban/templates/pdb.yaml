@@ -1,0 +1,29 @@
+{{- if gt (int .Values.backendReplicaCount) 1 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "visiban.fullname" . }}-backend
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
+{{- end }}
+{{- if gt (int .Values.frontendReplicaCount) 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "visiban.fullname" . }}-frontend
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      {{- include "visiban.frontend.selectorLabels" . | nindent 6 }}
+{{- end }}

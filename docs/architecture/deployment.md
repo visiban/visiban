@@ -223,6 +223,43 @@ helm install visiban helm/visiban \
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
 | `redis.enabled` | `true` | Use bundled Redis 7.4; set `false` to use `externalRedis.url` |
 | `externalRedis.url` | `""` | External Redis DSN (used when `redis.enabled: false`) — **must be set** when using external Redis |
+| `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
+
+### Ingress annotations
+
+The chart ships with default annotations for nginx-ingress that match the Docker Compose Nginx configuration:
+
+| Annotation | Default | Why |
+|---|---|---|
+| `nginx.ingress.kubernetes.io/proxy-body-size` | `20m` | Matches the `client_max_body_size` in the Docker Compose Nginx config. Without this, the ingress controller's default (1m) rejects file uploads before they reach the backend. |
+| `nginx.ingress.kubernetes.io/proxy-read-timeout` | `86400` | WebSocket connections idle for up to 24 hours. The default (60s) kills idle WebSocket connections. |
+| `nginx.ingress.kubernetes.io/proxy-send-timeout` | `86400` | Matches the read timeout for symmetry on WebSocket connections. |
+
+To add additional annotations (e.g. cert-manager):
+
+```bash
+--set 'ingress.annotations.cert-manager\.io/cluster-issuer=letsencrypt-prod'
+```
+
+For non-nginx ingress controllers (Traefik, AWS ALB, etc.), override the annotations in a values file:
+
+```yaml
+ingress:
+  className: "traefik"
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: default-upload-limit@kubernetescrd
+```
+
+### Network policies
+
+When `networkPolicy.enabled: true`, the chart creates a default-deny ingress policy and explicit allowlists:
+
+- Ingress controller → frontend (port 80)
+- Frontend → backend (port 8000)
+- Backend → PostgreSQL (port 5432)
+- Backend → Redis (port 6379)
+
+Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, Weave, etc.).
 
 ### Init containers
 
