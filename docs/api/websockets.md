@@ -10,13 +10,13 @@ Visiban uses WebSockets to push real-time board updates to all connected clients
 ws://<host>/ws/boards/<board_id>/
 ```
 
-Authentication uses the same token as the REST API. Pass it as a query parameter on the initial upgrade request:
+Authentication uses session cookies — the same mechanism as the REST API. The browser automatically sends the session cookie on the WebSocket upgrade request, so no token parameter is needed:
 
 ```
-ws://localhost:8000/ws/boards/42/?token=9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
+ws://localhost:8000/ws/boards/42/
 ```
 
-The server validates the token and board membership before completing the WebSocket handshake. An invalid token or non-member connection receives a close frame with code `4003`.
+The server validates the session via Django's `AuthMiddlewareStack` and checks board membership before completing the WebSocket handshake. An unauthenticated or non-member connection receives a close frame with code `4003`.
 
 ---
 
@@ -108,8 +108,8 @@ There is no at-least-once delivery guarantee — if a client is disconnected whe
 
 ```js
 const boardId = 42;
-const token = "9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b";
-const ws = new WebSocket(`ws://localhost:8000/ws/boards/${boardId}/?token=${token}`);
+// Session cookie is sent automatically by the browser on the upgrade request
+const ws = new WebSocket(`ws://localhost:8000/ws/boards/${boardId}/`);
 
 ws.onmessage = (event) => {
   const { event: type, data } = JSON.parse(event.data);
@@ -133,7 +133,7 @@ ws.onmessage = (event) => {
 
 ws.onclose = (event) => {
   if (event.code === 4003) {
-    // authentication failure — token invalid or not a board member
+    // authentication failure — session invalid or not a board member
   }
   // reconnect logic and re-fetch full board state
 };

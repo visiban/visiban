@@ -99,7 +99,7 @@ Schedule this as a daily cron job or Kubernetes CronJob in production:
 Each notification stores structured metadata alongside the human-readable `verb` string:
 
 - **`actor`** — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.
-- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`. Useful for filtering or grouping notifications programmatically.
+- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`. Useful for filtering or grouping notifications programmatically.
 
 ## Notification API
 

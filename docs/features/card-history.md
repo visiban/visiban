@@ -97,7 +97,6 @@ GET /api/v1/boards/{id}/movements/
 |---|---|---|
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
-| `assignee_id` | integer | Filter by card assignee |
 | `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Lower bound (inclusive) |
 | `moved_before` | ISO date | Upper bound (inclusive) |
