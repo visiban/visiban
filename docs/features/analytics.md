@@ -85,6 +85,21 @@ Archived cards and cards in done columns are excluded from stalled card detectio
 
 When the selected time window contains no movement data at all (for example, a newly created board or a period before the board had any activity), the analytics view shows an informational message rather than an empty heatmap. Widen the period or add some card movements to populate the view.
 
+### View mode: Age vs Throughput
+
+The heatmap has two display modes, toggled by a button pair in the analytics toolbar:
+
+| Mode | What the heatmap shows |
+|---|---|
+| **Age** | Average time (days) cards have currently been sitting in each stage — a snapshot of in-flight work. High values indicate cards that are blocked or accumulating idle time right now. |
+| **Throughput** | Average time cards that **exited** a stage during the selected period spent in that stage before moving on. Reflects historical flow efficiency rather than current queue depth. |
+
+The active mode is persisted per-board in localStorage (`board:{boardId}:analytics-view-mode`) and defaults to **Age**.
+
+When **Throughput** mode is active, the column footer row shows the number of cards that contributed to each average (e.g. "5 cards"). Stages that had zero throughput in the period show a dash (`—`). The color thresholds (green/yellow/red) apply to both modes using the same `staleness_threshold_days` setting.
+
+Use **Age** when you want to find current bottlenecks. Use **Throughput** when you want to compare historical flow efficiency across periods.
+
 ### CSV export
 
 Click **Export CSV** to download the heatmap data as a comma-separated file for use in spreadsheets. The export includes all active columns, the velocity column, and a stalled card count per swimlane. The export button is only visible to **admin** and **site_admin** users.

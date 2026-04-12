@@ -12,6 +12,26 @@ Visiban supports several authentication methods. Some are available in the OSS e
 | SAML 2.0 / ADFS | — | Yes |
 | SCIM directory sync / JIT provisioning | — | Yes |
 
+## Forgot password (self-service password reset)
+
+Users with a password-based account can reset their own password from the login page without administrator intervention.
+
+1. The user clicks **Forgot password?** on the login page and enters their email address.
+2. Visiban sends a reset link to the address. The link expires after 3 days (Django's default `PASSWORD_RESET_TIMEOUT`).
+3. The user clicks the link, sets a new password (minimum 12 characters), and is redirected to the login page.
+
+**OAuth-only accounts** — if the email belongs to an account that has never set a password (signed up via Google, GitHub, GitLab, or OIDC and never used "Change password"), Visiban sends an alternate email explaining that no password is set and directing the user to log in via their OAuth provider. No reset token is issued.
+
+**Rate limiting** — the reset-request endpoint (`POST /api/v1/auth/password/reset/`) is rate-limited per IP to prevent it from being used as a bulk email-sending vector.
+
+**SMTP requirement** — password reset emails require outbound email to be configured. See `EMAIL_HOST` and related settings in [Configuration](configuration.md). If email is not configured, reset emails are silently dropped (no error is shown to the user). In that case, administrators can reset passwords manually:
+
+```bash
+docker compose exec backend python manage.py changepassword <username>
+```
+
+For API details, see [Authentication API — Forgot password](../api/authentication.md#forgot-password).
+
 ## OAuth (Google, GitHub, GitLab)
 
 See the [OAuth Setup](../getting-started/oauth.md) guide for step-by-step configuration of each provider.
@@ -39,15 +59,18 @@ Set all three of the following environment variables. The provider is only regis
 | Variable | Required | Description |
 |---|---|---|
 | `OIDC_CLIENT_ID` | Yes | OAuth 2.0 client ID issued by your IdP |
-| `OIDC_SECRET` | Yes | OAuth 2.0 client secret issued by your IdP |
+| `OIDC_CLIENT_SECRET` | Yes | OAuth 2.0 client secret issued by your IdP |
 | `OIDC_SERVER_URL` | Yes | Issuer URL of your IdP — see note below |
 | `OIDC_PROVIDER_NAME` | No | Label shown on the login button (default: `SSO`) |
+
+!!! note "Deprecated alias"
+    `OIDC_SECRET` is a deprecated alias for `OIDC_CLIENT_SECRET`, kept for one release cycle. Rename it to `OIDC_CLIENT_SECRET` when you next update your environment. The alias will be removed in 1.1.
 
 **Example** (`docker-compose.yml` or `.env`):
 
 ```env
 OIDC_CLIENT_ID=visiban
-OIDC_SECRET=my-client-secret
+OIDC_CLIENT_SECRET=my-client-secret
 OIDC_SERVER_URL=https://sso.example.com/realms/my-realm
 OIDC_PROVIDER_NAME=Keycloak
 ```

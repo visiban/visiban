@@ -545,6 +545,17 @@ class BoardAnalyticsMixin:
         except (ValueError, TypeError):
             offset = 0
 
+        # Enterprise delivery-report export hook — dispatched when a registered
+        # backend is present AND the request includes ?export=<format> (e.g.
+        # ?export=csv or ?export=xlsx). OSS always skips this block (empty list).
+        # Enterprise registers a callable with signature (board, queryset, request)
+        # -> HttpResponse into MOVEMENT_EXPORT_BACKENDS; the first registered
+        # backend handles the request.
+        export_format = request.query_params.get("export", "").strip()
+        if export_format and hooks.MOVEMENT_EXPORT_BACKENDS:
+            backend = hooks.MOVEMENT_EXPORT_BACKENDS[0]
+            return backend(board, qs, request)
+
         total = qs.count()
         page = qs[offset: offset + PAGE_SIZE]
 

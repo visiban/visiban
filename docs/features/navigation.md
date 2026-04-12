@@ -9,12 +9,24 @@ The sidebar renders sections in this order, omitting any empty section entirely:
 1. **Dashboard** — always present; navigates to `/` and highlights when the current path is `/`.
 2. **Favorite Boards** — boards the current user has starred, in the order they were starred. Only shown when at least one board is starred.
 3. **Favorite Groups** — groups the current user has starred. Only shown when at least one group is starred.
-4. **Groups and their boards** — all top-level groups (groups with no parent). Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.
-5. **Personal** — boards that do not belong to any group, collected under a "Personal" heading. Only shown when at least one such board exists.
+4. **Recent Boards** — the last 5 boards the current user visited, most recent first. Only shown when at least one board has been visited. See [Recent Boards](#recent-boards) below.
+5. **Groups and their boards** — all top-level groups (groups with no parent). Each group can be expanded to reveal the boards that belong to it. Only direct membership in a group is required to see it here; boards within nested subgroups are not flattened into a parent group's list.
+6. **Personal** — boards that do not belong to any group, collected under a "Personal" heading. Only shown when at least one such board exists.
 
 A 3D engraved separator (`h-px bg-slate-900` / `h-px bg-slate-600/50`) appears between each pair of visible sections.
 
 Groups and personal boards are populated from a single API call on mount (`GET /api/v1/groups/` and `GET /api/v1/boards/`). Favorite boards and groups are fetched from `GET /api/v1/boards/?starred=true` and `GET /api/v1/groups/?starred=true` and are re-fetched whenever the star version counter increments (i.e. any time a board or group is starred or unstarred).
+
+## Recent Boards
+
+The **Recent Boards** section tracks the last 5 boards you visited, most recent first. It appears in the sidebar between the Favorites sections and the Groups tree.
+
+- Visits are recorded automatically whenever you navigate to a board page.
+- The list is stored in `localStorage` under the key `user:prefs:recent-boards` — it persists across page reloads but is device-local and not synced across browsers or devices.
+- Entries are deduplicated: navigating to a board you already visited moves it to the top of the list rather than adding a duplicate.
+- The section is hidden when no boards have been visited yet.
+
+In the **collapsed sidebar rail**, the Recent section is represented by a clock icon. Clicking it opens a flyout panel showing the same 5 boards.
 
 ## Starring boards and groups
 
