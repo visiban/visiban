@@ -10,6 +10,65 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.0.0-rc.12] — 2026-04-12
+
+---
+
+
+### Added
+- Add OIDC end-to-end smoke test and clarify callback URL slug (#725, #726).
+- `docker-compose.oidc.yml`: new Docker Compose overlay that spins up Keycloak 24
+  with the `visiban-test` realm, client, and test user for local OIDC development.
+- `oidc/keycloak-realm.json`: pre-seeded realm config for `--import-realm` import.
+- `scripts/oidc_provision.py`: idempotent Keycloak provisioning via Admin REST API
+  (used by the CI smoke test job, no file mounts required).
+- `scripts/oidc_smoke_test.py`: drives the full authorization code flow using
+  `requests.Session` — discovery, login form, code exchange, callback, identity check.
+- CI job `oidc-smoke`: runs the smoke test in every pipeline against a real Keycloak
+  service; removes the Tech Preview limitation.
+- `docs/administration/authentication.md`: removed Tech Preview warning, added
+  explanation of the `oidc/oidc` double-slug in the callback URL (first segment is
+  allauth's `OPENID_CONNECT_URL_PREFIX`; second is the `provider_id`).
+- OAuth registration now works in invite-only mode. Users following a group invite link can sign up via Google, GitHub, GitLab, or OIDC — the invite token is carried through the IdP redirect and consumed automatically on successful signup. Previously, OAuth signups were blocked entirely in invite-only mode.
+- Add self-service forgot password flow: "Forgot password?" link on the login page, `ForgotPasswordPage` (`/forgot-password`) with enumeration-safe confirmation, and `ResetPasswordPage` (`/reset-password/:uid/:token`) with expired-token recovery CTA. Backend wires a custom `VisibanPasswordResetSerializer` and `VisibanPasswordResetForm` to point reset-email links at the frontend SPA and send an alternate email to OAuth-only accounts rather than silently enabling password auth on them. Rate-limited at 5 reset requests/hour/IP in production.
+- Added `docs/architecture/decisions.md` explaining the reasoning behind each technology choice. Tagged Generic OIDC, Analytics, and Staleness notifications as Beta in the documentation.
+- Add `TLS_MODE` env var for Docker production deployments with three modes: `letsencrypt` (default), `selfsigned` (self-signed cert for staging), and `none` (plain HTTP for air-gapped/internal networks). Add `FORCE_INSECURE_COOKIES` env var to allow Django secure cookie flags to be disabled for plain-HTTP deployments. Rename `init-letsencrypt.sh` to `init-prod.sh` (old script remains as a deprecation shim). Add Helm `backend.settings.forceInsecureCookies` value and document self-signed and no-TLS Kubernetes deployments. **Upgrade note:** the certbot service now requires `--profile letsencrypt` — existing deployments using `docker compose up -d` directly (not via `init-prod.sh`) must add the profile flag to maintain certificate auto-renewal.
+
+### Changed
+- Documented the confirmed OSS/enterprise authentication boundary: generic OIDC (Keycloak, Okta, Authentik) is OSS; SAML 2.0 and SCIM directory sync are enterprise. Updated CLAUDE.md, authentication docs, and the open-core boundary reference accordingly.
+- Documentation corrections for the movements API and analytics view: added `assignee_id` and `moved_by_id` filter parameters to all movement history references, updated stalled cards description to reflect the paginated table (25 rows/page), and corrected the date-range default from "last 30 days" to "full history returned when no range is specified".
+- CI pipeline: cache test dependencies across shards, single-pass bandit scan, liveness poll in OIDC smoke test, schema-validate always runs on main, changelog depth bump, ghcr manual jobs share push template.
+- Hardened Docker Compose and Helm deployment: multi-stage backend Dockerfile (removes gcc from final image), read-only containers with no-new-privileges, separate init service for migrations, PodDisruptionBudgets, pod anti-affinity, NetworkPolicy templates, default ingress annotations for WebSocket timeouts and upload limits. Added Kubernetes quickstart guide, health check endpoint docs, SMTP configuration reference, and ingress annotation documentation.
+- API documentation corrections across authentication, boards, cards, and groups endpoints — fields, permissions, and response examples updated to match current implementation.
+
+### Fixed
+- Bumped `cryptography` from 46.0.6 to 46.0.7 to resolve CVE-2026-39892 (buffer overflow affecting Python 3.11+). Added enterprise URL extension point in `visiban/urls.py` and enterprise settings include hook in `visiban/settings.py` so the enterprise package can register additional routes and override settings without modifying OSS files.
+- Wire `EMAIL_*` environment variables into Django settings so SMTP configuration is actually respected. Add `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, and `DEFAULT_FROM_EMAIL`; default to the console backend in development and SMTP in production. Change `ACCOUNT_EMAIL_VERIFICATION` default from `"none"` to `"optional"` and introduce `EMAIL_VERIFICATION` as the canonical env var name (`ACCOUNT_EMAIL_VERIFICATION` kept as a deprecated alias for one release).
+- Harden Docker production and Helm chart configurations: fix Redis subchart crash (loadmodule for missing modules), add collectstatic init container, add media PVC, move PostgreSQL password to Secret, add securityContext to PostgreSQL StatefulSet, pin Redis image tag, add security headers/gzip/client_max_body_size to Helm nginx, add /media/ and /admin/ proxy locations, add OIDC/FRONTEND_URL/SITE_DOMAIN env vars, add healthchecks in docker-compose.prod, align nginx versions, and fix npm ci double-run in Dockerfile.prod
+- Helm chart now runs `ensure_site_admin` automatically as a `bootstrap` init container on every deploy; the one-time admin password is written to `/run/visiban/admin_password` on a shared volume accessible from the running backend pod — no manual `kubectl exec` bootstrap step required after install.
+- Disabled form submit buttons now use the correct reduced opacity (40%) matching the design spec, replacing the previous value across all forms.
+- ViewToggle inactive tab hover background corrected to match the dark toolbar design token, preventing the tab from appearing lighter than intended on hover.
+- AdminPage AddUserModal and OffboardingModal now use the shared ModalWrapper component, ensuring consistent focus trapping, overlay behavior, and keyboard dismissal across all admin modals.
+- Analytics stalled-cards endpoint now includes a `uid` field on each entry alongside the existing `id`, allowing clients to reference cards by their public identifier without a secondary lookup.
+- Columns now enforce a unique name per board at the database level, preventing duplicate column names that would silently corrupt analytics responses.
+- Fix N+1 queries in card move and board member add responses: re-fetch `CardMovement` with `select_related("moved_by", "card")` before serializing, and assign `membership.user` from the already-loaded `target_user` instance instead of triggering a lazy FK load.
+- Fixed 30+ buttons across 13 frontend files using `rounded-lg`/`rounded-xl`/`rounded-md` to use `rounded` per design system; added missing `focus:ring-2` focus states and `font-medium` on primary/danger buttons (B8)
+- Added `board.created` WebSocket broadcast in import/export JSON and CSV import paths so new boards created via import are observable by future dashboard subscribers (B1)
+- Added `avatar_url` sentinel contract comments to `types/index.ts` (`""` = no avatar, never `null`) to guard against post-1.0 breakage (B5)
+- Fixed keyboard-inaccessible "Move board" button in GroupDetail (added `focus:opacity-100` and focus ring)
+- Fixed `rounded-lg`/`rounded-xl` on `<button>` elements in BulkActionToolbar, BoardSettingsModal, CreateBoardModal, and GroupDetail — design system requires `rounded` on all buttons
+- Fixed subgroup cards in GroupDetail using off-design indigo color family — now uses standard slate tokens
+- Renamed `OIDC_SECRET` env var to `OIDC_CLIENT_SECRET` for consistency with all other OAuth provider env vars; `OIDC_SECRET` kept as a deprecated alias (will be removed in 1.1)
+- Documented `collaborator` role permissions in `BoardMembership` model docstring to lock the public API contract
+- Updated `groups/0003_placeholder` migration comment with instructions for fixing `InconsistentMigrationHistory` on databases set up before the placeholder was added
+- Fix pre-release audit blockers: align button border radius to `rounded` across auth/settings/dashboard pages, add missing keyboard focus rings to all OAuth and onboarding buttons, fix JoinPage Google OAuth using light-mode colors in dark-only app, change priority badges from outline to filled style per design system, nest `Card.created_by` as a `BoardUser` object (consistent with `assignee`), add `"site_admin"` to the `BoardMembership.role` TypeScript union type, enforce viewer read-only semantics by excluding viewer-role users from the card assignee queryset and hiding checklist mutation controls and the attachment upload button for viewers, and add a `clear_viewer_assignees` management command to clean up any pre-existing viewer assignees.
+- Fix N+1 lazy parent traversal in `_require_group_admin` when creating subgroups — re-fetch parent with full ancestor `select_related` chain before permission check (#658)
+- Document `/api/v1/` versioning prefix and 406 behaviour explicitly in API reference (#604)
+- Upgrade axios to 1.15.0 (critical CVE fix, post-supply-chain-incident safe version)
+- Wire MOVEMENT_EXPORT_BACKENDS enterprise extension point call site in analytics movements view
+- Rename `OIDC_SECRET` env var to `OIDC_CLIENT_SECRET` with deprecated alias for one release cycle (#733)
+- Fix API docs: boards.md star endpoint response, stale staleness_threshold_days field, cards.md patchable fields warning for column/swimlane, notifications.md action_type values (#734)
+- Add missing feature documentation: analytics Age/Throughput view modes, compact card layout toggle, My cards quick filter, Move to in card detail, Recent Boards sidebar section, forgot password self-service flow (#735 #736 #737)
 ## [1.0.0-rc.11] — 2026-04-07
 
 ---

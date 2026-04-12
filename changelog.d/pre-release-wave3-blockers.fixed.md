@@ -1,7 +1,0 @@
-- Fix N+1 lazy parent traversal in `_require_group_admin` when creating subgroups — re-fetch parent with full ancestor `select_related` chain before permission check (#658)
-- Document `/api/v1/` versioning prefix and 406 behaviour explicitly in API reference (#604)
-- Upgrade axios to 1.15.0 (critical CVE fix, post-supply-chain-incident safe version)
-- Wire MOVEMENT_EXPORT_BACKENDS enterprise extension point call site in analytics movements view
-- Rename `OIDC_SECRET` env var to `OIDC_CLIENT_SECRET` with deprecated alias for one release cycle (#733)
-- Fix API docs: boards.md star endpoint response, stale staleness_threshold_days field, cards.md patchable fields warning for column/swimlane, notifications.md action_type values (#734)
-- Add missing feature documentation: analytics Age/Throughput view modes, compact card layout toggle, My cards quick filter, Move to in card detail, Recent Boards sidebar section, forgot password self-service flow (#735 #736 #737)

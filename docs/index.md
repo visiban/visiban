@@ -1,9 +1,9 @@
 # Visiban
 
 !!! warning "Pre-release"
-    Visiban is approaching its 1.0 release. The current stable release candidate is **1.0.0-rc.11**.
+    Visiban is approaching its 1.0 release. The current stable release candidate is **1.0.0-rc.12**.
     Always check the [latest release](https://gitlab.com/visiban/visiban/-/releases) before deploying or upgrading.
-    Earlier release candidates (rc.1–rc.10) are superseded and should not be used in production.
+    Earlier release candidates (rc.1–rc.11) are superseded and should not be used in production.
 
 A self-hosted Kanban board with swimlane rows and automatic card movement tracking. Lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer or project, with a full audit trail of every card movement between stages.
 

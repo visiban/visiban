@@ -1,1 +1,0 @@
-- Helm chart now runs `ensure_site_admin` automatically as a `bootstrap` init container on every deploy; the one-time admin password is written to `/run/visiban/admin_password` on a shared volume accessible from the running backend pod — no manual `kubectl exec` bootstrap step required after install.

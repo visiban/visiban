@@ -1,1 +1,0 @@
-CI pipeline: cache test dependencies across shards, single-pass bandit scan, liveness poll in OIDC smoke test, schema-validate always runs on main, changelog depth bump, ghcr manual jobs share push template.

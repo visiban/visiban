@@ -248,7 +248,7 @@ DOMAIN=yourdomain.com                   # required — must match your DNS A rec
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
 # App version — set to the version you are deploying (see CHANGELOG.md)
-APP_VERSION=1.0.0-rc.11
+APP_VERSION=1.0.0-rc.12
 ```
 
 !!! tip "Using `TLS_MODE=none` behind an external load balancer"
