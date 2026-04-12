@@ -1,0 +1,2 @@
+- Fix N+1 lazy parent traversal in `_require_group_admin` when creating subgroups — re-fetch parent with full ancestor `select_related` chain before permission check (#658)
+- Document `/api/v1/` versioning prefix and 406 behaviour explicitly in API reference (#604)

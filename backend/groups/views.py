@@ -121,6 +121,12 @@ class GroupViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         parent = serializer.validated_data.get("parent")
         if parent is not None:
+            # validated_data gives a bare instance from PrimaryKeyRelatedField —
+            # no ancestor chain is loaded. Re-fetch with the same select_related
+            # depth used in get_queryset() so _require_group_admin() traverses
+            # already-loaded objects instead of issuing one lazy query per level.
+            _ancestor_related = ["__".join(["parent"] * d) for d in range(1, 7)]
+            parent = Group.objects.select_related(*_ancestor_related).get(pk=parent.pk)
             _require_group_admin(self.request.user, parent)
         group = serializer.save(owner=self.request.user)
         GroupMembership.objects.create(
