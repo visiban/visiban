@@ -67,7 +67,7 @@ This notification appears in the bell dropdown and includes a **View board →**
 
 When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).
 
-## Staleness notifications <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span>
+## Staleness notifications
 
 Cards that haven't moved between columns in a configurable number of days are considered **stale**. The `notify_stale_cards` management command scans all boards and creates notifications for assignees of stale cards.
 
@@ -99,7 +99,7 @@ Schedule this as a daily cron job or Kubernetes CronJob in production:
 Each notification stores structured metadata alongside the human-readable `verb` string:
 
 - **`actor`** — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.
-- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`. Useful for filtering or grouping notifications programmatically.
+- **`action_type`** — a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`. Useful for filtering or grouping notifications programmatically.
 
 ## Notification API
 

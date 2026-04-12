@@ -1128,11 +1128,11 @@ docs-deploy:
     - |
       VERSION="${DOCS_VERSION:-$CI_COMMIT_TAG}"
       if [ -z "$VERSION" ]; then
-        # Manual trigger from main without DOCS_VERSION set — skip gracefully.
-        # On a tag pipeline CI_COMMIT_TAG is always set, so this branch is only
-        # reached when someone plays the manual job without providing a version.
-        # Exit 0 so the main pipeline stays green; the operator should re-run
-        # with DOCS_VERSION=<tag> (CI/CD → Run pipeline → variables).
+        # Auto-deploy from main (docs change pipeline): read version from .env.example.
+        VERSION=$(grep '^APP_VERSION=' .env.example | cut -d= -f2)
+      fi
+      if [ -z "$VERSION" ]; then
+        # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
         echo "INFO: no version to deploy. Re-run with DOCS_VERSION=<tag> to publish docs."
         exit 0
       fi
@@ -1147,6 +1147,12 @@ docs-deploy:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
       variables:
         DOCS_VERSION: $CI_COMMIT_TAG
+    # Auto-deploy on main when docs content or mkdocs config changes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - docs/**/*
+        - mkdocs.yml
+      when: on_success
     # Manual recovery on main — set DOCS_VERSION in pipeline variables
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       when: manual

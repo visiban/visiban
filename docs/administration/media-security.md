@@ -132,6 +132,6 @@ specific key type.
 
 | Setting | Description |
 |---|---|
-| `MAX_UPLOAD_SIZE` | Maximum attachment size in bytes (default: `10485760` — 10 MB). Set in `settings.py` or override via environment. |
+| `MAX_UPLOAD_SIZE_BYTES` | Maximum attachment size in bytes (default: `10485760` — 10 MB). Set in `settings.py` or override via environment. |
 | `MEDIA_ROOT` | Local filesystem path where media files are stored when using the default Django file storage backend. |
 | `MEDIA_URL` | URL prefix for serving media files (default: `/media/`). In production behind Nginx, map this to the location block that serves `MEDIA_ROOT`. |

@@ -217,8 +217,8 @@ helm install visiban helm/visiban \
 | `secret.djangoSecretKey` | `change-me-in-production` | Django `SECRET_KEY` (ignored when `existingSecret` is set) |
 | `postgresql.auth.existingSecret` | `""` | Name of a pre-existing K8s Secret for the PG password (key: `password`) |
 | `postgresql.auth.password` | `visiban` | Database password (ignored when `existingSecret` is set) |
-| `backend.image.tag` | `v1.0.0-rc.11` | Backend image tag |
-| `frontend.image.tag` | `v1.0.0-rc.11` | Frontend image tag |
+| `backend.image.tag` | `v1.0.0` | Backend image tag |
+| `frontend.image.tag` | `v1.0.0` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
 | `redis.enabled` | `true` | Use bundled Redis 7.4; set `false` to use `externalRedis.url` |

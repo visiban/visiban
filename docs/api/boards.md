@@ -399,7 +399,7 @@ If a token already exists, calling this endpoint immediately invalidates the pre
 ```json
 {
   "share_token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "share_url": "https://your-instance.example.com/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  "share_url": "https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 

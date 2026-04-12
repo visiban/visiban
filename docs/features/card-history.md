@@ -40,7 +40,7 @@ In addition to movements, the activity log tracks:
 | Due date change | Old and new date (or "none" if cleared) |
 
 !!! note
-    Due date change tracking was added in 1.0.0-rc.7.
+    Due date change tracking was added in 1.0.0.
 
 ## Viewing history
 
@@ -83,7 +83,7 @@ Movement records include `from_column_name`, `to_column_name`, `from_swimlane_na
 
 ## Board-level movement history
 
-> **Added in 1.0.0-rc.10**
+> **Added in 1.0.0**
 
 In addition to the per-card timeline, the **History** tab in the board toolbar shows movements across all cards on the board. See [Board & Cards — History view](board.md#history-view) for the UI description.
 
@@ -97,7 +97,6 @@ GET /api/v1/boards/{id}/movements/
 |---|---|---|
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
-| `assignee_id` | integer | Filter by card assignee |
 | `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Lower bound (inclusive) |
 | `moved_before` | ISO date | Upper bound (inclusive) |

@@ -67,7 +67,7 @@ The last active site admin on the instance cannot be demoted.
 
 #### Grant all-content / Revoke all-content
 
-> **Added in 1.0.0-rc.9**
+> **Added in 1.0.0**
 
 Controls the `can_access_all_content` flag independently of admin status. When enabled, the user can read and write every board and group on the instance regardless of membership.
 
@@ -85,7 +85,7 @@ Sets `must_change_password = true` on the user. The next time they log in, they 
 
 ## Invite Links tab
 
-> **Added in 1.0.0-rc.10**
+> **Added in 1.0.0**
 
 The **Invite Links** tab lets site admins create and manage invite links for instance-wide registration. Invite links are only relevant when the instance registration mode is set to **Invite-only** (see [Settings tab](#settings-tab)), but links can be created regardless of the current mode and activated later.
 

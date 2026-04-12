@@ -27,7 +27,7 @@ Visiban has five roles that control access at both the group and board level.
 | View group & boards | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Boards** | | | | | |
 | Create board in group | ✓ | ✓ | — | — | — |
-| Create personal board | ✓ | ✓ | ✓ | — | — |
+| Create personal board | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Delete board | ✓ | owner only | — | — | — |
 | Edit board structure (columns, swimlanes, labels) | ✓ | ✓ | — | — | — |
 | Manage board members | ✓ | ✓ | — | — | — |
@@ -59,6 +59,9 @@ Visiban has five roles that control access at both the group and board level.
 **†** `mod` = only members with the moderator entitlement. Regular members can only perform these actions on their own content.
 
 **†** `move` = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role.
+
+!!! note "Personal boards"
+    Any authenticated user can create a personal board regardless of their group-level role. The "Create personal board" row above reflects this — personal boards are not scoped to a group, so group-level permissions do not apply. The permission table above reflects group-level permissions for all other rows.
 
 ## Moderator entitlement
 

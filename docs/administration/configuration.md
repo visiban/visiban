@@ -63,7 +63,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 
 | Variable | Description |
 |---|---|
-| `APP_VERSION` | Image tag to pull, e.g. `v1.0.0-rc.11`. Defaults to `latest` if unset. |
+| `APP_VERSION` | Image tag to pull, e.g. `v1.0.0`. Defaults to `latest` if unset. |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
 | `DOMAIN` | Your domain name for Nginx and Certbot, e.g. `app.visiban.com` |
@@ -93,8 +93,8 @@ For production clusters, you can bring your own Kubernetes Secret instead of hav
 | `backend.oauth.oidc.clientId` | OIDC client ID |
 | `backend.oauth.oidc.clientSecret` | OIDC client secret |
 | `backend.oauth.oidc.providerName` | Label on the OIDC login button (default: `SSO`) |
-| `backend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
-| `frontend.image.tag` | Image tag to deploy, e.g. `v1.0.0-rc.11` |
+| `backend.image.tag` | Image tag to deploy, e.g. `v1.0.0` |
+| `frontend.image.tag` | Image tag to deploy, e.g. `v1.0.0` |
 
 Example using a values file:
 
@@ -103,8 +103,8 @@ helm upgrade --install visiban ./helm/visiban \
   -f helm/visiban/values.secret.yaml \
   --set backend.settings.frontendUrl="https://boards.example.com" \
   --set backend.settings.siteDomain="boards.example.com" \
-  --set backend.image.tag="v1.0.0-rc.11" \
-  --set frontend.image.tag="v1.0.0-rc.11"
+  --set backend.image.tag="v1.0.0" \
+  --set frontend.image.tag="v1.0.0"
 ```
 
 ---
@@ -154,7 +154,7 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 ```
 
 !!! note
-    Email is only required when `ACCOUNT_EMAIL_VERIFICATION` is set to `optional` or `mandatory`. With the default value of `none`, no emails are sent and SMTP configuration is not needed.
+    The default value of `EMAIL_VERIFICATION` is `optional`, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set `EMAIL_VERIFICATION=none` to disable verification emails entirely (no SMTP needed). `ACCOUNT_EMAIL_VERIFICATION` is a deprecated alias and will be removed in a future release.
 
 ---
 

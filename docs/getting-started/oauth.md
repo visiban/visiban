@@ -60,12 +60,12 @@ Visiban supports any standards-compliant OpenID Connect provider (Keycloak, Auth
 
 ```
 OIDC_CLIENT_ID=your-client-id
-OIDC_SECRET=your-client-secret
+OIDC_CLIENT_SECRET=your-client-secret
 OIDC_SERVER_URL=https://idp.example.com/realms/my-realm
 OIDC_PROVIDER_NAME=SSO        # optional — controls the login button label
 ```
 
-All three of `OIDC_CLIENT_ID`, `OIDC_SECRET`, and `OIDC_SERVER_URL` must be set for OIDC to be enabled; setting only one or two has no effect.
+All three of `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `OIDC_SERVER_URL` must be set for OIDC to be enabled; setting only one or two has no effect.
 
 `OIDC_SERVER_URL` must be the issuer root URL. Visiban appends `/.well-known/openid-configuration` to discover token and userinfo endpoints automatically.
 
