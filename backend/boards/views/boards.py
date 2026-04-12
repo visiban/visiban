@@ -96,6 +96,18 @@ class BoardViewSet(
             if swimlane_name:
                 Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
+            # Broadcast board.created so group members and dashboard subscribers
+            # can refresh their board list without a manual reload.
+            # NOTE: this event goes to channel board_{id}, which currently has no
+            # subscribers at creation time.  A future user-level notification channel
+            # will relay it to the dashboard.  The backend broadcast is added now so
+            # the event shape is established as a 1.0 contract.
+            board_id = board.id
+            board_data = BoardSerializer(board, context={"request": self.request}).data
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
+            )
+
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.
 
@@ -356,7 +368,8 @@ class BoardViewSet(
                     verb=f"{request.user.username} added you to \"{board.name}\"",
                     board=board,
                 )
-        return Response(membership_data, status=status.HTTP_201_CREATED)
+        # 201 for a new membership, 200 for a role update on an existing one.
+        return Response(membership_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
     def remove_member(self, request, pk=None, user_id=None):

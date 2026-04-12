@@ -51,7 +51,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <div key={b.id} className="group relative">
                 <button
                   onClick={() => onSelect(b)}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
+                  className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded transition"
                 >
                   <p className="font-medium">{b.name}</p>
                   {b.description && <p className="text-sm text-slate-400 mt-0.5">{b.description}</p>}
@@ -77,7 +77,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
 
         <button
           onClick={() => setCreating(true)}
-          className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded-xl text-sm transition"
+          className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded text-sm transition"
         >
           + New board
         </button>
@@ -129,7 +129,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
                   disabled={!canDelete}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded-lg transition"
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   Delete
                 </button>

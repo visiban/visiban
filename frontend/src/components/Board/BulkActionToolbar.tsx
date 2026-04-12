@@ -327,7 +327,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               </button>
               <button
                 onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg"
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Delete
               </button>

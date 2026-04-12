@@ -24,6 +24,7 @@ from ..models import (
     Board, BoardFavorite, BoardMembership as BoardMembershipModel, Card, CardActivity,
     CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
 )
+from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
 from ..serializers import BoardSerializer
 from ._helpers import get_board_for_user
@@ -543,7 +544,12 @@ class BoardImportExportMixin:
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
         ).get(pk=board.pk)
-        return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        board_data = BoardSerializer(board, context={"request": request}).data
+        board_id = board.pk
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
+        )
+        return Response(board_data, status=status.HTTP_201_CREATED)
 
     def _import_csv(self, request, file):
         """Create a new board from a CSV file with one card per row.
@@ -798,7 +804,12 @@ class BoardImportExportMixin:
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
         ).get(pk=board.pk)
-        return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
+        board_data = BoardSerializer(board, context={"request": request}).data
+        board_id = board.pk
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
+        )
+        return Response(board_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):

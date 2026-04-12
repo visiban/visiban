@@ -781,9 +781,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         rows={6}
                         className="w-full text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-slate-300 placeholder-slate-500"
                       />
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-3">
                         <button onClick={() => setShowBulkAdd(false)} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
-                        <button onClick={handleBulkAdd} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition">Add items</button>
+                        <button onClick={handleBulkAdd} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add items</button>
                       </div>
                     </div>
                   </div>
@@ -934,7 +934,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <div className="flex justify-end">
                       <button
                         onClick={handleComment}
-                        className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition font-medium"
+                        className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         Comment
                       </button>
@@ -991,7 +991,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <p className="text-xs h-4">
             {movePopoverError && <span className="text-red-400">{movePopoverError}</span>}
           </p>
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-3 justify-end">
             <button
               onClick={() => setShowMovePopover(false)}
               className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-slate-500 rounded"
@@ -1017,7 +1017,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <p className="text-slate-400 text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-              <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete</button>
+              <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
@@ -1025,7 +1025,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-              <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Archive</button>
+              <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-amber-500">Archive</button>
             </div>
           </>
         ) : null}

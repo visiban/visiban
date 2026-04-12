@@ -461,7 +461,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <button
                       onClick={handleInviteSubmit}
                       disabled={staged.length === 0 || inviting}
-                      className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
                     </button>
@@ -737,7 +737,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <button
                         disabled={deleteInput !== board.name}
                         onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                        className="w-full bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded-lg transition"
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
                         Delete board
                       </button>
@@ -745,7 +745,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   ) : (
                     <button
                       onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                      className="w-full bg-red-700 hover:bg-red-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                       Delete board
                     </button>

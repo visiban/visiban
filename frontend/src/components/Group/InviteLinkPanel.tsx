@@ -126,7 +126,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
         {!atLimit && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
+            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             New link
           </button>
@@ -183,7 +183,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(link)}
-                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition"
+                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         {copiedId === link.id ? "Copied!" : "Copy"}
                       </button>
@@ -289,7 +289,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-40 transition"
+              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {creating ? "Creating…" : "Create link"}
             </button>

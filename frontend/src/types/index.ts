@@ -10,6 +10,9 @@ export interface BoardUser {
   id: number;
   username: string;
   display_name: string;
+  // Empty string ("") is the "no avatar" sentinel per the 1.0 API contract.
+  // The backend uses blank=True (not null=True) on avatar_url; null will never
+  // be returned. Treat "" as "no avatar" — never check for null/undefined here.
   avatar_url: string;
 }
 
@@ -19,6 +22,7 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
+  // Empty string ("") is the "no avatar" sentinel — never null. See BoardUser above.
   avatar_url: string;
   display_name: string;
   is_site_admin: boolean;
@@ -339,6 +343,7 @@ export interface AdminUser {
   display_name: string;
   first_name: string;
   last_name: string;
+  // Empty string ("") is the "no avatar" sentinel — never null. See BoardUser above.
   avatar_url: string;
   is_active: boolean;
   is_site_admin: boolean;
