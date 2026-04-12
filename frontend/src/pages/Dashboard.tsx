@@ -154,7 +154,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                 <div key={b.id} className="group relative">
                   <button
                     onClick={() => navigate(`/boards/${b.id}`)}
-                    className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
+                    className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <p className="font-medium">{b.name}</p>
                     {b.description && <p className="text-sm text-slate-400 mt-0.5">{b.description}</p>}

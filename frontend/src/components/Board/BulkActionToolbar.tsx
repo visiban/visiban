@@ -48,7 +48,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   );
   const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
   const othersCards = currentUser
-    ? selectedCards.filter((c) => c.created_by !== currentUser.id)
+    ? selectedCards.filter((c) => c.created_by?.id !== currentUser.id)
     : selectedCards;
 
   const toggle = (d: Dropdown) => setDropdown((prev) => (prev === d ? null : d));
@@ -220,7 +220,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
               >
                 Unassign
               </button>
-              {board.members.map((m) => (
+              {board.members.filter((m) => m.role !== "viewer").map((m) => (
                 <button
                   key={m.user.id}
                   onClick={() => handleAssign(m.user.id)}

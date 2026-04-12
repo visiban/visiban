@@ -20,12 +20,14 @@ Given the feature, issue, or UI change described in the current task or argument
 ### 2. Design system audit
 Check the proposed change against the conventions in `frontend/CLAUDE.md` and flag any conflicts or gaps:
 
-- **Color tokens** — does it use `slate` throughout? Does it respect the three-level depth system (`slate-950` / `slate-800` / elevated)?
+- **Color tokens** — does it use `slate` throughout? Does it respect the three-level depth system (`slate-950` / `slate-800` / elevated)? Grep for `gray-` (should be `slate-`), `bg-white` (forbidden in dark-only app), and `bg-gray` across all touched files.
 - **Component reuse** — is there an existing component that should be used instead of a new one? (Button variants, SelectDropdown, modals, badges)
 - **Typography** — does it use the correct text scale and weight for its role?
 - **Spacing and sizing** — is padding/sizing consistent with adjacent elements?
-- **Interactive states** — are hover, focus, active, and disabled states all defined?
-- **Dark theme correctness** — are all color pairs valid in the dark theme? (No light-mode values like `bg-blue-100 text-blue-700`)
+- **Button compliance** — every `<button>` and `<a>` element that acts as a button must have: (a) `rounded` not `rounded-lg` or `rounded-xl`, (b) `focus:outline-none focus:ring-2 focus:ring-blue-500`, (c) `font-medium` on primary and danger variants. Grep for `rounded-lg` and `rounded-xl` on button/anchor elements in all changed files. Flag every missing focus ring as 🔴 blocking — keyboard inaccessibility is not a polish item.
+- **Badge fill style** — priority badges must use filled background with white text (`backgroundColor: color, color: "#fff"`), never the outline/ring style (`color + "22"` background). Check any component that renders priority indicators.
+- **Interactive states** — are hover, focus, active, and disabled states all defined? Every interactive element must have a visible focus indicator for keyboard users.
+- **Dark theme correctness** — are all color pairs valid in the dark theme? No light-mode values like `bg-blue-100 text-blue-700`, `bg-white text-gray-900`, or `hover:bg-gray-100`. Grep for these patterns across all touched files.
 
 ### 3. UX quality audit
 Explicitly assess:

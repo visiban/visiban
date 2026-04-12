@@ -236,7 +236,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
     } else if (event.event === "member.updated") {
-      onMemberUpdated(d as unknown as BoardMembership);
+      const updatedMembership = d as unknown as BoardMembership;
+      onMemberUpdated(updatedMembership);
+      // If the role change affects the current user, sync current_user_role
+      // immediately. Without this, canEdit/isAdmin are computed from the stale
+      // value set during the last /full/ fetch and the user retains the wrong
+      // UI affordances until they reload the page.
+      if (currentUser && updatedMembership.user.id === currentUser.id) {
+        mergeBoardState({ current_user_role: updatedMembership.role });
+      }
     } else if (event.event === "member.removed") {
       onMemberRemoved((d as { user_id: number }).user_id);
     } else if (event.event === "board.updated") {
@@ -248,7 +256,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser]);
 
   const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
 

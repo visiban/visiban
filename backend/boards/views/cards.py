@@ -17,7 +17,7 @@ from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 
 from .. import broadcast as _broadcast
-from ..utils import extract_mentions, _get_effective_member_ids, notify_new_mentions
+from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids, notify_new_mentions
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
     CardChecklist, CardComment, CardMovement, Column, Label,
@@ -226,6 +226,7 @@ class CardViewSet(viewsets.ModelViewSet):
         # Pre-compute member IDs and board labels once per request so
         # CardSerializer.__init__ does not re-query per card (N+1 fix — #490).
         ctx["_member_ids"] = _get_effective_member_ids(board)
+        ctx["_assignable_member_ids"] = _get_assignable_member_ids(board)
         # Use board.labels.all() to hit the prefetch cache populated by
         # get_board_for_user(), avoiding a redundant Label query per request.
         ctx["_board_labels_qs"] = board.labels.all()
@@ -460,11 +461,13 @@ class CardViewSet(viewsets.ModelViewSet):
         # Pre-compute shared context values so CardSerializer does not call
         # _get_effective_member_ids() once per card instance (O(n) queries).
         member_ids = _get_effective_member_ids(board)
+        assignable_ids = _get_assignable_member_ids(board)
         board_labels_qs = Label.objects.filter(board=board)
         serializer = CardSerializer(page_qs, many=True, context={
             "request": request,
             "board": board,
             "_member_ids": member_ids,
+            "_assignable_member_ids": assignable_ids,
             "_board_labels_qs": board_labels_qs,
         })
         return Response({

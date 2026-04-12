@@ -59,6 +59,54 @@ def _get_effective_member_ids(board, site_admin_ids=None):
     return eff_ids
 
 
+def _get_assignable_member_ids(board, site_admin_ids=None):
+    """Return the set of user IDs that may be assigned to a card on this board.
+
+    Viewers must not appear in card assignee dropdowns — assigning a viewer
+    implies work ownership, which contradicts the viewer role's read-only
+    semantics.  Only admin, member, and collaborator roles are eligible.
+
+    Mirrors the structure of _get_effective_member_ids() but filters out
+    viewer-role memberships at both the direct and group-inherited levels.
+    The board owner and site admins are always included (they have implicit
+    admin-level access).
+    """
+    from accounts.models import User
+    from boards.models import BoardMembership
+
+    _VIEWER = BoardMembership.Role.VIEWER
+
+    prefetched = getattr(board, "_prefetched_memberships", None)
+    if prefetched is not None:
+        eff_ids = {m.user_id for m in prefetched if m.role != _VIEWER}
+    else:
+        eff_ids = set(
+            board.memberships.exclude(role=_VIEWER).values_list("user_id", flat=True)
+        )
+    eff_ids.add(board.owner_id)
+    if site_admin_ids is not None:
+        eff_ids.update(site_admin_ids)
+    else:
+        eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
+    if board.group_id:
+        ancestor_ids = []
+        node = board.group
+        depth = 0
+        while node and depth < 6:
+            ancestor_ids.append(node.pk)
+            node = getattr(node, "parent", None)
+            depth += 1
+        if ancestor_ids:
+            from groups.models import GroupMembership
+
+            eff_ids.update(
+                GroupMembership.objects.filter(group_id__in=ancestor_ids)
+                .exclude(role=GroupMembership.Role.VIEWER)
+                .values_list("user_id", flat=True)
+            )
+    return eff_ids
+
+
 def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
     """
     Fire MENTIONED notifications for usernames that appear in new_text but

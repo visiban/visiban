@@ -163,7 +163,7 @@ export default function JoinPage({ user }: Props) {
 
             <button
               onClick={() => handleAuthRedirect("register")}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Create an account
             </button>
@@ -176,7 +176,7 @@ export default function JoinPage({ user }: Props) {
 
             <button
               onClick={() => handleAuthRedirect("login")}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2.5 rounded-lg text-sm transition"
+              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Sign in
             </button>
@@ -192,7 +192,7 @@ export default function JoinPage({ user }: Props) {
                   {providers.google && (
                     <button
                       onClick={() => handleOAuthRedirect("google")}
-                      className="flex items-center justify-center gap-3 bg-white text-gray-900 font-medium py-2.5 px-4 rounded-lg hover:bg-gray-100 transition text-sm"
+                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <GoogleIcon />
                       Continue with Google
@@ -201,7 +201,7 @@ export default function JoinPage({ user }: Props) {
                   {providers.github && (
                     <button
                       onClick={() => handleOAuthRedirect("github")}
-                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition text-sm"
+                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <GitHubIcon />
                       Continue with GitHub
@@ -210,7 +210,7 @@ export default function JoinPage({ user }: Props) {
                   {providers.gitlab && (
                     <button
                       onClick={() => handleOAuthRedirect("gitlab")}
-                      className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-orange-500 transition text-sm"
+                      className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded hover:bg-orange-500 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <GitLabIcon />
                       Continue with GitLab
@@ -219,7 +219,7 @@ export default function JoinPage({ user }: Props) {
                   {providers.oidc && (
                     <button
                       onClick={() => handleOAuthRedirect("oidc")}
-                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Continue with {providers.oidc_name ?? "SSO"}
                     </button>

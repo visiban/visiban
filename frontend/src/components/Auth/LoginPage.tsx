@@ -156,7 +156,7 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="submit"
             disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>
@@ -188,7 +188,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.google && (
                 <a
                   href={oauthUrl("google", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GoogleIcon />
                   Continue with Google
@@ -197,7 +197,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.github && (
                 <a
                   href={oauthUrl("github", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition"
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GitHubIcon />
                   Continue with GitHub
@@ -206,7 +206,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.gitlab && (
                 <a
                   href={oauthUrl("gitlab", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-orange-500 transition"
+                  className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded hover:bg-orange-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GitLabIcon />
                   Continue with GitLab
@@ -215,7 +215,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.oidc && (
                 <a
                   href={oauthUrl("oidc", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded-lg hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Continue with {providers.oidc_name ?? "SSO"}
                 </a>

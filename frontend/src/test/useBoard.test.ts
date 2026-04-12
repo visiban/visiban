@@ -45,7 +45,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     swimlanes: [{ id: 20, uid: 'laneuid00001', name: 'Lane A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '2026-01-01T00:00:00Z' }],
     cards: [{
       id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card 1', description: '', priority: 'medium',
-      assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1,
+      assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
       created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
       version: 1,
@@ -119,7 +119,7 @@ describe('useBoard', () => {
 
     const newCard: Card = {
       id: 200, uid: 'carduid00002', column: 10, swimlane: 20, title: 'New Card', description: '', priority: 'low',
-      assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: 1,
+      assignee: null, labels: [], due_date: null, weight: 1, position: 1, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
       created_at: '2026-01-01', updated_at: '2026-01-01', last_moved_at: null,
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
       version: 1,
@@ -506,8 +506,8 @@ describe('useBoard', () => {
         { id: 11, uid: 'coluid000002', name: 'Done', position: 1, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       ],
       cards: [
-        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
-        { id: 101, uid: 'carduid00002', column: 11, swimlane: 20, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+        { id: 101, uid: 'carduid00002', column: 11, swimlane: 20, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)
@@ -539,8 +539,8 @@ describe('useBoard', () => {
         { id: 21, uid: 'laneuid00002', name: 'Lane B', contact_email: '', notes: '', position: 1, color: '#3B82F6', is_collapsed: false, created_at: '' },
       ],
       cards: [
-        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
-        { id: 101, uid: 'carduid00002', column: 10, swimlane: 21, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: 1, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+        { id: 100, uid: 'carduid00001', column: 10, swimlane: 20, title: 'Card A', description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
+        { id: 101, uid: 'carduid00002', column: 10, swimlane: 21, title: 'Card B', description: '', priority: 'low',    assignee: null, labels: [], due_date: null, weight: 1, position: 0, created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '', updated_at: '', last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null, version: 1 },
       ],
     })
     mockGetBoardFull.mockResolvedValue(board)

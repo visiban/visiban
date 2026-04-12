@@ -70,7 +70,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
     role === "admin" || role === "site_admin" || isModerator;
   const canUnarchive = (card: Card) =>
     (role === "site_admin" || role === "admin" || role === "member") &&
-    ((currentUser != null && card.created_by === currentUser.id) || canModifyOthersContent);
+    ((currentUser != null && card.created_by?.id === currentUser.id) || canModifyOthersContent);
 
   const columnName = (colId: number) => board.columns.find((c) => c.id === colId)?.name ?? "—";
   const swimlaneName = (slId: number) => board.swimlanes.find((s) => s.id === slId)?.name ?? "—";

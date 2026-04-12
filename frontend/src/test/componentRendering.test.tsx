@@ -55,7 +55,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     due_date: null,
     weight: 1,
     position: 0,
-    created_by: 1,
+    created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" },
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     last_moved_at: null,

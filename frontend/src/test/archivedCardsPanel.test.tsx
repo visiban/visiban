@@ -35,7 +35,7 @@ const archivedCard: Card = {
   id: 99, uid: 'carduid00099', column: 10, swimlane: 20,
   title: 'Old feature', description: '', priority: 'medium',
   assignee: null, labels: [], due_date: null, weight: 1, position: 0,
-  created_by: 1, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
+  created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
   last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
   is_stale: false, archived_at: '2024-02-01T00:00:00Z', version: 1,
 }

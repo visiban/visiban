@@ -250,7 +250,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
             {!hidePriority && card.priority !== "low" && (
               <span
                 className="text-[9px] font-semibold shrink-0 capitalize px-1 py-0.5 rounded leading-none"
-                style={{ backgroundColor: priorityColor + "22", color: priorityColor, border: `1px solid ${priorityColor}44` }}
+                style={{ backgroundColor: priorityColor, color: "#fff" }}
                 title={`Priority: ${card.priority}`}
               >
                 {card.priority}
