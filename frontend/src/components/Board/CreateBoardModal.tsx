@@ -224,7 +224,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                           key={t.slug}
                           onClick={() => handleSelectTemplate(t.slug)}
                           className={[
-                            "text-left rounded-xl p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
+                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
                             isSelected
                               ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
                               : "border-slate-700 bg-slate-800 hover:border-slate-500",

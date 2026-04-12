@@ -570,16 +570,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       key={sg.id}
                       onClick={() => navigate(`/groups/${sg.id}`)}
-                      className="bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/50 rounded-xl p-4 text-left transition"
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         {/* Group/subgroup icon */}
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                         </svg>
                         <p className="text-white font-medium">{sg.name}</p>
                       </div>
-                      <p className="text-indigo-400/70 text-xs">
+                      <p className="text-slate-500 text-xs">
                         {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
                       </p>
                     </button>
@@ -619,7 +619,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div key={b.id} className="group/board relative flex items-center">
                     <button
                       onClick={() => navigate(`/boards/${b.id}`)}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <div className="flex items-center gap-2">
                         {/* Board icon */}
@@ -633,7 +633,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
-                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 transition text-slate-500 hover:text-blue-400 p-1"
+                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-slate-500 hover:text-blue-400 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
@@ -645,7 +645,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setCreatingBoard(true)}
-                    className="w-full border-2 border-dashed border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 rounded-xl px-4 py-3 text-left transition group"
+                    className="w-full border-2 border-dashed border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <p className="text-slate-500 group-hover:text-slate-300 font-medium transition">+ New board</p>
                   </button>
