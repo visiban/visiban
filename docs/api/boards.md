@@ -49,7 +49,7 @@ Delete board. Requires board owner or site admin.
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
 ### `POST /api/v1/boards/{id}/star/`
-Star (favorite) a board. Returns `201 Created` on first star, `200 OK` if already starred.
+Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
 
 ### `DELETE /api/v1/boards/{id}/star/`
 Unstar a board.
@@ -216,7 +216,6 @@ Board-level movement history for all cards on the board, sorted newest first. Re
 |---|---|---|
 | `swimlane_id` | integer | Filter by the card's current swimlane |
 | `to_column_id` | integer | Filter by destination column |
-| `assignee_id` | integer | Filter by card assignee |
 | `moved_by_id` | integer | Filter by the user who performed the move |
 | `moved_after` | ISO date | Include movements on or after this date (e.g. `2026-01-01`) |
 | `moved_before` | ISO date | Include movements on or before this date |
@@ -559,7 +558,6 @@ Returns a read-only board payload identified by its UUID share token. No authent
 {
   "uid": "a1b2c3d4e5f60001",
   "name": "Sales Pipeline",
-  "staleness_threshold_days": 7,
   "columns": [
     {
       "id": 1,
@@ -606,7 +604,6 @@ Response fields:
 |---|---|---|
 | `uid` | string | Board stable 16-char hex UID |
 | `name` | string | Board name |
-| `staleness_threshold_days` | integer | Days without movement before a card is considered stale |
 | `columns` | array | Column objects; includes `is_done` flag (see Columns section) |
 | `swimlanes` | array | Swimlane objects; `contact_email` and `notes` are never included |
 | `cards` | array | Active (non-archived) card objects |

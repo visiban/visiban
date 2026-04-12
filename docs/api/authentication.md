@@ -315,6 +315,51 @@ Returns the list of configured OAuth providers. No authentication required. Used
 
 ---
 
+## Forgot password
+
+### `POST /api/v1/auth/password/reset/`
+Request a password reset email. **No authentication required.**
+
+**Request**
+```json
+{ "email": "user@example.com" }
+```
+
+- The response is always `200 OK` regardless of whether the email matches a registered account — this prevents user enumeration.
+- If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route `/reset-password/{uid}/{token}`.
+- If the email belongs to an **OAuth-only** account (no password set), an alternate email is sent directing the user back to their OAuth provider instead.
+- **Rate limited** — the endpoint is throttled per IP to prevent bulk email sends. Exceeding the limit returns `429 Too Many Requests`.
+
+**Response** `200 OK { "detail": "Password reset e-mail has been sent." }`
+
+---
+
+### `POST /api/v1/auth/password/reset/confirm/`
+Set a new password using the token from the reset email. **No authentication required.**
+
+**Request**
+```json
+{
+  "uid": "MQ",
+  "token": "abc123-...",
+  "new_password1": "newsecurepassword",
+  "new_password2": "newsecurepassword"
+}
+```
+
+| Field | Description |
+|---|---|
+| `uid` | Base64-encoded user PK from the reset link URL |
+| `token` | One-time token from the reset link URL |
+| `new_password1` | The new password (minimum 12 characters) |
+| `new_password2` | Confirmation — must match `new_password1` |
+
+**Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords.
+
+After a successful reset, all existing session tokens and PATs for that user are revoked.
+
+---
+
 ## Change password
 
 ### `POST /api/v1/auth/change-password/`

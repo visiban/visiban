@@ -139,6 +139,8 @@ Click a card to open its **detail panel** on the right side. The panel contains 
 - **Details** — description, priority, assignee, labels, due date, weight, checklist, attachments, and comments. The Checklist and Attachments sections are collapsible via a chevron toggle; each auto-collapses when empty on load. A scroll gradient at the bottom of the panel indicates there is more content below the visible area.
 - **History** — the full movement and activity timeline. See [Card History](card-history.md).
 
+The Details tab also includes a **Move to** section at the bottom (visible to members and above). It lets you move the card to a different column and/or swimlane without closing the panel — select the destination swimlane and column from the dropdowns, then click **Move**. WIP and weight limits are enforced the same way as drag-and-drop moves.
+
 Each card belongs to exactly one column and one swimlane. Cards have:
 
 | Field | Description |
@@ -196,6 +198,17 @@ Right-click any board cell to open an inline card creation input directly in tha
 
 Shortcuts are ignored when focus is inside an input, textarea, or select element.
 
+## Card layout
+
+The toolbar contains a **compact layout toggle** (icon button) that switches between two card display modes:
+
+| Mode | Description |
+|---|---|
+| **Expanded** (default) | Full card face with title, priority border, label pills, assignee avatar, checklist progress, and due date |
+| **Compact** | Narrower cards showing title and priority indicator only — useful on dense boards with many cards per cell |
+
+The preference is stored per-user in `localStorage` under the key `user:prefs:card-layout` and persists across boards and sessions. The toggle's `aria-pressed` attribute reflects the compact state for screen reader users.
+
 ## Filtering
 
 Click **Filters** in the toolbar (or press `f`) to open the filter bar below the toolbar. Press `/` to open the filter bar and immediately focus the search input. Filters are applied client-side (no round-trip) and stack — all conditions must match.
@@ -203,6 +216,7 @@ Click **Filters** in the toolbar (or press `f`) to open the filter bar below the
 | Filter | Options |
 |---|---|
 | Search | Matches card title, description, assignee name, and label names |
+| **My cards** | Quick filter — shows only cards assigned to the current user. Click the **My cards** button in the filter bar to toggle. Active state is indicated by a blue highlight on the button. |
 | Assignee | Any board member, or "Unassigned" |
 | Labels | One or more labels (card must have all selected) |
 | Priority | One or more of low / medium / high / urgent |

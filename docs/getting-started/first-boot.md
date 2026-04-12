@@ -86,6 +86,8 @@ kubectl exec -it -n visiban $(kubectl get pods -n visiban -l app.kubernetes.io/c
 
 On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.
 
+Once SMTP is configured, regular users (not just admins) can reset their own passwords via **Forgot password?** on the login page — no administrator intervention required. See [Authentication — Forgot password](../administration/authentication.md#forgot-password-self-service-password-reset) for SMTP setup notes.
+
 ## Customising the bootstrap account
 
 Set these environment variables **before** the first boot:

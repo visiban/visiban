@@ -43,7 +43,9 @@ Get a single card. The response includes a `uid` field — a stable 16-character
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
 
-**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `column`, `swimlane`
+**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`
+
+> **Do not PATCH `column` or `swimlane` directly.** These fields are present in the serializer response but patching them bypasses WIP/weight enforcement, skips `CardMovement` record creation, and skips position reordering — corrupting board state silently. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`.
 
 > `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
