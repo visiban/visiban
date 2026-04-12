@@ -11,6 +11,8 @@ services:
   db:
     image: postgres:17-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: visiban
       POSTGRES_USER: visiban
@@ -26,20 +28,25 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  backend:
+  # Runs migrations, collectstatic, and admin bootstrap once before the backend
+  # starts. Exits 0 on success; the backend service waits for this to complete.
+  backend-init:
     image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
     command: >
-      sh -c "python manage.py collectstatic --noinput &&
-             python manage.py migrate &&
-             python manage.py ensure_site_admin &&
-             daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
-    restart: unless-stopped
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             python manage.py ensure_site_admin"
     env_file:
       - .env
     environment:
@@ -54,6 +61,28 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  backend:
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "visiban.asgi:application"]
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+      DEBUG: "false"
+    volumes:
+      - mediafiles:/app/media
+    depends_on:
+      backend-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/health/liveness/\")'"]
       interval: 15s
@@ -74,6 +103,13 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
     ports:
       - "80:80"
       - "443:443"

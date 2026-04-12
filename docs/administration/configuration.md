@@ -106,3 +106,69 @@ helm upgrade --install visiban ./helm/visiban \
   --set backend.image.tag="v1.0.0-rc.11" \
   --set frontend.image.tag="v1.0.0-rc.11"
 ```
+
+---
+
+## Email (SMTP)
+
+Visiban uses Django's email backend for password resets and email verification. Configure these variables in `.env` (Docker Compose) or as environment variables in your Helm values:
+
+| Variable | Description | Default |
+|---|---|---|
+| `EMAIL_BACKEND` | Django email backend class | `django.core.mail.backends.smtp.EmailBackend` |
+| `EMAIL_HOST` | SMTP server hostname | `localhost` |
+| `EMAIL_PORT` | SMTP server port | `587` |
+| `EMAIL_HOST_USER` | SMTP authentication username | *(empty — no auth)* |
+| `EMAIL_HOST_PASSWORD` | SMTP authentication password | *(empty)* |
+| `EMAIL_USE_TLS` | Use STARTTLS | `true` |
+| `DEFAULT_FROM_EMAIL` | Sender address for outgoing emails | `noreply@localhost` |
+
+### Example: Gmail / Google Workspace
+
+```bash
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=noreply@yourdomain.com
+EMAIL_HOST_PASSWORD=your-app-password
+EMAIL_USE_TLS=true
+DEFAULT_FROM_EMAIL=noreply@yourdomain.com
+```
+
+### Example: Amazon SES
+
+```bash
+EMAIL_HOST=email-smtp.us-east-1.amazonaws.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=AKIAIOSFODNN7EXAMPLE
+EMAIL_HOST_PASSWORD=your-ses-smtp-password
+EMAIL_USE_TLS=true
+DEFAULT_FROM_EMAIL=noreply@yourdomain.com
+```
+
+### Console backend (development)
+
+To print emails to stdout instead of sending them (useful for development):
+
+```bash
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+```
+
+!!! note
+    Email is only required when `ACCOUNT_EMAIL_VERIFICATION` is set to `optional` or `mandatory`. With the default value of `none`, no emails are sent and SMTP configuration is not needed.
+
+---
+
+## Health check endpoints
+
+The backend exposes two health check endpoints for use by load balancers, monitoring systems, and Kubernetes probes:
+
+| Endpoint | Method | Purpose | Checks | Success |
+|---|---|---|---|---|
+| `/api/health/liveness/` | GET | Is the process alive? | ASGI server responds | `200 {"status": "ok"}` |
+| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Redis are reachable | `200 {"status": "ok"}` |
+
+Both endpoints are unauthenticated and do not require a valid `Host` header.
+
+**Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
+
+For external load balancers (AWS ALB, HAProxy, etc.), point your health check at `/api/health/readiness/` on the backend port (8000). This ensures traffic is only routed to instances with working database and Redis connections.

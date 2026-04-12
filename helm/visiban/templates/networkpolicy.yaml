@@ -1,0 +1,106 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default deny all ingress — pods must be explicitly allowed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-default-deny
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+---
+# Allow ingress controller → frontend (port 80)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-allow-ingress-frontend
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "visiban.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 80
+          protocol: TCP
+---
+# Allow frontend → backend (port 8000)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-allow-frontend-backend
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "visiban.frontend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+{{- if .Values.postgresql.enabled }}
+# Allow backend → PostgreSQL (port 5432)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-allow-backend-postgresql
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "visiban.backend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 5432
+          protocol: TCP
+{{- end }}
+---
+{{- if .Values.redis.enabled }}
+# Allow backend → Redis (port 6379)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-allow-backend-redis
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "visiban.backend.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 6379
+          protocol: TCP
+{{- end }}
+{{- end }}

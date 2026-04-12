@@ -15,6 +15,17 @@ spec:
       labels:
         {{- include "visiban.backend.selectorLabels" . | nindent 8 }}
     spec:
+      {{- if gt (int .Values.backendReplicaCount) 1 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "visiban.backend.selectorLabels" . | nindent 20 }}
+                topologyKey: kubernetes.io/hostname
+      {{- end }}
       volumes:
         # Shared between the bootstrap init container and the backend container so
         # the one-time admin password file survives from bootstrap into the running pod.
