@@ -102,7 +102,25 @@ class Board(models.Model):
 
 
 class BoardMembership(models.Model):
-    """Junction table recording a user's role on a board (admin/member/collaborator/viewer)."""
+    """Junction table recording a user's role on a board.
+
+    Role hierarchy (highest to lowest):
+      - ADMIN       Full board control: manage members, columns, swimlanes, labels,
+                    board settings, and all card operations.
+      - MEMBER      Create, edit, move, archive, and delete cards (own cards or any
+                    card when is_moderator=True). Add/delete comments, attachments,
+                    and checklist items.
+      - COLLABORATOR  Read-only access to cards. May add/delete own comments,
+                    add/delete own attachments, and add/edit/delete checklist items.
+                    Cannot create, update, move, or delete cards.
+      - VIEWER      Read-only. Cannot add comments, attachments, or checklist items.
+
+    The COLLABORATOR role is intentionally distinct from MEMBER: it is suited for
+    external contributors (e.g. contractors, support staff) who need to annotate
+    work without being able to change card state.  This distinction is enforced in
+    CardViewSet (perform_create, update, move, archive) and is the stable public
+    API contract from 1.0 onward.
+    """
 
     class Role(models.TextChoices):
         ADMIN = "admin"

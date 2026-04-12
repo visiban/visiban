@@ -34,12 +34,18 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 # Resolve OIDC env vars early so INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS
 # both reference the same computed flag instead of calling env() twice.
 _OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
-_OIDC_SECRET = env("OIDC_SECRET", default="")
+# OIDC_CLIENT_SECRET is the canonical name (consistent with GOOGLE_CLIENT_SECRET,
+# GITHUB_CLIENT_SECRET, etc.).  OIDC_SECRET is a deprecated alias kept for one
+# release cycle to avoid breaking existing deployments; it will be removed in 1.1.
+_OIDC_CLIENT_SECRET = (
+    env("OIDC_CLIENT_SECRET", default="")
+    or env("OIDC_SECRET", default="")
+)
 _OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
 # True when all three OIDC env vars are present. The provider app is only
 # registered in INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS when this is True
 # so that allauth does not attempt discovery with an empty server_url.
-_OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_SECRET and _OIDC_SERVER_URL)
+_OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_URL)
 
 INSTALLED_APPS = [
     "daphne",
@@ -387,7 +393,7 @@ SOCIALACCOUNT_PROVIDERS = {
                     "provider_id": "oidc",
                     "name": env("OIDC_PROVIDER_NAME", default="SSO"),
                     "client_id": _OIDC_CLIENT_ID,
-                    "secret": _OIDC_SECRET,
+                    "secret": _OIDC_CLIENT_SECRET,
                     "settings": {
                         "server_url": _OIDC_SERVER_URL,
                     },

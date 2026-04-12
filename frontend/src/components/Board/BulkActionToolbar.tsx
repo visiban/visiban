@@ -182,7 +182,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={moveRef}
             onClick={() => toggle("move")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Move to...
           </button>
@@ -208,7 +208,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={assignRef}
             onClick={() => toggle("assign")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Assign to...
           </button>
@@ -239,7 +239,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={priorityRef}
             onClick={() => toggle("priority")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Priority...
           </button>
@@ -265,7 +265,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="text-xs px-2.5 py-1.5 rounded text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Archive
         </button>
@@ -274,7 +274,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="text-xs px-2.5 py-1.5 rounded text-red-400 hover:bg-red-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Delete
         </button>

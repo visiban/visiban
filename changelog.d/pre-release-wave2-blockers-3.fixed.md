@@ -1,0 +1,6 @@
+- Fixed keyboard-inaccessible "Move board" button in GroupDetail (added `focus:opacity-100` and focus ring)
+- Fixed `rounded-lg`/`rounded-xl` on `<button>` elements in BulkActionToolbar, BoardSettingsModal, CreateBoardModal, and GroupDetail — design system requires `rounded` on all buttons
+- Fixed subgroup cards in GroupDetail using off-design indigo color family — now uses standard slate tokens
+- Renamed `OIDC_SECRET` env var to `OIDC_CLIENT_SECRET` for consistency with all other OAuth provider env vars; `OIDC_SECRET` kept as a deprecated alias (will be removed in 1.1)
+- Documented `collaborator` role permissions in `BoardMembership` model docstring to lock the public API contract
+- Updated `groups/0003_placeholder` migration comment with instructions for fixing `InconsistentMigrationHistory` on databases set up before the placeholder was added
