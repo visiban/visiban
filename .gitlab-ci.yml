@@ -908,9 +908,12 @@ frontend-docker-build:
 #   apt-get install -y qemu-user-static binfmt-support
 #   docker buildx create --name multiarch --driver docker-container --bootstrap --use
 #
-# On main-branch merges: pushes linux/amd64+arm64 to the GitLab registry
-#   with :latest and :<short-sha> tags.
-# On tag pipelines: additionally pushes to GHCR with :<tag> and :latest tags.
+# On main-branch merges: pushes linux/amd64 only to the GitLab registry
+#   with :latest and :<short-sha> tags. ARM64 is skipped to avoid the QEMU
+#   emulation penalty on every commit.
+# On tag pipelines: pushes linux/amd64+arm64 to the GitLab registry and GHCR
+#   with :<tag> and :latest tags. ARM64 is built only here where the cost is
+#   acceptable — OSS users on Apple Silicon or Graviton pull from GHCR.
 #
 # --provenance=false prevents buildx from pushing an extra attestation manifest
 # that confuses older registry clients.
@@ -949,6 +952,12 @@ backend-docker-push:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - |
+      # Release tags: multi-arch (amd64 + arm64). Main-branch merges: amd64 only.
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        PLATFORMS="linux/amd64,linux/arm64"
+      else
+        PLATFORMS="linux/amd64"
+      fi
       TAGS="--tag ${CI_REGISTRY_IMAGE}/backend:latest \
             --tag ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}"
       if [ -n "${CI_COMMIT_TAG}" ]; then
@@ -958,7 +967,7 @@ backend-docker-push:
           --tag ghcr.io/visiban/visiban/backend:latest"
       fi
       docker buildx build \
-        --platform linux/amd64,linux/arm64 \
+        --platform ${PLATFORMS} \
         --file backend/Dockerfile \
         --provenance=false \
         --push \
@@ -973,6 +982,12 @@ frontend-docker-push:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - |
+      # Release tags: multi-arch (amd64 + arm64). Main-branch merges: amd64 only.
+      if [ -n "${CI_COMMIT_TAG}" ]; then
+        PLATFORMS="linux/amd64,linux/arm64"
+      else
+        PLATFORMS="linux/amd64"
+      fi
       TAGS="--tag ${CI_REGISTRY_IMAGE}/frontend:latest \
             --tag ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}"
       if [ -n "${CI_COMMIT_TAG}" ]; then
@@ -982,7 +997,7 @@ frontend-docker-push:
           --tag ghcr.io/visiban/visiban/frontend:latest"
       fi
       docker buildx build \
-        --platform linux/amd64,linux/arm64 \
+        --platform ${PLATFORMS} \
         --file frontend/Dockerfile \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
         --provenance=false \
