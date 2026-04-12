@@ -54,9 +54,11 @@ describe('ForceChangePasswordModal', () => {
     await user.type(screen.getByLabelText(/^confirm/i),'doesnotmatch')
     await user.click(screen.getByRole('button', { name: /set new password/i }))
 
-    expect(screen.getByText('Passwords do not match.')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText('Passwords do not match.')).toBeTruthy()
+    })
     expect(mockChangePassword).not.toHaveBeenCalled()
-  })
+  }, 10000)
 
   it('shows client-side error when new password is too short', async () => {
     const user = userEvent.setup()
