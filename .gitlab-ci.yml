@@ -1130,6 +1130,10 @@ docs-deploy:
       if [ -z "$VERSION" ]; then
         # Auto-deploy from main (docs change pipeline): read version from .env.example.
         VERSION=$(grep '^APP_VERSION=' .env.example | cut -d= -f2)
+        # APP_VERSION doesn't carry the v prefix; mike entries must match release tags.
+        if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -q '^v'; then
+          VERSION="v${VERSION}"
+        fi
       fi
       if [ -z "$VERSION" ]; then
         # Manual trigger from main without DOCS_VERSION set and no APP_VERSION found.
