@@ -2,7 +2,7 @@
 # then: docker compose -f docker-compose.prod.yml up -d
 #
 # Required .env variables (in addition to the standard ones):
-#   APP_VERSION=v1.0.0-rc.11   (image tag to pull; defaults to "latest" if unset)
+#   APP_VERSION=v1.0.0          (image tag to pull; defaults to "latest" if unset)
 #   DOMAIN=yourdomain.com
 #   TLS_MODE=letsencrypt        (letsencrypt | selfsigned | none)
 #   CERTBOT_EMAIL=admin@yourdomain.com   (required only when TLS_MODE=letsencrypt)
