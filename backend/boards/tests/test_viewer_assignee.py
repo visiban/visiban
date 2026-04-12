@@ -206,18 +206,35 @@ class ClearViewerAssigneesCommandTests(TestCase):
         self.stale_card.refresh_from_db()
         self.assertIsNone(self.stale_card.assignee_id)
 
-    def test_dual_role_user_not_cleared(self):
-        """A user with both a viewer AND a non-viewer membership is not cleared.
+    def test_board_owner_without_non_viewer_membership_not_cleared(self):
+        """Board owner is exempt even if they hold only a viewer membership.
 
-        Non-viewer membership wins; pure-viewer logic should not touch their cards.
+        The command adds board.owner_id to non_viewer_ids unconditionally.
+        This covers the edge case where the owner's direct membership is VIEWER.
         """
-        # Give the viewer a second, non-viewer membership (edge case — possible
-        # via group inheritance in the real app, simulated here directly).
+        # Create a fresh board where the owner has only a VIEWER membership
+        # (bypasses the normal admin-membership-on-creation flow).
+        owner2 = User.objects.create_user(username="owner2", password="pass")
+        board2 = Board.objects.create(name="Board B", owner=owner2)
         BoardMembership.objects.create(
-            board=self.board, user=self.viewer, role=BoardMembership.Role.COLLABORATOR
+            board=board2, user=owner2, role=BoardMembership.Role.VIEWER
         )
-        # Reset the stale card to confirm the dual-role user keeps their assignment
+        col2 = Column.objects.create(
+            board=board2, name="Todo", position=0, allow_card_creation=True
+        )
+        swim2 = Swimlane.objects.create(board=board2, name="General", position=0)
+        owner_card = Card.objects.create(
+            board=board2,
+            column=col2,
+            swimlane=swim2,
+            title="Owner card",
+            created_by=owner2,
+            assignee=owner2,
+            position=0,
+        )
+
         self._call()
-        self.stale_card.refresh_from_db()
-        # With a collaborator membership the viewer is in non_viewer_ids, so card kept
-        self.assertEqual(self.stale_card.assignee_id, self.viewer.id)
+
+        # Owner is in non_viewer_ids via owner_id exemption — card must be kept
+        owner_card.refresh_from_db()
+        self.assertEqual(owner_card.assignee_id, owner2.id)
