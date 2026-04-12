@@ -59,12 +59,12 @@ sed -i '' "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/fro
 sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${VERSION}|" docs/getting-started/installation.md
 
 # Update docs/index.md release candidate banner
-# Matches lines like "**rc.8 is the current stable release candidate.**"
-# and "Earlier release candidates (rc.1–rc.7) are superseded..."
+# Matches "**MAJOR.MINOR.PATCH-rc.N**" (just the version bolded, not the whole phrase)
+# and "Earlier release candidates (rc.1–rc.N) are superseded..."
 if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
   RC_NUM=$(echo "$VERSION" | grep -oE 'rc\.[0-9]+')
   PREV_RC_NUM=$(( $(echo "$RC_NUM" | grep -oE '[0-9]+$') - 1 ))
-  sed -i '' "s|**rc\.[0-9]* is the current stable release candidate\.\*\*|**${RC_NUM} is the current stable release candidate.**|" docs/index.md
+  sed -i '' "s|\*\*[0-9][0-9.]*-rc\.[0-9]*\*\*|**${VERSION}**|g" docs/index.md
   sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
 fi
 
