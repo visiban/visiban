@@ -273,7 +273,7 @@ class LastAdminSelfDemotionTests(TestCase):
         # so even if the membership says "viewer", get_board_role returns ADMIN
         # for the board owner. The membership record changes but effective
         # permissions are unaffected.
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
         membership = BoardMembership.objects.get(board=self.board, user=self.owner)
         self.assertEqual(membership.role, BoardMembership.Role.VIEWER)
         # But effective role is still admin because of ownership

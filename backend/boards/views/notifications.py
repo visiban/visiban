@@ -1,5 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +10,33 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from ..models import Notification
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializes a Notification for the current user's inbox.
+
+    card_title and board_name are sourced from select_related relations rather
+    than nested serializers so this stays a single flat response object — the
+    frontend notification dropdown has no need for full Card or Board objects.
+    """
+
+    card_title = serializers.CharField(source="card.title", default=None, read_only=True)
+    board_name = serializers.CharField(source="board.name", default=None, read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "verb",
+            "card_id",
+            "card_title",
+            "board_id",
+            "board_name",
+            "action_type",
+            "read",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class NotificationListView(APIView):
@@ -22,21 +50,7 @@ class NotificationListView(APIView):
 
     def get(self, request):
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
-        data = [
-            {
-                "id": n.id,
-                "verb": n.verb,
-                "card_id": n.card_id,
-                "card_title": n.card.title if n.card else None,
-                "board_id": n.board_id,
-                "board_name": n.board.name if n.board else None,
-                "action_type": n.action_type,
-                "read": n.read,
-                "created_at": n.created_at,
-            }
-            for n in qs
-        ]
-        return Response(data)
+        return Response(NotificationSerializer(qs, many=True).data)
 
 
 class NotificationMarkReadView(APIView):

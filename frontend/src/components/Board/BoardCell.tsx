@@ -109,10 +109,10 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                 if (e.key === "Escape") setAdding(false);
               }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-500 rounded-md px-2 py-1.5 outline-none bg-slate-800 text-slate-100 placeholder-slate-500"
+              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-slate-800 text-slate-100 placeholder-slate-500"
             />
             <div className="flex gap-1.5 mt-1.5">
-              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-md hover:bg-blue-700 transition font-medium">Add</button>
+              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add</button>
               <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
             </div>
             <p className="text-xs h-4"><span className="text-red-400">{addError}</span></p>
@@ -120,7 +120,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         ) : (
           <button
             onClick={() => setAdding(true)}
-            className={`w-full text-left text-xs rounded-md px-1.5 py-1 transition group/add ${
+            className={`w-full text-left text-xs rounded px-1.5 py-1 transition group/add ${
               cards.length === 0
                 ? "text-slate-500 hover:text-slate-200 hover:bg-slate-700/60"
                 : "mt-1 text-slate-600 hover:text-slate-300 hover:bg-slate-700/50"

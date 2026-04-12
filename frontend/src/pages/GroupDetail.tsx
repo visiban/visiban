@@ -798,7 +798,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <button
                         key={p}
                         onClick={() => handleTogglePriority(p)}
-                        className={`px-3 py-1 rounded-lg border text-xs font-medium transition capitalize ${
+                        className={`px-3 py-1 rounded border text-xs font-medium transition capitalize ${
                           active
                             ? colorMap[p]
                             : "bg-slate-800 border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-400"
@@ -864,7 +864,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <button
                     onClick={handleAddGroupLabel}
                     disabled={addingLabel || !newLabelName.trim()}
-                    className="text-sm text-white bg-blue-700 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-lg transition"
+                    className="text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Add
                   </button>
@@ -881,14 +881,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {group.owner.id === user.id && (
                   <button
                     onClick={() => { setTransferError(null); setShowTransferModal(true); }}
-                    className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
+                    className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded transition"
                   >
                     Transfer ownership
                   </button>
                 )}
                 <button
                   onClick={() => setConfirmDeleteGroup(true)}
-                  className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded-lg transition"
+                  className="text-sm text-red-500 border border-red-800 hover:bg-red-900/30 px-4 py-2 rounded transition"
                 >
                   Delete group
                 </button>
@@ -986,14 +986,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-slate-400 hover:text-white px-4 py-2 rounded-lg transition"
+              className="text-sm text-slate-400 hover:text-white px-4 py-2 rounded transition"
             >
               Cancel
             </button>
             <button
               onClick={handleTransferOwnership}
               disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
-              className="text-sm text-white bg-red-700 hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition"
+              className="text-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
             >
               {transferring ? "Transferring…" : "Transfer ownership"}
             </button>
@@ -1011,7 +1011,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <p className="text-slate-400 text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
           <button onClick={() => setConfirmDeleteGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-          <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg transition">Delete group</button>
+          <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete group</button>
         </div>
       </ModalWrapper>
     </div>

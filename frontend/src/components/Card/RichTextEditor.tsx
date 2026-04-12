@@ -516,7 +516,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition font-medium"
+            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Save
           </button>

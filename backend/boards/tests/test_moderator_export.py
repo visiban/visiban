@@ -93,7 +93,7 @@ class IsModeratorFieldTests(TestCase):
             {"user_id": self.member_user.id, "role": "member", "is_moderator": True},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.data["is_moderator"])
         m = BoardMembership.objects.get(board=self.board, user=self.member_user)
         self.assertTrue(m.is_moderator)
@@ -105,7 +105,7 @@ class IsModeratorFieldTests(TestCase):
             {"user_id": self.member_user.id, "role": "member", "is_moderator": False},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.data["is_moderator"])
 
     def test_collaborator_cannot_be_moderator(self):
@@ -132,7 +132,7 @@ class IsModeratorFieldTests(TestCase):
             {"user_id": self.member_user.id, "role": "collaborator"},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.data["is_moderator"])
 
     def test_demoting_to_viewer_clears_moderator(self):
@@ -142,7 +142,7 @@ class IsModeratorFieldTests(TestCase):
             {"user_id": self.member_user.id, "role": "viewer"},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertFalse(r.data["is_moderator"])
 
     def test_non_admin_cannot_toggle_moderator(self):

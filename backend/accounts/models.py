@@ -96,6 +96,9 @@ class SiteSetting(models.Model):
 
 class User(AbstractUser):
     """Extended user model. django-allauth handles OAuth linkage."""
+    # Uses blank=True (empty string) rather than null=True as the "no avatar"
+    # sentinel.  The 1.0 API contract is: absent avatar → "".  Changing this
+    # to null=True post-1.0 would be a breaking serializer change.
     avatar_url = models.URLField(blank=True)
     display_name = models.CharField(max_length=150, blank=True)
     is_site_admin = models.BooleanField(default=False)

@@ -1060,7 +1060,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddColumn(true)}
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   + Add column
                 </button>
@@ -1158,7 +1158,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddSwimlane(true)}
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   + Add swimlane
                 </button>
@@ -1300,7 +1300,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onColumnDeleted(confirmDeleteColumn.id);
                     setConfirmDeleteColumn(null);
                   }}
-                  className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg"
+                  className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   Delete
                 </button>

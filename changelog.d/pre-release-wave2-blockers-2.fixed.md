@@ -1,0 +1,3 @@
+- Fixed 30+ buttons across 13 frontend files using `rounded-lg`/`rounded-xl`/`rounded-md` to use `rounded` per design system; added missing `focus:ring-2` focus states and `font-medium` on primary/danger buttons (B8)
+- Added `board.created` WebSocket broadcast in import/export JSON and CSV import paths so new boards created via import are observable by future dashboard subscribers (B1)
+- Added `avatar_url` sentinel contract comments to `types/index.ts` (`""` = no avatar, never `null`) to guard against post-1.0 breakage (B5)

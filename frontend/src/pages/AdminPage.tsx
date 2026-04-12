@@ -1175,7 +1175,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
                 <li key={tab.id}>
                   <button
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
                         ? "bg-blue-600 text-white font-medium"
                         : "text-slate-400 hover:text-white hover:bg-slate-800"

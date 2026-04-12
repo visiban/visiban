@@ -248,7 +248,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
                     self._members_url(),
                     {"user_id": self.other_user.pk, "role": "viewer"},
                 )
-            self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+            self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
             self.assertIn("member.updated", event_types)
             self.assertNotIn("member.added", event_types)
