@@ -339,6 +339,9 @@ class BoardViewSet(
                 if member_role in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.VIEWER):
                     membership.is_moderator = False
                 membership.save()
+            # Assign user directly so BoardMembershipSerializer does not issue a
+            # separate query to load the FK — target_user is already in scope.
+            membership.user = target_user
             membership_data = BoardMembershipSerializer(membership).data
             board_id = board.id
             ws_event = "member.added" if created else "member.updated"
