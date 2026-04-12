@@ -144,6 +144,23 @@ cache-warm-pip:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
+cache-warm-pip-test:
+  stage: deploy
+  needs: [backend-test-coverage]
+  image: python:3.12-slim
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:
+    key:
+      prefix: "pip-test"
+      files: [backend/requirements-test.txt]
+    paths: [.cache/pip/]
+    policy: pull-push
+  script:
+    - pip install --quiet -r backend/requirements-test.txt
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
 cache-warm-npm:
   stage: deploy
   needs: [frontend-test]
@@ -235,12 +252,17 @@ backend-test:
         files: [backend/requirements.txt]
       paths: [.cache/pip/]
       policy: pull
+    - key:
+        prefix: "pip-test"
+        files: [backend/requirements-test.txt]
+      paths: [.cache/pip/]
+      policy: pull
     - key: test-durations
       paths: [backend/.test_durations]
       policy: pull-push
   before_script:
     - pip install --quiet -r backend/requirements.txt
-    - pip install --quiet coverage pytest pytest-django pytest-split
+    - pip install --quiet -r backend/requirements-test.txt
   script:
     - cd backend
     - coverage run --source=. --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
@@ -333,6 +355,7 @@ backend-schema-validate:
   rules:
     - changes:
         - backend/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   variables:
     DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
     REDIS_URL: "redis://localhost:6379/0"
@@ -420,7 +443,15 @@ oidc-smoke:
     - cd backend && python manage.py migrate --noinput
     # Start the backend in the background; give it a few seconds to bind
     - python manage.py runserver 0.0.0.0:8000 &
-    - sleep 5
+    # Poll the liveness endpoint instead of a fixed sleep — faster on warm
+    # runners, reliable on slow ones. Gives up after 30 seconds.
+    # Uses python requests (already installed) — no curl in python:3.12-slim.
+    - |
+      for i in $(seq 1 30); do
+        python3 -c "import requests; requests.get('http://localhost:8000/api/health/liveness/', timeout=2)" \
+          2>/dev/null && break
+        sleep 1
+      done
     - cd ..
   script:
     - python scripts/oidc_smoke_test.py
@@ -526,7 +557,7 @@ changelog-check:
   before_script:
     - apk add --no-cache git
   script:
-    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=20
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
     - BASE=$(git merge-base origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME HEAD || echo "")
     - |
       if [ -z "$BASE" ]; then
@@ -602,17 +633,29 @@ backend-sast:
   before_script:
     - pip install --quiet bandit
   script:
-    - bandit -r backend/
-        --severity-level medium
-        --confidence-level medium
-        --exclude backend/boards/migrations,backend/groups/migrations,backend/accounts/migrations,backend/visiban/migrations
-        --skip B101
-        -f json -o bandit-report.json || true
-    - bandit -r backend/
-        --severity-level medium
-        --confidence-level medium
-        --exclude backend/boards/migrations,backend/groups/migrations,backend/accounts/migrations,backend/visiban/migrations
-        --skip B101
+    # Single scan: write JSON artifact, then print a readable summary and exit
+    # with bandit's own exit code. bandit does not support two simultaneous
+    # output formats, so we parse the JSON to produce log output instead of
+    # running a second full scan.
+    # Use && ... || ... to capture the exit code safely under set -e.
+    - |
+      bandit -r backend/ \
+        --severity-level medium \
+        --confidence-level medium \
+        --exclude backend/boards/migrations,backend/groups/migrations,backend/accounts/migrations,backend/visiban/migrations \
+        --skip B101 \
+        -f json -o bandit-report.json && BANDIT_EXIT=0 || BANDIT_EXIT=$?
+      python3 - <<'PY'
+      import json
+      d = json.load(open("bandit-report.json"))
+      results = d.get("results", [])
+      metrics = d.get("metrics", {}).get("_totals", {})
+      print(f"bandit: {metrics.get('loc', '?')} lines scanned, {len(results)} issue(s)")
+      for r in results:
+          print(f"  [{r['issue_severity']}/{r['issue_confidence']}] {r['test_id']} {r['issue_text']}")
+          print(f"    {r['filename']}:{r['line_number']}")
+      PY
+      exit $BANDIT_EXIT
   artifacts:
     when: always
     expire_in: 1 week
@@ -957,13 +1000,10 @@ frontend-docker-push:
 # click play here.
 
 ghcr-push-backend:
+  extends: .docker-push-common
   stage: deploy
   when: manual
   allow_failure: true
-  image: docker:28-cli
-  before_script:
-    - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
-    - docker buildx create --driver docker-container --bootstrap --use
   script:
     - docker buildx build
         --platform linux/amd64,linux/arm64
@@ -972,17 +1012,12 @@ ghcr-push-backend:
         --push
         --tag ghcr.io/visiban/visiban/backend:latest
         backend/
-  after_script:
-    - docker buildx ls --format '{{.Name}}' | grep -v '^default' | xargs -r docker buildx rm || true
 
 ghcr-push-frontend:
+  extends: .docker-push-common
   stage: deploy
   when: manual
   allow_failure: true
-  image: docker:28-cli
-  before_script:
-    - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
-    - docker buildx create --driver docker-container --bootstrap --use
   script:
     - docker buildx build
         --platform linux/amd64,linux/arm64
@@ -992,8 +1027,6 @@ ghcr-push-frontend:
         --push
         --tag ghcr.io/visiban/visiban/frontend:latest
         frontend/
-  after_script:
-    - docker buildx ls --format '{{.Name}}' | grep -v '^default' | xargs -r docker buildx rm || true
 
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
