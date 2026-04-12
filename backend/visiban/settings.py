@@ -332,10 +332,15 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # django-allauth
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
-# Default to "none" so self-hosted installs work without a configured SMTP server.
-# Set ACCOUNT_EMAIL_VERIFICATION=mandatory to require email confirmation before login,
-# or "optional" to send a verification email but allow login without it.
-ACCOUNT_EMAIL_VERIFICATION = env("ACCOUNT_EMAIL_VERIFICATION", default="none")
+# EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
+# ACCOUNT_EMAIL_VERIFICATION is kept as a deprecated alias for one release so that
+# existing installs do not break after upgrading. If both are set, EMAIL_VERIFICATION
+# takes precedence.
+_email_verification_explicit = env("EMAIL_VERIFICATION", default="")
+ACCOUNT_EMAIL_VERIFICATION = (
+    _email_verification_explicit
+    or env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
+)
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
@@ -402,6 +407,23 @@ REST_AUTH = {
 }
 
 APP_VERSION = env("APP_VERSION", default="dev")
+
+# Email backend — console in development (prints to stdout), SMTP in production.
+# Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 
 # Log auth failures (401/403) at WARNING so operators can detect brute-force
 # attempts and misconfigured clients. Previously these were suppressed, hiding
