@@ -270,6 +270,28 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.updateMember).toHaveBeenCalledWith(expect.objectContaining({ role: 'viewer' }))
   })
 
+  it('member.updated syncs current_user_role when the updated member is the current user', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    // Admin is downgraded to viewer — their own membership is updated
+    const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', is_moderator: false, joined_at: '' }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith(expect.objectContaining({ current_user_role: 'viewer' }))
+  })
+
+  it('member.updated does not sync current_user_role when a different user is updated', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
+    const membership: BoardMembership = { id: 2, user: otherUser, role: 'viewer', is_moderator: false, joined_at: '' }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
+    expect(ctx.mergeBoardState).not.toHaveBeenCalled()
+  })
+
   it('member.removed routes to removeMember with user_id', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
