@@ -3,7 +3,7 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.views import InviteRegisterView
+from accounts.views import InviteRegisterView, ThrottledPasswordResetView
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
@@ -27,6 +27,9 @@ urlpatterns = [
     # method signatures do not need to declare a 'version' parameter.
     # request.version is set to "v1" (the DEFAULT_VERSION) by URLPathVersioning.
     # Requests to any other /api/vN/ prefix are caught by the 406 catch-all below.
+    # Override the default PasswordResetView with our rate-limited subclass to
+    # prevent the reset flow from being used for bulk email sends.
+    path("api/v1/auth/password/reset/", ThrottledPasswordResetView.as_view()),
     path("api/v1/auth/", include("dj_rest_auth.urls")),
     # Override the default RegisterView with InviteRegisterView so that
     # invite-only mode validates tokens atomically with user creation.

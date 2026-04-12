@@ -14,6 +14,8 @@ import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
 import ShareBoardPage from "./pages/ShareBoardPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdminPage from "./pages/AdminPage";
 import type { User } from "./types";
@@ -97,6 +99,8 @@ export default function App() {
       {/* Public — accessible regardless of auth */}
       <Route path="/join/:token" element={<JoinPage user={user} onLogin={handleLogin} />} />
       <Route path="/share/:token" element={<ShareBoardPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password/:uid/:token" element={<ResetPasswordPage />} />
 
       {/* Auth-gated routes */}
       {user ? (

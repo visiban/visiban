@@ -27,6 +27,12 @@ export const getSiteConfig = () =>
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/v1/auth/change-password/", { current_password, new_password }).then((r) => r.data);
 
+export const requestPasswordReset = (email: string): Promise<void> =>
+  client.post("/api/v1/auth/password/reset/", { email }).then(() => undefined);
+
+export const confirmPasswordReset = (uid: string, token: string, new_password1: string, new_password2: string): Promise<void> =>
+  client.post("/api/v1/auth/password/reset/confirm/", { uid, token, new_password1, new_password2 }).then(() => undefined);
+
 export const chooseUsername = (username: string) =>
   client.post<User>("/api/v1/auth/choose-username/", { username }).then((r) => r.data);
 

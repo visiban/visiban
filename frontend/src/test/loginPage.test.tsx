@@ -48,6 +48,18 @@ describe('LoginPage', () => {
     expect(screen.getByText('Sign in')).toBeInTheDocument()
   })
 
+  it('shows "Forgot password?" link in login mode', () => {
+    renderLoginPage()
+    expect(screen.getByText('Forgot password?')).toBeInTheDocument()
+  })
+
+  it('hides "Forgot password?" link in register mode', async () => {
+    const user = userEvent.setup()
+    renderLoginPage()
+    await user.click(screen.getByText('Create one'))
+    expect(screen.queryByText('Forgot password?')).not.toBeInTheDocument()
+  })
+
   it('starts in register mode when authMode is "register" in location state', () => {
     renderLoginPage({ authMode: 'register' })
     expect(screen.getByText('Create account')).toBeInTheDocument()

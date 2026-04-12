@@ -245,6 +245,8 @@ REST_FRAMEWORK = {
         "join_group": "9999/hour" if DEBUG else "10/hour",
         # Registration: prevents invite token brute-force and mass account creation.
         "register": "9999/hour" if DEBUG else "10/min",
+        # Password reset: prevents the reset flow from being used for bulk email sends.
+        "password_reset": "9999/hour" if DEBUG else "5/hour",
         # Public board share-link reads: generous but bounded to limit scraping.
         "share_link": "120/hour",
         # Choose-username: prevents username enumeration via "already taken" probing.
@@ -404,6 +406,10 @@ REST_AUTH = {
     # normalises to required=True. Use a custom serializer that sets required=False
     # explicitly so email-only registration works without a username field.
     "REGISTER_SERIALIZER": "accounts.serializers.RegistrationSerializer",
+    # Use our custom serializer so the reset email link points at the frontend
+    # SPA rather than reversing 'password_reset_confirm' (a Django built-in URL
+    # name that Visiban does not register).
+    "PASSWORD_RESET_SERIALIZER": "accounts.serializers.VisibanPasswordResetSerializer",
 }
 
 APP_VERSION = env("APP_VERSION", default="dev")
