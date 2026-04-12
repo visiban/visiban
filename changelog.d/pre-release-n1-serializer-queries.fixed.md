@@ -1,0 +1,1 @@
+Fix N+1 queries in card move and board member add responses: re-fetch `CardMovement` with `select_related("moved_by", "card")` before serializing, and assign `membership.user` from the already-loaded `target_user` instance instead of triggering a lazy FK load.

@@ -826,6 +826,9 @@ class CardViewSet(viewsets.ModelViewSet):
         ).data
         response_data = {"card": card_data}
         if movement:
+            # Re-fetch movement with its FK relations loaded so CardMovementSerializer
+            # does not issue a separate query for moved_by, card.uid, and card.title.
+            movement = CardMovement.objects.select_related("moved_by", "card").get(pk=movement.pk)
             response_data["movement"] = CardMovementSerializer(movement).data
 
         # Broadcast the same shape as the REST response so WS clients can update
