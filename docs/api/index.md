@@ -2,7 +2,7 @@
 
 Visiban exposes a REST JSON API. All endpoints require an authenticated session unless noted otherwise.
 
-**Base URL:** `http://localhost:8000` (dev) or your configured domain (production)
+**Base URL:** `http://localhost:8000/api/v1` (dev) or `https://<your-domain>/api/v1` (production)
 
 | Reference | Description |
 |---|---|
@@ -72,9 +72,11 @@ The `data` object contains the serialized resource (card, column, swimlane, etc.
 
 ## Versioning policy
 
-The `/api/` URL prefix is the stable 1.x surface. Breaking changes (field removals, type changes, endpoint removals) will be introduced under `/api/v2/` with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.
+All REST endpoints are served under the `/api/v1/` prefix. This is a literal path segment — the version string is not a header or query parameter. An unsupported version prefix (e.g. `/api/v2/`) returns `406 Not Acceptable`.
 
-Operators and integrators may treat the `/api/` surface as stable for the lifetime of all Visiban 1.x releases.
+The `/api/v1/` surface is the stable 1.x contract. Breaking changes (field removals, type changes, endpoint removals) will be introduced under `/api/v2/` with at least one minor-release deprecation notice. Additive changes (new optional response fields, new optional request parameters, new endpoints) are non-breaking and may appear in any 1.x patch or minor release.
+
+Operators and integrators may treat the `/api/v1/` surface as stable for the lifetime of all Visiban 1.x releases.
 
 ---
 
