@@ -342,7 +342,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             type="checkbox"
                             checked={m.is_moderator}
                             disabled={isDisabled}
-                            onChange={() => handleModeratorToggle(m.user.id, m.role, m.is_moderator)}
+                            onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
                             className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
                           />
                           <span className="text-xs text-slate-400">Moderator</span>
