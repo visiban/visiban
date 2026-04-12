@@ -3,8 +3,8 @@ import logging
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from django.conf import settings as django_settings
 from django.db import transaction
+from django.conf import settings as django_settings
 from django.http import HttpResponseRedirect
 from rest_framework.exceptions import PermissionDenied
 

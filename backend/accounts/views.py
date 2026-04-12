@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from dj_rest_auth.registration.views import RegisterView
+from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -36,6 +37,23 @@ class UserSearchRateThrottle(UserRateThrottle):
     """
 
     scope = "user_search"
+
+
+class PasswordResetThrottle(AnonRateThrottle):
+    """Rate limit for the password-reset request endpoint.
+
+    Prevents a caller from using the reset flow to trigger bulk email sends.
+    5 requests per hour per IP is generous enough for legitimate use (a user
+    who lost access to their email and needs to retry) while blocking abuse.
+    """
+
+    scope = "password_reset"
+
+
+class ThrottledPasswordResetView(DjRestAuthPasswordResetView):
+    """dj-rest-auth PasswordResetView with a project-specific rate limit applied."""
+
+    throttle_classes = [PasswordResetThrottle]
 
 
 class UserSearchView(APIView):

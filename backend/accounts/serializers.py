@@ -1,7 +1,9 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from dj_rest_auth.serializers import PasswordResetSerializer
 from rest_framework import serializers
 
 from .models import PersonalAccessToken, User, get_uploads_enabled
+from .forms import VisibanPasswordResetForm
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -14,6 +16,15 @@ class RegistrationSerializer(RegisterSerializer):
         max_length=150,
         required=False,
     )
+
+
+class VisibanPasswordResetSerializer(PasswordResetSerializer):
+    """Wires our custom password-reset form so the reset email link points at
+    the frontend SPA rather than reversing the Django built-in URL name."""
+
+    @property
+    def password_reset_form_class(self):
+        return VisibanPasswordResetForm
 
 
 class PublicUserSerializer(serializers.ModelSerializer):
