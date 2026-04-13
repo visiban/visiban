@@ -1122,8 +1122,8 @@ docs-deploy:
     - git config user.name "Visiban CI"
     - git remote set-url origin "https://oauth2:${DOCS_DEPLOY_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git"
     # Restore existing gh-pages history so mike can append to it.
-    # The || true is intentional: first-ever deploy has no gh-pages branch yet.
-    - git fetch origin gh-pages --depth=1 && git branch gh-pages origin/gh-pages || true
+    # Force-update in case a stale local branch exists from a previous job on the same runner.
+    - git fetch origin gh-pages --depth=1 && (git branch -f gh-pages origin/gh-pages 2>/dev/null || git branch gh-pages origin/gh-pages) || true
   script:
     - |
       VERSION="${DOCS_VERSION:-$CI_COMMIT_TAG}"
