@@ -265,7 +265,7 @@ backend-test:
     - pip install --quiet -r backend/requirements-test.txt
   script:
     - cd backend
-    - coverage run --source=. --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
+    - coverage run --parallel --data-file=.coverage.${CI_NODE_INDEX} -m pytest
         --splitting-algorithm least_duration
         --store-durations
         --group $CI_NODE_INDEX
@@ -302,7 +302,7 @@ backend-test-coverage:
   script:
     - cd backend
     - coverage combine
-    - coverage report --skip-covered --fail-under=90
+    - coverage report --fail-under=90
     - coverage xml -o coverage.xml
   coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+)%/'
   artifacts:
