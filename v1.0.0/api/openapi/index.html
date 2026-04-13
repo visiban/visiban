@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2497,97 +2475,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2654,7 +2541,7 @@
 </tr>
 </tbody>
 </table>
-<p>All three endpoints are publicly accessible — no authentication is required to view the spec.</p>
+<p>All three endpoints require authentication (<code>IsAuthenticated</code>) — you must be logged in to view the spec.</p>
 <h2 id="accessing-the-spec-by-deployment-type">Accessing the spec by deployment type<a class="headerlink" href="#accessing-the-spec-by-deployment-type" title="Permanent link">&para;</a></h2>
 <h3 id="docker-compose-development-docker-composeyml">Docker Compose — development (<code>docker-compose.yml</code>)<a class="headerlink" href="#docker-compose-development-docker-composeyml" title="Permanent link">&para;</a></h3>
 <p>The backend is exposed directly on port 8000 in the dev stack. The frontend dev server (Vite, port 5173) does <strong>not</strong> proxy <code>/api/</code> requests, so you must hit the backend directly:</p>

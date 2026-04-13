@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -1120,15 +1098,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#staleness-notifications-beta" class="md-nav__link">
+  <a href="#staleness-notifications" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Staleness notifications BETA
+        Staleness notifications
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Staleness notifications BETA">
+    <nav class="md-nav" aria-label="Staleness notifications">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2577,97 +2555,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2788,7 +2675,7 @@
 <p>This notification appears in the bell dropdown and includes a <strong>View board →</strong> link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in <strong>Settings → Notifications</strong> by toggling the <strong>Board invites</strong> preference.</p>
 <h2 id="comment-added-notifications">Comment added notifications<a class="headerlink" href="#comment-added-notifications" title="Permanent link">&para;</a></h2>
 <p>When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).</p>
-<h2 id="staleness-notifications-beta">Staleness notifications <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#staleness-notifications-beta" title="Permanent link">&para;</a></h2>
+<h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
 <p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees of stale cards.</p>
 <h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>
 <p>Each board has a <code>staleness_threshold_days</code> setting (default: <strong>7 days</strong>). A card is stale when its last <code>CardMovement</code> record is older than this threshold (or when a card has never been moved and was created more than that many days ago).</p>
@@ -2806,7 +2693,7 @@
 <p>Each notification stores structured metadata alongside the human-readable <code>verb</code> string:</p>
 <ul>
 <li><strong><code>actor</code></strong> — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.</li>
-<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>. Useful for filtering or grouping notifications programmatically.</li>
+<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>. Useful for filtering or grouping notifications programmatically.</li>
 </ul>
 <h2 id="notification-api">Notification API<a class="headerlink" href="#notification-api" title="Permanent link">&para;</a></h2>
 <table>

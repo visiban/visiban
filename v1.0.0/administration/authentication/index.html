@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2530,97 +2508,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2727,8 +2614,8 @@
 <p>See the <a href="../../getting-started/oauth/">OAuth Setup</a> guide for step-by-step configuration of each provider.</p>
 <h2 id="generic-oidc-beta">Generic OIDC <span style="background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;vertical-align:middle;letter-spacing:0.3px;">BETA</span><a class="headerlink" href="#generic-oidc-beta" title="Permanent link">&para;</a></h2>
 <div class="admonition info">
-<p class="admonition-title">Beta — validated against Keycloak; community feedback needed for other providers</p>
-<p>The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the <code>oidc-smoke</code> job (<code>docker-compose.oidc.yml</code>). <strong>Other providers — Okta, Authentik, Dex, and others — have not been tested.</strong> You may encounter issues with token exchange, scope mapping, or callback handling specific to your IdP.</p>
+<p class="admonition-title">Validated against Keycloak; community feedback welcome for other providers</p>
+<p>The end-to-end login flow is validated automatically in CI against a real Keycloak instance via the <code>oidc-smoke</code> job (<code>docker-compose.oidc.yml</code>). Other providers — Okta, Authentik, Dex, and others — have not been tested end-to-end. You may encounter issues with token exchange, scope mapping, or callback handling specific to your IdP.</p>
 <p>If you test this against a non-Keycloak provider, please report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>.</p>
 </div>
 <div class="admonition note">
@@ -2856,7 +2743,7 @@ the callback URL becomes:
 </blockquote>
 <p>SCIM 2.0 directory sync (automatic user provisioning and deprovisioning from your IdP) and just-in-time (JIT) account creation on first login are enterprise features. They are intended for organizations with centralized identity management at scale. For smaller teams, manual user invitation via invite links covers the same onboarding workflow in the OSS edition.</p>
 <h2 id="classification-rationale">Classification rationale<a class="headerlink" href="#classification-rationale" title="Permanent link">&para;</a></h2>
-<p>For the reasoning behind the OSS vs enterprise boundary for these authentication methods, see the <a href="../../architecture/open-core-boundary/#oidc-authentication-oss-vs-saml-enterprise">Open-Core Boundary</a> reference page.</p>
+<p>For the reasoning behind the OSS vs enterprise boundary for these authentication methods, see the <a href="../../architecture/open-core-boundary/#oidc-authentication-oss-vs-saml-scim-enterprise">Open-Core Boundary</a> reference page.</p>
 
 
 

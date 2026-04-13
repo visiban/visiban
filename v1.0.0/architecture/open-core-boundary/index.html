@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2552,97 +2530,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -3037,7 +2924,7 @@
 <tr>
 <td>Generic OIDC</td>
 <td>OSS</td>
-<td>Beta (see <a href="https://gitlab.com/visiban/visiban/-/issues/349">#349</a>)</td>
+<td>Shipped</td>
 <td><code>allauth</code> (already present)</td>
 </tr>
 <tr>
@@ -3055,7 +2942,7 @@
 </tbody>
 </table>
 <blockquote>
-<p><strong>OIDC beta note.</strong> The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow against a real identity provider has not been validated. The boundary ruling is final; see <a href="../../administration/authentication/">Authentication docs</a> for the current production-readiness status.</p>
+<p><strong>OIDC note.</strong> The configuration plumbing (env vars, provider registration, settings guard) is implemented and unit-tested. End-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>. The boundary ruling is final; see <a href="../../administration/authentication/">Authentication docs</a> for details.</p>
 </blockquote>
 <p><strong>Issues:</strong> #349 (OIDC implementation), #714 (boundary decision), enterprise #4 (SAML), enterprise — (SCIM)</p>
 <hr />

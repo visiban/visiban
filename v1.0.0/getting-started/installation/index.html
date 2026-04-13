@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2674,97 +2652,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2859,7 +2746,7 @@
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
 </code></pre></div>
 <p>Docker Compose starts four services: <code>db</code> (Postgres 17), <code>redis</code> (Redis 7), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (Vite dev server).</p>
-<p>This setup is for <strong>local development only</strong> — the Vite dev server is not suitable for production. See <a href="#production-with-https">Production with HTTPS</a> below for a production deployment.</p>
+<p>This setup is for <strong>local development only</strong> — the Vite dev server is not suitable for production. See <a href="#production-deployment">Production Deployment</a> below for a production deployment.</p>
 <table>
 <thead>
 <tr>
@@ -3018,9 +2905,9 @@
 <td>Override bootstrap admin email (default: <code>admin@localhost</code>)</td>
 </tr>
 <tr>
-<td><code>ACCOUNT_EMAIL_VERIFICATION</code></td>
+<td><code>EMAIL_VERIFICATION</code></td>
 <td style="text-align: center;">No</td>
-<td>Email verification mode: <code>none</code> (default — no verification required, works without SMTP), <code>optional</code> (sends verification email but allows login without it), or <code>mandatory</code> (blocks login until email is verified)</td>
+<td>Email verification mode: <code>optional</code> (default — sends verification email but allows login without it), <code>none</code> (no verification required, works without SMTP), or <code>mandatory</code> (blocks login until email is verified). <code>ACCOUNT_EMAIL_VERIFICATION</code> is a deprecated alias for this setting and will be removed in a future release.</td>
 </tr>
 <tr>
 <td><code>SECURE_HSTS_SECONDS</code></td>
@@ -3038,9 +2925,9 @@
 <td>OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three <code>OIDC_*</code> vars must be set together to enable OIDC login. See <a href="../oauth/">OAuth Setup</a>.</td>
 </tr>
 <tr>
-<td><code>OIDC_SECRET</code></td>
+<td><code>OIDC_CLIENT_SECRET</code></td>
 <td style="text-align: center;">No</td>
-<td>OIDC provider client secret.</td>
+<td>OIDC provider client secret. (<code>OIDC_SECRET</code> is a deprecated alias kept for one release cycle — rename it to <code>OIDC_CLIENT_SECRET</code> when you next update your environment.)</td>
 </tr>
 <tr>
 <td><code>OIDC_SERVER_URL</code></td>

@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2469,97 +2447,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2649,11 +2536,11 @@
 <li>Add to <code>.env</code>:</li>
 </ol>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>OIDC_CLIENT_ID=your-client-id
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>OIDC_SECRET=your-client-secret
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>OIDC_CLIENT_SECRET=your-client-secret
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>OIDC_SERVER_URL=https://idp.example.com/realms/my-realm
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>OIDC_PROVIDER_NAME=SSO        # optional — controls the login button label
 </code></pre></div>
-<p>All three of <code>OIDC_CLIENT_ID</code>, <code>OIDC_SECRET</code>, and <code>OIDC_SERVER_URL</code> must be set for OIDC to be enabled; setting only one or two has no effect.</p>
+<p>All three of <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, and <code>OIDC_SERVER_URL</code> must be set for OIDC to be enabled; setting only one or two has no effect.</p>
 <p><code>OIDC_SERVER_URL</code> must be the issuer root URL. Visiban appends <code>/.well-known/openid-configuration</code> to discover token and userinfo endpoints automatically.</p>
 <p>Scopes requested: <code>openid</code>, <code>email</code>, <code>profile</code>.</p>
 

@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../../changelog/" class="md-tabs__link">
         
@@ -2539,97 +2517,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../changelog/" class="md-nav__link">
         
@@ -2743,7 +2630,7 @@
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Due date change tracking was added in 1.0.0-rc.7.</p>
+<p>Due date change tracking was added in 1.0.0.</p>
 </div>
 <h2 id="viewing-history">Viewing history<a class="headerlink" href="#viewing-history" title="Permanent link">&para;</a></h2>
 <p>Open a card and click the <strong>History</strong> tab in the side panel. The timeline shows movements and field changes in reverse chronological order. Each entry shows:</p>
@@ -2770,7 +2657,7 @@
 <p>Movement records include <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code>, <code>from_column_uid</code>, <code>to_column_uid</code>, <code>from_swimlane_uid</code>, <code>to_swimlane_uid</code>, <code>moved_by</code>, <code>moved_at</code>, and <code>movement_type</code>. The name and UID fields are denormalized — they are captured at write time and remain accurate regardless of future renames or deletions. See <a href="../stable-uids/">Stable UIDs</a> for full field reference and integration examples.</p>
 <h2 id="board-level-movement-history">Board-level movement history<a class="headerlink" href="#board-level-movement-history" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Added in 1.0.0-rc.10</strong></p>
+<p><strong>Added in 1.0.0</strong></p>
 </blockquote>
 <p>In addition to the per-card timeline, the <strong>History</strong> tab in the board toolbar shows movements across all cards on the board. See <a href="../board/#history-view">Board &amp; Cards — History view</a> for the UI description.</p>
 <h3 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h3>
@@ -2794,11 +2681,6 @@
 <td><code>to_column_id</code></td>
 <td>integer</td>
 <td>Filter by destination column</td>
-</tr>
-<tr>
-<td><code>assignee_id</code></td>
-<td>integer</td>
-<td>Filter by card assignee</td>
 </tr>
 <tr>
 <td><code>moved_by_id</code></td>

@@ -329,28 +329,6 @@
   
   
   
-    
-    
-      <li class="md-tabs__item">
-        <a href="../security/audit-370-headless-allauth/" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Security
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-  
     <li class="md-tabs__item">
       <a href="../changelog/" class="md-tabs__link">
         
@@ -2370,97 +2348,6 @@
   
   
   
-    
-    
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
-        
-          
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Security
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../security/audit-370-headless-allauth/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security Audit
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../changelog/" class="md-nav__link">
         
@@ -2756,10 +2643,10 @@
 <p>→ <a href="../administration/admin-panel/">Administration</a></p>
 <hr />
 <h2 id="oidc-authentication">OIDC authentication<a class="headerlink" href="#oidc-authentication" title="Permanent link">&para;</a></h2>
-<p>Generic OpenID Connect (OIDC) is now configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set <code>OIDC_CLIENT_ID</code>, <code>OIDC_SECRET</code>, and <code>OIDC_SERVER_URL</code> to enable it; the provider is only registered when all three are present.</p>
+<p>Generic OpenID Connect (OIDC) is configurable via environment variables, making it straightforward to integrate with Keycloak, Authentik, Okta, Dex, or any other standard OIDC identity provider. Set <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, and <code>OIDC_SERVER_URL</code> to enable it; the provider is only registered when all three are present.</p>
 <div class="admonition info">
-<p class="admonition-title">Beta</p>
-<p>The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested yet — report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>.</p>
+<p class="admonition-title">Validated against Keycloak; community feedback welcome for other providers</p>
+<p>The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on <a href="https://gitlab.com/visiban/visiban/-/issues/349">issue #349</a>.</p>
 </div>
 <p>→ <a href="../administration/authentication/#generic-oidc">Authentication</a></p>
 <hr />
