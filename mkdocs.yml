@@ -8,9 +8,18 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   palette:
-    scheme: slate
-    primary: blue
-    accent: blue
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
   features:
     - navigation.tabs
     - navigation.sections
