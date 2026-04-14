@@ -352,7 +352,7 @@ describe('BoardView socket event routing — new event types', () => {
     mockBoardContextValue = makeContext()
     render(<BoardView onBoardDeleted={onBoardDeleted} />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_id: 1 } }) })
+    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
     expect(onBoardDeleted).toHaveBeenCalledTimes(1)
   })
 
@@ -361,6 +361,6 @@ describe('BoardView socket event routing — new event types', () => {
     render(<BoardView />)
     await act(async () => {})
     // Should not throw when the optional callback is absent
-    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_id: 1 } }) })
+    act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
   })
 })

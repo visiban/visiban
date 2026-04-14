@@ -177,15 +177,20 @@ class BoardDeletedBroadcastTests(TestCase):
                 self.client.delete(f"/api/v1/boards/{self.board.pk}/")
                 mock_broadcast.assert_not_called()
 
-    def test_board_deleted_payload_contains_board_id(self):
-        """board.deleted payload dict contains the deleted board's id."""
+    def test_board_deleted_payload_contains_board_id_and_uid(self):
+        """board.deleted payload contains both board_uid (canonical) and board_id (deprecated compat)."""
         board_pk = self.board.pk
+        board_uid = self.board.uid
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(f"/api/v1/boards/{board_pk}/")
             deleted_calls = [c for c in mock_broadcast.call_args_list if c[0][1] == "board.deleted"]
             self.assertEqual(len(deleted_calls), 1)
-            self.assertEqual(deleted_calls[0][0][2]["board_id"], board_pk)
+            payload = deleted_calls[0][0][2]
+            # board_id is kept for backward compatibility with pre-1.1 clients.
+            self.assertEqual(payload["board_id"], board_pk)
+            # board_uid is the canonical stable identifier; all new clients should use this.
+            self.assertEqual(payload["board_uid"], board_uid)
 
 
 # ---------------------------------------------------------------------------

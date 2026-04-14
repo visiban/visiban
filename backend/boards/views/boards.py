@@ -139,14 +139,20 @@ class BoardViewSet(
         if board.owner != request.user and role != SITE_ADMIN:
             raise PermissionDenied
         board_id = board.id
+        board_uid = board.uid
         logger.info(
             "board.deleted board_id=%d board_name=%s deleted_by=%d deleted_by_username=%s",
             board.id, board.name, request.user.pk, request.user.username,
         )
         with transaction.atomic():
             board.delete()
+            # board_uid is the stable identifier for this event; board_id is kept
+            # for backward compatibility with pre-1.1 clients and must not be
+            # removed until a major-version bump.
             transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+                lambda: _broadcast.broadcast_board_event(
+                    board_id, "board.deleted", {"board_uid": board_uid, "board_id": board_id}
+                )
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
