@@ -1,0 +1,2 @@
+- Board import endpoint now enforces a rate limit of 10 imports per hour per authenticated user, preventing database flooding via rapid repeated imports (#690)
+- CSV and JSON board export responses now include `Cache-Control: no-store`, preventing board data from being cached by browsers or intermediate proxies (#506)
