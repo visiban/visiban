@@ -297,7 +297,7 @@ class BoardImportJSONTests(TestCase):
         f.name = "bad.json"
         resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Invalid JSON", resp.data["detail"])
+        self.assertIn("not valid JSON", resp.data["detail"])
 
     def test_missing_required_fields_returns_400(self):
         # Missing columns
@@ -539,7 +539,7 @@ class BoardImportEdgeCaseTests(TestCase):
         f.name = "truncated.json"
         resp = self.client.post("/api/v1/boards/import/", {"file": f}, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Invalid JSON", resp.data["detail"])
+        self.assertIn("not valid JSON", resp.data["detail"])
 
     def test_csv_missing_title_column_returns_400(self):
         """CSV without the required Title header should return 400."""

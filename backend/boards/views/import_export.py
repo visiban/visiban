@@ -4,6 +4,7 @@ import csv
 import datetime
 import io
 import json
+import logging
 
 from django.conf import settings as django_settings
 from django.db import transaction
@@ -28,6 +29,8 @@ from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
 from ..serializers import BoardSerializer
 from ._helpers import get_board_for_user
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_csv_field(value: str) -> str:
@@ -116,7 +119,8 @@ class BoardImportExportMixin:
             raw = file.read().decode("utf-8")
             data = json.loads(raw)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            return Response({"detail": f"Invalid JSON: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning("Board JSON import rejected — malformed payload: %s", exc)
+            return Response({"detail": "The uploaded file is not valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
 
         if not isinstance(data, dict):
             return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
