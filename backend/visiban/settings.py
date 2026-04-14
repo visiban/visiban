@@ -260,6 +260,8 @@ REST_FRAMEWORK = {
         "share_link": "120/hour",
         # Choose-username: prevents username enumeration via "already taken" probing.
         "choose_username": "9999/hour" if DEBUG else "10/min",
+        # Board import: each import can create up to 500 cards; cap prevents DB flooding.
+        "board_import": "9999/hour" if DEBUG else "10/hour",
     },
 }
 

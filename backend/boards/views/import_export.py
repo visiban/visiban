@@ -16,6 +16,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 
 from accounts.models import User
@@ -32,6 +33,16 @@ from ._helpers import get_board_for_user
 
 logger = logging.getLogger(__name__)
 
+
+class BoardImportThrottle(UserRateThrottle):
+    """Limit authenticated users to 10 board imports per hour.
+
+    Each import can create a board with up to 500 cards. Without a cap,
+    a single authenticated account could fill the database with arbitrary
+    content through rapid repeated imports.
+    """
+
+    scope = "board_import"
 
 def _sanitize_csv_field(value: str) -> str:
     """Strip leading characters that spreadsheet applications interpret as formula prefixes.
@@ -55,7 +66,8 @@ class BoardImportExportMixin:
         request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
         responses={200: OpenApiTypes.OBJECT},
     )
-    @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser])
+    @action(detail=False, methods=["post"], url_path="import", parser_classes=[MultiPartParser],
+            throttle_classes=[BoardImportThrottle])
     def import_board(self, request):
         """Import a board from a Visiban JSON or CSV export file."""
         file = request.FILES.get("file")
@@ -950,6 +962,7 @@ class BoardImportExportMixin:
             content = json.dumps(payload, indent=2, ensure_ascii=False)
             response = HttpResponse(content, content_type="application/json")
             response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.json"'
+            response["Cache-Control"] = "no-store"
             return response
 
         # Default: CSV export
@@ -997,4 +1010,5 @@ class BoardImportExportMixin:
 
         response = HttpResponse(buf.getvalue(), content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.csv"'
+        response["Cache-Control"] = "no-store"
         return response

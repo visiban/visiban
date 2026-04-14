@@ -264,6 +264,7 @@ class BoardImportJSONTests(TestCase):
         )
         resp = self.client.get(f"/api/v1/boards/{board.id}/export/?format=json")
         self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Cache-Control"], "no-store")
         payload = json.loads(resp.content)
         self.assertEqual(payload["schema_version"], 2)
         cards_by_title = {c["title"]: c for c in payload["cards"]}
@@ -708,6 +709,7 @@ class BoardImportCSVRoundtripTests(TestCase):
         # interpreting "csv" as a format suffix and routing to a missing renderer).
         export_resp = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(export_resp.status_code, 200)
+        self.assertEqual(export_resp["Cache-Control"], "no-store")
 
         # Re-import the CSV.
         csv_bytes = export_resp.content
