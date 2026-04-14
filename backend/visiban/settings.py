@@ -3,10 +3,13 @@ import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
-# Detect when running under `manage.py test` so we can substitute fast
-# in-process backends for Redis-backed services. This avoids requiring a
+# Detect when running under `manage.py test` or pytest so we can substitute
+# fast in-process backends for Redis-backed services. This avoids requiring a
 # running Redis instance just to run the test suite locally.
-_TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+_TESTING = (
+    (len(sys.argv) > 1 and sys.argv[1] == "test")
+    or "pytest" in sys.modules
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -333,6 +336,11 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # browsers into HTTPS for a deployment that may not have TLS at all.
 _HSTS_DEFAULT = 0 if (DEBUG or _FORCE_INSECURE_COOKIES) else 31536000
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=_HSTS_DEFAULT)
+# includeSubDomains prevents protocol-downgrade cookie theft on subdomains.
+# PRELOAD is intentionally left off — operators must opt in by submitting their
+# domain to the browser preload list; enabling it server-side alone has no effect
+# but can surprise operators who later want to remove the domain from HSTS.
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG and not _FORCE_INSECURE_COOKIES
 SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
