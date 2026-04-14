@@ -26,11 +26,11 @@ from ..models import (
     CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
 )
 from .. import broadcast as _broadcast
-
-logger = logging.getLogger(__name__)
 from ..permissions import SITE_ADMIN
 from ..serializers import BoardSerializer
 from ._helpers import get_board_for_user
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_csv_field(value: str) -> str:
