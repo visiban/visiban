@@ -1049,7 +1049,7 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         position = card.checklist_items.count()
         with transaction.atomic():
-            item = serializer.save(card=card, position=position)
+            item = serializer.save(card=card, position=position, created_by=request.user)
             CardActivity.objects.create(
                 card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
                 from_value="", to_value=item.text, actor=request.user,
@@ -1072,6 +1072,12 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
         item = get_object_or_404(CardChecklist, pk=item_pk, card=card)
+        # Ownership gate: collaborators and members may only edit/delete items
+        # they created. Admins and moderators may edit any item. Null created_by
+        # (pre-migration rows) is treated as unrestricted for backward compat.
+        if item.created_by_id and item.created_by_id != request.user.id:
+            if not _can_modify_others_content(board, role, request.user):
+                raise PermissionDenied("You can only edit checklist items you created.")
         if request.method == "DELETE":
             with transaction.atomic():
                 CardActivity.objects.create(
