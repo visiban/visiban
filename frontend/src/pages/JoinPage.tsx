@@ -19,6 +19,7 @@ export default function JoinPage({ user }: Props) {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [invalidReason, setInvalidReason] = useState<"expired" | "already_used">("expired");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(5);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
@@ -39,7 +40,11 @@ export default function JoinPage({ user }: Props) {
     }
     resolveJoinToken(token)
       .then((data) => { setGroupName(data.group_name); setGroupId(data.group_id); })
-      .catch(() => setInvalid(true))
+      .catch((err) => {
+        const httpStatus = (err as { response?: { status?: number } }).response?.status;
+        setInvalidReason(httpStatus === 410 ? "already_used" : "expired");
+        setInvalid(true);
+      })
       .finally(() => setLoading(false));
   }, [token, isSiteInvite, navigate]);
 
@@ -113,8 +118,17 @@ export default function JoinPage({ user }: Props) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 text-lg font-medium mb-2">Invalid or expired invite link</p>
-          <p className="text-slate-500 text-sm">This link may have been revoked or has expired.</p>
+          {invalidReason === "already_used" ? (
+            <>
+              <p className="text-slate-400 text-lg font-medium mb-2">This link has already been used</p>
+              <p className="text-slate-500 text-sm">This was a single-use invite link. Ask a group admin for a new one.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-red-400 text-lg font-medium mb-2">Invalid or expired invite link</p>
+              <p className="text-slate-500 text-sm">This link may have been revoked or has expired.</p>
+            </>
+          )}
           <p className="text-slate-600 text-xs mt-3">
             Redirecting to dashboard in {countdown}s…
           </p>

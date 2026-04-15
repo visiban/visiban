@@ -380,6 +380,9 @@ export interface GroupInviteLink {
   is_active: boolean;
   is_expired: boolean;
   created_at: string;
+  single_use: boolean;
+  status: "pending" | "used" | "expired" | "revoked";
+  used_at: string | null;
 }
 
 export interface SavedFilter {

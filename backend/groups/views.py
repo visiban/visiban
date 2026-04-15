@@ -1,5 +1,8 @@
 import logging
 
+import datetime
+
+from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -14,7 +17,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
-from .serializers import GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer
+from .serializers import GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -469,45 +472,37 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_admin(request.user, group)
 
         if request.method == "GET":
-            links = GroupInviteLink.objects.filter(group=group, is_active=True).order_by("created_at")
+            # Include consumed single-use links so admins can audit past usage.
+            links = GroupInviteLink.objects.filter(
+                Q(group=group) & (Q(is_active=True) | Q(used_at__isnull=False))
+            ).order_by("created_at")
             return Response(GroupInviteLinkSerializer(links, many=True).data)
 
         # POST — create a new invite link (max 5 active per group)
-        active_count = GroupInviteLink.objects.filter(group=group, is_active=True).count()
+        # Active count excludes consumed single-use links — they are dead weight.
+        active_count = GroupInviteLink.objects.filter(group=group, is_active=True, used_at__isnull=True).count()
         if active_count >= 5:
             return Response(
                 {"detail": "Maximum of 5 active invite links per group."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        name = request.data.get("name", "")
-        role = request.data.get("role", GroupInviteLink.Role.MEMBER)
-        if role not in GroupInviteLink.Role.values:
-            return Response(
-                {"role": f"Must be one of: {', '.join(GroupInviteLink.Role.values)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        create_serializer = GroupInviteLinkCreateSerializer(data=request.data)
+        if not create_serializer.is_valid():
+            return Response(create_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        expiry_days = request.data.get("expiry_days")
+        validated = create_serializer.validated_data
         expires_at = None
-        if expiry_days is not None:
-            import datetime
-            try:
-                expiry_days = int(expiry_days)
-            except (TypeError, ValueError):
-                return Response(
-                    {"expiry_days": "Must be an integer number of days."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if expiry_days > 0:
-                expires_at = timezone.now() + datetime.timedelta(days=expiry_days)
+        if validated["expiry_days"] is not None:
+            expires_at = timezone.now() + datetime.timedelta(days=validated["expiry_days"])
 
         link, raw_token = GroupInviteLink.generate(
             group=group,
             created_by=request.user,
-            name=name,
-            role=role,
+            name=validated["name"],
+            role=validated["role"],
             expires_at=expires_at,
+            single_use=validated["single_use"],
         )
         data = GroupInviteLinkSerializer(link).data
         data["token"] = raw_token
@@ -635,6 +630,16 @@ class JoinGroupView(APIView):
                 {"detail": "Not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        if link.single_use and link.used_at is not None:
+            logger.info(
+                "Invite token lookup failed: already used. token=%s ip=%s",
+                token_hint,
+                ip,
+            )
+            return Response(
+                {"detail": "This invite link has already been used."},
+                status=status.HTTP_410_GONE,
+            )
         if link.is_expired:
             logger.info(
                 "Invite token lookup failed: expired. token=%s ip=%s",
@@ -660,31 +665,59 @@ class JoinGroupView(APIView):
     def post(self, request, token):
         token_hint = str(token)[:8]
         ip = get_client_ip(request)
-        link = GroupInviteLink.lookup_by_token(str(token))
-        if link is None:
-            return Response(
-                {"detail": "Not found."},
-                status=status.HTTP_404_NOT_FOUND,
+
+        # Always lock the row regardless of single_use so the join path is
+        # consistently atomic. Overhead is negligible for low-frequency joins,
+        # and this future-proofs the view against max_uses or other counters.
+        hashed = GroupInviteLink._hash_token(str(token))
+        with transaction.atomic():
+            try:
+                link = GroupInviteLink.objects.select_for_update().get(
+                    token_hash=hashed, is_active=True
+                )
+            except GroupInviteLink.DoesNotExist:
+                return Response(
+                    {"detail": "Not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if link.single_use and link.used_at is not None:
+                logger.info(
+                    "Invite token redemption failed: already used. token=%s user_id=%s ip=%s outcome=failure",
+                    token_hint,
+                    request.user.pk,
+                    ip,
+                )
+                return Response(
+                    {"detail": "This invite link has already been used."},
+                    status=status.HTTP_410_GONE,
+                )
+
+            if link.is_expired:
+                logger.info(
+                    "Invite token redemption failed: expired. token=%s user_id=%s ip=%s outcome=failure",
+                    token_hint,
+                    request.user.pk,
+                    ip,
+                )
+                return Response(
+                    {"detail": "This invite link has expired."},
+                    status=status.HTTP_410_GONE,
+                )
+
+            # get_or_create: if the user is already a member, their existing role is preserved.
+            # Invite links never downgrade or upgrade an existing membership — this is intentional.
+            # An admin must explicitly change the role via the members API.
+            membership, created = GroupMembership.objects.get_or_create(
+                group=link.group,
+                user=request.user,
+                defaults={"role": link.role},
             )
-        if link.is_expired:
-            logger.info(
-                "Invite token redemption failed: expired. token=%s user_id=%s ip=%s outcome=failure",
-                token_hint,
-                request.user.pk,
-                ip,
-            )
-            return Response(
-                {"detail": "This invite link has expired."},
-                status=status.HTTP_410_GONE,
-            )
-        # get_or_create: if the user is already a member, their existing role is preserved.
-        # Invite links never downgrade or upgrade an existing membership — this is intentional.
-        # An admin must explicitly change the role via the members API.
-        membership, created = GroupMembership.objects.get_or_create(
-            group=link.group,
-            user=request.user,
-            defaults={"role": link.role},
-        )
+
+            if link.single_use:
+                link.used_at = timezone.now()
+                link.save(update_fields=["used_at"])
+
         logger.info(
             "Invite token redeemed. token=%s group_id=%s user_id=%s new_member=%s ip=%s outcome=success",
             token_hint,

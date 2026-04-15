@@ -207,6 +207,10 @@ class GroupInviteLink(models.Model):
         max_length=16, choices=Role.choices, default=Role.MEMBER
     )
     expires_at = models.DateTimeField(null=True, blank=True)
+    # Single-use mode: if True, the link is consumed atomically on first join
+    # and cannot be reused. Matches the behaviour of the site-level InviteLink.
+    single_use = models.BooleanField(default=False)
+    used_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "group_invite_links"
@@ -215,29 +219,49 @@ class GroupInviteLink(models.Model):
     def is_expired(self):
         return self.expires_at is not None and self.expires_at < timezone.now()
 
+    @property
+    def status(self):
+        """Return canonical link status: pending / used / expired / revoked.
+
+        GroupInviteLink uses is_active=False for revocation (no revoked_at
+        timestamp), unlike the site InviteLink model which has revoked_at.
+        Precedence: revoked > used > expired > pending.
+        """
+        if not self.is_active:
+            return "revoked"
+        if self.used_at:
+            return "used"
+        if self.is_expired:
+            return "expired"
+        return "pending"
+
     @classmethod
-    def generate(cls, group, created_by, name="", role=None, expires_at=None):
+    def _hash_token(cls, raw_token):
+        """Return the SHA-256 hex digest of a raw token string."""
+        return hashlib.sha256(raw_token.encode()).hexdigest()
+
+    @classmethod
+    def generate(cls, group, created_by, name="", role=None, expires_at=None, single_use=False):
         """Create a new invite link with a hashed token. Returns (instance, raw_token)."""
         raw = cls.GROUP_INVITE_PREFIX + secrets.token_hex(20)
-        hashed = hashlib.sha256(raw.encode()).hexdigest()
         instance = cls.objects.create(
             group=group,
             created_by=created_by,
-            token_hash=hashed,
+            token_hash=cls._hash_token(raw),
             prefix=raw[:8],
             name=name,
             role=role or cls.Role.MEMBER,
             expires_at=expires_at,
             is_active=True,
+            single_use=single_use,
         )
         return instance, raw
 
     @classmethod
     def lookup_by_token(cls, raw_token):
         """Look up an active invite link by its raw token. Returns instance or None."""
-        hashed = hashlib.sha256(raw_token.encode()).hexdigest()
         try:
-            return cls.objects.get(token_hash=hashed, is_active=True)
+            return cls.objects.get(token_hash=cls._hash_token(raw_token), is_active=True)
         except cls.DoesNotExist:
             return None
 
