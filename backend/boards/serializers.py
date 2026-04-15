@@ -94,6 +94,7 @@ class CardMovementSerializer(serializers.ModelSerializer):
 
 class CardCommentSerializer(serializers.ModelSerializer):
     author = BoardUserSerializer(read_only=True)
+    body = serializers.CharField(max_length=10_000)
 
     class Meta:
         model = CardComment
@@ -152,6 +153,7 @@ class CardSerializer(serializers.ModelSerializer):
         write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
     )
     created_by = BoardUserSerializer(read_only=True)
+    description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):

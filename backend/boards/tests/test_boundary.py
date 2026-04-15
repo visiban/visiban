@@ -157,6 +157,92 @@ class CardDueDateBoundaryTests(TestCase):
         self.assertEqual(self.card.due_date, datetime.date(2099, 12, 31))
 
 
+class CardDescriptionSizeCapTests(TestCase):
+    """Card.description has a 50,000-character serializer cap (no model change)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u2", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_description_at_limit_accepted(self, _):
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/",
+            {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": "X" * 50_000},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(resp.json()["description"]), 50_000)
+
+    def test_description_over_limit_rejected(self):
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/",
+            {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": "X" * 50_001},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_description_patch_at_limit_accepted(self, _):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", created_by=self.user, position=0,
+        )
+        resp = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{card.id}/",
+            {"description": "Y" * 50_000},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    def test_description_patch_over_limit_rejected(self):
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", created_by=self.user, position=0,
+        )
+        resp = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{card.id}/",
+            {"description": "Y" * 50_001},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class CardCommentSizeCapTests(TestCase):
+    """CardComment.body has a 10,000-character serializer cap (no model change)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u3", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", created_by=self.user, position=0,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_comment_at_limit_accepted(self):
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            {"body": "A" * 10_000},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(len(resp.json()["body"]), 10_000)
+
+    def test_comment_over_limit_rejected(self):
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            {"body": "A" * 10_001},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_comment_empty_body_rejected(self):
+        """Empty comment body must be rejected (existing behavior — blank=False on model)."""
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/comments/",
+            {"body": ""},
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class BoardEmptyStateModelTests(TestCase):
     """Board with no columns or no swimlanes should be a valid state."""
 
