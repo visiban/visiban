@@ -263,7 +263,7 @@ describe('SecurityTab — password account', () => {
     await user.type(screen.getByLabelText('Current password'), 'OldPassword1!')
     await user.type(screen.getByLabelText('New password'), 'NewPassword123!')
     await user.type(screen.getByLabelText('Confirm new password'), 'DifferentPassword!')
-    fireEvent.submit(screen.getByRole('button', { name: 'Change password' }).closest('form')!)
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
     await waitFor(() =>
       expect(screen.getByText('New passwords do not match.')).toBeInTheDocument(),
     )
@@ -275,7 +275,7 @@ describe('SecurityTab — password account', () => {
     await user.type(screen.getByLabelText('Current password'), 'OldPassword1!')
     await user.type(screen.getByLabelText('New password'), 'short')
     await user.type(screen.getByLabelText('Confirm new password'), 'short')
-    fireEvent.submit(screen.getByRole('button', { name: 'Change password' }).closest('form')!)
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
     await waitFor(() =>
       expect(
         screen.getByText('New password must be at least 12 characters.'),

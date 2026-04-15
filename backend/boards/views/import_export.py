@@ -831,9 +831,17 @@ class BoardImportExportMixin:
     def export(self, request, pk=None):
         """Export board data as CSV or JSON. Requires member or admin access."""
         board, role = get_board_for_user(pk, request.user)
-        if role not in (BoardMembershipModel.Role.MEMBER, BoardMembershipModel.Role.ADMIN, SITE_ADMIN):
+        # Viewers and collaborators can read all movement/card data via the API, so
+        # denying them a bulk export of the same data is inconsistent (#384).
+        if role not in (
+            BoardMembershipModel.Role.VIEWER,
+            BoardMembershipModel.Role.COLLABORATOR,
+            BoardMembershipModel.Role.MEMBER,
+            BoardMembershipModel.Role.ADMIN,
+            SITE_ADMIN,
+        ):
             return Response(
-                {"detail": "Board export requires member or admin access."},
+                {"detail": "Board export requires board membership."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         export_format = request.query_params.get("format", "csv")
