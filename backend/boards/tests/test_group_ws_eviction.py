@@ -6,12 +6,12 @@ hold through *inherited* group access must be closed via a member.removed broadc
 Connections held through a direct BoardMembership or another remaining group path
 must NOT be closed.
 """
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 from django.test import TestCase
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane
+from boards.models import Board, BoardMembership
 from groups.models import Group, GroupMembership
 from rest_framework.test import APIClient
 from rest_framework import status
