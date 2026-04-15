@@ -3,7 +3,7 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.views import InviteRegisterView, ThrottledPasswordResetView
+from accounts.views import InviteRegisterView, ThrottledPasswordResetView, EmailConfirmRedirectView
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
@@ -35,6 +35,14 @@ urlpatterns = [
     # invite-only mode validates tokens atomically with user creation.
     # The include() below still handles verify-email/ and resend-email/.
     path("api/v1/auth/registration/", InviteRegisterView.as_view()),
+    # Safety-net: browsers that navigate directly to the backend confirm-email
+    # URL (e.g. stale emails sent before the adapter fix) are redirected to the
+    # SPA /confirm-email/<key> route. Must be registered before the dj_rest_auth
+    # include so this pattern wins over allauth's template-based ConfirmEmailView.
+    path(
+        "api/v1/auth/registration/account-confirm-email/<str:key>/",
+        EmailConfirmRedirectView.as_view(),
+    ),
     path("api/v1/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/health/liveness/", LivenessView.as_view()),
     path("api/health/readiness/", ReadinessView.as_view()),

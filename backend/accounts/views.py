@@ -6,8 +6,10 @@ from django.contrib.auth import get_user_model, password_validation, update_sess
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.views import View
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -393,3 +395,17 @@ class InviteRegisterView(RegisterView):
             consume_invite_token(link)
 
         return response
+
+
+class EmailConfirmRedirectView(View):
+    """Safety-net for browsers that hit the backend confirm-email URL directly.
+
+    The confirmation link in outgoing emails now points to the frontend SPA
+    (via RegistrationAdapter.get_email_confirmation_url). This view handles
+    old/stale links (e.g. emails sent before the fix) or direct navigation by
+    redirecting the browser to the SPA route, which calls POST /verify-email/.
+    """
+
+    def get(self, request, key):
+        frontend_url = getattr(settings, "LOGIN_REDIRECT_URL", "http://localhost:5173").rstrip("/")
+        return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")

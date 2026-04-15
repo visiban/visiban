@@ -33,6 +33,9 @@ export const requestPasswordReset = (email: string): Promise<void> =>
 export const confirmPasswordReset = (uid: string, token: string, new_password1: string, new_password2: string): Promise<void> =>
   client.post("/api/v1/auth/password/reset/confirm/", { uid, token, new_password1, new_password2 }).then(() => undefined);
 
+export const verifyEmail = (key: string): Promise<void> =>
+  client.post("/api/v1/auth/registration/verify-email/", { key }).then(() => undefined);
+
 export const chooseUsername = (username: string) =>
   client.post<User>("/api/v1/auth/choose-username/", { username }).then((r) => r.data);
 
