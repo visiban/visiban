@@ -330,7 +330,7 @@ Generic OpenID Connect (OIDC) is configurable via environment variables, making 
 !!! info "Validated against Keycloak; community feedback welcome for other providers"
     The end-to-end login flow is validated in CI against Keycloak. Other providers (Okta, Authentik, Dex) have not been tested end-to-end — report findings on [issue #349](https://gitlab.com/visiban/visiban/-/issues/349).
 
-→ [Authentication](../administration/authentication.md#generic-oidc)
+→ [Authentication](../administration/authentication.md#generic-oidc-beta)
 
 ---
 
