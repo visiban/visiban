@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardComment, Column, Swimlane
+from boards.models import Board, BoardMembership, Card, Column, Swimlane
 
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
