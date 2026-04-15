@@ -29,6 +29,8 @@ import CardDetail from "../Card/CardDetail";
 import AddColumnModal from "./AddColumnModal";
 import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
+import BoardExportModal from "./BoardExportModal";
+import { useExportSeenPref } from "../../hooks/useExportSeenPref";
 import FilterBar, { countActiveFilters } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
@@ -373,6 +375,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [exportSeen, markExportSeen] = useExportSeenPref();
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
@@ -880,6 +884,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </svg>
             </button>
           </Tooltip>
+          <Tooltip content="Export board">
+            <button
+              onClick={() => { markExportSeen(); setShowExport(true); }}
+              className="relative p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Export board"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                <path d="M12 3v12M8 11l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {!exportSeen && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full pointer-events-none" aria-hidden="true" />
+              )}
+            </button>
+          </Tooltip>
           {isAdmin && (
             <Tooltip content="Board settings">
               <button
@@ -1250,6 +1269,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+
+      {showExport && (
+        <BoardExportModal
+          boardId={board.id}
+          onClose={() => setShowExport(false)}
+        />
+      )}
 
       {showArchived && (
         <ArchivedCardsPanel
