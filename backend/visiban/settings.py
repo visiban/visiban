@@ -262,6 +262,9 @@ REST_FRAMEWORK = {
         "choose_username": "9999/hour" if DEBUG else "10/min",
         # Board import: each import can create up to 500 cards; cap prevents DB flooding.
         "board_import": "9999/hour" if DEBUG else "10/hour",
+        # Email verification: HMAC keys are not brute-forceable; scope exists for
+        # operator-level observability and consistency with the rest of the auth surface.
+        "verify_email": "9999/hour" if DEBUG else "20/hour",
     },
 }
 
@@ -363,6 +366,16 @@ ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
 ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# Guard against operator misconfiguration: a value like "//evil.com" would produce
+# a protocol-relative open redirect in confirmation emails. Fail fast at startup
+# rather than silently sending broken or exploitable links to users.
+if not DEBUG and not (
+    LOGIN_REDIRECT_URL.startswith("http://") or LOGIN_REDIRECT_URL.startswith("https://")
+):
+    raise ImproperlyConfigured(
+        f"FRONTEND_URL must start with http:// or https://. Got: {LOGIN_REDIRECT_URL!r}. "
+        "Set FRONTEND_URL to your public frontend origin before starting."
+    )
 # Explicit login rate limits — locks in brute-force protection independent of
 # allauth version defaults. 5 failed attempts per 5 minutes per IP.
 ACCOUNT_RATE_LIMITS = {

@@ -51,6 +51,17 @@ class RegistrationAdapter(DefaultAccountAdapter):
             raise PermissionDenied("Registration is closed.")
         return super().save_user(request, user, form, commit)
 
+    def get_email_confirmation_url(self, request, emailconfirmation):
+        """Build the email-confirmation link pointing at the frontend SPA.
+
+        Allauth's default implementation reverses account_confirm_email (a
+        Django HTML view that requires a template). Visiban has no server-side
+        templates — the SPA handles confirmation via POST /verify-email/. We
+        redirect the browser to a frontend route that performs that API call.
+        """
+        frontend_url = (getattr(django_settings, "LOGIN_REDIRECT_URL", None) or "http://localhost:5173").rstrip("/")
+        return f"{frontend_url}/confirm-email/{emailconfirmation.key}"
+
 
 class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
     """Allauth social adapter that allows OAuth signup with a valid invite token.

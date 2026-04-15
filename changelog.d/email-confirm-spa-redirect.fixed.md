@@ -1,0 +1,1 @@
+Email confirmation links now point to the frontend SPA (`/confirm-email/<key>`) instead of the backend API URL, fixing the `ImproperlyConfigured: TemplateResponseMixin requires template_name` crash that occurred when a user clicked a confirmation link received via invite+OAuth flow.

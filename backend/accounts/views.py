@@ -6,8 +6,10 @@ from django.contrib.auth import get_user_model, password_validation, update_sess
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.views import View
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -54,6 +56,17 @@ class ThrottledPasswordResetView(DjRestAuthPasswordResetView):
     """dj-rest-auth PasswordResetView with a project-specific rate limit applied."""
 
     throttle_classes = [PasswordResetThrottle]
+
+
+class VerifyEmailThrottle(AnonRateThrottle):
+    """Rate limit for the verify-email endpoint.
+
+    HMAC-SHA256 keys are not brute-forceable, so the ceiling is generous.
+    The scope exists for consistency with the rest of the anonymous auth surface
+    and to give operators a single knob if abuse is ever observed.
+    """
+
+    scope = "verify_email"
 
 
 class UserSearchView(APIView):
@@ -393,3 +406,24 @@ class InviteRegisterView(RegisterView):
             consume_invite_token(link)
 
         return response
+
+
+class EmailConfirmRedirectView(View):
+    """Safety-net for browsers that hit the backend confirm-email URL directly.
+
+    The confirmation link in outgoing emails now points to the frontend SPA
+    (via RegistrationAdapter.get_email_confirmation_url). This view handles
+    old/stale links (e.g. emails sent before the fix) or direct navigation by
+    redirecting the browser to the SPA route, which calls POST /verify-email/.
+    """
+
+    # allauth HMAC keys are URL-safe base64 with a colon-separated timestamp
+    # suffix (e.g. "Mg:1uABcd-..."). Reject anything that doesn't match before
+    # issuing the redirect so we never forward garbage paths to the SPA.
+    _KEY_RE = re.compile(r'^[\w:\-]+$')
+
+    def get(self, request, key):
+        frontend_url = (getattr(settings, "LOGIN_REDIRECT_URL", None) or "http://localhost:5173").rstrip("/")
+        if not self._KEY_RE.match(key):
+            return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
+        return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")

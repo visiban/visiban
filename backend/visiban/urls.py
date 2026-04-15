@@ -3,9 +3,10 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.views import InviteRegisterView, ThrottledPasswordResetView
-from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
+from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from accounts.views import InviteRegisterView, ThrottledPasswordResetView, EmailConfirmRedirectView, VerifyEmailThrottle
+from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
 
 class UnsupportedVersionView(APIView):
@@ -35,6 +36,24 @@ urlpatterns = [
     # invite-only mode validates tokens atomically with user creation.
     # The include() below still handles verify-email/ and resend-email/.
     path("api/v1/auth/registration/", InviteRegisterView.as_view()),
+    # Safety-net: browsers that navigate directly to the backend confirm-email
+    # URL (e.g. stale emails sent before the adapter fix) are redirected to the
+    # SPA /confirm-email/<key> route. Must be registered before the dj_rest_auth
+    # include so this pattern wins over allauth's template-based ConfirmEmailView.
+    # Use a regex pattern instead of <str:key> to bound input length and restrict
+    # to the character set allauth actually uses (alphanumeric, hyphen, underscore,
+    # colon). This prevents an unbounded path segment from reaching the view.
+    re_path(
+        r"^api/v1/auth/registration/account-confirm-email/(?P<key>[\w:\-]{1,200})/$",
+        EmailConfirmRedirectView.as_view(),
+    ),
+    # Override verify-email with a throttled subclass for consistency with the
+    # rest of the anonymous auth surface. Registered before the include() so
+    # this pattern wins; the include still handles resend-email/.
+    path(
+        "api/v1/auth/registration/verify-email/",
+        VerifyEmailView.as_view(throttle_classes=[VerifyEmailThrottle]),
+    ),
     path("api/v1/auth/registration/", include("dj_rest_auth.registration.urls")),
     path("api/health/liveness/", LivenessView.as_view()),
     path("api/health/readiness/", ReadinessView.as_view()),
