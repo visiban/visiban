@@ -75,6 +75,7 @@ describe('ConfirmEmailPage', () => {
   })
 
   it('navigates to / immediately when the "Sign in" button is clicked', async () => {
+    const user = userEvent.setup()
     mockVerifyEmail.mockResolvedValue(undefined)
     renderPage()
 
@@ -82,7 +83,7 @@ describe('ConfirmEmailPage', () => {
       expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(screen.getByText('login-page')).toBeInTheDocument()
   })
@@ -99,6 +100,7 @@ describe('ConfirmEmailPage', () => {
   })
 
   it('"Go to sign in" button navigates to / on error state', async () => {
+    const user = userEvent.setup()
     mockVerifyEmail.mockRejectedValue(new Error('bad key'))
     renderPage()
 
@@ -106,7 +108,7 @@ describe('ConfirmEmailPage', () => {
       expect(screen.getByRole('button', { name: 'Go to sign in' })).toBeInTheDocument()
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Go to sign in' }))
+    await user.click(screen.getByRole('button', { name: 'Go to sign in' }))
 
     expect(screen.getByText('login-page')).toBeInTheDocument()
   })

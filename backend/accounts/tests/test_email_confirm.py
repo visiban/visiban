@@ -9,8 +9,7 @@ Covers:
 """
 from unittest.mock import MagicMock
 
-from django.test import TestCase, RequestFactory, override_settings
-from rest_framework.test import APIClient
+from django.test import Client, TestCase, RequestFactory, override_settings
 
 from accounts.adapter import RegistrationAdapter
 from accounts.views import EmailConfirmRedirectView, VerifyEmailThrottle
@@ -25,7 +24,7 @@ class EmailConfirmRedirectViewTests(TestCase):
     """GET /api/v1/auth/registration/account-confirm-email/<key>/ redirect behaviour."""
 
     def setUp(self):
-        self.client = APIClient()
+        self.client = Client()
 
     def test_valid_key_returns_302(self):
         """A well-formed allauth HMAC key produces a 302 response."""

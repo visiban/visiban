@@ -3,10 +3,10 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from accounts.views import InviteRegisterView, ThrottledPasswordResetView, EmailConfirmRedirectView, VerifyEmailThrottle
-from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from accounts.views import InviteRegisterView, ThrottledPasswordResetView, EmailConfirmRedirectView, VerifyEmailThrottle
+from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
 
 class UnsupportedVersionView(APIView):
