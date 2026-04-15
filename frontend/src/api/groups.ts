@@ -42,7 +42,7 @@ export const listInviteLinks = (groupId: number) =>
 
 export const createInviteLink = (
   groupId: number,
-  data: { name?: string; role?: "admin" | "member" | "collaborator" | "viewer"; expiry_days?: number | null },
+  data: { name?: string; role?: "admin" | "member" | "collaborator" | "viewer"; expiry_days?: number | null; single_use?: boolean },
 ) =>
   client
     .post<GroupInviteLink>(`/api/v1/groups/${groupId}/invite-links/`, data)

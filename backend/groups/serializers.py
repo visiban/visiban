@@ -108,8 +108,25 @@ class GroupDetailSerializer(GroupSerializer):
 
 class GroupInviteLinkSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
+    status = serializers.CharField(read_only=True)
 
     class Meta:
         model = GroupInviteLink
-        fields = ["id", "prefix", "is_active", "created_at", "name", "role", "expires_at", "is_expired"]
-        read_only_fields = ["id", "prefix", "is_active", "created_at", "is_expired"]
+        fields = [
+            "id", "prefix", "is_active", "created_at", "name", "role",
+            "expires_at", "is_expired", "single_use", "used_at", "status",
+        ]
+        read_only_fields = ["id", "prefix", "is_active", "created_at", "is_expired", "single_use", "used_at", "status"]
+
+
+class GroupInviteLinkCreateSerializer(serializers.Serializer):
+    """Validates input for creating a new GroupInviteLink."""
+
+    name = serializers.CharField(max_length=100, required=False, default="", allow_blank=True)
+    role = serializers.ChoiceField(
+        choices=GroupInviteLink.Role.choices,
+        required=False,
+        default=GroupInviteLink.Role.MEMBER,
+    )
+    expiry_days = serializers.IntegerField(required=False, allow_null=True, default=None, min_value=1)
+    single_use = serializers.BooleanField(required=False, default=False)

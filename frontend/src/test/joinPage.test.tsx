@@ -65,6 +65,22 @@ describe('JoinPage', () => {
     expect(await screen.findByText('Invalid or expired invite link')).toBeInTheDocument()
   })
 
+  it('shows "already used" message when token returns 410', async () => {
+    const err = Object.assign(new Error('Gone'), { response: { status: 410 } })
+    mockResolveJoinToken.mockRejectedValue(err)
+    renderJoinPage()
+    expect(await screen.findByText('This link has already been used')).toBeInTheDocument()
+    expect(screen.getByText(/single-use invite link/)).toBeInTheDocument()
+  })
+
+  it('shows generic error (not "already used") for non-410 failures', async () => {
+    const err = Object.assign(new Error('Not Found'), { response: { status: 404 } })
+    mockResolveJoinToken.mockRejectedValue(err)
+    renderJoinPage()
+    expect(await screen.findByText('Invalid or expired invite link')).toBeInTheDocument()
+    expect(screen.queryByText('This link has already been used')).not.toBeInTheDocument()
+  })
+
   it('auto-joins and shows spinner for authenticated user', async () => {
     mockResolveJoinToken.mockResolvedValue({ group_id: 1, group_name: 'Engineering' })
     mockJoinGroup.mockReturnValue(new Promise(() => {})) // keep pending so spinner stays
