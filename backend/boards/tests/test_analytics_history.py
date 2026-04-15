@@ -512,3 +512,130 @@ class TestAnalyticsWindowFilter(AnalyticsHistorySetup):
         # The endpoint must return 200 without error; the card is processed
         # without raising (it enters the cards_by_swimlane grouping)
         self.assertIn("swimlanes", resp.data)
+
+
+class TestAnalyticsSummaryRbac(AnalyticsHistorySetup):
+    """Non-members must receive 403 on /analytics/ and /summary/ (#702)."""
+
+    def setUp(self):
+        super().setUp()
+        self.non_member = User.objects.create_user(username="stranger", password="pw")
+
+    def test_non_member_cannot_access_analytics(self):
+        c = self._client_for(self.non_member)
+        resp = c.get(self._analytics_url())
+        self.assertEqual(resp.status_code, 403)
+
+    def test_non_member_cannot_access_summary(self):
+        c = self._client_for(self.non_member)
+        resp = c.get(self._summary_url())
+        self.assertEqual(resp.status_code, 403)
+
+    def test_non_member_cannot_access_movements(self):
+        c = self._client_for(self.non_member)
+        resp = c.get(self._movements_url())
+        self.assertEqual(resp.status_code, 403)
+
+
+class TestMovementsDeletedFk(AnalyticsHistorySetup):
+    """CardMovement serialization must survive deleted column/swimlane FKs (#703).
+
+    CardMovement denormalizes *_name and *_uid at write time precisely so that
+    the history remains readable even after a column or swimlane is deleted.
+    This test verifies that:
+    - Denormalized name/uid fields are preserved after FK deletion
+    - Null FK fields do not cause serialization errors
+    - The response shape matches the documented contract
+    """
+
+    def test_movements_after_column_deleted(self):
+        """Deleting a column must not break serialization of existing movements."""
+        # Move the card to a safe column so deleting col_todo/col_done doesn't
+        # cascade-delete the card (Card.column uses CASCADE).
+        safe_col = Column.objects.create(
+            board=self.board, name="Safe", position=99, allow_card_creation=True
+        )
+        self.card.column = safe_col
+        self.card.save(update_fields=["column"])
+
+        mv = CardMovement.objects.create(
+            card=self.card,
+            from_column=self.col_todo,
+            from_column_name="To Do",
+            from_column_uid=self.col_todo.uid,
+            to_column=self.col_done,
+            to_column_name="Done",
+            to_column_uid=self.col_done.uid,
+            from_swimlane=self.swimlane,
+            from_swimlane_name="Customer A",
+            from_swimlane_uid=self.swimlane.uid,
+            to_swimlane=self.swimlane,
+            to_swimlane_name="Customer A",
+            to_swimlane_uid=self.swimlane.uid,
+            moved_by=self.admin,
+            movement_type=CardMovement.MovementType.MOVE,
+        )
+        todo_uid = self.col_todo.uid
+        done_uid = self.col_done.uid
+
+        # Delete the original columns — SET_NULL on CardMovement FK, card survives
+        self.col_todo.delete()
+        self.col_done.delete()
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._movements_url())
+        self.assertEqual(resp.status_code, 200)
+
+        result = resp.data["results"][0]
+        # FK fields are null after deletion
+        self.assertIsNone(result["from_column"])
+        self.assertIsNone(result["to_column"])
+        # Denormalized name/uid fields are preserved
+        self.assertEqual(result["from_column_name"], "To Do")
+        self.assertEqual(result["from_column_uid"], todo_uid)
+        self.assertEqual(result["to_column_name"], "Done")
+        self.assertEqual(result["to_column_uid"], done_uid)
+
+    def test_movements_after_swimlane_deleted(self):
+        """Deleting a swimlane must not break serialization of existing movements."""
+        # Move the card to a safe swimlane so deleting self.swimlane doesn't
+        # cascade-delete the card (Card.swimlane uses CASCADE).
+        safe_swim = Swimlane.objects.create(board=self.board, name="Safe", position=99)
+        self.card.swimlane = safe_swim
+        self.card.save(update_fields=["swimlane"])
+
+        mv = CardMovement.objects.create(
+            card=self.card,
+            from_column=self.col_todo,
+            from_column_name="To Do",
+            from_column_uid=self.col_todo.uid,
+            to_column=self.col_done,
+            to_column_name="Done",
+            to_column_uid=self.col_done.uid,
+            from_swimlane=self.swimlane,
+            from_swimlane_name="Customer A",
+            from_swimlane_uid=self.swimlane.uid,
+            to_swimlane=self.swimlane,
+            to_swimlane_name="Customer A",
+            to_swimlane_uid=self.swimlane.uid,
+            moved_by=self.admin,
+            movement_type=CardMovement.MovementType.MOVE,
+        )
+        swimlane_uid = self.swimlane.uid
+
+        # Delete the original swimlane — SET_NULL on CardMovement FK, card survives
+        self.swimlane.delete()
+
+        c = self._client_for(self.admin)
+        resp = c.get(self._movements_url())
+        self.assertEqual(resp.status_code, 200)
+
+        result = resp.data["results"][0]
+        # FK fields are null after deletion
+        self.assertIsNone(result["from_swimlane"])
+        self.assertIsNone(result["to_swimlane"])
+        # Denormalized name/uid fields are preserved
+        self.assertEqual(result["from_swimlane_name"], "Customer A")
+        self.assertEqual(result["from_swimlane_uid"], swimlane_uid)
+        self.assertEqual(result["to_swimlane_name"], "Customer A")
+        self.assertEqual(result["to_swimlane_uid"], swimlane_uid)

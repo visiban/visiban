@@ -180,13 +180,21 @@ class ExportPermissionTests(TestCase):
         self.board, self.col, self.swim = _make_board(self.owner)
         self.client = APIClient()
 
-    def test_viewer_cannot_export(self):
-        """Viewers are read-only — bulk export requires member+ access (#362)."""
+    def test_viewer_can_export(self):
+        """Viewers can export — they already have read access to all card/movement data (#384)."""
         viewer = User.objects.create_user(username="viewer", password="pass")
         BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    def test_collaborator_can_export(self):
+        """Collaborators can export — consistent with their read access to card data (#384)."""
+        collab = User.objects.create_user(username="collab", password="pass")
+        BoardMembership.objects.create(board=self.board, user=collab, role=BoardMembership.Role.COLLABORATOR)
+        self.client.force_authenticate(collab)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_unauthenticated_cannot_export(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")

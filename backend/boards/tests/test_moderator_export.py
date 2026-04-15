@@ -16,7 +16,7 @@ def _make_board(owner):
 
 
 class ExportRoleRestrictionTests(TestCase):
-    """Viewers and collaborators must not be able to export board data."""
+    """Export is allowed for all board members; non-members are blocked (#384)."""
 
     def setUp(self):
         self.owner = User.objects.create_user(username="owner", password="pass")
@@ -28,18 +28,19 @@ class ExportRoleRestrictionTests(TestCase):
         BoardMembership.objects.create(board=self.board, user=user, role=role)
         return user
 
-    def test_viewer_cannot_export(self):
+    def test_viewer_can_export(self):
+        """Viewers already have read access to all card/movement data — export is consistent (#384)."""
         viewer = self._add_member("viewer", BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn("member or admin", r.data["detail"])
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
 
-    def test_collaborator_cannot_export(self):
+    def test_collaborator_can_export(self):
+        """Collaborators already have read access to card data — export is consistent (#384)."""
         collab = self._add_member("collab", BoardMembership.Role.COLLABORATOR)
         self.client.force_authenticate(collab)
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
-        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_member_can_export(self):
         member = self._add_member("member", BoardMembership.Role.MEMBER)
