@@ -158,7 +158,7 @@ class CardDueDateBoundaryTests(TestCase):
 
 
 class CardDescriptionSizeCapTests(TestCase):
-    """Card.description has a 50,000-character serializer cap (no model change)."""
+    """Card.description has a 10,000-character serializer cap (no model change)."""
 
     def setUp(self):
         self.user = User.objects.create_user(username="u2", password="pass")
@@ -170,10 +170,10 @@ class CardDescriptionSizeCapTests(TestCase):
     def test_description_at_limit_accepted(self, _):
         resp = self.client.post(
             f"/api/v1/boards/{self.board.id}/cards/",
-            {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": "X" * 50_000},
+            {"title": "Card", "column": self.col.id, "swimlane": self.swim.id, "description": "X" * 10_000},
         )
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(len(resp.json()["description"]), 50_000)
+        self.assertEqual(len(resp.json()["description"]), 10_000)
 
     def test_description_over_limit_rejected(self):
         resp = self.client.post(
@@ -190,7 +190,7 @@ class CardDescriptionSizeCapTests(TestCase):
         )
         resp = self.client.patch(
             f"/api/v1/boards/{self.board.id}/cards/{card.id}/",
-            {"description": "Y" * 50_000},
+            {"description": "Y" * 10_000},
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
