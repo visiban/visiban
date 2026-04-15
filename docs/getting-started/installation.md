@@ -178,6 +178,7 @@ Before starting the production stack, confirm each item below. The backend will 
 | Variable | Requirement |
 |---|---|
 | `DB_PASSWORD` | Must be set to a strong, unique password. Docker Compose **will not start** if this variable is missing — there is no insecure default. |
+| `REDIS_PASSWORD` | Must be set to a strong, unique password. The production Redis service starts with `--requirepass` and the backend URLs are built from this value. Docker Compose **will not start** if this variable is missing. Generate with: `openssl rand -base64 32` |
 | `DJANGO_SECRET_KEY` | Must be a long random string. If left as `change-me-in-production` or empty, Django will raise `ImproperlyConfigured` at startup. Generate one with: `python -c "import secrets; print(secrets.token_hex(50))"` |
 | `CORS_ALLOWED_ORIGINS` | Must be set to your production frontend origin (e.g. `https://yourdomain.com`). The default `http://localhost:5173` is only suitable for local development. |
 | `DEBUG` | Must be `false` in production. Running with `DEBUG=true` leaks stack traces to HTTP responses and disables the `DJANGO_SECRET_KEY` guard. |
@@ -221,6 +222,9 @@ Open `.env` in a text editor and set the following values. Every line marked **r
 
     # Generate DB_PASSWORD directly into .env
     sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -base64 32)|" .env
+
+    # Generate REDIS_PASSWORD directly into .env
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -base64 32)|" .env
     ```
 
 ```bash
@@ -236,8 +240,9 @@ SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback UR
 DATABASE_URL=postgres://visiban:${DB_PASSWORD}@db:5432/visiban
 DB_PASSWORD=<strong password>           # required — used by both Django and Postgres
 
-# Redis (runs inside Docker Compose — no change needed)
-# REDIS_URL and REDIS_CACHE_URL are set in docker-compose.prod.yml environment block.
+# Redis (runs inside Docker Compose)
+REDIS_PASSWORD=<strong password>        # required — generate: openssl rand -base64 32
+# REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.
 # Only override here if you use an external Redis.
 
 # TLS mode — choose one: letsencrypt (default), selfsigned, none

@@ -226,6 +226,28 @@ After rolling back, restart the backend container with the previous image versio
 
 ## Release-specific upgrade notes
 
+### Upgrading to 1.1.x
+
+!!! warning "Breaking change — Redis authentication is now required in production"
+    `docker-compose.prod.yml` now starts Redis with `--requirepass` and constructs `REDIS_URL` and `REDIS_CACHE_URL` using the password. **The stack will fail to start if `REDIS_PASSWORD` is not set in your `.env`.**
+
+    Before running `docker compose -f docker-compose.prod.yml up`, add `REDIS_PASSWORD` to your `.env`:
+
+    ```bash
+    # Generate a strong random password and insert it into .env
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -base64 32)|" .env
+    ```
+
+    Or generate a value manually and add it:
+
+    ```bash
+    openssl rand -base64 32
+    # Copy the output, then add to .env:
+    REDIS_PASSWORD=<generated value>
+    ```
+
+    Existing deployments that used the default unauthenticated Redis will continue to work after setting this variable — Redis data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of Redis data is required.
+
 ### Upgrading to 1.0.0
 
 !!! warning "Required pre-deploy step for any instance that ran a pre-1.0 beta"

@@ -65,6 +65,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 |---|---|
 | `APP_VERSION` | Image tag to pull, e.g. `v1.0.0`. Defaults to `latest` if unset. |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
+| `REDIS_PASSWORD` | Redis authentication password — required in production; the Redis service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -base64 32` |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
 | `DOMAIN` | Your domain name for Nginx and Certbot, e.g. `app.visiban.com` |
 | `CERTBOT_EMAIL` | Email address for Let's Encrypt expiry notifications |
