@@ -231,6 +231,16 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
 
         {/* Heatmap — capped vertically so it never consumes the full panel */}
         <div className="overflow-x-auto overflow-y-auto max-h-[40vh]">
+          {/* Empty state: no swimlanes yet — show a muted placeholder instead of a blank table */}
+          {(!data.swimlanes || data.swimlanes.length === 0) && (
+            <div className="flex flex-col items-center justify-center gap-2 py-8">
+              <svg className="w-10 h-10 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h18v18H3V3zm0 4.5h18M7.5 3v18" />
+              </svg>
+              <p className="text-slate-400 text-sm font-medium">No analytics data yet</p>
+              <p className="text-slate-500 text-xs">Move cards between columns to start generating heatmap data.</p>
+            </div>
+          )}
           <table className="text-sm border-collapse" aria-label="Dwell time heatmap">
             <thead>
               <tr className="text-left text-xs text-slate-500 uppercase tracking-wider">

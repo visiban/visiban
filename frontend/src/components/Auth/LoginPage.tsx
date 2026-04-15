@@ -199,9 +199,11 @@ export default function LoginPage({ onLogin }: Props) {
             </div>
             <div className="flex flex-col gap-3">
               {providers.google && (
+                // Google brand guidelines require a white button with dark text — intentional
+                // exception to the site's slate palette. See https://developers.google.com/identity/branding-guidelines
                 <a
                   href={oauthUrl("google", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-slate-700 text-white font-medium py-2.5 px-4 rounded hover:bg-slate-600 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-white text-gray-900 hover:bg-gray-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GoogleIcon />
                   Continue with Google

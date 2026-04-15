@@ -792,7 +792,8 @@ interface ConfirmState {
 function UsersTab({ currentUser }: { currentUser: User }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -803,13 +804,16 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUsers = useCallback(
-    async (searchVal: string, pageVal: number) => {
+    async (searchVal: string, offsetVal: number) => {
       setLoading(true);
       setError(null);
       try {
-        const data = await getAdminUsers({ search: searchVal || undefined, page: pageVal });
+        const data = await getAdminUsers({ search: searchVal || undefined, offset: offsetVal });
         setUsers(data.results);
         setTotal(data.count);
+        // Use the server-returned page_size so pagination controls stay in sync
+        // even if the server-side default changes.
+        setPageSize(data.page_size);
       } catch {
         setError("Failed to load users.");
       } finally {
@@ -820,15 +824,15 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   );
 
   useEffect(() => {
-    fetchUsers(search, page);
-  }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchUsers(search, offset);
+  }, [offset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearch(val);
-    setPage(1);
+    setOffset(0);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchUsers(val, 1), 400);
+    debounceRef.current = setTimeout(() => fetchUsers(val, 0), 400);
   };
 
   const applyPatch = async (
@@ -897,8 +901,8 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     );
   };
 
-  const PAGE_SIZE = 50;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const totalPages = Math.ceil(total / pageSize);
+  const currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1;
 
   return (
     <div className="flex flex-col gap-4">
@@ -1075,18 +1079,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
+                  onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
+                  disabled={offset === 0}
                   className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
                 >
                   ← Prev
                 </button>
                 <span className="text-xs">
-                  Page {page} of {totalPages}
+                  Page {currentPage} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
+                  onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
+                  disabled={currentPage === totalPages}
                   className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
                 >
                   Next →

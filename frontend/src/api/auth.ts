@@ -71,7 +71,7 @@ export const getAdminSettings = () =>
 export const patchAdminSettings = (data: Partial<SiteSettings>) =>
   client.patch<SiteSettings>("/api/v1/admin/settings/", data).then((r) => r.data);
 
-export const getAdminUsers = (params?: { search?: string; page?: number }) =>
+export const getAdminUsers = (params?: { search?: string; offset?: number }) =>
   client.get<{ count: number; offset: number; page_size: number; results: AdminUser[] }>(
     "/api/v1/admin/users/",
     { params }
