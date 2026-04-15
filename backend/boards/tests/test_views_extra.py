@@ -125,6 +125,102 @@ class CardUpdateExtraTests(TestCase):
             ).exists()
         )
 
+    @patch(PATCH_BROADCAST)
+    def test_update_priority_logs_activity(self, _):
+        """Changing card priority creates a PRIORITY_CHANGE activity row (#708)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"priority": "high"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.PRIORITY_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.to_value, "high")
+        self.assertEqual(act.actor, self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_title_logs_activity(self, _):
+        """Changing card title creates a TITLE_CHANGE activity row (#708)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"title": "New title"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.TITLE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.to_value, "New title")
+        self.assertEqual(act.actor, self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_assignee_logs_activity(self, _):
+        """Changing card assignee creates an ASSIGNEE_CHANGE activity row (#708)."""
+        assignee = User.objects.create_user(username="assignee_user", password="pass")
+        BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"assignee_id": assignee.id},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.ASSIGNEE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.to_value, assignee.username)
+        self.assertEqual(act.actor, self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_clear_assignee_logs_activity_with_unassigned(self, _):
+        """Removing an assignee records 'Unassigned' as to_value (#708)."""
+        assignee = User.objects.create_user(username="assignee_user2", password="pass")
+        BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
+        self.card.assignee = assignee
+        self.card.save(update_fields=["assignee"])
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"assignee_id": None},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.ASSIGNEE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.to_value, "Unassigned")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_due_date_logs_activity(self, _):
+        """Setting a due date creates a DUE_DATE_CHANGE activity row (#708)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"due_date": "2026-12-31"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        act = CardActivity.objects.filter(
+            card=self.card, event_type=CardActivity.EventType.DUE_DATE_CHANGE
+        ).first()
+        self.assertIsNotNone(act)
+        self.assertEqual(act.to_value, "2026-12-31")
+        self.assertEqual(act.actor, self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_no_activity_when_field_unchanged(self, _):
+        """Patching a field with the same value must not create a spurious activity row."""
+        original_priority = self.card.priority
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"priority": original_priority},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            CardActivity.objects.filter(
+                card=self.card, event_type=CardActivity.EventType.PRIORITY_CHANGE
+            ).exists()
+        )
+
     def test_collaborator_cannot_update_card(self):
         collab = User.objects.create_user(username="collab", password="pass")
         BoardMembership.objects.create(
