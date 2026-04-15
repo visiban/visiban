@@ -720,14 +720,15 @@ describe('CardDetail', () => {
     it('shows error message when onMoveCard rejects', async () => {
       const onMoveCard = vi.fn().mockRejectedValue(new Error('WIP limit'))
       const board = makeBoardWithTwoCols()
+      const user = userEvent.setup()
       const { container } = render(<CardDetail {...defaultProps()} board={board} onMoveCard={onMoveCard} />)
-      await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
+      await user.click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
 
       const popover = container.querySelector('[class*="w-64"]')!
       const colTrigger = Array.from(popover.querySelectorAll('button')).find((b) => b.textContent?.includes('To Do'))!
-      await userEvent.setup().click(colTrigger)
-      await userEvent.setup().click(screen.getByText('In Progress'))
-      await userEvent.setup().click(screen.getByRole('button', { name: 'Move' }))
+      await user.click(colTrigger)
+      await user.click(screen.getByText('In Progress'))
+      await user.click(screen.getByRole('button', { name: 'Move' }))
 
       await waitFor(() => {
         expect(screen.getByText(/Move blocked/)).toBeInTheDocument()
