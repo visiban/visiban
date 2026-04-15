@@ -112,7 +112,8 @@ class CardActivitySerializer(serializers.ModelSerializer):
 class CardChecklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardChecklist
-        fields = ["id", "text", "is_checked", "position"]
+        fields = ["id", "text", "is_checked", "position", "created_by_id"]
+        read_only_fields = ["created_by_id"]
 
 
 def _card_queryset(qs):
