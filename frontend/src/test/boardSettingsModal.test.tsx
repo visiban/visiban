@@ -644,12 +644,28 @@ describe('BoardSettingsModal — Moderator toggle', () => {
     vi.clearAllMocks()
   })
 
-  it('shows moderator checkbox for member-role users when isAdmin', () => {
+  it('shows moderator checkbox for all non-site-admin members when isAdmin', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    // Both admin and member rows now show a Moderator checkbox (#574)
+    expect(screen.getAllByText('Moderator').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('admin-role moderator checkbox is checked and disabled (#574)', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    // All checkboxes: admin row is first (checked+disabled), member row is second (editable)
+    const checkboxes = screen.getAllByRole('checkbox')
+    const adminCheckbox = checkboxes[0]
+    expect(adminCheckbox).toBeChecked()
+    expect(adminCheckbox).toBeDisabled()
+  })
+
+  it('member-role moderator checkbox is enabled and reflects is_moderator value', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     const checkboxes = screen.getAllByRole('checkbox')
-    // At least one moderator checkbox (for Bob who is a member)
-    expect(checkboxes.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText('Moderator').length).toBeGreaterThanOrEqual(1)
+    // Member checkbox is the second one (admin's disabled checkbox is first)
+    const memberCheckbox = checkboxes[1]
+    expect(memberCheckbox).not.toBeDisabled()
+    expect(memberCheckbox).not.toBeChecked() // is_moderator: false in fixture
   })
 
   it('hides moderator checkbox when isAdmin is false', () => {
@@ -662,10 +678,36 @@ describe('BoardSettingsModal — Moderator toggle', () => {
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'member', is_moderator: true, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    // Only member-role rows have a moderator checkbox; Bob (member) has the only one
+    // Member's checkbox is the second one; the first (admin) is disabled
     const checkboxes = screen.getAllByRole('checkbox')
-    await user.click(checkboxes[0])
+    await user.click(checkboxes[1])
 
     expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'member', true)
+  })
+
+  it('collaborator-role moderator checkbox is unchecked and disabled (#574)', () => {
+    const boardWithCollab = {
+      ...fakeBoard,
+      members: [
+        { id: 12, user: fakeMember2, role: 'collaborator' as const, is_moderator: false, joined_at: '' },
+      ],
+    }
+    render(<BoardSettingsModal board={boardWithCollab} isAdmin={true} onClose={vi.fn()} />)
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).not.toBeChecked()
+    expect(checkbox).toBeDisabled()
+  })
+
+  it('viewer-role moderator checkbox is unchecked and disabled (#574)', () => {
+    const boardWithViewer = {
+      ...fakeBoard,
+      members: [
+        { id: 13, user: fakeMember2, role: 'viewer' as const, is_moderator: false, joined_at: '' },
+      ],
+    }
+    render(<BoardSettingsModal board={boardWithViewer} isAdmin={true} onClose={vi.fn()} />)
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).not.toBeChecked()
+    expect(checkbox).toBeDisabled()
   })
 })

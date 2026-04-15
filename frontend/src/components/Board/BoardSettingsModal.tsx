@@ -335,18 +335,45 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     </div>
 
-                    {isAdmin && m.role !== "site_admin" && m.role === "member" && (
+                    {isAdmin && m.role !== "site_admin" && (
                       <div className="mt-1 pl-9 flex items-center gap-2">
-                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={m.is_moderator}
-                            disabled={isDisabled}
-                            onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
-                            className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
-                          />
-                          <span className="text-xs text-slate-400">Moderator</span>
-                        </label>
+                        {m.role === "admin" ? (
+                          // Admins implicitly have full moderator rights — show as checked+disabled
+                          // so the UI accurately reflects their capabilities (#574).
+                          <label className="flex items-center gap-1.5 select-none cursor-default" title="Admins have full moderator rights">
+                            <input
+                              type="checkbox"
+                              checked
+                              disabled
+                              readOnly
+                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
+                            />
+                            <span className="text-xs text-slate-500">Moderator</span>
+                          </label>
+                        ) : m.role === "member" ? (
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={m.is_moderator}
+                              disabled={isDisabled}
+                              onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
+                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
+                            />
+                            <span className="text-xs text-slate-400">Moderator</span>
+                          </label>
+                        ) : (
+                          // Collaborator / Viewer — moderator entitlement is not available (#574).
+                          <label className="flex items-center gap-1.5 select-none cursor-default" title="Moderator entitlement requires Member role or above">
+                            <input
+                              type="checkbox"
+                              checked={false}
+                              disabled
+                              readOnly
+                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
+                            />
+                            <span className="text-xs text-slate-500">Moderator</span>
+                          </label>
+                        )}
                         <span className="relative group/mod-info">
                           <span className="text-xs text-slate-400 cursor-default select-none" tabIndex={0} aria-label="What Moderator can do">ⓘ</span>
                           <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1.5 shadow-lg opacity-0 group-hover/mod-info:opacity-100 focus-within:opacity-100 transition-opacity delay-300 z-10">
