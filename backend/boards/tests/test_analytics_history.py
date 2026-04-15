@@ -558,7 +558,7 @@ class TestMovementsDeletedFk(AnalyticsHistorySetup):
         self.card.column = safe_col
         self.card.save(update_fields=["column"])
 
-        mv = CardMovement.objects.create(
+        CardMovement.objects.create(
             card=self.card,
             from_column=self.col_todo,
             from_column_name="To Do",
@@ -604,7 +604,7 @@ class TestMovementsDeletedFk(AnalyticsHistorySetup):
         self.card.swimlane = safe_swim
         self.card.save(update_fields=["swimlane"])
 
-        mv = CardMovement.objects.create(
+        CardMovement.objects.create(
             card=self.card,
             from_column=self.col_todo,
             from_column_name="To Do",
