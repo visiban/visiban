@@ -459,6 +459,16 @@ class GroupViewSet(viewsets.ModelViewSet):
                 group=group, user=request.user,
                 defaults={"role": GroupMembership.Role.ADMIN},
             )
+            # Capture board IDs while still inside the transaction so the
+            # on_commit callback does not need to re-query under a new connection.
+            board_ids = list(group.boards.values_list("id", flat=True))
+
+            def _broadcast_transfer(gid=group.pk, oid=int(new_owner_id), bids=board_ids):
+                from boards.broadcast import broadcast_board_event
+                for bid in bids:
+                    broadcast_board_event(bid, "group.updated", {"id": gid, "owner_id": oid})
+
+            transaction.on_commit(_broadcast_transfer)
 
         return Response(GroupSerializer(group, context={"request": request}).data)
 
@@ -513,6 +523,15 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
         _require_group_admin(request.user, group)
         link = get_object_or_404(GroupInviteLink, pk=link_id, group=group, is_active=True)
+        # A consumed single-use link must not be revoked: doing so would flip
+        # is_active=False on a link that already has used_at set, producing an
+        # ambiguous state where status() returns "revoked" instead of "used",
+        # silently discarding the consumption history from the audit list.
+        if link.used_at is not None:
+            return Response(
+                {"detail": "This link has already been consumed and cannot be revoked."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         link.is_active = False
         link.save(update_fields=["is_active"])
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -246,6 +246,56 @@ class InviteLinkListConsumedVisibilityTests(TestCase):
         ids = [lnk["id"] for lnk in r.json()]
         self.assertNotIn(link.id, ids)
 
+    # ------------------------------------------------------------------
+    # revoke_invite_link — guard against revoking consumed links (#751)
+    # ------------------------------------------------------------------
+
+    def test_revoke_consumed_single_use_link_returns_400(self):
+        """Revoking a consumed single-use link must return 400.
+
+        After a single-use link is consumed (used_at IS NOT NULL, is_active
+        still True), calling DELETE on it must be rejected. If we allowed the
+        revoke, is_active would flip to False while used_at is also set,
+        making status() return "revoked" instead of "used" and silently
+        dropping the consumption record from the admin audit list.
+        """
+        link, _ = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, single_use=True
+        )
+        link.used_at = timezone.now()
+        link.save(update_fields=["used_at"])
+
+        revoke_url = f"/api/v1/groups/{self.group.id}/invite-links/{link.id}/"
+        r = self.client.delete(revoke_url)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("consumed", r.json()["detail"])
+
+    def test_revoke_consumed_link_preserves_status_as_used(self):
+        """After a rejected revoke attempt the link still reports status 'used'."""
+        link, _ = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, single_use=True
+        )
+        link.used_at = timezone.now()
+        link.save(update_fields=["used_at"])
+
+        revoke_url = f"/api/v1/groups/{self.group.id}/invite-links/{link.id}/"
+        self.client.delete(revoke_url)  # rejected
+
+        link.refresh_from_db()
+        self.assertTrue(link.is_active)
+        self.assertEqual(link.status, "used")
+
+    def test_revoke_unconsumed_single_use_link_succeeds(self):
+        """A single-use link that has not been consumed may still be revoked."""
+        link, _ = GroupInviteLink.generate(
+            group=self.group, created_by=self.admin, single_use=True
+        )
+        revoke_url = f"/api/v1/groups/{self.group.id}/invite-links/{link.id}/"
+        r = self.client.delete(revoke_url)
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        link.refresh_from_db()
+        self.assertFalse(link.is_active)
+
     def test_active_multi_use_link_appears_in_list(self):
         link, _ = GroupInviteLink.generate(group=self.group, created_by=self.admin)
         r = self.client.get(self.url)
