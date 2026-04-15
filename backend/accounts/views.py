@@ -58,6 +58,17 @@ class ThrottledPasswordResetView(DjRestAuthPasswordResetView):
     throttle_classes = [PasswordResetThrottle]
 
 
+class VerifyEmailThrottle(AnonRateThrottle):
+    """Rate limit for the verify-email endpoint.
+
+    HMAC-SHA256 keys are not brute-forceable, so the ceiling is generous.
+    The scope exists for consistency with the rest of the anonymous auth surface
+    and to give operators a single knob if abuse is ever observed.
+    """
+
+    scope = "verify_email"
+
+
 class UserSearchView(APIView):
     """Search users by display name, email, or username; requires at least 2 characters."""
 
@@ -406,6 +417,13 @@ class EmailConfirmRedirectView(View):
     redirecting the browser to the SPA route, which calls POST /verify-email/.
     """
 
+    # allauth HMAC keys are URL-safe base64 with a colon-separated timestamp
+    # suffix (e.g. "Mg:1uABcd-..."). Reject anything that doesn't match before
+    # issuing the redirect so we never forward garbage paths to the SPA.
+    _KEY_RE = re.compile(r'^[\w:\-]+$')
+
     def get(self, request, key):
-        frontend_url = getattr(settings, "LOGIN_REDIRECT_URL", "http://localhost:5173").rstrip("/")
+        frontend_url = (getattr(settings, "LOGIN_REDIRECT_URL", None) or "http://localhost:5173").rstrip("/")
+        if not self._KEY_RE.match(key):
+            return HttpResponseRedirect(f"{frontend_url}/confirm-email/invalid")
         return HttpResponseRedirect(f"{frontend_url}/confirm-email/{key}")

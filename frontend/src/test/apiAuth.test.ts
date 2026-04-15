@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, verifyEmail } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -109,6 +109,30 @@ describe('auth API', () => {
     mockDelete.mockResolvedValue({})
     await revokeToken(42)
     expect(mockDelete).toHaveBeenCalledWith('/api/v1/auth/tokens/42/')
+  })
+})
+
+describe('verifyEmail API', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('calls POST /api/v1/auth/registration/verify-email/ with the key in the body', async () => {
+    mockPost.mockResolvedValue({})
+    await verifyEmail('test-key-abc123')
+    expect(mockPost).toHaveBeenCalledWith(
+      '/api/v1/auth/registration/verify-email/',
+      { key: 'test-key-abc123' }
+    )
+  })
+
+  it('returns undefined on a successful response', async () => {
+    mockPost.mockResolvedValue({ data: {} })
+    const result = await verifyEmail('some-key')
+    expect(result).toBeUndefined()
+  })
+
+  it('propagates rejection on API failure so callers can show an error state', async () => {
+    mockPost.mockRejectedValue(new Error('400 Bad Request'))
+    await expect(verifyEmail('bad-key')).rejects.toThrow('400 Bad Request')
   })
 })
 

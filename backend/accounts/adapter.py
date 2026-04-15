@@ -59,7 +59,7 @@ class RegistrationAdapter(DefaultAccountAdapter):
         templates — the SPA handles confirmation via POST /verify-email/. We
         redirect the browser to a frontend route that performs that API call.
         """
-        frontend_url = getattr(django_settings, "LOGIN_REDIRECT_URL", "http://localhost:5173").rstrip("/")
+        frontend_url = (getattr(django_settings, "LOGIN_REDIRECT_URL", None) or "http://localhost:5173").rstrip("/")
         return f"{frontend_url}/confirm-email/{emailconfirmation.key}"
 
 
