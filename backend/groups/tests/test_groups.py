@@ -738,3 +738,31 @@ class GroupBoardMembershipTests(TestCase):
             ).exists(),
             "Owner should have an explicit ADMIN BoardMembership row after creating a board in a group",
         )
+
+
+class GroupBoardCardCountTests(TestCase):
+    """Regression: boards action must exclude archived cards from _card_count (#693)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="cc_owner", password="pass")
+        self.group = Group.objects.create(name="CC Group", owner=self.owner)
+        GroupMembership.objects.create(group=self.group, user=self.owner, role=GroupMembership.Role.ADMIN)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_archived_card_excluded_from_card_count(self):
+        """A board's card_count must not include archived cards."""
+        from boards.models import Board, Card, Column, Swimlane
+        from django.utils import timezone
+
+        board = Board.objects.create(name="B", owner=self.owner, group=self.group)
+        col = Column.objects.create(board=board, name="Todo", position=0)
+        lane = Swimlane.objects.create(board=board, name="General", position=0)
+        # One live card, one archived card
+        Card.objects.create(board=board, column=col, swimlane=lane, title="Live", created_by=self.owner, position=0)
+        Card.objects.create(board=board, column=col, swimlane=lane, title="Archived", created_by=self.owner, position=1, archived_at=timezone.now())
+
+        r = self.client.get(f"/api/v1/groups/{self.group.id}/boards/")
+        self.assertEqual(r.status_code, 200)
+        board_data = next(b for b in r.json() if b["id"] == board.id)
+        self.assertEqual(board_data["card_count"], 1, "Archived cards must be excluded from card_count")

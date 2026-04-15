@@ -2,7 +2,7 @@ import hashlib
 import logging
 import secrets
 from django.db import models
-from django.db.models import Q
+from django.db.models import CheckConstraint, Q
 from django.conf import settings
 from django.utils import timezone
 
@@ -214,6 +214,17 @@ class GroupInviteLink(models.Model):
 
     class Meta:
         db_table = "group_invite_links"
+        constraints = [
+            # Enforce the invariant that used_at may only be non-null when
+            # single_use=True. The application code already respects this,
+            # but the constraint prevents a future migration or management
+            # command from accidentally stamping used_at on a multi-use link,
+            # which would silently report that link as "used" and block joins.
+            CheckConstraint(
+                check=Q(single_use=True) | Q(used_at__isnull=True),
+                name="group_invite_link_used_at_requires_single_use",
+            ),
+        ]
 
     @property
     def is_expired(self):
