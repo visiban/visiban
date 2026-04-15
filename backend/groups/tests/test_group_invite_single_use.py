@@ -222,7 +222,7 @@ class InviteLinkListConsumedVisibilityTests(TestCase):
 
         r = self.client.get(self.url)
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        ids = [l["id"] for l in r.json()]
+        ids = [lnk["id"] for lnk in r.json()]
         self.assertIn(link.id, ids)
 
     def test_consumed_link_has_status_used_in_list(self):
@@ -233,7 +233,7 @@ class InviteLinkListConsumedVisibilityTests(TestCase):
         link.save(update_fields=["used_at"])
 
         r = self.client.get(self.url)
-        link_data = next(l for l in r.json() if l["id"] == link.id)
+        link_data = next(lnk for lnk in r.json() if lnk["id"] == link.id)
         self.assertEqual(link_data["status"], "used")
 
     def test_revoked_link_does_not_appear_in_list(self):
@@ -243,13 +243,13 @@ class InviteLinkListConsumedVisibilityTests(TestCase):
         link.save(update_fields=["is_active"])
 
         r = self.client.get(self.url)
-        ids = [l["id"] for l in r.json()]
+        ids = [lnk["id"] for lnk in r.json()]
         self.assertNotIn(link.id, ids)
 
     def test_active_multi_use_link_appears_in_list(self):
         link, _ = GroupInviteLink.generate(group=self.group, created_by=self.admin)
         r = self.client.get(self.url)
-        ids = [l["id"] for l in r.json()]
+        ids = [lnk["id"] for lnk in r.json()]
         self.assertIn(link.id, ids)
 
 
