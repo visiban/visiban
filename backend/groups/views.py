@@ -745,5 +745,17 @@ class JoinGroupView(APIView):
             created,
             ip,
         )
-        group_data = GroupSerializer(link.group).data
+        # Re-fetch the group with the same annotations that GroupViewSet.get_queryset()
+        # applies so GroupSerializer.get_member_count / board_count / subgroup_count
+        # and get_is_starred() read from annotated attributes instead of issuing up to
+        # 4 extra subqueries against the bare instance (#722).
+        annotated_group = Group.objects.select_related("owner", "parent").prefetch_related("labels").annotate(
+            _member_count=Count("memberships", distinct=True),
+            _board_count=Count("boards", distinct=True),
+            _subgroup_count=Count("subgroups", distinct=True),
+            _is_starred=Exists(
+                GroupFavorite.objects.filter(user=request.user, group=OuterRef("pk"))
+            ),
+        ).get(pk=link.group_id)
+        group_data = GroupSerializer(annotated_group, context={"request": request}).data
         return Response(group_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

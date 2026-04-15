@@ -40,22 +40,30 @@ def _get_effective_member_ids(board, site_admin_ids=None):
     else:
         eff_ids.update(User.objects.filter(can_access_all_content=True).values_list("id", flat=True))
     if board.group_id:
-        # Collect ancestor group IDs first, then load all memberships in a
-        # single query instead of issuing one query per ancestor level.
-        ancestor_ids = []
-        node = board.group
-        depth = 0
-        while node and depth < 6:
-            ancestor_ids.append(node.pk)
-            node = getattr(node, "parent", None)
-            depth += 1
-        if ancestor_ids:
-            from groups.models import GroupMembership
+        # Use the pre-computed group member IDs when BoardFullSerializer's
+        # to_representation() has already cached them on the board instance (#695).
+        # This avoids a redundant GroupMembership query when both get_cards() and
+        # get_members() call _get_effective_member_ids() in the same request.
+        cached_group_ids = getattr(board, "_cached_group_member_ids", None)
+        if cached_group_ids is not None:
+            eff_ids.update(cached_group_ids)
+        else:
+            # Collect ancestor group IDs first, then load all memberships in a
+            # single query instead of issuing one query per ancestor level.
+            ancestor_ids = []
+            node = board.group
+            depth = 0
+            while node and depth < 6:
+                ancestor_ids.append(node.pk)
+                node = getattr(node, "parent", None)
+                depth += 1
+            if ancestor_ids:
+                from groups.models import GroupMembership
 
-            eff_ids.update(
-                GroupMembership.objects.filter(group_id__in=ancestor_ids)
-                .values_list("user_id", flat=True)
-            )
+                eff_ids.update(
+                    GroupMembership.objects.filter(group_id__in=ancestor_ids)
+                    .values_list("user_id", flat=True)
+                )
     return eff_ids
 
 
