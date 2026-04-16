@@ -374,6 +374,11 @@ class CardComment(models.Model):
     class Meta:
         db_table = "card_comments"
         ordering = ["created_at"]
+        indexes = [
+            # Covers per-card comment list queries (card detail, always ordered
+            # by ascending created_at). Avoids a sequential scan on large boards.
+            models.Index(fields=["card", "created_at"], name="comment_card_created_idx"),
+        ]
 
 
 class CardActivity(models.Model):
@@ -408,6 +413,12 @@ class CardActivity(models.Model):
     class Meta:
         db_table = "card_activities"
         ordering = ["-created_at"]
+        indexes = [
+            # Covers per-card activity queries (card detail timeline, always
+            # ordered by descending created_at). Avoids sequential scans on
+            # boards with heavy activity history.
+            models.Index(fields=["card", "-created_at"], name="activity_card_created_idx"),
+        ]
 
 
 class CardChecklist(models.Model):
