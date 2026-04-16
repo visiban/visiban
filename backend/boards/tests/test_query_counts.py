@@ -397,7 +397,6 @@ class BoardMutationAnnotationTests(TestCase):
 
     def test_patch_board_response_includes_member_count(self):
         """PATCH /boards/{id}/ response must include member_count."""
-        import json
         from unittest.mock import patch as _patch
         with _patch("boards.broadcast.broadcast_board_event"):
             r = self.client.patch(
