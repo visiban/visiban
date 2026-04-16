@@ -119,6 +119,83 @@ describe('FilterBar', () => {
   })
 })
 
+describe('FilterBar — chip row', () => {
+  it('shows chip row when assignee filter is active', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, assigneeIds: [1] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} currentUser={fakeUser} />)
+    expect(screen.getByRole('group', { name: 'Active filters' })).toBeInTheDocument()
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+  })
+
+  it('shows chip row when label filter is active', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} />)
+    expect(screen.getByRole('group', { name: 'Active filters' })).toBeInTheDocument()
+    // The chip label 'Bug' should appear (not inside the dropdown)
+    expect(screen.getByTitle('Bug')).toBeInTheDocument()
+  })
+
+  it('does not show chip row when no filters active', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument()
+  })
+
+  it('shows "N cards hidden" when hiddenCount > 0', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} hiddenCount={5} />)
+    expect(screen.getByRole('status')).toHaveTextContent('5 cards hidden')
+  })
+
+  it('shows singular "1 card hidden" when hiddenCount is 1', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} hiddenCount={1} />)
+    expect(screen.getByRole('status')).toHaveTextContent('1 card hidden')
+  })
+
+  it('does not show hidden count when hiddenCount is 0', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} hiddenCount={0} />)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('clicking × on an assignee chip removes that filter value', async () => {
+    const onChange = vi.fn()
+    const filters: FilterState = { ...EMPTY_FILTER, assigneeIds: [1] }
+    const { container } = render(<FilterBar board={makeBoard()} filters={filters} onChange={onChange} currentUser={fakeUser} />)
+    // The dismiss button is the <button> inside the chip (the × button, not the <span role="button">)
+    const chipGroup = container.querySelector('[role="group"]') as HTMLElement
+    const dismissBtn = chipGroup.querySelector('button') as HTMLButtonElement
+    await userEvent.setup().click(dismissBtn)
+    expect(onChange).toHaveBeenCalledWith({ ...filters, assigneeIds: [] })
+  })
+
+  it('clicking × on a label chip removes that filter value', async () => {
+    const onChange = vi.fn()
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    const { container } = render(<FilterBar board={makeBoard()} filters={filters} onChange={onChange} />)
+    const chipGroup = container.querySelector('[role="group"]') as HTMLElement
+    const dismissBtn = chipGroup.querySelector('button') as HTMLButtonElement
+    await userEvent.setup().click(dismissBtn)
+    expect(onChange).toHaveBeenCalledWith({ ...filters, labelIds: [] })
+  })
+
+  it('does not create a chip for search filter', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, search: 'bug' }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} />)
+    expect(screen.queryByRole('group', { name: 'Active filters' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FilterBar — Clear all button styling', () => {
+  it('Clear all button has border styling', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, search: 'test' }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} />)
+    const btn = screen.getByText('Clear all')
+    expect(btn).toHaveClass('border')
+    expect(btn).toHaveClass('rounded')
+  })
+})
+
 describe('FilterBar — MyCardsButton', () => {
   it('does not render My cards button when currentUser is not provided', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
