@@ -2837,29 +2837,41 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin
 </code></pre></div>
+<p><strong>API calls fail / browser shows a CORS error</strong></p>
+<p>If the browser console shows a CORS error (e.g. <code>Access to fetch at 'http://...' from origin '...' has been blocked</code>) it means the backend is rejecting cross-origin requests from the address the browser is using. This happens when you access Visiban from anything other than <code>http://localhost:5173</code> — a LAN IP, a VM hostname, a different port, etc.</p>
+<p>At startup, the backend logs the active CORS origins. Check what it has:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;CORS allowed origins&quot;</span>
+</code></pre></div>
+<p>If the logged origin does not match what your browser shows in the address bar, update <code>.env</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://192.168.1.100:5173<span class="w">   </span><span class="c1"># must be the exact origin the browser uses</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span><span class="m">192</span>.168.1.100<span class="w">                       </span><span class="c1"># must include the hostname/IP too</span>
+</code></pre></div>
+<p>Then restart the backend:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>restart<span class="w"> </span>backend
+</code></pre></div>
 <hr />
 <h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
 <h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
 </code></pre></div>
 <h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>npm<span class="w"> </span>install
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>npm<span class="w"> </span>install
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
 </code></pre></div>
 <p><code>npm run dev</code> expects the backend to be reachable at <code>http://localhost:8000</code>. Create <code>frontend/.env.local</code> (gitignored — never commit it) to tell Vite where the API is:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
 </code></pre></div>
 <p>A template with comments is at <code>frontend/.env.local.example</code>.</p>
 <h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
@@ -3099,50 +3111,50 @@
 <li>For <code>TLS_MODE=none</code>: Port <strong>80</strong> open</li>
 </ul>
 <h3 id="step-1-clone-and-configure">Step 1 — Clone and configure<a class="headerlink" href="#step-1-clone-and-configure" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
 </code></pre></div>
 <p>Open <code>.env</code> in a text editor and set the following values. Every line marked <strong>required</strong> must be changed before continuing.</p>
 <div class="admonition tip">
 <p class="admonition-title">Keeping secrets out of shell history</p>
 <p>Always edit secrets directly in the <code>.env</code> file — never pass them as command-line arguments (e.g. <code>DB_PASSWORD=hunter2 docker compose up</code>). Arguments appear in shell history, <code>/proc/*/cmdline</code>, and process listings.</p>
 <p>To generate and insert a secret in one step without it touching your history:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Generate DJANGO_SECRET_KEY directly into .env</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import secrets; print(secrets.token_urlsafe(50))&#39;</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Generate DB_PASSWORD directly into .env</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DB_PASSWORD=.*|DB_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Generate REDIS_PASSWORD directly into .env</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Generate DJANGO_SECRET_KEY directly into .env</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import secrets; print(secrets.token_urlsafe(50))&#39;</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Generate DB_PASSWORD directly into .env</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DB_PASSWORD=.*|DB_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Generate REDIS_PASSWORD directly into .env</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
 </code></pre></div>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Django</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>&lt;long<span class="w"> </span>random<span class="w"> </span>string&gt;<span class="w">   </span><span class="c1"># required — generate: python -c &quot;import secrets; print(secrets.token_urlsafe(50))&quot;</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nv">DEBUG</span><span class="o">=</span><span class="nb">false</span><span class="w">                              </span><span class="c1"># required — never run DEBUG=true in production</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com<span class="w">            </span><span class="c1"># required</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com<span class="w">  </span><span class="c1"># required — must be your public domain, not localhost</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>https://yourdomain.com<span class="w">     </span><span class="c1"># required — allauth redirects here after OAuth login/logout</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">             </span><span class="c1"># required — used for OAuth callback URLs</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="c1"># Database (Postgres runs inside Docker Compose)</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://visiban:<span class="si">${</span><span class="nv">DB_PASSWORD</span><span class="si">}</span>@db:5432/visiban
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — used by both Django and Postgres</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># Redis (runs inside Docker Compose)</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -base64 32</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="c1"># Only override here if you use an external Redis.</span>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="c1"># Let&#39;s Encrypt (required only when TLS_MODE=letsencrypt)</span>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>
-<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="c1"># App version — set to the version you are deploying (see CHANGELOG.md)</span>
-<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="nv">APP_VERSION</span><span class="o">=</span><span class="m">1</span>.0.0
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Django</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>&lt;long<span class="w"> </span>random<span class="w"> </span>string&gt;<span class="w">   </span><span class="c1"># required — generate: python -c &quot;import secrets; print(secrets.token_urlsafe(50))&quot;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nv">DEBUG</span><span class="o">=</span><span class="nb">false</span><span class="w">                              </span><span class="c1"># required — never run DEBUG=true in production</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com<span class="w">            </span><span class="c1"># required</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com<span class="w">  </span><span class="c1"># required — must be your public domain, not localhost</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>https://yourdomain.com<span class="w">     </span><span class="c1"># required — allauth redirects here after OAuth login/logout</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">             </span><span class="c1"># required — used for OAuth callback URLs</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="c1"># Database (Postgres runs inside Docker Compose)</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://visiban:<span class="si">${</span><span class="nv">DB_PASSWORD</span><span class="si">}</span>@db:5432/visiban
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — used by both Django and Postgres</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Redis (runs inside Docker Compose)</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -base64 32</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># Only override here if you use an external Redis.</span>
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a><span class="c1"># Let&#39;s Encrypt (required only when TLS_MODE=letsencrypt)</span>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>
+<a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="c1"># App version — set to the version you are deploying (see CHANGELOG.md)</span>
+<a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a><span class="nv">APP_VERSION</span><span class="o">=</span><span class="m">1</span>.0.0
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Using <code>TLS_MODE=none</code> behind an external load balancer</p>
@@ -3155,18 +3167,18 @@
 <code>localhost</code> or <code>127.0.0.1</code> origin. This prevents a common misconfiguration where
 the default development value is left in place for a production deployment.</p>
 <p><strong>Correct:</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>CORS_ALLOWED_ORIGINS=https://yourdomain.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>CORS_ALLOWED_ORIGINS=https://yourdomain.com
 </code></pre></div></p>
 <p><strong>Incorrect (will cause startup failure):</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>CORS_ALLOWED_ORIGINS=http://localhost:5173
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>CORS_ALLOWED_ORIGINS=http://localhost:5173
 </code></pre></div></p>
 </div>
 <blockquote>
 <p><strong>OAuth</strong> (Google, GitHub, GitLab) is optional. See <a href="../oauth/">OAuth Setup</a> if you want social login.</p>
 </blockquote>
 <h3 id="step-2-run-the-init-script">Step 2 — Run the init script<a class="headerlink" href="#step-2-run-the-init-script" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>init-prod.sh
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>./init-prod.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>init-prod.sh
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>./init-prod.sh
 </code></pre></div>
 <p>The script performs these steps automatically based on <code>TLS_MODE</code>:</p>
 <table>
@@ -3192,7 +3204,7 @@ the default development value is left in place for a production deployment.</p>
 </tbody>
 </table>
 <p>When it finishes you will see:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>  Visiban is live at https://yourdomain.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>  Visiban is live at https://yourdomain.com
 </code></pre></div>
 <p>(or <code>http://</code> for <code>TLS_MODE=none</code>)</p>
 <div class="admonition note">
@@ -3227,65 +3239,65 @@ the default development value is left in place for a production deployment.</p>
 </tbody>
 </table>
 <p>The backend writes a one-time admin password to <code>/tmp/visiban_admin_password</code> on first boot. Retrieve it with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
 </code></pre></div>
 <p>Delete the file after retrieving the password.</p>
 <div class="admonition note">
 <p class="admonition-title">Password file not found?</p>
 <p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
 </code></pre></div>
 </div>
 <p>See <a href="../first-boot/">First Boot</a> for full details.</p>
 <h3 id="subsequent-deploys">Subsequent deploys<a class="headerlink" href="#subsequent-deploys" title="Permanent link">&para;</a></h3>
 <p>Pull the latest code and rebuild:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
 </code></pre></div>
 <p>This rebuilds images, re-runs the frontend build (output replaces the previous static files in the shared volume), and restarts services with zero manual steps.</p>
 <h3 id="certificate-renewal">Certificate renewal<a class="headerlink" href="#certificate-renewal" title="Permanent link">&para;</a></h3>
 <p>The <code>certbot</code> container (active only with <code>TLS_MODE=letsencrypt</code>) calls <code>certbot renew</code> every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.</p>
 <p>For <code>TLS_MODE=selfsigned</code>, the self-signed certificate is valid for 365 days. To regenerate it, delete the certificate directory and re-run the init script:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>./init-prod.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>./init-prod.sh
 </code></pre></div>
 <p>To check renewal status (Let's Encrypt only):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
 </code></pre></div>
 <h3 id="stopping-and-starting">Stopping and starting<a class="headerlink" href="#stopping-and-starting" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
 <h3 id="updating-to-a-new-version">Updating to a new version<a class="headerlink" href="#updating-to-a-new-version" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nb">cd</span><span class="w"> </span>visiban
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
 </code></pre></div>
 <p>Django migrations run automatically on startup. Check the backend logs after updating:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
 <h3 id="backing-up-and-restoring">Backing up and restoring<a class="headerlink" href="#backing-up-and-restoring" title="Permanent link">&para;</a></h3>
 <p><strong>Database backup:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
 </code></pre></div>
 <p><strong>Database restore:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
 </code></pre></div>
 <p><strong>Media files</strong> (card attachments) are stored in a Docker volume. Back them up with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
 </code></pre></div>
 <h3 id="troubleshooting_1">Troubleshooting<a class="headerlink" href="#troubleshooting_1" title="Permanent link">&para;</a></h3>
 <p><strong><code>certbot: error: Could not bind to port 80</code></strong>
 Something else is already using port 80. Stop it before running the init script:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>./init-prod.sh
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>./init-prod.sh
 </code></pre></div></p>
 <p><strong><code>Challenge failed: DNS problem: NXDOMAIN</code></strong>
 Your DNS A record hasn't propagated yet. Check with <code>dig yourdomain.com</code> — it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.</p>
@@ -3298,14 +3310,14 @@ The backend may still be starting up. Check: <code>docker compose -f docker-comp
 <ol>
 <li>
 <p><strong>Backend not ready</strong> — WebSocket connections are rejected until daphne is fully started:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
    Wait for a line containing <code>daphne</code> before reloading the page.</p>
 </li>
 <li>
 <p><strong>Redis unavailable</strong> — Django Channels requires Redis for the channel layer. If Redis is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>redis
-<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import django_redis; print(&#39;ok&#39;)&quot;</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>redis
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import django_redis; print(&#39;ok&#39;)&quot;</span>
 </code></pre></div></p>
 </li>
 <li>
@@ -3313,8 +3325,8 @@ The backend may still be starting up. Check: <code>docker compose -f docker-comp
 </li>
 <li>
 <p><strong>Nginx not proxying <code>/ws/</code></strong> — Verify the nginx container started without errors and that its config includes the WebSocket location block:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
-<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;location /ws&quot;</span>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;location /ws&quot;</span>
 </code></pre></div></p>
 </li>
 <li>
