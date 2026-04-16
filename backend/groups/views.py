@@ -224,7 +224,106 @@ class GroupViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         if request.method == "DELETE":
-            GroupMembership.objects.filter(group=group, user=target_user).delete()
+            # Only set up WS eviction when a membership row actually exists.
+            # An idempotent DELETE of a non-existent membership must not
+            # broadcast member.removed — the user never had group-inherited
+            # access, so there are no stale connections to close.
+            membership_exists = GroupMembership.objects.filter(
+                group=group, user=target_user
+            ).exists()
+
+            if not membership_exists:
+                GroupMembership.objects.filter(group=group, user=target_user).delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+            # Before deleting, snapshot board IDs in this group's subtree where
+            # the user has no *direct* BoardMembership. Boards with a direct
+            # membership are unaffected by group membership changes; boards
+            # without one relied entirely on group-inherited access.
+            #
+            # We collect the board IDs now (inside the transaction) so the
+            # on_commit callback does not need to re-query the group tree under
+            # a new connection after the membership row is gone.
+            #
+            # Trade-off: this does not consider other group paths (e.g. the
+            # user belongs to a sibling group that also covers the same board).
+            # To avoid false positives, the on_commit callback re-checks
+            # get_board_role() after the deletion has committed. Only boards
+            # where access is truly gone receive the eviction broadcast.
+            from .models import _GROUP_TRAVERSAL_MAX_DEPTH as _MAX_DEPTH
+            from boards.models import Board, BoardMembership as _BM
+
+            # Collect IDs of all groups in this group's subtree (including itself)
+            # so we cover inherited access through child groups as well.
+            subtree_ids = {group.pk}
+            frontier = {group.pk}
+            for _ in range(_MAX_DEPTH):
+                if not frontier:
+                    break
+                children = set(
+                    Group.objects.filter(parent__in=frontier)
+                    .exclude(id__in=subtree_ids)
+                    .values_list("id", flat=True)
+                )
+                subtree_ids |= children
+                frontier = children
+
+            # Boards in the subtree where the user has NO direct board membership —
+            # these are the boards whose access was inherited purely from group membership.
+            direct_board_ids = set(
+                _BM.objects.filter(
+                    board__group_id__in=subtree_ids, user=target_user
+                ).values_list("board_id", flat=True)
+            )
+            candidate_board_ids = list(
+                Board.objects.filter(group_id__in=subtree_ids)
+                .exclude(id__in=direct_board_ids)
+                .values_list("id", flat=True)
+            )
+
+            removed_user_id = target_user.id
+
+            with transaction.atomic():
+                GroupMembership.objects.filter(group=group, user=target_user).delete()
+
+                def _evict_stale_ws(
+                    uid=removed_user_id,
+                    board_ids=candidate_board_ids,
+                ):
+                    """Broadcast member.removed to boards where the user lost all access.
+
+                    Re-checks get_board_role() after the deletion has committed so
+                    we only evict connections on boards where the group membership
+                    was the sole access path. Users who retain access via a direct
+                    board membership or another group path are not evicted.
+                    """
+                    from boards.broadcast import broadcast_board_event
+                    from boards.models import Board as _Board
+                    from boards.permissions import get_board_role as _get_role
+                    from accounts.models import User as _User
+
+                    try:
+                        user_obj = _User.objects.get(pk=uid)
+                    except _User.DoesNotExist:
+                        return
+
+                    for bid in board_ids:
+                        try:
+                            board_obj = _Board.objects.select_related(
+                                "group",
+                                "group__parent",
+                                "group__parent__parent",
+                                "group__parent__parent__parent",
+                                "group__parent__parent__parent__parent",
+                                "group__parent__parent__parent__parent__parent",
+                            ).get(pk=bid)
+                        except _Board.DoesNotExist:
+                            continue
+                        if _get_role(user_obj, board_obj) is None:
+                            broadcast_board_event(bid, "member.removed", {"user_id": uid})
+
+                transaction.on_commit(_evict_stale_ws)
+
             return Response(status=status.HTTP_204_NO_CONTENT)
         # PATCH — update role
         membership = get_object_or_404(GroupMembership, group=group, user=target_user)
