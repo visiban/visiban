@@ -55,7 +55,7 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
