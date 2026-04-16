@@ -444,7 +444,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const VALID_VIEWS = ["board", "summary", "history", "analytics"] as const;
   const rawView = searchParams.get("view");
   const view: "board" | "summary" | "history" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "history" | "analytics") : "board";
-  const setView = (v: "board" | "summary" | "history" | "analytics") => setSearchParams({ view: v }, { replace: true });
+  const setView = (v: "board" | "summary" | "history" | "analytics") =>
+    setSearchParams(
+      (prev) => {
+        prev.set("view", v);
+        return prev;
+      },
+      { replace: true }
+    );
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const lastHoveredSwimlaneId = useRef<number | null>(null);
