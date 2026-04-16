@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority, CardTimelineEntry } from "../types";
 
 export interface CardPatch {
   title?: string;

@@ -2,6 +2,7 @@
 
 import datetime
 import os
+from urllib.parse import urlencode
 
 import django_filters
 from django.db import transaction
@@ -1033,7 +1034,6 @@ class CardViewSet(viewsets.ModelViewSet):
         def _page_url(new_offset: int) -> str | None:
             if new_offset < 0 or new_offset >= total_count:
                 return None
-            from urllib.parse import urlencode
             params = {**query_base, "offset": new_offset}
             return f"{base_url}?{urlencode(params)}"
 
