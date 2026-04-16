@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import type { Card, Column, Swimlane } from '../types'
@@ -248,26 +248,24 @@ describe('SwimlaneRow', () => {
     expect(screen.getByTitle('Expand Customer A')).toBeInTheDocument()
   })
 
-  it('calls onHoverEnter on mouseenter', async () => {
+  it('calls onHoverEnter on mouseenter', () => {
     const props = defaultProps()
     const onHoverEnter = vi.fn()
     const onHoverLeave = vi.fn()
     const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
     const row = container.querySelector('.relative.flex.border-b') as HTMLElement
-    await userEvent.setup().pointer({ target: row, type: 'mouseenter' })
+    fireEvent.mouseEnter(row)
     expect(onHoverEnter).toHaveBeenCalled()
   })
 
-  it('calls onHoverLeave on mouseleave', async () => {
+  it('calls onHoverLeave on mouseleave', () => {
     const props = defaultProps()
     const onHoverEnter = vi.fn()
     const onHoverLeave = vi.fn()
     const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
     const row = container.querySelector('.relative.flex.border-b') as HTMLElement
-    await userEvent.setup().pointer([
-      { target: row, type: 'mouseenter' },
-      { target: document.body, type: 'mouseleave' },
-    ])
+    fireEvent.mouseEnter(row)
+    fireEvent.mouseLeave(row)
     expect(onHoverLeave).toHaveBeenCalled()
   })
 })
