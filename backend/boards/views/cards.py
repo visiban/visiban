@@ -944,62 +944,81 @@ class CardViewSet(viewsets.ModelViewSet):
                     activity_event_types.extend(self._TIMELINE_ACTIVITY_GROUPS[group])
 
         # --- Build raw entry lists ---
+        # Use unsliced querysets for accurate total counts, then cap each at
+        # offset+limit rows before iterating. Both querysets are ordered newest-
+        # first, so the top (offset+limit) rows from each source are guaranteed
+        # to contain every row that could appear on the requested page.
         raw_entries: list[dict] = []
 
+        fetch_cap = offset + limit
+
         if include_moves:
-            movements = (
+            movements_qs = (
                 CardMovement.objects.filter(card=card)
                 .select_related("moved_by")
                 .order_by("-moved_at")
             )
-            for m in movements:
-                actor_obj = m.moved_by
-                raw_entries.append({
-                    "id": m.id,
-                    "kind": "move",
-                    "ts": m.moved_at,
-                    "actor": actor_obj,
-                    "event_type": m.movement_type or "move",
-                    "data": {
-                        "id": m.id,
-                        "from_column": m.from_column_id,
-                        "from_column_name": m.from_column_name,
-                        "to_column": m.to_column_id,
-                        "to_column_name": m.to_column_name,
-                        "from_swimlane": m.from_swimlane_id,
-                        "from_swimlane_name": m.from_swimlane_name,
-                        "to_swimlane": m.to_swimlane_id,
-                        "to_swimlane_name": m.to_swimlane_name,
-                        "moved_at": m.moved_at.isoformat(),
-                        "movement_type": m.movement_type,
-                        "notes": m.notes,
-                    },
-                })
+            move_count = movements_qs.count()
+            capped_movements = movements_qs[:fetch_cap]
+        else:
+            move_count = 0
+            capped_movements = []
 
         if activity_event_types:
-            activities = (
+            activities_qs = (
                 CardActivity.objects.filter(card=card, event_type__in=activity_event_types)
                 .select_related("actor")
                 .order_by("-created_at")
             )
-            for a in activities:
-                actor_obj = a.actor
-                raw_entries.append({
-                    "id": a.id,
-                    "kind": "activity",
-                    "ts": a.created_at,
-                    "actor": actor_obj,
+            activity_count = activities_qs.count()
+            capped_activities = activities_qs[:fetch_cap]
+        else:
+            activity_count = 0
+            capped_activities = []
+
+        total_count = move_count + activity_count
+
+        for m in capped_movements:
+            actor_obj = m.moved_by
+            raw_entries.append({
+                "id": m.id,
+                "kind": "move",
+                "ts": m.moved_at,
+                "actor": actor_obj,
+                "event_type": m.movement_type or "move",
+                "data": {
+                    "id": m.id,
+                    "from_column": m.from_column_id,
+                    "from_column_name": m.from_column_name,
+                    "to_column": m.to_column_id,
+                    "to_column_name": m.to_column_name,
+                    "from_swimlane": m.from_swimlane_id,
+                    "from_swimlane_name": m.from_swimlane_name,
+                    "to_swimlane": m.to_swimlane_id,
+                    "to_swimlane_name": m.to_swimlane_name,
+                    "moved_at": m.moved_at.isoformat(),
+                    "movement_type": m.movement_type,
+                    "notes": m.notes,
+                },
+            })
+
+        for a in capped_activities:
+            actor_obj = a.actor
+            raw_entries.append({
+                "id": a.id,
+                "kind": "activity",
+                "ts": a.created_at,
+                "actor": actor_obj,
+                "event_type": a.event_type,
+                "data": {
                     "event_type": a.event_type,
-                    "data": {
-                        "event_type": a.event_type,
-                        "from_value": a.from_value,
-                        "to_value": a.to_value,
-                    },
-                })
+                    "from_value": a.from_value,
+                    "to_value": a.to_value,
+                },
+            })
 
         # --- Sort merged list newest-first ---
         raw_entries.sort(key=lambda e: e["ts"], reverse=True)
-        total_count = len(raw_entries)
 
         # --- Slice for pagination ---
         page = raw_entries[offset: offset + limit]

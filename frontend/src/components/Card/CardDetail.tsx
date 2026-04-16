@@ -436,12 +436,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         </p>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-700 text-sm">
+        <div role="tablist" className="flex border-b border-slate-700 text-sm">
           {(["details", "activity"] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2.5 font-medium capitalize transition ${
+              className={`px-5 py-2.5 font-medium capitalize transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded ${
                 tab === t ? "border-b-2 border-blue-400 text-blue-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
