@@ -120,7 +120,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 group-hover:bg-slate-700/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 hover:bg-slate-700/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
           data-tour-step="swimlane"
           data-no-pan
@@ -192,7 +192,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </button>
             <button
               onClick={onToggleCollapse}
-              className="text-slate-400 hover:text-white transition shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              className="text-slate-400 hover:text-white transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
               aria-pressed={collapsed}
               aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
               title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
