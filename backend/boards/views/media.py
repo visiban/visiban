@@ -70,8 +70,13 @@ class ServeMediaView(APIView):
             # subsequent download attempt for that attachment.  Strip path components
             # as an additional guard; the stored filename should already be clean after
             # the fix in cards.py but defense-in-depth covers existing rows.
+            from django.utils.text import get_valid_filename
             import os
-            safe_name = os.path.basename(attachment.filename).replace('"', '_')
+            # Defense-in-depth: re-sanitize on serve even though filenames are
+            # sanitized at upload time. Covers attachments created before the
+            # upload-time fix was deployed.
+            safe_name = get_valid_filename(os.path.basename(attachment.filename))
+            safe_name = safe_name.translate({ord("\r"): None, ord("\n"): None, ord("\x00"): None}) or "attachment"
             disposition = f'attachment; filename="{safe_name}"'
 
         if django_settings.DEBUG:

@@ -13,12 +13,16 @@ map $http_upgrade $connection_upgrade {
     ''      close;
 }
 
+# Rate-limit zone for the Django admin login. Defense-in-depth — 5 req/min, burst 2.
+limit_req_zone $binary_remote_addr zone=admin_login:1m rate=5r/m;
+
 server {
     listen 80;
     server_name ${DOMAIN};
 
-    add_header X-Frame-Options           SAMEORIGIN always;
-    add_header X-Content-Type-Options    nosniff always;
+    add_header X-Frame-Options           "DENY" always;
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header Content-Security-Policy   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self'; frame-ancestors 'none'" always;
 
     client_max_body_size 20M;
 
@@ -83,6 +87,8 @@ server {
         allow 127.0.0.1;
         allow ::1;
         deny all;
+
+        limit_req zone=admin_login burst=2 nodelay;
 
         proxy_pass       http://backend:8000;
         proxy_set_header Host              $host;

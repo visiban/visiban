@@ -150,3 +150,44 @@ class SecretKeyGuardTests(TestCase):
         with self.assertRaises(ImproperlyConfigured) as ctx:
             self._load_settings_with("change-me-in-production", debug=False)
         self.assertIn("token_hex", str(ctx.exception))
+
+
+class SanitizeAttachmentFilenameTests(TestCase):
+    """Unit tests for _sanitize_attachment_filename (#505)."""
+
+    def _sanitize(self, name):
+        from boards.views.cards import _sanitize_attachment_filename
+        return _sanitize_attachment_filename(name)
+
+    def test_normal_filename_unchanged(self):
+        self.assertEqual(self._sanitize("report.pdf"), "report.pdf")
+
+    def test_strips_path_separators(self):
+        result = self._sanitize("../../etc/passwd")
+        self.assertNotIn("/", result)
+        self.assertNotIn("..", result)
+
+    def test_strips_double_quotes(self):
+        result = self._sanitize('evil"file.pdf')
+        self.assertNotIn('"', result)
+
+    def test_strips_carriage_return(self):
+        result = self._sanitize("file\r.pdf")
+        self.assertNotIn("\r", result)
+
+    def test_strips_newline(self):
+        result = self._sanitize("file\n.pdf")
+        self.assertNotIn("\n", result)
+
+    def test_strips_null_byte(self):
+        result = self._sanitize("file\x00.pdf")
+        self.assertNotIn("\x00", result)
+
+    def test_empty_name_returns_fallback(self):
+        result = self._sanitize("")
+        self.assertTrue(len(result) > 0)
+
+    def test_windows_path_stripped(self):
+        result = self._sanitize("C:\\Users\\admin\\secret.docx")
+        self.assertNotIn("\\", result)
+        self.assertNotIn(":", result)

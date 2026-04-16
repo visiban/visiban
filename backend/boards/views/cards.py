@@ -81,6 +81,25 @@ _ALLOWED_MIME_TYPES: frozenset[str] = frozenset([
 ])
 
 
+def _sanitize_attachment_filename(raw_name: str) -> str:
+    """Return a filename safe for use in a Content-Disposition header.
+
+    django.utils.text.get_valid_filename() removes path separators and most
+    special characters.  We additionally strip CR, LF, and null bytes which
+    can inject extra HTTP headers or terminate the header value prematurely
+    if a browser supplies a crafted filename.
+    """
+    from django.core.exceptions import SuspiciousFileOperation
+    from django.utils.text import get_valid_filename
+    try:
+        safe = get_valid_filename(os.path.basename(raw_name))
+    except SuspiciousFileOperation:
+        return "attachment"
+    # Strip characters that cannot appear in a quoted Content-Disposition value.
+    safe = safe.translate({ord("\r"): None, ord("\n"): None, ord("\x00"): None})
+    return safe or "attachment"
+
+
 def _validate_upload_mime(file) -> str | None:
     """Validate a file upload against the allowlist and magic bytes.
 
@@ -986,9 +1005,12 @@ class CardViewSet(viewsets.ModelViewSet):
             attachment = CardAttachment.objects.create(
                 card=card,
                 file=file,
-                # Sanitize filename: strip path separators and replace bare
-                # double-quotes so they cannot break the Content-Disposition header.
-                filename=os.path.basename(file.name).replace('"', '_'),
+                # Sanitize filename for safe use in Content-Disposition headers.
+                # get_valid_filename() removes path traversal characters and
+                # replaces spaces/special chars. We additionally strip CR, LF,
+                # and null bytes which can inject extra headers or terminate the
+                # header value early if the browser sends a crafted filename.
+                filename=_sanitize_attachment_filename(file.name),
                 size=file.size,
                 uploaded_by=request.user,
             )
