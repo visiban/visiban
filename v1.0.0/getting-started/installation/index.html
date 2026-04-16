@@ -3042,6 +3042,10 @@
 <td>Must be set to a strong, unique password. Docker Compose <strong>will not start</strong> if this variable is missing — there is no insecure default.</td>
 </tr>
 <tr>
+<td><code>REDIS_PASSWORD</code></td>
+<td>Must be set to a strong, unique password. The production Redis service starts with <code>--requirepass</code> and the backend URLs are built from this value. Docker Compose <strong>will not start</strong> if this variable is missing. Generate with: <code>openssl rand -base64 32</code></td>
+</tr>
+<tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
 <td>Must be a long random string. If left as <code>change-me-in-production</code> or empty, Django will raise <code>ImproperlyConfigured</code> at startup. Generate one with: <code>python -c "import secrets; print(secrets.token_hex(50))"</code></td>
 </tr>
@@ -3108,6 +3112,9 @@
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Generate DB_PASSWORD directly into .env</span>
 <a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DB_PASSWORD=.*|DB_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Generate REDIS_PASSWORD directly into .env</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
 </code></pre></div>
 </div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Django</span>
@@ -3122,19 +3129,20 @@
 <a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://visiban:<span class="si">${</span><span class="nv">DB_PASSWORD</span><span class="si">}</span>@db:5432/visiban
 <a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — used by both Django and Postgres</span>
 <a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># Redis (runs inside Docker Compose — no change needed)</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are set in docker-compose.prod.yml environment block.</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1"># Only override here if you use an external Redis.</span>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="c1"># Let&#39;s Encrypt (required only when TLS_MODE=letsencrypt)</span>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="c1"># App version — set to the version you are deploying (see CHANGELOG.md)</span>
-<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="nv">APP_VERSION</span><span class="o">=</span><span class="m">1</span>.0.0
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># Redis (runs inside Docker Compose)</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -base64 32</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="c1"># Only override here if you use an external Redis.</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="c1"># Let&#39;s Encrypt (required only when TLS_MODE=letsencrypt)</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="c1"># App version — set to the version you are deploying (see CHANGELOG.md)</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="nv">APP_VERSION</span><span class="o">=</span><span class="m">1</span>.0.0
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Using <code>TLS_MODE=none</code> behind an external load balancer</p>
