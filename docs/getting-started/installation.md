@@ -32,18 +32,22 @@ Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `bac
 
 ### Image tags
 
-Pre-built images are published to the GitHub Container Registry (`ghcr.io/visiban/visiban/`). Three tag families are available:
+Pre-built images are published to the GitHub Container Registry (`ghcr.io/visiban/visiban/`). Four tag families are available:
 
 | Tag | Description | Recommended for |
 |-----|-------------|-----------------|
-| `:1.0`, `:1.1`, … | Stable alias for a minor release line. Updated only when a full stable release ships — never updated with release candidates or patches. | **Production** |
+| `:stable` | Always points to the current stable release. Moves forward with each new stable minor (1.0 → 1.1 → 2.0). Never updated with release candidates. | **Production — most users** |
+| `:1.0`, `:1.1`, … | Pinned to a specific minor release line. Updated only with patch releases in that line; stays on 1.0.x even after 1.1 ships. | Production — controlled minor upgrades |
 | `:v1.0.3` | Exact version pin. Points to one specific build and never moves. | Reproducible deployments |
-| `:latest` | Always points to the most recent release, including release candidates. May include pre-releases. | Staying current, non-critical environments |
+| `:latest` | Always points to the most recent release, including release candidates. | Staying current, non-critical environments |
 
 ```bash
-# Stable 1.0 line (recommended)
+# Current stable release (recommended)
+docker pull ghcr.io/visiban/visiban/backend:stable
+docker pull ghcr.io/visiban/visiban/frontend:stable
+
+# Pin to the 1.0 minor line (stays on 1.0.x even when 1.1 ships)
 docker pull ghcr.io/visiban/visiban/backend:1.0
-docker pull ghcr.io/visiban/visiban/frontend:1.0
 
 # Exact version pin
 docker pull ghcr.io/visiban/visiban/backend:v1.0.3
@@ -274,9 +278,11 @@ TLS_MODE=letsencrypt
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
-# App version — use the minor alias (e.g. 1.0) or an exact version pin (e.g. v1.0.3).
+# App version — "stable" tracks the current stable release automatically.
+# Use a minor alias (e.g. 1.0) to stay on a specific line, or an exact
+# version pin (e.g. v1.0.3) for fully reproducible deploys.
 # See the "Image tags" section above for guidance.
-APP_VERSION=1.0
+APP_VERSION=stable
 ```
 
 !!! tip "Using `TLS_MODE=none` behind an external load balancer"
