@@ -180,16 +180,36 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   // --- Indicators shown in both modes ---
 
-  it('stale indicator is shown in compact mode', () => {
+  it('stale indicator clock emoji is not rendered in compact mode (replaced by overlay)', () => {
     const card = makeCard({ is_stale: true })
     render(<CardItem card={card} compact />)
-    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
+    expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
   })
 
-  it('stale indicator is shown in expanded mode', () => {
+  it('stale indicator clock emoji is not rendered in expanded mode (replaced by overlay)', () => {
     const card = makeCard({ is_stale: true })
     render(<CardItem card={card} compact={false} />)
-    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
+    expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
+  })
+
+  it('aging overlay is shown in compact mode when card is past threshold', () => {
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 86_400_000).toISOString()
+    const card = makeCard({ last_moved_at: fifteenDaysAgo })
+    const { container } = render(
+      <CardItem card={card} compact staleness_threshold_days={14} stale_warning_pct={50} />
+    )
+    const root = container.firstChild as HTMLElement
+    expect(root.querySelector('[aria-hidden="true"]')).toBeInTheDocument()
+  })
+
+  it('aging overlay is shown in expanded mode when card is past threshold', () => {
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 86_400_000).toISOString()
+    const card = makeCard({ last_moved_at: fifteenDaysAgo })
+    const { container } = render(
+      <CardItem card={card} compact={false} staleness_threshold_days={14} stale_warning_pct={50} />
+    )
+    const root = container.firstChild as HTMLElement
+    expect(root.querySelector('[aria-hidden="true"]')).toBeInTheDocument()
   })
 
   it('recently moved dot is shown in compact mode for cards moved <24h ago', () => {

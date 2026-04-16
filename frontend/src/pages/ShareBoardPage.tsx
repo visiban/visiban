@@ -77,13 +77,6 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
                 {card.assignee.display_name}
               </span>
             )}
-            {card.is_stale && (
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 ml-auto"
-                title="Card hasn't moved recently"
-                aria-label="Stale"
-              />
-            )}
           </div>
         )}
       </div>

@@ -1269,6 +1269,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       userTimezone={userTimezone}
                       userDateFormat={userDateFormat}
                       compact={cardLayout === "compact"}
+                      staleness_threshold_days={board.staleness_threshold_days ?? 14}
+                      stale_warning_pct={board.stale_warning_pct ?? 50}
                     />
                   </React.Fragment>
                 ));
@@ -1309,7 +1311,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} />}
+          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-blue-400 bg-slate-800 rounded shadow-xl opacity-90" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2">
