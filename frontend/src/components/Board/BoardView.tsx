@@ -1048,7 +1048,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onLoad={(sf) => setFilters(hydrateFilter(sf))}
             onSave={(name) => saveFilter(name, filters)}
             onDelete={removeFilter}
-            firstElementRef={filterBarFirstRef}
+            firstElementRef={(el) => { filterBarFirstRef.current = el; }}
           />
           <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} currentUser={currentUser} hiddenCount={hiddenCount} />
         </div>
