@@ -1,0 +1,10 @@
+# hadolint configuration
+#
+# DL3008 — pin versions in apt-get install
+# Suppressed per-RUN via inline `# hadolint ignore=DL3008` pragmas.
+# Rationale: pinning apt package versions creates more maintenance burden than
+# value — versions differ across mirror snapshots and old versions are not
+# guaranteed to remain available. Use pinned base image tags for reproducibility
+# (e.g. python:3.12-slim, node:20-alpine) instead of pinning apt packages.
+ignored:
+  - DL3008
