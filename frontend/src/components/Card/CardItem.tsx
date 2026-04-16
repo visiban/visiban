@@ -3,7 +3,6 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
-import Tooltip from "../Common/Tooltip";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingTint, idleDays } from "../../utils/agingTint";
 
@@ -87,6 +86,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
   const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
+  // Tracks tooltip visibility for the aging indicator. We manage this with
+  // local state rather than wrapping the card in <Tooltip> (which uses
+  // cloneElement and would clobber ref={setNodeRef} from useDraggable).
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // 24h is intentional here — it represents "moved in the current working session",
   // not the board's staleness threshold. The two concepts are independent:
@@ -131,7 +134,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     !!movedLabel ||
     (!hidePriority && card.priority !== "low");
 
-  const cardDiv = (
+  return (
+    <div className="relative">
+      {/* Sibling tooltip — rendered as an absolutely-positioned overlay so we
+          never need to wrap the card root div in cloneElement-based <Tooltip>,
+          which would clobber ref={setNodeRef} from useDraggable. */}
+      {overlayClass && showTooltip && agingTooltip && (
+        <div
+          role="tooltip"
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap pointer-events-none"
+        >
+          {agingTooltip}
+        </div>
+      )}
     <div
       ref={setNodeRef}
       {...attributes}
@@ -146,8 +161,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
         ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
       `}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); setShowTooltip(true); }}
+      onMouseLeave={() => { setHovered(false); setShowTooltip(false); }}
       style={{
         borderColor: priorityColor,
         boxShadow: isDragging && !overlay
@@ -284,12 +299,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         )}
       </div>
     </div>
+    </div>
   );
-
-  if (agingTooltip) {
-    return <Tooltip content={agingTooltip} position="top">{cardDiv}</Tooltip>;
-  }
-  return cardDiv;
 }, arePropsEqual);
 
 export default CardItem;

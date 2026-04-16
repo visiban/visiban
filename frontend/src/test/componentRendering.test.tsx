@@ -96,7 +96,8 @@ describe('CardItem', () => {
 
   it('applies a full border color matching the priority', () => {
     const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     // urgent = #B91C1C (red-700, darker than high's red-500)
     expect(root.style.borderColor.toLowerCase()).toContain('#b91c1c')
   })
@@ -131,7 +132,8 @@ describe('CardItem', () => {
 
   it('applies highlight ring classes when highlighted prop is true', () => {
     const { container } = render(<CardItem card={makeCard()} highlighted />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-2')
     expect(root.className).toContain('ring-blue-400')
     expect(root.className).toContain('animate-pulse')
@@ -272,7 +274,8 @@ describe('CardItem', () => {
     render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
     // selected card should have blue ring
     const { container } = render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-blue-400')
   })
 
