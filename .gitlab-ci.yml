@@ -180,6 +180,47 @@ cache-warm-npm:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
+# ─── Shell scripts — lint ────────────────────────────────────────────────────
+#
+# shellcheck catches common shell bugs: unquoted variables, missing set -e,
+# portability issues, and incorrect conditionals. Runs on every MR that touches
+# scripts/ and always on main.
+
+shellcheck:
+  stage: lint
+  image: alpine:3.19
+  before_script:
+    - apk add --no-cache shellcheck
+  rules:
+    - changes:
+        - scripts/*.sh
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - shellcheck --severity=warning scripts/*.sh
+
+# ─── Dockerfiles — lint ───────────────────────────────────────────────────────
+#
+# hadolint enforces Dockerfile best practices (layer ordering, missing WORKDIR,
+# ADD vs COPY, etc.). DL3008 (pin apt versions) is ignored — rationale in
+# .hadolint.yaml. Runs on every MR that touches a Dockerfile and always on main.
+
+dockerfile-lint:
+  stage: lint
+  image:
+    name: hadolint/hadolint:latest-alpine
+    entrypoint: [""]
+  rules:
+    - changes:
+        - "**/Dockerfile*"
+        - .hadolint.yaml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - hadolint --config .hadolint.yaml
+        backend/Dockerfile
+        backend/Dockerfile.prod
+        frontend/Dockerfile
+        frontend/Dockerfile.prod
+
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
 # Ruff lint check + CodeClimate quality report in a single job — avoids
@@ -837,6 +878,46 @@ trivy-scan:
     paths:
       - trivy-report.json
 
+# OSV-Scanner: unified Python + npm dependency vulnerability scan using the
+# OSV.dev advisory database (PyPA, GitHub Advisory, and 20+ ecosystem feeds).
+# Complements pip-audit and npm audit with first-party OSV data, which has
+# lower false-positive rates than NVD.
+#
+# Runs on a weekly schedule (CI schedule variable OSV_SCAN="true") and on MRs
+# when lockfiles change. allow_failure: true — tighten to false after a clean run.
+# JSON results uploaded as artifact for triage.
+
+dep-scan-osv:
+  stage: security
+  image:
+    name: ghcr.io/google/osv-scanner:latest
+    entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/requirements.txt
+        - frontend/package-lock.json
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $OSV_SCAN == "true"'
+      allow_failure: true
+  script:
+    # Write JSON report first (osv-scanner exits non-zero on any finding)
+    - osv-scanner
+        --lockfile backend/requirements.txt
+        --lockfile frontend/package-lock.json
+        --format json
+        --output osv-report.json
+        || true
+    # Print human-readable summary; exit with osv-scanner's own exit code
+    - osv-scanner
+        --lockfile backend/requirements.txt
+        --lockfile frontend/package-lock.json
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - osv-report.json
+
 # ─── Build verification (MR only) ─────────────────────────────────────────────
 #
 # Verify Docker images build successfully before merging. Catches Dockerfile
@@ -965,6 +1046,14 @@ backend-docker-push:
           --tag ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG} \
           --tag ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG} \
           --tag ghcr.io/visiban/visiban/backend:latest"
+        # Stable releases (no pre-release suffix) also get the MAJOR.MINOR alias,
+        # e.g. :1.0 — this is what users should pin to for production stability.
+        if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          MINOR=$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')
+          TAGS="${TAGS} \
+            --tag ${CI_REGISTRY_IMAGE}/backend:${MINOR} \
+            --tag ghcr.io/visiban/visiban/backend:${MINOR}"
+        fi
       fi
       docker buildx build \
         --platform ${PLATFORMS} \
@@ -995,6 +1084,14 @@ frontend-docker-push:
           --tag ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG} \
           --tag ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG} \
           --tag ghcr.io/visiban/visiban/frontend:latest"
+        # Stable releases (no pre-release suffix) also get the MAJOR.MINOR alias,
+        # e.g. :1.0 — this is what users should pin to for production stability.
+        if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          MINOR=$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')
+          TAGS="${TAGS} \
+            --tag ${CI_REGISTRY_IMAGE}/frontend:${MINOR} \
+            --tag ghcr.io/visiban/visiban/frontend:${MINOR}"
+        fi
       fi
       docker buildx build \
         --platform ${PLATFORMS} \

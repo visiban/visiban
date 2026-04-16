@@ -2,6 +2,9 @@
 # Installs gcc and compiles any C-extension wheels (psycopg2, etc.).
 FROM python:3.12-slim AS builder
 
+WORKDIR /build
+
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc \
     && rm -rf /var/lib/apt/lists/*
@@ -13,6 +16,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 # No compiler — only the PostgreSQL client library and pre-built wheels.
 FROM python:3.12-slim
 
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
