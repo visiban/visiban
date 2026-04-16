@@ -8,7 +8,7 @@ import { deleteCard, archiveCard, getCardComments, addCardComment, deleteComment
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
-import CardMovementTimeline from "./CardMovementTimeline";
+import ActivityTabPanel from "./ActivityTabPanel";
 import { formatDateStr, formatDueDate } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
@@ -60,7 +60,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const [commentBody, setCommentBody] = useState("");
-  const [tab, setTab] = useState<"details" | "history">("details");
+  const [tab, setTab] = useState<"details" | "activity">("details");
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(PALETTE_COLORS[0]);
@@ -437,7 +437,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
         {/* Tabs */}
         <div className="flex border-b border-slate-700 text-sm">
-          {(["details", "history"] as const).map((t) => (
+          {(["details", "activity"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -945,7 +945,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <CardMovementTimeline boardId={board.id} cardId={card.id} columnIds={new Set(board.columns.map((c) => c.id))} userDateFormat={userDateFormat} userTimeFormat={userTimeFormat} />
+            <ActivityTabPanel boardId={board.id} cardId={card.id} />
           )}
           </div>
           {/* Scroll affordance — fade gradient at bottom signals more content below */}

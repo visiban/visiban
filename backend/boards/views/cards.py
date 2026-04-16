@@ -27,6 +27,7 @@ from ..permissions import SITE_ADMIN
 from ..serializers import (
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    CardTimelineEntrySerializer,
     _card_queryset,
 )
 from ._helpers import get_board_for_user, _can_modify_others_content, _refetched_card_data
@@ -875,6 +876,158 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card, pk=pk, board=board)
         serializer = CardActivitySerializer(card.activities.select_related("actor"), many=True)
         return Response(serializer.data)
+
+    # ---------------------------------------------------------------------------
+    # Unified timeline endpoint (#746)
+    # ---------------------------------------------------------------------------
+
+    # Maps ?event_types filter group names to their concrete event_type values
+    # in CardActivity. "move" is handled separately (CardMovement items).
+    _TIMELINE_ACTIVITY_GROUPS = {
+        "comment": ["comment_added"],
+        "field": [
+            "priority_change", "weight_change", "assignee_change",
+            "label_change", "title_change", "description_change", "due_date_change",
+        ],
+        "checklist": [
+            "checklist_item_added", "checklist_item_checked",
+            "checklist_item_unchecked", "checklist_item_deleted",
+        ],
+        "attachment": ["attachment_added", "attachment_deleted"],
+        "system": ["archived", "reactivated"],
+    }
+
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, board_pk=None, pk=None):
+        """Return a unified, paginated timeline of card movements and field-change activities.
+
+        Query params:
+          event_types  Comma-separated filter groups: move, comment, field, checklist,
+                       attachment, system. Omit to include all events.
+          limit        Page size (default 50, max 200).
+          offset       Page offset (default 0).
+
+        Response shape:
+          { count, next, previous, results: [CardTimelineEntry, ...] }
+
+        Entries are sorted newest-first. Movements and activities are merged at the
+        Python level because QuerySet.union() does not preserve per-model fields.
+        """
+        board = self._board()
+        card = get_object_or_404(Card, pk=pk, board=board)
+
+        # --- Parse pagination params ---
+        try:
+            limit = min(int(request.query_params.get("limit", 50)), 200)
+        except (TypeError, ValueError):
+            limit = 50
+        try:
+            offset = max(int(request.query_params.get("offset", 0)), 0)
+        except (TypeError, ValueError):
+            offset = 0
+
+        # --- Parse optional event_types filter ---
+        raw_types = request.query_params.get("event_types", "")
+        requested_groups = [g.strip() for g in raw_types.split(",") if g.strip()] if raw_types else []
+
+        include_moves = not requested_groups or "move" in requested_groups
+
+        # Collect activity event_type values for the requested groups
+        activity_event_types: list[str] = []
+        if not requested_groups:
+            # All groups
+            for values in self._TIMELINE_ACTIVITY_GROUPS.values():
+                activity_event_types.extend(values)
+        else:
+            for group in requested_groups:
+                if group in self._TIMELINE_ACTIVITY_GROUPS:
+                    activity_event_types.extend(self._TIMELINE_ACTIVITY_GROUPS[group])
+
+        # --- Build raw entry lists ---
+        raw_entries: list[dict] = []
+
+        if include_moves:
+            movements = (
+                CardMovement.objects.filter(card=card)
+                .select_related("moved_by")
+                .order_by("-moved_at")
+            )
+            for m in movements:
+                actor_obj = m.moved_by
+                raw_entries.append({
+                    "id": m.id,
+                    "kind": "move",
+                    "ts": m.moved_at,
+                    "actor": actor_obj,
+                    "event_type": m.movement_type or "move",
+                    "data": {
+                        "id": m.id,
+                        "from_column": m.from_column_id,
+                        "from_column_name": m.from_column_name,
+                        "to_column": m.to_column_id,
+                        "to_column_name": m.to_column_name,
+                        "from_swimlane": m.from_swimlane_id,
+                        "from_swimlane_name": m.from_swimlane_name,
+                        "to_swimlane": m.to_swimlane_id,
+                        "to_swimlane_name": m.to_swimlane_name,
+                        "moved_at": m.moved_at.isoformat(),
+                        "movement_type": m.movement_type,
+                        "notes": m.notes,
+                    },
+                })
+
+        if activity_event_types:
+            activities = (
+                CardActivity.objects.filter(card=card, event_type__in=activity_event_types)
+                .select_related("actor")
+                .order_by("-created_at")
+            )
+            for a in activities:
+                actor_obj = a.actor
+                raw_entries.append({
+                    "id": a.id,
+                    "kind": "activity",
+                    "ts": a.created_at,
+                    "actor": actor_obj,
+                    "event_type": a.event_type,
+                    "data": {
+                        "event_type": a.event_type,
+                        "from_value": a.from_value,
+                        "to_value": a.to_value,
+                    },
+                })
+
+        # --- Sort merged list newest-first ---
+        raw_entries.sort(key=lambda e: e["ts"], reverse=True)
+        total_count = len(raw_entries)
+
+        # --- Slice for pagination ---
+        page = raw_entries[offset: offset + limit]
+
+        # --- Build next/previous URLs ---
+        base_url = request.build_absolute_uri(request.path)
+        query_base = {}
+        if raw_types:
+            query_base["event_types"] = raw_types
+        query_base["limit"] = limit
+
+        def _page_url(new_offset: int) -> str | None:
+            if new_offset < 0 or new_offset >= total_count:
+                return None
+            from urllib.parse import urlencode
+            params = {**query_base, "offset": new_offset}
+            return f"{base_url}?{urlencode(params)}"
+
+        next_url = _page_url(offset + limit)
+        previous_url = _page_url(offset - limit) if offset > 0 else None
+
+        serializer = CardTimelineEntrySerializer(page, many=True)
+        return Response({
+            "count": total_count,
+            "next": next_url,
+            "previous": previous_url,
+            "results": serializer.data,
+        })
 
     @action(detail=True, methods=["post", "get"])
     def comments(self, request, board_pk=None, pk=None):

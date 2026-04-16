@@ -233,6 +233,15 @@ export interface CardActivity {
   created_at: string;
 }
 
+export interface CardTimelineEntry {
+  id: number;
+  kind: "move" | "activity";
+  ts: string;
+  actor: BoardUser | null;
+  event_type: string;
+  data: Record<string, unknown>;
+}
+
 export interface CardComment {
   id: number;
   author: BoardUser | null;

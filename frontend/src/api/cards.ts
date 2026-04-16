@@ -99,6 +99,22 @@ export const searchCards = (boardId: number, query: string, signal?: AbortSignal
   client.get<Card[]>(`/api/v1/boards/${boardId}/cards/`, { params: { search: query }, signal })
     .then((r) => r.data);
 
+export interface TimelinePage {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: CardTimelineEntry[];
+}
+
+export const getCardTimeline = (
+  boardId: number,
+  cardId: number,
+  params?: { limit?: number; offset?: number; event_types?: string }
+): Promise<TimelinePage> =>
+  client
+    .get<TimelinePage>(`/api/v1/boards/${boardId}/cards/${cardId}/timeline/`, { params })
+    .then((r) => r.data);
+
 export interface CardStatus {
   archived: boolean;
 }
