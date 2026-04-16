@@ -283,6 +283,7 @@ describe('CardItem — compact vs expanded rendering', () => {
 
   it('readOnly card has cursor-default class', () => {
     const { container } = render(<CardItem card={makeCard()} readOnly compact />)
-    expect((container.firstChild as HTMLElement).className).toMatch(/cursor-default/)
+    const card = container.querySelector('[data-tour-step="card"]') as HTMLElement
+    expect(card.className).toMatch(/cursor-default/)
   })
 })
