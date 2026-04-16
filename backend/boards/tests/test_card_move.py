@@ -180,6 +180,28 @@ class CardMoveTests(TestCase):
         self.assertEqual(movement.from_swimlane_name, self.swim_x.name)
         self.assertEqual(movement.to_swimlane_name, self.swim_x.name)
 
+    def test_move_response_movement_includes_fk_fields(self):
+        """#721 — movement in move response must include from/to column/swimlane names.
+
+        Verifies that the CardMovement is re-fetched with select_related so that
+        CardMovementSerializer can resolve from_column_name, to_column_name, etc.
+        without issuing per-FK queries.
+        """
+        resp = self.client.post(self._move_url(), {
+            "column_id": self.col_b.pk,
+            "swimlane_id": self.swim_y.pk,
+            "position": 0,
+        })
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertIn("movement", data)
+        mv = data["movement"]
+        self.assertEqual(mv["from_column_name"], self.col_a.name)
+        self.assertEqual(mv["to_column_name"], self.col_b.name)
+        self.assertEqual(mv["from_swimlane_name"], self.swim_x.name)
+        self.assertEqual(mv["to_swimlane_name"], self.swim_y.name)
+        self.assertIsNotNone(mv.get("moved_by"))
+
     def test_movement_api_returns_names_after_column_deleted(self):
         """Names must survive column deletion — the key regression being fixed."""
         col_b_name = self.col_b.name

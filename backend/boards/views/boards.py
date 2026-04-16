@@ -54,9 +54,14 @@ class BoardViewSet(
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
         # select_related("owner", "group") prevents one JOIN-per-board for the
-        # owner and group_name serializer fields. Annotate to avoid 3 further
-        # subqueries per board (member_count, card_count, is_starred).
-        return qs.select_related("owner", "group").annotate(
+        # owner and group_name serializer fields. Prefetch card labels and card
+        # assignees so that board-scoped card rendering avoids per-card queries
+        # (#670). Annotate to avoid 3 further subqueries per board (member_count,
+        # card_count, is_starred).
+        return qs.select_related("owner", "group").prefetch_related(
+            "cards__labels",
+            "cards__assignee",
+        ).annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(
@@ -124,7 +129,11 @@ class BoardViewSet(
             serializer.save()
             board = serializer.instance
             board_id = board.id
-            board_data = BoardSerializer(board, context={"request": self.request}).data
+            # Re-fetch through get_queryset() so the serializer response includes
+            # annotations (_member_count, _card_count, _is_starred) rather than
+            # triggering per-field subqueries from the bare post-save instance (#647).
+            annotated = self.get_queryset().get(pk=board_id)
+            board_data = BoardSerializer(annotated, context={"request": self.request}).data
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
             )
@@ -194,8 +203,12 @@ class BoardViewSet(
                 response_data = {"share_token": None}
 
             # Notify connected clients so the Sharing tab updates without a reload.
+            # Re-fetch through get_queryset() so the broadcast payload includes
+            # annotations (_member_count, _card_count, _is_starred) rather than
+            # triggering per-field subqueries from the bare post-save instance (#647).
             board_id = board.pk
-            board_summary = BoardSerializer(board, context={"request": request}).data
+            annotated = self.get_queryset().get(pk=board_id)
+            board_summary = BoardSerializer(annotated, context={"request": request}).data
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_summary)
             )
@@ -224,7 +237,11 @@ class BoardViewSet(
         with transaction.atomic():
             board.save()
             board_id = board.id
-            board_data = BoardSerializer(board, context={"request": request}).data
+            # Re-fetch through get_queryset() so the response and broadcast include
+            # annotations (_member_count, _card_count, _is_starred) rather than
+            # triggering per-field subqueries from the bare post-save instance (#647).
+            annotated = self.get_queryset().get(pk=board_id)
+            board_data = BoardSerializer(annotated, context={"request": request}).data
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
             )

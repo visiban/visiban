@@ -256,6 +256,41 @@ class BoardFullGroupInheritedQueryCountTests(TestCase):
         )
 
 
+class BoardFullColdCacheAncestorTests(TestCase):
+    """BoardFullSerializer.get_members() must not issue per-level FK queries
+    when the board's group ancestor chain was not pre-loaded via select_related.
+
+    The guard in get_members() detects an unloaded parent FK and re-fetches
+    the full chain in a single query before starting the traversal (#650).
+    """
+
+    def setUp(self):
+        from groups.models import Group, GroupMembership
+
+        self.owner = User.objects.create_user(username="cold_owner", password="x")
+        # Three-level hierarchy — deep enough to show the N+1 if unguarded.
+        self.grandparent = Group.objects.create(name="GrandParent", owner=self.owner)
+        self.parent = Group.objects.create(name="Parent", owner=self.owner, parent=self.grandparent)
+        self.child = Group.objects.create(name="Child", owner=self.owner, parent=self.parent)
+        GroupMembership.objects.create(group=self.grandparent, user=self.owner, role="admin")
+
+        # Fetch the board without the ancestor chain (cold-cache scenario).
+        self.board = Board.objects.create(name="ColdBoard", owner=self.owner, group=self.child)
+        BoardMembership.objects.create(board=self.board, user=self.owner, role="admin")
+
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_full_endpoint_works_with_cold_cache_ancestor(self):
+        """full/ must return 200 even when the board was fetched without ancestor chain."""
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        self.assertEqual(r.status_code, 200)
+        members = r.data["members"]
+        # Owner must appear in the member list.
+        owner_ids = [m["user"]["id"] for m in members]
+        self.assertIn(self.owner.id, owner_ids)
+
+
 class SummaryQueryCountTests(TestCase):
     """GET /api/boards/{id}/summary/ must use aggregate queries, not per-swimlane loops."""
 
@@ -293,6 +328,100 @@ class SummaryQueryCountTests(TestCase):
             f"summary/ query count grew from {baseline} to {more} when swimlanes "
             "were added — the per-swimlane loop regression was reintroduced.",
         )
+
+
+class IsStaleAnnotationQueryCountTests(TestCase):
+    """GET /api/boards/{id}/full/ must not call timezone.now() per card.
+
+    is_stale is annotated at the queryset level by _card_queryset(stale_cutoff=...)
+    so get_is_stale() reads a pre-computed boolean rather than re-computing the
+    cutoff and accessing obj.movements per row (#669).  This test verifies that
+    the full/ query count does not grow when is_stale-affecting cards are added.
+    """
+
+    BUDGET = 20
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_stale", password="x")
+        self.board, self.cols, self.lanes = _seed_board(self.user, n_cols=3, n_lanes=3, cards_per_cell=2)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _get_full(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+
+    def test_is_stale_annotation_within_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_full()
+        self.assertEqual(r.status_code, 200)
+        cards = r.data["cards"]
+        self.assertGreater(len(cards), 0)
+        # All cards must have an is_stale field
+        for card in cards:
+            self.assertIn("is_stale", card)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"full/ with stale annotation used {len(ctx)} queries — budget is {self.BUDGET}.",
+        )
+
+    def test_is_stale_query_count_constant_across_card_count(self):
+        """Adding cards must not increase the query count (#669 regression guard)."""
+        baseline = _query_count(self._get_full)
+        for col in self.cols:
+            for lane in self.lanes:
+                Card.objects.create(
+                    board=self.board, column=col, swimlane=lane,
+                    title="extra", created_by=self.user, position=99,
+                )
+        doubled = _query_count(self._get_full)
+        self.assertEqual(
+            baseline, doubled,
+            f"full/ query count grew from {baseline} to {doubled} — is_stale "
+            "annotation is not being used (per-card timezone.now() regression).",
+        )
+
+
+class BoardMutationAnnotationTests(TestCase):
+    """Mutation responses (PATCH, share, move_group) must include annotated fields.
+
+    Re-fetching through get_queryset() ensures member_count, card_count, and
+    is_starred come from annotations rather than per-field subqueries (#647).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_mutation", password="x")
+        self.board = Board.objects.create(name="Mut Board", owner=self.user)
+        BoardMembership.objects.create(board=self.board, user=self.user, role="admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_patch_board_response_includes_member_count(self):
+        """PATCH /boards/{id}/ response must include member_count."""
+        from unittest.mock import patch as _patch
+        with _patch("boards.broadcast.broadcast_board_event"):
+            r = self.client.patch(
+                f"/api/v1/boards/{self.board.id}/",
+                {"name": "Renamed"},
+                format="json",
+            )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("member_count", data)
+        self.assertIn("card_count", data)
+        self.assertIn("is_starred", data)
+
+    def test_move_group_response_includes_member_count(self):
+        """POST /boards/{id}/move-group/ response must include member_count."""
+        from unittest.mock import patch as _patch
+        with _patch("boards.broadcast.broadcast_board_event"):
+            r = self.client.post(
+                f"/api/v1/boards/{self.board.id}/move-group/",
+                {"group_id": None},
+                format="json",
+            )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("member_count", data)
 
 
 class BoardListQueryCountTests(TestCase):

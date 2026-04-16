@@ -495,6 +495,24 @@ class JoinGroupViewTests(TestCase):
         r = self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_post_join_response_includes_annotated_counts(self):
+        """#722 — join response must include member_count, board_count, subgroup_count.
+
+        Previously GroupSerializer was called with a bare link.group instance which
+        triggered one subquery per count field. Re-fetching with annotations ensures
+        the fast-path in GroupSerializer.get_member_count() etc. is used.
+        """
+        self.client.force_authenticate(self.joiner)
+        r = self.client.post(f"/api/v1/groups/join/{self.raw_token}/")
+        self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        data = r.json()
+        self.assertIn("member_count", data)
+        self.assertIn("board_count", data)
+        self.assertIn("subgroup_count", data)
+        self.assertIn("is_starred", data)
+        # After joining, member_count should be at least 2 (owner + joiner)
+        self.assertGreaterEqual(data["member_count"], 2)
+
 
 class GetClientIPTests(TestCase):
     """Tests for the shared get_client_ip utility (#532)."""

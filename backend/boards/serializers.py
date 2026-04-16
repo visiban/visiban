@@ -1,5 +1,6 @@
 import datetime
 
+from django.db import models as _db_models
 from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import serializers
@@ -116,7 +117,7 @@ class CardChecklistSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_by_id"]
 
 
-def _card_queryset(qs):
+def _card_queryset(qs, stale_cutoff=None):
     """Apply the standard prefetch chain required by CardSerializer.
 
     Centralised here so CardViewSet, BoardFullSerializer, and the archived
@@ -125,9 +126,17 @@ def _card_queryset(qs):
     Movements are prefetched ordered by -moved_at so that serializer methods
     that need the most-recent movement can use movements.all()[0] without
     issuing an additional ORDER BY + LIMIT 1 query per card.
+
+    When ``stale_cutoff`` is provided, an ``is_stale`` boolean annotation is
+    added at the SQL level (one query, not one per card) so
+    CardSerializer.get_is_stale() can read the pre-computed value instead of
+    calling timezone.now() per row (#669).  Pass ``stale_cutoff=None`` only
+    when the board's staleness_threshold_days is not yet known (e.g. nested
+    serializers that do not have access to the board settings) — in that case
+    the serializer falls back to per-row logic.
     """
     from .models import CardMovement as _CM
-    return (
+    qs = (
         qs
         .select_related("board", "column", "swimlane", "assignee", "created_by")
         .prefetch_related(
@@ -142,6 +151,37 @@ def _card_queryset(qs):
             ),
         )
     )
+    if stale_cutoff is not None:
+        # Annotate is_stale at the queryset level so get_is_stale() reads a
+        # pre-computed boolean instead of calling timezone.now() per card (#669).
+        # A card is stale when its most recent movement predates the cutoff, or —
+        # for never-moved cards — when it was created before the cutoff.
+        # The subquery mirrors the logic in get_is_stale(): newest movement or
+        # created_at is used as the "last activity" timestamp.
+        _last_moved_sq = _db_models.Subquery(
+            _CM.objects.filter(card=_db_models.OuterRef("pk"))
+            .order_by("-moved_at")
+            .values("moved_at")[:1]
+        )
+        qs = qs.annotate(
+            _last_moved_at_for_stale=_last_moved_sq,
+            _is_stale_annotated=_db_models.Case(
+                # Card has at least one movement and it predates the cutoff.
+                _db_models.When(
+                    _last_moved_at_for_stale__lt=stale_cutoff,
+                    then=_db_models.Value(True),
+                ),
+                # Never-moved card: fall back to created_at.
+                _db_models.When(
+                    _last_moved_at_for_stale__isnull=True,
+                    created_at__lt=stale_cutoff,
+                    then=_db_models.Value(True),
+                ),
+                default=_db_models.Value(False),
+                output_field=_db_models.BooleanField(),
+            )
+        )
+    return qs
 
 
 class CardSerializer(serializers.ModelSerializer):
@@ -214,6 +254,13 @@ class CardSerializer(serializers.ModelSerializer):
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
 
     def get_is_stale(self, obj):
+        # Fast path: use the queryset-level annotation when it was pre-computed
+        # by _card_queryset(stale_cutoff=...) — avoids a timezone.now() call per
+        # card and mirrors the per-row fallback exactly (#669).
+        if hasattr(obj, "_is_stale_annotated"):
+            return obj._is_stale_annotated
+        # Fallback: per-row logic for callers that built the queryset without a
+        # stale_cutoff (e.g. single-card re-fetch after a move or archive).
         # obj.board requires select_related("board") on the queryset.
         # obj.movements.all() uses the prefetch cache (ordered by -moved_at).
         threshold = obj.board.staleness_threshold_days
@@ -313,6 +360,46 @@ class BoardFullSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uid"]
 
+    def to_representation(self, instance):
+        """Pre-compute board-scoped caches before delegating to field serialization.
+
+        Effective member IDs are used by both get_cards() (via
+        _get_effective_member_ids) and get_members() for the group-inherited
+        membership block. Computing the GroupMembership set once here and
+        caching on the board instance avoids a redundant GroupMembership query
+        the second time either field accesses the ancestor chain (#695).
+
+        The cached value is stored on the board instance under
+        ``_cached_group_member_ids`` so that _get_effective_member_ids() can
+        pick it up in utils.py via a hasattr guard without requiring a context
+        argument to be threaded through the call stack.
+        """
+        if instance.group_id and not hasattr(instance, "_cached_group_member_ids"):
+            from groups.models import GroupMembership as _GM, Group as _Group
+            from groups.models import _GROUP_TRAVERSAL_MAX_DEPTH
+            group_obj = instance.group
+            # Ensure the ancestor chain is loaded — mirrors the guard in
+            # get_members() so cold-cache callers don't trigger per-level FK
+            # queries during the while-loop below (#650).
+            if group_obj.parent_id is not None and "parent" not in group_obj.__dict__:
+                _ancestor_related = ["__".join(["parent"] * d) for d in range(1, 7)]
+                group_obj = _Group.objects.select_related(*_ancestor_related).get(pk=instance.group_id)
+            ancestor_ids = []
+            node = group_obj
+            depth = 0
+            while node and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+                ancestor_ids.append(node.pk)
+                node = node.parent
+                depth += 1
+            if ancestor_ids:
+                instance._cached_group_member_ids = set(
+                    _GM.objects.filter(group_id__in=ancestor_ids)
+                    .values_list("user_id", flat=True)
+                )
+            else:
+                instance._cached_group_member_ids = set()
+        return super().to_representation(instance)
+
     def get_swimlanes(self, obj):
         """Serialize swimlanes with role-appropriate field exposure.
 
@@ -359,7 +446,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
             )
             self.context["_site_admin_users"] = site_admin_users
         site_admin_ids = {u.pk for u in site_admin_users}
-        qs = _card_queryset(obj.cards.filter(archived_at__isnull=True))
+        # Compute the stale cutoff once here so _card_queryset can annotate
+        # is_stale at the SQL level rather than calling timezone.now() per card
+        # in get_is_stale() (#669).
+        stale_cutoff = timezone.now() - datetime.timedelta(days=obj.staleness_threshold_days)
+        qs = _card_queryset(obj.cards.filter(archived_at__isnull=True), stale_cutoff=stale_cutoff)
         member_ids = _get_effective_member_ids(obj, site_admin_ids=site_admin_ids)
         assignable_ids = _get_assignable_member_ids(obj, site_admin_ids=site_admin_ids)
         # Reuse the labels prefetch loaded by get_board_for_user() rather than
@@ -398,8 +489,25 @@ class BoardFullSerializer(serializers.ModelSerializer):
         # all group memberships for those IDs in one query instead of one
         # query per ancestor level.
         if obj.group_id:
+            # Guard: ensure the full ancestor chain is loaded before traversal.
+            # The normal entry point (get_board_for_user) pre-loads up to 6
+            # parent levels via select_related("group__parent__parent...") so
+            # no extra queries are issued on the happy path.
+            # Cold-cache callers (e.g. tests that fetch the board with a bare
+            # Board.objects.get()) would otherwise trigger up to 6 live FK
+            # queries during the while-loop below — one per unresolved parent
+            # FK — which is the N+1 being fixed here (#650).
+            # Detect a cold-cache situation by checking whether the group's
+            # parent FK has already been resolved in Django's instance cache.
+            # If it hasn't, re-fetch the group with the full ancestor chain in
+            # a single query before starting the traversal.
+            from groups.models import Group as _Group
+            group_obj = obj.group
+            if group_obj.parent_id is not None and "parent" not in group_obj.__dict__:
+                _ancestor_related = ["__".join(["parent"] * d) for d in range(1, 7)]
+                group_obj = _Group.objects.select_related(*_ancestor_related).get(pk=obj.group_id)
             ancestor_ids = []
-            node = obj.group
+            node = group_obj
             depth = 0
             while node and depth < 6:
                 ancestor_ids.append(node.pk)
@@ -421,7 +529,9 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         # Include users with can_access_all_content so they appear in @mention autocomplete.
         # Reuse the list pre-fetched by get_cards() when available (cached in context so
-        # the can_access_all_content query runs at most once per /full/ request).
+        # the can_access_all_content query runs at most once per /full/ request — #651/#538).
+        # Write back to context on a cold-cache call so repeated get_members() calls
+        # (e.g. from tests or non-standard call order) also benefit from the cache.
         site_admin_users = self.context.get("_site_admin_users")
         if site_admin_users is None:
             from accounts.models import User as _User
@@ -430,6 +540,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
                     "id", "username", "display_name", "avatar_url"
                 )
             )
+            self.context["_site_admin_users"] = site_admin_users
         for u in site_admin_users:
             if u.pk not in seen:
                 seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "is_moderator": False, "joined_at": obj.created_at}
