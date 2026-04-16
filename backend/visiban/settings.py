@@ -294,6 +294,18 @@ if not DEBUG:
                 f"CORS_ALLOWED_ORIGINS contains a localhost origin ({_origin}) in production "
                 "(DEBUG=False). Set CORS_ALLOWED_ORIGINS to your public domain(s) before starting."
             )
+else:
+    # In development, log the active CORS origins at startup so they are visible
+    # in `docker compose logs backend`. New users accessing from a LAN IP or
+    # hostname often miss that CORS_ALLOWED_ORIGINS must match the exact origin
+    # the browser uses; this makes the current value easy to spot and fix.
+    import logging as _logging
+
+    _logging.getLogger("django.security").warning(
+        "CORS allowed origins (dev): %s  —  "
+        "If API calls fail from a different address, update CORS_ALLOWED_ORIGINS in .env",
+        ", ".join(CORS_ALLOWED_ORIGINS),
+    )
 
 # CSRF — defaults to CORS_ALLOWED_ORIGINS so that a single env var covers both.
 # Override with CSRF_TRUSTED_ORIGINS if the two sets of origins must differ.
