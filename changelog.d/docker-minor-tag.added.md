@@ -1,0 +1,1 @@
+Stable releases now publish a `MAJOR.MINOR` Docker image tag (e.g. `:1.0`) to GHCR and the GitLab registry. Pin to this tag in production for automatic patch updates without following release candidates. `:latest` continues to track the most recent release including pre-releases.

@@ -232,13 +232,19 @@ echo "Deploying docs..."
 pip install --quiet -r docs/requirements.txt
 git fetch origin gh-pages --depth=1 && git branch gh-pages origin/gh-pages 2>/dev/null || true
 if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  mike deploy --push --update-aliases "$TAG" latest
-  mike set-default --push latest
-  echo "docs.visiban.com updated — $TAG published as 'latest'"
+  # Stable release: publish under the MAJOR.MINOR alias (e.g. "1.0") and
+  # update "latest" to point here. Set the site default to the MAJOR.MINOR
+  # alias so the canonical URL stays stable when the next minor ships.
+  MINOR=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+  mike deploy --push --update-aliases "$TAG" "${MINOR}" latest
+  mike set-default --push "${MINOR}"
+  echo "docs.visiban.com updated — $TAG published as '${MINOR}' and 'latest'"
 else
-  mike deploy --push --update-aliases "$TAG" next
-  mike set-default --push next
-  echo "docs.visiban.com updated — $TAG published as 'next'"
+  # Pre-release (RC, beta, alpha): publish under "next" and move "latest"
+  # forward so early adopters get the newest content. The stable MAJOR.MINOR
+  # alias is NOT updated — users pinned to e.g. "1.0" see no change.
+  mike deploy --push --update-aliases "$TAG" next latest
+  echo "docs.visiban.com updated — $TAG published as 'next' and 'latest' (stable alias unchanged)"
 fi
 
 echo ""

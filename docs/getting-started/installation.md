@@ -30,6 +30,28 @@ docker compose up --build
 
 Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
+### Image tags
+
+Pre-built images are published to the GitHub Container Registry (`ghcr.io/visiban/visiban/`). Three tag families are available:
+
+| Tag | Description | Recommended for |
+|-----|-------------|-----------------|
+| `:1.0`, `:1.1`, … | Stable alias for a minor release line. Updated only when a full stable release ships — never updated with release candidates or patches. | **Production** |
+| `:v1.0.3` | Exact version pin. Points to one specific build and never moves. | Reproducible deployments |
+| `:latest` | Always points to the most recent release, including release candidates. May include pre-releases. | Staying current, non-critical environments |
+
+```bash
+# Stable 1.0 line (recommended)
+docker pull ghcr.io/visiban/visiban/backend:1.0
+docker pull ghcr.io/visiban/visiban/frontend:1.0
+
+# Exact version pin
+docker pull ghcr.io/visiban/visiban/backend:v1.0.3
+
+# Latest (may include release candidates)
+docker pull ghcr.io/visiban/visiban/backend:latest
+```
+
 This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production Deployment](#production-deployment) below for a production deployment.
 
 | Service | URL |
@@ -252,8 +274,9 @@ TLS_MODE=letsencrypt
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
-# App version — set to the version you are deploying (see CHANGELOG.md)
-APP_VERSION=1.0.0
+# App version — use the minor alias (e.g. 1.0) or an exact version pin (e.g. v1.0.3).
+# See the "Image tags" section above for guidance.
+APP_VERSION=1.0
 ```
 
 !!! tip "Using `TLS_MODE=none` behind an external load balancer"
