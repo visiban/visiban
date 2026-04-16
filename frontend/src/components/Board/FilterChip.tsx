@@ -1,10 +1,10 @@
-import type { User } from "../../types";
+import type { BoardUser } from "../../types";
 import Avatar from "../Common/Avatar";
 
 export interface FilterChipProps {
   label: string;
   colorDot?: string;
-  avatarUser?: User;
+  avatarUser?: BoardUser;
   onDismiss: () => void;
 }
 

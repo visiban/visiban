@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BoardFull, Priority, User } from "../../types";
+import type { BoardFull, BoardUser, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
@@ -90,7 +90,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   const activeCount = countActiveFilters(filters);
 
   // Derive chips from active filter state (search is excluded — the input already communicates state)
-  const chips: { key: string; label: string; colorDot?: string; avatarUser?: User; onDismiss: () => void }[] = [];
+  const chips: { key: string; label: string; colorDot?: string; avatarUser?: BoardUser; onDismiss: () => void }[] = [];
 
   for (const assigneeId of filters.assigneeIds) {
     if (assigneeId === -1) {
