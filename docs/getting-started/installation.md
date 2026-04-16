@@ -80,6 +80,29 @@ docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py ensure_site_admin
 ```
 
+**API calls fail / browser shows a CORS error**
+
+If the browser console shows a CORS error (e.g. `Access to fetch at 'http://...' from origin '...' has been blocked`) it means the backend is rejecting cross-origin requests from the address the browser is using. This happens when you access Visiban from anything other than `http://localhost:5173` — a LAN IP, a VM hostname, a different port, etc.
+
+At startup, the backend logs the active CORS origins. Check what it has:
+
+```bash
+docker compose logs backend | grep "CORS allowed origins"
+```
+
+If the logged origin does not match what your browser shows in the address bar, update `.env`:
+
+```bash
+CORS_ALLOWED_ORIGINS=http://192.168.1.100:5173   # must be the exact origin the browser uses
+ALLOWED_HOSTS=192.168.1.100                       # must include the hostname/IP too
+```
+
+Then restart the backend:
+
+```bash
+docker compose restart backend
+```
+
 ---
 
 ## Local Development
