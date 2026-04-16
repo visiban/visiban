@@ -6,6 +6,7 @@ interface Props {
 
 const SHORTCUTS = [
   { key: "f", description: "Toggle filter bar" },
+  { key: "c", description: "Collapse / expand hovered swimlane" },
   { key: "/", description: "Open filters and focus search" },
   { key: "?", description: "Show this help" },
   { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
