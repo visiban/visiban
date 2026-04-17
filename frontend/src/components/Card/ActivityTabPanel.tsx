@@ -20,6 +20,12 @@ const EVENT_TYPE_OPTIONS = [
   { value: "system",     label: "System events",  color: "#475569" },
 ] as const;
 
+// Default filter lens — Column moves is the canonical "what happened to this
+// card" signal, so the drawer opens with a focused view of moves only. Users
+// can click "All" to see every event type, toggle individually, or use the
+// "Reset to default" footer to return to this state.
+const DEFAULT_SELECTED: string[] = ["move"];
+
 type ChecklistEventType =
   | "checklist_item_added"
   | "checklist_item_checked"
@@ -159,7 +165,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
   const [error, setError] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(DEFAULT_SELECTED);
 
   // Fetch a page of timeline entries and append to state.
   const fetchPage = (pageOffset: number, reset: boolean) => {
@@ -231,6 +237,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           options={EVENT_TYPE_OPTIONS as unknown as { value: string; label: string; color: string }[]}
           selected={selectedTypes}
           onChange={handleFilterChange}
+          defaultSelected={DEFAULT_SELECTED}
         />
       </div>
 

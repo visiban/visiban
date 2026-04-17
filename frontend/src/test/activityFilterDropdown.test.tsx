@@ -144,4 +144,176 @@ describe("ActivityFilterDropdown", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
+
+  describe("All toggle", () => {
+    it("renders an All checkbox at the top of the menu", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={[]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.getByLabelText("Select all event types")).toBeInTheDocument();
+    });
+
+    it("clicking All when nothing is selected selects every option", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={[]}
+          onChange={onChange}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      await user.click(screen.getByLabelText("Select all event types"));
+      expect(onChange).toHaveBeenCalledWith(OPTIONS.map((o) => o.value));
+    });
+
+    it("clicking All when everything is selected clears the selection", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={OPTIONS.map((o) => o.value)}
+          onChange={onChange}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter: all/i }));
+      await user.click(screen.getByLabelText("Select all event types"));
+      expect(onChange).toHaveBeenCalledWith([]);
+    });
+
+    it("All checkbox is checked when every option is selected", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={OPTIONS.map((o) => o.value)}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.getByLabelText("Select all event types")).toBeChecked();
+    });
+
+    it("All checkbox reflects indeterminate when partially selected", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["move"]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      const all = screen.getByLabelText("Select all event types") as HTMLInputElement;
+      expect(all.indeterminate).toBe(true);
+      expect(all.checked).toBe(false);
+    });
+
+    it("clicking All when partially selected selects every option", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["move"]}
+          onChange={onChange}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      await user.click(screen.getByLabelText("Select all event types"));
+      expect(onChange).toHaveBeenCalledWith(OPTIONS.map((o) => o.value));
+    });
+  });
+
+  describe("Reset control", () => {
+    it("renders a Reset button when defaultSelected is provided", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["move", "comment"]}
+          defaultSelected={["move"]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.getByRole("button", { name: /reset to default/i })).toBeInTheDocument();
+    });
+
+    it("does NOT render a Reset button when defaultSelected is not provided", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["move"]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.queryByRole("button", { name: /reset to default/i })).not.toBeInTheDocument();
+    });
+
+    it("clicking Reset calls onChange with defaultSelected", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["comment", "field"]}
+          defaultSelected={["move"]}
+          onChange={onChange}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      await user.click(screen.getByRole("button", { name: /reset to default/i }));
+      expect(onChange).toHaveBeenCalledWith(["move"]);
+    });
+
+    it("Reset button is disabled when selection already matches default", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["move"]}
+          defaultSelected={["move"]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.getByRole("button", { name: /reset to default/i })).toBeDisabled();
+    });
+
+    it("Reset button is enabled when selection differs from default (order-insensitive compare)", async () => {
+      const user = userEvent.setup();
+      render(
+        <ActivityFilterDropdown
+          label="Filter"
+          options={OPTIONS}
+          selected={["comment", "move"]}
+          defaultSelected={["move", "system"]}
+          onChange={() => {}}
+        />
+      );
+      await user.click(screen.getByRole("button", { name: /filter/i }));
+      expect(screen.getByRole("button", { name: /reset to default/i })).toBeEnabled();
+    });
+  });
 });

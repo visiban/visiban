@@ -132,54 +132,58 @@ describe("ActivityTabPanel", () => {
     });
   });
 
-  it("shows empty state when no entries and no filter active", async () => {
-    mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
+  it("defaults to Column moves filter — initial fetch includes event_types=move", async () => {
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry({ id: 1 })]));
     render(<ActivityTabPanel boardId={1} cardId={1} />);
     await waitFor(() => {
-      expect(screen.getByText("No activity yet")).toBeInTheDocument();
+      const firstCall = mockGetTimeline.mock.calls[0];
+      expect(firstCall[2]).toMatchObject({ event_types: "move" });
     });
+    // Filter trigger label reflects the default selection
+    expect(screen.getByRole("button", { name: /filter: column moves/i })).toBeInTheDocument();
   });
 
-  it("shows filter empty state when filter is active and no results", async () => {
-    // First call (no filter) returns empty
+  it("shows filter-active empty state when default filter yields no results", async () => {
+    // Card has no move events at all — default ["move"] filter returns empty
     mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
     render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => {
-      // With no filter and no entries — "No activity yet"
-      expect(screen.getByText("No activity yet")).toBeInTheDocument();
-    });
-
-    // Open the filter dropdown and select "move"
-    const filterBtn = screen.getByText("Filter");
-    await userEvent.setup().click(filterBtn);
-    const moveCheckbox = screen.getByLabelText("Column moves");
-    await userEvent.setup().click(moveCheckbox);
-
-    // Now component re-fetches with the filter
     await waitFor(() => {
       expect(screen.getByText("No events match the current filter")).toBeInTheDocument();
     });
-
-    // "Clear filter" link should be visible
     expect(screen.getByText("Clear filter")).toBeInTheDocument();
   });
 
-  it("filter dropdown changes event_types param", async () => {
+  it('"Clear filter" button empties the selection and re-fetches without event_types', async () => {
+    mockGetTimeline.mockResolvedValue(makeTimelinePage([]));
+    render(<ActivityTabPanel boardId={1} cardId={1} />);
+    await waitFor(() => screen.getByText("Clear filter"));
+
+    await userEvent.setup().click(screen.getByText("Clear filter"));
+    await waitFor(() => {
+      const lastCall = mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1];
+      expect(lastCall[2]).not.toHaveProperty("event_types");
+    });
+    // With selection now empty and no results, the generic empty-state message shows.
+    expect(screen.getByText("No activity yet")).toBeInTheDocument();
+  });
+
+  it("unchecking Column moves from the default selection triggers an unfiltered re-fetch", async () => {
     mockGetTimeline.mockResolvedValue(makeTimelinePage([makeMoveEntry({ id: 1 })]));
     render(<ActivityTabPanel boardId={1} cardId={1} />);
-    await waitFor(() => screen.getByText("Filter"));
+    await waitFor(() => screen.getByText("To Do → In Progress"));
 
-    // Verify initial call has no event_types filter
-    expect(mockGetTimeline).toHaveBeenCalledWith(1, 1, expect.not.objectContaining({ event_types: expect.anything() }));
+    // Initial call includes event_types=move
+    expect(mockGetTimeline.mock.calls[0][2]).toMatchObject({ event_types: "move" });
 
-    // Select "move" filter
-    await userEvent.setup().click(screen.getByText("Filter"));
+    // Open dropdown; Column moves is pre-checked. Click to uncheck it.
+    await userEvent.setup().click(screen.getByRole("button", { name: /filter/i }));
     const moveCheckbox = screen.getByLabelText("Column moves");
+    expect(moveCheckbox).toBeChecked();
     await userEvent.setup().click(moveCheckbox);
 
     await waitFor(() => {
       const lastCall = mockGetTimeline.mock.calls[mockGetTimeline.mock.calls.length - 1];
-      expect(lastCall[2]).toMatchObject({ event_types: "move" });
+      expect(lastCall[2]).not.toHaveProperty("event_types");
     });
   });
 
