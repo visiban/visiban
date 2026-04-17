@@ -1,4 +1,3 @@
-import React from "react";
 import type { SavedFilter } from "../../types";
 
 interface Props {
