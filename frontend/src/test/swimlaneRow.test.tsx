@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import type { Card, Column, Swimlane } from '../types'
@@ -91,13 +91,13 @@ describe('SwimlaneRow', () => {
 
   it('renders collapse toggle button', () => {
     render(<SwimlaneRow {...defaultProps()} />)
-    expect(screen.getByTitle('Collapse')).toBeInTheDocument()
+    expect(screen.getByTitle('Collapse Customer A')).toBeInTheDocument()
   })
 
   it('collapse button calls onToggleCollapse (controlled — no internal state)', async () => {
     const props = defaultProps()
     render(<SwimlaneRow {...props} />)
-    await userEvent.setup().click(screen.getByTitle('Collapse'))
+    await userEvent.setup().click(screen.getByTitle('Collapse Customer A'))
     expect(props.onToggleCollapse).toHaveBeenCalledTimes(1)
   })
 
@@ -220,5 +220,52 @@ describe('SwimlaneRow', () => {
     await userEvent.setup().click(screen.getByTitle('Exit focus'))
     expect(props.onExitFocus).toHaveBeenCalled()
     expect(props.onFocus).not.toHaveBeenCalled()
+  })
+
+  it('collapse button has aria-pressed=false when not collapsed', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    const btn = screen.getByTitle('Collapse Customer A')
+    expect(btn).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('collapse button has aria-pressed=true when collapsed', () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
+    const btn = screen.getByTitle('Expand Customer A')
+    expect(btn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('collapse button title reflects collapsed state', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    expect(screen.getByTitle('Collapse Customer A')).toBeInTheDocument()
+  })
+
+  it('collapse button title reflects expanded state when collapsed=true', () => {
+    const props = defaultProps()
+    props.collapsed = true
+    render(<SwimlaneRow {...props} />)
+    expect(screen.getByTitle('Expand Customer A')).toBeInTheDocument()
+  })
+
+  it('calls onHoverEnter on mouseenter', () => {
+    const props = defaultProps()
+    const onHoverEnter = vi.fn()
+    const onHoverLeave = vi.fn()
+    const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
+    const row = container.querySelector('.relative.flex.border-b') as HTMLElement
+    fireEvent.mouseEnter(row)
+    expect(onHoverEnter).toHaveBeenCalled()
+  })
+
+  it('calls onHoverLeave on mouseleave', () => {
+    const props = defaultProps()
+    const onHoverEnter = vi.fn()
+    const onHoverLeave = vi.fn()
+    const { container } = render(<SwimlaneRow {...props} onHoverEnter={onHoverEnter} onHoverLeave={onHoverLeave} />)
+    const row = container.querySelector('.relative.flex.border-b') as HTMLElement
+    fireEvent.mouseEnter(row)
+    fireEvent.mouseLeave(row)
+    expect(onHoverLeave).toHaveBeenCalled()
   })
 })

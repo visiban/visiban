@@ -2,9 +2,10 @@
 
 from django.db import transaction
 from django.db.models import Max
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from .. import broadcast as _broadcast
@@ -79,6 +80,29 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             instance.delete()
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_uid": swimlane_uid}))
+
+    @action(detail=True, methods=["patch"])
+    def set_collapsed(self, request, board_pk=None, pk=None):
+        """Allow any board member to set the default is_collapsed state on a swimlane.
+
+        This action is intentionally open to all board members (not just admins)
+        because is_collapsed is a view preference that board owners can set as the
+        default for all users. The regular perform_update admin gate still protects
+        all other swimlane fields.
+
+        No WebSocket event is broadcast — this is a per-board default preference,
+        not a real-time board state change that other clients need to react to.
+        """
+        # Validate that the requesting user is a board member (any role).
+        board, _role = self._board_and_role()
+        swimlane = get_object_or_404(Swimlane, pk=pk, board=board)
+        is_collapsed = request.data.get("is_collapsed")
+        if not isinstance(is_collapsed, bool):
+            raise ValidationError({"is_collapsed": "This field must be a boolean."})
+        swimlane.is_collapsed = is_collapsed
+        swimlane.save(update_fields=["is_collapsed"])
+        serializer = self.get_serializer(swimlane)
+        return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):

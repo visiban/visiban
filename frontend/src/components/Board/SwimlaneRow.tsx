@@ -32,6 +32,8 @@ interface Props {
   onExitFocus: () => void;
   /** True when this swimlane is currently the active focus target. */
   isFocused: boolean;
+  onHoverEnter?: () => void;
+  onHoverLeave?: () => void;
   sidebarWidth?: number;
   setSidebarWidth?: (w: number) => void;
   onResizeStart?: (e: React.MouseEvent) => void;
@@ -53,7 +55,7 @@ interface Props {
   compact?: boolean;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, compact }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, compact }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -113,10 +115,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
         className="relative flex border-b border-slate-700 bg-slate-800"
+        onMouseEnter={onHoverEnter}
+        onMouseLeave={onHoverLeave}
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 hover:bg-slate-700/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
           data-tour-step="swimlane"
           data-no-pan
@@ -188,8 +192,10 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </button>
             <button
               onClick={onToggleCollapse}
-              className="text-slate-400 hover:text-white transition shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-              title={collapsed ? "Expand" : "Collapse"}
+              className="text-slate-400 hover:text-white transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              aria-pressed={collapsed}
+              aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
+              title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
             >
               <svg
                 className={`w-4 h-4 transition-transform ${collapsed ? "-rotate-90" : ""}`}

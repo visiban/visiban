@@ -387,6 +387,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const setView = (v: "board" | "summary" | "history" | "analytics") => setSearchParams({ view: v }, { replace: true });
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
+  const lastHoveredSwimlaneId = useRef<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   useBoardPan(scrollEl);
@@ -424,6 +425,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => !v);
+      } else if (e.key === "c") {
+        e.preventDefault();
+        const id = lastHoveredSwimlaneId.current;
+        if (id !== null) toggleCollapsedSwimlane(id);
       } else if (e.key === "/") {
         e.preventDefault();
         setShowFilters(true);
@@ -435,7 +440,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, []);
+  }, [toggleCollapsedSwimlane]);
 
   useEscapeStack(() => {
     if (view === "analytics" || view === "history" || view === "summary") { setView("board"); return; }
@@ -461,6 +466,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return pruned.size === prev.size ? prev : pruned;
     });
   }, [board.cards]);
+
+  // Seed collapsed swimlane state from server defaults on first board load.
+  // Only applies when localStorage has no stored preference for this board
+  // (collapsedSwimlaneIds.size === 0) and the server has at least one swimlane
+  // marked is_collapsed=true. Runs only when board.id changes to avoid
+  // infinite loops — toggleCollapsedSwimlane writes to localStorage, which
+  // triggers viewPrefs to update, but this effect is gated on board.id alone.
+  useEffect(() => {
+    if (collapsedSwimlaneIds.size > 0) return;
+    const defaultCollapsed = board.swimlanes.filter((s) => s.is_collapsed).map((s) => s.id);
+    if (defaultCollapsed.length > 0) {
+      defaultCollapsed.forEach((id) => toggleCollapsedSwimlane(id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.id]);
 
   // Server-side text search — debounced 300ms, aborts stale requests.
   // searchMatchIds is null when query is empty or on error (silent fallback → show all cards).
@@ -979,6 +999,29 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
 
+      {/* Collapsed swimlanes strip — shows count and "Expand all lanes" button */}
+      {view === "board" && collapsedSwimlaneIds.size > 0 && (
+        <div className="bg-blue-600/15 border-b border-blue-500/40 px-4 py-1.5 flex items-center gap-3 text-sm text-blue-300 shrink-0">
+          <svg className="w-3.5 h-3.5 text-blue-400 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <line x1="2" y1="5" x2="14" y2="5" />
+            <line x1="2" y1="11" x2="14" y2="11" />
+            <polyline points="10,2 13,5 10,8" />
+          </svg>
+          <span>
+            <span className="font-medium text-blue-200">{collapsedSwimlaneIds.size}</span>
+            {" "}
+            {collapsedSwimlaneIds.size === 1 ? "lane" : "lanes"} collapsed
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={expandAllSwimlanes}
+            className="text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Expand all lanes
+          </button>
+        </div>
+      )}
+
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
       {focusedSwimlaneId !== null && (
         <div className="bg-blue-600/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-blue-300 transition-opacity duration-150">
@@ -1137,6 +1180,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onSwimlaneDeleted={onSwimlaneDeleted}
                       collapsed={collapsedSwimlaneIds.has(swimlane.id)}
                       onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
+                      onHoverEnter={() => { lastHoveredSwimlaneId.current = swimlane.id; }}
+                      onHoverLeave={() => { lastHoveredSwimlaneId.current = null; }}
                       onFocus={enterFocus}
                       onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}
