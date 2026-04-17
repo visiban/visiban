@@ -12,23 +12,28 @@ export interface ActivityFilterDropdownProps {
   options: ActivityFilterOption[];
   selected: string[];
   onChange: (selected: string[]) => void;
+  /** Values that represent the default selection. Enables the Reset control. */
+  defaultSelected?: string[];
 }
 
 // Specialized dropdown for the card-detail Activity tab filter.
-// Differs from the shared CheckboxDropdown in one way: the panel is right-aligned
-// (right-0) rather than left-aligned so the menu grows leftward from the trigger
-// and stays within the card drawer's overflow-hidden bounds instead of clipping
-// off the right edge.
+// Differs from the shared CheckboxDropdown in three ways:
+// 1. The panel is right-aligned (right-0) so the menu grows leftward from the
+//    trigger and stays within the card drawer's overflow-hidden bounds.
+// 2. An "All" toggle sits at the top of the panel for one-click select/clear.
+// 3. A "Reset" control returns the filter to `defaultSelected` (e.g. Column moves).
 export default function ActivityFilterDropdown({
   label,
   options,
   selected,
   onChange,
+  defaultSelected,
 }: ActivityFilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const allCheckboxRef = useRef<HTMLInputElement>(null);
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
@@ -48,12 +53,32 @@ export default function ActivityFilterDropdown({
     }
   }, [open]);
 
+  // Reflect partial selection visually on the "All" checkbox: unchecked when
+  // selected=[], indeterminate when 0 < selected < options, checked when all.
+  const allChecked = selected.length === options.length && options.length > 0;
+  const someChecked = selected.length > 0 && selected.length < options.length;
+  useEffect(() => {
+    // Depend on `open` too — the ref only attaches after the menu renders,
+    // so the indeterminate state must be set each time the menu opens.
+    if (allCheckboxRef.current) {
+      allCheckboxRef.current.indeterminate = someChecked;
+    }
+  }, [someChecked, selected.length, open]);
+
   const toggle = (value: string) => {
     onChange(
       selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value]
     );
+  };
+
+  const toggleAll = () => {
+    onChange(allChecked ? [] : options.map((o) => o.value));
+  };
+
+  const handleReset = () => {
+    onChange(defaultSelected ?? []);
   };
 
   const displayLabel =
@@ -64,6 +89,14 @@ export default function ActivityFilterDropdown({
       : `${label}: ${selected
           .map((v) => options.find((o) => o.value === v)?.label ?? v)
           .join(", ")}`;
+
+  // Reset is only meaningful when `defaultSelected` is provided and differs
+  // from the current selection (same values, order-insensitive).
+  const defaultsMatch =
+    defaultSelected !== undefined &&
+    selected.length === defaultSelected.length &&
+    selected.every((v) => defaultSelected.includes(v));
+  const canReset = defaultSelected !== undefined && !defaultsMatch;
 
   return (
     <div ref={ref} className="relative">
@@ -105,31 +138,66 @@ export default function ActivityFilterDropdown({
               No options available
             </p>
           ) : (
-            options.map((opt, i) => (
-              <div key={opt.value}>
-                {i > 0 && (
+            <>
+              <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-200 font-medium whitespace-nowrap">
+                <input
+                  ref={allCheckboxRef}
+                  type="checkbox"
+                  checked={allChecked}
+                  onChange={toggleAll}
+                  className="rounded accent-blue-600"
+                  aria-label="Select all event types"
+                />
+                All
+              </label>
+              <div role="separator" className="mx-4">
+                <div className="h-px bg-slate-900" />
+                <div className="h-px bg-slate-600/50" />
+              </div>
+
+              {options.map((opt, i) => (
+                <div key={opt.value}>
+                  {i > 0 && (
+                    <div role="separator" className="mx-4">
+                      <div className="h-px bg-slate-900" />
+                      <div className="h-px bg-slate-600/50" />
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(opt.value)}
+                      onChange={() => toggle(opt.value)}
+                      className="rounded accent-blue-600"
+                    />
+                    {opt.color && (
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: opt.color }}
+                      />
+                    )}
+                    {opt.label}
+                  </label>
+                </div>
+              ))}
+
+              {defaultSelected !== undefined && (
+                <>
                   <div role="separator" className="mx-4">
                     <div className="h-px bg-slate-900" />
                     <div className="h-px bg-slate-600/50" />
                   </div>
-                )}
-                <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300 whitespace-nowrap">
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => toggle(opt.value)}
-                    className="rounded accent-blue-600"
-                  />
-                  {opt.color && (
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: opt.color }}
-                    />
-                  )}
-                  {opt.label}
-                </label>
-              </div>
-            ))
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    disabled={!canReset}
+                    className="w-full text-left px-3 py-1.5 text-sm transition hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                  >
+                    Reset to default
+                  </button>
+                </>
+              )}
+            </>
           )}
         </div>
       )}
