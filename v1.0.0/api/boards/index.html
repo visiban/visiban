@@ -1794,6 +1794,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="POST /api/v1/boards/{id}/saved-filters/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#state_json-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        state_json shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3675,10 +3692,11 @@
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p">{</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;My urgent cards&quot;</span><span class="p">,</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">&quot;state_json&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;urgent&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;assignee&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-20T10:00:00Z&quot;</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">]</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">&quot;state_json&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;priorities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;urgent&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;assigneeIds&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">&quot;state_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-20T10:00:00Z&quot;</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">]</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -3702,7 +3720,12 @@
 <tr>
 <td><code>state_json</code></td>
 <td>object</td>
-<td>Opaque filter state — schema owned by the frontend; stored and returned as-is</td>
+<td>Filter state — see <a href="#state_json-shape">shape</a> below</td>
+</tr>
+<tr>
+<td><code>state_version</code></td>
+<td>integer</td>
+<td>Schema version of <code>state_json</code> (currently <code>1</code>; rows predating v1.1 backfill to <code>1</code>)</td>
 </tr>
 <tr>
 <td><code>created_at</code></td>
@@ -3731,11 +3754,55 @@
 <tr>
 <td><code>state_json</code></td>
 <td>✓</td>
-<td>Filter state object (must be a valid JSON object)</td>
+<td>Filter state object — see <a href="#state_json-shape">shape</a> below</td>
+</tr>
+<tr>
+<td><code>state_version</code></td>
+<td></td>
+<td>Schema version the client is writing (positive integer; defaults to <code>1</code>). Clients should send <code>1</code>; the server accepts higher values unchanged so a mixed-version deploy does not lose the user's save</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Errors:</strong> <code>400 Bad Request</code> if name is empty, exceeds 100 characters, or a filter with the same name already exists for this user on this board.</p>
+<h4 id="state_json-shape"><code>state_json</code> shape<a class="headerlink" href="#state_json-shape" title="Permanent link">&para;</a></h4>
+<p>Top-level keys are validated server-side. Unknown keys are rejected; each known key is type-checked but its values are not semantically validated (the frontend remains responsible for confirming, e.g., that an <code>assigneeId</code> corresponds to a real user):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>Free-text search term</td>
+</tr>
+<tr>
+<td><code>assigneeIds</code></td>
+<td>integer[]</td>
+<td>User IDs to include</td>
+</tr>
+<tr>
+<td><code>labelIds</code></td>
+<td>integer[]</td>
+<td>Label IDs to include</td>
+</tr>
+<tr>
+<td><code>priorities</code></td>
+<td>string[]</td>
+<td>Subset of <code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code></td>
+</tr>
+<tr>
+<td><code>dueDate</code></td>
+<td>string | null</td>
+<td>One of <code>overdue</code>, <code>today</code>, <code>this_week</code>, <code>none</code>, or <code>null</code> for "no filter"</td>
+</tr>
+</tbody>
+</table>
+<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB.</p>
+<p><strong>Errors:</strong> <code>400 Bad Request</code> if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, <code>state_json</code> contains unknown keys or wrong-typed values, or <code>state_version</code> is not a positive integer.</p>
 <h3 id="delete-apiv1boardsidsaved-filtersfilter_id"><code>DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/</code><a class="headerlink" href="#delete-apiv1boardsidsaved-filtersfilter_id" title="Permanent link">&para;</a></h3>
 <p>Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns <code>404 Not Found</code>.</p>
 <hr />

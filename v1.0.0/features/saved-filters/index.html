@@ -1036,6 +1036,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#schema-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema versioning
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2562,6 +2573,11 @@
 </tr>
 </tbody>
 </table>
+<p>See <a href="../../api/boards/#saved-filters"><code>docs/api/boards.md</code></a> for the full <code>state_json</code> shape and request/response fields.</p>
+<h2 id="schema-versioning">Schema versioning<a class="headerlink" href="#schema-versioning" title="Permanent link">&para;</a></h2>
+<p>Each saved filter carries a <code>state_version</code> field (introduced in 1.1). The version identifies the shape of the stored <code>state_json</code> so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.</p>
+<p>Today only version <code>1</code> exists. The server accepts higher <code>state_version</code> values from newer clients unchanged — a mixed-version deploy where a newer frontend writes <code>state_version: 2</code> against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.</p>
+<p>Additive changes (adding a new optional key to <code>state_json</code>) do <strong>not</strong> require a version bump — update the key allow-list in the serializer's <code>validate_state_json</code> validator and the frontend <code>FilterState</code> type in the same release.</p>
 
 
 
