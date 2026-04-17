@@ -2,6 +2,7 @@
 
 import hashlib
 
+from django.db.models import F
 from django.utils import timezone
 
 from .models import InviteLink
@@ -50,7 +51,18 @@ def validate_invite_token(raw_token: str) -> InviteLink:
 
 
 def consume_invite_token(link: InviteLink) -> None:
-    """Mark a single-use invite token as consumed. No-op for multi-use tokens."""
+    """Record consumption of an invite token.
+
+    Always increments ``use_count`` for audit visibility — including multi-use
+    links, where this is the only signal operators have for how widely a
+    leaked link was used before revocation. For single-use links, additionally
+    stamps ``used_at`` so the link cannot be reused.
+
+    Uses ``F()`` expressions so the increment is atomic at the database level
+    even when the caller does not hold a row lock — the OAuth ``save_user``
+    path (RegistrationAdapter) is one such caller.
+    """
+    InviteLink.objects.filter(pk=link.pk).update(use_count=F("use_count") + 1)
     if link.single_use:
-        link.used_at = timezone.now()
-        link.save(update_fields=["used_at"])
+        InviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())
+    link.refresh_from_db(fields=["use_count", "used_at"])

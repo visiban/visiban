@@ -415,6 +415,7 @@ function InviteLinksTab() {
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Expires {formatExpiry(link)}
+                  {` · ${link.use_count} ${link.use_count === 1 ? "use" : "uses"}`}
                   {link.created_by_username && ` · created by ${link.created_by_username}`}
                 </p>
               </div>

@@ -206,6 +206,7 @@ List all invite links on the instance.
     "used_at": null,
     "revoked_at": null,
     "created_at": "2026-03-20T10:00:00Z",
+    "use_count": 0,
     "status": "active",
     "created_by_username": "admin"
   },
@@ -217,6 +218,7 @@ List all invite links on the instance.
     "used_at": null,
     "revoked_at": "2026-03-25T14:00:00Z",
     "created_at": "2026-03-15T09:00:00Z",
+    "use_count": 4,
     "status": "revoked",
     "created_by_username": "admin"
   }
@@ -234,6 +236,7 @@ List all invite links on the instance.
 | `used_at` | datetime \| null | ISO 8601 UTC timestamp of when a single-use link was consumed, or `null`. |
 | `revoked_at` | datetime \| null | ISO 8601 UTC timestamp of when the link was revoked, or `null`. |
 | `created_at` | datetime | ISO 8601 UTC timestamp of when the link was created. |
+| `use_count` | integer | Number of successful registrations through this link. Incremented on every consumption (including multi-use links) and preserved across revocation for audit visibility. |
 | `status` | `"active"` \| `"expired"` \| `"used"` \| `"revoked"` | Computed status of the link. |
 | `created_by_username` | string | Username of the admin who created the link. |
 
@@ -269,6 +272,7 @@ The response includes a one-time `raw_token` field. **Store or share it immediat
   "used_at": null,
   "revoked_at": null,
   "created_at": "2026-03-27T10:00:00Z",
+  "use_count": 0,
   "status": "active",
   "created_by_username": "admin",
   "raw_token": "kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"
@@ -301,6 +305,7 @@ Revoke an invite link immediately. The link can no longer be used for registrati
   "used_at": null,
   "revoked_at": "2026-03-27T11:05:00Z",
   "created_at": "2026-03-20T10:00:00Z",
+  "use_count": 0,
   "status": "revoked",
   "created_by_username": "admin"
 }

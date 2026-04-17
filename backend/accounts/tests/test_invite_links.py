@@ -181,6 +181,12 @@ class AdminInviteLinkListTests(TestCase):
         self.assertIn("single_use", item)
         self.assertNotIn("raw_token", item)
 
+    def test_response_includes_use_count(self):
+        r = self.client.get("/api/v1/admin/invite-links/")
+        item = r.json()[0]
+        self.assertIn("use_count", item)
+        self.assertEqual(item["use_count"], 0)
+
     def test_created_by_username_present(self):
         r = self.client.get("/api/v1/admin/invite-links/")
         item = r.json()[0]
@@ -336,6 +342,15 @@ class AdminInviteLinkRevokeTests(TestCase):
     def test_revoke_nonexistent_returns_404(self):
         r = self.client.delete("/api/v1/admin/invite-links/99999/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_revoke_preserves_use_count(self):
+        # Audit trail: revocation must not erase how many registrations already
+        # succeeded through the link.
+        link = self._make_link(use_count=5)
+        r = self.client.delete(f"/api/v1/admin/invite-links/{link.pk}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 5)
 
     def test_non_admin_rejected(self):
         link = self._make_link()
@@ -499,6 +514,35 @@ class InviteRegisterInviteOnlyTests(TestCase):
         r2 = self._register("multi2@example.com", invite_token=raw)
         self.assertIn(r1.status_code, [status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT])
         self.assertIn(r2.status_code, [status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT])
+
+    def test_multi_use_token_bumps_use_count_each_registration(self):
+        link, raw = self._make_link(single_use=False)
+        self.assertEqual(link.use_count, 0)
+        self._register("ucount1@example.com", invite_token=raw)
+        self._register("ucount2@example.com", invite_token=raw)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 2)
+
+    def test_single_use_token_sets_use_count_to_one(self):
+        link, raw = self._make_link(single_use=True)
+        self._register("ucsingle@example.com", invite_token=raw)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 1)
+
+    def test_failed_registration_does_not_bump_use_count(self):
+        # use_count is only incremented after a 2xx response from the inner
+        # RegisterView.create; a 400 (e.g. password mismatch) must leave the
+        # counter unchanged.
+        link, raw = self._make_link(single_use=False)
+        r = self.client.post("/api/v1/auth/registration/", {
+            "email": "ucfail@example.com",
+            "password1": "Sup3rS3cr3t!xyz",
+            "password2": "D1fferentP@ss!",
+            "invite_token": raw,
+        })
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 0)
 
     # --- valid non-expiring token ---
 
