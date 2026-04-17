@@ -213,6 +213,107 @@ Activity log (field changes, comments, attachments, checklist events).
 
 ---
 
+## Timeline
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/timeline/`
+Unified, paginated timeline that merges card movements and field-change activities into a single chronological feed, sorted newest-first. **Minimum role: any board member (viewer and above).**
+
+Use this endpoint when you need a single list combining moves, comments, field edits, checklist events, attachments, and system events — rather than fetching `movements/` and `activities/` separately and merging client-side.
+
+**Query parameters**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `limit` | integer | `50` | Page size. Capped at `200`. |
+| `offset` | integer | `0` | Zero-based page offset. |
+| `event_types` | string | _(all)_ | Comma-separated filter groups. Valid values: `move`, `comment`, `field`, `checklist`, `attachment`, `system`. Omit to include all event types. |
+
+`event_types` group mapping:
+
+| Group | Included `event_type` values |
+|---|---|
+| `move` | All `CardMovement` records |
+| `comment` | `comment_added` |
+| `field` | `priority_change`, `weight_change`, `assignee_change`, `label_change`, `title_change`, `description_change`, `due_date_change` |
+| `checklist` | `checklist_item_added`, `checklist_item_checked`, `checklist_item_unchecked`, `checklist_item_deleted` |
+| `attachment` | `attachment_added`, `attachment_deleted` |
+| `system` | `archived`, `reactivated` |
+
+**Response**
+
+```json
+{
+  "count": 84,
+  "next": "https://your-instance.example.com/api/v1/boards/1/cards/42/timeline/?limit=50&offset=50",
+  "previous": null,
+  "results": [
+    {
+      "id": 317,
+      "kind": "move",
+      "ts": "2026-04-10T14:22:00Z",
+      "actor": {
+        "id": 7,
+        "username": "alice",
+        "display_name": "Alice Smith",
+        "avatar_url": null
+      },
+      "event_type": "move",
+      "data": {
+        "id": 317,
+        "from_column": 2,
+        "from_column_name": "In Progress",
+        "to_column": 3,
+        "to_column_name": "Done",
+        "from_swimlane": 1,
+        "from_swimlane_name": "Acme Corp",
+        "to_swimlane": 1,
+        "to_swimlane_name": "Acme Corp",
+        "moved_at": "2026-04-10T14:22:00Z",
+        "movement_type": "move",
+        "notes": ""
+      }
+    },
+    {
+      "id": 204,
+      "kind": "activity",
+      "ts": "2026-04-09T10:05:00Z",
+      "actor": {
+        "id": 9,
+        "username": "bob",
+        "display_name": "Bob Jones",
+        "avatar_url": null
+      },
+      "event_type": "priority_change",
+      "data": {
+        "event_type": "priority_change",
+        "from_value": "medium",
+        "to_value": "high"
+      }
+    }
+  ]
+}
+```
+
+**`CardTimelineEntry` fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Primary key of the underlying `CardMovement` or `CardActivity` record |
+| `kind` | string | `"move"` for movement records; `"activity"` for field-change or system activity records |
+| `ts` | string | ISO 8601 timestamp — `moved_at` for movements, `created_at` for activities |
+| `actor` | object / null | User who triggered the event — `{ id, username, display_name, avatar_url }`. `null` for system-generated events |
+| `event_type` | string | Concrete event type (see group mapping table above). For `kind: "move"` entries this is the `movement_type` value (e.g. `"move"`, `"archived"`, `"unarchived"`) |
+| `data` | object | Raw fields from the underlying record. Shape differs by `kind` — see examples above. `move` entries include column/swimlane FK IDs, names, timestamp, type, and notes. `activity` entries include `event_type`, `from_value`, and `to_value`. |
+
+**Errors**
+
+| Status | Description |
+|---|---|
+| `403 Forbidden` | Requesting user is not a board member |
+| `404 Not Found` | Card does not exist or does not belong to this board |
+
+---
+
 ## Comments
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/comments/`

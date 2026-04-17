@@ -8,7 +8,7 @@ import { deleteCard, archiveCard, getCardComments, addCardComment, deleteComment
 import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
-import CardMovementTimeline from "./CardMovementTimeline";
+import ActivityTabPanel from "./ActivityTabPanel";
 import { formatDateStr, formatDueDate } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
@@ -55,12 +55,12 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: "urgent", label: "Urgent", color: PRIORITY_COLORS.urgent },
 ];
 
-export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
+export default function CardDetail({ card, board, onClose, onDeleted, onUpdated, onArchived, onMoveCard, userDateFormat = "MM/DD/YYYY", userTimeFormat: _userTimeFormat = "12h", userTimezone = "", currentUser = null, closeEditorOnEnter = false }: Props) {
   const [localCard, setLocalCard] = useState<Card>(card);
   const [comments, setComments] = useState<CardComment[]>([]);
   const [confirmDeleteCommentId, setConfirmDeleteCommentId] = useState<number | null>(null);
   const [commentBody, setCommentBody] = useState("");
-  const [tab, setTab] = useState<"details" | "history">("details");
+  const [tab, setTab] = useState<"details" | "activity">("details");
   const [addingLabel, setAddingLabel] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState(PALETTE_COLORS[0]);
@@ -436,12 +436,14 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         </p>
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-700 text-sm">
-          {(["details", "history"] as const).map((t) => (
+        <div role="tablist" className="flex border-b border-slate-700 text-sm">
+          {(["details", "activity"] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`px-5 py-2.5 font-medium capitalize transition ${
+              className={`px-5 py-2.5 font-medium capitalize transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded ${
                 tab === t ? "border-b-2 border-blue-400 text-blue-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
@@ -945,7 +947,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <CardMovementTimeline boardId={board.id} cardId={card.id} columnIds={new Set(board.columns.map((c) => c.id))} userDateFormat={userDateFormat} userTimeFormat={userTimeFormat} />
+            <ActivityTabPanel boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} />
           )}
           </div>
           {/* Scroll affordance — fade gradient at bottom signals more content below */}

@@ -608,6 +608,21 @@ class BoardFullSerializer(serializers.ModelSerializer):
         return {"movement_export": bool(MOVEMENT_EXPORT_BACKENDS)}
 
 
+class CardTimelineEntrySerializer(serializers.Serializer):
+    """Read-only serializer for unified card timeline entries (movements + activities).
+
+    Each entry has a common envelope (id, kind, ts, actor, event_type, data) so the
+    frontend can render heterogeneous entry types from a single list response.
+    """
+
+    id = serializers.IntegerField()
+    kind = serializers.CharField()
+    ts = serializers.DateTimeField()
+    actor = BoardUserSerializer(allow_null=True)
+    event_type = serializers.CharField()
+    data = serializers.DictField()
+
+
 class SavedFilterSerializer(serializers.ModelSerializer):
     """Serializer for user-scoped saved filter presets on a board.
 

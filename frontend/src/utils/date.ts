@@ -125,6 +125,34 @@ export function formatRelativeMovedAt(isoString: string | null | undefined, date
   return `moved ${m}/${day}`;
 }
 
+/**
+ * Returns a short human-readable relative timestamp for an ISO datetime string.
+ *
+ * < 1 min  → "just now"
+ * < 1 h    → "Xm ago"
+ * < 24 h   → "Xh ago"
+ * < 7 d    → "Xd ago"
+ * same year → "Mon DD"  (e.g. "Apr 1")
+ * older    → "Mon DD, YYYY"
+ */
+export function formatRelativeTime(iso: string): string {
+  const parsed = new Date(iso);
+  if (isNaN(parsed.getTime())) return "";
+  const diff = Date.now() - parsed.getTime();
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const now = new Date();
+  if (parsed.getFullYear() === now.getFullYear()) {
+    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 /** Returns a display label and overdue flag for a due date string (YYYY-MM-DD). */
 export function formatDueDate(
   date: string,

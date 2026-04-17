@@ -23,8 +23,8 @@ vi.mock('../api/boards', () => ({
   createLabel: vi.fn(),
 }))
 
-vi.mock('../components/Card/CardMovementTimeline', () => ({
-  default: () => <div data-testid="movement-timeline">Timeline</div>,
+vi.mock('../components/Card/ActivityTabPanel', () => ({
+  default: () => <div data-testid="activity-tab-panel">Activity</div>,
 }))
 
 vi.mock('../components/Card/MentionTextarea', () => ({
@@ -172,16 +172,16 @@ describe('CardDetail', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
   })
 
-  it('renders details and history tabs', () => {
+  it('renders details and activity tabs', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.getByText('details')).toBeInTheDocument()
-    expect(screen.getByText('history')).toBeInTheDocument()
+    expect(screen.getByText('activity')).toBeInTheDocument()
   })
 
-  it('switches to history tab and shows timeline', async () => {
+  it('switches to activity tab and shows activity panel', async () => {
     render(<CardDetail {...defaultProps()} />)
-    await userEvent.setup().click(screen.getByText('history'))
-    expect(screen.getByTestId('movement-timeline')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByText('activity'))
+    expect(screen.getByTestId('activity-tab-panel')).toBeInTheDocument()
   })
 
   it('renders the rich text editor for description', () => {
