@@ -626,15 +626,74 @@ class CardTimelineEntrySerializer(serializers.Serializer):
 class SavedFilterSerializer(serializers.ModelSerializer):
     """Serializer for user-scoped saved filter presets on a board.
 
-    ``state_json`` is accepted as-is from the frontend and returned unchanged;
-    schema validation is the frontend's responsibility since the filter shape
-    evolves independently of the API contract.
+    ``state_json`` shape is validated here (not only on the frontend) so
+    malformed payloads — including ones constructed by a future board-import
+    flow — never reach the database. The validation is intentionally shallow:
+    it checks keys and types without enforcing value ranges, so additive
+    schema changes don't require an MR to unblock new clients.
+
+    ``state_version`` is optional on write (defaults to 1 for callers that
+    predate the versioning scheme) and always present on read. Forward-compat:
+    we do not reject ``state_version`` values higher than the current server
+    knows about — a mixed-version deploy where a newer client posts v2 to an
+    older server would otherwise lose the user's save.
     """
+
+    # Known top-level keys in the v1 FilterState shape. Extra keys are
+    # rejected so typos and accidental payload bloat fail loudly rather than
+    # piling up as stale state in the DB.
+    _STATE_V1_KEYS = {"search", "assigneeIds", "labelIds", "priorities", "dueDate"}
+    _STATE_V1_DUE_DATE = {"overdue", "today", "this_week", "none"}
+    _STATE_V1_PRIORITIES = {"low", "medium", "high", "urgent"}
 
     class Meta:
         model = SavedFilter
-        fields = ["id", "name", "state_json", "created_at"]
+        fields = ["id", "name", "state_json", "state_version", "created_at"]
         read_only_fields = ["id", "created_at"]
+        extra_kwargs = {
+            # Keep state_version optional on write so existing clients that
+            # don't know about it still succeed; model default (1) fills in.
+            "state_version": {"required": False, "default": 1, "min_value": 1},
+        }
+
+    def validate_state_json(self, value):
+        """Shape check for v1 FilterState. Rejects unknown keys and wrong
+        types. Values inside recognized keys get a light type check only —
+        the frontend remains responsible for semantic validity (e.g. that
+        an assigneeId corresponds to a real user)."""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("state_json must be an object.")
+
+        unknown = set(value.keys()) - self._STATE_V1_KEYS
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unknown keys in state_json: {sorted(unknown)}."
+            )
+
+        if "search" in value and not isinstance(value["search"], str):
+            raise serializers.ValidationError("state_json.search must be a string.")
+        for list_key in ("assigneeIds", "labelIds"):
+            if list_key in value:
+                items = value[list_key]
+                if not isinstance(items, list) or not all(isinstance(x, int) and not isinstance(x, bool) for x in items):
+                    raise serializers.ValidationError(
+                        f"state_json.{list_key} must be a list of integers."
+                    )
+        if "priorities" in value:
+            prios = value["priorities"]
+            if not isinstance(prios, list) or not all(p in self._STATE_V1_PRIORITIES for p in prios):
+                raise serializers.ValidationError(
+                    f"state_json.priorities must be a list with values from {sorted(self._STATE_V1_PRIORITIES)}."
+                )
+        if "dueDate" in value:
+            # None is the "no filter" value in the frontend FilterState type;
+            # it round-trips through saved presets so we must accept it here.
+            if value["dueDate"] is not None and value["dueDate"] not in self._STATE_V1_DUE_DATE:
+                raise serializers.ValidationError(
+                    f"state_json.dueDate must be null or one of {sorted(self._STATE_V1_DUE_DATE)}."
+                )
+
+        return value
 
 
 # ---------------------------------------------------------------------------

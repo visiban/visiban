@@ -118,17 +118,19 @@ class SavedFilterListCreateTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_oversized_state_json_returns_400(self):
-        """state_json payloads larger than 64 KB must be rejected."""
-        # Build a dict whose JSON serialisation is > 65536 bytes.
-        big_state = {"k": "x" * 70_000}
+        """state_json payloads larger than 64 KB must be rejected.
+
+        Uses a valid v1 key (``search``) with a huge string value so the size
+        check is the reason for rejection, not the shape validator (#698).
+        """
+        big_state = {"search": "x" * 70_000}
         r = self.client.post(self.url, {"name": "Huge", "state_json": big_state}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("64 KB", r.data["detail"])
 
     def test_create_state_json_at_limit_is_accepted(self):
         """A state_json payload right under 64 KB should be accepted."""
-        # 65_000 bytes of JSON is safely under the 65_536 limit.
-        ok_state = {"k": "x" * 60_000}
+        ok_state = {"search": "x" * 60_000}
         r = self.client.post(self.url, {"name": "Ok size", "state_json": ok_state}, format="json")
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
@@ -195,6 +197,130 @@ class SavedFilterDeleteTests(TestCase):
         anon = APIClient()
         r = anon.delete(self._delete_url(sf.pk))
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+
+class SavedFilterStateVersionTests(TestCase):
+    """Coverage for the state_version column and state_json shape validation (#698).
+
+    The versioning scheme lets the frontend dispatch to version-specific readers
+    when the FilterState shape changes non-additively; the shape validator
+    prevents malformed payloads (including ones from a future import flow)
+    from landing in the DB.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="alice", password="pass")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.url = f"/api/v1/boards/{self.board.id}/saved-filters/"
+
+    def test_state_version_defaults_to_1_when_omitted(self):
+        r = self.client.post(
+            self.url, {"name": "Default", "state_json": SIMPLE_STATE}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["state_version"], 1)
+
+    def test_state_version_round_trips_on_create(self):
+        r = self.client.post(
+            self.url,
+            {"name": "V1 explicit", "state_json": SIMPLE_STATE, "state_version": 1},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["state_version"], 1)
+
+    def test_state_version_accepted_from_newer_client(self):
+        """A mixed-version deploy where a newer client posts a higher version
+        to an older server must not lose the user's save — we accept unknown
+        higher versions rather than rejecting them."""
+        r = self.client.post(
+            self.url,
+            {"name": "Future", "state_json": SIMPLE_STATE, "state_version": 99},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["state_version"], 99)
+
+    def test_state_version_zero_rejected(self):
+        r = self.client.post(
+            self.url,
+            {"name": "Bad version", "state_json": SIMPLE_STATE, "state_version": 0},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_includes_state_version(self):
+        SavedFilter.objects.create(
+            user=self.user, board=self.board, name="V1", state_json=SIMPLE_STATE
+        )
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.data[0]["state_version"], 1)
+
+    def test_existing_row_backfills_state_version(self):
+        """Rows created before migration 0046 backfill to 1 via the column default."""
+        sf = SavedFilter.objects.create(
+            user=self.user, board=self.board, name="Old", state_json=SIMPLE_STATE
+        )
+        sf.refresh_from_db()
+        self.assertEqual(sf.state_version, 1)
+
+    # --- state_json shape validation ---
+
+    def test_unknown_key_rejected(self):
+        bad_state = {**SIMPLE_STATE, "mysteryKey": "oops"}
+        r = self.client.post(
+            self.url, {"name": "Typo", "state_json": bad_state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Unknown keys", r.data["detail"])
+
+    def test_search_wrong_type_rejected(self):
+        bad_state = {**SIMPLE_STATE, "search": 123}
+        r = self.client.post(
+            self.url, {"name": "Bad search", "state_json": bad_state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_assignee_ids_non_integer_rejected(self):
+        bad_state = {**SIMPLE_STATE, "assigneeIds": ["not-an-int"]}
+        r = self.client.post(
+            self.url, {"name": "Bad assignee", "state_json": bad_state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_priorities_unknown_value_rejected(self):
+        bad_state = {**SIMPLE_STATE, "priorities": ["catastrophic"]}
+        r = self.client.post(
+            self.url, {"name": "Bad prio", "state_json": bad_state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_due_date_unknown_value_rejected(self):
+        bad_state = {**SIMPLE_STATE, "dueDate": "next_year"}
+        r = self.client.post(
+            self.url, {"name": "Bad due", "state_json": bad_state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_due_date_null_accepted(self):
+        """None is the frontend's 'no filter' value and must round-trip."""
+        state = {**SIMPLE_STATE, "dueDate": None}
+        r = self.client.post(
+            self.url, {"name": "Null due", "state_json": state}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+    def test_partial_state_json_accepted(self):
+        """All v1 keys are optional — a payload with only some keys is valid."""
+        r = self.client.post(
+            self.url,
+            {"name": "Partial", "state_json": {"search": "bug"}},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
 
 
 class SavedFilterViewerRbacTests(TestCase):

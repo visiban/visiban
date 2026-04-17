@@ -5,7 +5,7 @@ import logging
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -299,12 +299,35 @@ class BoardViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Shape-check state_json via the serializer so malformed payloads
+        # (unknown keys, wrong types) are rejected in one place — the same
+        # validator will protect a future board-import flow (#698).
+        try:
+            SavedFilterSerializer().validate_state_json(state_json)
+        except serializers.ValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, list) and detail:
+                detail = detail[0]
+            return Response({"detail": str(detail)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # state_version is optional on write (defaults to 1 for clients that
+        # predate the versioning scheme). We accept unknown higher versions
+        # so a mixed-version deploy where a newer client posts v2 to an older
+        # server does not silently drop the user's save (#698).
+        raw_version = request.data.get("state_version", 1)
+        if not isinstance(raw_version, int) or isinstance(raw_version, bool) or raw_version < 1:
+            return Response(
+                {"detail": "state_version must be a positive integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             saved = SavedFilter.objects.create(
                 user=request.user,
                 board=board,
                 name=name,
                 state_json=state_json,
+                state_version=raw_version,
             )
         except IntegrityError:
             # unique_together violation — a filter with this name already exists.

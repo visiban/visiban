@@ -18,6 +18,7 @@ const makeFilter = (id: number, name: string): SavedFilter => ({
   id,
   name,
   state_json: { search: 'bug', assigneeIds: [], labelIds: [], priorities: ['high'], dueDate: null },
+  state_version: 1,
   created_at: '2026-03-25T10:00:00Z',
 })
 
@@ -141,6 +142,7 @@ describe('useSavedFilters', () => {
           priorities: null,    // wrong type
           dueDate: 'badval',   // invalid value
         } as unknown as Record<string, unknown>,
+        state_version: 1,
         created_at: '2026-01-01T00:00:00Z',
       }
 
@@ -163,11 +165,34 @@ describe('useSavedFilters', () => {
           id: 1,
           name: 'DueTest',
           state_json: { dueDate } as Record<string, unknown>,
+          state_version: 1,
           created_at: '2026-01-01T00:00:00Z',
         }
         const fs = result.current.hydrateFilter(sf)
         expect(fs.dueDate).toBe(dueDate)
       }
+    })
+
+    it('hydrates payloads from a newer client (unknown higher version) via the v1 reader', async () => {
+      // A mixed-version deploy — the user logs into an older client but a
+      // newer client already wrote a v2 payload. Shared v1 keys must still
+      // load rather than silently resetting to EMPTY_FILTER.
+      vi.mocked(savedFiltersApi.listSavedFilters).mockResolvedValue([])
+      const { result } = renderHook(() => useSavedFilters(1))
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      const future: SavedFilter = {
+        id: 1,
+        name: 'From future client',
+        state_json: { search: 'ship', priorities: ['urgent'] },
+        state_version: 99,
+        created_at: '2026-04-17T00:00:00Z',
+      }
+
+      const fs = result.current.hydrateFilter(future)
+
+      expect(fs.search).toBe('ship')
+      expect(fs.priorities).toEqual(['urgent'])
     })
   })
 })

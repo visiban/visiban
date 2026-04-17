@@ -32,3 +32,13 @@ Any board role — including Viewer — can create, load, and delete their own s
 | `GET` | `/api/v1/boards/{id}/saved-filters/` | List your saved filters for this board |
 | `POST` | `/api/v1/boards/{id}/saved-filters/` | Save a new filter preset |
 | `DELETE` | `/api/v1/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
+
+See [`docs/api/boards.md`](../api/boards.md#saved-filters) for the full `state_json` shape and request/response fields.
+
+## Schema versioning
+
+Each saved filter carries a `state_version` field (introduced in 1.1). The version identifies the shape of the stored `state_json` so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.
+
+Today only version `1` exists. The server accepts higher `state_version` values from newer clients unchanged — a mixed-version deploy where a newer frontend writes `state_version: 2` against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.
+
+Additive changes (adding a new optional key to `state_json`) do **not** require a version bump — update the key allow-list in the serializer's `validate_state_json` validator and the frontend `FilterState` type in the same release.

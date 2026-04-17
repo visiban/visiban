@@ -291,7 +291,8 @@ List all saved filters belonging to the requesting user on this board.
   {
     "id": 1,
     "name": "My urgent cards",
-    "state_json": { "priority": ["urgent", "high"], "assignee": [3] },
+    "state_json": { "priorities": ["urgent", "high"], "assigneeIds": [3] },
+    "state_version": 1,
     "created_at": "2026-03-20T10:00:00Z"
   }
 ]
@@ -301,7 +302,8 @@ List all saved filters belonging to the requesting user on this board.
 |---|---|---|
 | `id` | integer | Filter preset ID |
 | `name` | string | User-defined name (unique per user per board, max 100 characters) |
-| `state_json` | object | Opaque filter state — schema owned by the frontend; stored and returned as-is |
+| `state_json` | object | Filter state — see [shape](#state_json-shape) below |
+| `state_version` | integer | Schema version of `state_json` (currently `1`; rows predating v1.1 backfill to `1`) |
 | `created_at` | string | ISO 8601 timestamp |
 
 ### `POST /api/v1/boards/{id}/saved-filters/`
@@ -312,9 +314,24 @@ Create a new saved filter preset.
 | Field | Required | Description |
 |---|---|---|
 | `name` | ✓ | Filter name (max 100 characters, unique per user per board) |
-| `state_json` | ✓ | Filter state object (must be a valid JSON object) |
+| `state_json` | ✓ | Filter state object — see [shape](#state_json-shape) below |
+| `state_version` |  | Schema version the client is writing (positive integer; defaults to `1`). Clients should send `1`; the server accepts higher values unchanged so a mixed-version deploy does not lose the user's save |
 
-**Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, or a filter with the same name already exists for this user on this board.
+#### `state_json` shape
+
+Top-level keys are validated server-side. Unknown keys are rejected; each known key is type-checked but its values are not semantically validated (the frontend remains responsible for confirming, e.g., that an `assigneeId` corresponds to a real user):
+
+| Key | Type | Notes |
+|---|---|---|
+| `search` | string | Free-text search term |
+| `assigneeIds` | integer[] | User IDs to include |
+| `labelIds` | integer[] | Label IDs to include |
+| `priorities` | string[] | Subset of `low`, `medium`, `high`, `urgent` |
+| `dueDate` | string \| null | One of `overdue`, `today`, `this_week`, `none`, or `null` for "no filter" |
+
+All keys are optional. The total serialized size of `state_json` must not exceed 64 KB.
+
+**Errors:** `400 Bad Request` if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, `state_json` contains unknown keys or wrong-typed values, or `state_version` is not a positive integer.
 
 ### `DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/`
 Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns `404 Not Found`.

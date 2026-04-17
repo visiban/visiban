@@ -69,12 +69,17 @@ export function useSavedFilters(boardId: number) {
   );
 
   /**
-   * Convert a saved filter's state_json back into a FilterState, falling back
-   * to EMPTY_FILTER for any field that is missing or the wrong type. This
-   * protects against saved state that was captured before a filter shape change.
+   * Convert a saved filter's state_json back into a FilterState, dispatching
+   * on state_version so a v2+ payload can be migrated forward when the shape
+   * changes non-additively. Today only v1 exists; older rows that predate the
+   * state_version column backfill to 1 via the column default, and rows from
+   * a newer client (higher version) fall through to the defensive v1 reader
+   * so fields they share still load rather than silently reset.
    */
   const hydrateFilter = useCallback((saved: SavedFilter): FilterState => {
     const s = saved.state_json;
+    // v1 reader — tolerant of missing/wrong-typed fields so state saved before
+    // a filter shape change still loads without throwing.
     return {
       search: typeof s["search"] === "string" ? s["search"] : EMPTY_FILTER.search,
       assigneeIds: Array.isArray(s["assigneeIds"])
