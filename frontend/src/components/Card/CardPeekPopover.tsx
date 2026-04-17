@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
@@ -51,7 +51,6 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
   const lastActivityUser = card.created_by?.display_name ?? null;
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       ref={popoverRef}
       role="tooltip"

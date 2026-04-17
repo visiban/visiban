@@ -105,13 +105,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Combine dnd-kit's setNodeRef with our own cardRef using a stable callback ref.
+  // setNodeRef is stable for the lifetime of the draggable hook instance.
   const compositeRef = useCallback(
     (el: HTMLDivElement | null) => {
       setNodeRef(el);
       (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
     },
-    // setNodeRef is stable for the lifetime of the draggable hook instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setNodeRef],
   );
 
