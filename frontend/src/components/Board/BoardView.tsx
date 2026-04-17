@@ -46,6 +46,8 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
+import BoardActivityDrawer from "./BoardActivityDrawer";
+import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
@@ -262,7 +264,63 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
   }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser]);
 
-  const { status: socketStatus } = useBoardSocket(board.id, handleSocketEvent);
+  // Collect a subset of WS events into the activity feed for the drawer.
+  // Runs alongside handleSocketEvent — does not interfere with board state updates.
+  const collectActivityEvent = useCallback((event: BoardEvent) => {
+    let entry: ActivityEntry | null = null;
+    const d = event.data as Record<string, unknown>;
+    if (event.event === "card.moved") {
+      const card = (d.card as { title?: string } | undefined);
+      const movement = d.movement as { from_column_name?: string; to_column_name?: string; user?: { display_name?: string } } | undefined;
+      entry = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        kind: "move",
+        actor: movement?.user?.display_name ?? "Someone",
+        headline: `moved ${card?.title ?? "a card"}`,
+        detail: movement ? `${movement.from_column_name} → ${movement.to_column_name}` : "",
+      };
+    } else if (event.event === "card.created") {
+      const card = d as { title?: string; created_by?: { display_name?: string } };
+      entry = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        kind: "create",
+        actor: card.created_by?.display_name ?? "Someone",
+        headline: `created ${card.title ?? "a card"}`,
+        detail: "",
+      };
+    } else if (event.event === "member.added") {
+      const m = d as { user?: { display_name?: string } };
+      entry = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        kind: "member",
+        actor: m.user?.display_name ?? "Someone",
+        headline: "joined the board",
+        detail: "",
+      };
+    } else if (event.event === "member.removed") {
+      entry = {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        kind: "member",
+        actor: "A member",
+        headline: "was removed from the board",
+        detail: "",
+      };
+    }
+    if (entry) {
+      setActivityFeed((prev) => [entry!, ...prev].slice(0, 100));
+    }
+  }, []);
+
+  const combinedSocketHandler = useCallback((event: BoardEvent) => {
+    handleSocketEvent(event);
+    collectActivityEvent(event);
+  }, [handleSocketEvent, collectActivityEvent]);
+
+  const { status: socketStatus } = useBoardSocket(board.id, combinedSocketHandler);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
@@ -442,6 +500,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Forwarded to SavedFiltersDropdown so the "+ Save current" pill in SavedFilterTabs can
   // programmatically open the dropdown's save flow without duplicating the save-form UI.
   const savedFiltersDropdownTriggerRef = useRef<HTMLButtonElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -497,6 +557,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // ⌘\ / Ctrl+\ — toggle activity drawer (fires even from input fields)
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        setDrawerOpen((v) => !v);
+        return;
+      }
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "f") {
@@ -975,6 +1041,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 3: Utilities + status */}
         <div className="flex items-center gap-1">
+          <Tooltip content={drawerOpen ? "Close activity drawer (⌘\\)" : "Open activity drawer (⌘\\)"}>
+            <button
+              onClick={() => setDrawerOpen((v) => !v)}
+              aria-pressed={drawerOpen}
+              aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
+              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                drawerOpen ? "text-blue-400 bg-blue-500/10" : "text-slate-400 hover:text-white hover:bg-slate-700"
+              }`}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                <circle cx="5" cy="7" r="1.5" fill="currentColor" stroke="none" />
+                <line x1="9" y1="7" x2="20" y2="7" />
+                <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                <line x1="9" y1="12" x2="20" y2="12" />
+                <circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none" />
+                <line x1="9" y1="17" x2="16" y2="17" />
+              </svg>
+            </button>
+          </Tooltip>
           <Tooltip content="Keyboard shortcuts">
             <button
               onClick={() => setShowShortcuts((v) => !v)}
@@ -1172,6 +1257,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+        {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
+        <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
@@ -1359,7 +1446,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </div>
           )}
           </div>{/* end min-w-max wrapper */}
-        </div>
+        </div>{/* end board-scroll */}
+
+        {drawerOpen && (
+          <BoardActivityDrawer
+            feed={activityFeed}
+            onClose={() => setDrawerOpen(false)}
+            onOpenHistory={() => setSearchParams({ view: "history" }, { replace: true })}
+          />
+        )}
+        </div>{/* end flex-row wrapper */}
 
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
