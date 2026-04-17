@@ -41,7 +41,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   const [showCreateBoard, setShowCreateBoard] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
 
-  const { recentBoards, recordVisit } = useRecentBoardsPref();
+  const { recentBoards, recordVisit, pruneByIds } = useRecentBoardsPref();
 
   // Track whether the ancestor auto-expand has fired for the initial mount.
   // We only want this to run once so subsequent navigations don't force the
@@ -59,9 +59,15 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
       .then(([g, b]) => {
         setGroups(g);
         setBoards(b);
+        // Drop any Recent entries whose board id is no longer accessible —
+        // deletions, revoked memberships, or a stale localStorage referencing
+        // a prior instance (DB reset). Only runs once per mount after load.
+        pruneByIds(new Set(b.map((brd) => brd.id)));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  // pruneByIds is stable from the hook; listGroups/listBoards are module imports.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-expand ancestors of the active board once — fires after the initial

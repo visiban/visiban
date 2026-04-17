@@ -42,6 +42,7 @@ function save(entries: RecentBoardEntry[]): void {
 export function useRecentBoardsPref(): {
   recentBoards: RecentBoardEntry[];
   recordVisit: (entry: RecentBoardEntry) => void;
+  pruneByIds: (validIds: Set<number>) => void;
 } {
   const [recentBoards, setRecentBoards] = useState<RecentBoardEntry[]>(() => load());
 
@@ -54,5 +55,17 @@ export function useRecentBoardsPref(): {
     });
   };
 
-  return { recentBoards, recordVisit };
+  // Drop entries whose board id is not in the accessible set — handles boards
+  // that were deleted, had membership revoked, or came from a different instance
+  // (stale localStorage surviving a DB reset).
+  const pruneByIds = (validIds: Set<number>) => {
+    setRecentBoards((prev) => {
+      const filtered = prev.filter((e) => validIds.has(e.id));
+      if (filtered.length === prev.length) return prev;
+      save(filtered);
+      return filtered;
+    });
+  };
+
+  return { recentBoards, recordVisit, pruneByIds };
 }

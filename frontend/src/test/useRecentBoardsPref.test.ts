@@ -117,4 +117,30 @@ describe('useRecentBoardsPref', () => {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
     expect(stored[0].groupAncestors).toEqual(['Engineering'])
   })
+
+  it('pruneByIds drops entries whose id is not in the valid set and persists the result', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([board(1), board(2), board(3), board(4)]))
+    const { result } = renderHook(() => useRecentBoardsPref())
+    act(() => { result.current.pruneByIds(new Set([2, 4, 99])) })
+    expect(result.current.recentBoards.map((e) => e.id)).toEqual([2, 4])
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+    expect(stored.map((e: RecentBoardEntry) => e.id)).toEqual([2, 4])
+  })
+
+  it('pruneByIds preserves order and is a no-op when nothing changes', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([board(3), board(1), board(2)]))
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+    const { result } = renderHook(() => useRecentBoardsPref())
+    act(() => { result.current.pruneByIds(new Set([1, 2, 3])) })
+    expect(result.current.recentBoards.map((e) => e.id)).toEqual([3, 1, 2])
+    // No write when no entries were removed.
+    expect(setItemSpy).not.toHaveBeenCalled()
+  })
+
+  it('pruneByIds with empty set clears the list entirely (e.g. user has no accessible boards)', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([board(1), board(2)]))
+    const { result } = renderHook(() => useRecentBoardsPref())
+    act(() => { result.current.pruneByIds(new Set()) })
+    expect(result.current.recentBoards).toEqual([])
+  })
 })
