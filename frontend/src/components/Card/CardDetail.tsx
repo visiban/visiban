@@ -947,7 +947,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <ActivityTabPanel boardId={board.id} cardId={card.id} />
+            <ActivityTabPanel boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} />
           )}
           </div>
           {/* Scroll affordance — fade gradient at bottom signals more content below */}

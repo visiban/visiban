@@ -8,6 +8,7 @@ import CheckboxDropdown from "../Common/CheckboxDropdown";
 interface ActivityTabPanelProps {
   boardId: number;
   cardId: number;
+  userDateFormat?: string;
 }
 
 const EVENT_TYPE_OPTIONS = [
@@ -150,7 +151,7 @@ function formatDuration(ms: number): string {
   return `${days}d`;
 }
 
-export default function ActivityTabPanel({ boardId, cardId }: ActivityTabPanelProps) {
+export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM/DD/YYYY" }: ActivityTabPanelProps) {
   const [entries, setEntries] = useState<CardTimelineEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -378,7 +379,7 @@ export default function ActivityTabPanel({ boardId, cardId }: ActivityTabPanelPr
             }
 
             // Activity entry
-            const description = activityLabel(timelineEntry.event_type, timelineEntry.data);
+            const description = activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
             return (
               <li key={`${timelineEntry.kind}-${timelineEntry.id}`} className="relative mb-3 ml-4">
                 <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-slate-800 shadow ${dot}`} />

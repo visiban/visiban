@@ -931,6 +931,18 @@ class CardViewSet(viewsets.ModelViewSet):
         raw_types = request.query_params.get("event_types", "")
         requested_groups = [g.strip() for g in raw_types.split(",") if g.strip()] if raw_types else []
 
+        # Validate: unknown group names are a client error, not a silent empty page.
+        # "move" is handled separately from the activity group map; add it explicitly
+        # so validation accepts it.
+        valid_groups = set(self._TIMELINE_ACTIVITY_GROUPS.keys()) | {"move"}
+        invalid = [g for g in requested_groups if g not in valid_groups]
+        if invalid:
+            return Response(
+                {"detail": f"Invalid event_types: {', '.join(sorted(set(invalid)))}. "
+                           f"Valid groups: {', '.join(sorted(valid_groups))}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         include_moves = not requested_groups or "move" in requested_groups
 
         # Collect activity event_type values for the requested groups
