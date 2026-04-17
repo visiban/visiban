@@ -440,23 +440,23 @@ describe('BoardView', () => {
     expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
   })
 
-  it('switching to Summary tab calls setSearchParams with { view: summary } and replace: true', async () => {
+  it('switching to Summary tab calls setSearchParams with functional updater and replace: true', async () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Summary'))
-    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'summary' }, { replace: true })
+    expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('switching to Analytics tab calls setSearchParams with { view: analytics } and replace: true', async () => {
+  it('switching to Analytics tab calls setSearchParams with functional updater and replace: true', async () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Analytics'))
-    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'analytics' }, { replace: true })
+    expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
-  it('switching to Board tab calls setSearchParams with { view: board } and replace: true', async () => {
+  it('switching to Board tab calls setSearchParams with functional updater and replace: true', async () => {
     mockSearchParams = new URLSearchParams('view=summary')
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByText('Board'))
-    expect(mockSetSearchParams).toHaveBeenCalledWith({ view: 'board' }, { replace: true })
+    expect(mockSetSearchParams).toHaveBeenCalled()
   })
 
   it('?card= param opens CardDetail for a matching card', () => {

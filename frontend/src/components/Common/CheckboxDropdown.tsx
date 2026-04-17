@@ -17,6 +17,7 @@ export default function CheckboxDropdown<T extends string | number>({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
@@ -27,6 +28,13 @@ export default function CheckboxDropdown<T extends string | number>({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      const first = menuRef.current?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      setTimeout(() => first?.focus(), 0);
+    }
   }, [open]);
 
   const toggle = (value: T) => {
@@ -74,7 +82,7 @@ export default function CheckboxDropdown<T extends string | number>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div ref={menuRef} className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-slate-500 italic">
               No options available

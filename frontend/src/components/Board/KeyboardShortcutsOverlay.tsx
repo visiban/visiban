@@ -8,6 +8,7 @@ const SHORTCUTS = [
   { key: "f", description: "Toggle filter bar" },
   { key: "c", description: "Collapse / expand hovered swimlane" },
   { key: "/", description: "Open filters and focus search" },
+  { key: "Tab", description: "Move between filter chips; Delete or Backspace to remove" },
   { key: "?", description: "Show this help" },
   { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
   { key: "Space + drag", description: "Pan the board" },

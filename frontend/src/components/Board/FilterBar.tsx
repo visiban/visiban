@@ -1,9 +1,10 @@
 import type { RefObject } from "react";
-import type { BoardFull, Priority, User } from "../../types";
+import type { BoardFull, BoardUser, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
+import FilterChip from "./FilterChip";
 
 export interface FilterState {
   search: string;
@@ -41,6 +42,7 @@ interface Props {
   searchRef?: RefObject<HTMLInputElement | null>;
   isSearching?: boolean;
   currentUser?: User | null;
+  hiddenCount?: number;
 }
 
 interface MyCardsButtonProps {
@@ -84,71 +86,146 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
   { value: "none", label: "No due date" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0 }: Props) {
   const activeCount = countActiveFilters(filters);
 
+  // Derive chips from active filter state (search is excluded — the input already communicates state)
+  const chips: { key: string; label: string; colorDot?: string; avatarUser?: BoardUser; onDismiss: () => void }[] = [];
+
+  for (const assigneeId of filters.assigneeIds) {
+    if (assigneeId === -1) {
+      chips.push({
+        key: "assignee:-1",
+        label: "Unassigned",
+        onDismiss: () => onChange({ ...filters, assigneeIds: filters.assigneeIds.filter((id) => id !== -1) }),
+      });
+    } else {
+      const member = board.members.find((m) => m.user.id === assigneeId);
+      if (member) {
+        chips.push({
+          key: `assignee:${assigneeId}`,
+          label: userDisplayName(member.user),
+          avatarUser: member.user,
+          onDismiss: () => onChange({ ...filters, assigneeIds: filters.assigneeIds.filter((id) => id !== assigneeId) }),
+        });
+      }
+    }
+  }
+
+  for (const labelId of filters.labelIds) {
+    const label = board.labels.find((l) => l.id === labelId);
+    if (label) {
+      chips.push({
+        key: `label:${labelId}`,
+        label: label.name,
+        colorDot: label.color,
+        onDismiss: () => onChange({ ...filters, labelIds: filters.labelIds.filter((id) => id !== labelId) }),
+      });
+    }
+  }
+
+  for (const priority of filters.priorities) {
+    const option = PRIORITY_OPTIONS.find((o) => o.value === priority);
+    if (option) {
+      chips.push({
+        key: `priority:${priority}`,
+        label: option.label,
+        colorDot: option.color,
+        onDismiss: () => onChange({ ...filters, priorities: filters.priorities.filter((p) => p !== priority) }),
+      });
+    }
+  }
+
+  if (filters.dueDate !== null) {
+    const option = DUE_DATE_OPTIONS.find((o) => o.value === filters.dueDate);
+    if (option) {
+      chips.push({
+        key: `due:${filters.dueDate}`,
+        label: option.label,
+        onDismiss: () => onChange({ ...filters, dueDate: null }),
+      });
+    }
+  }
+
   return (
-    <>
-      <span className="w-px h-4 bg-slate-600 shrink-0" />
+    <div className="flex flex-col gap-1.5 w-full">
+      {/* Row 1: filter controls */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="w-px h-4 bg-slate-600 shrink-0" />
 
-      {currentUser && (
-        <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
-      )}
+        {currentUser && (
+          <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
+        )}
 
-      <div className="relative shrink-0">
-        <input
-          ref={searchRef}
-          type="text"
-          placeholder="Search cards…"
-          value={filters.search}
-          onChange={(e) => onChange({ ...filters, search: e.target.value })}
-          onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
-          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <div className="relative shrink-0">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder="Search cards…"
+            value={filters.search}
+            onChange={(e) => onChange({ ...filters, search: e.target.value })}
+            onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
+            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {isSearching && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          )}
+        </div>
+
+        <CheckboxDropdown
+          label="Assignee"
+          options={[
+            { value: -1, label: "Unassigned" },
+            ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
+          ]}
+          selected={filters.assigneeIds}
+          onChange={(assigneeIds) => onChange({ ...filters, assigneeIds })}
         />
-        {isSearching && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+
+        <CheckboxDropdown
+          label="Label"
+          options={board.labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
+          selected={filters.labelIds}
+          onChange={(labelIds) => onChange({ ...filters, labelIds })}
+        />
+
+        <CheckboxDropdown
+          label="Priority"
+          options={PRIORITY_OPTIONS}
+          selected={filters.priorities}
+          onChange={(priorities) => onChange({ ...filters, priorities })}
+        />
+
+        <SingleSelectDropdown
+          label="Due date"
+          options={DUE_DATE_OPTIONS}
+          selected={filters.dueDate}
+          onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
+        />
+
+        {activeCount > 0 && (
+          <button
+            onClick={() => onChange(EMPTY_FILTER)}
+            className="text-xs text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700 hover:border-slate-500 rounded px-2 py-0.5 shrink-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800"
+          >
+            Clear all
+          </button>
         )}
       </div>
 
-      <CheckboxDropdown
-        label="Assignee"
-        options={[
-          { value: -1, label: "Unassigned" },
-          ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
-        ]}
-        selected={filters.assigneeIds}
-        onChange={(assigneeIds) => onChange({ ...filters, assigneeIds })}
-      />
-
-      <CheckboxDropdown
-        label="Label"
-        options={board.labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
-        selected={filters.labelIds}
-        onChange={(labelIds) => onChange({ ...filters, labelIds })}
-      />
-
-      <CheckboxDropdown
-        label="Priority"
-        options={PRIORITY_OPTIONS}
-        selected={filters.priorities}
-        onChange={(priorities) => onChange({ ...filters, priorities })}
-      />
-
-      <SingleSelectDropdown
-        label="Due date"
-        options={DUE_DATE_OPTIONS}
-        selected={filters.dueDate}
-        onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
-      />
-
-      {activeCount > 0 && (
-        <button
-          onClick={() => onChange(EMPTY_FILTER)}
-          className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0 transition"
-        >
-          Clear all
-        </button>
+      {/* Row 2: active filter chips (only when at least one chip exists) */}
+      {chips.length > 0 && (
+        <div role="group" aria-label="Active filters" className="flex items-center gap-1.5 flex-wrap">
+          {chips.map((chip) => (
+            <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
+          ))}
+          {hiddenCount > 0 && (
+            <span role="status" aria-live="polite" aria-atomic="true" className="ml-auto text-xs text-slate-400 shrink-0 whitespace-nowrap">
+              {hiddenCount} card{hiddenCount !== 1 ? "s" : ""} hidden
+            </span>
+          )}
+        </div>
       )}
-    </>
+    </div>
   );
 }

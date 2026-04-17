@@ -364,7 +364,66 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const { filters, setFilters } = usePersistedFilters(board.id);
+  const { filters: persistedFilters, setFilters: setPersistedFilters } = usePersistedFilters(board.id);
+
+  // Parse filter state from URL params on mount; URL params override localStorage when present.
+  const initialFilters = useMemo<typeof persistedFilters>(() => {
+    const fAssignees = searchParams.get("f_assignees");
+    const fLabels = searchParams.get("f_labels");
+    const fPriorities = searchParams.get("f_priorities");
+    const fDue = searchParams.get("f_due");
+    const fSearch = searchParams.get("f_search");
+    const hasUrlFilters = fAssignees !== null || fLabels !== null || fPriorities !== null || fDue !== null || fSearch !== null;
+    if (!hasUrlFilters) return persistedFilters;
+    return {
+      search: fSearch ?? "",
+      assigneeIds: fAssignees ? fAssignees.split(",").map(Number).filter((n) => !isNaN(n)) : [],
+      labelIds: fLabels ? fLabels.split(",").map(Number).filter((n) => !isNaN(n)) : [],
+      priorities: fPriorities
+        ? (fPriorities.split(",").filter((v) => ["low", "medium", "high", "urgent"].includes(v)) as typeof persistedFilters["priorities"])
+        : [],
+      dueDate: (["overdue", "today", "this_week", "none"] as const).includes(fDue as never)
+        ? (fDue as typeof persistedFilters["dueDate"])
+        : null,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; searchParams and persistedFilters are stable on first render
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [filters, setFiltersState] = useState(initialFilters);
+
+  // Sync filter changes to both localStorage and URL params.
+  const setFilters = useCallback((next: typeof filters) => {
+    setPersistedFilters(next);
+    setFiltersState(next);
+    setSearchParams((prev) => {
+      const isEmptyFilter =
+        next.search === "" &&
+        next.assigneeIds.length === 0 &&
+        next.labelIds.length === 0 &&
+        next.priorities.length === 0 &&
+        next.dueDate === null;
+      if (isEmptyFilter) {
+        prev.delete("f_assignees");
+        prev.delete("f_labels");
+        prev.delete("f_priorities");
+        prev.delete("f_due");
+        prev.delete("f_search");
+      } else {
+        if (next.assigneeIds.length > 0) prev.set("f_assignees", next.assigneeIds.join(","));
+        else prev.delete("f_assignees");
+        if (next.labelIds.length > 0) prev.set("f_labels", next.labelIds.join(","));
+        else prev.delete("f_labels");
+        if (next.priorities.length > 0) prev.set("f_priorities", next.priorities.join(","));
+        else prev.delete("f_priorities");
+        if (next.dueDate !== null) prev.set("f_due", next.dueDate);
+        else prev.delete("f_due");
+        if (next.search !== "") prev.set("f_search", next.search);
+        else prev.delete("f_search");
+      }
+      return prev;
+    }, { replace: true });
+  }, [setPersistedFilters, setSearchParams]);
+
   const {
     savedFilters,
     loading: savedFiltersLoading,
@@ -373,6 +432,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     hydrateFilter,
   } = useSavedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
+  const filterBarFirstRef = useRef<HTMLButtonElement>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -384,7 +444,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const VALID_VIEWS = ["board", "summary", "history", "analytics"] as const;
   const rawView = searchParams.get("view");
   const view: "board" | "summary" | "history" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "history" | "analytics") : "board";
-  const setView = (v: "board" | "summary" | "history" | "analytics") => setSearchParams({ view: v }, { replace: true });
+  const setView = (v: "board" | "summary" | "history" | "analytics") =>
+    setSearchParams(
+      (prev) => {
+        prev.set("view", v);
+        return prev;
+      },
+      { replace: true }
+    );
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const lastHoveredSwimlaneId = useRef<number | null>(null);
@@ -424,7 +491,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "f") {
         e.preventDefault();
-        setShowFilters((v) => !v);
+        setShowFilters((v) => {
+          if (!v) {
+            // Opening: focus first interactive element in the filter bar
+            setTimeout(() => filterBarFirstRef.current?.focus(), 0);
+          }
+          return !v;
+        });
       } else if (e.key === "c") {
         e.preventDefault();
         const id = lastHoveredSwimlaneId.current;
@@ -737,6 +810,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const activeCount = countActiveFilters(filters);
 
+  const hiddenCount = filteredCardIds !== null
+    ? board.cards.filter((c) => !c.archived_at).length - filteredCardIds.size
+    : 0;
+
   if (view === "summary") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
@@ -978,8 +1055,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             onLoad={(sf) => setFilters(hydrateFilter(sf))}
             onSave={(name) => saveFilter(name, filters)}
             onDelete={removeFilter}
+            firstElementRef={(el) => { filterBarFirstRef.current = el; }}
           />
-          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} currentUser={currentUser} />
+          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} currentUser={currentUser} hiddenCount={hiddenCount} />
         </div>
       )}
       {filteredCardIds !== null && filteredCardIds.size === 0 && (
@@ -1180,8 +1258,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onSwimlaneDeleted={onSwimlaneDeleted}
                       collapsed={collapsedSwimlaneIds.has(swimlane.id)}
                       onToggleCollapse={() => toggleCollapsedSwimlane(swimlane.id)}
-                      onHoverEnter={() => { lastHoveredSwimlaneId.current = swimlane.id; }}
-                      onHoverLeave={() => { lastHoveredSwimlaneId.current = null; }}
                       onFocus={enterFocus}
                       onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { FilterState } from "./FilterBar";
@@ -14,6 +14,8 @@ interface Props {
   onLoad: (saved: SavedFilter) => void;
   onSave: (name: string) => Promise<{ error?: string }>;
   onDelete: (filterId: number) => void;
+  /** When provided, called with the trigger button element so the parent can focus it programmatically. */
+  firstElementRef?: React.RefCallback<HTMLButtonElement>;
 }
 
 /**
@@ -32,6 +34,7 @@ export default function SavedFiltersDropdown({
   onLoad,
   onSave,
   onDelete,
+  firstElementRef,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [saveMode, setSaveMode] = useState(false);
@@ -109,7 +112,11 @@ export default function SavedFiltersDropdown({
   return (
     <div ref={ref} className="relative shrink-0">
       <button
-        ref={triggerRef}
+        ref={(el) => {
+          (triggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
+          // firstElementRef is a callback ref so the parent can focus the trigger programmatically
+          if (firstElementRef && el) firstElementRef(el);
+        }}
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
