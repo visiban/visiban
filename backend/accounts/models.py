@@ -232,6 +232,11 @@ class InviteLink(models.Model):
     used_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Defense-in-depth audit counter: incremented on every successful
+    # consumption, even for multi-use links. If a multi-use link is leaked,
+    # this gives operators visibility into how widely it was used before
+    # they revoked it.
+    use_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = "invite_links"

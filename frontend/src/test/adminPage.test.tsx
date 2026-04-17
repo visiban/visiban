@@ -348,6 +348,7 @@ describe('AdminPage — Invite Links tab', () => {
       status: 'pending',
       single_use: false,
       expires_at: null,
+      use_count: 0,
       created_by_username: 'admin',
       raw_token: rawToken,
     })
@@ -372,6 +373,7 @@ describe('AdminPage — Invite Links tab', () => {
       status: 'pending',
       single_use: false,
       expires_at: null,
+      use_count: 0,
       created_by_username: 'admin',
       raw_token: rawToken,
     })

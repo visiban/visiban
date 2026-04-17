@@ -370,6 +370,7 @@ export interface AdminInviteLink {
   used_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  use_count: number;
   status: "pending" | "used" | "expired" | "revoked";
   created_by_username: string | null;
 }

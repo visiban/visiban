@@ -105,7 +105,8 @@ InviteLink  (accounts app — site-level registration invites)
  ├── expires_at (datetime, nullable — null = never expires)
  ├── single_use (bool)
  ├── used_at (datetime, nullable)
- └── revoked_at (datetime, nullable)
+ ├── revoked_at (datetime, nullable)
+ └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
 ```
 
 ## Entity details

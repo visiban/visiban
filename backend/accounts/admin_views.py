@@ -125,6 +125,7 @@ class InviteLinkSerializer(drf_serializers.Serializer):
     used_at = drf_serializers.DateTimeField(read_only=True, allow_null=True)
     revoked_at = drf_serializers.DateTimeField(read_only=True, allow_null=True)
     created_at = drf_serializers.DateTimeField(read_only=True)
+    use_count = drf_serializers.IntegerField(read_only=True)
     status = drf_serializers.SerializerMethodField()
     created_by_username = drf_serializers.SerializerMethodField()
 
@@ -402,7 +403,7 @@ class AdminInviteLinkRevokeView(APIView):
 
     def delete(self, request, pk):
         try:
-            link = InviteLink.objects.get(pk=pk)
+            link = InviteLink.objects.select_related("created_by").get(pk=pk)
         except InviteLink.DoesNotExist:
             return Response({"detail": "Invite link not found."}, status=status.HTTP_404_NOT_FOUND)
 

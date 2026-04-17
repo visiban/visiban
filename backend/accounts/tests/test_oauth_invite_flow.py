@@ -118,11 +118,38 @@ class ConsumeInviteTokenTests(TestCase):
         link.refresh_from_db()
         self.assertIsNotNone(link.used_at)
 
-    def test_multi_use_is_noop(self):
+    def test_single_use_increments_use_count(self):
+        link, raw = create_invite(self.creator, single_use=True)
+        self.assertEqual(link.use_count, 0)
+        consume_invite_token(link)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 1)
+
+    def test_multi_use_does_not_set_used_at(self):
         link, raw = create_invite(self.creator, single_use=False)
         consume_invite_token(link)
         link.refresh_from_db()
         self.assertIsNone(link.used_at)
+
+    def test_multi_use_increments_use_count_each_call(self):
+        # Audit visibility: every successful consumption of a multi-use link
+        # must bump the counter so operators can see how widely a leaked
+        # link was used before revocation.
+        link, raw = create_invite(self.creator, single_use=False)
+        consume_invite_token(link)
+        consume_invite_token(link)
+        consume_invite_token(link)
+        link.refresh_from_db()
+        self.assertEqual(link.use_count, 3)
+        self.assertIsNone(link.used_at)
+
+    def test_consume_refreshes_in_memory_instance(self):
+        # The caller's `link` reference must reflect the new values so subsequent
+        # reads (e.g. in the same request lifecycle) see the incremented counter
+        # instead of a stale 0.
+        link, raw = create_invite(self.creator, single_use=False)
+        consume_invite_token(link)
+        self.assertEqual(link.use_count, 1)
 
 
 # ---------------------------------------------------------------------------
