@@ -265,6 +265,10 @@ REST_FRAMEWORK = {
         # Email verification: HMAC keys are not brute-forceable; scope exists for
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",
+        # Email-confirm SPA redirect: no token validation happens at this endpoint,
+        # so the ceiling is generous — the limit exists to prevent log flooding and
+        # cache-layer exhaustion, not token enumeration (#754).
+        "email_confirm_redirect": "9999/hour" if DEBUG else "60/hour",
     },
 }
 

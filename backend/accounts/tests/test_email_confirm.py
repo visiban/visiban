@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 from django.test import Client, TestCase, RequestFactory, override_settings
 
 from accounts.adapter import RegistrationAdapter
-from accounts.views import EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.views import EmailConfirmRedirectThrottle, EmailConfirmRedirectView, VerifyEmailThrottle
 
 
 # ---------------------------------------------------------------------------
@@ -227,4 +227,39 @@ class VerifyEmailThrottleScopeTests(TestCase):
             throttle_classes,
             "VerifyEmailThrottle must be listed in the throttle_classes kwarg "
             "on the VerifyEmailView registered in urls.py.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# EmailConfirmRedirectThrottle — scope wiring
+# ---------------------------------------------------------------------------
+
+class EmailConfirmRedirectThrottleScopeTests(TestCase):
+    """EmailConfirmRedirectThrottle must declare the correct scope, the scope
+    must exist in DEFAULT_THROTTLE_RATES, and the view class must list the
+    throttle so DRF applies it on every request (#754)."""
+
+    def test_throttle_scope_is_email_confirm_redirect(self):
+        self.assertEqual(EmailConfirmRedirectThrottle.scope, "email_confirm_redirect")
+
+    def test_email_confirm_redirect_scope_exists_in_settings(self):
+        from django.conf import settings
+        rates = settings.REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})
+        self.assertIn(
+            "email_confirm_redirect",
+            rates,
+            "email_confirm_redirect must have an entry in DEFAULT_THROTTLE_RATES "
+            "so operators can tune it without a code change.",
+        )
+
+    def test_view_declares_throttle_class(self):
+        """The throttle must be on the view class so DRF's dispatch pipeline
+        invokes it. A plain Django View has no throttle pipeline — the whole
+        point of the #754 fix is that this view is now an APIView."""
+        self.assertIn(
+            EmailConfirmRedirectThrottle,
+            EmailConfirmRedirectView.throttle_classes,
+            "EmailConfirmRedirectView.throttle_classes must include "
+            "EmailConfirmRedirectThrottle; without it the redirect endpoint "
+            "is unthrottled (the original #754 vulnerability).",
         )

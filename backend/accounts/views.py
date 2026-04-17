@@ -9,7 +9,6 @@ from django.db.models import Q
 from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from django.views import View
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -67,6 +66,19 @@ class VerifyEmailThrottle(AnonRateThrottle):
     """
 
     scope = "verify_email"
+
+
+class EmailConfirmRedirectThrottle(AnonRateThrottle):
+    """Rate limit for the email-confirm redirect endpoint.
+
+    The view only issues a 302 redirect (no token validation or DB access),
+    so the practical risk is log flooding and cache-layer exhaustion rather
+    than token enumeration. Ceiling is set a notch above `verify_email`
+    because a user following a stale link may hit the redirect path multiple
+    times while figuring out the flow.
+    """
+
+    scope = "email_confirm_redirect"
 
 
 class UserSearchView(APIView):
@@ -408,14 +420,22 @@ class InviteRegisterView(RegisterView):
         return response
 
 
-class EmailConfirmRedirectView(View):
+class EmailConfirmRedirectView(APIView):
     """Safety-net for browsers that hit the backend confirm-email URL directly.
 
     The confirmation link in outgoing emails now points to the frontend SPA
     (via RegistrationAdapter.get_email_confirmation_url). This view handles
     old/stale links (e.g. emails sent before the fix) or direct navigation by
     redirecting the browser to the SPA route, which calls POST /verify-email/.
+
+    Implemented as an APIView so DRF's throttle pipeline applies — a plain
+    Django View bypasses DEFAULT_THROTTLE_CLASSES and leaves the path
+    unthrottled (#754).
     """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [EmailConfirmRedirectThrottle]
 
     # allauth HMAC keys are URL-safe base64 with a colon-separated timestamp
     # suffix (e.g. "Mg:1uABcd-..."). Reject anything that doesn't match before
