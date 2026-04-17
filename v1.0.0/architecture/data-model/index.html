@@ -2703,7 +2703,8 @@
 <a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a> ├── expires_at (datetime, nullable — null = never expires)
 <a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a> ├── single_use (bool)
 <a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a> ├── used_at (datetime, nullable)
-<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a> └── revoked_at (datetime, nullable)
+<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a> ├── revoked_at (datetime, nullable)
+<a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a> └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
 </code></pre></div>
 <h2 id="entity-details">Entity details<a class="headerlink" href="#entity-details" title="Permanent link">&para;</a></h2>
 <h3 id="user">User<a class="headerlink" href="#user" title="Permanent link">&para;</a></h3>
