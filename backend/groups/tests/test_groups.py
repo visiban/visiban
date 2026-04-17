@@ -387,6 +387,71 @@ class GroupBoardsTests(TestCase):
         self.assertIn("Explicit", board_names)
         self.assertIn("Implicit", board_names)
 
+    def test_create_board_rolls_back_on_mid_sequence_failure(self):
+        """If any step in the creation sequence raises, the whole transaction
+        must roll back — no orphan Board, BoardMembership, or Column rows,
+        and no board.created event broadcast.
+
+        Regression test for #723: prior to wrapping the sequence in
+        transaction.atomic(), a Swimlane create failure left a partially
+        constructed board in the database.
+        """
+        from unittest.mock import patch
+        from boards.models import Board, BoardMembership, Column, Swimlane
+
+        boards_before = Board.objects.filter(group=self.group).count()
+
+        # captureOnCommitCallbacks records any on_commit callbacks registered
+        # during the block; with execute=True they run when the enclosing
+        # transaction would commit. Because the inner atomic rolls back here,
+        # the captured list must be empty — no broadcast for a board that
+        # never made it into the database.
+        with patch(
+            "boards.models.Swimlane.objects.create",
+            side_effect=RuntimeError("boom"),
+        ), patch("boards.broadcast.broadcast_board_event") as broadcast_mock, \
+                self.captureOnCommitCallbacks(execute=True) as callbacks:
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    f"/api/v1/groups/{self.group.id}/boards/",
+                    {"name": "Will Fail"},
+                )
+
+        self.assertEqual(Board.objects.filter(group=self.group).count(), boards_before)
+        self.assertFalse(Board.objects.filter(name="Will Fail").exists())
+        self.assertFalse(BoardMembership.objects.filter(board__name="Will Fail").exists())
+        self.assertFalse(Column.objects.filter(board__name="Will Fail").exists())
+        self.assertFalse(Swimlane.objects.filter(board__name="Will Fail").exists())
+        self.assertEqual(callbacks, [])
+        broadcast_mock.assert_not_called()
+
+    def test_create_board_broadcasts_board_created(self):
+        """POST /api/v1/groups/{id}/boards/ must emit a `board.created` event on
+        commit so live group dashboards and sidebars refresh without a reload.
+
+        Matches the broadcast in BoardViewSet.perform_create so the event
+        contract is identical regardless of which endpoint created the board.
+        """
+        from unittest.mock import patch
+
+        with patch("boards.broadcast.broadcast_board_event") as broadcast_mock, \
+                self.captureOnCommitCallbacks(execute=True):
+            r = self.client.post(
+                f"/api/v1/groups/{self.group.id}/boards/",
+                {"name": "Broadcast Board"},
+            )
+
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        matching = [
+            call for call in broadcast_mock.call_args_list
+            if call.args[:2] == (board_id, "board.created")
+        ]
+        self.assertEqual(len(matching), 1, broadcast_mock.call_args_list)
+        payload = matching[0].args[2]
+        self.assertEqual(payload["id"], board_id)
+        self.assertEqual(payload["name"], "Broadcast Board")
+
 
 class GroupMemberSiteAdminTests(TestCase):
     def setUp(self):
