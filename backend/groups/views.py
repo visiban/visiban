@@ -408,50 +408,69 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_admin(request.user, group)
         serializer = BoardSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        board = serializer.save(owner=request.user, group=group)
-        # Create an explicit BoardMembership for the owner so they appear in the
-        # board's member list. BoardViewSet.perform_create() does this too; without
-        # it the owner relies on the implicit owner check in get_board_role(), but
-        # no membership row would exist, causing the member list to appear empty.
-        from boards.models import BoardMembership as _BM
-        _BM.objects.create(board=board, user=request.user, role=_BM.Role.ADMIN)
+        # Wrap the entire creation sequence in a transaction so a failure in any
+        # step (column bulk_create, swimlane create, label copy, allowed_priorities
+        # save) rolls back the board and membership — preventing orphaned rows.
+        # Mirrors BoardViewSet.perform_create() in boards/views/boards.py.
+        with transaction.atomic():
+            board = serializer.save(owner=request.user, group=group)
+            # Create an explicit BoardMembership for the owner so they appear in the
+            # board's member list. BoardViewSet.perform_create() does this too; without
+            # it the owner relies on the implicit owner check in get_board_role(), but
+            # no membership row would exist, causing the member list to appear empty.
+            from boards.models import BoardMembership as _BM
+            _BM.objects.create(board=board, user=request.user, role=_BM.Role.ADMIN)
 
-        from boards.templates import BOARD_TEMPLATES
-        template_key = (request.data.get("template") or "simple_kanban").strip()
-        template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
-        if template["columns"]:
-            Column.objects.bulk_create([
-                Column(board=board, name=col["name"], position=i, color=col["color"], allow_card_creation=(i == 0))
-                for i, col in enumerate(template["columns"])
-            ])
+            from boards.templates import BOARD_TEMPLATES
+            template_key = (request.data.get("template") or "simple_kanban").strip()
+            template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
+            if template["columns"]:
+                Column.objects.bulk_create([
+                    Column(board=board, name=col["name"], position=i, color=col["color"], allow_card_creation=(i == 0))
+                    for i, col in enumerate(template["columns"])
+                ])
 
-        swimlane_name = ((request.data.get("swimlane_name") or "").strip() or template.get("default_swimlane") or "General")[:255]
-        Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
+            swimlane_name = ((request.data.get("swimlane_name") or "").strip() or template.get("default_swimlane") or "General")[:255]
+            Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
-        # Apply group defaults: copy shared labels and allowed priorities
-        from boards.models import Label as BoardLabel
-        # list() evaluates the queryset once; .exists() + iteration would fire two queries.
-        group_labels = list(group.labels.all())
-        if group_labels:
-            BoardLabel.objects.bulk_create([
-                BoardLabel(board=board, name=gl.name, color=gl.color)
-                for gl in group_labels
-            ], ignore_conflicts=True)
+            # Apply group defaults: copy shared labels and allowed priorities
+            from boards.models import Label as BoardLabel
+            # list() evaluates the queryset once; .exists() + iteration would fire two queries.
+            group_labels = list(group.labels.all())
+            if group_labels:
+                BoardLabel.objects.bulk_create([
+                    BoardLabel(board=board, name=gl.name, color=gl.color)
+                    for gl in group_labels
+                ], ignore_conflicts=True)
 
-        allowed = group.get_allowed_priorities()
-        if allowed != ["low", "medium", "high", "urgent"]:
-            board.allowed_priorities = allowed
-            board.save(update_fields=["allowed_priorities"])
+            allowed = group.get_allowed_priorities()
+            if allowed != ["low", "medium", "high", "urgent"]:
+                board.allowed_priorities = allowed
+                board.save(update_fields=["allowed_priorities"])
 
-        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
-        # is_starred reads from annotation fast-paths instead of issuing 3 fallback queries.
-        from django.db.models import Q as _Q
-        from boards.models import BoardFavorite as _BoardFavorite
-        board = Board.objects.select_related("owner", "group").annotate(
-            _member_count=Count("memberships", distinct=True),
-            _card_count=Count("cards", filter=_Q(cards__archived_at__isnull=True), distinct=True),
-            _is_starred=Exists(_BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
-        ).get(pk=board.pk)
+            # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+            # is_starred reads from annotation fast-paths instead of issuing 3 fallback queries
+            # — both for the broadcast payload below and for the response.
+            from django.db.models import Q as _Q
+            from boards.models import BoardFavorite as _BoardFavorite
+            board = Board.objects.select_related("owner", "group").annotate(
+                _member_count=Count("memberships", distinct=True),
+                _card_count=Count("cards", filter=_Q(cards__archived_at__isnull=True), distinct=True),
+                _is_starred=Exists(_BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+            ).get(pk=board.pk)
+
+            # Broadcast board.created so live sessions (group dashboards, sidebars)
+            # can refresh their board list without a manual reload. Mirrors the
+            # broadcast in BoardViewSet.perform_create so the event contract is
+            # identical regardless of which endpoint created the board. Deferred
+            # with on_commit so subscribers never see a board that later rolls back.
+            from boards.broadcast import broadcast_board_event as _broadcast_board_event
+            _board_id = board.id
+            _board_event_payload = BoardSerializer(board, context={"request": request}).data
+            transaction.on_commit(
+                lambda bid=_board_id, bd=_board_event_payload: _broadcast_board_event(bid, "board.created", bd)
+            )
+
         return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------
