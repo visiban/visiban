@@ -31,8 +31,9 @@ import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
 import BoardExportModal from "./BoardExportModal";
 import { useExportSeenPref } from "../../hooks/useExportSeenPref";
-import FilterBar, { countActiveFilters } from "./FilterBar";
+import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
+import SavedFilterTabs from "./SavedFilterTabs";
 import KeyboardShortcutsOverlay from "./KeyboardShortcutsOverlay";
 import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
@@ -434,6 +435,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   } = useSavedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const filterBarFirstRef = useRef<HTMLButtonElement>(null);
+  // Tracks which saved filter preset is currently active. Cleared to null whenever the
+  // user edits any filter dimension manually — a manual edit means the preset no longer
+  // represents the live filter state.
+  const [activeFilterId, setActiveFilterId] = useState<number | null>(null);
+  // Forwarded to SavedFiltersDropdown so the "+ Save current" pill in SavedFilterTabs can
+  // programmatically open the dropdown's save flow without duplicating the save-form UI.
+  const savedFiltersDropdownTriggerRef = useRef<HTMLButtonElement>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -1048,19 +1056,60 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
-        <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2 flex-wrap">
-          <SavedFiltersDropdown
-            boardId={board.id}
-            filters={filters}
-            savedFilters={savedFilters}
-            loading={savedFiltersLoading}
-            onLoad={(sf) => setFilters(hydrateFilter(sf))}
-            onSave={(name) => saveFilter(name, filters)}
-            onDelete={removeFilter}
-            firstElementRef={(el) => { filterBarFirstRef.current = el; }}
-          />
-          <FilterBar board={board} filters={filters} onChange={setFilters} searchRef={searchRef} isSearching={isSearching} currentUser={currentUser} hiddenCount={hiddenCount} />
-        </div>
+        <>
+          {/* Preset tab pills — one-click load of saved filters, above the chip row */}
+          {savedFilters.length > 0 && (
+            <div className="px-3 pt-1.5 bg-slate-800 border-t border-slate-700 shrink-0">
+              <SavedFilterTabs
+                savedFilters={savedFilters}
+                activeFilterId={activeFilterId}
+                onLoad={(saved) => {
+                  setFilters(hydrateFilter(saved));
+                  setActiveFilterId(saved.id);
+                }}
+                onClearAll={() => {
+                  setFilters(EMPTY_FILTER);
+                  setActiveFilterId(null);
+                }}
+                onSaveCurrentClick={() => {
+                  // Delegate to the existing SavedFiltersDropdown save flow by clicking
+                  // its trigger button programmatically — avoids duplicating the save-form UI.
+                  savedFiltersDropdownTriggerRef.current?.click();
+                }}
+                hasActiveFilters={activeCount > 0}
+              />
+            </div>
+          )}
+          <div className="px-3 py-1.5 bg-slate-800 border-b border-slate-700 shrink-0 flex items-center gap-2 flex-wrap">
+            <SavedFiltersDropdown
+              boardId={board.id}
+              filters={filters}
+              savedFilters={savedFilters}
+              loading={savedFiltersLoading}
+              onLoad={(sf) => {
+                setFilters(hydrateFilter(sf));
+                setActiveFilterId(sf.id);
+              }}
+              onSave={(name) => saveFilter(name, filters)}
+              onDelete={removeFilter}
+              firstElementRef={(el) => { filterBarFirstRef.current = el; }}
+              externalTriggerRef={(el) => { (savedFiltersDropdownTriggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = el; }}
+            />
+            <FilterBar
+              board={board}
+              filters={filters}
+              onChange={(next) => {
+                // Any manual edit means the active preset no longer matches live state.
+                setActiveFilterId(null);
+                setFilters(next);
+              }}
+              searchRef={searchRef}
+              isSearching={isSearching}
+              currentUser={currentUser}
+              hiddenCount={hiddenCount}
+            />
+          </div>
+        </>
       )}
       {filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div className="mx-4 mt-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 text-sm">
