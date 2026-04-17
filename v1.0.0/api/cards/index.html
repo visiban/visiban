@@ -1803,6 +1803,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Timeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsboard_idcardsidtimeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{board_id}/cards/{id}/timeline/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#comments" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3080,6 +3108,190 @@
 <h3 id="get-apiv1boardsboard_idcardsidactivities"><code>GET /api/v1/boards/{board_id}/cards/{id}/activities/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidactivities" title="Permanent link">&para;</a></h3>
 <p>Activity log (field changes, comments, attachments, checklist events).</p>
 <hr />
+<h2 id="timeline">Timeline<a class="headerlink" href="#timeline" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1boardsboard_idcardsidtimeline"><code>GET /api/v1/boards/{board_id}/cards/{id}/timeline/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidtimeline" title="Permanent link">&para;</a></h3>
+<p>Unified, paginated timeline that merges card movements and field-change activities into a single chronological feed, sorted newest-first. <strong>Minimum role: any board member (viewer and above).</strong></p>
+<p>Use this endpoint when you need a single list combining moves, comments, field edits, checklist events, attachments, and system events — rather than fetching <code>movements/</code> and <code>activities/</code> separately and merging client-side.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit</code></td>
+<td>integer</td>
+<td><code>50</code></td>
+<td>Page size. Capped at <code>200</code>.</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>integer</td>
+<td><code>0</code></td>
+<td>Zero-based page offset.</td>
+</tr>
+<tr>
+<td><code>event_types</code></td>
+<td>string</td>
+<td><em>(all)</em></td>
+<td>Comma-separated filter groups. Valid values: <code>move</code>, <code>comment</code>, <code>field</code>, <code>checklist</code>, <code>attachment</code>, <code>system</code>. Omit to include all event types.</td>
+</tr>
+</tbody>
+</table>
+<p><code>event_types</code> group mapping:</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Included <code>event_type</code> values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>move</code></td>
+<td>All <code>CardMovement</code> records</td>
+</tr>
+<tr>
+<td><code>comment</code></td>
+<td><code>comment_added</code></td>
+</tr>
+<tr>
+<td><code>field</code></td>
+<td><code>priority_change</code>, <code>weight_change</code>, <code>assignee_change</code>, <code>label_change</code>, <code>title_change</code>, <code>description_change</code>, <code>due_date_change</code></td>
+</tr>
+<tr>
+<td><code>checklist</code></td>
+<td><code>checklist_item_added</code>, <code>checklist_item_checked</code>, <code>checklist_item_unchecked</code>, <code>checklist_item_deleted</code></td>
+</tr>
+<tr>
+<td><code>attachment</code></td>
+<td><code>attachment_added</code>, <code>attachment_deleted</code></td>
+</tr>
+<tr>
+<td><code>system</code></td>
+<td><code>archived</code>, <code>reactivated</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">84</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;next&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-instance.example.com/api/v1/boards/1/cards/42/timeline/?limit=50&amp;offset=50&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">&quot;previous&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;move&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-10T14:22:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">        </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">        </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice Smith&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">        </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">      </span><span class="p">},</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">      </span><span class="nt">&quot;event_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;move&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">      </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">317</span><span class="p">,</span>
+<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">        </span><span class="nt">&quot;from_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">        </span><span class="nt">&quot;from_column_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;In Progress&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="w">        </span><span class="nt">&quot;to_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="w">        </span><span class="nt">&quot;to_column_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Done&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">        </span><span class="nt">&quot;from_swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">        </span><span class="nt">&quot;from_swimlane_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="w">        </span><span class="nt">&quot;to_swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="w">        </span><span class="nt">&quot;to_swimlane_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="w">        </span><span class="nt">&quot;moved_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-10T14:22:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="w">        </span><span class="nt">&quot;movement_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;move&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a><span class="w">        </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">204</span><span class="p">,</span>
+<a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a><span class="w">      </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;activity&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a><span class="w">      </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-09T10:05:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a><span class="w">      </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a><span class="w">        </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span><span class="p">,</span>
+<a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a><span class="w">        </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bob&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a><span class="w">        </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bob Jones&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a><span class="w">        </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a><span class="w">      </span><span class="p">},</span>
+<a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a><span class="w">      </span><span class="nt">&quot;event_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;priority_change&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a><span class="w">      </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a><span class="w">        </span><span class="nt">&quot;event_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;priority_change&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a><span class="w">        </span><span class="nt">&quot;from_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;medium&quot;</span><span class="p">,</span>
+<a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a><span class="w">        </span><span class="nt">&quot;to_value&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span>
+<a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a><span class="w">      </span><span class="p">}</span>
+<a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong><code>CardTimelineEntry</code> fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Primary key of the underlying <code>CardMovement</code> or <code>CardActivity</code> record</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td>string</td>
+<td><code>"move"</code> for movement records; <code>"activity"</code> for field-change or system activity records</td>
+</tr>
+<tr>
+<td><code>ts</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp — <code>moved_at</code> for movements, <code>created_at</code> for activities</td>
+</tr>
+<tr>
+<td><code>actor</code></td>
+<td>object / null</td>
+<td>User who triggered the event — <code>{ id, username, display_name, avatar_url }</code>. <code>null</code> for system-generated events</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td>string</td>
+<td>Concrete event type (see group mapping table above). For <code>kind: "move"</code> entries this is the <code>movement_type</code> value (e.g. <code>"move"</code>, <code>"archived"</code>, <code>"unarchived"</code>)</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>object</td>
+<td>Raw fields from the underlying record. Shape differs by <code>kind</code> — see examples above. <code>move</code> entries include column/swimlane FK IDs, names, timestamp, type, and notes. <code>activity</code> entries include <code>event_type</code>, <code>from_value</code>, and <code>to_value</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>Requesting user is not a board member</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>Card does not exist or does not belong to this board</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h2 id="comments">Comments<a class="headerlink" href="#comments" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsboard_idcardsidcomments"><code>GET /api/v1/boards/{board_id}/cards/{id}/comments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidcomments" title="Permanent link">&para;</a></h3>
 <p>List comments. Requires board member or above.</p>
@@ -3093,8 +3305,8 @@
 <h3 id="get-apiv1boardsboard_idcardsidattachments"><code>GET /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
 <p>List attachments. Response fields per attachment: <code>id</code>, <code>filename</code>, <code>size</code> (bytes), <code>url</code> (relative URL), <code>uploaded_by</code> (user object), <code>uploaded_at</code>.</p>
 <p>To download an attachment file, fetch its <code>url</code> URL with the same <code>Authorization</code> header used for API requests — attachments are served via the authenticated <code>/media/&lt;path&gt;</code> route. Unauthenticated requests and requests from users without board membership return <code>403 Forbidden</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>-J<span class="w"> </span>http://localhost:8000/media/attachments/abc123.pdf<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>-J<span class="w"> </span>http://localhost:8000/media/attachments/abc123.pdf<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b&quot;</span>
 </code></pre></div>
 <h3 id="post-apiv1boardsboard_idcardsidattachments"><code>POST /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#post-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
 <p>Upload an attachment (<code>multipart/form-data</code>, field name <code>file</code>). Max size: 10 MB. <strong>Minimum role: Collaborator.</strong></p>
@@ -3131,10 +3343,10 @@
 </tbody>
 </table>
 <p><strong>Error response (unsupported type)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;detail&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;File type &#39;application/x-executable&#39; is not allowed. Accepted types: images (JPEG, PNG, GIF, WebP), PDF, Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP.&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;detail&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;File type &#39;application/x-executable&#39; is not allowed. Accepted types: images (JPEG, PNG, GIF, WebP), PDF, Office documents (DOCX, XLSX, PPTX), plain text, CSV, ZIP.&quot;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Error response (magic-byte mismatch)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;detail&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented.&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;detail&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;File content does not match a recognized safe format. The file may be corrupt or its type may have been misrepresented.&quot;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="delete-apiv1boardsboard_idcardsidattachmentsattachment_id"><code>DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/</code><a class="headerlink" href="#delete-apiv1boardsboard_idcardsidattachmentsattachment_id" title="Permanent link">&para;</a></h3>
 <p>Delete an attachment. <strong>Minimum role: Collaborator.</strong> Collaborators and members may only delete their own attachments. Members/collaborators with the <code>is_moderator</code> entitlement may delete any attachment.</p>
