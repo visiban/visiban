@@ -16,6 +16,12 @@ interface Props {
   onDelete: (filterId: number) => void;
   /** When provided, called with the trigger button element so the parent can focus it programmatically. */
   firstElementRef?: React.RefCallback<HTMLButtonElement>;
+  /**
+   * When provided, called with the trigger button element so the parent can
+   * programmatically click it (e.g. to open the dropdown from the "+ Save current"
+   * pill in SavedFilterTabs without duplicating the save-form UI).
+   */
+  externalTriggerRef?: React.RefCallback<HTMLButtonElement>;
 }
 
 /**
@@ -35,6 +41,7 @@ export default function SavedFiltersDropdown({
   onSave,
   onDelete,
   firstElementRef,
+  externalTriggerRef,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [saveMode, setSaveMode] = useState(false);
@@ -114,8 +121,10 @@ export default function SavedFiltersDropdown({
       <button
         ref={(el) => {
           (triggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = el;
-          // firstElementRef is a callback ref so the parent can focus the trigger programmatically
+          // firstElementRef lets the parent focus the trigger programmatically (filter bar keyboard nav)
           if (firstElementRef && el) firstElementRef(el);
+          // externalTriggerRef lets SavedFilterTabs' "+ Save current" open the dropdown via .click()
+          if (externalTriggerRef && el) externalTriggerRef(el);
         }}
         onClick={handleToggle}
         title="Saved filters"
