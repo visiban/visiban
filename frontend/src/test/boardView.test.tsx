@@ -56,6 +56,8 @@ vi.mock('react-router-dom', () => ({
     }
     return [params, setter] as const
   },
+  useNavigate: () => vi.fn(),
+  MemoryRouter: ({ children }: { children: React.ReactNode }) => children,
 }))
 
 vi.mock('../hooks/useBoardSocket', () => ({

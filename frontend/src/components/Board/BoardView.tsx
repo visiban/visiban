@@ -48,6 +48,7 @@ import SectionErrorBoundary from "../SectionErrorBoundary";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
+import CommandPalette from "../Common/CommandPalette";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -387,7 +388,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         : null,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; searchParams and persistedFilters are stable on first render
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const [filters, setFiltersState] = useState(initialFilters);
 
@@ -436,6 +437,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
@@ -1392,6 +1394,29 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+
+      <CommandPalette
+        open={paletteOpen}
+        boardCards={board.cards}
+        columns={board.columns}
+        isAdmin={isAdmin}
+        onClose={() => setPaletteOpen(false)}
+        onOpenCard={(card) => { clearSelection(); setSelectedCard(card); }}
+        onAction={(id) => {
+          if (id === "my-cards") {
+            if (currentUser) {
+              setFilters({ ...filters, assigneeIds: [currentUser.id] });
+              setShowFilters(true);
+            }
+          } else if (id === "shortcuts") {
+            setShowShortcuts(true);
+          } else if (id === "history") {
+            setView("history");
+          } else if (id === "settings") {
+            setShowSettings(true);
+          }
+        }}
+      />
 
       {showExport && (
         <BoardExportModal
