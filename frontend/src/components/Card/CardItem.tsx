@@ -1,10 +1,12 @@
-import { useState, memo } from "react";
+import { useState, useRef, useCallback, useEffect, memo } from "react";
+import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
 import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingTint, idleDays } from "../../utils/agingTint";
+import CardPeekPopover from "./CardPeekPopover";
 
 
 
@@ -91,6 +93,63 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // cloneElement and would clobber ref={setNodeRef} from useDraggable).
   const [showTooltip, setShowTooltip] = useState(false);
 
+  // --- Card peek state ---
+  // Internal peek state — no prop changes needed, so arePropsEqual doesn't need updating.
+  const [peekVisible, setPeekVisible] = useState(false);
+  // Captured DOMRect of the card element at hover-start time, stored as state so
+  // the popover re-renders at the correct position even if the card scrolls.
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  // Ref to the card's outer div so we can capture its bounding rect on hover.
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Ref to the peek timer so we can clear it on mouseleave / drag start.
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Combine dnd-kit's setNodeRef with our own cardRef using a stable callback ref.
+  // setNodeRef is stable for the lifetime of the draggable hook instance.
+  const compositeRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      setNodeRef(el);
+      (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    },
+    [setNodeRef],
+  );
+
+  const handleMouseEnter = () => {
+    setHovered(true);
+    setShowTooltip(true);
+    // Disabled when: readOnly, overlay prop set. isDragging is checked in the timer callback.
+    if (readOnly || overlay) return;
+    peekTimer.current = setTimeout(() => {
+      // Bail out if dragging started while we were waiting.
+      if (cardRef.current) {
+        setAnchorRect(cardRef.current.getBoundingClientRect());
+        setPeekVisible(true);
+      }
+    }, 600);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(false);
+    setShowTooltip(false);
+    if (peekTimer.current !== null) {
+      clearTimeout(peekTimer.current);
+      peekTimer.current = null;
+    }
+    setPeekVisible(false);
+  };
+
+  // When dragging starts, clear the timer and hide peek immediately.
+  // Using useEffect so we never call setState during render.
+  useEffect(() => {
+    if (isDragging) {
+      if (peekTimer.current !== null) {
+        clearTimeout(peekTimer.current);
+        peekTimer.current = null;
+      }
+      setPeekVisible(false);
+    }
+  }, [isDragging]);
+
   // 24h is intentional here — it represents "moved in the current working session",
   // not the board's staleness threshold. The two concepts are independent:
   // staleness_threshold_days flags cards that need attention; the 24h window
@@ -135,6 +194,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     (!hidePriority && card.priority !== "low");
 
   return (
+    <>
     <div className="relative">
       {/* Sibling tooltip — rendered as an absolutely-positioned overlay so we
           never need to wrap the card root div in cloneElement-based <Tooltip>,
@@ -148,7 +208,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         </div>
       )}
     <div
-      ref={setNodeRef}
+      ref={compositeRef}
       {...attributes}
       {...listeners}
       onClick={readOnly ? undefined : onClick}
@@ -161,8 +221,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
         ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
       `}
-      onMouseEnter={() => { setHovered(true); setShowTooltip(true); }}
-      onMouseLeave={() => { setHovered(false); setShowTooltip(false); }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       style={{
         borderColor: priorityColor,
         boxShadow: isDragging && !overlay
@@ -300,6 +360,16 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       </div>
     </div>
     </div>
+    {peekVisible && anchorRect && !isDragging && createPortal(
+      <CardPeekPopover
+        card={card}
+        anchorRect={anchorRect}
+        onMouseEnter={() => setPeekVisible(true)}
+        onMouseLeave={() => setPeekVisible(false)}
+      />,
+      document.body,
+    )}
+    </>
   );
 }, arePropsEqual);
 
