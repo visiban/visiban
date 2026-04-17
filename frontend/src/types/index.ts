@@ -399,6 +399,7 @@ export interface SavedFilter {
   id: number;
   name: string;
   state_json: Record<string, unknown>;
+  state_version: number;
   created_at: string;
 }
 

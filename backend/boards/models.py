@@ -527,9 +527,17 @@ class SavedFilter(models.Model):
     designed properly (see #343 follow-up).
 
     ``state_json`` stores the serialized FilterState object from the frontend:
-    {search, assigneeIds, labelIds, priorities, dueDate}. The schema is
-    intentionally unvalidated at the model layer — changes to the filter shape
-    are backward-compatible additions and the frontend validates on load.
+    {search, assigneeIds, labelIds, priorities, dueDate}. Shape validation
+    lives in the serializer so malformed payloads (including from future
+    board-import flows) never reach the database. The frontend also
+    normalizes defensively on load via ``hydrateFilter`` in useSavedFilters.
+
+    ``state_version`` is a monotonically increasing integer stamped on
+    every write. It exists so that when the ``state_json`` shape eventually
+    changes in a non-additive way (e.g. ``assigneeIds: number[]`` → UID
+    strings), the frontend can dispatch to a version-specific migrator. No
+    registry exists yet — we will not cargo-cult one until there is a real
+    v2 (#698). Existing rows backfill to ``1`` via the column default.
 
     All columns are nullable or have defaults so this migration is zero-downtime.
     """
@@ -548,6 +556,10 @@ class SavedFilter(models.Model):
     state_json = models.JSONField(
         default=dict,
         help_text="Serialized FilterState: {search, assigneeIds, labelIds, priorities, dueDate}.",
+    )
+    state_version = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Schema version for state_json. Bump when the shape changes in a non-additive way.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

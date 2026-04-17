@@ -9,6 +9,7 @@ function makeSavedFilter(id: number, name: string): SavedFilter {
     id,
     name,
     state_json: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
+    state_version: 1,
     created_at: '2026-03-25T10:00:00Z',
   }
 }
