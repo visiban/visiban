@@ -1,7 +1,7 @@
 # Board & Cards
 
-!!! note "Desktop only in 1.0"
-    The board view is designed for desktop browsers (1024 px and wider). Mobile viewports are not supported in this release — drag-and-drop, column resizing, and swimlane resizing require a pointer device. A mobile-optimised layout is planned for a future release.
+!!! note "Desktop only"
+    The board view is designed for desktop browsers (1024 px and wider). Below that width, the authenticated app shows a desktop-only notice rather than a degraded layout — drag-and-drop, column resizing, and swimlane resizing require a pointer device and horizontal space that phones and portrait tablets can't provide. A mobile-optimized layout is planned for a future release.
 
 ## Board creation
 

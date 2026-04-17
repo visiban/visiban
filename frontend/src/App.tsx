@@ -8,6 +8,7 @@ import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal
 import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
+import ViewportGate from "./components/Layout/ViewportGate";
 import BoardView from "./components/Board/BoardView";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import Dashboard from "./pages/Dashboard";
@@ -108,12 +109,14 @@ export default function App() {
       {user ? (
         <>
           <Route path="/*" element={
-            <div className="flex h-screen overflow-hidden">
-              <AppSidebar user={user} starVersion={starVersion} />
-              <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+            <ViewportGate>
+              <div className="flex h-screen overflow-hidden">
+                <AppSidebar user={user} starVersion={starVersion} />
+                <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                  <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+                </div>
               </div>
-            </div>
+            </ViewportGate>
           } />
         </>
       ) : (
