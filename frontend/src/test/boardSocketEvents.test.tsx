@@ -56,6 +56,7 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useNavigate: () => vi.fn(),
 }))
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
