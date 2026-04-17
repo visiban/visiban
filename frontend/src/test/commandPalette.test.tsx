@@ -48,7 +48,8 @@ const makeColumn = (id: number, name: string): Column => ({
   wip_limit: null,
   weight_limit: null,
   color: "#3b82f6",
-  board: 99,
+  allow_card_creation: true,
+  is_done: false,
 });
 
 const defaultProps = {

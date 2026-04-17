@@ -48,6 +48,7 @@ import SectionErrorBoundary from "../SectionErrorBoundary";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
+import CommandPalette from "../Common/CommandPalette";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -436,6 +437,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
