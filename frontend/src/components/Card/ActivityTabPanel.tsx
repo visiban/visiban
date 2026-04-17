@@ -3,7 +3,7 @@ import { getCardTimeline } from "../../api/cards";
 import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
 import { formatRelativeTime, formatDateStr } from "../../utils/date";
-import CheckboxDropdown from "../Common/CheckboxDropdown";
+import ActivityFilterDropdown from "./ActivityFilterDropdown";
 
 interface ActivityTabPanelProps {
   boardId: number;
@@ -226,7 +226,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
             ? "Loading…"
             : `${totalCount} event${totalCount !== 1 ? "s" : ""}`}
         </span>
-        <CheckboxDropdown
+        <ActivityFilterDropdown
           label="Filter"
           options={EVENT_TYPE_OPTIONS as unknown as { value: string; label: string; color: string }[]}
           selected={selectedTypes}
