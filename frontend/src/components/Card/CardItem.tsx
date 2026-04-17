@@ -4,6 +4,7 @@ import type { Card } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
+import { agingTint, idleDays } from "../../utils/agingTint";
 
 
 
@@ -25,6 +26,8 @@ interface Props {
   readOnly?: boolean;
   /** When true, renders a compact single-line card with reduced padding and fewer metadata fields. */
   compact?: boolean;
+  staleness_threshold_days?: number;
+  stale_warning_pct?: number;
 }
 
 // Custom comparator for React.memo — avoids re-renders when the card object
@@ -71,16 +74,22 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.userTimezone === next.userTimezone &&
     prev.userDateFormat === next.userDateFormat &&
     prev.readOnly === next.readOnly &&
-    prev.compact === next.compact
+    prev.compact === next.compact &&
+    prev.staleness_threshold_days === next.staleness_threshold_days &&
+    prev.stale_warning_pct === next.stale_warning_pct
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50 }: Props) {
   // useDraggable must be called unconditionally (hook rules). When readOnly,
   // we do not attach its ref or event listeners so the card is non-draggable.
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
   const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
+  // Tracks tooltip visibility for the aging indicator. We manage this with
+  // local state rather than wrapping the card in <Tooltip> (which uses
+  // cloneElement and would clobber ref={setNodeRef} from useDraggable).
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // 24h is intentional here — it represents "moved in the current working session",
   // not the board's staleness threshold. The two concepts are independent:
@@ -89,6 +98,22 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const isRecent = card.last_moved_at
     ? Date.now() - new Date(card.last_moved_at).getTime() < 86_400_000
     : false;
+
+  const { overlayClass, bodyOpacityClass } = agingTint(card.last_moved_at, staleness_threshold_days, stale_warning_pct);
+
+  // Compute tooltip content for aging indicator
+  const days = idleDays(card.last_moved_at);
+  const threshDays = Math.max(1, staleness_threshold_days);
+  const warnDays = Math.round(threshDays * (1 - stale_warning_pct / 100));
+  const agingRatio = card.last_moved_at
+    ? Math.min(1, (Date.now() - new Date(card.last_moved_at).getTime()) / (threshDays * 86_400_000))
+    : 0;
+  const isAgingStale = agingRatio >= 1.0;
+  const agingTooltip = overlayClass !== null
+    ? isAgingStale
+      ? `Stale — idle for ${days} day${days === 1 ? "" : "s"} (threshold: ${threshDays} day${threshDays === 1 ? "" : "s"})`
+      : `Idle for ${days} day${days === 1 ? "" : "s"} — warning at ${warnDays} day${warnDays === 1 ? "" : "s"}, threshold is ${threshDays} day${threshDays === 1 ? "" : "s"}`
+    : null;
 
   const dueInfo = card.due_date ? formatDueDate(card.due_date, userTimezone, userDateFormat) : null;
   // Show a text label for cards moved ≥24h ago; the blue dot (isRecent) handles the <24h case.
@@ -105,12 +130,23 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     dueInfo ||
     card.assignee ||
     card.weight > 1 ||
-    card.is_stale ||
     isRecent ||
     !!movedLabel ||
     (!hidePriority && card.priority !== "low");
 
   return (
+    <div className="relative">
+      {/* Sibling tooltip — rendered as an absolutely-positioned overlay so we
+          never need to wrap the card root div in cloneElement-based <Tooltip>,
+          which would clobber ref={setNodeRef} from useDraggable. */}
+      {overlayClass && showTooltip && agingTooltip && (
+        <div
+          role="tooltip"
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap pointer-events-none"
+        >
+          {agingTooltip}
+        </div>
+      )}
     <div
       ref={setNodeRef}
       {...attributes}
@@ -123,10 +159,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : card.is_stale ? "ring-1 ring-inset ring-amber-400" : ""}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
       `}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); setShowTooltip(true); }}
+      onMouseLeave={() => { setHovered(false); setShowTooltip(false); }}
       style={{
         borderColor: priorityColor,
         boxShadow: isDragging && !overlay
@@ -138,6 +174,9 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           : "0 2px 0 rgba(0,0,0,0.45), 0 1px 6px rgba(0,0,0,0.25)",
       }}
     >
+      {overlayClass && (
+        <div className={overlayClass} aria-hidden="true" />
+      )}
       {onSelect && (
         <div
           role="checkbox"
@@ -158,14 +197,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           )}
         </div>
       )}
-      <div className={`px-2.5 ${compact ? "py-1.5" : "py-2"}`}>
+      <div className={`px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
         <p className={`leading-snug ${compact ? "text-xs text-slate-200 line-clamp-1" : "text-sm text-slate-200 line-clamp-2"}`}>{card.title}</p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
 
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
-            {/* In compact mode only show: stale indicator, recently moved dot, priority badge (medium+), assignee */}
+            {/* In compact mode only show: recently moved dot, priority badge (medium+), assignee */}
             {!compact && (
               <>
                 {/* Description indicator */}
@@ -231,13 +270,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
               </>
             )}
 
-            {/* Stale indicator — shown in both modes */}
-            {card.is_stale && (
-              <span title="Stale — no movement recently" className="text-amber-400 text-[10px] leading-none shrink-0">⏱</span>
-            )}
-
-            {/* Recently moved dot — shown in both modes (<24h, not stale) */}
-            {isRecent && !card.is_stale && (
+            {/* Recently moved dot — shown in both modes (<24h) */}
+            {isRecent && (
               <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Recently moved" />
             )}
 
@@ -264,6 +298,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }, arePropsEqual);

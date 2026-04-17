@@ -103,13 +103,15 @@ describe('ShareBoardPage — valid token', () => {
     expect(screen.queryByLabelText('Stale')).not.toBeInTheDocument()
   })
 
-  it('shows stale indicator when is_stale is true', async () => {
+  it('does not show stale indicator even when is_stale is true (removed from share page)', async () => {
+    // The amber dot was removed from the share page per spec — aging tint is board-view-only.
     mockGetPublicBoard.mockResolvedValue({
       ...fakeBoard,
       cards: [{ ...fakeBoard.cards[0], is_stale: true }],
     })
     renderSharePage()
-    await waitFor(() => expect(screen.getByLabelText('Stale')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Fix login bug')).toBeInTheDocument())
+    expect(screen.queryByLabelText('Stale')).not.toBeInTheDocument()
   })
 })
 

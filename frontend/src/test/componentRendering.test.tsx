@@ -96,7 +96,8 @@ describe('CardItem', () => {
 
   it('applies a full border color matching the priority', () => {
     const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     // urgent = #B91C1C (red-700, darker than high's red-500)
     expect(root.style.borderColor.toLowerCase()).toContain('#b91c1c')
   })
@@ -131,7 +132,8 @@ describe('CardItem', () => {
 
   it('applies highlight ring classes when highlighted prop is true', () => {
     const { container } = render(<CardItem card={makeCard()} highlighted />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-2')
     expect(root.className).toContain('ring-blue-400')
     expect(root.className).toContain('animate-pulse')
@@ -186,12 +188,15 @@ describe('CardItem', () => {
     expect(screen.queryByTitle('Weight: 0')).not.toBeInTheDocument()
   })
 
-  it('shows stale indicator when is_stale is true', () => {
+  it('does not apply amber ring class when is_stale is true (removed in favor of overlay)', () => {
     const { container } = render(<CardItem card={makeCard({ is_stale: true })} />)
-    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
-    // Stale card gets amber ring
     const root = container.firstChild as HTMLElement
-    expect(root.className).toContain('ring-amber-400')
+    expect(root.className).not.toContain('ring-amber-400')
+  })
+
+  it('does not render clock emoji when is_stale is true (removed in favor of overlay)', () => {
+    render(<CardItem card={makeCard({ is_stale: true })} />)
+    expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
   })
 
   it('shows recently moved dot when last_moved_at is within 24 hours', () => {
@@ -200,12 +205,57 @@ describe('CardItem', () => {
     expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
   })
 
-  it('does not show recently moved dot for stale card even if last_moved_at is recent', () => {
+  it('shows recently moved dot even when is_stale is true (stale no longer suppresses the dot)', () => {
     const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     render(<CardItem card={makeCard({ last_moved_at: recentlyMoved, is_stale: true })} />)
-    // Stale indicator should be present, recently moved dot should not
-    expect(screen.getByTitle('Stale — no movement recently')).toBeInTheDocument()
-    expect(screen.queryByTitle('Recently moved')).not.toBeInTheDocument()
+    // Recently moved dot is now shown regardless of is_stale
+    expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
+  })
+
+  it('shows warning overlay when card is in warning stage (past warnRatio, before threshold)', () => {
+    // threshold=14, warning=50% → warning starts at 7 days. Use 10 days ago.
+    const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString()
+    const { container } = render(
+      <CardItem
+        card={makeCard({ last_moved_at: tenDaysAgo })}
+        staleness_threshold_days={14}
+        stale_warning_pct={50}
+      />
+    )
+    // The overlay div should be the first child of the root card div
+    const root = container.firstChild as HTMLElement
+    const overlay = root.querySelector('[aria-hidden="true"]')
+    expect(overlay).toBeInTheDocument()
+    expect(overlay?.className).toContain('bg-amber-500/10')
+  })
+
+  it('shows stale overlay when card is past the threshold', () => {
+    const fifteenDaysAgo = new Date(Date.now() - 15 * 86_400_000).toISOString()
+    const { container } = render(
+      <CardItem
+        card={makeCard({ last_moved_at: fifteenDaysAgo })}
+        staleness_threshold_days={14}
+        stale_warning_pct={50}
+      />
+    )
+    const root = container.firstChild as HTMLElement
+    const overlay = root.querySelector('[aria-hidden="true"]')
+    expect(overlay).toBeInTheDocument()
+    expect(overlay?.className).toContain('bg-amber-500/20')
+  })
+
+  it('shows no overlay when card is fresh (moved recently)', () => {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { container } = render(
+      <CardItem
+        card={makeCard({ last_moved_at: oneHourAgo })}
+        staleness_threshold_days={14}
+        stale_warning_pct={50}
+      />
+    )
+    const root = container.firstChild as HTMLElement
+    const overlay = root.querySelector('[aria-hidden="true"]')
+    expect(overlay).not.toBeInTheDocument()
   })
 
   it('renders cleanly with no metadata (all null/zero values)', () => {
@@ -224,7 +274,8 @@ describe('CardItem', () => {
     render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
     // selected card should have blue ring
     const { container } = render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
-    const root = container.firstChild as HTMLElement
+    // CardItem now returns a relative wrapper div; the card root is its first child
+    const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-blue-400')
   })
 

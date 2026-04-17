@@ -27,9 +27,11 @@ interface Props {
   userDateFormat?: string;
   width?: number;
   compact?: boolean;
+  staleness_threshold_days?: number;
+  stale_warning_pct?: number;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width, compact }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -84,6 +86,8 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               userTimezone={userTimezone}
               userDateFormat={userDateFormat}
               compact={compact}
+              staleness_threshold_days={staleness_threshold_days}
+              stale_warning_pct={stale_warning_pct}
             />
           ))}
         </div>

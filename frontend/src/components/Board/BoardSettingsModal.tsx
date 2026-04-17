@@ -599,9 +599,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </section>
               )}
 
-              {/* Stale card settings */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Stale card settings</h3>
+              {/* Card aging settings */}
+              <section aria-labelledby="card-aging-heading">
+                <h3 id="card-aging-heading" className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card aging settings</h3>
                 {isAdmin ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
@@ -618,7 +618,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         />
                         <span className="text-sm text-slate-400">days threshold</span>
                       </div>
-                      <p className="text-xs text-slate-500">Cards with no movement after this many days are flagged as stalled.</p>
+                      <p className="text-xs text-slate-500">Cards idle beyond this threshold are shown with a stale tint on the board. Warning tint appears earlier (controlled by the % setting below).</p>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
@@ -636,8 +636,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <span className="text-sm text-slate-400">% warning</span>
                       </div>
                       <p className="text-xs text-slate-500">
-                        Heatmap cells within this percentage of the threshold show yellow; at or above show red.
-                        Example: threshold 14 days, warning 50% → yellow after 7 days, red at 14 days.
+                        Warning tint appears when a card has used this percentage of the threshold. Example: 14 days threshold, 50% warning → warning tint after 7 days, stale tint at 14 days.
                       </p>
                     </div>
                   </div>
