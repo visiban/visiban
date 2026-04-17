@@ -446,11 +446,39 @@ describe('AppSidebar', () => {
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
     expect(screen.getByText('Recent')).toBeInTheDocument()
-    expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+    expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0)
+  })
+
+  it('prunes Recent entries whose board id is not in the accessible list (stale localStorage)', async () => {
+    // id 999 is in localStorage but not returned by listBoards — simulates a deleted
+    // board, revoked membership, or stale data from a prior instance.
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 999, name: 'Ghost Board' },
+      { id: 42, name: 'Sprint Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Ghost Board')).not.toBeInTheDocument()
+    const stored = JSON.parse(localStorage.getItem('user:prefs:recent-boards') ?? '[]')
+    expect(stored.map((e: { id: number }) => e.id)).toEqual([42])
+  })
+
+  it('hides Recent section entirely when all localStorage entries are stale', async () => {
+    localStorage.setItem('user:prefs:recent-boards', JSON.stringify([
+      { id: 999, name: 'Ghost Board' },
+    ]))
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByText('Loading…')).not.toBeInTheDocument())
+    expect(screen.queryByText('Recent')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ghost Board')).not.toBeInTheDocument()
   })
 
   it('does not show RECENT section when localStorage is empty', async () => {
@@ -466,9 +494,9 @@ describe('AppSidebar', () => {
       { id: 42, name: 'Design System', groupAncestors: ['Engineering'] },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([{ ...fakeBoard, name: 'Design System' }])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(screen.getByText('Design System')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('Design System').length).toBeGreaterThan(0))
     expect(screen.getByText('Engineering')).toBeInTheDocument()
   })
 
@@ -477,10 +505,10 @@ describe('AppSidebar', () => {
       { id: 55, name: 'My Recent Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([{ ...fakeBoard, id: 55, name: 'My Recent Board' }])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => screen.getByText('My Recent Board'))
-    const link = screen.getByText('My Recent Board').closest('a')
+    await waitFor(() => screen.getAllByText('My Recent Board'))
+    const link = screen.getAllByText('My Recent Board')[0].closest('a')
     expect(link?.getAttribute('href')).toBe('/boards/55')
   })
 
@@ -490,10 +518,10 @@ describe('AppSidebar', () => {
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => screen.getByText('Sprint Board'))
-    const link = screen.getByText('Sprint Board').closest('a')
+    await waitFor(() => screen.getAllByText('Sprint Board'))
+    const link = screen.getAllByText('Sprint Board')[0].closest('a')
     expect(link?.className).toMatch(/blue/)
   })
 
@@ -503,7 +531,7 @@ describe('AppSidebar', () => {
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
     expect(screen.getByTitle('Recent boards')).toBeInTheDocument()
@@ -515,12 +543,12 @@ describe('AppSidebar', () => {
       { id: 42, name: 'Sprint Board' },
     ]))
     vi.mocked(listGroups).mockResolvedValue([])
-    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByTitle('Recent boards'))
     await userEvent.setup().click(screen.getByTitle('Recent boards'))
     expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
-    expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+    expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0)
   })
 
   // ── Auto-expand ancestors ──────────────────────────────────────────────────
