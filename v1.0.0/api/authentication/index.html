@@ -772,6 +772,8 @@
       
         
       
+        
+      
     
     
     
@@ -1141,6 +1143,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
@@ -1250,7 +1280,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_16" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_17" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1272,14 +1302,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_16" id="__nav_3_16_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_17" id="__nav_3_17_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_16_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_16">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_17">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3301,7 +3331,8 @@ can detect the condition and call this endpoint programmatically.</p>
 <h2 id="user-profile">User profile<a class="headerlink" href="#user-profile" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1authme"><code>GET /api/v1/auth/me/</code><a class="headerlink" href="#get-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Returns the authenticated user's profile.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>.</p>
+<p><strong>Permission:</strong> Requires authentication.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3326,24 +3357,94 @@ can detect the condition and call this endpoint programmatically.</p>
 <td>boolean</td>
 <td>Instance-wide setting reflecting whether file attachment uploads are currently permitted. When <code>false</code>, the attachment UI is hidden and upload attempts return <code>403</code>.</td>
 </tr>
+<tr>
+<td><code>theme</code></td>
+<td>string</td>
+<td>The user's preferred color scheme. One of <code>"system"</code>, <code>"dark"</code>, or <code>"light"</code>. Defaults to <code>"system"</code>.</td>
+</tr>
 </tbody>
 </table>
+<p><strong>Example response (excerpt)</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice@example.com&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice Smith&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">&quot;theme&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dark&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">  </span><span class="nt">&quot;timezone&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;America/New_York&quot;</span><span class="p">,</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="nt">&quot;default_board_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">}</span>
+</code></pre></div>
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
-<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>.</p>
+<p><strong>Permission:</strong> Requires authentication.</p>
+<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Request body fields</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>theme</code></td>
+<td>string</td>
+<td>No</td>
+<td>Color scheme preference. One of <code>"system"</code>, <code>"dark"</code>, or <code>"light"</code>. Defaults to <code>"system"</code> for new accounts.</td>
+</tr>
+<tr>
+<td><code>default_board_id</code></td>
+<td>integer | null</td>
+<td>No</td>
+<td>Board to redirect to after login. Must be a board the user is a member of, or <code>null</code> to clear.</td>
+</tr>
+</tbody>
+</table>
 <p><strong><code>default_board_id</code></strong> — set the board to redirect to after login. Accepts a board <code>id</code> (integer) or <code>null</code> to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns <code>400 Bad Request</code>. This prevents enumeration of boards the user has no access to.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;default_board_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+<p><strong>Example — set theme</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;theme&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dark&quot;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
+<p><strong>Example — set default board</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;default_board_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>theme</code> is not one of <code>"system"</code>, <code>"dark"</code>, or <code>"light"</code> — response body contains <code>{"theme": ["..."]}</code></td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>default_board_id</code> refers to a board the user is not a member of</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Request is not authenticated</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="site-configuration">Site configuration<a class="headerlink" href="#site-configuration" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1authsite-config"><code>GET /api/v1/auth/site-config/</code><a class="headerlink" href="#get-apiv1authsite-config" title="Permanent link">&para;</a></h3>
 <p>Returns site-level configuration. This endpoint is public — no authentication required.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">&quot;registration_open&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">&quot;registration_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;open&quot;</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">&quot;registration_open&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">&quot;registration_mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;open&quot;</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -3408,14 +3509,14 @@ can detect the condition and call this endpoint programmatically.</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;newuser@example.com&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span><span class="nt">&quot;password1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span><span class="nt">&quot;password2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;newuser@example.com&quot;</span><span class="p">,</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">&quot;password1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">&quot;password2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b&quot;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The returned <code>key</code> is an API token that can be used immediately in the <code>Authorization: Token &lt;key&gt;</code> header.</p>
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
@@ -3457,12 +3558,12 @@ can detect the condition and call this endpoint programmatically.</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;newuser@example.com&quot;</span><span class="p">,</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">&quot;password1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">&quot;password2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">&quot;invite_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7&quot;</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;newuser@example.com&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">&quot;password1&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">&quot;password2&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;securepassword123&quot;</span><span class="p">,</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">&quot;invite_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7&quot;</span>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code> — same shape as open mode: <code>{ "key": "&lt;token&gt;" }</code>.</p>
 <p><strong>Errors</strong></p>
