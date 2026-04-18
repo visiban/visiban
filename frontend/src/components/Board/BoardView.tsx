@@ -563,6 +563,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setDrawerOpen((v) => !v);
         return;
       }
+      // ⌘K / Ctrl+K — toggle command palette (fires even from input fields)
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "f") {
@@ -1041,6 +1047,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 3: Utilities + status */}
         <div className="flex items-center gap-1">
+          <Tooltip content="Command palette (⌘K)">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              aria-label="Open command palette"
+              className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                <circle cx="11" cy="11" r="6" />
+                <line x1="16" y1="16" x2="21" y2="21" strokeLinecap="round" />
+              </svg>
+            </button>
+          </Tooltip>
           <Tooltip content={drawerOpen ? "Close activity drawer (⌘\\)" : "Open activity drawer (⌘\\)"}>
             <button
               onClick={() => setDrawerOpen((v) => !v)}

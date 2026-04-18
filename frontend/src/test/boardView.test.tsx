@@ -77,6 +77,9 @@ vi.mock('../contexts/BoardContext', () => ({
 vi.mock('../api/boards', () => ({
   exportBoardCsv: vi.fn(),
   exportBoardJson: vi.fn(),
+  // CommandPalette fetches board list when opened; resolve with empty list so tests
+  // that open the palette don't hit an unmocked API call.
+  listBoards: vi.fn(() => Promise.resolve([])),
 }))
 
 vi.mock('../components/Board/SummaryView', () => ({
@@ -412,6 +415,53 @@ describe('BoardView', () => {
     render(<BoardView {...defaultProps()} />)
     await userEvent.setup().click(screen.getByLabelText('Keyboard shortcuts'))
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
+  })
+
+  describe('command palette wiring (#763)', () => {
+    it('renders a Command palette trigger button in Zone 3', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByLabelText('Open command palette')).toBeInTheDocument()
+    })
+
+    it('clicking the trigger opens the command palette', async () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+      await userEvent.setup().click(screen.getByLabelText('Open command palette'))
+      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
+    })
+
+    it('⌘K / Ctrl+K opens the command palette', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'k', metaKey: true })
+      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
+    })
+
+    it('⌘K shortcut fires even when focus is inside an input (MR promise)', () => {
+      render(<BoardView {...defaultProps()} />)
+      // Construct an input in the DOM and dispatch from it — verifies the
+      // shortcut bypasses the INPUT/TEXTAREA guard further down the handler,
+      // as promised by the MR description. (Using a synthetic input keeps the
+      // test independent of whether the filter bar is open.)
+      const synthInput = document.createElement('input')
+      document.body.appendChild(synthInput)
+      synthInput.focus()
+      fireEvent.keyDown(synthInput, { key: 'k', metaKey: true })
+      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
+      document.body.removeChild(synthInput)
+    })
+
+    it('⌘K is also accepted as uppercase K (shift-locked keyboards)', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'K', metaKey: true })
+      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
+    })
+
+    it('bare "k" (no modifier) does not open the palette', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'k' })
+      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+    })
   })
 
   it('reads view from ?view=summary param on mount and renders SummaryView', () => {
