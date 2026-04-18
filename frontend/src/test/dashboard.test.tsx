@@ -199,9 +199,12 @@ describe('Dashboard', () => {
       // The modal should now be open
       expect(screen.getByText('Join a group')).toBeInTheDocument()
 
-      // Type a full invite URL — the handler must strip everything before /join/
+      // Paste a full invite URL — the handler must strip everything before /join/.
+      // Use paste (one state update) instead of type (one per char) — typing 31 chars
+      // exceeds the 5000ms test timeout in CI.
       const input = screen.getByPlaceholderText(/https:.*\/join\/abc123 or abc123/i)
-      await user.type(input, 'https://example.com/join/abc123')
+      input.focus()
+      await user.paste('https://example.com/join/abc123')
 
       await user.click(screen.getByRole('button', { name: 'Join' }))
 
@@ -218,7 +221,8 @@ describe('Dashboard', () => {
       expect(screen.getByText('Join a group')).toBeInTheDocument()
 
       const input = screen.getByPlaceholderText(/https:.*\/join\/abc123 or abc123/i)
-      await user.type(input, 'xyz789')
+      input.focus()
+      await user.paste('xyz789')
 
       await user.click(screen.getByRole('button', { name: 'Join' }))
 
