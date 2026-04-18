@@ -349,6 +349,19 @@ Admins can manage board members directly from the board toolbar via the **Member
 
 The toolbar shows a pulsing green **Live** dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
 
+## Activity drawer
+
+> **Added in 1.1.0**
+
+A right-hand panel that streams the most recent board events — card moves, creations, and membership changes — as they happen. Open and close it with **⌘\\** (Ctrl+\\ on Linux/Windows) or the activity button in the board toolbar.
+
+The drawer has two filter rows:
+
+- **Kind**: *All*, *Moves* (includes creations), *Members*
+- **Window**: *1h*, *24h*, *7d* — defaults to **24h** so the drawer stays focused on today's activity rather than all history. Widen to **7d** to scan back through the week, or narrow to **1h** for what's happened in the last hour.
+
+The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click **Open full history →** at the bottom of the drawer (also reachable from any card's **History** tab — see [Card History](card-history.md)).
+
 ## Board sharing
 
 > **Added in 1.0.0**

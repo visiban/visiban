@@ -11,17 +11,33 @@ export type ActivityEntry = {
 };
 
 type FilterTab = "all" | "moves" | "members";
+type TimeWindow = "1h" | "24h" | "7d";
 
 interface Props {
   feed: ActivityEntry[];
   onClose: () => void;
   onOpenHistory: () => void;
+  /** Current time supplier — injected only for deterministic tests. */
+  now?: () => number;
 }
 
-export default function BoardActivityDrawer({ feed, onClose, onOpenHistory }: Props) {
+// Window sizes in milliseconds; 24h is the default per #746 AC.
+const WINDOW_MS: Record<TimeWindow, number> = {
+  "1h": 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+};
+
+const DEFAULT_WINDOW: TimeWindow = "24h";
+
+export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now = Date.now }: Props) {
   const [tab, setTab] = useState<FilterTab>("all");
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(DEFAULT_WINDOW);
+
+  const cutoff = now() - WINDOW_MS[timeWindow];
 
   const filtered = feed.filter((e) => {
+    if (e.timestamp.getTime() < cutoff) return false;
     if (tab === "moves") return e.kind === "move" || e.kind === "create";
     if (tab === "members") return e.kind === "member";
     return true;
@@ -31,6 +47,12 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory }: Pr
     { id: "all", label: "All" },
     { id: "moves", label: "Moves" },
     { id: "members", label: "Members" },
+  ];
+
+  const windows: { id: TimeWindow; label: string }[] = [
+    { id: "1h", label: "1h" },
+    { id: "24h", label: "24h" },
+    { id: "7d", label: "7d" },
   ];
 
   return (
@@ -53,7 +75,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory }: Pr
       </div>
 
       {/* Filter tabs */}
-      <div className="px-4 py-2 border-b border-slate-700 flex gap-1 text-[11px]">
+      <div className="px-4 py-2 border-b border-slate-700 flex gap-1 text-[11px]" role="group" aria-label="Activity kind filter">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -68,6 +90,31 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory }: Pr
             {t.label}
           </button>
         ))}
+      </div>
+
+      {/* Time window selector */}
+      <div
+        className="px-4 py-1.5 border-b border-slate-700 flex items-center gap-2 text-[11px]"
+        role="group"
+        aria-label="Activity time window"
+      >
+        <span className="text-slate-500 shrink-0">Window</span>
+        <div className="flex gap-1">
+          {windows.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => setTimeWindow(w.id)}
+              aria-pressed={timeWindow === w.id}
+              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                timeWindow === w.id
+                  ? "bg-slate-700 text-slate-200 font-medium"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Feed */}
