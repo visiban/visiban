@@ -161,7 +161,7 @@ The application sidebar gives you persistent access to your full group and board
 
 Site admins see a **Site Admin** link in the sidebar that opens the administration panel directly. The link is hidden for all other users.
 
-The sidebar is visible only on desktop (1024 px and wider). On mobile, use the top navigation bar instead.
+The authenticated app is optimized for desktop (1024 px and wider). Below that width, Visiban shows a "use a larger screen" notice instead of a degraded layout. Public join, share, and account-recovery pages remain accessible on any viewport.
 
 → [Navigation](navigation.md)
 

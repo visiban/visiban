@@ -97,12 +97,12 @@ The sidebar reads the current URL via React Router's `useLocation` hook and extr
 
 ## Mobile behavior
 
-The sidebar is hidden below the `lg` breakpoint (1024 px). The Tailwind class `hidden lg:flex` is applied to the `<aside>` element, so on smaller viewports the element is not rendered at all — it takes up no space and receives no interaction.
+Below the `lg` breakpoint (1024 px) the authenticated app is gated by a desktop-only notice rather than a degraded layout. Viewports narrower than 1024 px see a centered card explaining that Visiban is optimized for larger displays; the notice is dismissed automatically when the viewport grows past the breakpoint (for example, when a tablet is rotated into landscape).
 
-On mobile, use the top navigation bar for board and group access. The sidebar does not have a drawer or overlay mode; it is desktop-only.
+Public routes — join links, share links, email confirmation, and password reset — remain fully accessible on any viewport so invites and account recovery still work from a phone.
 
-!!! note "Board view — desktop only in 1.0"
-    While the sidebar and navigation are accessible on smaller viewports, the board view itself requires a desktop browser (1024 px and wider). Mobile support for the board is planned for a future release.
+!!! note "Board view — desktop only"
+    The Kanban grid, swimlane panel, and sidebar require horizontal space that phones and portrait-mode tablets can't provide. Mobile support for the board view is planned for a future release; until then, the viewport gate avoids a broken experience.
 
 ## Footer shortcuts
 
