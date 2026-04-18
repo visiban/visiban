@@ -235,7 +235,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             <span className={isSelected ? "text-info" : "text-fg-tertiary"}>
                               {ICONS[t.slug] ?? FALLBACK_ICON}
                             </span>
-                            <span className="text-white text-sm font-medium leading-tight">{t.name}</span>
+                            <span className="text-fg text-sm font-medium leading-tight">{t.name}</span>
                           </div>
 
                           {/* Description */}
@@ -275,7 +275,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             {ICONS.blank}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <span className="text-white text-sm font-medium">{blankTemplate.name}</span>
+                            <span className="text-fg text-sm font-medium">{blankTemplate.name}</span>
                             <p className="text-fg-tertiary text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
                           </div>
                           <span className="text-fg-muted text-xs flex-shrink-0">No preset columns</span>
@@ -297,7 +297,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                   {selected.columns_json.map((col) => (
                     <span
                       key={col.name}
-                      className="inline-flex items-center gap-1.5 text-xs text-white bg-surface-hover rounded-lg px-2.5 py-1"
+                      className="inline-flex items-center gap-1.5 text-xs text-fg bg-surface-hover rounded-lg px-2.5 py-1"
                     >
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
@@ -365,14 +365,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition"
+            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {submitting ? "Creating…" : "Create Board"}
           </button>

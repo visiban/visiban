@@ -102,10 +102,10 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {/* Groups */}
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white text-lg font-semibold">Groups</h2>
+            <h2 className="text-fg text-lg font-semibold">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="text-sm text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               + New top-level group
             </button>
@@ -127,11 +127,11 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         {/* Personal boards */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white text-lg font-semibold">My Boards</h2>
+            <h2 className="text-fg text-lg font-semibold">My Boards</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setImportingBoard(true)}
-                className="text-sm text-fg-tertiary hover:text-white hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Import
               </button>
@@ -154,7 +154,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                 <div key={b.id} className="group relative">
                   <button
                     onClick={() => navigate(`/boards/${b.id}`)}
-                    className="w-full bg-surface hover:bg-surface-hover text-white text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <p className="font-medium">{b.name}</p>
                     {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
@@ -243,8 +243,8 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
-          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Join</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
+          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Join</button>
         </div>
       </ModalWrapper>
 
@@ -262,13 +262,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             labelId="delete-board-title"
           >
             <p className="text-fg-tertiary text-sm mb-1">
-              <span className="text-white font-medium">{board?.name}</span> and all its data will be permanently deleted.
+              <span className="text-fg font-medium">{board?.name}</span> and all its data will be permanently deleted.
             </p>
             <p className="text-danger text-sm mb-4">This cannot be undone.</p>
             {hasCards && (
               <div className="mb-4">
                 <p className="text-fg-tertiary text-xs mb-2">
-                  This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                  This board has <span className="text-fg font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
                 </p>
                 <input
                   type="text"
@@ -283,14 +283,14 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteBoard(confirmDeleteId)}
                 disabled={!canDelete}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Delete
               </button>

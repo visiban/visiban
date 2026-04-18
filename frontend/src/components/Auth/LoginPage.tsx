@@ -212,7 +212,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.github && (
                 <a
                   href={oauthUrl("github", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-surface-hover text-white font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <GitHubIcon />
                   Continue with GitHub
@@ -230,7 +230,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.oidc && (
                 <a
                   href={oauthUrl("oidc", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-surface-hover text-white font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Continue with {providers.oidc_name ?? "SSO"}
                 </a>

@@ -17,7 +17,7 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
         </svg>
       </div>
 
-      <h1 className="text-white text-xl font-semibold mb-2">Welcome to Visiban</h1>
+      <h1 className="text-fg text-xl font-semibold mb-2">Welcome to Visiban</h1>
       <p className="text-fg-tertiary text-sm max-w-sm mb-8 leading-relaxed">
         Your team's kanban workspace. Create a board to start tracking work, or join an existing group to collaborate.
       </p>
@@ -25,13 +25,13 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={onCreateBoard}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           Create my first board
         </button>
         <button
           onClick={onJoinGroup}
-          className="px-6 py-2.5 border border-line-strong hover:border-line-emphasis text-fg-secondary hover:text-white text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-6 py-2.5 border border-line-strong hover:border-line-emphasis text-fg-secondary hover:text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           Join a group with an invite link
         </button>

@@ -170,7 +170,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   return (
     <>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-white rounded-xl shadow-2xl px-4 py-2.5 border border-line">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-xl shadow-2xl px-4 py-2.5 border border-line">
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>
@@ -285,7 +285,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => { setPartialError(null); onClearSelection(); }}
           disabled={busy}
-          className="text-fg-tertiary hover:text-white transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          className="text-fg-tertiary hover:text-fg transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           title="Deselect all (Esc)"
         >
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -307,7 +307,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 id="bulk-delete-title" className="text-white font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
+            <h3 id="bulk-delete-title" className="text-fg font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
             <p className="text-fg-tertiary text-sm mb-5">
               This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
             </p>
@@ -321,13 +321,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5"
+                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="bg-red-600 hover:bg-red-700 text-fg text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Delete
               </button>

@@ -30,7 +30,7 @@ Three variants — use no others:
 | Variant | Classes |
 |---|---|
 | Primary | `bg-blue-600 hover:bg-blue-700 text-white` |
-| Secondary | bare text (`text-fg-secondary`) + `hover:text-white hover:bg-surface-hover` |
+| Secondary | bare text (`text-fg-secondary`) + `hover:text-fg hover:bg-surface-hover` |
 | Icon-only | `hover:bg-surface-hover` with icon content |
 
 - Consistent sizing: `px-3 py-1.5 text-sm rounded` for most buttons
@@ -156,7 +156,7 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - When a swimlane has a color, that same color bleeds as the left border of the entire swimlane row across all columns (applied to the label panel, not individual cells)
 - Drag handle (`⋮⋮`): `text-fg-faint hover:text-fg-tertiary cursor-grab` — show on row hover via `group-hover:opacity-100`, default `opacity-0`
 - Swimlane name: `text-sm text-fg-secondary`
-- Collapse/expand chevron: prominent, `text-fg-tertiary hover:text-white transition` — must clearly communicate interactivity
+- Collapse/expand chevron: prominent, `text-fg-tertiary hover:text-fg transition` — must clearly communicate interactivity
 - Edit (✎) button: `group-hover:opacity-100 opacity-0 transition` — visible at full opacity on hover, not discoverable by accident
 
 ## Radio groups
@@ -249,7 +249,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Typography
 
-- Page headings: `text-xl font-semibold text-white`
+- Page headings: `text-xl font-semibold text-fg`
 - Section headings: `text-sm font-medium text-fg-tertiary uppercase tracking-wide`
 - Body: `text-sm text-fg-secondary`
 - Muted/secondary: `text-sm text-fg-muted`
@@ -316,7 +316,7 @@ The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboa
 - `position: fixed; top: anchor.top; left: anchor.left + 4` (4px gap from sidebar edge)
 - Panel: `w-56 bg-surface border border-line rounded-lg shadow-xl py-1 max-h-80 overflow-y-auto z-50`
 - Header row: `px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider border-b border-line mb-1`
-- Items: `px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover transition truncate`
+- Items: `px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover transition truncate`
 - Active item: `bg-blue-600/20 text-info font-medium`
 
 **Toggle behaviour:**
@@ -388,7 +388,7 @@ When a persistent board-wide mode is active (e.g. focus mode, a future "view-onl
 
 - Style: `bg-blue-600/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-blue-300 transition-opacity duration-150`
 - Use `bg-blue-600/15` to signal "active mode" — distinct from transient toast notices (`bg-surface-hover/80`) and warnings (amber)
-- Exit controls within the strip use the **secondary button variant** (`text-fg-secondary hover:text-white hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-blue-500`) — never the primary variant
+- Exit controls within the strip use the **secondary button variant** (`text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-blue-500`) — never the primary variant
 - Mode name or target label: `font-medium text-blue-200 truncate max-w-[24rem]` with `flex-shrink-0` on the exit button
 
 ## Common dropdown primitives

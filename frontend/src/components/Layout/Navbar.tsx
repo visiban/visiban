@@ -93,7 +93,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <span key={i} className="flex items-center gap-2">
             <span className="text-fg-muted">/</span>
             {item.href ? (
-              <Link to={item.href} className="text-fg text-sm font-medium hover:text-white transition">
+              <Link to={item.href} className="text-fg text-sm font-medium hover:text-fg transition">
                 {item.label}
               </Link>
             ) : (
@@ -107,7 +107,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-fg-secondary hover:text-white transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              className="relative text-fg-secondary hover:text-fg transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -154,13 +154,13 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
           <button
             onClick={() => navigate("/settings", { state: { from: location } })}
-            className="text-fg text-sm hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+            className="text-fg text-sm hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
           >
             {userDisplayName(user)}
           </button>
           <button
             onClick={onLogout}
-            className="text-xs text-fg-tertiary hover:text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+            className="text-xs text-fg-tertiary hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
           >
             Sign out
           </button>

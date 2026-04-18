@@ -50,9 +50,9 @@ interface Props {
 
 function cellColor(avg: number | null, threshold: number, warningPct: number): string {
   if (avg === null) return "bg-surface text-fg-muted";
-  if (avg >= threshold) return "bg-red-900/40 text-danger font-semibold";
-  if (avg >= threshold * (1 - warningPct / 100)) return "bg-yellow-900/30 text-yellow-400";
-  return "bg-green-900/30 text-success";
+  if (avg >= threshold) return "bg-danger/40 text-danger font-semibold";
+  if (avg >= threshold * (1 - warningPct / 100)) return "bg-warning/30 text-warning";
+  return "bg-success/30 text-success";
 }
 
 function loadViewMode(boardId: number): ViewMode {
@@ -149,7 +149,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
   }, [boardId, days]);
 
   if (loading) return <div className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary">Loading analytics…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-red-500">{error}</div>;
+  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-danger">{error}</div>;
   if (!data) return null;
 
   const { staleness_threshold_days: threshold, stale_warning_pct: warningPct } = data;

@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
             <h1
               ref={confirmHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Check your email
             </h1>
@@ -64,7 +64,7 @@ export default function ForgotPasswordPage() {
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold text-white mt-6 mb-2">
+            <h1 className="text-xl font-semibold text-fg mt-6 mb-2">
               Reset your password
             </h1>
             <p className="text-sm text-fg-tertiary mb-6">

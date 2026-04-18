@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
             <h1
               ref={successHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Password updated
             </h1>
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
             <h1
               ref={tokenErrorHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Link expired or invalid
             </h1>
@@ -138,7 +138,7 @@ export default function ResetPasswordPage() {
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold text-white mt-6 mb-6">
+            <h1 className="text-xl font-semibold text-fg mt-6 mb-6">
               Set a new password
             </h1>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">

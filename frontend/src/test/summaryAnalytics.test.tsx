@@ -426,7 +426,7 @@ describe('AnalyticsView', () => {
     })
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('14d')
-    expect(cell.className).toMatch(/red/)
+    expect(cell.className).toMatch(/danger/)
   })
 
   it('colors cells yellow when avg is in warning range', async () => {
@@ -451,7 +451,7 @@ describe('AnalyticsView', () => {
     // 50% warning of 14d = 7d; avg=8 is >=7 but <14 → yellow
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('8d')
-    expect(cell.className).toMatch(/yellow/)
+    expect(cell.className).toMatch(/warning/)
   })
 
   it('colors cells green when avg is well below threshold', async () => {
@@ -476,7 +476,7 @@ describe('AnalyticsView', () => {
     // avg=3 is below 7d warning boundary → green
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     const cell = await screen.findByText('3d')
-    expect(cell.className).toMatch(/green/)
+    expect(cell.className).toMatch(/success/)
   })
 
   it('shows stalled count label when stalled cards are present', async () => {

@@ -66,7 +66,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
         <button
           onClick={onClose}
           aria-label="Close activity drawer"
-          className="text-fg-tertiary hover:text-white hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 3l10 10M13 3L3 13" />

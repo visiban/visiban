@@ -86,7 +86,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-fg-tertiary hover:text-white px-4 py-1.5 rounded transition"
+            className="text-sm text-fg-tertiary hover:text-fg px-4 py-1.5 rounded transition"
           >
             Cancel
           </button>

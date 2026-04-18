@@ -29,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   used: "bg-surface-hover text-fg-tertiary",
-  expired: "bg-red-900/60 text-danger",
+  expired: "bg-danger/60 text-danger",
   revoked: "bg-surface-hover text-fg-muted",
 };
 
@@ -179,9 +179,9 @@ export default function InviteLinkPanel({ groupId }: Props) {
               if (isRevealing) return "border-warning/50 bg-sunken";
               if (linkStatus === "revoked") return "border-line bg-sunken/50 opacity-60";
               if (linkStatus === "used") return "border-line bg-sunken/50 opacity-75";
-              if (linkStatus === "expired") return "border-red-800 bg-sunken/50 opacity-70";
+              if (linkStatus === "expired") return "border-danger/40 bg-sunken/50 opacity-70";
               // pending
-              if (link.single_use ?? false) return "border-amber-700/40 bg-sunken";
+              if (link.single_use ?? false) return "border-warning/40 bg-sunken";
               return "border-line bg-sunken";
             })();
 
@@ -228,7 +228,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
 
                   {/* 1-use indicator — only for live single-use links */}
                   {linkStatus === "pending" && (link.single_use ?? false) && (
-                    <span className="text-[10px] text-amber-500">1-use</span>
+                    <span className="text-[10px] text-warning">1-use</span>
                   )}
                 </div>
 

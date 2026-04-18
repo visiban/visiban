@@ -184,7 +184,7 @@ export default function SavedFiltersDropdown({
                 </button>
                 <button
                   onClick={() => { setSaveMode(false); setSaveError(null); }}
-                  className="text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 >
                   Cancel
                 </button>
@@ -197,7 +197,7 @@ export default function SavedFiltersDropdown({
                 disabled={!hasActiveFilters}
                 className={`w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 ${
                   hasActiveFilters
-                    ? "text-fg-secondary hover:bg-surface-hover hover:text-white"
+                    ? "text-fg-secondary hover:bg-surface-hover hover:text-fg"
                     : "text-fg-faint cursor-not-allowed"
                 }`}
                 title={hasActiveFilters ? undefined : "Set at least one filter to save it"}
@@ -237,7 +237,7 @@ export default function SavedFiltersDropdown({
                   <div className="flex items-center group px-1">
                     <button
                       onClick={() => { onLoad(f); setOpen(false); setSaveMode(false); }}
-                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition truncate"
+                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition truncate"
                       title={f.name}
                     >
                       {f.name}

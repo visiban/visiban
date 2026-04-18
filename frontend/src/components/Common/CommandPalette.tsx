@@ -268,7 +268,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
                       aria-hidden="true"
                     />
                   )}
-                  <span className={`text-sm truncate ${isActive ? "text-white" : "text-fg-secondary"}`}>
+                  <span className={`text-sm truncate ${isActive ? "text-fg" : "text-fg-secondary"}`}>
                     {label}
                   </span>
                   {sublabel && (

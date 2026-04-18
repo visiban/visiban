@@ -36,7 +36,7 @@ export default function SummaryView({ boardId, columns }: Props) {
   }, [boardId]);
 
   if (loading) return <div className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary">Loading summary…</div>;
-  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-red-500">{error}</div>;
+  if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-danger">{error}</div>;
   if (!data) return null;
 
   return (

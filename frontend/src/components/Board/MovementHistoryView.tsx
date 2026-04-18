@@ -84,7 +84,7 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
         <button
           ref={closeRef}
           onClick={onClose}
-          className="text-fg-tertiary hover:text-white hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
           aria-label="Close panel"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -307,7 +307,7 @@ export default function MovementHistoryView({ board }: Props) {
             </button>
           )}
           {board.capabilities?.movement_export && (
-            <button className="ml-auto px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-white hover:border-line-emphasis transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button className="ml-auto px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
               Export
             </button>
           )}
@@ -414,7 +414,7 @@ export default function MovementHistoryView({ board }: Props) {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-white hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   ← Prev
                 </button>
@@ -422,7 +422,7 @@ export default function MovementHistoryView({ board }: Props) {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-white hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Next →
                 </button>

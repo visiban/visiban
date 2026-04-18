@@ -93,7 +93,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-blue-500 bg-blue-900/20" : "border-line"
+            isOver ? "border-blue-500 bg-info/20" : "border-line"
           }`} />
         )}
       </SortableContext>
@@ -113,7 +113,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                 if (e.key === "Escape") setAdding(false);
               }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-surface text-white placeholder-fg-muted"
+              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"
             />
             <div className="flex gap-1.5 mt-1.5">
               <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add</button>

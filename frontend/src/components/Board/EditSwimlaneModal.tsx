@@ -62,7 +62,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               Delete <span className="font-medium text-fg">{swimlane.name}</span>? This cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-white transition">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-fg transition">
                 Cancel
               </button>
               <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -108,7 +108,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               Delete swimlane
             </button>
             <div className="flex gap-2">
-              <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}

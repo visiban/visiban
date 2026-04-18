@@ -95,7 +95,7 @@ export default function ModalWrapper({
         {/* Header */}
         <div className={`flex items-center justify-between px-6 pt-6 pb-4${headerBorder ? " border-b border-line" : ""}`}>
           <div>
-            <h2 id={headingId} className="text-lg font-semibold text-white">
+            <h2 id={headingId} className="text-lg font-semibold text-fg">
               {title}
             </h2>
             {subtitle && <p className="text-fg-tertiary text-sm mt-0.5">{subtitle}</p>}
@@ -103,7 +103,7 @@ export default function ModalWrapper({
           {dismissable && (
             <button
               onClick={onClose}
-              className="flex-shrink-0 text-fg-tertiary hover:text-white hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-shrink-0 text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-label="Close"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">

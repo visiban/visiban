@@ -83,7 +83,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Profile</h2>
+      <h2 className="text-fg text-lg font-semibold">Profile</h2>
 
       <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Display name
@@ -191,7 +191,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -242,7 +242,7 @@ function SecurityTab({ user }: { user: User }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Security</h2>
+      <h2 className="text-fg text-lg font-semibold">Security</h2>
 
       {!hasPw && (
         <p className="text-sm text-fg-tertiary">
@@ -299,7 +299,7 @@ function SecurityTab({ user }: { user: User }) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
@@ -369,7 +369,7 @@ function AccessTokensTab() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl" data-testid="access-tokens-tab">
-      <h2 className="text-white text-lg font-semibold">Access Tokens</h2>
+      <h2 className="text-fg text-lg font-semibold">Access Tokens</h2>
       <p className="text-sm text-fg-tertiary">
         Personal access tokens let you authenticate API requests. Tokens are shown once on creation.
         All tokens are revoked if you change your password.
@@ -377,7 +377,7 @@ function AccessTokensTab() {
 
       {/* One-time reveal panel */}
       {newToken && (
-        <div className="border border-warning rounded-lg p-4 bg-amber-900/20 flex flex-col gap-2" data-testid="new-token-reveal">
+        <div className="border border-warning rounded-lg p-4 bg-warning/20 flex flex-col gap-2" data-testid="new-token-reveal">
           <p className="text-sm text-warning font-medium">
             Copy your token now — it won't be shown again.
           </p>
@@ -386,7 +386,7 @@ function AccessTokensTab() {
           </code>
           <button
             onClick={() => setNewToken(null)}
-            className="self-end text-xs text-fg-tertiary hover:text-white transition"
+            className="self-end text-xs text-fg-tertiary hover:text-fg transition"
             data-testid="dismiss-token"
           >
             I've copied it — dismiss
@@ -420,7 +420,7 @@ function AccessTokensTab() {
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm px-3 py-1.5 rounded transition"
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm px-3 py-1.5 rounded transition"
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}
@@ -480,7 +480,7 @@ function AccessTokensTab() {
                     </button>
                     <button
                       onClick={() => setConfirmRevokeId(null)}
-                      className="text-xs text-fg-tertiary hover:text-white transition"
+                      className="text-xs text-fg-tertiary hover:text-fg transition"
                     >
                       Cancel
                     </button>
@@ -539,13 +539,13 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Notifications</h2>
+      <h2 className="text-fg text-lg font-semibold">Notifications</h2>
       <p className="text-sm text-fg-tertiary">Choose which events send you a notification.</p>
       <div className="flex flex-col gap-3">
         {rows.map(({ key, label, description }) => (
           <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
             <span>
-              <span className="block text-sm text-white">{label}</span>
+              <span className="block text-sm text-fg">{label}</span>
               <span className="block text-xs text-fg-muted">{description}</span>
             </span>
             <button
@@ -588,7 +588,7 @@ function AppearanceTab() {
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Appearance</h2>
+      <h2 className="text-fg text-lg font-semibold">Appearance</h2>
 
       <div>
         <p className="text-sm text-fg-tertiary mb-3">Theme</p>
@@ -651,13 +651,13 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Behavior</h2>
+      <h2 className="text-fg text-lg font-semibold">Behavior</h2>
 
       <div>
         <p className="text-sm text-fg-tertiary mb-3">Card editor</p>
         <label className="flex items-center justify-between gap-4 cursor-pointer">
           <span>
-            <span className="block text-sm text-white">Close editor on Enter</span>
+            <span className="block text-sm text-fg">Close editor on Enter</span>
             <span className="block text-xs text-fg-muted">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
           </span>
           <button
@@ -683,7 +683,7 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
 function AboutTab() {
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">About</h2>
+      <h2 className="text-fg text-lg font-semibold">About</h2>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-sm text-fg-tertiary">Version</span>
@@ -726,7 +726,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-        <h1 className="text-white text-2xl font-bold mb-8">Settings</h1>
+        <h1 className="text-fg text-2xl font-bold mb-8">Settings</h1>
 
         <div className="flex gap-8">
           {/* Sidebar nav */}
@@ -739,7 +739,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
                         ? "bg-blue-600 text-white font-medium"
-                        : "text-fg-tertiary hover:text-white hover:bg-surface"
+                        : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >
                     {tab.label}

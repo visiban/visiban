@@ -362,7 +362,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
               onBlur={handleTitleBlur}
-              className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-info focus:bg-blue-900/20 bg-transparent transition"
+              className="text-base font-semibold text-fg w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-info focus:bg-info/20 bg-transparent transition"
             />
             {/* Breadcrumb row — swimlane and column names close the panel so the user
                 lands back on the board at that location. The move icon sits immediately
@@ -425,7 +425,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-fg-tertiary hover:text-white hover:bg-surface-hover transition text-lg leading-none shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0"
             title="Close"
           >×</button>
         </div>
@@ -527,7 +527,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             el.focus();
                           }}
                         >
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-red-950/40 border-red-700/60 text-danger" : "bg-surface-hover border-line-strong text-white"}`}>
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-danger/10 border-danger/40 text-danger" : "bg-surface-hover border-line-strong text-fg"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -772,7 +772,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setShowBulkAdd(false)} />
                     <div className="relative bg-surface rounded-xl shadow-2xl w-80 p-5 flex flex-col gap-4">
-                      <h3 className="text-sm font-semibold text-white">Add checklist items</h3>
+                      <h3 className="text-sm font-semibold text-fg">Add checklist items</h3>
                       <p className="text-xs text-fg-muted -mt-2">One item per line</p>
                       <textarea
                         autoFocus
@@ -784,7 +784,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
+                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
                         <button onClick={handleBulkAdd} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add items</button>
                       </div>
                     </div>
@@ -996,7 +996,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setShowMovePopover(false)}
-              className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-fg-muted rounded"
+              className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-fg-muted rounded"
             >Cancel</button>
             <button
               onClick={handleMoveSubmit}
@@ -1018,16 +1018,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <>
             <p className="text-fg-tertiary text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-              <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
+              <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
           <>
             <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
-              <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-amber-500">Archive</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
+              <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-amber-500">Archive</button>
             </div>
           </>
         ) : null}

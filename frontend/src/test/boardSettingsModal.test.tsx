@@ -198,7 +198,7 @@ describe('BoardSettingsModal — Members tab', () => {
     const removeButtons = screen.getAllByTitle('Remove direct board role')
     await user.click(removeButtons[removeButtons.length - 1])
 
-    expect(screen.getByText('Bob Smith', { selector: 'span.text-white' })).toBeInTheDocument()
+    expect(screen.getByText('Bob Smith', { selector: 'span.text-fg' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
   })

@@ -105,8 +105,8 @@ export default function CollapsedFlyout({
                   item.active
                     ? "bg-info/20 text-info font-medium"
                     : depth > 0
-                      ? "text-fg-tertiary hover:text-white hover:bg-surface-hover"
-                      : "text-fg-secondary hover:text-white hover:bg-surface-hover"
+                      ? "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+                      : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
                 }`}
               >
                 {isGroup ? (

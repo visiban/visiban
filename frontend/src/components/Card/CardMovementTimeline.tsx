@@ -238,7 +238,7 @@ export default function CardMovementTimeline({ boardId, cardId, columnIds, userD
                   </div>
                   <div className="flex items-center gap-2">
                     <time className="text-xs text-fg-tertiary">{formatDateTime(m.moved_at, userDateFormat, userTimeFormat)}</time>
-                    {duration && <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>}
+                    {duration && <span className="text-xs text-info ml-auto shrink-0">Spent {duration} here</span>}
                   </div>
                 </div>
               </li>

@@ -63,8 +63,8 @@ function ToolbarButton({
       title={title}
       className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
         active
-          ? "bg-surface-active text-white"
-          : "text-fg-tertiary hover:bg-surface-hover hover:text-white"
+          ? "bg-surface-active text-fg"
+          : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
       }`}
     >
       {children}
@@ -113,7 +113,7 @@ function ColorPicker({
         onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Text color"
         className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1 ${
-          active ? "bg-surface-active text-white" : "text-fg-tertiary hover:bg-surface-hover hover:text-white"
+          active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
         <span style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
@@ -509,7 +509,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
-            className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition rounded"
+            className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition rounded"
           >
             Cancel
           </button>

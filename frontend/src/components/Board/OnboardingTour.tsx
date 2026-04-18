@@ -174,7 +174,7 @@ export default function OnboardingTour({ onComplete }: Props) {
           </span>
           <button
             onClick={finish}
-            className="text-xs text-fg-tertiary hover:text-white transition"
+            className="text-xs text-fg-tertiary hover:text-fg transition"
           >
             Skip tour
           </button>
@@ -184,7 +184,7 @@ export default function OnboardingTour({ onComplete }: Props) {
         <div className="flex justify-end">
           <button
             onClick={handleNext}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-blue-600 hover:bg-blue-700 text-fg text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {step < STEPS.length - 1 ? "Next" : "Done"}
           </button>

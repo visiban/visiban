@@ -41,7 +41,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
   return (
     <div className="min-h-screen bg-sunken flex items-center justify-center">
       <div className="w-full max-w-md">
-        <h2 className="text-white text-2xl font-bold mb-6 text-center">Your Boards</h2>
+        <h2 className="text-fg text-2xl font-bold mb-6 text-center">Your Boards</h2>
 
         {loading ? (
           <p className="text-fg-tertiary text-center">Loading…</p>
@@ -51,7 +51,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <div key={b.id} className="group relative">
                 <button
                   onClick={() => onSelect(b)}
-                  className="w-full bg-surface hover:bg-surface-hover text-white text-left px-4 py-3 rounded transition"
+                  className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition"
                 >
                   <p className="font-medium">{b.name}</p>
                   {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
@@ -77,7 +77,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
 
         <button
           onClick={() => setCreating(true)}
-          className="w-full border border-dashed border-line-strong text-fg-tertiary hover:text-white hover:border-line-emphasis py-3 rounded text-sm transition"
+          className="w-full border border-dashed border-line-strong text-fg-tertiary hover:text-fg hover:border-line-emphasis py-3 rounded text-sm transition"
         >
           + New board
         </button>
@@ -98,15 +98,15 @@ export default function BoardSelector({ user, onSelect }: Props) {
         return (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
             <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-white font-semibold text-lg mb-2">Delete board?</h3>
+              <h3 className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
               <p className="text-fg-tertiary text-sm mb-1">
-                <span className="text-white font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
+                <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
               </p>
               <p className="text-danger text-sm mb-4">This cannot be undone.</p>
               {hasCards && (
                 <div className="mb-4">
                   <p className="text-fg-tertiary text-xs mb-2">
-                    This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                    This board has <span className="text-fg font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
                   </p>
                   <input
                     type="text"
@@ -122,14 +122,14 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                  className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5"
+                  className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
                   disabled={!canDelete}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
                 >
                   Delete
                 </button>

@@ -377,7 +377,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
                         {formatRelativeTime(timelineEntry.ts)}
                       </time>
                       {duration && (
-                        <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>
+                        <span className="text-xs text-info ml-auto shrink-0">Spent {duration} here</span>
                       )}
                     </div>
                   </div>
@@ -419,7 +419,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-white hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {loadingMore && (
               <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />

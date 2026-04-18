@@ -219,7 +219,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-blue-400 bg-info/20" : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -296,7 +296,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {card.checklist_total > 0 && (
                   <span
                     className={`text-[10px] font-medium shrink-0 ${
-                      card.checklist_done === card.checklist_total ? "text-green-500" : "text-fg-tertiary"
+                      card.checklist_done === card.checklist_total ? "text-success" : "text-fg-tertiary"
                     }`}
                     title={`${card.checklist_done}/${card.checklist_total} checklist items`}
                   >

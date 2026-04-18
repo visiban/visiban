@@ -58,7 +58,7 @@ export default function ConfirmEmailPage() {
             <h1
               ref={successHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-2 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
             >
               Email verified
             </h1>
@@ -83,7 +83,7 @@ export default function ConfirmEmailPage() {
             <h1
               ref={errorHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-2 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
             >
               Link expired or invalid
             </h1>

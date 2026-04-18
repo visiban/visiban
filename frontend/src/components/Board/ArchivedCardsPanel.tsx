@@ -97,7 +97,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           </h2>
           <button
             onClick={onClose}
-            className="text-fg-tertiary hover:text-white hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close"
           >
             ✕
@@ -136,7 +136,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                         <button
                           onClick={() => handleUnarchive(card)}
                           disabled={unarchivingId === card.id}
-                          className="text-xs text-fg-secondary hover:text-white hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                         </button>

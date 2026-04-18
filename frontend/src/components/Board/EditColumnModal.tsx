@@ -135,7 +135,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
       </div>
 
       <div className="flex gap-2 mt-4 justify-end">
-        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}

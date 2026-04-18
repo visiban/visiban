@@ -49,7 +49,7 @@ function RoleTooltip() {
       {ROLES.map((r) => (
         <Fragment key={r.value}>
           <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-line' : ''}`}>
-            <span className="text-xs font-semibold text-white capitalize">{r.label}</span>
+            <span className="text-xs font-semibold text-fg capitalize">{r.label}</span>
             <span className="text-xs text-fg-tertiary"> — {r.description}</span>
           </div>
           {r.value === 'member' && (
@@ -262,7 +262,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 key={t}
                 onClick={() => setTab(t)}
                 className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px ${
-                  tab === t ? "border-blue-500 text-white" : "border-transparent text-fg-tertiary hover:text-fg"
+                  tab === t ? "border-blue-500 text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
               >
                 {label}
@@ -296,7 +296,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Avatar user={m.user} size="sm" />
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
+                          <p className="text-sm font-medium text-fg truncate">{userDisplayName(m.user)}</p>
                         </div>
                       </div>
 
@@ -386,7 +386,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     {isRemoving && (
                       <div className="mt-1.5 pl-9 flex items-center gap-2 text-xs">
                         <span className="text-fg-tertiary">
-                          Remove <span className="text-white font-medium">{userDisplayName(m.user)}</span>?
+                          Remove <span className="text-fg font-medium">{userDisplayName(m.user)}</span>?
                         </span>
                         <button
                           onClick={() => handleRemoveConfirm(m.user.id)}
@@ -455,7 +455,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-line/60 last:border-0">
                               <div className="flex items-center gap-2 min-w-0">
                                 <Avatar user={s.user} size="sm" />
-                                <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
+                                <p className="text-sm text-fg truncate">{userDisplayName(s.user)}</p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <SelectDropdown
@@ -488,7 +488,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <button
                       onClick={handleInviteSubmit}
                       disabled={staged.length === 0 || inviting}
-                      className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
                     </button>
@@ -685,7 +685,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                     <button
                       onClick={handleCopyShareUrl}
-                      className="text-xs text-fg-secondary hover:text-white hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                      className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
                     >
                       {shareCopied ? "Copied!" : "Copy"}
                     </button>
@@ -736,7 +736,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </div>
                 <button
                   onClick={() => { if (exportFormat === "json") { exportBoardJson(board.id); } else { exportBoardCsv(board.id); } onClose(); }}
-                  className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   Export {exportFormat.toUpperCase()}
                 </button>
@@ -763,7 +763,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <button
                         disabled={deleteInput !== board.name}
                         onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
                       >
                         Delete board
                       </button>
@@ -771,7 +771,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   ) : (
                     <button
                       onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                      className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full bg-red-600 hover:bg-red-700 text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                       Delete board
                     </button>

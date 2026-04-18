@@ -84,7 +84,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Cancel
           </button>
@@ -209,7 +209,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Cancel
             </button>
@@ -323,7 +323,7 @@ function InviteLinksTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-white text-lg font-semibold">Invite Links</h2>
+      <h2 className="text-fg text-lg font-semibold">Invite Links</h2>
 
       {/* Create form */}
       <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
@@ -386,7 +386,7 @@ function InviteLinksTab() {
             </button>
             <button
               onClick={() => setNewLink(null)}
-              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Done
             </button>
@@ -430,7 +430,7 @@ function InviteLinksTab() {
                     </button>
                     <button
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-xs text-fg-tertiary hover:text-white transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Cancel
                     </button>
@@ -545,7 +545,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
     <ModalWrapper open onClose={onClose} title="Transfer boards & deactivate" maxWidth="max-w-lg" headerBorder>
       <div ref={contentRef}>
         <p className="text-sm text-fg-secondary mb-4">
-          <span className="font-medium text-white">{user.display_name || user.username}</span> owns the boards below.
+          <span className="font-medium text-fg">{user.display_name || user.username}</span> owns the boards below.
           Assign a new owner for each before deactivating.
         </p>
 
@@ -592,7 +592,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Cancel
           </button>
@@ -699,7 +699,7 @@ function SettingsTab() {
 
   return (
     <div className="flex flex-col gap-6 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Instance Settings</h2>
+      <h2 className="text-fg text-lg font-semibold">Instance Settings</h2>
 
       <div>
         <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
@@ -908,7 +908,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-white text-lg font-semibold">Users</h2>
+        <h2 className="text-fg text-lg font-semibold">Users</h2>
         <button
           onClick={() => setShowAddModal(true)}
           className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1082,7 +1082,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 <button
                   onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
                   disabled={offset === 0}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-white hover:bg-surface-hover rounded disabled:opacity-40 transition"
+                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
                 >
                   ← Prev
                 </button>
@@ -1092,7 +1092,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 <button
                   onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-white hover:bg-surface-hover rounded disabled:opacity-40 transition"
+                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded disabled:opacity-40 transition"
                 >
                   Next →
                 </button>
@@ -1170,7 +1170,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
-        <h1 className="text-white text-2xl font-bold mb-8">Site Administration</h1>
+        <h1 className="text-fg text-2xl font-bold mb-8">Site Administration</h1>
 
         <div className="flex gap-8">
           {/* Sidebar nav */}
@@ -1182,8 +1182,8 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
-                        ? "bg-blue-600 text-white font-medium"
-                        : "text-fg-tertiary hover:text-white hover:bg-surface"
+                        ? "bg-blue-600 text-fg font-medium"
+                        : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >
                     {tab.label}

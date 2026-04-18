@@ -78,7 +78,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       <div className="flex justify-end gap-2 mt-5">
         <button
           onClick={onClose}
-          className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition"
+          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition"
         >
           Cancel
         </button>
@@ -163,7 +163,7 @@ function PickerRow({
     <button
       onClick={onSelect}
       className={`flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-left transition text-sm ${
-        selected ? "bg-blue-900/50 text-info" : "hover:bg-surface-hover text-fg-secondary"
+        selected ? "bg-info/50 text-info" : "hover:bg-surface-hover text-fg-secondary"
       }`}
     >
       <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${

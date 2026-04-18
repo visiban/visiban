@@ -56,7 +56,7 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
             {card.checklist_total > 0 && (
               <span
                 className={`text-[10px] font-medium shrink-0 ${
-                  card.checklist_done === card.checklist_total ? "text-green-500" : "text-fg-tertiary"
+                  card.checklist_done === card.checklist_total ? "text-success" : "text-fg-tertiary"
                 }`}
               >
                 ✓{card.checklist_done}/{card.checklist_total}
@@ -238,7 +238,7 @@ function ShareExpiredPage() {
         <svg className="w-12 h-12 text-fg-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a.75.75 0 00.75-.75V10.5a.75.75 0 00-.75-.75H3.75a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75z" />
         </svg>
-        <h1 className="text-xl font-semibold text-white">This board is no longer shared</h1>
+        <h1 className="text-xl font-semibold text-fg">This board is no longer shared</h1>
         <p className="text-sm text-fg-tertiary">
           The share link has been revoked or the board has been deleted.
         </p>

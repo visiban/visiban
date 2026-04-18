@@ -144,11 +144,11 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-white border border-blue-500 rounded px-1 py-0 outline-none"
+              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-blue-500 rounded px-1 py-0 outline-none"
             />
           ) : (
             <span
-              className={`font-medium text-fg text-sm truncate ${isAdmin ? "cursor-text hover:text-white" : ""}`}
+              className={`font-medium text-fg text-sm truncate ${isAdmin ? "cursor-text hover:text-fg" : ""}`}
               title={isAdmin ? "Click to rename" : column.name}
               onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
             >

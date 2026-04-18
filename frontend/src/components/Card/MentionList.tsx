@@ -55,8 +55,8 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
           }}
           className={`w-full text-left px-3 py-1.5 text-sm transition ${
             i === selectedIndex
-              ? "bg-surface-hover text-white"
-              : "text-fg-secondary hover:bg-surface-hover hover:text-white"
+              ? "bg-surface-hover text-fg"
+              : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
           }`}
         >
           <span className="font-medium">@{u.username}</span>

@@ -73,7 +73,7 @@ function GroupNode({
         </button>
 
         {/* Name */}
-        <span className="text-white text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
+        <span className="text-fg text-sm font-medium flex-1 min-w-0 truncate">{group.name}</span>
 
         {/* Stats */}
         <span className="text-fg-muted text-xs shrink-0 tabular-nums">

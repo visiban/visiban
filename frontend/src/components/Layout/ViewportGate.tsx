@@ -44,7 +44,7 @@ export default function ViewportGate({ children }: ViewportGateProps) {
         </div>
         <h1
           id="viewport-gate-heading"
-          className="text-xl font-semibold text-white mb-2"
+          className="text-xl font-semibold text-fg mb-2"
         >
           Visiban works best on a larger screen
         </h1>
