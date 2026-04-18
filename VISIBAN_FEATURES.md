@@ -441,22 +441,56 @@ The same `existingSecret` pattern applies to the PostgreSQL password (`postgresq
 
 ---
 
-## Post-1.0 roadmap (not yet implemented)
+## 1.1 roadmap
+
+### Foundation work (land first — unblocks multiple features)
+
+These cross-cutting refactors are load-bearing dependencies for several 1.1 items. Shipping them first turns the feature MRs into near-trivial swaps.
+
+| Item | Notes |
+|---|---|
+| Date utility unification | One `formatDate`/`parseDate` pair that reads `user.date_format` and `user.timezone`. Prerequisite for #243, #222, and email notification rendering (#225). |
+| Accent color token | Extract a single `--accent` CSS variable in `index.css` and route Tailwind utilities (`accent-primary`, `accent-focus`) through it. Replaces scattered `blue-600`/`blue-500`/`blue-400` usage. Prerequisite for #251 and light mode. |
+| Theme token layer | Split hard-coded `slate-*` backgrounds and `white`/`gray-*` text into semantic tokens (`--surface`, `--surface-muted`, `--text`, `--text-muted`, `--border`). Prerequisite for light mode. |
+
+### Features
 
 | Feature | Notes |
 |---|---|
-| Card watchers / subscriptions | Watch a card without being assignee (#229) |
-| Global board activity feed | Chronological stream of all board events (#232) |
-| Styled date picker | Replace native `<input type="date">` (#243) |
-| Archive organizer | Search, filter, sort, bulk actions, permanent delete (#250) |
-| Custom color scheme | User-selectable accent color (#251) |
-| Site admin: change user email | Update email address from admin panel (#215) |
-| Site admin: delete user account | Permanent deletion with data-cleanup (#214) |
-| Site admin: view user's boards | See all boards a user belongs to (#216) |
-| Site-level email invitations | Invite by email before account exists (#213) |
-| Auto-archive done cards | Configurable auto-archive after N days in Done column (#222) |
-| Cross-board card search | Search across all boards the user can access (#224) |
-| Email notifications | Transactional email channel (#225) |
+| Card watchers / subscriptions (#229) | Subscribe/eye toggle in `CardDetail` header next to Archive/Delete, with subscriber count tooltip. Passive "You're watching because you were @mentioned" hint so implicit watchers understand notification origin. |
+| Global board activity feed (#232) | Extend the existing `BoardActivityDrawer` to an account-scoped feed opened from the navbar bell icon (combined feed + notifications pane). Group entries by board; collapse within-board bursts to keep Maya's at-a-glance view usable. |
+| Styled date picker (#243) | One `DatePickerInput` component reading user prefs; swap all four native `<input type="date">` call sites (CardDetail, MovementHistoryView, SettingsPage, filters) in the same MR. Stored value stays ISO — backward compatible. |
+| Archive organizer (#250) | Add title/description search, sort (archived date / title / column), column / swimlane / assignee filters, bulk-select with bulk restore + permanent delete. Show origin (column → swimlane) on each row. Distinguish "empty archive" vs "no matches" empty states. |
+| Custom color scheme (#251) | User-selectable accent via the `--accent` token from foundation work. Restrict to 6–8 curated hues that meet AA contrast on the canvas background. |
+| Light mode | System-wide light theme driven by the theme token layer. Per-user preference (`light` / `dark` / `system`) on the profile page; respects `prefers-color-scheme` by default. Every surface, modal, drawer, and badge must pass AA contrast in both modes. Audit swimlanes, over-WIP indicators, drag preview, and mention highlights — these are the common regression spots. |
+| Site-level email invitations (#213) | "Invite people" action in Admin → Users emailing a signed, time-boxed link. Track redemption state; support revoke and bulk invite for Alex. |
+| Site admin: change user email (#215) | Row-level action in the admin user list. |
+| Site admin: view user's boards (#216) | Row-level action; links into the board with admin context. |
+| Site admin: delete user account (#214) | Row-level action gated by a "type the username" danger-zone confirm, reusing the pattern from board deletion. |
+| Auto-archive done cards (#222) | Toggle + paired numeric fields ("Archive cards in Done after N days" + warning threshold) in the existing `BoardSettingsModal` rules tab, following the paired-numeric convention in `frontend/CLAUDE.md`. |
+| Cross-board card search (#224) | Navbar omnibox (⌘K) hitting a new cross-board endpoint; results grouped by board and filtered by per-board permissions. |
+| Email notifications (#225) | Extend `NotificationsTab` with a per-preference channel split (in-app / email / both). Uses the unified date utility for timestamp rendering. |
+
+### Admin row-level actions (#214/#215/#216 grouped)
+
+All three admin actions share an overflow "⋯" menu per row in the user list to avoid cluttering the main columns. Ship them in one MR with a single menu component.
+
+### UX polish (1.1 scope)
+
+These surfaced during the 1.1 UI review. Group into one or two polish MRs rather than per-item issues.
+
+- Keyboard-shortcut discoverability — add a muted "Keyboard shortcuts" link in the footer and a first-run indicator on the help icon
+- Drag-and-drop screen-reader announcements — `role="status"` live region that reports "Moved <card> to <column> / <swimlane>"
+- Modal focus-trap consistency — standardize on `useEscapeStack` across `CardDetail`, `BoardSettingsModal`, and any other modal
+- Over-WIP collapsed-column indicator — add a ⚠ glyph; text-color alone disappears when the column is collapsed
+- Auto-save confirmation — transient checkmark on RTE description, weight, and any other auto-saved field
+- Tablet responsive pass — Dashboard and SettingsPage should degrade cleanly at `md:` breakpoints for Sam; board view remains desktop-first
+- Empty-state unification — codify the canonical pattern in `frontend/CLAUDE.md` and refactor outliers (archived panel, empty board, no-results filter, etc.)
+
+### Later / unscheduled
+
+| Feature | Notes |
+|---|---|
 | Card templates | Reusable card scaffolds |
 | Threaded comment replies | Nested comment threads |
 | Board-level admin audit log | Track admin actions |
