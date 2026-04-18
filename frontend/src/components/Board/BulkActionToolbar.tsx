@@ -170,11 +170,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   return (
     <>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-800 text-white rounded-xl shadow-2xl px-4 py-2.5 border border-slate-700">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-white rounded-xl shadow-2xl px-4 py-2.5 border border-line">
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>
-        <span className="w-px h-5 bg-slate-600" />
+        <span className="w-px h-5 bg-surface-active" />
 
         {/* Move */}
         <div className="relative">
@@ -182,17 +182,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={moveRef}
             onClick={() => toggle("move")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Move to...
           </button>
           {dropdown === "move" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
+            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
               {board.columns.map((col) => (
                 <button
                   key={col.id}
                   onClick={() => handleMove(col)}
-                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-200"
+                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
                   {col.name}
@@ -208,15 +208,15 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={assignRef}
             onClick={() => toggle("assign")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Assign to...
           </button>
           {dropdown === "assign" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
+            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
               <button
                 onClick={() => handleAssign(null)}
-                className="w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-400 italic"
+                className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg-tertiary italic"
               >
                 Unassign
               </button>
@@ -224,7 +224,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
                 <button
                   key={m.user.id}
                   onClick={() => handleAssign(m.user.id)}
-                  className="w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-200"
+                  className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
                 >
                   {userDisplayName(m.user)}
                 </button>
@@ -239,17 +239,17 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             ref={priorityRef}
             onClick={() => toggle("priority")}
             disabled={busy}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             Priority...
           </button>
           {dropdown === "priority" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl py-1 min-w-[120px]">
+            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px]">
               {priorities.map((p) => (
                 <button
                   key={p.value}
                   onClick={() => handlePriority(p.value)}
-                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-slate-700 text-slate-200 capitalize"
+                  className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg capitalize"
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                   {p.value}
@@ -259,13 +259,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           )}
         </div>
 
-        <span className="w-px h-5 bg-slate-600" />
+        <span className="w-px h-5 bg-surface-active" />
 
         {/* Archive — amber: meaningful but reversible (cards move to Archived panel) */}
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Archive
         </button>
@@ -274,18 +274,18 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-red-400 hover:bg-red-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         >
           Delete
         </button>
 
-        <span className="w-px h-5 bg-slate-600" />
+        <span className="w-px h-5 bg-surface-active" />
 
         {/* Deselect */}
         <button
           onClick={() => { setPartialError(null); onClearSelection(); }}
           disabled={busy}
-          className="text-slate-400 hover:text-white transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          className="text-fg-tertiary hover:text-white transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
           title="Deselect all (Esc)"
         >
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -295,10 +295,10 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
         <span className="text-xs h-4 flex items-center min-w-0">
           {partialError && (
-            <span className="text-amber-400 truncate max-w-[20rem]" title={partialError}>{partialError}</span>
+            <span className="text-warning truncate max-w-[20rem]" title={partialError}>{partialError}</span>
           )}
           {busy && (
-            <span className="text-slate-400 animate-pulse">Working...</span>
+            <span className="text-fg-tertiary animate-pulse">Working...</span>
           )}
         </span>
       </div>
@@ -306,13 +306,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
       {/* Delete confirmation modal */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
             <h3 id="bulk-delete-title" className="text-white font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
-            <p className="text-slate-400 text-sm mb-5">
+            <p className="text-fg-tertiary text-sm mb-5">
               This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
             </p>
             {!canModifyAll && othersCards.length > 0 && (
-              <p className="text-xs text-amber-400 -mt-3 mb-4">
+              <p className="text-xs text-warning -mt-3 mb-4">
                 {othersCards.length === count
                   ? "You can only delete cards you created. None of the selected cards will be deleted."
                   : `${othersCards.length} card${othersCards.length !== 1 ? "s" : ""} created by others will be skipped.`}
@@ -321,7 +321,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
+                className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5"
               >
                 Cancel
               </button>

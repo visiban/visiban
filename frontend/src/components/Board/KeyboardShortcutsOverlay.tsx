@@ -18,15 +18,15 @@ export default function KeyboardShortcutsOverlay({ onClose }: Props) {
   return (
     <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-sm">
       <table className="w-full text-sm">
-        <tbody className="divide-y divide-slate-700">
+        <tbody className="divide-y divide-line">
           {SHORTCUTS.map(({ key, description }) => (
             <tr key={key}>
               <td className="py-2 pr-4 w-12">
-                <kbd className="inline-block bg-slate-700 text-slate-200 text-xs font-mono px-1.5 py-0.5 rounded border border-slate-600">
+                <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
                   {key}
                 </kbd>
               </td>
-              <td className="py-2 text-slate-300">{description}</td>
+              <td className="py-2 text-fg-secondary">{description}</td>
             </tr>
           ))}
         </tbody>

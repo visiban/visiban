@@ -14,13 +14,13 @@ export function agingTint(
   const warnRatio = 1 - warningPct / 100;
   if (ratio >= 1.0) {
     return {
-      overlayClass: "absolute inset-0 rounded-md pointer-events-none bg-amber-500/20",
+      overlayClass: "absolute inset-0 rounded-md pointer-events-none bg-warning/20",
       bodyOpacityClass: "opacity-60",
     };
   }
   if (ratio >= warnRatio) {
     return {
-      overlayClass: "absolute inset-0 rounded-md pointer-events-none bg-amber-500/10",
+      overlayClass: "absolute inset-0 rounded-md pointer-events-none bg-warning/10",
       bodyOpacityClass: "opacity-80",
     };
   }

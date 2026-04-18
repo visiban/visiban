@@ -84,8 +84,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <span className="text-slate-400">Loading…</span>
+      <div className="min-h-screen bg-sunken flex items-center justify-center">
+        <span className="text-fg-tertiary">Loading…</span>
       </div>
     );
   }
@@ -196,7 +196,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     <button
       onClick={handleStarToggle}
       disabled={starLoading}
-      className={`text-sm transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-500 hover:text-yellow-400"}`}
+      className={`text-sm transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-fg-muted hover:text-yellow-400"}`}
       title={isStarred ? "Unstar board" : "Star board"}
       aria-label={isStarred ? "Unstar board" : "Star board"}
     >
@@ -215,7 +215,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           { label: board?.name ?? "…", suffix: starButton },
         ]}
       />
-      <div className="flex-1 flex flex-col overflow-hidden bg-slate-900 relative">
+      <div className="flex-1 flex flex-col overflow-hidden bg-sunken relative">
         {/* Move blocked toast — shown for WIP or weight limit violations */}
         {moveError && (
           <MoveBlockedToast
@@ -225,10 +225,10 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onDismiss={clearMoveError}
           />
         )}
-        {loading && <div className="flex items-center justify-center h-full text-slate-400">Loading board…</div>}
+        {loading && <div className="flex items-center justify-center h-full text-fg-tertiary">Loading board…</div>}
         {error && (
           <div className="flex flex-col items-center justify-center h-full gap-3">
-            <p className="text-red-400 text-sm">{error}</p>
+            <p className="text-danger text-sm">{error}</p>
             <button
               onClick={() => window.location.reload()}
               className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -67,17 +67,17 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       onMouseDown={handleMouseDown}
     >
       {/* Top line */}
-      <div className={`w-full h-px transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      <div className={`w-full h-px transition-colors ${hovered ? "bg-info/50" : "bg-surface-active/70"}`} />
       {/* Dark gap middle — mirrors ColumnSeparator */}
-      <div className={`flex-1 w-full transition-colors ${hovered ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
+      <div className={`flex-1 w-full transition-colors ${hovered ? "bg-info/5" : "bg-sunken/70"}`} />
       {/* Bottom line */}
-      <div className={`w-full h-px transition-colors ${hovered ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      <div className={`w-full h-px transition-colors ${hovered ? "bg-info/50" : "bg-surface-active/70"}`} />
 
       {/* "+" at each column center — mirrors ColumnSeparator showing "+" at each swimlane row */}
       {isAdmin && hovered && colCenterXs?.map((cx, i) => (
         <span
           key={i}
-          className="absolute text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm pointer-events-none"
+          className="absolute text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm pointer-events-none"
           style={{ left: cx, top: "50%", transform: "translate(-50%, -50%)" }}
         >+</span>
       ))}
@@ -85,9 +85,9 @@ export default function RowSeparator({ isAdmin, onInsert, currentHeight, setHeig
       {/* Column separator continuation — keeps the highlighted column strip unbroken through this row */}
       {hoveredSepX != null && (
         <div className="absolute inset-y-0 flex pointer-events-none" style={{ left: hoveredSepX, width: 16 }}>
-          <div className="w-px self-stretch bg-blue-400/50" />
-          <div className="flex-1 bg-blue-400/5" />
-          <div className="w-px self-stretch bg-blue-400/50" />
+          <div className="w-px self-stretch bg-info/50" />
+          <div className="flex-1 bg-info/5" />
+          <div className="w-px self-stretch bg-info/50" />
         </div>
       )}
     </div>

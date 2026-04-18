@@ -66,23 +66,23 @@ export default function ForceRenameUsernameModal({ user, onChanged }: Props) {
       dismissable={false}
       labelId="force-rename-username-title"
     >
-      <p className="text-slate-400 text-sm mb-4">
+      <p className="text-fg-tertiary text-sm mb-4">
         Your username was auto-generated and now conflicts with another account.
         Please choose a new one.
       </p>
 
-      <div className="text-xs text-slate-500 mb-4">
-        Previous username: <span className="font-mono text-slate-400">{user.username}</span>
+      <div className="text-xs text-fg-muted mb-4">
+        Previous username: <span className="font-mono text-fg-tertiary">{user.username}</span>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label className="block text-slate-400 text-xs mb-1">New username</label>
+          <label className="block text-fg-tertiary text-xs mb-1">New username</label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
             placeholder="Pick a username"
             required
             autoFocus
@@ -96,7 +96,7 @@ export default function ForceRenameUsernameModal({ user, onChanged }: Props) {
                 key={s}
                 type="button"
                 onClick={() => setUsername(s)}
-                className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 rounded px-2 py-1 transition"
+                className="text-xs bg-surface-hover hover:bg-surface-active text-fg-secondary rounded px-2 py-1 transition"
               >
                 {s}
               </button>
@@ -105,7 +105,7 @@ export default function ForceRenameUsernameModal({ user, onChanged }: Props) {
         )}
 
         <p className="text-xs h-4">
-          {error && <span className="text-red-400">{error}</span>}
+          {error && <span className="text-danger">{error}</span>}
         </p>
 
         <button

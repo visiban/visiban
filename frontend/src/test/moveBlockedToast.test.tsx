@@ -132,12 +132,12 @@ describe('MoveBlockedToast — hard-block variant', () => {
     expect(screen.getByText(/ask an admin to raise the WIP limit/)).toBeInTheDocument()
   })
 
-  it('toast stays amber (border-amber-600) for hard-blocked moves', () => {
+  it('toast stays amber (border-warning) for hard-blocked moves', () => {
     const { container } = render(
       <MoveBlockedToast error={hardBlockError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     const alert = container.querySelector('[role="alert"]') as HTMLElement
-    expect(alert.className).toContain('border-amber-600')
+    expect(alert.className).toContain('border-warning')
   })
 })
 
@@ -209,6 +209,6 @@ describe('MoveBlockedToast — permission_denied variant', () => {
       <MoveBlockedToast error={permissionDeniedError} isAdmin={false} onForce={vi.fn()} onDismiss={vi.fn()} />
     )
     const alert = container.querySelector('[role="alert"]') as HTMLElement
-    expect(alert.className).toContain('border-amber-600')
+    expect(alert.className).toContain('border-warning')
   })
 })

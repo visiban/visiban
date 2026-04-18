@@ -156,7 +156,7 @@ describe('ModalWrapper', () => {
     const dialog = screen.getByRole('dialog')
     const header = dialog.firstChild as HTMLElement
     expect(header.className).toContain('border-b')
-    expect(header.className).toContain('border-slate-700')
+    expect(header.className).toContain('border-line')
   })
 
   it('uses design system panel classes', () => {
@@ -166,8 +166,8 @@ describe('ModalWrapper', () => {
       </ModalWrapper>
     )
     const dialog = screen.getByRole('dialog')
-    expect(dialog.className).toContain('bg-slate-800')
-    expect(dialog.className).toContain('border-slate-700')
+    expect(dialog.className).toContain('bg-surface')
+    expect(dialog.className).toContain('border-line')
     expect(dialog.className).toContain('rounded-lg')
     expect(dialog.className).toContain('shadow-xl')
   })

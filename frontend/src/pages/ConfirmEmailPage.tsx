@@ -40,8 +40,8 @@ export default function ConfirmEmailPage() {
   }, [status, navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
+    <div className="min-h-screen bg-sunken flex items-center justify-center">
+      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
         </div>
@@ -49,7 +49,7 @@ export default function ConfirmEmailPage() {
         {status === "loading" && (
           <div className="flex flex-col items-center gap-3 py-4">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-slate-400">Verifying your email…</p>
+            <p className="text-sm text-fg-tertiary">Verifying your email…</p>
           </div>
         )}
 
@@ -62,7 +62,7 @@ export default function ConfirmEmailPage() {
             >
               Email verified
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               Your email address has been confirmed. You can now sign in.
             </p>
             <button
@@ -72,7 +72,7 @@ export default function ConfirmEmailPage() {
             >
               Sign in
             </button>
-            <p className="text-xs text-slate-500 mt-3 text-center">
+            <p className="text-xs text-fg-muted mt-3 text-center">
               Redirecting in {countdown}s…
             </p>
           </>
@@ -87,7 +87,7 @@ export default function ConfirmEmailPage() {
             >
               Link expired or invalid
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               This confirmation link has expired or has already been used.
               Ask your admin to resend the invitation, or sign in if your
               account is already active.

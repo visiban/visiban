@@ -60,15 +60,15 @@ export default function SelectDropdown<T extends string>({
         title={disabled && disabledReason ? disabledReason : undefined}
         aria-label={disabled && disabledReason ? disabledReason : undefined}
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerPadding} bg-slate-800 border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900
+        className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken
           ${open
-            ? "border-blue-400 text-blue-400"
-            : "border-slate-600 text-slate-300 hover:border-slate-400"
+            ? "border-info text-info"
+            : "border-line-strong text-fg-secondary hover:border-line-emphasis"
           }`}
       >
         <span className="truncate flex-1 text-left">{label}</span>
         <svg
-          className={`w-3 h-3 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3 h-3 shrink-0 text-fg-tertiary transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
           fill="currentColor"
         >
@@ -81,13 +81,13 @@ export default function SelectDropdown<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-full max-h-60 overflow-y-auto">
+        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-full max-h-60 overflow-y-auto">
           {options.map((opt, i) => (
             <div key={opt.value}>
               {i > 0 && (
                 <div role="separator" className="mx-4">
-                  <div className="h-px bg-slate-900" />
-                  <div className="h-px bg-slate-600/50" />
+                  <div className="h-px bg-sunken" />
+                  <div className="h-px bg-surface-active/50" />
                 </div>
               )}
               <button
@@ -96,8 +96,8 @@ export default function SelectDropdown<T extends string>({
                   onChange(opt.value);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-slate-700
-                  ${opt.value === value ? "text-blue-400" : "text-slate-300"}`}
+                className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover
+                  ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
               >
                 {opt.label}
               </button>

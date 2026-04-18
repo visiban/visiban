@@ -57,7 +57,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 border-r border-slate-700 bg-slate-800/50"
+        className="w-10 shrink-0 border-r border-line bg-surface/50"
         data-no-pan
         {...attributes}
         {...listeners}
@@ -70,7 +70,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-slate-700 bg-slate-800 cursor-pointer hover:bg-slate-700 transition overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-line bg-surface cursor-pointer hover:bg-surface-hover transition overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
         data-no-pan
         tabIndex={0}
         role="button"
@@ -88,19 +88,19 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         />
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
-            overWip ? "text-red-400 font-semibold" : "bg-slate-700 text-slate-400"
+            overWip ? "text-danger font-semibold" : "bg-surface-hover text-fg-tertiary"
           }`}
         >
           {cardCount}
         </span>
         <span
-          className="text-[11px] font-bold text-slate-400 tracking-widest flex-1 flex items-center"
+          className="text-[11px] font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
           title={column.name}
         >
           {abbreviation ?? column.name.slice(0, 3).toUpperCase()}
         </span>
-        <span className="text-slate-500 text-xs">▶</span>
+        <span className="text-fg-muted text-xs">▶</span>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={{ ...style, width: width ?? 220 }}
-        className={`relative shrink-0 px-3 py-2 bg-slate-800 border-r border-slate-700 group/col transition ${overWip ? "border-b-2 border-b-red-500/50" : ""}`}
+        className={`relative shrink-0 px-3 py-2 bg-surface border-r border-line group/col transition ${overWip ? "border-b-2 border-b-red-500/50" : ""}`}
         data-no-pan
         onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
       >
@@ -120,7 +120,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-slate-500 hover:text-slate-300 transition text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
             title="Collapse column"
           >
             ◀
@@ -144,11 +144,11 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 text-sm font-medium bg-slate-900 text-slate-100 border border-blue-500 rounded px-1 py-0 outline-none"
+              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-white border border-blue-500 rounded px-1 py-0 outline-none"
             />
           ) : (
             <span
-              className={`font-medium text-slate-200 text-sm truncate ${isAdmin ? "cursor-text hover:text-white" : ""}`}
+              className={`font-medium text-fg text-sm truncate ${isAdmin ? "cursor-text hover:text-white" : ""}`}
               title={isAdmin ? "Click to rename" : column.name}
               onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
             >
@@ -158,7 +158,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {/* Edit icon — opens full modal */}
           <button
             type="button"
-            className={`ml-auto transition text-xs shrink-0 focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-slate-600 group-hover/col:text-slate-400 hover:text-slate-200" : "text-slate-700 opacity-50 cursor-not-allowed"}`}
+            className={`ml-auto transition text-xs shrink-0 focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-fg-faint group-hover/col:text-fg-tertiary hover:text-fg" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
             title={isAdmin ? "Edit column settings" : nonAdminTitle}
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditing(true); } : undefined}
             disabled={!isAdmin}
@@ -172,25 +172,25 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
             {column.wip_limit !== null && (
               <span
-                className={`text-[10px] font-medium ${overWip ? "text-red-400" : "text-slate-500"}`}
+                className={`text-[10px] font-medium ${overWip ? "text-danger" : "text-fg-muted"}`}
                 title={hardWipEnforced ? "WIP hard limit — no override possible" : "Cards in column / WIP limit"}
               >
                 {hardWipEnforced && (
-                  <span className={overWip ? "text-red-400" : "text-slate-500"}>⛔ </span>
+                  <span className={overWip ? "text-danger" : "text-fg-muted"}>⛔ </span>
                 )}
                 WIP{" "}
-                <span className={`font-semibold ${overWip ? "text-red-400" : "text-slate-300"}`}>
+                <span className={`font-semibold ${overWip ? "text-danger" : "text-fg-secondary"}`}>
                   {cardCount}/{column.wip_limit}
                 </span>
               </span>
             )}
             {totalWeight > 0 && (
               <span
-                className={`text-[10px] font-medium ${overWeight ? "text-orange-400" : "text-slate-500"}`}
+                className={`text-[10px] font-medium ${overWeight ? "text-warning" : "text-fg-muted"}`}
                 title="Total card weight / weight budget"
               >
                 Weight{" "}
-                <span className={`font-semibold ${overWeight ? "text-orange-400" : "text-slate-300"}`}>
+                <span className={`font-semibold ${overWeight ? "text-warning" : "text-fg-secondary"}`}>
                   {totalWeight}{column.weight_limit !== null ? `/${column.weight_limit}` : ""}
                 </span>
               </span>

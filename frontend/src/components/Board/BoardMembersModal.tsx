@@ -61,10 +61,10 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
 
   return (
     <ModalWrapper open={true} onClose={onClose} title="Board Members">
-      <div className="mb-4 bg-slate-700 rounded-lg p-3 grid grid-cols-2 gap-x-4 gap-y-1">
+      <div className="mb-4 bg-surface-hover rounded-lg p-3 grid grid-cols-2 gap-x-4 gap-y-1">
         {ROLES.map((r) => (
-          <div key={r.value} className="text-xs text-slate-400">
-            <span className="font-medium text-slate-200 capitalize">{r.label}</span> — {r.description}
+          <div key={r.value} className="text-xs text-fg-tertiary">
+            <span className="font-medium text-fg capitalize">{r.label}</span> — {r.description}
           </div>
         ))}
       </div>
@@ -74,13 +74,13 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
           const isSelf = m.user.id === board.members.find(() => true)?.user.id;
           const isDisabled = saving === m.user.id;
           return (
-            <div key={m.user.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-700 last:border-0">
+            <div key={m.user.id} className="flex items-center justify-between gap-3 py-2 border-b border-line last:border-0">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">{userDisplayName(m.user)}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {m.role === "site_admin" ? (
-                  <span className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded" title="Site administrator — role managed at the instance level">
+                  <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
                     site admin
                   </span>
                 ) : (
@@ -95,15 +95,15 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                 {!isSelf && m.id !== null && (
                   confirmRemoveUserId === m.user.id ? (
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[11px] text-slate-400">Remove?</span>
-                      <button onClick={() => handleRemove(m.user.id)} className="text-[11px] text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
-                      <button onClick={() => setConfirmRemoveUserId(null)} className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                      <span className="text-[11px] text-fg-tertiary">Remove?</span>
+                      <button onClick={() => handleRemove(m.user.id)} className="text-[11px] text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                      <button onClick={() => setConfirmRemoveUserId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmRemoveUserId(m.user.id)}
                       disabled={isDisabled}
-                      className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-40"
+                      className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40"
                       title="Remove direct board role"
                     >
                       &#10005;
@@ -116,7 +116,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
         })}
       </div>
 
-      <div className="border-t border-slate-700 mt-4 pt-3 text-xs text-slate-500">
+      <div className="border-t border-line mt-4 pt-3 text-xs text-fg-muted">
         Members inherited from group membership are shown here. Assigning a role creates a direct override.
       </div>
     </ModalWrapper>

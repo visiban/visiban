@@ -79,10 +79,10 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
 
   const descriptionCountColor =
     description.length > DESCRIPTION_MAX
-      ? "text-red-400"
+      ? "text-danger"
       : description.length >= DESCRIPTION_WARN
-        ? "text-amber-400"
-        : "text-slate-500";
+        ? "text-warning"
+        : "text-fg-muted";
 
   // --- Post-creation phase ---
   // Build ancestor breadcrumb for the post-creation state so the user
@@ -111,9 +111,9 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center">
               {breadcrumbParts.map((part, i) => (
                 <span key={part.id} className="flex items-center">
-                  {i > 0 && <span className="text-slate-600 mx-1.5 select-none">/</span>}
+                  {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
                   <span
-                    className={`text-sm max-w-[12rem] truncate ${i === breadcrumbParts.length - 1 ? "text-slate-200 font-medium" : "text-slate-400"}`}
+                    className={`text-sm max-w-[12rem] truncate ${i === breadcrumbParts.length - 1 ? "text-fg font-medium" : "text-fg-tertiary"}`}
                     title={part.name}
                   >
                     {part.name}
@@ -123,7 +123,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             </nav>
           )}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               Add Subgroups
             </label>
             <div className="flex items-center gap-2">
@@ -136,7 +136,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
                 }}
                 placeholder="Subgroup name"
                 disabled={subgroupSaving}
-                className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition disabled:opacity-40"
+                className="flex-1 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted transition disabled:opacity-40"
               />
               <button
                 onClick={handleAddSubgroup}
@@ -148,16 +148,16 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             </div>
           </div>
           <p className="text-xs h-4">
-            {subgroupError && <span className="text-red-400">{subgroupError}</span>}
+            {subgroupError && <span className="text-danger">{subgroupError}</span>}
           </p>
           {createdSubgroups.length > 0 && (
             <div className="max-h-40 overflow-y-auto">
               {createdSubgroups.map((sg, i) => (
                 <div
                   key={sg.id}
-                  className={`flex items-center gap-2 py-2 px-3 text-sm text-slate-300${i < createdSubgroups.length - 1 ? " border-b border-slate-700" : ""}`}
+                  className={`flex items-center gap-2 py-2 px-3 text-sm text-fg-secondary${i < createdSubgroups.length - 1 ? " border-b border-line" : ""}`}
                 >
-                  <span className="text-green-400 text-xs">{"\u2713"}</span>
+                  <span className="text-success text-xs">{"\u2713"}</span>
                   {sg.name}
                 </div>
               ))}
@@ -183,7 +183,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
     <ModalWrapper open={true} onClose={onClose} title={title} maxWidth="max-w-sm">
       <div className="flex flex-col gap-3">
         <div>
-          <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">Name *</label>
+          <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">Name *</label>
           <input
             ref={inputRef}
             autoFocus
@@ -193,12 +193,12 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
               if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
             }}
             placeholder={parentGroup ? "e.g. Backend" : "e.g. Engineering"}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted transition"
           />
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide">Description <span className="text-slate-600">(optional)</span></label>
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide">Description <span className="text-fg-faint">(optional)</span></label>
             <span className={`text-xs ${descriptionCountColor}`}>{description.length}/{DESCRIPTION_MAX}</span>
           </div>
           <textarea
@@ -206,15 +206,15 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What is this group for?"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 resize-none transition"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted resize-none transition"
           />
         </div>
         <p className="text-xs h-4">
-          {error && <span className="text-red-400">{error}</span>}
+          {error && <span className="text-danger">{error}</span>}
         </p>
       </div>
       <div className="flex items-center justify-end gap-3 mt-5">
-        <button onClick={onClose} className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
         <button
           onClick={handleCreate}
           disabled={!name.trim() || saving || description.length > DESCRIPTION_MAX}

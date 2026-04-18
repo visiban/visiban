@@ -63,8 +63,8 @@ function ToolbarButton({
       title={title}
       className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
         active
-          ? "bg-slate-600 text-white"
-          : "text-slate-400 hover:bg-slate-700 hover:text-white"
+          ? "bg-surface-active text-white"
+          : "text-fg-tertiary hover:bg-surface-hover hover:text-white"
       }`}
     >
       {children}
@@ -113,13 +113,13 @@ function ColorPicker({
         onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Text color"
         className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1 ${
-          active ? "bg-slate-600 text-white" : "text-slate-400 hover:bg-slate-700 hover:text-white"
+          active ? "bg-surface-active text-white" : "text-fg-tertiary hover:bg-surface-hover hover:text-white"
         }`}
       >
         <span style={{ borderBottom: `2px solid ${currentColor || "#94a3b8"}` }}>A</span>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-36">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-xl p-2 flex flex-wrap gap-1.5 w-36">
           {TEXT_COLORS.map((c) => (
             <button
               key={c.label}
@@ -131,7 +131,7 @@ function ColorPicker({
               }}
               title={c.label}
               className={`w-5 h-5 rounded-full border-2 transition hover:scale-110 ${
-                currentColor === c.value ? "border-white" : "border-slate-600"
+                currentColor === c.value ? "border-white" : "border-line-strong"
               }`}
               style={{ backgroundColor: c.value || "#94a3b8" }}
             />
@@ -349,7 +349,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onClick={enterEdit}
-            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-blue-500"
             title="Edit description"
             tabIndex={0}
             onFocus={enterEdit}
@@ -363,7 +363,7 @@ export default function RichTextEditor({
           className={`rounded-lg px-3 py-2 border transition ${minHeight} ${
             readOnly
               ? "border-transparent"
-              : "border-transparent group-hover:border-slate-600"
+              : "border-transparent group-hover:border-line-emphasis"
           }`}
         >
           {value.trim() ? (
@@ -372,25 +372,25 @@ export default function RichTextEditor({
             // Tailwind JIT scan contexts. rehypeRaw renders <span style="color:...">
             // from the Color extension.
             <div className={[
-              "prose prose-sm max-w-none text-slate-300",
-              "[&_h1]:text-slate-200 [&_h1]:font-semibold",
-              "[&_h2]:text-slate-200 [&_h2]:font-semibold",
-              "[&_h3]:text-slate-200 [&_h3]:font-semibold",
-              "[&_p]:text-slate-300 [&_p]:leading-relaxed",
-              "[&_strong]:text-slate-200",
-              "[&_em]:text-slate-300",
-              "[&_li]:text-slate-300",
-              "[&_a]:text-blue-400 [&_a]:no-underline hover:[&_a]:underline",
-              "[&_code]:text-slate-200 [&_code]:bg-slate-700 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs",
-              "[&_pre]:bg-slate-900 [&_pre]:border [&_pre]:border-slate-700 [&_pre]:rounded-lg",
-              "[&_blockquote]:border-l-4 [&_blockquote]:border-slate-600 [&_blockquote]:pl-4 [&_blockquote]:text-slate-400",
-              "[&_hr]:border-slate-700",
+              "prose prose-sm max-w-none text-fg-secondary",
+              "[&_h1]:text-fg [&_h1]:font-semibold",
+              "[&_h2]:text-fg [&_h2]:font-semibold",
+              "[&_h3]:text-fg [&_h3]:font-semibold",
+              "[&_p]:text-fg-secondary [&_p]:leading-relaxed",
+              "[&_strong]:text-fg",
+              "[&_em]:text-fg-secondary",
+              "[&_li]:text-fg-secondary",
+              "[&_a]:text-info [&_a]:no-underline hover:[&_a]:underline",
+              "[&_code]:text-fg [&_code]:bg-surface-hover [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs",
+              "[&_pre]:bg-sunken [&_pre]:border [&_pre]:border-line [&_pre]:rounded-lg",
+              "[&_blockquote]:border-l-4 [&_blockquote]:border-line-strong [&_blockquote]:pl-4 [&_blockquote]:text-fg-tertiary",
+              "[&_hr]:border-line",
             ].join(" ")}>
               <ReactMarkdown rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]}>{value}</ReactMarkdown>
             </div>
           ) : (
             !readOnly && (
-              <span className="text-sm text-slate-500 italic">{placeholder}</span>
+              <span className="text-sm text-fg-muted italic">{placeholder}</span>
             )
           )}
         </div>
@@ -403,7 +403,7 @@ export default function RichTextEditor({
   return (
     <div ref={containerRef} className="flex flex-col gap-1">
       {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-slate-700 rounded-t-lg border border-slate-600 border-b-0 flex-wrap">
+      <div className="flex items-center gap-0.5 px-1 py-0.5 bg-surface-hover rounded-t-lg border border-line-strong border-b-0 flex-wrap">
         <ToolbarButton
           onClick={() => editor?.chain().focus().toggleBold().run()}
           active={editor?.isActive("bold")}
@@ -425,7 +425,7 @@ export default function RichTextEditor({
         >
           {"</>"}
         </ToolbarButton>
-        <div className="w-px h-4 bg-slate-600 mx-0.5" />
+        <div className="w-px h-4 bg-surface-active mx-0.5" />
         <ToolbarButton
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
           active={editor?.isActive("bulletList")}
@@ -440,7 +440,7 @@ export default function RichTextEditor({
         >
           1.
         </ToolbarButton>
-        <div className="w-px h-4 bg-slate-600 mx-0.5" />
+        <div className="w-px h-4 bg-surface-active mx-0.5" />
         <ToolbarButton
           onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor?.isActive("heading", { level: 2 })}
@@ -455,7 +455,7 @@ export default function RichTextEditor({
         >
           "
         </ToolbarButton>
-        <div className="w-px h-4 bg-slate-600 mx-0.5" />
+        <div className="w-px h-4 bg-surface-active mx-0.5" />
         <ColorPicker
           currentColor={currentColor}
           onSelect={(color) => {
@@ -477,27 +477,27 @@ export default function RichTextEditor({
         editor={editor}
         onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation(); }}
         className={[
-          "w-full text-sm bg-slate-900 border border-blue-400 rounded-b-lg px-3 py-2",
+          "w-full text-sm bg-sunken border border-info rounded-b-lg px-3 py-2",
           "outline-none",
           minHeight,
           "overflow-y-auto resize-y",
           // Base text color on the root tiptap element — prevents browser-default
-          // black text from showing against the dark bg-slate-900 background
+          // black text from showing against the dark bg-sunken background
           "[&_.tiptap]:outline-none",
           "[&_.tiptap]:min-h-full",
-          "[&_.tiptap]:text-slate-300",
+          "[&_.tiptap]:text-fg-secondary",
           "[&_.tiptap]:caret-white",
-          "[&_.tiptap_p]:text-slate-300 [&_.tiptap_p]:leading-relaxed [&_.tiptap_p]:mb-2",
-          "[&_.tiptap_h2]:text-slate-200 [&_.tiptap_h2]:font-semibold [&_.tiptap_h2]:text-base [&_.tiptap_h2]:mb-1",
-          "[&_.tiptap_h3]:text-slate-200 [&_.tiptap_h3]:font-semibold [&_.tiptap_h3]:text-sm [&_.tiptap_h3]:mb-1",
-          "[&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-4 [&_.tiptap_ul]:mb-2 [&_.tiptap_ul_li]:text-slate-300",
-          "[&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-4 [&_.tiptap_ol]:mb-2 [&_.tiptap_ol_li]:text-slate-300",
-          "[&_.tiptap_code]:bg-slate-700 [&_.tiptap_code]:text-slate-200 [&_.tiptap_code]:rounded [&_.tiptap_code]:px-1 [&_.tiptap_code]:text-xs",
-          "[&_.tiptap_pre]:bg-slate-800 [&_.tiptap_pre]:border [&_.tiptap_pre]:border-slate-700 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:p-2 [&_.tiptap_pre]:mb-2",
-          "[&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-slate-600 [&_.tiptap_blockquote]:pl-3 [&_.tiptap_blockquote]:text-slate-400 [&_.tiptap_blockquote]:mb-2",
-          "[&_.tiptap_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_.is-editor-empty:first-child::before]:text-slate-500 [&_.tiptap_.is-editor-empty:first-child::before]:italic [&_.tiptap_.is-editor-empty:first-child::before]:float-left [&_.tiptap_.is-editor-empty:first-child::before]:pointer-events-none",
+          "[&_.tiptap_p]:text-fg-secondary [&_.tiptap_p]:leading-relaxed [&_.tiptap_p]:mb-2",
+          "[&_.tiptap_h2]:text-fg [&_.tiptap_h2]:font-semibold [&_.tiptap_h2]:text-base [&_.tiptap_h2]:mb-1",
+          "[&_.tiptap_h3]:text-fg [&_.tiptap_h3]:font-semibold [&_.tiptap_h3]:text-sm [&_.tiptap_h3]:mb-1",
+          "[&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-4 [&_.tiptap_ul]:mb-2 [&_.tiptap_ul_li]:text-fg-secondary",
+          "[&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-4 [&_.tiptap_ol]:mb-2 [&_.tiptap_ol_li]:text-fg-secondary",
+          "[&_.tiptap_code]:bg-surface-hover [&_.tiptap_code]:text-fg [&_.tiptap_code]:rounded [&_.tiptap_code]:px-1 [&_.tiptap_code]:text-xs",
+          "[&_.tiptap_pre]:bg-surface [&_.tiptap_pre]:border [&_.tiptap_pre]:border-line [&_.tiptap_pre]:rounded [&_.tiptap_pre]:p-2 [&_.tiptap_pre]:mb-2",
+          "[&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-line-strong [&_.tiptap_blockquote]:pl-3 [&_.tiptap_blockquote]:text-fg-tertiary [&_.tiptap_blockquote]:mb-2",
+          "[&_.tiptap_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_.is-editor-empty:first-child::before]:text-fg-muted [&_.tiptap_.is-editor-empty:first-child::before]:italic [&_.tiptap_.is-editor-empty:first-child::before]:float-left [&_.tiptap_.is-editor-empty:first-child::before]:pointer-events-none",
           // Mention chips in the editor
-          "[&_.mention]:bg-blue-500/20 [&_.mention]:text-blue-400 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium",
+          "[&_.mention]:bg-info/20 [&_.mention]:text-info [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:font-medium",
         ].join(" ")}
       />
 
@@ -509,7 +509,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
-            className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition rounded"
+            className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition rounded"
           >
             Cancel
           </button>

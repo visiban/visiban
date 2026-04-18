@@ -360,17 +360,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
 
   if (loading) {
     return (
-      <div className="h-full bg-slate-900 flex items-center justify-center">
-        <span className="text-slate-400">Loading…</span>
+      <div className="h-full bg-sunken flex items-center justify-center">
+        <span className="text-fg-tertiary">Loading…</span>
       </div>
     );
   }
 
   if (error || !group) {
     return (
-      <div className="h-full bg-slate-900 flex flex-col items-center justify-center gap-3">
-        <span className="text-slate-400">{error ?? "Group not found"}</span>
-        <button onClick={() => navigate("/")} className="text-sm text-blue-400 hover:underline">
+      <div className="h-full bg-sunken flex flex-col items-center justify-center gap-3">
+        <span className="text-fg-tertiary">{error ?? "Group not found"}</span>
+        <button onClick={() => navigate("/")} className="text-sm text-info hover:underline">
           Return to dashboard
         </button>
       </div>
@@ -378,13 +378,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   }
 
   return (
-    <div className="h-full bg-slate-900 flex flex-col">
+    <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
 
       {joinToast && (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-900/60 border-b border-green-700/50 text-green-300 text-sm">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-green-900/60 border-b border-green-700/50 text-success text-sm">
           <span>You've joined <strong className="text-green-200">{joinToast}</strong>. Welcome!</span>
-          <button onClick={() => setJoinToast(null)} className="text-green-500 hover:text-green-300 transition text-lg leading-none shrink-0">×</button>
+          <button onClick={() => setJoinToast(null)} className="text-green-500 hover:text-success transition text-lg leading-none shrink-0">×</button>
         </div>
       )}
 
@@ -397,19 +397,19 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               <nav aria-label="Group breadcrumb" className="flex flex-wrap items-center mb-1">
                 {group.ancestors.map((ancestor, i) => (
                   <span key={ancestor.id} className="flex items-center">
-                    {i > 0 && <span className="text-slate-600 mx-1.5 select-none">/</span>}
+                    {i > 0 && <span className="text-fg-faint mx-1.5 select-none">/</span>}
                     <a
                       href={`/groups/${ancestor.id}`}
                       onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
-                      className="text-sm text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
+                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
                       title={ancestor.name}
                     >
                       {ancestor.name}
                     </a>
                   </span>
                 ))}
-                <span className="text-slate-600 mx-1.5 select-none">/</span>
-                <span className="text-sm text-slate-300 max-w-[12rem] truncate" title={group.name}>{group.name}</span>
+                <span className="text-fg-faint mx-1.5 select-none">/</span>
+                <span className="text-sm text-fg-secondary max-w-[12rem] truncate" title={group.name}>{group.name}</span>
               </nav>
             )}
 
@@ -429,13 +429,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div className="flex items-center gap-2">
                     <h1
                       onClick={handleRenameStart}
-                      className="text-white text-2xl font-bold cursor-text border border-transparent hover:border-slate-600 rounded px-1 -mx-1 transition-colors"
+                      className="text-white text-2xl font-bold cursor-text border border-transparent hover:border-line-emphasis rounded px-1 -mx-1 transition-colors"
                     >
                       {group.name}
                     </h1>
                     <button
                       onClick={handleRenameStart}
-                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-slate-500 hover:text-slate-300 transition-opacity text-sm"
+                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm"
                       title="Rename group"
                       aria-label="Rename group"
                     >
@@ -444,7 +444,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   </div>
                 )}
                 <p className="text-xs h-4 mt-0.5 -mx-1 px-1">
-                  {renameError && <span className="text-red-400">{renameError}</span>}
+                  {renameError && <span className="text-danger">{renameError}</span>}
                 </p>
               </div>
             ) : (
@@ -461,22 +461,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   onChange={(e) => setDescriptionValue(e.target.value)}
                   onKeyDown={handleDescriptionKeyDown}
                   onBlur={handleDescriptionSave}
-                  className="w-full bg-slate-900 border border-blue-400 rounded px-2 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-slate-500"
+                  className="w-full bg-sunken border border-info rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-fg-muted"
                   placeholder="Add a description…"
                 />
               ) : isAdmin ? (
                 <div
                   onClick={handleDescriptionStart}
-                  className="cursor-text border border-transparent hover:border-slate-600 rounded px-2 py-1.5 -mx-2 transition-colors"
+                  className="cursor-text border border-transparent hover:border-line-emphasis rounded px-2 py-1.5 -mx-2 transition-colors"
                 >
                   {group.description ? (
-                    <p className="text-sm text-slate-400 whitespace-pre-wrap">{group.description}</p>
+                    <p className="text-sm text-fg-tertiary whitespace-pre-wrap">{group.description}</p>
                   ) : (
-                    <p className="text-sm text-slate-600">Add a description…</p>
+                    <p className="text-sm text-fg-faint">Add a description…</p>
                   )}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDescriptionStart(); }}
-                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-slate-500 hover:text-slate-300 transition-opacity text-xs mt-0.5"
+                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs mt-0.5"
                     title="Edit description"
                     aria-label="Edit description"
                   >
@@ -484,14 +484,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   </button>
                 </div>
               ) : group.description ? (
-                <p className="text-sm text-slate-400 whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
+                <p className="text-sm text-fg-tertiary whitespace-pre-wrap px-2 py-1.5 -mx-2">{group.description}</p>
               ) : null}
               <p className="text-xs h-4">
-                {descriptionError && <span className="text-red-400">{descriptionError}</span>}
+                {descriptionError && <span className="text-danger">{descriptionError}</span>}
               </p>
             </div>
 
-            <p className="text-slate-500 text-sm">
+            <p className="text-fg-muted text-sm">
               {group.member_count} member{group.member_count !== 1 ? "s" : ""}
               {" · "}
               {group.board_count} board{group.board_count !== 1 ? "s" : ""}
@@ -502,7 +502,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <button
               onClick={handleStarToggle}
               disabled={starLoading}
-              className={`text-lg transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-slate-500 hover:text-yellow-400"}`}
+              className={`text-lg transition ${isStarred ? "text-yellow-400 hover:text-yellow-200" : "text-fg-muted hover:text-yellow-400"}`}
               title={isStarred ? "Unstar group" : "Star group"}
               aria-label={isStarred ? "Unstar group" : "Star group"}
             >
@@ -511,7 +511,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             {isAdmin && (
               <button
                 onClick={() => setSearchParams({ tab: "settings" })}
-                className="text-sm text-slate-400 hover:text-white transition"
+                className="text-sm text-fg-tertiary hover:text-white transition"
               >
                 Settings
               </button>
@@ -520,13 +520,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 border-b border-slate-700 mb-8">
+        <div className="flex gap-1 border-b border-line mb-8">
           <button
             onClick={() => setSearchParams({})}
             className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
               activeTab === "boards"
                 ? "text-white border-blue-500"
-                : "text-slate-400 hover:text-white border-transparent"
+                : "text-fg-tertiary hover:text-white border-transparent"
             }`}
           >
             Boards
@@ -537,7 +537,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
                 activeTab === "settings"
                   ? "text-white border-blue-500"
-                  : "text-slate-400 hover:text-white border-transparent"
+                  : "text-fg-tertiary hover:text-white border-transparent"
               }`}
             >
               Settings
@@ -554,14 +554,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setShowCreateSubgroup(true)}
-                    className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     + Create subgroup
                   </button>
                 )}
               </div>
               {subgroups.length === 0 ? (
-                <p className="text-slate-500 text-sm">
+                <p className="text-fg-muted text-sm">
                   Subgroups let you organize boards and members into nested workspaces.
                 </p>
               ) : (
@@ -570,16 +570,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       key={sg.id}
                       onClick={() => navigate(`/groups/${sg.id}`)}
-                      className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-surface hover:bg-surface-hover border border-line rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         {/* Group/subgroup icon */}
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                         </svg>
                         <p className="text-white font-medium">{sg.name}</p>
                       </div>
-                      <p className="text-slate-500 text-xs">
+                      <p className="text-fg-muted text-xs">
                         {sg.board_count} board{sg.board_count !== 1 ? "s" : ""} · {sg.member_count} member{sg.member_count !== 1 ? "s" : ""}
                       </p>
                     </button>
@@ -595,21 +595,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setImportingBoard(true)}
-                    className="text-sm text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Import
                   </button>
                 )}
                 {subgroups.length > 0 && (
                   <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
-                    <span className="text-xs text-slate-500">Show subgroup boards</span>
+                    <span className="text-xs text-fg-muted">Show subgroup boards</span>
                     <button
                       role="switch"
                       aria-checked={showSubgroupBoards}
                       onClick={() => setShowSubgroupBoards((v) => !v)}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-blue-600" : "bg-slate-600"}`}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-blue-600" : "bg-surface-active"}`}
                     >
-                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-slate-100 rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
+                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
                     </button>
                   </label>
                 )}
@@ -619,21 +619,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div key={b.id} className="group/board relative flex items-center">
                     <button
                       onClick={() => navigate(`/boards/${b.id}`)}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 bg-surface hover:bg-surface-hover text-white text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <div className="flex items-center gap-2">
                         {/* Board icon */}
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                         </svg>
                         <p className="font-medium">{b.name}</p>
                       </div>
-                      {b.description && <p className="text-sm text-slate-400 mt-0.5 ml-6">{b.description}</p>}
+                      {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
                     </button>
                     <button
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
-                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-slate-500 hover:text-blue-400 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
@@ -645,36 +645,36 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setCreatingBoard(true)}
-                    className="w-full border-2 border-dashed border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-dashed border-line hover:border-line-emphasis hover:bg-surface/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <p className="text-slate-500 group-hover:text-slate-300 font-medium transition">+ New board</p>
+                    <p className="text-fg-muted group-hover:text-fg-secondary font-medium transition">+ New board</p>
                   </button>
                 )}
                 {!isAdmin && boards.length === 0 && !showSubgroupBoards && (
-                  <p className="text-slate-600 text-sm">No boards yet.</p>
+                  <p className="text-fg-faint text-sm">No boards yet.</p>
                 )}
 
                 {/* Subgroup boards */}
                 {showSubgroupBoards && (
                   loadingSubgroupBoards ? (
-                    <p className="text-slate-500 text-sm px-1">Loading subgroup boards…</p>
+                    <p className="text-fg-muted text-sm px-1">Loading subgroup boards…</p>
                   ) : subgroupBoards.length === 0 ? (
-                    <p className="text-slate-600 text-sm px-1">No boards in subgroups.</p>
+                    <p className="text-fg-faint text-sm px-1">No boards in subgroups.</p>
                   ) : (
                     subgroupBoards.map(({ board: b, groupName }) => (
                       <button
                         key={b.id}
                         onClick={() => navigate(`/boards/${b.id}`)}
-                        className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded-xl transition"
+                        className="w-full bg-surface hover:bg-surface-hover text-white text-left px-4 py-3 rounded-xl transition"
                       >
                         <div className="flex items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                           </svg>
                           <p className="font-medium flex-1">{b.name}</p>
-                          <span className="text-xs text-slate-500 ml-2 shrink-0">{groupName}</span>
+                          <span className="text-xs text-fg-muted ml-2 shrink-0">{groupName}</span>
                         </div>
-                        {b.description && <p className="text-sm text-slate-400 mt-0.5 ml-6">{b.description}</p>}
+                        {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
                       </button>
                     ))
                   )
@@ -689,18 +689,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             {/* Members */}
             <section>
               <h2 className="text-white font-semibold mb-1">Members</h2>
-              <p className="text-slate-500 text-sm mb-4">Manage who has access to this group and their roles.</p>
+              <p className="text-fg-muted text-sm mb-4">Manage who has access to this group and their roles.</p>
               <div className="flex flex-col gap-2">
                 {members.map((m) => (
-                  <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-slate-800/50" : "bg-slate-800"}`}>
+                  <div key={m.user.id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${m.is_inherited ? "bg-surface/50" : "bg-surface"}`}>
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar user={m.user} size="sm" />
-                      <p className={`text-sm truncate ${m.is_inherited ? "text-slate-400" : "text-white"}`}>{m.user.display_name || m.user.username}</p>
+                      <p className={`text-sm truncate ${m.is_inherited ? "text-fg-tertiary" : "text-white"}`}>{m.user.display_name || m.user.username}</p>
                     </div>
                     {m.is_inherited ? (
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs text-slate-500 capitalize">{m.role}</span>
-                        <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        <span className="text-xs text-fg-muted capitalize">{m.role}</span>
+                        <span className="text-[10px] bg-surface-hover text-fg-tertiary px-1.5 py-0.5 rounded whitespace-nowrap">
                           ↑ {m.inherited_from}
                         </span>
                       </div>
@@ -719,20 +719,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         />
                         {m.role === "admin" && (
                           <RoleInfoTooltip label="Group Admin info">
-                            <p className="text-xs font-semibold text-slate-100 mb-1">Group Admin</p>
-                            <p className="text-xs text-slate-400">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
+                            <p className="text-xs font-semibold text-white mb-1">Group Admin</p>
+                            <p className="text-xs text-fg-tertiary">Group Admin automatically grants board-admin rights on every board in this group. This is the recommended role for team leads.</p>
                           </RoleInfoTooltip>
                         )}
                         {confirmRemoveMemberId === m.user.id ? (
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-slate-400">Remove?</span>
-                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                            <span className="text-xs text-fg-tertiary">Remove?</span>
+                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                           </div>
                         ) : (
                           <button
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
-                            className="text-slate-600 hover:text-red-400 transition text-xs"
+                            className="text-fg-faint hover:text-danger transition text-xs"
                           >
                             Remove
                           </button>
@@ -740,7 +740,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
-                        <p className="text-slate-500 text-xs capitalize">{m.role}</p>
+                        <p className="text-fg-muted text-xs capitalize">{m.role}</p>
                         {m.role === "site_admin" && (
                           <span className="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">site admin</span>
                         )}
@@ -757,13 +757,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             {/* Board defaults */}
             <section>
               <h2 className="text-white font-semibold mb-1">Board defaults</h2>
-              <p className="text-slate-500 text-sm mb-4">
+              <p className="text-fg-muted text-sm mb-4">
                 These settings apply to new boards created in this group. Existing boards are not affected.
               </p>
 
               {/* Default member role */}
               <div className="mb-5">
-                <label className="text-slate-400 text-sm block mb-2">Default member role for new boards</label>
+                <label className="text-fg-tertiary text-sm block mb-2">Default member role for new boards</label>
                 <div className="flex items-center gap-3">
                   <SelectDropdown
                     value={group.default_board_member_role ?? "member"}
@@ -776,23 +776,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       { value: "viewer", label: "Viewer" },
                     ]}
                   />
-                  {defaultsSaved && <span className="text-green-400 text-xs">Saved</span>}
-                  {defaultsError && <span className="text-red-400 text-xs">{defaultsError}</span>}
+                  {defaultsSaved && <span className="text-success text-xs">Saved</span>}
+                  {defaultsError && <span className="text-danger text-xs">{defaultsError}</span>}
                 </div>
               </div>
 
               {/* Allowed priorities */}
               <div className="mb-5">
-                <label className="text-slate-400 text-sm block mb-2">Allowed priorities on new boards</label>
+                <label className="text-fg-tertiary text-sm block mb-2">Allowed priorities on new boards</label>
                 <div className="flex flex-wrap gap-2">
                   {(["low", "medium", "high", "urgent"] as Priority[]).map((p) => {
                     const effectivePriorities = group.allowed_priorities.length > 0 ? group.allowed_priorities : (["low", "medium", "high", "urgent"] as Priority[]);
                     const active = effectivePriorities.includes(p);
                     const colorMap: Record<Priority, string> = {
-                      low: "bg-green-900/60 border-green-700 text-green-300",
+                      low: "bg-green-900/60 border-green-700 text-success",
                       medium: "bg-yellow-900/60 border-yellow-700 text-yellow-300",
-                      high: "bg-orange-900/60 border-orange-700 text-orange-300",
-                      urgent: "bg-red-900/60 border-red-700 text-red-300",
+                      high: "bg-orange-900/60 border-orange-700 text-warning",
+                      urgent: "bg-red-900/60 border-red-700 text-danger",
                     };
                     return (
                       <button
@@ -801,7 +801,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         className={`px-3 py-1 rounded border text-xs font-medium transition capitalize ${
                           active
                             ? colorMap[p]
-                            : "bg-slate-800 border-slate-600 text-slate-500 hover:border-slate-400 hover:text-slate-400"
+                            : "bg-surface border-line-strong text-fg-muted hover:border-line-emphasis hover:text-fg-tertiary"
                         }`}
                         title={active ? `Disable ${p} priority` : `Enable ${p} priority`}
                       >
@@ -810,16 +810,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     );
                   })}
                 </div>
-                <p className="text-slate-600 text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
+                <p className="text-fg-faint text-xs mt-2">Click to toggle. At least one priority must remain enabled.</p>
               </div>
 
               {/* Shared label library */}
               <div>
-                <label className="text-slate-400 text-sm block mb-2">Shared label library</label>
-                <p className="text-slate-600 text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
+                <label className="text-fg-tertiary text-sm block mb-2">Shared label library</label>
+                <p className="text-fg-faint text-xs mb-3">Labels added here are copied to every new board created in this group.</p>
                 <div className="flex flex-col gap-1.5 mb-3">
                   {(group.shared_labels ?? []).map((label) => (
-                    <div key={label.id} className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-2">
+                    <div key={label.id} className="flex items-center gap-2 bg-surface rounded-lg px-3 py-2">
                       <span
                         className="w-3 h-3 rounded-full shrink-0"
                         style={{ backgroundColor: label.color }}
@@ -827,14 +827,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <span className="text-white text-sm flex-1">{label.name}</span>
                       {confirmRemoveLabelId === label.id ? (
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-slate-400">Remove?</span>
-                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1">No</button>
+                          <span className="text-xs text-fg-tertiary">Remove?</span>
+                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setConfirmRemoveLabelId(label.id)}
-                          className="text-slate-600 hover:text-red-400 transition text-xs"
+                          className="text-fg-faint hover:text-danger transition text-xs"
                         >
                           Remove
                         </button>
@@ -842,7 +842,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </div>
                   ))}
                   {(group.shared_labels ?? []).length === 0 && (
-                    <p className="text-slate-600 text-sm">No shared labels yet.</p>
+                    <p className="text-fg-faint text-sm">No shared labels yet.</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -850,7 +850,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     type="color"
                     value={newLabelColor}
                     onChange={(e) => setNewLabelColor(e.target.value)}
-                    className="w-8 h-8 rounded cursor-pointer bg-transparent border border-slate-600"
+                    className="w-8 h-8 rounded cursor-pointer bg-transparent border border-line-strong"
                     title="Label color"
                   />
                   <input
@@ -859,7 +859,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     onChange={(e) => setNewLabelName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddGroupLabel(); }}
                     placeholder="Label name…"
-                    className="flex-1 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                    className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
                   />
                   <button
                     onClick={handleAddGroupLabel}
@@ -869,14 +869,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     Add
                   </button>
                 </div>
-                {labelError && <p className="text-red-400 text-xs mt-1">{labelError}</p>}
+                {labelError && <p className="text-danger text-xs mt-1">{labelError}</p>}
               </div>
             </section>
 
             {/* Danger zone */}
             <section className="border border-red-900/50 rounded-xl p-5">
-              <h2 className="text-red-400 font-semibold mb-1">Danger zone</h2>
-              <p className="text-slate-500 text-sm mb-4">These actions are permanent and cannot be undone.</p>
+              <h2 className="text-danger font-semibold mb-1">Danger zone</h2>
+              <p className="text-fg-muted text-sm mb-4">These actions are permanent and cannot be undone.</p>
               <div className="flex flex-wrap gap-3">
                 {group.owner.id === user.id && (
                   <button
@@ -940,16 +940,16 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         title="Transfer ownership"
         maxWidth="max-w-md"
       >
-        <p className="text-slate-400 text-sm mb-5">
+        <p className="text-fg-tertiary text-sm mb-5">
           Transfer ownership of <span className="text-white font-medium">{group?.name}</span> to another admin.
           You will remain as an admin after the transfer.
         </p>
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-slate-400 text-sm block mb-1">New owner</label>
+            <label className="text-fg-tertiary text-sm block mb-1">New owner</label>
             {adminMembers.length === 0 ? (
-              <p className="text-slate-500 text-sm">No other admins found. Promote a member to admin first.</p>
+              <p className="text-fg-muted text-sm">No other admins found. Promote a member to admin first.</p>
             ) : (
               <SelectDropdown
                 value={String(transferNewOwnerId)}
@@ -967,7 +967,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           </div>
 
           <div>
-            <label className="text-slate-400 text-sm block mb-1">
+            <label className="text-fg-tertiary text-sm block mb-1">
               Type the group name to confirm: <span className="text-white font-medium">{group?.name}</span>
             </label>
             <input
@@ -975,18 +975,18 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               value={transferConfirmation}
               onChange={(e) => setTransferConfirmation(e.target.value)}
               placeholder={group?.name}
-              className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
             />
           </div>
 
           {transferError && (
-            <p className="text-red-400 text-sm">{transferError}</p>
+            <p className="text-danger text-sm">{transferError}</p>
           )}
 
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-slate-400 hover:text-white px-4 py-2 rounded transition"
+              className="text-sm text-fg-tertiary hover:text-white px-4 py-2 rounded transition"
             >
               Cancel
             </button>
@@ -1008,9 +1008,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         title={`Delete "${group?.name}"?`}
         maxWidth="max-w-sm"
       >
-        <p className="text-slate-400 text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
+        <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
           <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete group</button>
         </div>
       </ModalWrapper>

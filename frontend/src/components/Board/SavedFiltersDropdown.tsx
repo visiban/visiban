@@ -129,10 +129,10 @@ export default function SavedFiltersDropdown({
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
-        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           savedFilters.length > 0
-            ? "border-slate-600 text-slate-300 hover:border-slate-400"
-            : "border-slate-600 text-slate-500 hover:border-slate-400"
+            ? "border-line-strong text-fg-secondary hover:border-line-emphasis"
+            : "border-line-strong text-fg-muted hover:border-line-emphasis"
         }`}
       >
         {/* Bookmark icon */}
@@ -141,21 +141,21 @@ export default function SavedFiltersDropdown({
         </svg>
         <span className="text-xs">Saved</span>
         {savedFilters.length > 0 && (
-          <span className="bg-blue-500/20 text-blue-400 rounded-full px-1.5 py-0.5 text-xs leading-none">
+          <span className="bg-info/20 text-info rounded-full px-1.5 py-0.5 text-xs leading-none">
             {savedFilters.length}
           </span>
         )}
-        <svg className="w-3 h-3 text-slate-500" viewBox="0 0 16 16" fill="currentColor">
+        <svg className="w-3 h-3 text-fg-muted" viewBox="0 0 16 16" fill="currentColor">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
         </svg>
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 w-64">
+        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 w-64">
           {/* Save current filter section */}
           {saveMode ? (
             <div className="px-3 py-2">
-              <p className="text-xs text-slate-400 mb-1.5">Save current filters as:</p>
+              <p className="text-xs text-fg-tertiary mb-1.5">Save current filters as:</p>
               <input
                 ref={inputRef}
                 type="text"
@@ -168,11 +168,11 @@ export default function SavedFiltersDropdown({
                 }}
                 placeholder="Filter name…"
                 maxLength={100}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               {/* Reserve vertical space for error so the panel height is stable */}
               <p className="text-xs h-4 mt-1">
-                {saveError && <span className="text-red-400">{saveError}</span>}
+                {saveError && <span className="text-danger">{saveError}</span>}
               </p>
               <div className="flex gap-2 mt-1">
                 <button
@@ -184,7 +184,7 @@ export default function SavedFiltersDropdown({
                 </button>
                 <button
                   onClick={() => { setSaveMode(false); setSaveError(null); }}
-                  className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="text-fg-secondary hover:text-white hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 >
                   Cancel
                 </button>
@@ -197,8 +197,8 @@ export default function SavedFiltersDropdown({
                 disabled={!hasActiveFilters}
                 className={`w-full text-left px-3 py-1.5 text-sm transition flex items-center gap-2 ${
                   hasActiveFilters
-                    ? "text-slate-300 hover:bg-slate-700 hover:text-white"
-                    : "text-slate-600 cursor-not-allowed"
+                    ? "text-fg-secondary hover:bg-surface-hover hover:text-white"
+                    : "text-fg-faint cursor-not-allowed"
                 }`}
                 title={hasActiveFilters ? undefined : "Set at least one filter to save it"}
               >
@@ -210,8 +210,8 @@ export default function SavedFiltersDropdown({
 
               {savedFilters.length > 0 && (
                 <div role="separator" className="mx-4 my-0.5">
-                  <div className="h-px bg-slate-900" />
-                  <div className="h-px bg-slate-600/50" />
+                  <div className="h-px bg-sunken" />
+                  <div className="h-px bg-surface-active/50" />
                 </div>
               )}
             </div>
@@ -221,23 +221,23 @@ export default function SavedFiltersDropdown({
           {!saveMode && (
             <>
               {loading && (
-                <p className="px-3 py-2 text-xs text-slate-500 italic">Loading…</p>
+                <p className="px-3 py-2 text-xs text-fg-muted italic">Loading…</p>
               )}
               {!loading && savedFilters.length === 0 && (
-                <p className="px-3 py-2 text-xs text-slate-500 italic">No saved filters yet.</p>
+                <p className="px-3 py-2 text-xs text-fg-muted italic">No saved filters yet.</p>
               )}
               {!loading && savedFilters.map((f, i) => (
                 <div key={f.id}>
                   {i > 0 && (
                     <div role="separator" className="mx-4">
-                      <div className="h-px bg-slate-900" />
-                      <div className="h-px bg-slate-600/50" />
+                      <div className="h-px bg-sunken" />
+                      <div className="h-px bg-surface-active/50" />
                     </div>
                   )}
                   <div className="flex items-center group px-1">
                     <button
                       onClick={() => { onLoad(f); setOpen(false); setSaveMode(false); }}
-                      className="flex-1 text-left px-2 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition truncate"
+                      className="flex-1 text-left px-2 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition truncate"
                       title={f.name}
                     >
                       {f.name}
@@ -245,7 +245,7 @@ export default function SavedFiltersDropdown({
                     <button
                       onClick={(e) => { e.stopPropagation(); onDelete(f.id); }}
                       aria-label={`Delete saved filter "${f.name}"`}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-slate-500 hover:text-red-400 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M3 3l10 10M13 3L3 13" />

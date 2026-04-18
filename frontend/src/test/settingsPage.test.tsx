@@ -370,9 +370,9 @@ describe('AppearanceTab', () => {
     expect(screen.getByText('Dark')).toBeInTheDocument()
   })
 
-  it('does not render a Light theme placeholder', async () => {
+  it('renders Light theme option', async () => {
     await openAppearanceTab()
-    expect(screen.queryByText('Light')).not.toBeInTheDocument()
+    expect(screen.getByText('Light')).toBeInTheDocument()
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 

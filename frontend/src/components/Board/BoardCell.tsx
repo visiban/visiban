@@ -59,12 +59,12 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       onDoubleClick={() => { if (column.allow_card_creation && canEdit) setAdding(true); }}
       onContextMenu={(e) => { if (column.allow_card_creation && canEdit) { e.preventDefault(); setAdding(true); } }}
       style={{ width: width ?? 220 }}
-      className={`relative shrink-0 min-h-[80px] p-2 transition-colors bg-slate-950 ${
-        isOver && isDraggingCard ? "bg-slate-700/40" : ""
-      } ${cards.length === 0 && !adding ? "border border-dashed border-slate-700/50" : "border-r border-slate-700/50"}`}
+      className={`relative shrink-0 min-h-[80px] p-2 transition-colors bg-canvas ${
+        isOver && isDraggingCard ? "bg-surface-hover/40" : ""
+      } ${cards.length === 0 && !adding ? "border border-dashed border-line/50" : "border-r border-line/50"}`}
     >
       {cards.length >= 2 && (
-        <span className="absolute top-1.5 right-2 text-[9px] font-medium text-slate-600 select-none pointer-events-none">
+        <span className="absolute top-1.5 right-2 text-[9px] font-medium text-fg-faint select-none pointer-events-none">
           {cards.length}
         </span>
       )}
@@ -93,7 +93,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-blue-500 bg-blue-900/20" : "border-slate-700"
+            isOver ? "border-blue-500 bg-blue-900/20" : "border-line"
           }`} />
         )}
       </SortableContext>
@@ -113,21 +113,21 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                 if (e.key === "Escape") setAdding(false);
               }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-slate-800 text-slate-100 placeholder-slate-500"
+              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-surface text-white placeholder-fg-muted"
             />
             <div className="flex gap-1.5 mt-1.5">
               <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add</button>
-              <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-slate-400 hover:text-slate-300 transition">Cancel</button>
+              <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-fg-tertiary hover:text-fg-secondary transition">Cancel</button>
             </div>
-            <p className="text-xs h-4"><span className="text-red-400">{addError}</span></p>
+            <p className="text-xs h-4"><span className="text-danger">{addError}</span></p>
           </div>
         ) : (
           <button
             onClick={() => setAdding(true)}
             className={`w-full text-left text-xs rounded px-1.5 py-1 transition group/add ${
               cards.length === 0
-                ? "text-slate-500 hover:text-slate-200 hover:bg-slate-700/60"
-                : "mt-1 text-slate-600 hover:text-slate-300 hover:bg-slate-700/50"
+                ? "text-fg-muted hover:text-fg hover:bg-surface-hover/60"
+                : "mt-1 text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50"
             }`}
           >
             + Add card

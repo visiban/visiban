@@ -175,7 +175,7 @@ describe('SwimlaneRow', () => {
     props.collapsed = true
     render(<SwimlaneRow {...props} />)
     const badge = screen.getByText('1')
-    expect(badge.className).toContain('text-blue-400')
+    expect(badge.className).toContain('text-info')
   })
 
   it('renders focus icon button with tooltip when not focused', () => {
@@ -196,7 +196,7 @@ describe('SwimlaneRow', () => {
     props.isFocused = true
     render(<SwimlaneRow {...props} />)
     const btn = screen.getByTitle('Exit focus')
-    expect(btn.className).toContain('text-blue-400')
+    expect(btn.className).toContain('text-info')
   })
 
   it('isFocused=true sets aria-pressed=true on focus button', () => {

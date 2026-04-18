@@ -24,7 +24,7 @@ describe("agingTint", () => {
     // Move to 10 days ago: beyond warning (7d) but before threshold (14d)
     const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString();
     const result = agingTint(tenDaysAgo, 14, 50);
-    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-amber-500/10");
+    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-warning/10");
     expect(result.bodyOpacityClass).toBe("opacity-80");
   });
 
@@ -32,7 +32,7 @@ describe("agingTint", () => {
     // Move to 15 days ago: beyond threshold of 14
     const fifteenDaysAgo = new Date(Date.now() - 15 * 86_400_000).toISOString();
     const result = agingTint(fifteenDaysAgo, 14, 50);
-    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-amber-500/20");
+    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-warning/20");
     expect(result.bodyOpacityClass).toBe("opacity-60");
   });
 
@@ -42,7 +42,7 @@ describe("agingTint", () => {
     expect(() => agingTint(tenDaysAgo, 0, 50)).not.toThrow();
     // Card is well past a 1-day threshold, so should be stale
     const result = agingTint(tenDaysAgo, 0, 50);
-    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-amber-500/20");
+    expect(result.overlayClass).toBe("absolute inset-0 rounded-md pointer-events-none bg-warning/20");
   });
 });
 

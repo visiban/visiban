@@ -58,13 +58,13 @@ export default function ColumnSeparator({ isAdmin, onOpenAdd, currentWidth, setW
       onMouseLeave={() => onSepHoverChange(null)}
       onMouseDown={handleMouseDown}
     >
-      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
-      <div className={`flex-1 transition-colors ${highlighted ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
-      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
+      <div className={`flex-1 transition-colors ${highlighted ? "bg-info/5" : "bg-sunken/70"}`} />
+      <div className={`w-px self-stretch transition-colors ${highlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
 
       {isAdmin && highlighted && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
+          <span className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
         </div>
       )}
     </div>

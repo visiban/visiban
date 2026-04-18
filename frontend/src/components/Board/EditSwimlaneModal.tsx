@@ -47,22 +47,22 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
       {confirmDelete ? (
         cardCount > 0 ? (
           <>
-            <p className="text-sm text-slate-400 mb-5">
-              <span className="font-medium text-slate-200">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
+            <p className="text-sm text-fg-tertiary mb-5">
+              <span className="font-medium text-fg">{swimlane.name}</span> has {cardCount} card{cardCount !== 1 ? "s" : ""}. Move or delete all cards before removing this swimlane.
             </p>
             <div className="flex justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-slate-700 text-slate-200 rounded hover:bg-slate-600 transition">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm bg-surface-hover text-fg rounded hover:bg-surface-active transition">
                 OK
               </button>
             </div>
           </>
         ) : (
           <>
-            <p className="text-sm text-slate-400 mb-5">
-              Delete <span className="font-medium text-slate-200">{swimlane.name}</span>? This cannot be undone.
+            <p className="text-sm text-fg-tertiary mb-5">
+              Delete <span className="font-medium text-fg">{swimlane.name}</span>? This cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white transition">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-white transition">
                 Cancel
               </button>
               <button onClick={handleDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -75,18 +75,18 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
         <>
           <div className="flex flex-col gap-3">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Name *</label>
+              <label className="text-xs text-fg-tertiary mb-1 block">Name *</label>
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
               />
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Color</label>
+              <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
               <div className="flex gap-2">
                 {COLUMN_COLORS.map((c) => (
                   <button
@@ -103,12 +103,12 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           <div className="flex justify-between items-center mt-5">
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-sm text-red-400 hover:text-red-300 transition"
+              className="text-sm text-danger hover:text-danger transition"
             >
               Delete swimlane
             </button>
             <div className="flex gap-2">
-              <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}

@@ -243,14 +243,14 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
   return (
     <aside
-      className={`${sidebarWidth} shrink-0 bg-slate-900 border-r border-slate-700 hidden lg:flex flex-col h-full overflow-hidden transition-all duration-200`}
+      className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line hidden lg:flex flex-col h-full overflow-hidden transition-all duration-200`}
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >
       {/* Collapse toggle */}
-      <div className="flex items-center justify-end px-2 py-2 border-b border-slate-700 shrink-0">
+      <div className="flex items-center justify-end px-2 py-2 border-b border-line shrink-0">
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="text-slate-400 hover:text-white transition p-1 rounded hover:bg-slate-800"
+          className="text-fg-tertiary hover:text-white transition p-1 rounded hover:bg-surface"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
@@ -276,7 +276,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
       {/* Tree */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         {loading && (
-          <div className="px-3 py-2 text-slate-500 text-xs">
+          <div className="px-3 py-2 text-fg-muted text-xs">
             {collapsed ? "…" : "Loading…"}
           </div>
         )}
@@ -286,7 +286,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           <Link
             to="/"
             className={`flex items-center justify-center h-8 mx-1 my-0.5 rounded transition ${
-              location.pathname === "/" ? "text-blue-400 bg-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800"
+              location.pathname === "/" ? "text-info bg-info/20" : "text-fg-tertiary hover:text-white hover:bg-surface"
             }`}
             title="Dashboard"
           >
@@ -299,7 +299,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             to="/"
             onClick={collapse}
             className={`flex items-center gap-2 px-3 py-1.5 text-sm transition ${
-              location.pathname === "/" ? "text-blue-400 bg-blue-600/20 font-medium" : "text-slate-300 hover:text-white hover:bg-slate-800"
+              location.pathname === "/" ? "text-info bg-info/20 font-medium" : "text-fg-secondary hover:text-white hover:bg-surface"
             }`}
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -314,7 +314,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           collapsed ? (
             <Link
               to="/admin"
-              className="flex items-center justify-center h-8 mx-1 my-0.5 rounded transition text-slate-400 hover:text-white hover:bg-slate-800"
+              className="flex items-center justify-center h-8 mx-1 my-0.5 rounded transition text-fg-tertiary hover:text-white hover:bg-surface"
               title="Site Admin"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -324,7 +324,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
           ) : (
             <Link
               to="/admin"
-              className="flex items-center gap-2 px-3 py-1.5 text-sm transition text-slate-300 hover:text-white hover:bg-slate-800"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm transition text-fg-secondary hover:text-white hover:bg-surface"
             >
               <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
@@ -339,8 +339,8 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Separator: utility nav → content nav ── */}
             {collapsed && (hasFavorites || recentBoards.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-2 my-1.5">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
             )}
 
@@ -354,10 +354,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 aria-expanded={favoritesAnchor !== null}
                 className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   favoritesAnchor
-                    ? "text-yellow-300 bg-slate-700"
+                    ? "text-yellow-300 bg-surface-hover"
                     : isActiveFavoriteBoard
-                    ? "text-yellow-400 bg-blue-600/20"
-                    : "text-yellow-500 hover:text-yellow-300 hover:bg-slate-800"
+                    ? "text-yellow-400 bg-info/20"
+                    : "text-yellow-500 hover:text-yellow-300 hover:bg-surface"
                 }`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -369,7 +369,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Expanded: Favorite Boards ── */}
             {!collapsed && starredBoards.length > 0 && (
               <div>
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">
                   Favorite Boards
                 </div>
                 {starredBoards.map((board) => (
@@ -387,15 +387,15 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Expanded separator ── */}
             {!collapsed && (starredBoards.length > 0) && (starredGroups.length > 0 || sidebarTree.length > 0 || personalBoards.length > 0 || recentBoards.length > 0) && (
               <div className="mx-4 my-1">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
             )}
 
             {/* ── Expanded: Favorite Groups ── */}
             {!collapsed && starredGroups.length > 0 && (
               <div>
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">
                   Favorite Groups
                 </div>
                 {starredGroups.map((group) => (
@@ -403,10 +403,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                     key={group.id}
                     to={`/groups/${group.id}`}
                     onClick={collapse}
-                    className="flex items-center gap-1.5 pl-5 pr-3 py-1.5 text-sm transition truncate text-slate-400 hover:text-white hover:bg-slate-800"
+                    className="flex items-center gap-1.5 pl-5 pr-3 py-1.5 text-sm transition truncate text-fg-tertiary hover:text-white hover:bg-surface"
                     title={group.name}
                   >
-                    <svg className="w-3.5 h-3.5 shrink-0 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="w-3.5 h-3.5 shrink-0 text-fg-faint" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                     </svg>
                     <span className="truncate">{group.name}</span>
@@ -418,15 +418,15 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Expanded separator: favorites → recent ── */}
             {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0) && recentBoards.length > 0 && (
               <div className="mx-4 my-1">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
             )}
 
             {/* ── Expanded: Recent boards ── */}
             {!collapsed && recentBoards.length > 0 && (
               <div>
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">
                   Recent
                 </div>
                 {recentBoards.map((entry) => (
@@ -443,8 +443,8 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Expanded separator: (favorites or recent) → groups/personal ── */}
             {!collapsed && (starredBoards.length > 0 || starredGroups.length > 0 || recentBoards.length > 0) && (sidebarTree.length > 0 || personalBoards.length > 0) && (
               <div className="mx-4 my-1">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
             )}
 
@@ -458,10 +458,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 aria-expanded={recentAnchor !== null}
                 className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   recentAnchor
-                    ? "text-slate-200 bg-slate-700"
+                    ? "text-fg bg-surface-hover"
                     : isActiveRecentBoard
-                    ? "text-blue-400 bg-blue-600/20"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "text-info bg-info/20"
+                    : "text-fg-tertiary hover:text-white hover:bg-surface"
                 }`}
               >
                 {/* Clock icon */}
@@ -481,10 +481,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 aria-expanded={groupsAnchor !== null}
                 className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   groupsAnchor
-                    ? "text-slate-200 bg-slate-700"
+                    ? "text-fg bg-surface-hover"
                     : isActiveGroupBoard
-                    ? "text-blue-400 bg-blue-600/20"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "text-info bg-info/20"
+                    : "text-fg-tertiary hover:text-white hover:bg-surface"
                 }`}
               >
                 <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -510,8 +510,8 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Separator: groups → personal boards ── */}
             {personalBoards.length > 0 && (sidebarTree.length > 0 || starredBoards.length > 0 || starredGroups.length > 0 || recentBoards.length > 0) && (
               <div className="mx-4 my-1">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
             )}
 
@@ -525,10 +525,10 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 aria-expanded={personalAnchor !== null}
                 className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   personalAnchor
-                    ? "text-slate-200 bg-slate-700"
+                    ? "text-fg bg-surface-hover"
                     : isActivePersonalBoard
-                    ? "text-blue-400 bg-blue-600/20"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                    ? "text-info bg-info/20"
+                    : "text-fg-tertiary hover:text-white hover:bg-surface"
                 }`}
               >
                 {/* Clipboard / board icon */}
@@ -542,7 +542,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
             {/* ── Expanded: Personal boards ── */}
             {!collapsed && personalBoards.length > 0 && (
               <div>
-                <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">
                   Personal
                 </div>
                 {personalBoards.map((board) => (
@@ -562,17 +562,17 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
 
       {/* Footer: new board / new group */}
       {!collapsed && (
-        <div className="shrink-0 border-t border-slate-700 px-3 py-2 flex flex-col gap-1">
+        <div className="shrink-0 border-t border-line px-3 py-2 flex flex-col gap-1">
           <button
             onClick={() => setShowCreateBoard(true)}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition text-left"
+            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-white transition text-left"
           >
             <span className="text-base leading-none">+</span>
             <span>New board</span>
           </button>
           <button
             onClick={() => setShowCreateGroup(true)}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition text-left"
+            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-white transition text-left"
           >
             <span className="text-base leading-none">+</span>
             <span>New group</span>
@@ -700,23 +700,23 @@ function RecentBoardItem({
       to={`/boards/${entry.id}`}
       onClick={onNavigate}
       className={`flex flex-col pr-3 py-1.5 text-sm transition truncate ${
-        active ? "bg-blue-600/20" : "hover:bg-slate-800"
+        active ? "bg-info/20" : "hover:bg-surface"
       }`}
       title={entry.name}
     >
       <span
         className={`flex items-center gap-1.5 pl-5 truncate ${
-          active ? "text-blue-400 font-medium" : "text-slate-400 hover:text-white"
+          active ? "text-info font-medium" : "text-fg-tertiary hover:text-white"
         }`}
       >
         {/* Clock icon */}
-        <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-3.5 h-3.5 shrink-0 text-fg-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <span className="truncate">{entry.name}</span>
       </span>
       {parentName && (
-        <span className="pl-[22px] pr-3 pb-0.5 text-xs text-slate-500 truncate leading-tight">
+        <span className="pl-[22px] pr-3 pb-0.5 text-xs text-fg-muted truncate leading-tight">
           {parentName}
         </span>
       )}
@@ -743,12 +743,12 @@ function BoardItem({
       style={{ paddingLeft: depth * 12 + 8 }}
       className={`flex items-center gap-1.5 pr-3 py-1.5 text-sm transition truncate ${
         active
-          ? "bg-blue-600/20 text-blue-400 font-medium"
-          : "text-slate-400 hover:text-white hover:bg-slate-800"
+          ? "bg-info/20 text-info font-medium"
+          : "text-fg-tertiary hover:text-white hover:bg-surface"
       }`}
       title={board.name}
     >
-      <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="w-3.5 h-3.5 shrink-0 text-fg-muted" viewBox="0 0 20 20" fill="currentColor">
         <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
         <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
       </svg>
@@ -786,7 +786,7 @@ function SidebarGroupNode({
       <div className="flex items-center" style={{ paddingLeft: depth * 12 + 2 }}>
         <button
           onClick={() => toggleGroup(group.id)}
-          className={`shrink-0 flex items-center justify-center w-5 h-8 text-slate-500 hover:text-white transition text-xs ${
+          className={`shrink-0 flex items-center justify-center w-5 h-8 text-fg-muted hover:text-white transition text-xs ${
             !hasContent ? "opacity-0 pointer-events-none" : ""
           }`}
           aria-label={isExpanded ? "Collapse group" : "Expand group"}
@@ -800,9 +800,9 @@ function SidebarGroupNode({
         </button>
         <button
           onClick={() => navigateTo(`/groups/${group.id}`)}
-          className="flex-1 flex items-center gap-1.5 pr-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-slate-800 transition text-sm min-w-0 rounded"
+          className="flex-1 flex items-center gap-1.5 pr-3 py-1.5 text-left text-fg-secondary hover:text-white hover:bg-surface transition text-sm min-w-0 rounded"
         >
-          <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+          <svg className="w-3.5 h-3.5 shrink-0 text-fg-muted" viewBox="0 0 20 20" fill="currentColor">
             <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
           </svg>
           <span className="truncate font-medium">{group.name}</span>
@@ -822,7 +822,7 @@ function SidebarGroupNode({
             />
           ))}
           {groupBoards.length === 0 && children.length === 0 && (
-            <div className="py-1 text-xs text-slate-600" style={{ paddingLeft: childDepth * 12 + 8 }}>
+            <div className="py-1 text-xs text-fg-faint" style={{ paddingLeft: childDepth * 12 + 8 }}>
               No boards
             </div>
           )}

@@ -89,15 +89,15 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
         aria-modal="true"
         aria-label="Archived cards"
         tabIndex={-1}
-        className="relative w-96 max-w-full h-full bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col outline-none"
+        className="relative w-96 max-w-full h-full bg-surface border-l border-line shadow-xl flex flex-col outline-none"
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 shrink-0">
-          <h2 className="text-sm font-medium text-slate-200">
-            Archived cards{total > 0 && <span className="ml-2 text-slate-500 font-normal">({total})</span>}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+          <h2 className="text-sm font-medium text-fg">
+            Archived cards{total > 0 && <span className="ml-2 text-fg-muted font-normal">({total})</span>}
           </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white hover:bg-slate-700 rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-fg-tertiary hover:text-white hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close"
           >
             ✕
@@ -106,12 +106,12 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading && (
-            <div className="flex items-center justify-center py-8 text-slate-500 text-sm">Loading…</div>
+            <div className="flex items-center justify-center py-8 text-fg-muted text-sm">Loading…</div>
           )}
           {!loading && cards.length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <span className="text-slate-600 text-2xl">📦</span>
-              <p className="text-slate-400 text-sm">No archived cards</p>
+              <span className="text-fg-faint text-2xl">📦</span>
+              <p className="text-fg-tertiary text-sm">No archived cards</p>
             </div>
           )}
           {!loading && cards.length > 0 && (
@@ -120,14 +120,14 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 {cards.map((card) => (
                   <li
                     key={card.id}
-                    className="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-1.5"
+                    className="bg-sunken border border-line rounded-lg p-3 flex flex-col gap-1.5"
                   >
-                    <span className="text-sm text-slate-200 font-medium">{card.title}</span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-sm text-fg font-medium">{card.title}</span>
+                    <span className="text-xs text-fg-muted">
                       {columnName(card.column)} · {swimlaneName(card.swimlane)}
                     </span>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-fg-muted">
                         {card.archived_at
                           ? `Archived ${new Date(card.archived_at).toLocaleDateString()}`
                           : ""}
@@ -136,7 +136,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                         <button
                           onClick={() => handleUnarchive(card)}
                           disabled={unarchivingId === card.id}
-                          className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="text-xs text-fg-secondary hover:text-white hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                         </button>
@@ -149,7 +149,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="mt-4 w-full text-sm text-slate-400 hover:text-slate-200 hover:bg-slate-700 py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-4 w-full text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
                 </button>

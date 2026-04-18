@@ -32,28 +32,28 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
     <ModalWrapper open={true} onClose={onClose} title="Add Swimlane" maxWidth="max-w-sm">
       <div className="flex flex-col gap-3">
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Name *</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Name *</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
             placeholder="Swimlane name"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
           />
         </div>
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Contact email</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Contact email</label>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="email@example.com"
             type="email"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
           />
         </div>
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Color</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
           <div className="flex gap-2 flex-wrap">
             {PALETTE_COLORS.map((c) => (
               <button
@@ -68,7 +68,7 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
       </div>
 
       <div className="flex justify-end gap-2 mt-5">
-        <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}

@@ -165,7 +165,7 @@ describe('CardItem', () => {
     render(<CardItem card={makeCard({ due_date: iso })} />)
     // The overdue span has text-red-500 class
     const dueBadge = screen.getByTitle(`Due ${iso}`)
-    expect(dueBadge.className).toContain('text-red-400')
+    expect(dueBadge.className).toContain('text-danger')
   })
 
   it('shows attachment count when attachment_count > 0', () => {
@@ -226,7 +226,7 @@ describe('CardItem', () => {
     const root = container.firstChild as HTMLElement
     const overlay = root.querySelector('[aria-hidden="true"]')
     expect(overlay).toBeInTheDocument()
-    expect(overlay?.className).toContain('bg-amber-500/10')
+    expect(overlay?.className).toContain('bg-warning/10')
   })
 
   it('shows stale overlay when card is past the threshold', () => {
@@ -241,7 +241,7 @@ describe('CardItem', () => {
     const root = container.firstChild as HTMLElement
     const overlay = root.querySelector('[aria-hidden="true"]')
     expect(overlay).toBeInTheDocument()
-    expect(overlay?.className).toContain('bg-amber-500/20')
+    expect(overlay?.className).toContain('bg-warning/20')
   })
 
   it('shows no overlay when card is fresh (moved recently)', () => {
@@ -762,10 +762,10 @@ describe('SwimlaneRow', () => {
     expect(label).toBeInTheDocument()
   })
 
-  it('swimlane name uses text-slate-300 per design system', () => {
+  it('swimlane name uses text-fg-secondary per design system', () => {
     render(<SwimlaneRow swimlane={makeSwimlane()} isAdmin={false} {...swimlaneRowBaseProps} />)
     const name = screen.getByText('Customer A')
-    expect(name.className).toContain('text-slate-300')
+    expect(name.className).toContain('text-fg-secondary')
     expect(name.className).not.toContain('font-bold')
   })
 })

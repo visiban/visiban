@@ -181,7 +181,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
           {/* Board name */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               Board name
             </label>
             <input
@@ -193,21 +193,21 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="e.g. Q3 Pipeline, Acme Onboarding…"
-              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 rounded px-3 py-1.5 text-sm placeholder-slate-500 transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
           </div>
 
           {/* Template picker */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-2">
               Template
             </label>
             {templatesLoading ? (
               <div className="flex items-center justify-center py-8">
-                <span className="w-5 h-5 border-2 border-slate-600 border-t-slate-400 rounded-full animate-spin" />
+                <span className="w-5 h-5 border-2 border-line-strong border-t-line-strong rounded-full animate-spin" />
               </div>
             ) : templatesError ? (
-              <p className="text-red-400 text-sm py-4 text-center">
+              <p className="text-danger text-sm py-4 text-center">
                 Could not load templates. You can still create a blank board.
               </p>
             ) : (() => {
@@ -224,22 +224,22 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                           key={t.slug}
                           onClick={() => handleSelectTemplate(t.slug)}
                           className={[
-                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
+                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
                             isSelected
-                              ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
-                              : "border-slate-700 bg-slate-800 hover:border-slate-500",
+                              ? "border-blue-500 bg-info/10 ring-1 ring-blue-500/40"
+                              : "border-line bg-surface hover:border-line-emphasis",
                           ].join(" ")}
                         >
                           {/* Icon + name row */}
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={isSelected ? "text-blue-400" : "text-slate-400"}>
+                            <span className={isSelected ? "text-info" : "text-fg-tertiary"}>
                               {ICONS[t.slug] ?? FALLBACK_ICON}
                             </span>
                             <span className="text-white text-sm font-medium leading-tight">{t.name}</span>
                           </div>
 
                           {/* Description */}
-                          <p className="text-slate-400 text-xs leading-snug mb-2.5">{t.description}</p>
+                          <p className="text-fg-tertiary text-xs leading-snug mb-2.5">{t.description}</p>
 
                           {/* Column color dots */}
                           <div className="flex items-center gap-1 flex-wrap">
@@ -261,24 +261,24 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                   {blankTemplate && (() => {
                     const isSelected = blankTemplate.slug === selectedSlug;
                     return (
-                      <div className="border-t border-slate-700 pt-3 mt-1">
+                      <div className="border-t border-line pt-3 mt-1">
                         <button
                           onClick={() => handleSelectTemplate(blankTemplate.slug)}
                           className={[
-                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900",
+                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
                             isSelected
-                              ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/40"
-                              : "border-slate-700 bg-slate-800 hover:border-slate-500",
+                              ? "border-blue-500 bg-info/10 ring-1 ring-blue-500/40"
+                              : "border-line bg-surface hover:border-line-emphasis",
                           ].join(" ")}
                         >
-                          <span className={`flex-shrink-0 ${isSelected ? "text-blue-400" : "text-slate-400"}`}>
+                          <span className={`flex-shrink-0 ${isSelected ? "text-info" : "text-fg-tertiary"}`}>
                             {ICONS.blank}
                           </span>
                           <div className="flex-1 min-w-0">
                             <span className="text-white text-sm font-medium">{blankTemplate.name}</span>
-                            <p className="text-slate-400 text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
+                            <p className="text-fg-tertiary text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
                           </div>
-                          <span className="text-slate-500 text-xs flex-shrink-0">No preset columns</span>
+                          <span className="text-fg-muted text-xs flex-shrink-0">No preset columns</span>
                         </button>
                       </div>
                     );
@@ -290,14 +290,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
           {/* Column preview strip — always rendered after load to prevent layout jump on template switch */}
           {!templatesLoading && (
-            <div className="bg-slate-800 rounded-xl px-4 py-3">
-              <p className="text-slate-500 text-xs mb-2 uppercase tracking-wide">Columns created</p>
+            <div className="bg-surface rounded-xl px-4 py-3">
+              <p className="text-fg-muted text-xs mb-2 uppercase tracking-wide">Columns created</p>
               {selected && selected.columns_json.length > 0 ? (
                 <div className="flex gap-2 flex-wrap">
                   {selected.columns_json.map((col) => (
                     <span
                       key={col.name}
-                      className="inline-flex items-center gap-1.5 text-xs text-white bg-slate-700 rounded-lg px-2.5 py-1"
+                      className="inline-flex items-center gap-1.5 text-xs text-white bg-surface-hover rounded-lg px-2.5 py-1"
                     >
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
@@ -308,14 +308,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                   ))}
                 </div>
               ) : (
-                <p className="text-slate-500 text-xs">No preset columns — add your own after creating the board.</p>
+                <p className="text-fg-muted text-xs">No preset columns — add your own after creating the board.</p>
               )}
             </div>
           )}
 
           {/* First swimlane prompt */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               {selected?.lane_label
                 ? `First ${selected.lane_label} (swimlane)`
                 : "First Swimlane (optional)"}
@@ -329,9 +329,9 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder={selected?.lane_placeholder || "e.g. General"}
-              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 rounded px-3 py-1.5 text-sm placeholder-slate-500 transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
-            <p className="text-slate-500 text-xs mt-1">
+            <p className="text-fg-muted text-xs mt-1">
               Leave blank to start with no swimlanes — you can add them later.
             </p>
           </div>
@@ -343,18 +343,18 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               type="checkbox"
               checked={setAsDefault}
               onChange={(e) => setSetAsDefault(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-800 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900 cursor-pointer flex-shrink-0"
+              className="mt-0.5 w-4 h-4 rounded border-line-strong bg-surface text-blue-500 focus:ring-blue-500 focus:ring-offset-sunken cursor-pointer flex-shrink-0"
             />
             <div>
-              <label htmlFor="set-default-board" className="text-sm text-slate-300 cursor-pointer">
+              <label htmlFor="set-default-board" className="text-sm text-fg-secondary cursor-pointer">
                 Set as my default board
               </label>
               {/* Always render the hint line to prevent layout shift on check/uncheck */}
               <p className="text-xs mt-0.5 min-h-[1rem]">
                 {setAsDefault ? (
-                  <span className="text-slate-400">This board will open on login.</span>
+                  <span className="text-fg-tertiary">This board will open on login.</span>
                 ) : userHasNoDefault ? (
-                  <span className="text-slate-500">Tip: Set a default to skip the board picker on login.</span>
+                  <span className="text-fg-muted">Tip: Set a default to skip the board picker on login.</span>
                 ) : null}
               </p>
             </div>
@@ -362,10 +362,10 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition"
+            className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition"
           >
             Cancel
           </button>

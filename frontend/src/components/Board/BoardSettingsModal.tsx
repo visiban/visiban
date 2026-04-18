@@ -45,17 +45,17 @@ interface StagedInvite {
 function RoleTooltip() {
   return (
     <RoleInfoTooltip label="Role descriptions">
-      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Role permissions</p>
+      <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-2">Role permissions</p>
       {ROLES.map((r) => (
         <Fragment key={r.value}>
-          <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-slate-700' : ''}`}>
-            <span className="text-xs font-semibold text-slate-100 capitalize">{r.label}</span>
-            <span className="text-xs text-slate-400"> — {r.description}</span>
+          <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-line' : ''}`}>
+            <span className="text-xs font-semibold text-white capitalize">{r.label}</span>
+            <span className="text-xs text-fg-tertiary"> — {r.description}</span>
           </div>
           {r.value === 'member' && (
-            <div className="py-1 pl-3 border-l-2 border-slate-700 border-b border-slate-700">
-              <span className="text-xs font-semibold text-slate-300">Member (moderator flag)</span>
-              <span className="text-xs text-slate-500"> — Assign, edit, delete, and archive others' cards — ask an admin to enable</span>
+            <div className="py-1 pl-3 border-l-2 border-line border-b border-line">
+              <span className="text-xs font-semibold text-fg-secondary">Member (moderator flag)</span>
+              <span className="text-xs text-fg-muted"> — Assign, edit, delete, and archive others' cards — ask an admin to enable</span>
             </div>
           )}
         </Fragment>
@@ -249,7 +249,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     >
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-700 px-6 gap-1">
+        <div className="flex border-b border-line px-6 gap-1">
           {(["members", "display", "rules", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
@@ -262,7 +262,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 key={t}
                 onClick={() => setTab(t)}
                 className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px ${
-                  tab === t ? "border-blue-500 text-white" : "border-transparent text-slate-400 hover:text-slate-200"
+                  tab === t ? "border-blue-500 text-white" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
               >
                 {label}
@@ -277,7 +277,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {/* ── Members tab ── */}
           {tab === "members" && (
             <div className="flex flex-col gap-0">
-              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wide pb-2 mb-1 border-b border-slate-700">
+              <div className="flex items-center justify-between text-[10px] font-semibold text-fg-muted uppercase tracking-wide pb-2 mb-1 border-b border-line">
                 <span>Member</span>
                 <div className="flex items-center gap-1.5">
                   <span>Role</span>
@@ -291,7 +291,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 const canRemove = isAdmin && m.id !== null;
 
                 return (
-                  <div key={m.user.id} className="py-2.5 border-b border-slate-700/60 last:border-0">
+                  <div key={m.user.id} className="py-2.5 border-b border-line/60 last:border-0">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Avatar user={m.user} size="sm" />
@@ -302,7 +302,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                       <div className="flex items-center gap-2 shrink-0">
                         {m.role === "site_admin" ? (
-                          <span className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded" title="Site administrator — role managed at the instance level">
+                          <span className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded" title="Site administrator — role managed at the instance level">
                             site admin
                           </span>
                         ) : isAdmin ? (
@@ -315,7 +315,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           />
                         ) : (
                           <span
-                            className="text-xs text-slate-300 capitalize px-2 py-1 bg-slate-700 rounded"
+                            className="text-xs text-fg-secondary capitalize px-2 py-1 bg-surface-hover rounded"
                             title={ROLES.find((r) => r.value === m.role)?.description}
                           >
                             {m.role}
@@ -325,7 +325,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           <button
                             onClick={() => setPendingRemove(m.user.id)}
                             disabled={isDisabled}
-                            className="text-xs text-slate-500 hover:text-red-400 transition disabled:opacity-40 w-5 text-center"
+                            className="text-xs text-fg-muted hover:text-danger transition disabled:opacity-40 w-5 text-center"
                             title="Remove direct board role"
                           >
                             ✕
@@ -346,9 +346,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked
                               disabled
                               readOnly
-                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
+                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
                             />
-                            <span className="text-xs text-slate-500">Moderator</span>
+                            <span className="text-xs text-fg-muted">Moderator</span>
                           </label>
                         ) : m.role === "member" ? (
                           <label className="flex items-center gap-1.5 cursor-pointer select-none">
@@ -357,9 +357,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked={m.is_moderator}
                               disabled={isDisabled}
                               onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
-                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
+                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
                             />
-                            <span className="text-xs text-slate-400">Moderator</span>
+                            <span className="text-xs text-fg-tertiary">Moderator</span>
                           </label>
                         ) : (
                           // Collaborator / Viewer — moderator entitlement is not available (#574).
@@ -369,14 +369,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked={false}
                               disabled
                               readOnly
-                              className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
+                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
                             />
-                            <span className="text-xs text-slate-500">Moderator</span>
+                            <span className="text-xs text-fg-muted">Moderator</span>
                           </label>
                         )}
                         <span className="relative group/mod-info">
-                          <span className="text-xs text-slate-400 cursor-default select-none" tabIndex={0} aria-label="What Moderator can do">ⓘ</span>
-                          <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1.5 shadow-lg opacity-0 group-hover/mod-info:opacity-100 focus-within:opacity-100 transition-opacity delay-300 z-10">
+                          <span className="text-xs text-fg-tertiary cursor-default select-none" tabIndex={0} aria-label="What Moderator can do">ⓘ</span>
+                          <div className="pointer-events-none absolute bottom-full left-0 mb-1.5 w-64 bg-sunken text-fg text-xs rounded px-2 py-1.5 shadow-lg opacity-0 group-hover/mod-info:opacity-100 focus-within:opacity-100 transition-opacity delay-300 z-10">
                             Can assign, edit, delete, and archive cards created by other members.
                           </div>
                         </span>
@@ -385,19 +385,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                     {isRemoving && (
                       <div className="mt-1.5 pl-9 flex items-center gap-2 text-xs">
-                        <span className="text-slate-400">
+                        <span className="text-fg-tertiary">
                           Remove <span className="text-white font-medium">{userDisplayName(m.user)}</span>?
                         </span>
                         <button
                           onClick={() => handleRemoveConfirm(m.user.id)}
                           disabled={isDisabled}
-                          className="text-red-400 hover:text-red-300 font-medium transition disabled:opacity-40"
+                          className="text-danger hover:text-danger font-medium transition disabled:opacity-40"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setPendingRemove(null)}
-                          className="text-slate-400 hover:text-slate-200 transition"
+                          className="text-fg-tertiary hover:text-fg transition"
                         >
                           Cancel
                         </button>
@@ -408,12 +408,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               })}
 
               {members.length === 0 && (
-                <p className="text-sm text-slate-500 py-4 text-center">No members yet.</p>
+                <p className="text-sm text-fg-muted py-4 text-center">No members yet.</p>
               )}
 
               {isAdmin && (
-                <div className="border-t border-slate-700 pt-4 mt-2">
-                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Add member</p>
+                <div className="border-t border-line pt-4 mt-2">
+                  <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-3">Add member</p>
                   <div className="flex flex-col gap-4">
                     <div className="relative">
                       <input
@@ -422,24 +422,24 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
                         onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
                         placeholder="Search by name or email…"
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
                       />
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
                           style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
-                          className="bg-slate-800 border border-slate-600 rounded-xl shadow-xl z-[60] overflow-hidden"
+                          className="bg-surface border border-line-strong rounded-xl shadow-xl z-[60] overflow-hidden"
                         >
                           {suggestions.map((u) => (
                             <button
                               key={u.id}
                               type="button"
                               onMouseDown={(e) => { e.preventDefault(); addToStaged(u); }}
-                              className="w-full text-left px-3 py-2.5 hover:bg-slate-700 transition flex items-center gap-2.5"
+                              className="w-full text-left px-3 py-2.5 hover:bg-surface-hover transition flex items-center gap-2.5"
                             >
                               <Avatar user={u} size="sm" />
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-slate-200 truncate">{userDisplayName(u)}</p>
-                                <p className="text-xs text-slate-500 truncate">{u.email}</p>
+                                <p className="text-sm font-medium text-fg truncate">{userDisplayName(u)}</p>
+                                <p className="text-xs text-fg-muted truncate">{u.email}</p>
                               </div>
                             </button>
                           ))}
@@ -449,10 +449,10 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                     {staged.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">To be added</p>
+                        <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-2">To be added</p>
                         <div className="flex flex-col gap-0">
                           {staged.map((s) => (
-                            <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-slate-700/60 last:border-0">
+                            <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-line/60 last:border-0">
                               <div className="flex items-center gap-2 min-w-0">
                                 <Avatar user={s.user} size="sm" />
                                 <p className="text-sm text-white truncate">{userDisplayName(s.user)}</p>
@@ -470,7 +470,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                 />
                                 <button
                                   onClick={() => setStaged((prev) => prev.filter((x) => x.user.id !== s.user.id))}
-                                  className="text-xs text-slate-500 hover:text-red-400 transition w-5 text-center"
+                                  className="text-xs text-fg-muted hover:text-danger transition w-5 text-center"
                                   title="Remove from invite list"
                                 >
                                   ✕
@@ -482,8 +482,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     )}
 
-                    {inviteError && <p className="text-xs text-red-400">{inviteError}</p>}
-                    {inviteSuccess && <p className="text-xs text-green-400">{inviteSuccess}</p>}
+                    {inviteError && <p className="text-xs text-danger">{inviteError}</p>}
+                    {inviteSuccess && <p className="text-xs text-success">{inviteSuccess}</p>}
 
                     <button
                       onClick={handleInviteSubmit}
@@ -501,18 +501,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {/* ── Rules tab ── */}
           {tab === "rules" && (
             <div className="flex flex-col gap-5">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-fg-muted">
                 Rules affect all board members. Only admins can change these.
               </p>
 
               {/* WIP and weight limit enforcement */}
               {isAdmin && onUpdateBoardSettings ? (
                 <section>
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Limit enforcement</h3>
-                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer">
+                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer">
                     <div className="min-w-0 pr-4">
-                      <span className="text-sm text-slate-200">Enforce WIP limits</span>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <span className="text-sm text-fg">Enforce WIP limits</span>
+                      <p className="text-xs text-fg-muted mt-0.5">
                         When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override.
                       </p>
                     </div>
@@ -524,11 +524,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     />
                   </label>
                   {/* Hard WIP mode — visually subordinated under the soft enforcement toggle */}
-                  <div className="ml-6 border-l-2 border-slate-700 pl-4 py-2 border-b border-slate-700/60">
+                  <div className="ml-6 border-l-2 border-line pl-4 py-2 border-b border-line/60">
                     <div className="flex items-center justify-between">
                       <div className="min-w-0 pr-4">
-                        <span className="text-sm text-slate-300">Hard mode (no admin override)</span>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-sm text-fg-secondary">Hard mode (no admin override)</span>
+                        <p className="text-xs text-fg-muted mt-0.5">
                           Hard mode is active regardless of whether soft enforcement is on. When enabled, no one — including admins — can override a WIP block.
                         </p>
                       </div>
@@ -548,29 +548,29 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                     {pendingHardWip && (
                       <div className="mt-1.5 flex items-center gap-2 text-xs">
-                        <span className="text-slate-400">Enable hard mode? No one — including admins — will be able to bypass WIP limits.</span>
+                        <span className="text-fg-tertiary">Enable hard mode? No one — including admins — will be able to bypass WIP limits.</span>
                         <button
                           onClick={() => {
                             onUpdateBoardSettings({ enforce_wip_hard: true });
                             setPendingHardWip(false);
                           }}
-                          className="text-red-400 hover:text-red-300 font-medium transition"
+                          className="text-danger hover:text-danger font-medium transition"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setPendingHardWip(false)}
-                          className="text-slate-400 hover:text-slate-200 transition"
+                          className="text-fg-tertiary hover:text-fg transition"
                         >
                           Cancel
                         </button>
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer">
+                  <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer">
                     <div className="min-w-0 pr-4">
-                      <span className="text-sm text-slate-200">Enforce weight limits</span>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <span className="text-sm text-fg">Enforce weight limits</span>
+                      <p className="text-xs text-fg-muted mt-0.5">
                         When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight limit set for this to take effect.
                       </p>
                     </div>
@@ -584,9 +584,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </section>
               ) : (
                 <section>
-                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Limit enforcement</h3>
+                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Limit enforcement</h3>
                   <div className="flex flex-col gap-1 py-1">
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-fg-secondary">
                       WIP limits:{" "}
                       {board.enforce_wip_hard
                         ? "enforced (no override)"
@@ -594,14 +594,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           ? "enforced"
                           : "informational only"}
                     </p>
-                    <p className="text-sm text-slate-300">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
+                    <p className="text-sm text-fg-secondary">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
                   </div>
                 </section>
               )}
 
               {/* Card aging settings */}
               <section aria-labelledby="card-aging-heading">
-                <h3 id="card-aging-heading" className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card aging settings</h3>
+                <h3 id="card-aging-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card aging settings</h3>
                 {isAdmin ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
@@ -614,11 +614,11 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           value={stalenessThreshold}
                           onChange={(e) => setStalenessThreshold(Number(e.target.value))}
                           onBlur={handleStalenessBlur}
-                          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
-                        <span className="text-sm text-slate-400">days threshold</span>
+                        <span className="text-sm text-fg-tertiary">days threshold</span>
                       </div>
-                      <p className="text-xs text-slate-500">Cards idle beyond this threshold are shown with a stale tint on the board. Warning tint appears earlier (controlled by the % setting below).</p>
+                      <p className="text-xs text-fg-muted">Cards idle beyond this threshold are shown with a stale tint on the board. Warning tint appears earlier (controlled by the % setting below).</p>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-center gap-2">
@@ -631,17 +631,17 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           value={stalenessWarningPct}
                           onChange={(e) => setStalenessWarningPct(Number(e.target.value))}
                           onBlur={handleStalenessWarningPctBlur}
-                          className="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
-                        <span className="text-sm text-slate-400">% warning</span>
+                        <span className="text-sm text-fg-tertiary">% warning</span>
                       </div>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-fg-muted">
                         Warning tint appears when a card has used this percentage of the threshold. Example: 14 days threshold, 50% warning → warning tint after 7 days, stale tint at 14 days.
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-slate-300">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
+                  <p className="text-sm text-fg-secondary">{board.staleness_threshold_days ?? 14} days · {board.stale_warning_pct ?? 50}% warning</p>
                 )}
               </section>
             </div>
@@ -651,14 +651,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {tab === "sharing" && isAdmin && (
             <div className="flex flex-col gap-5">
               <section>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Public sharing</h3>
-                <p className="text-xs text-slate-500 mb-4">
+                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Public sharing</h3>
+                <p className="text-xs text-fg-muted mb-4">
                   Anyone with this link can view this board without signing in. They cannot edit, comment, or see member details.
                 </p>
 
                 {/* Toggle row */}
-                <label className="flex items-center justify-between py-2 border-b border-slate-700/60 cursor-pointer mb-3">
-                  <span className="text-sm text-slate-200">Enable public share link</span>
+                <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer mb-3">
+                  <span className="text-sm text-fg">Enable public share link</span>
                   <input
                     type="checkbox"
                     checked={shareToken !== null}
@@ -678,14 +678,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 {shareToken !== null && shareUrl && (
                   <div className="flex items-center gap-2">
                     <div
-                      className="flex-1 text-[11px] bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-slate-400 truncate"
+                      className="flex-1 text-[11px] bg-sunken border border-line rounded px-2 py-1.5 text-fg-tertiary truncate"
                       title={shareUrl}
                     >
                       {shareUrl}
                     </div>
                     <button
                       onClick={handleCopyShareUrl}
-                      className="text-xs text-slate-300 hover:text-white hover:bg-slate-700 px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                      className="text-xs text-fg-secondary hover:text-white hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
                     >
                       {shareCopied ? "Copied!" : "Copy"}
                     </button>
@@ -694,7 +694,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                 {/* Status row — always reserve height */}
                 <p className="text-xs h-4 mt-2">
-                  {shareStatus && <span className="text-red-400">{shareStatus}</span>}
+                  {shareStatus && <span className="text-danger">{shareStatus}</span>}
                 </p>
               </section>
             </div>
@@ -704,15 +704,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {tab === "data" && (
             <div className="flex flex-col gap-6">
               <section>
-                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Export</h3>
+                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-3">Export</h3>
                 <div className="flex flex-col gap-2">
                   {(["json", "csv"] as const).map((fmt) => (
                     <label
                       key={fmt}
                       className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 ${
                         exportFormat === fmt
-                          ? "border-blue-500 bg-blue-500/10"
-                          : "border-slate-600 hover:bg-slate-700/40"
+                          ? "border-blue-500 bg-info/10"
+                          : "border-line-strong hover:bg-surface-hover/40"
                       }`}
                     >
                       <input
@@ -724,8 +724,8 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         className="sr-only"
                       />
                       <div>
-                        <span className="text-sm text-slate-200 font-medium">{fmt.toUpperCase()}</span>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-sm text-fg font-medium">{fmt.toUpperCase()}</span>
+                        <p className="text-xs text-fg-muted mt-0.5">
                           {fmt === "json"
                             ? "Full history: movements, activity log, and assignees"
                             : "Card data only, no history"}
@@ -743,22 +743,22 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               </section>
 
               {isAdmin && onBoardDeleted && (
-                <section className="border-t border-slate-700 pt-5">
-                  <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Danger Zone</h3>
-                  <p className="text-sm text-slate-400 mb-3">
-                    Permanently delete <span className="text-slate-200 font-medium">{board.name}</span> and all its cards, columns, and history. This cannot be undone.
+                <section className="border-t border-line pt-5">
+                  <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
+                  <p className="text-sm text-fg-tertiary mb-3">
+                    Permanently delete <span className="text-fg font-medium">{board.name}</span> and all its cards, columns, and history. This cannot be undone.
                   </p>
                   {board.cards.length > 0 ? (
                     <div className="flex flex-col gap-2">
-                      <p className="text-xs text-slate-500">
-                        Type <span className="text-slate-300 font-mono">{board.name}</span> to confirm deletion.
+                      <p className="text-xs text-fg-muted">
+                        Type <span className="text-fg-secondary font-mono">{board.name}</span> to confirm deletion.
                       </p>
                       <input
                         type="text"
                         value={deleteInput}
                         onChange={(e) => setDeleteInput(e.target.value)}
                         placeholder={board.name}
-                        className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
                       />
                       <button
                         disabled={deleteInput !== board.name}
@@ -786,25 +786,25 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
             <div className="flex flex-col gap-5">
               {viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && onSetCardFieldPref && (
                 <>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-fg-muted">
                     These preferences are personal and stored in your browser. They do not affect what other users see.
                   </p>
 
                   {/* Columns */}
                   {board.columns.length > 0 && (
                     <section>
-                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Columns</h3>
+                      <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Columns</h3>
                       <div className="flex flex-col gap-0">
                         {board.columns.map((col) => {
                           const isHidden = viewPrefs.hiddenColumnIds.includes(col.id);
                           return (
                             <label
                               key={col.id}
-                              className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                              className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer group"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                                <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                                <span className={`text-sm truncate ${isHidden ? "text-fg-muted line-through" : "text-fg"}`}>
                                   {col.name}
                                 </span>
                               </div>
@@ -824,18 +824,18 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   {/* Swimlanes */}
                   {board.swimlanes.length > 0 && (
                     <section>
-                      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Swimlanes</h3>
+                      <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Swimlanes</h3>
                       <div className="flex flex-col gap-0">
                         {board.swimlanes.map((lane) => {
                           const isHidden = viewPrefs.hiddenSwimlaneIds.includes(lane.id);
                           return (
                             <label
                               key={lane.id}
-                              className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer group"
+                              className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer group"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: lane.color }} />
-                                <span className={`text-sm truncate ${isHidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                                <span className={`text-sm truncate ${isHidden ? "text-fg-muted line-through" : "text-fg"}`}>
                                   {lane.name}
                                 </span>
                               </div>
@@ -854,7 +854,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                   {/* Card fields */}
                   <section>
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Card fields</h3>
+                    <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card fields</h3>
                     <div className="flex flex-col gap-0">
                       {(
                         [
@@ -869,9 +869,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         return (
                           <label
                             key={field}
-                            className="flex items-center justify-between py-2 border-b border-slate-700/60 last:border-0 cursor-pointer"
+                            className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer"
                           >
-                            <span className={`text-sm ${hidden ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                            <span className={`text-sm ${hidden ? "text-fg-muted line-through" : "text-fg"}`}>
                               {label}
                             </span>
                             <input
@@ -893,7 +893,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
         </div>
 
         {tab === "members" && (
-          <div className="px-6 py-3 border-t border-slate-700 text-xs text-slate-500">
+          <div className="px-6 py-3 border-t border-line text-xs text-fg-muted">
             Members inherited from group membership are shown here. Assigning a direct role overrides group access.
           </div>
         )}

@@ -23,10 +23,10 @@ export default function ViewportGate({ children }: ViewportGateProps) {
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="viewport-gate-heading"
-      className="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center p-6"
+      className="fixed inset-0 z-[100] bg-canvas flex items-center justify-center p-6"
     >
-      <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
-        <div className="flex justify-center mb-4 text-slate-500">
+      <div className="bg-surface border border-line rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+        <div className="flex justify-center mb-4 text-fg-muted">
           <svg
             className="w-10 h-10"
             viewBox="0 0 24 24"
@@ -48,7 +48,7 @@ export default function ViewportGate({ children }: ViewportGateProps) {
         >
           Visiban works best on a larger screen
         </h1>
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-fg-secondary">
           This view is optimized for displays 1024px wide or larger. Please switch to a desktop or tablet in landscape mode to continue.
         </p>
       </div>

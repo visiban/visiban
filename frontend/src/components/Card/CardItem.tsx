@@ -202,7 +202,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       {overlayClass && showTooltip && agingTooltip && (
         <div
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap pointer-events-none"
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg whitespace-nowrap pointer-events-none"
         >
           {agingTooltip}
         </div>
@@ -214,12 +214,12 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       onClick={readOnly ? undefined : onClick}
       data-no-pan
       data-tour-step="card"
-      className={`group bg-slate-800 rounded-md select-none transition-all border relative z-0
+      className={`group bg-surface rounded-md select-none transition-all border relative z-0
         ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900 animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
+        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-blue-400 bg-blue-900/20" : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -244,7 +244,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           tabIndex={0}
           className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
             focus:outline-none focus:ring-2 focus:ring-blue-500
-            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-slate-600 bg-slate-700 opacity-0 group-hover:opacity-100 focus:opacity-100"}
+            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-line-strong bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100"}
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
           onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
@@ -258,7 +258,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         </div>
       )}
       <div className={`px-2.5 ${compact ? "py-1.5" : "py-2"}${bodyOpacityClass ? ` ${bodyOpacityClass}` : ""}`}>
-        <p className={`leading-snug ${compact ? "text-xs text-slate-200 line-clamp-1" : "text-sm text-slate-200 line-clamp-2"}`}>{card.title}</p>
+        <p className={`leading-snug ${compact ? "text-xs text-fg line-clamp-1" : "text-sm text-fg line-clamp-2"}`}>{card.title}</p>
 
         {/* Description exists — indicator only; full content shown in card detail */}
 
@@ -269,7 +269,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
               <>
                 {/* Description indicator */}
                 {card.description && (
-                  <svg className="w-2.5 h-2.5 text-slate-500 shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
+                  <svg className="w-2.5 h-2.5 text-fg-muted shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
                     <title>Has description</title>
                     <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
                   </svg>
@@ -289,14 +289,14 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   );
                 })}
                 {!hideLabels && card.labels.length > 3 && (
-                  <span className="text-[9px] text-slate-400 shrink-0">+{card.labels.length - 3}</span>
+                  <span className="text-[9px] text-fg-tertiary shrink-0">+{card.labels.length - 3}</span>
                 )}
 
                 {/* Checklist */}
                 {card.checklist_total > 0 && (
                   <span
                     className={`text-[10px] font-medium shrink-0 ${
-                      card.checklist_done === card.checklist_total ? "text-green-500" : "text-slate-400"
+                      card.checklist_done === card.checklist_total ? "text-green-500" : "text-fg-tertiary"
                     }`}
                     title={`${card.checklist_done}/${card.checklist_total} checklist items`}
                   >
@@ -306,7 +306,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
                 {/* Attachments */}
                 {card.attachment_count > 0 && (
-                  <span className="text-[10px] text-slate-400 shrink-0" title={`${card.attachment_count} attachment(s)`}>
+                  <span className="text-[10px] text-fg-tertiary shrink-0" title={`${card.attachment_count} attachment(s)`}>
                     📎{card.attachment_count}
                   </span>
                 )}
@@ -314,7 +314,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {/* Due date */}
                 {!hideDueDate && dueInfo && (
                   <span
-                    className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-red-400" : "text-slate-400"}`}
+                    className={`text-[10px] font-medium shrink-0 ${dueInfo.overdue ? "text-danger" : "text-fg-tertiary"}`}
                     title={`Due ${card.due_date}`}
                   >
                     {dueInfo.label}
@@ -323,7 +323,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
                 {/* Weight (only shown when > 1) */}
                 {card.weight > 1 && (
-                  <span className="text-[10px] text-slate-300 font-medium shrink-0" title={`Weight: ${card.weight}`}>
+                  <span className="text-[10px] text-fg-secondary font-medium shrink-0" title={`Weight: ${card.weight}`}>
                     {card.weight}
                   </span>
                 )}
@@ -337,7 +337,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
             {/* Last-moved text label — expanded mode only (≥24h ago) */}
             {!compact && movedLabel && (
-              <span className="text-[10px] text-slate-500 shrink-0">{movedLabel}</span>
+              <span className="text-[10px] text-fg-muted shrink-0">{movedLabel}</span>
             )}
 
             {/* Priority badge — shown in both modes for medium and above */}

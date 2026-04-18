@@ -22,7 +22,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss }: F
       tabIndex={0}
       aria-label={`Remove ${label} filter`}
       title={label}
-      className="inline-flex items-center gap-1 bg-blue-500/20 text-blue-400 border border-blue-500/40 rounded-full px-2 py-0.5 text-xs font-medium max-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800"
+      className="inline-flex items-center gap-1 bg-info/20 text-info border border-blue-500/40 rounded-full px-2 py-0.5 text-xs font-medium max-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
       onKeyDown={handleKeyDown}
     >
       {colorDot && (
@@ -37,7 +37,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss }: F
         onKeyDown={(e) => e.stopPropagation()}
         aria-label={`Remove ${label} filter`}
         tabIndex={-1}
-        className="ml-0.5 text-blue-400/70 hover:text-blue-200 transition shrink-0 leading-none focus:outline-none"
+        className="ml-0.5 text-info/70 hover:text-info transition shrink-0 leading-none focus:outline-none"
       >
         ×
       </button>

@@ -41,12 +41,12 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
     }
   };
 
-  const inputCls = "w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500";
+  const inputCls = "w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted";
 
   return (
     <ModalWrapper open={true} onClose={onClose} title="Your profile" maxWidth="max-w-md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
           Display name
           <input
             value={form.display_name}
@@ -57,36 +57,36 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
         </label>
 
         <div className="flex gap-3">
-          <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
+          <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
             First name
             <input value={form.first_name} onChange={set("first_name")} className={inputCls} />
           </label>
-          <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
+          <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
             Last name
             <input value={form.last_name} onChange={set("last_name")} className={inputCls} />
           </label>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
           Username
           <input value={form.username} onChange={set("username")} required className={inputCls} />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
           Email address
           <input type="email" value={form.email} onChange={set("email")} required className={inputCls} />
         </label>
 
         <p className="text-xs h-4">
-          {error && <span className="text-red-400">{error}</span>}
-          {saved && <span className="text-green-400">Changes saved.</span>}
+          {error && <span className="text-danger">{error}</span>}
+          {saved && <span className="text-success">Changes saved.</span>}
         </p>
 
         <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-slate-400 hover:text-white px-4 py-1.5 rounded transition"
+            className="text-sm text-fg-tertiary hover:text-white px-4 py-1.5 rounded transition"
           >
             Cancel
           </button>

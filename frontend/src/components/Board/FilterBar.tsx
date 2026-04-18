@@ -60,10 +60,10 @@ function MyCardsButton({ currentUser, filters, onChange }: MyCardsButtonProps) {
       onClick={() => onChange({ ...filters, assigneeIds: isActive ? [] : [currentUser.id] })}
       aria-pressed={isActive}
       title={isActive ? "Remove My cards filter" : "Show only cards assigned to me"}
-      className={`bg-slate-800 border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+      className={`bg-surface border rounded px-2 py-1 text-sm focus:outline-none flex items-center gap-1.5 transition shrink-0 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
         isActive
-          ? "border-blue-400 text-blue-400"
-          : "border-slate-600 text-slate-300 hover:border-slate-400"
+          ? "border-info text-info"
+          : "border-line-strong text-fg-secondary hover:border-line-emphasis"
       }`}
     >
       <Avatar user={currentUser} size="xs" />
@@ -151,7 +151,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     <div className="flex flex-col gap-1.5 w-full">
       {/* Row 1: filter controls */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="w-px h-4 bg-slate-600 shrink-0" />
+        <span className="w-px h-4 bg-surface-active shrink-0" />
 
         {currentUser && (
           <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
@@ -165,10 +165,10 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             value={filters.search}
             onChange={(e) => onChange({ ...filters, search: e.target.value })}
             onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
-            className="bg-slate-800 border border-slate-700 rounded px-2 py-1 pr-7 text-sm text-slate-300 placeholder-slate-500 w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="bg-surface border border-line rounded px-2 py-1 pr-7 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           {isSearching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-info border-t-transparent rounded-full animate-spin" />
           )}
         </div>
 
@@ -206,7 +206,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
         {activeCount > 0 && (
           <button
             onClick={() => onChange(EMPTY_FILTER)}
-            className="text-xs text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700 hover:border-slate-500 rounded px-2 py-0.5 shrink-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-800"
+            className="text-xs text-fg-tertiary hover:text-white hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 shrink-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
           >
             Clear all
           </button>
@@ -220,7 +220,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             <FilterChip key={chip.key} label={chip.label} colorDot={chip.colorDot} avatarUser={chip.avatarUser} onDismiss={chip.onDismiss} />
           ))}
           {hiddenCount > 0 && (
-            <span role="status" aria-live="polite" aria-atomic="true" className="ml-auto text-xs text-slate-400 shrink-0 whitespace-nowrap">
+            <span role="status" aria-live="polite" aria-atomic="true" className="ml-auto text-xs text-fg-tertiary shrink-0 whitespace-nowrap">
               {hiddenCount} card{hiddenCount !== 1 ? "s" : ""} hidden
             </span>
           )}

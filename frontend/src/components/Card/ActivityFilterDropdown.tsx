@@ -103,17 +103,17 @@ export default function ActivityFilterDropdown({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           selected.length > 0
-            ? "border-blue-400 text-blue-400"
-            : "border-slate-600 text-slate-300 hover:border-slate-400"
+            ? "border-info text-info"
+            : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
       >
         <span className="truncate max-w-[10rem]">{displayLabel}</span>
         <svg
-          className="w-3 h-3 text-slate-500 shrink-0"
+          className="w-3 h-3 text-fg-muted shrink-0"
           viewBox="0 0 16 16"
           fill="currentColor"
         >
@@ -130,16 +130,16 @@ export default function ActivityFilterDropdown({
       {open && (
         <div
           ref={menuRef}
-          className="absolute top-full mt-1 right-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[200px]"
+          className="absolute top-full mt-1 right-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[200px]"
           role="menu"
         >
           {options.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-slate-500 italic">
+            <p className="px-3 py-2 text-sm text-fg-muted italic">
               No options available
             </p>
           ) : (
             <>
-              <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-200 font-medium whitespace-nowrap">
+              <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface-hover cursor-pointer text-sm text-fg font-medium whitespace-nowrap">
                 <input
                   ref={allCheckboxRef}
                   type="checkbox"
@@ -151,19 +151,19 @@ export default function ActivityFilterDropdown({
                 All
               </label>
               <div role="separator" className="mx-4">
-                <div className="h-px bg-slate-900" />
-                <div className="h-px bg-slate-600/50" />
+                <div className="h-px bg-sunken" />
+                <div className="h-px bg-surface-active/50" />
               </div>
 
               {options.map((opt, i) => (
                 <div key={opt.value}>
                   {i > 0 && (
                     <div role="separator" className="mx-4">
-                      <div className="h-px bg-slate-900" />
-                      <div className="h-px bg-slate-600/50" />
+                      <div className="h-px bg-sunken" />
+                      <div className="h-px bg-surface-active/50" />
                     </div>
                   )}
-                  <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-700 cursor-pointer text-sm text-slate-300 whitespace-nowrap">
+                  <label className="flex items-center gap-2 px-3 py-1.5 hover:bg-surface-hover cursor-pointer text-sm text-fg-secondary whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={selected.includes(opt.value)}
@@ -184,14 +184,14 @@ export default function ActivityFilterDropdown({
               {defaultSelected !== undefined && (
                 <>
                   <div role="separator" className="mx-4">
-                    <div className="h-px bg-slate-900" />
-                    <div className="h-px bg-slate-600/50" />
+                    <div className="h-px bg-sunken" />
+                    <div className="h-px bg-surface-active/50" />
                   </div>
                   <button
                     type="button"
                     onClick={handleReset}
                     disabled={!canReset}
-                    className="w-full text-left px-3 py-1.5 text-sm transition hover:bg-slate-700 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                    className="w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                   >
                     Reset to default
                   </button>

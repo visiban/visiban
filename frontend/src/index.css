@@ -3,59 +3,86 @@
 @tailwind utilities;
 
 /*
-  Design token layer — see issue #183.
+  Design token layer — issue #183.
 
-  All tokens are emitted as RGB channel triplets (e.g. "15 23 42") — NOT as
-  hex strings. This is required so Tailwind's `/<alpha-value>` modifiers keep
-  working: `bg-surface/50` expands to `rgb(var(--surface) / 0.5)`. Defining
-  tokens as hex would silently break every `*/10`, `*/20`, `*/50` alpha usage
-  across the codebase.
+  All tokens are emitted as RGB channel triplets (e.g. "15 23 42") — NOT hex.
+  This is required so Tailwind `/<alpha-value>` modifiers keep working:
+  `bg-surface/50` → `rgb(var(--surface) / 0.5)`.
 
-  Dark values are the default — they live on [data-theme="dark"] AND on :root
-  as a fallback so components that have not yet been migrated from raw
-  `bg-slate-*` classes continue to render identically to pre-token behavior
-  regardless of the active theme.
+  Foreground tokens use `--fg*` (not `--text-*`) so the Tailwind utility classes
+  land as `text-fg`, `text-fg-secondary`, etc. — not the double-prefixed
+  `text-text-primary` that would result from naming the color `text-primary`.
 
-  Light values on [data-theme="light"] are authored incrementally per-domain
-  in the component-sweep MRs (#120). Until a given component is migrated from
-  raw slate classes to semantic token classes, it will not respond to theme
-  changes — that is intentional and gated by VITE_THEME_LIGHT_ENABLED.
-
-  Future extension: a `[data-theme="custom"]` selector can be added without
-  schema changes when the user-picked accent color feature (#251) lands. The
-  hook is left to prose rather than reserved in code here because the exact
-  override shape is not yet designed.
+  Dark values live on :root AND [data-theme="dark"] so legacy raw slate-*
+  classes that have not been migrated still render identically in "Dark" mode.
+  Light values are only applied when [data-theme="light"] is set.
 */
 :root,
 [data-theme="dark"] {
   /* Surfaces (deepest → most raised) */
   --canvas: 2 6 23;                /* slate-950 — grid cells, page canvas */
-  --surface: 30 41 59;             /* slate-800 — column headers, cards, panels */
-  --surface-raised: 30 41 59;      /* slate-800 — dropdowns, modals (with shadow) */
+  --surface-sunken: 15 23 42;      /* slate-900 — inline edit bg, tooltips, sticky columns, code blocks */
+  --surface: 30 41 59;             /* slate-800 — column headers, cards, panels, inputs */
+  --surface-raised: 30 41 59;      /* slate-800 — dropdowns, modals (paired with shadow) */
+  --surface-hover: 51 65 85;       /* slate-700 — hover fills on buttons and menu items */
+  --surface-active: 71 85 105;     /* slate-600 — pressed/active fills */
 
-  /* Borders (subtle → strong) */
+  /* Borders (subtle → emphasis) */
   --border-subtle: 30 41 59;       /* slate-800 — grid lines */
-  --border-default: 51 65 85;      /* slate-700 — panels */
-  --border-strong: 71 85 105;      /* slate-600 — interactive elements */
+  --border-default: 51 65 85;      /* slate-700 — panels, inputs */
+  --border-strong: 71 85 105;      /* slate-600 — interactive, dropdown triggers (default) */
+  --border-emphasis: 148 163 184;  /* slate-400 — hover/pressed emphasis on strong borders */
 
-  /* Text (primary → muted) */
-  --text-primary: 226 232 240;     /* slate-200 — body content */
-  --text-secondary: 203 213 225;   /* slate-300 — secondary content */
-  --text-muted: 100 116 139;       /* slate-500 — stats, captions */
+  /* Foreground (primary → faint) */
+  --fg: 226 232 240;               /* slate-200 — body content, card titles */
+  --fg-secondary: 203 213 225;     /* slate-300 — secondary content */
+  --fg-tertiary: 148 163 184;      /* slate-400 — labels, inactive tabs, metadata */
+  --fg-muted: 100 116 139;         /* slate-500 — stats, captions, placeholders */
+  --fg-faint: 71 85 105;           /* slate-600 — hover-reveal affordances, separator highlight */
 
-  /* Accent — the Visiban blue used for primary actions and active states. */
+  /* Semantic — dark mode keeps bright -400 shades */
+  --danger: 248 113 113;           /* red-400 */
+  --warning: 251 146 60;           /* orange-400 — also covers amber for warning toasts */
+  --success: 74 222 128;           /* green-400 */
+  --info: 96 165 250;              /* blue-400 — active filter/selection emphasis */
+
+  /* Accent — the Visiban blue used for primary actions. Not themed; identical
+     in both modes so brand consistency is preserved. */
   --accent: 37 99 235;             /* blue-600 */
   --accent-hover: 29 78 216;       /* blue-700 */
 }
 
 [data-theme="light"] {
-  /*
-    Light palette values are intentionally left unset in this MR. The
-    component sweep (#120) authors them per-domain alongside each component
-    migration, so the visible output only changes for migrated components.
-    The feature flag VITE_THEME_LIGHT_ENABLED gates whether users can reach
-    this state from the UI during the sweep.
-  */
+  /* Surfaces — canvas is the page bg; cards/panels sit on white */
+  --canvas: 241 245 249;           /* slate-100 */
+  --surface-sunken: 248 250 252;   /* slate-50 — inline edit bg, tooltip panels read as a lift here */
+  --surface: 255 255 255;          /* white */
+  --surface-raised: 255 255 255;   /* white — dropdowns/modals rely on shadow-xl for depth */
+  --surface-hover: 241 245 249;    /* slate-100 */
+  --surface-active: 226 232 240;   /* slate-200 */
+
+  /* Borders */
+  --border-subtle: 226 232 240;    /* slate-200 */
+  --border-default: 203 213 225;   /* slate-300 */
+  --border-strong: 148 163 184;    /* slate-400 */
+  --border-emphasis: 100 116 139;  /* slate-500 — darker on hover (inverse of dark mode) */
+
+  /* Foreground — inverted: darker colors on light surfaces */
+  --fg: 15 23 42;                  /* slate-900 */
+  --fg-secondary: 51 65 85;        /* slate-700 */
+  --fg-tertiary: 71 85 105;        /* slate-600 */
+  --fg-muted: 100 116 139;         /* slate-500 — same; passes AA on white */
+  --fg-faint: 148 163 184;         /* slate-400 */
+
+  /* Semantic — shifted darker for WCAG AA contrast on white */
+  --danger: 220 38 38;             /* red-600 */
+  --warning: 234 88 12;            /* orange-600 */
+  --success: 22 163 74;            /* green-600 */
+  --info: 37 99 235;               /* blue-600 */
+
+  /* Accent unchanged — see note above */
+  --accent: 37 99 235;
+  --accent-hover: 29 78 216;
 }
 
 body {
@@ -63,24 +90,23 @@ body {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--fg));
 }
 
 /*
   Board scroll container — always-visible custom scrollbars.
-  macOS hides native scrollbars until the user scrolls ("When scrolling"
-  system preference), making the board look non-scrollable to new users.
-  Custom scrollbars are scoped to .board-scroll only — not applied globally —
-  to avoid side effects on modals, dropdowns, or other scrollable regions.
+  macOS hides native scrollbars until scrolling (System Preference), making the
+  board look non-scrollable to new users. Scoped to .board-scroll only to avoid
+  side effects on modals/dropdowns. Scrollbar colors use the token layer so
+  they track the active theme.
 */
 .board-scroll {
-  /* W3C standard (Firefox, Chromium 121+, Safari 18.2+) */
   scrollbar-width: thin;
-  scrollbar-color: #64748b transparent; /* slate-500 thumb, transparent track */
-  /* Prevent layout shift when content transitions between scrollable/non-scrollable */
+  scrollbar-color: rgb(var(--fg-muted)) transparent;
   scrollbar-gutter: stable;
 }
 
-/* Legacy WebKit/Blink (Chrome, Safari < 18.2, older Edge) */
 .board-scroll::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -91,15 +117,14 @@ body {
 }
 
 .board-scroll::-webkit-scrollbar-thumb {
-  background-color: #64748b; /* slate-500 — higher contrast than slate-600 for discoverability */
+  background-color: rgb(var(--fg-muted));
   border-radius: 5px;
 }
 
 .board-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8; /* slate-400 */
+  background-color: rgb(var(--fg-tertiary));
 }
 
-/* Hide scroll arrows — cleaner look */
 .board-scroll::-webkit-scrollbar-button {
   display: none;
 }

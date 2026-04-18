@@ -153,7 +153,7 @@ export default function OnboardingTour({ onComplete }: Props) {
 
       {/* Spotlight border around the target element */}
       <div
-        className="absolute border-2 border-blue-400 rounded-lg pointer-events-none"
+        className="absolute border-2 border-info rounded-lg pointer-events-none"
         style={{
           top: targetRect.top - padding,
           left: targetRect.left - padding,
@@ -164,23 +164,23 @@ export default function OnboardingTour({ onComplete }: Props) {
 
       {/* Tooltip */}
       <div
-        className="absolute bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-50"
+        className="absolute bg-surface border border-line rounded-lg shadow-xl p-4 z-50"
         style={{ top: pos.top, left: pos.left, width: 320 }}
         data-testid="tour-tooltip"
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-fg-tertiary">
             Step {step + 1} of {STEPS.length}
           </span>
           <button
             onClick={finish}
-            className="text-xs text-slate-400 hover:text-white transition"
+            className="text-xs text-fg-tertiary hover:text-white transition"
           >
             Skip tour
           </button>
         </div>
-        <h3 className="text-sm font-medium text-slate-200 mb-1">{currentStep.title}</h3>
-        <p className="text-sm text-slate-400 mb-4">{currentStep.body}</p>
+        <h3 className="text-sm font-medium text-fg mb-1">{currentStep.title}</h3>
+        <p className="text-sm text-fg-tertiary mb-4">{currentStep.body}</p>
         <div className="flex justify-end">
           <button
             onClick={handleNext}

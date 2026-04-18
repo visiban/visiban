@@ -352,9 +352,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40" onClick={onClose} />
 
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-[540px] bg-slate-800 shadow-2xl flex flex-col overflow-hidden outline-none">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-[540px] bg-surface shadow-2xl flex flex-col overflow-hidden outline-none">
         {/* Header */}
-        <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-700">
+        <div className="flex items-start gap-3 px-5 py-4 border-b border-line">
           <div className="flex-1 min-w-0">
             <input
               id="card-detail-title"
@@ -362,7 +362,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
               onBlur={handleTitleBlur}
-              className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-blue-400 focus:bg-blue-900/20 bg-transparent transition"
+              className="text-base font-semibold text-white w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-info focus:bg-blue-900/20 bg-transparent transition"
             />
             {/* Breadcrumb row — swimlane and column names close the panel so the user
                 lands back on the board at that location. The move icon sits immediately
@@ -370,15 +370,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div className="flex items-center gap-0.5 mt-1 px-1 min-w-0">
               <button
                 onClick={onClose}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
+                className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
                 title={swimlane?.name}
               >
                 {swimlane?.name}
               </button>
-              <span className="text-[11px] text-slate-600 mx-1 shrink-0">›</span>
+              <span className="text-[11px] text-fg-faint mx-1 shrink-0">›</span>
               <button
                 onClick={onClose}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
+                className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-blue-500 rounded truncate max-w-[10rem]"
                 title={column?.name}
               >
                 {column?.name}
@@ -407,7 +407,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       setMovePopoverError(null);
                       setShowMovePopover((v) => !v);
                     }}
-                    className="w-5 h-5 flex items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-slate-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-5 h-5 flex items-center justify-center rounded text-fg-muted hover:text-fg hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-label="Move card to different column or swimlane"
                   >
                     {/* Two-headed arrows = transfer/move-to-another-location metaphor */}
@@ -416,7 +416,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </svg>
                   </button>
                   {/* Styled tooltip — 300ms delay on show, immediate hide */}
-                  <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">
+                  <div className="pointer-events-none absolute bottom-full right-0 mb-1.5 whitespace-nowrap bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover/move:opacity-100 transition-opacity delay-300 group-hover/move:delay-300">
                     Move card
                   </div>
                 </div>
@@ -425,18 +425,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition text-lg leading-none shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-fg-tertiary hover:text-white hover:bg-surface-hover transition text-lg leading-none shrink-0"
             title="Close"
           >×</button>
         </div>
 
         {/* Save error — reserved space so layout never shifts */}
         <p className="text-xs h-4 px-5 pt-1">
-          {saveError && <span className="text-red-400">{saveError}</span>}
+          {saveError && <span className="text-danger">{saveError}</span>}
         </p>
 
         {/* Tabs */}
-        <div role="tablist" className="flex border-b border-slate-700 text-sm">
+        <div role="tablist" className="flex border-b border-line text-sm">
           {(["details", "activity"] as const).map((t) => (
             <button
               key={t}
@@ -444,7 +444,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               aria-selected={tab === t}
               onClick={() => setTab(t)}
               className={`px-5 py-2.5 font-medium capitalize transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded ${
-                tab === t ? "border-b-2 border-blue-400 text-blue-400" : "text-slate-500 hover:text-slate-300"
+                tab === t ? "border-b-2 border-info text-info" : "text-fg-muted hover:text-fg-secondary"
               }`}
             >
               {t}
@@ -459,7 +459,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Description */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Description</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Description</p>
                 <RichTextEditor
                   value={localCard.description ?? ""}
                   onSave={(md) => {
@@ -474,12 +474,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 />
               </div>
 
-              <div className="border-t border-slate-700" />
+              <div className="border-t border-line" />
 
               {/* Assignee + Due date */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Assignee</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Assignee</p>
                   <SelectDropdown
                     value={String(localCard.assignee?.id ?? "")}
                     onChange={(v) => {
@@ -501,7 +501,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Due date</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Due date</p>
                   {/* The native <input type="date"> always displays in the browser's locale
                       format (e.g. mm/dd/yyyy on en-US) regardless of user settings.
                       When a date is already set, overlay an invisible native input over a
@@ -527,7 +527,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             el.focus();
                           }}
                         >
-                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-red-950/40 border-red-700/60 text-red-300" : "bg-slate-700 border-slate-500 text-slate-100"}`}>
+                          <div className={`text-sm border rounded-lg px-2.5 py-1.5 w-full select-none flex items-center justify-between pointer-events-none ${info.overdue ? "bg-red-950/40 border-red-700/60 text-danger" : "bg-surface-hover border-line-strong text-white"}`}>
                             <span>{formatDateStr(localCard.due_date, userDateFormat)}</span>
                             <svg className="w-4 h-4 opacity-70 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                           </div>
@@ -545,7 +545,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </div>
                         <button
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
-                          className="text-slate-600 hover:text-red-400 transition text-xs shrink-0"
+                          className="text-fg-faint hover:text-danger transition text-xs shrink-0"
                           title="Clear due date"
                         >
                           ✕
@@ -564,7 +564,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         el.focus();
                       }}
                     >
-                      <div className="text-sm bg-slate-700 border border-slate-500 rounded-lg px-2.5 py-1.5 text-slate-500 select-none flex items-center justify-between pointer-events-none">
+                      <div className="text-sm bg-surface-hover border border-line-strong rounded-lg px-2.5 py-1.5 text-fg-muted select-none flex items-center justify-between pointer-events-none">
                         <span>{userDateFormat.toLowerCase()}</span>
                         <svg className="w-4 h-4 opacity-50 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1.5" y="2.5" width="13" height="12" rx="1.5"/><path d="M5 1v3M11 1v3M1.5 6h13"/></svg>
                       </div>
@@ -587,7 +587,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Priority */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Priority</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Priority</p>
                 <div className="flex gap-1.5">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
@@ -596,7 +596,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       className={`text-xs px-3 py-1 rounded-full border font-medium transition ${
                         localCard.priority === opt.value
                           ? "text-white border-transparent shadow-sm"
-                          : "text-slate-400 border-slate-600 hover:border-slate-400 bg-transparent"
+                          : "text-fg-tertiary border-line-strong hover:border-line-emphasis bg-transparent"
                       }`}
                       style={localCard.priority === opt.value ? { backgroundColor: opt.color, borderColor: opt.color } : {}}
                     >
@@ -608,7 +608,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Labels */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Labels</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Labels</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allLabels.map((label) => {
                     const active = localCard.labels.some((l) => l.id === label.id);
@@ -617,7 +617,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         key={label.id}
                         onClick={() => toggleLabel(label)}
                         className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
-                          active ? "text-white border-transparent shadow-sm" : "bg-transparent border-slate-600 hover:border-slate-400"
+                          active ? "text-white border-transparent shadow-sm" : "bg-transparent border-line-strong hover:border-line-emphasis"
                         }`}
                         style={active
                           ? { backgroundColor: label.color, borderColor: label.color }
@@ -637,7 +637,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           onChange={(e) => { setNewLabelName(e.target.value); setLabelError(null); }}
                           onKeyDown={(e) => { if (e.key === "Enter") handleCreateLabel(); if (e.key === "Escape") { setAddingLabel(false); setLabelError(null); } }}
                           placeholder="Label name"
-                          className="text-xs bg-slate-900 border border-blue-400 rounded-full px-2.5 py-1 outline-none w-28 text-slate-200"
+                          className="text-xs bg-sunken border border-info rounded-full px-2.5 py-1 outline-none w-28 text-fg"
                         />
                         <div className="flex gap-1">
                           {PALETTE_COLORS.map((c) => (
@@ -651,18 +651,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           ))}
                         </div>
                         {!newLabelName.trim() && (
-                          <span className="text-[10px] text-slate-500">type a name first</span>
+                          <span className="text-[10px] text-fg-muted">type a name first</span>
                         )}
-                        <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-slate-500 hover:text-slate-300 transition">✕</button>
+                        <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-fg-muted hover:text-fg-secondary transition">✕</button>
                       </div>
                       {labelError && (
-                        <p className="text-[10px] text-red-400 mt-0.5">{labelError}</p>
+                        <p className="text-[10px] text-danger mt-0.5">{labelError}</p>
                       )}
                     </div>
                   ) : canManageLabels ? (
                     <button
                       onClick={() => setAddingLabel(true)}
-                      className="text-xs text-slate-500 hover:text-slate-300 border border-dashed border-slate-600 hover:border-slate-400 rounded-full px-2.5 py-1 transition"
+                      className="text-xs text-fg-muted hover:text-fg-secondary border border-dashed border-line-strong hover:border-line-emphasis rounded-full px-2.5 py-1 transition"
                     >
                       + New label
                     </button>
@@ -672,7 +672,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Weight */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Weight</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Weight</p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
@@ -681,9 +681,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
                       weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
                     }}
-                    className="w-7 h-7 rounded-full border border-slate-600 text-slate-400 hover:bg-slate-700 transition text-sm font-medium"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >−</button>
-                  <span className="text-sm font-semibold text-slate-200 w-6 text-center">{localCard.weight}</span>
+                  <span className="text-sm font-semibold text-fg w-6 text-center">{localCard.weight}</span>
                   <button
                     onClick={() => {
                       const w = localCard.weight + 1;
@@ -691,12 +691,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
                       weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
                     }}
-                    className="w-7 h-7 rounded-full border border-slate-600 text-slate-400 hover:bg-slate-700 transition text-sm font-medium"
+                    className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >+</button>
                 </div>
               </div>
 
-              <div className="border-t border-slate-700" />
+              <div className="border-t border-line" />
 
               {/* Checklist */}
               <div>
@@ -704,19 +704,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   className="flex items-center justify-between w-full mb-2 group/cl"
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
                     Checklist
                     {checklist.length > 0 && (
-                      <span className="ml-1.5 normal-case font-normal text-slate-500">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
+                      <span className="ml-1.5 normal-case font-normal text-fg-muted">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
                     )}
                   </p>
-                  <svg className={`w-3.5 h-3.5 text-slate-600 group-hover/cl:text-slate-400 transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                  <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/cl:text-fg-tertiary transition-transform ${checklistOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {checklistOpen && checklist.length > 0 && ( // items and progress only when expanded
                   <>
-                    <div className="h-1 bg-slate-700 rounded-full mb-3 overflow-hidden">
+                    <div className="h-1 bg-surface-hover rounded-full mb-3 overflow-hidden">
                       <div
                         className="h-full bg-green-500 rounded-full transition-all"
                         style={{ width: `${Math.round((checklist.filter((i) => i.is_checked).length / checklist.length) * 100)}%` }}
@@ -724,7 +724,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </div>
                     <div className="flex flex-col gap-1 mb-3">
                       {checklist.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-slate-700">
+                        <div key={item.id} className="flex items-center gap-2 group px-1 py-0.5 rounded hover:bg-surface-hover">
                           <input
                             type="checkbox"
                             checked={item.is_checked}
@@ -733,13 +733,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             title={!canComment ? "Viewers cannot modify checklist items" : undefined}
                             className={`w-3.5 h-3.5 rounded accent-green-500 shrink-0 ${canComment ? "cursor-pointer" : "cursor-default"}`}
                           />
-                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-slate-600" : "text-slate-300"}`}>
+                          <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-faint" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
                           {canComment && (
                             <button
                               onClick={() => handleDeleteChecklistItem(item.id)}
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
                               title="Remove item"
                             >
                               ✕
@@ -757,11 +757,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       onChange={(e) => setNewItemText(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleAddChecklistItem(); }}
                       placeholder="Add item (Enter)…"
-                      className="flex-1 text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 placeholder-slate-500"
+                      className="flex-1 text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary placeholder-fg-muted"
                     />
                     <button
                       onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
-                      className="text-sm text-blue-400 hover:text-blue-300 font-medium px-2 whitespace-nowrap transition"
+                      className="text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition"
                     >
                       Bulk
                     </button>
@@ -771,9 +771,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
                     <div className="absolute inset-0 bg-black/40" onClick={() => setShowBulkAdd(false)} />
-                    <div className="relative bg-slate-800 rounded-xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+                    <div className="relative bg-surface rounded-xl shadow-2xl w-80 p-5 flex flex-col gap-4">
                       <h3 className="text-sm font-semibold text-white">Add checklist items</h3>
-                      <p className="text-xs text-slate-500 -mt-2">One item per line</p>
+                      <p className="text-xs text-fg-muted -mt-2">One item per line</p>
                       <textarea
                         autoFocus
                         value={bulkText}
@@ -781,10 +781,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleBulkAdd(); if (e.key === "Escape") setShowBulkAdd(false); }}
                         placeholder={"Buy milk\nCall client\nReview PR"}
                         rows={6}
-                        className="w-full text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-slate-300 placeholder-slate-500"
+                        className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition">Cancel</button>
                         <button onClick={handleBulkAdd} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add items</button>
                       </div>
                     </div>
@@ -792,7 +792,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 )}
               </div>
 
-              <div className="border-t border-slate-700" />
+              <div className="border-t border-line" />
 
               {/* Attachments */}
               <div>
@@ -801,10 +801,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     className="flex items-center gap-1.5 group/att"
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Attachments{attachments.length > 0 && <span className="ml-1.5 normal-case font-normal text-slate-500">({attachments.length})</span>}
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+                      Attachments{attachments.length > 0 && <span className="ml-1.5 normal-case font-normal text-fg-muted">({attachments.length})</span>}
                     </p>
-                    <svg className={`w-3.5 h-3.5 text-slate-600 group-hover/att:text-slate-400 transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                    <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/att:text-fg-tertiary transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
@@ -813,7 +813,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       {currentUser?.uploads_enabled === false ? (
                         <span
                           title="File uploads are disabled by the site administrator."
-                          className="text-xs text-slate-600 font-medium cursor-not-allowed"
+                          className="text-xs text-fg-faint font-medium cursor-not-allowed"
                         >
                           + Upload
                         </span>
@@ -822,7 +822,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="text-xs text-blue-400 hover:text-blue-300 font-medium disabled:opacity-40 transition"
+                            className="text-xs text-info hover:text-info font-medium disabled:opacity-40 transition"
                           >
                             {uploading ? "Uploading…" : "+ Upload"}
                           </button>
@@ -833,41 +833,41 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   )}
                 </div>
                 {attachmentsOpen && (attachments.length === 0 ? (
-                  <p className="text-xs text-slate-600 italic">No attachments.</p>
+                  <p className="text-xs text-fg-faint italic">No attachments.</p>
                 ) : (<>
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((a) => (
-                      <div key={a.id} className="flex items-center gap-2 bg-slate-700 rounded-lg px-3 py-2 group">
-                        <span className="text-slate-500 text-sm shrink-0">📎</span>
+                      <div key={a.id} className="flex items-center gap-2 bg-surface-hover rounded-lg px-3 py-2 group">
+                        <span className="text-fg-muted text-sm shrink-0">📎</span>
                         <div className="flex-1 min-w-0">
                           {/* The download attribute tells the browser to always save the file
                               rather than attempting to render it inline. This is defense-in-depth
                               alongside the server-side Content-Disposition: attachment header. */}
-                          <a href={a.url} download={a.filename} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:underline truncate block">
+                          <a href={a.url} download={a.filename} target="_blank" rel="noreferrer" className="text-sm text-info hover:underline truncate block">
                             {a.filename}
                           </a>
-                          <p className="text-xs text-slate-500">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
+                          <p className="text-xs text-fg-muted">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
                         {canDeleteAttachment(a) && (
                           <button
                             onClick={() => handleDeleteAttachment(a.id)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-600 hover:text-red-400 transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 rounded"
                             title="Delete"
                           >✕</button>
                         )}
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs h-4">{attachError && <span className="text-red-400">{attachError}</span>}</p>
+                  <p className="text-xs h-4">{attachError && <span className="text-danger">{attachError}</span>}</p>
                 </>))}
               </div>
 
-              <div className="border-t border-slate-700" />
+              <div className="border-t border-line" />
 
               {/* Comments */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-3">
-                  Comments {comments.length > 0 && <span className="normal-case font-normal text-slate-500">({comments.length})</span>}
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-3">
+                  Comments {comments.length > 0 && <span className="normal-case font-normal text-fg-muted">({comments.length})</span>}
                 </p>
                 <div className="flex flex-col gap-3 mb-3">
                   {comments.map((c) => {
@@ -877,21 +877,21 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <Avatar user={c.author} size="sm" className="mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-semibold text-slate-300">{authorName}</span>
-                            <span className="text-[10px] text-slate-500" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
+                            <span className="text-xs font-semibold text-fg-secondary">{authorName}</span>
+                            <span className="text-[10px] text-fg-muted" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
                             {canDeleteComment(c) && (
                               confirmDeleteCommentId === c.id ? (
                                 <div className="ml-auto flex items-center gap-1">
-                                  <span className="text-[10px] text-red-400">Delete?</span>
+                                  <span className="text-[10px] text-danger">Delete?</span>
                                   <button
                                     onClick={() => handleDeleteComment(c.id)}
-                                    className="text-[10px] text-red-400 hover:text-red-300 font-medium focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1"
+                                    className="text-[10px] text-danger hover:text-danger font-medium focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1"
                                   >
                                     Yes
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeleteCommentId(null)}
-                                    className="text-[10px] text-slate-500 hover:text-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-500 rounded px-1"
+                                    className="text-[10px] text-fg-muted hover:text-fg-secondary focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1"
                                   >
                                     No
                                   </button>
@@ -900,7 +900,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                                 <button
                                   title="Delete comment"
                                   onClick={() => setConfirmDeleteCommentId(c.id)}
-                                  className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-slate-500 hover:text-red-400 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                  className="ml-auto opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity duration-150 p-0.5 rounded text-fg-muted hover:text-danger hover:bg-surface-active focus:outline-none focus:ring-2 focus:ring-red-500"
                                   aria-label="Delete comment"
                                 >
                                   <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -910,10 +910,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                               )
                             )}
                           </div>
-                          <div className="bg-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 leading-relaxed">
+                          <div className="bg-surface-hover rounded-lg px-3 py-2 text-sm text-fg-secondary leading-relaxed">
                             {c.body.split(/(@[\w.+-]+)/g).map((part, i) => // nosemgrep: nodejs_scan.javascript-dos-rule-regex_dos
                               /^@[\w.+-]+$/.test(part) // nosemgrep: nodejs_scan.javascript-dos-rule-regex_dos
-                                ? <span key={i} className="font-semibold text-blue-400">{part}</span>
+                                ? <span key={i} className="font-semibold text-info">{part}</span>
                                 : part
                             )}
                           </div>
@@ -931,7 +931,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       members={board.members}
                       placeholder="Add a comment… (Enter to submit, @ to mention)"
                       rows={2}
-                      className="w-full text-sm bg-slate-800 border border-slate-700 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-slate-300 placeholder-slate-500"
+                      className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                     />
                     <div className="flex justify-end">
                       <button
@@ -951,16 +951,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           )}
           </div>
           {/* Scroll affordance — fade gradient at bottom signals more content below */}
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-slate-800 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent pointer-events-none" />
         </div>
 
         {/* Footer */}
         {canDeleteOrArchive && (
-          <div className="px-5 py-3 border-t border-slate-700 flex items-center justify-between">
-            <button onClick={handleArchive} className="text-xs text-slate-500 hover:text-amber-400 transition">
+          <div className="px-5 py-3 border-t border-line flex items-center justify-between">
+            <button onClick={handleArchive} className="text-xs text-fg-muted hover:text-warning transition">
               Archive card
             </button>
-            <button onClick={handleDelete} className="text-xs text-slate-600 hover:text-red-400 transition">
+            <button onClick={handleDelete} className="text-xs text-fg-faint hover:text-danger transition">
               Delete card
             </button>
           </div>
@@ -970,12 +970,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       {/* Move popover — rendered fixed so the panel's overflow-hidden doesn't clip it */}
       {showMovePopover && movePopoverAnchor && (
         <div
-          className="fixed w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
+          className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
           style={{ top: movePopoverAnchor.top, right: movePopoverAnchor.right }}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Move to</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">Move to</p>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-slate-500">Swimlane</label>
+            <label className="text-xs text-fg-muted">Swimlane</label>
             <SelectDropdown
               options={board.swimlanes.map((s) => ({ value: String(s.id), label: s.name }))}
               value={moveTargetSwimlane !== null ? String(moveTargetSwimlane) : ""}
@@ -983,7 +983,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-slate-500">Column</label>
+            <label className="text-xs text-fg-muted">Column</label>
             <SelectDropdown
               options={board.columns.map((c) => ({ value: String(c.id), label: c.name }))}
               value={moveTargetColumn !== null ? String(moveTargetColumn) : ""}
@@ -991,12 +991,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             />
           </div>
           <p className="text-xs h-4">
-            {movePopoverError && <span className="text-red-400">{movePopoverError}</span>}
+            {movePopoverError && <span className="text-danger">{movePopoverError}</span>}
           </p>
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setShowMovePopover(false)}
-              className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-slate-500 rounded"
+              className="text-sm text-fg-tertiary hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-fg-muted rounded"
             >Cancel</button>
             <button
               onClick={handleMoveSubmit}
@@ -1016,17 +1016,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       >
         {confirmAction === "delete" ? (
           <>
-            <p className="text-slate-400 text-sm mb-5">This cannot be undone.</p>
+            <p className="text-fg-tertiary text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
               <button onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (
           <>
-            <p className="text-slate-400 text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
+            <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-white px-3 py-1.5 transition">Cancel</button>
               <button onClick={executeArchive} className="bg-amber-600 hover:bg-amber-700 text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-amber-500">Archive</button>
             </div>
           </>

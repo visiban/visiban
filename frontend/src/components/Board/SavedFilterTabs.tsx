@@ -15,7 +15,7 @@ interface Props {
 
 const focusClass = "focus:outline-none focus:ring-2 focus:ring-blue-500";
 const activeClass = `bg-blue-600 text-white font-medium px-2.5 py-1 rounded ${focusClass}`;
-const inactiveClass = `text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded hover:bg-slate-700 transition ${focusClass}`;
+const inactiveClass = `text-fg-tertiary hover:text-fg px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
 
 /**
  * A compact row of tab pills that gives one-click access to saved filter presets,
@@ -85,7 +85,7 @@ export default function SavedFilterTabs({
         <button
           type="button"
           onClick={onSaveCurrentClick}
-          className={`text-slate-500 hover:text-slate-300 px-2.5 py-1 rounded hover:bg-slate-700 transition ${focusClass}`}
+          className={`text-fg-muted hover:text-fg-secondary px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`}
         >
           + Save current
         </button>

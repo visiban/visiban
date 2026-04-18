@@ -43,9 +43,9 @@ Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same `prefers
 
 ## Light palette availability
 
-During the 1.x release cycle, the light palette is rolled out incrementally alongside a component-by-component migration. While this rollout is in progress, administrators may keep the **Light** option hidden in the picker until the migration is complete for all components. The **System** and **Dark** options are always available.
+The **Light** option is available by default in every Visiban installation.
 
-If **Light** is not present in your picker, your administrator has not yet enabled it for this instance.
+Administrators who wish to hide the Light option — for example, on an install-specific fork that has not adopted the light palette — can set the build-time environment variable `VITE_THEME_LIGHT_ENABLED=false` when building the frontend image. The **System** and **Dark** options are always available regardless.
 
 ## What's next
 

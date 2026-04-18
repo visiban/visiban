@@ -125,8 +125,8 @@ describe("ActivityFilterDropdown", () => {
       />
     );
     const trigger = screen.getByRole("button", { name: /filter/i });
-    expect(trigger.className).toMatch(/border-blue-400/);
-    expect(trigger.className).toMatch(/text-blue-400/);
+    expect(trigger.className).toMatch(/border-info/);
+    expect(trigger.className).toMatch(/text-info/);
   });
 
   it("closes the menu when Escape is pressed", async () => {

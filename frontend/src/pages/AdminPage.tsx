@@ -79,12 +79,12 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   }, []);
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-6 max-w-sm w-full">
-        <p id="confirm-dialog-message" className="text-sm text-slate-300 mb-6">{message}</p>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-surface border border-line rounded-lg shadow-xl p-6 max-w-sm w-full">
+        <p id="confirm-dialog-message" className="text-sm text-fg-secondary mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Cancel
           </button>
@@ -153,18 +153,18 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
   return (
     <ModalWrapper open onClose={onClose} title="Add User" maxWidth="max-w-md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm text-slate-400">
+          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
             Username
             <input
               value={form.username}
               onChange={set("username")}
               required
               autoComplete="off"
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-sm text-slate-400">
+          <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
             Email address
             <input
               type="email"
@@ -172,12 +172,12 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               onChange={set("email")}
               required
               autoComplete="off"
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
             />
           </label>
 
           <div className="flex flex-col gap-1">
-            <label htmlFor="new-user-password" className="text-sm text-slate-400">
+            <label htmlFor="new-user-password" className="text-sm text-fg-tertiary">
               Password
             </label>
             <input
@@ -188,12 +188,12 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               required
               minLength={12}
               autoComplete="new-password"
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
             />
-            <span className="text-xs text-slate-500">Minimum 12 characters</span>
+            <span className="text-xs text-fg-muted">Minimum 12 characters</span>
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+          <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
             <input
               type="checkbox"
               checked={form.force_password_reset}
@@ -203,13 +203,13 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             Force password reset on first login
           </label>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Cancel
             </button>
@@ -238,10 +238,10 @@ const TTL_OPTIONS: { label: string; value: number | null }[] = [
 ];
 
 const STATUS_STYLES: Record<AdminInviteLink["status"], string> = {
-  pending: "bg-green-500/20 text-green-400",
-  used: "bg-slate-500/20 text-slate-400",
-  expired: "bg-red-500/20 text-red-400",
-  revoked: "bg-slate-500/20 text-slate-500",
+  pending: "bg-success/20 text-success",
+  used: "bg-fg-muted/20 text-fg-tertiary",
+  expired: "bg-danger/20 text-danger",
+  revoked: "bg-fg-muted/20 text-fg-muted",
 };
 
 function formatExpiry(link: AdminInviteLink): string {
@@ -319,7 +319,7 @@ function InviteLinksTab() {
     }
   };
 
-  if (loading) return <div className="text-slate-400 text-sm">Loading…</div>;
+  if (loading) return <div className="text-fg-tertiary text-sm">Loading…</div>;
 
   return (
     <div className="flex flex-col gap-6">
@@ -328,35 +328,35 @@ function InviteLinksTab() {
       {/* Create form */}
       <form onSubmit={handleCreate} className="flex flex-col gap-4 max-w-sm">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-400 uppercase tracking-wide">Expires after</label>
+          <label className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">Expires after</label>
           <select
             value={form.expires_in_days ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
-            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {TTL_OPTIONS.map((o) => (
               <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
             ))}
           </select>
           {form.expires_in_days === null && (
-            <p className="text-xs text-amber-400">Never-expiring links are a security risk — use with caution.</p>
+            <p className="text-xs text-warning">Never-expiring links are a security risk — use with caution.</p>
           )}
         </div>
 
-        <label className="flex items-center gap-3 cursor-pointer text-sm text-slate-300">
+        <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
           <button
             type="button"
             role="switch"
             aria-checked={form.single_use}
             onClick={() => setForm((f) => ({ ...f, single_use: !f.single_use }))}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.single_use ? "bg-blue-600" : "bg-slate-600"}`}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.single_use ? "bg-blue-600" : "bg-surface-active"}`}
           >
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${form.single_use ? "translate-x-4" : "translate-x-1"}`} />
           </button>
           Single-use
         </label>
 
-        {createError && <p className="text-sm text-red-400">{createError}</p>}
+        {createError && <p className="text-sm text-danger">{createError}</p>}
 
         <button
           type="submit"
@@ -369,12 +369,12 @@ function InviteLinksTab() {
 
       {/* One-time token reveal */}
       {newLink && (
-        <div className="flex flex-col gap-2 p-3 rounded-lg border border-amber-600/50 bg-slate-900 max-w-lg transition-all duration-150">
-          <p className="text-xs text-amber-400">Copy this link now — it won't be shown again.</p>
+        <div className="flex flex-col gap-2 p-3 rounded-lg border border-warning/50 bg-sunken max-w-lg transition-all duration-150">
+          <p className="text-xs text-warning">Copy this link now — it won't be shown again.</p>
           <div className="flex items-center gap-2">
             <span
               title={`${window.location.origin}/join/${newLink.raw_token}`}
-              className="flex-1 font-mono text-xs text-slate-200 bg-slate-800 border border-slate-700 rounded px-2 py-1.5 truncate"
+              className="flex-1 font-mono text-xs text-fg bg-surface border border-line rounded px-2 py-1.5 truncate"
             >
               {`${window.location.origin}/join/${newLink.raw_token}`}
             </span>
@@ -386,7 +386,7 @@ function InviteLinksTab() {
             </button>
             <button
               onClick={() => setNewLink(null)}
-              className="shrink-0 px-3 py-1.5 text-sm text-slate-400 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               Done
             </button>
@@ -394,26 +394,26 @@ function InviteLinksTab() {
         </div>
       )}
 
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {/* Link list */}
       {links.length === 0 ? (
-        <p className="text-sm text-slate-500">No invite links yet.</p>
+        <p className="text-sm text-fg-muted">No invite links yet.</p>
       ) : (
-        <div className="flex flex-col divide-y divide-slate-700 rounded-lg border border-slate-700 overflow-hidden">
+        <div className="flex flex-col divide-y divide-line rounded-lg border border-line overflow-hidden">
           {links.map((link) => (
-            <div key={link.id} className="flex items-center gap-3 px-4 py-3 bg-slate-800/50 hover:bg-slate-800 transition">
+            <div key={link.id} className="flex items-center gap-3 px-4 py-3 bg-surface/50 hover:bg-surface transition">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-slate-400">{link.prefix}…</span>
+                  <span className="font-mono text-xs text-fg-tertiary">{link.prefix}…</span>
                   <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_STYLES[link.status]}`}>
                     {link.status}
                   </span>
                   {link.single_use && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-slate-500/20 text-slate-400">single-use</span>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-fg-muted/20 text-fg-tertiary">single-use</span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-fg-muted mt-0.5">
                   Expires {formatExpiry(link)}
                   {` · ${link.use_count} ${link.use_count === 1 ? "use" : "uses"}`}
                   {link.created_by_username && ` · created by ${link.created_by_username}`}
@@ -424,13 +424,13 @@ function InviteLinksTab() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleRevoke(link.id)}
-                      className="text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Confirm revoke
                     </button>
                     <button
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-xs text-slate-400 hover:text-white transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs text-fg-tertiary hover:text-white transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       Cancel
                     </button>
@@ -438,7 +438,7 @@ function InviteLinksTab() {
                 ) : (
                   <button
                     onClick={() => setRevokeConfirm(link.id)}
-                    className="shrink-0 text-xs text-red-400 hover:text-red-300 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="shrink-0 text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     Revoke
                   </button>
@@ -544,55 +544,55 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
   return (
     <ModalWrapper open onClose={onClose} title="Transfer boards & deactivate" maxWidth="max-w-lg" headerBorder>
       <div ref={contentRef}>
-        <p className="text-sm text-slate-300 mb-4">
+        <p className="text-sm text-fg-secondary mb-4">
           <span className="font-medium text-white">{user.display_name || user.username}</span> owns the boards below.
           Assign a new owner for each before deactivating.
         </p>
 
-        <div className="flex flex-col divide-y divide-slate-700 mb-4 rounded-lg border border-slate-700 overflow-hidden">
+        <div className="flex flex-col divide-y divide-line mb-4 rounded-lg border border-line overflow-hidden">
           {user.owned_boards.map((board) => (
-            <div key={board.id} className="flex flex-col gap-2 px-4 py-3 bg-slate-800/50">
-              <span className="text-sm text-slate-200 truncate" title={board.name}>{board.name}</span>
+            <div key={board.id} className="flex flex-col gap-2 px-4 py-3 bg-surface/50">
+              <span className="text-sm text-fg truncate" title={board.name}>{board.name}</span>
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search for a member…"
                   value={memberSearch[board.id] ?? ""}
                   onChange={(e) => handleMemberSearch(board.id, e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
                 />
                 {(memberResults[board.id] ?? []).length > 0 && (
-                  <ul className="absolute z-10 w-full mt-1 bg-slate-800 border border-slate-700 rounded shadow-lg max-h-40 overflow-y-auto">
+                  <ul className="absolute z-10 w-full mt-1 bg-surface border border-line rounded shadow-lg max-h-40 overflow-y-auto">
                     {memberResults[board.id].map((member) => (
                       <li key={member.id}>
                         <button
                           type="button"
                           onClick={() => selectTransfer(board.id, member)}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition focus:outline-none focus:bg-slate-700"
+                          className="w-full text-left px-3 py-2 text-sm text-fg-secondary hover:bg-surface-hover transition focus:outline-none focus:bg-surface-hover"
                         >
                           {member.display_name || member.username}
-                          <span className="text-slate-500 ml-1">@{member.username}</span>
+                          <span className="text-fg-muted ml-1">@{member.username}</span>
                         </button>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Only users who are members of this board can receive ownership.</p>
+              <p className="text-xs text-fg-muted">Only users who are members of this board can receive ownership.</p>
             </div>
           ))}
         </div>
 
-        <p className="text-sm text-amber-400 mb-4">
+        <p className="text-sm text-warning mb-4">
           This transfer cannot be undone automatically. The new owner will have full admin access to their transferred boards.
         </p>
 
-        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
+        {error && <p className="text-sm text-danger mb-3">{error}</p>}
 
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-white hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Cancel
           </button>
@@ -694,7 +694,7 @@ function SettingsTab() {
   };
 
   if (loading) {
-    return <div className="text-slate-400 text-sm">Loading…</div>;
+    return <div className="text-fg-tertiary text-sm">Loading…</div>;
   }
 
   return (
@@ -702,7 +702,7 @@ function SettingsTab() {
       <h2 className="text-white text-lg font-semibold">Instance Settings</h2>
 
       <div>
-        <p className="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">
+        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
           Registration
         </p>
         <div className="flex flex-col gap-2" role="radiogroup" aria-label="Registration mode">
@@ -713,8 +713,8 @@ function SettingsTab() {
                 saving ? "opacity-50 pointer-events-none" : ""
               } ${
                 settings?.registration_mode === value
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-slate-600 hover:bg-slate-700/40"
+                  ? "border-blue-500 bg-info/10"
+                  : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >
               <input
@@ -730,7 +730,7 @@ function SettingsTab() {
                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                   settings?.registration_mode === value
                     ? "border-blue-500"
-                    : "border-slate-500"
+                    : "border-line-strong"
                 }`}
               >
                 {settings?.registration_mode === value && (
@@ -738,8 +738,8 @@ function SettingsTab() {
                 )}
               </span>
               <span>
-                <span className="block text-sm font-medium text-slate-200">{label}</span>
-                <span className="block text-xs text-slate-500 mt-0.5">{description}</span>
+                <span className="block text-sm font-medium text-fg">{label}</span>
+                <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
               </span>
             </label>
           ))}
@@ -747,13 +747,13 @@ function SettingsTab() {
       </div>
 
       <div>
-        <p className="text-sm font-medium text-slate-400 uppercase tracking-wide mb-3">
+        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
           Features
         </p>
-        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-slate-700 bg-slate-800">
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-line bg-surface">
           <div>
-            <span className="block text-sm font-medium text-slate-200">File uploads</span>
-            <span className="block text-xs text-slate-500">Allow members to attach files to cards</span>
+            <span className="block text-sm font-medium text-fg">File uploads</span>
+            <span className="block text-xs text-fg-muted">Allow members to attach files to cards</span>
           </div>
           <button
             role="switch"
@@ -761,7 +761,7 @@ function SettingsTab() {
             onClick={handleUploadsToggle}
             disabled={saving}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              settings?.uploads_enabled ? "bg-blue-600" : "bg-slate-600"
+              settings?.uploads_enabled ? "bg-blue-600" : "bg-surface-active"
             }`}
           >
             <span
@@ -774,8 +774,8 @@ function SettingsTab() {
       </div>
 
       <p className="text-sm h-5">
-        {error && <span className="text-red-400">{error}</span>}
-        {saved && <span className="text-green-400">Settings saved.</span>}
+        {error && <span className="text-danger">{error}</span>}
+        {saved && <span className="text-success">Settings saved.</span>}
       </p>
     </div>
   );
@@ -922,23 +922,23 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         value={search}
         onChange={handleSearchChange}
         placeholder="Search by name, email, or username…"
-        className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 max-w-md"
+        className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted max-w-md"
       />
 
       {actionError && (
-        <p className="text-sm text-red-400">{actionError}</p>
+        <p className="text-sm text-danger">{actionError}</p>
       )}
 
       {loading ? (
-        <div className="text-slate-400 text-sm">Loading…</div>
+        <div className="text-fg-tertiary text-sm">Loading…</div>
       ) : error ? (
-        <div className="text-red-400 text-sm">{error}</div>
+        <div className="text-danger text-sm">{error}</div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-slate-700">
+          <div className="overflow-x-auto rounded-lg border border-line">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-800 text-slate-400 text-xs uppercase tracking-wide">
+                <tr className="bg-surface text-fg-tertiary text-xs uppercase tracking-wide">
                   <th className="text-left px-4 py-2.5 font-medium">User</th>
                   <th className="text-left px-4 py-2.5 font-medium">Email</th>
                   <th className="text-left px-4 py-2.5 font-medium">Joined</th>
@@ -950,18 +950,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 {users.map((u) => (
                   <tr
                     key={u.id}
-                    className="border-t border-slate-800 hover:bg-slate-800/50 transition"
+                    className="border-t border-line-subtle hover:bg-surface/50 transition"
                   >
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <Avatar user={u} size="sm" />
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-slate-200">
+                            <span className="text-fg">
                               {u.display_name || u.first_name || u.username}
                             </span>
                             {u.is_site_admin && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-blue-500/20 text-blue-400">
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-info/20 text-info">
                                 Admin
                               </span>
                             )}
@@ -971,22 +971,22 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               </span>
                             )}
                             {u.must_change_password && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-400">
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-warning/20 text-warning">
                                 Reset req.
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-slate-500">@{u.username}</span>
+                          <span className="text-xs text-fg-muted">@{u.username}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-slate-300">{u.email}</td>
-                    <td className="px-4 py-2.5 text-slate-500">{formatDate(u.date_joined)}</td>
+                    <td className="px-4 py-2.5 text-fg-secondary">{u.email}</td>
+                    <td className="px-4 py-2.5 text-fg-muted">{formatDate(u.date_joined)}</td>
                     <td className="px-4 py-2.5">
                       {u.is_active ? (
-                        <span className="text-green-400 text-xs">Active</span>
+                        <span className="text-success text-xs">Active</span>
                       ) : (
-                        <span className="text-slate-500 text-xs">Inactive</span>
+                        <span className="text-fg-muted text-xs">Inactive</span>
                       )}
                     </td>
                     <td className="px-4 py-2.5">
@@ -996,14 +996,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           u.is_active ? (
                             <button
                               onClick={() => handleDeactivate(u)}
-                              className="text-xs text-slate-400 hover:text-red-400 transition"
+                              className="text-xs text-fg-tertiary hover:text-danger transition"
                             >
                               Deactivate
                             </button>
                           ) : (
                             <button
                               onClick={() => applyPatch(u.id, { is_active: true })}
-                              className="text-xs text-slate-400 hover:text-green-400 transition"
+                              className="text-xs text-fg-tertiary hover:text-success transition"
                             >
                               Reactivate
                             </button>
@@ -1015,7 +1015,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           u.is_site_admin ? (
                             <button
                               onClick={() => handleDemote(u)}
-                              className="text-xs text-slate-400 hover:text-amber-400 transition"
+                              className="text-xs text-fg-tertiary hover:text-warning transition"
                             >
                               Demote admin
                             </button>
@@ -1025,7 +1025,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                                 `Grant site admin to ${u.display_name || u.username}? They will have full access to this admin panel.`,
                                 () => applyPatch(u.id, { is_site_admin: true })
                               )}
-                              className="text-xs text-slate-400 hover:text-blue-400 transition"
+                              className="text-xs text-fg-tertiary hover:text-info transition"
                             >
                               Make admin
                             </button>
@@ -1037,7 +1037,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           <button
                             onClick={() => handleRevokeContentAccess(u)}
                             title="Revoke access to all boards and groups"
-                            className="text-xs text-slate-400 hover:text-amber-400 transition"
+                            className="text-xs text-fg-tertiary hover:text-warning transition"
                           >
                             Revoke all-content
                           </button>
@@ -1045,7 +1045,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           <button
                             onClick={() => handleGrantContentAccess(u)}
                             title="Grants read/write access to all boards and groups regardless of membership"
-                            className="text-xs text-slate-400 hover:text-violet-400 transition"
+                            className="text-xs text-fg-tertiary hover:text-violet-400 transition"
                           >
                             Grant all-content
                           </button>
@@ -1055,7 +1055,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                         {!u.must_change_password && (
                           <button
                             onClick={() => applyPatch(u.id, { must_change_password: true })}
-                            className="text-xs text-slate-400 hover:text-amber-400 transition"
+                            className="text-xs text-fg-tertiary hover:text-warning transition"
                           >
                             Force reset
                           </button>
@@ -1066,7 +1066,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                    <td colSpan={5} className="px-4 py-8 text-center text-fg-muted">
                       No users found.
                     </td>
                   </tr>
@@ -1075,14 +1075,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
             </table>
           </div>
 
-          <div className="flex items-center justify-between text-sm text-slate-400">
+          <div className="flex items-center justify-between text-sm text-fg-tertiary">
             <span>{total} {total === 1 ? "user" : "users"}</span>
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setOffset((o) => Math.max(0, o - pageSize))}
                   disabled={offset === 0}
-                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
+                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-white hover:bg-surface-hover rounded disabled:opacity-40 transition"
                 >
                   ← Prev
                 </button>
@@ -1092,7 +1092,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                 <button
                   onClick={() => setOffset((o) => Math.min((totalPages - 1) * pageSize, o + pageSize))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 text-xs text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-40 transition"
+                  className="px-2 py-1 text-xs text-fg-tertiary hover:text-white hover:bg-surface-hover rounded disabled:opacity-40 transition"
                 >
                   Next →
                 </button>
@@ -1166,7 +1166,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
   if (!user.is_site_admin) return null;
 
   return (
-    <div className="h-full bg-slate-900 flex flex-col">
+    <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
@@ -1183,7 +1183,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
                         ? "bg-blue-600 text-white font-medium"
-                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                        : "text-fg-tertiary hover:text-white hover:bg-surface"
                     }`}
                   >
                     {tab.label}

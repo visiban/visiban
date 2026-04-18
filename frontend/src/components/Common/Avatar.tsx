@@ -48,7 +48,7 @@ export default function Avatar({ user, size = "md", className = "" }: Props) {
   const base = `rounded-full flex items-center justify-center overflow-hidden shrink-0 font-medium ${sizeClass} ${className}`;
 
   if (!user) {
-    return <div className={`${base} bg-slate-400 text-white`}>?</div>;
+    return <div className={`${base} bg-fg-muted text-white`}>?</div>;
   }
 
   if (user.avatar_url) {
