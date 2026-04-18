@@ -569,9 +569,18 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
   );
 }
 
+// VITE_THEME_LIGHT_ENABLED gates the "Light" option during the component-sweep
+// rollout (#120). While the sweep is in progress, light-mode rendering is
+// partially authored; the flag hides the choice until every in-scope component
+// has been migrated. Set to "true" in .env.local to preview.
+const LIGHT_ENABLED = import.meta.env.VITE_THEME_LIGHT_ENABLED === "true";
+
 const THEME_OPTIONS: { value: ThemePreference; label: string; description: string }[] = [
   { value: "system", label: "System", description: "Follows your OS preference" },
   { value: "dark",   label: "Dark",   description: "Always use dark mode" },
+  ...(LIGHT_ENABLED
+    ? [{ value: "light" as const, label: "Light", description: "Always use light mode" }]
+    : []),
 ];
 
 function AppearanceTab() {

@@ -3,6 +3,7 @@ import { useEscapeStack } from "./hooks/useEscapeStack";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
+import { ThemeServerSync } from "./context/ThemeServerSync";
 import LoginPage from "./components/Auth/LoginPage";
 import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal";
 import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
@@ -111,6 +112,7 @@ export default function App() {
           <Route path="/*" element={
             <ViewportGate>
               <div className="flex h-screen overflow-hidden">
+                <ThemeServerSync user={user} onUserUpdated={updateUser} />
                 <AppSidebar user={user} starVersion={starVersion} />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                   <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />

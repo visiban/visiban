@@ -48,6 +48,28 @@ class CurrentUserViewTests(TestCase):
         self.assertIn("has_completed_tour", r.json())
         self.assertFalse(r.json()["has_completed_tour"])
 
+    def test_theme_defaults_to_system(self):
+        r = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["theme"], "system")
+
+    def test_patch_theme_to_light(self):
+        r = self.client.patch("/api/v1/auth/me/", {"theme": "light"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["theme"], "light")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.theme, "light")
+
+    def test_patch_theme_to_dark(self):
+        r = self.client.patch("/api/v1/auth/me/", {"theme": "dark"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["theme"], "dark")
+
+    def test_patch_theme_invalid_returns_400(self):
+        r = self.client.patch("/api/v1/auth/me/", {"theme": "midnight"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("theme", r.json())
+
 
 class ChangePasswordViewTests(TestCase):
     def setUp(self):
@@ -298,6 +320,7 @@ class CurrentUserSerializerWritableFieldsTests(TestCase):
             "number_locale",
             "close_editor_on_enter",
             "has_completed_tour",
+            "theme",
             "notif_card_assigned",
             "notif_mentioned",
             "notif_due_soon",

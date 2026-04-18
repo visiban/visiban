@@ -2,6 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Design token layer — see issue #183.
+
+  All tokens are emitted as RGB channel triplets (e.g. "15 23 42") — NOT as
+  hex strings. This is required so Tailwind's `/<alpha-value>` modifiers keep
+  working: `bg-surface/50` expands to `rgb(var(--surface) / 0.5)`. Defining
+  tokens as hex would silently break every `*/10`, `*/20`, `*/50` alpha usage
+  across the codebase.
+
+  Dark values are the default — they live on [data-theme="dark"] AND on :root
+  as a fallback so components that have not yet been migrated from raw
+  `bg-slate-*` classes continue to render identically to pre-token behavior
+  regardless of the active theme.
+
+  Light values on [data-theme="light"] are authored incrementally per-domain
+  in the component-sweep MRs (#120). Until a given component is migrated from
+  raw slate classes to semantic token classes, it will not respond to theme
+  changes — that is intentional and gated by VITE_THEME_LIGHT_ENABLED.
+
+  Future extension: a `[data-theme="custom"]` selector can be added without
+  schema changes when the user-picked accent color feature (#251) lands. The
+  hook is left to prose rather than reserved in code here because the exact
+  override shape is not yet designed.
+*/
+:root,
+[data-theme="dark"] {
+  /* Surfaces (deepest → most raised) */
+  --canvas: 2 6 23;                /* slate-950 — grid cells, page canvas */
+  --surface: 30 41 59;             /* slate-800 — column headers, cards, panels */
+  --surface-raised: 30 41 59;      /* slate-800 — dropdowns, modals (with shadow) */
+
+  /* Borders (subtle → strong) */
+  --border-subtle: 30 41 59;       /* slate-800 — grid lines */
+  --border-default: 51 65 85;      /* slate-700 — panels */
+  --border-strong: 71 85 105;      /* slate-600 — interactive elements */
+
+  /* Text (primary → muted) */
+  --text-primary: 226 232 240;     /* slate-200 — body content */
+  --text-secondary: 203 213 225;   /* slate-300 — secondary content */
+  --text-muted: 100 116 139;       /* slate-500 — stats, captions */
+
+  /* Accent — the Visiban blue used for primary actions and active states. */
+  --accent: 37 99 235;             /* blue-600 */
+  --accent-hover: 29 78 216;       /* blue-700 */
+}
+
+[data-theme="light"] {
+  /*
+    Light palette values are intentionally left unset in this MR. The
+    component sweep (#120) authors them per-domain alongside each component
+    migration, so the visible output only changes for migrated components.
+    The feature flag VITE_THEME_LIGHT_ENABLED gates whether users can reach
+    this state from the UI during the sweep.
+  */
+}
+
 body {
   margin: 0;
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;

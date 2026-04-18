@@ -42,6 +42,12 @@ export interface User {
   notif_board_invite?: boolean;
   close_editor_on_enter?: boolean;
   has_completed_tour?: boolean;
+  /**
+   * Appearance preference. Drives theme selection client-side. Backed by a
+   * non-nullable DB column with default "system"; older clients that do not
+   * send this field on PATCH are unaffected. See issue #183.
+   */
+  theme?: "system" | "dark" | "light";
   /** PK of the board to open automatically on login, or null if not set. */
   default_board_id?: number | null;
   /** Whether file uploads are enabled instance-wide. Reflects SiteSetting.uploads_enabled. */

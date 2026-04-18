@@ -219,11 +219,13 @@ describe('useTheme', () => {
     setupMatchMedia(false)
     clearStoredPreference()
     document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
   })
 
   afterEach(() => {
     localStorage.clear()
     document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
   })
 
   it('returns the context value with preference and setPreference', () => {
@@ -246,5 +248,136 @@ describe('useTheme', () => {
       </ThemeProvider>,
     )
     expect(screen.getByTestId('child')).toBeInTheDocument()
+  })
+})
+
+describe('ThemeProvider — data-theme attribute', () => {
+  beforeEach(() => {
+    setupMatchMedia(false)
+    clearStoredPreference()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('sets data-theme="dark" when preference is dark', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => { result.current.setPreference('dark') })
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('sets data-theme="light" when preference is light', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => { result.current.setPreference('light') })
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+
+  it('sets data-theme to the resolved system mode (dark when OS prefers dark)', () => {
+    setupMatchMedia(true)
+    renderHook(() => useTheme(), { wrapper })
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+  })
+
+  it('sets data-theme to the resolved system mode (light when OS prefers light)', () => {
+    setupMatchMedia(false)
+    renderHook(() => useTheme(), { wrapper })
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+})
+
+describe('ThemeProvider — resolved field', () => {
+  beforeEach(() => {
+    setupMatchMedia(false)
+    clearStoredPreference()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('exposes resolved="dark" when preference is dark', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => { result.current.setPreference('dark') })
+    expect(result.current.resolved).toBe('dark')
+  })
+
+  it('exposes resolved="light" when preference is light', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => { result.current.setPreference('light') })
+    expect(result.current.resolved).toBe('light')
+  })
+
+  it('exposes resolved="dark" when preference is system and OS prefers dark', () => {
+    setupMatchMedia(true)
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    expect(result.current.resolved).toBe('dark')
+  })
+})
+
+describe('ThemeProvider — cross-tab storage sync', () => {
+  beforeEach(() => {
+    setupMatchMedia(false)
+    clearStoredPreference()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
+  it('updates preference when another tab writes to localStorage', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    expect(result.current.preference).toBe('system')
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: 'dark',
+        oldValue: 'system',
+      }))
+    })
+    expect(result.current.preference).toBe('dark')
+  })
+
+  it('ignores storage events for unrelated keys', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'unrelated-pref',
+        newValue: 'dark',
+      }))
+    })
+    expect(result.current.preference).toBe('system')
+  })
+
+  it('ignores storage events with invalid theme values', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: 'midnight',
+      }))
+    })
+    expect(result.current.preference).toBe('system')
+  })
+
+  it('ignores storage events with null newValue', () => {
+    const { result } = renderHook(() => useTheme(), { wrapper })
+    act(() => {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: STORAGE_KEY,
+        newValue: null,
+      }))
+    })
+    expect(result.current.preference).toBe('system')
   })
 })
