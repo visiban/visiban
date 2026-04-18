@@ -408,25 +408,68 @@ can detect the condition and call this endpoint programmatically.
 ### `GET /api/v1/auth/me/`
 Returns the authenticated user's profile.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`.
+**Permission:** Requires authentication.
+
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
 
 | Field | Type | Description |
 |---|---|---|
 | `is_site_admin` | boolean | Whether the user can access the `/admin` admin panel and admin API. |
 | `can_access_all_content` | boolean | Whether the user has read/write access to every board and group regardless of membership. Independent of `is_site_admin` — see [Site Admins](../administration/site-admins.md). |
 | `uploads_enabled` | boolean | Instance-wide setting reflecting whether file attachment uploads are currently permitted. When `false`, the attachment UI is hidden and upload attempts return `403`. |
+| `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
+
+**Example response (excerpt)**
+
+```json
+{
+  "id": 12,
+  "username": "alice",
+  "email": "alice@example.com",
+  "display_name": "Alice Smith",
+  "theme": "dark",
+  "timezone": "America/New_York",
+  "default_board_id": 5
+}
+```
 
 ### `PATCH /api/v1/auth/me/`
 Update the authenticated user's profile. All fields are optional.
 
-**Writable fields:** `first_name`, `last_name`, `display_name`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`.
+**Permission:** Requires authentication.
+
+**Writable fields:** `first_name`, `last_name`, `display_name`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
+
+**Request body fields**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `theme` | string | No | Color scheme preference. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"` for new accounts. |
+| `default_board_id` | integer \| null | No | Board to redirect to after login. Must be a board the user is a member of, or `null` to clear. |
 
 **`default_board_id`** — set the board to redirect to after login. Accepts a board `id` (integer) or `null` to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns `400 Bad Request`. This prevents enumeration of boards the user has no access to.
+
+**Example — set theme**
+
+```json
+PATCH /api/v1/auth/me/
+{ "theme": "dark" }
+```
+
+**Example — set default board**
 
 ```json
 PATCH /api/v1/auth/me/
 { "default_board_id": 5 }
 ```
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `400 Bad Request` | `theme` is not one of `"system"`, `"dark"`, or `"light"` — response body contains `{"theme": ["..."]}`  |
+| `400 Bad Request` | `default_board_id` refers to a board the user is not a member of |
+| `401 Unauthorized` | Request is not authenticated |
 
 ---
 

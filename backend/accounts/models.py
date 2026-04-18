@@ -96,6 +96,12 @@ class SiteSetting(models.Model):
 
 class User(AbstractUser):
     """Extended user model. django-allauth handles OAuth linkage."""
+
+    class Theme(models.TextChoices):
+        SYSTEM = "system", "Follow operating system preference"
+        DARK = "dark", "Always dark"
+        LIGHT = "light", "Always light"
+
     # Uses blank=True (empty string) rather than null=True as the "no avatar"
     # sentinel.  The 1.0 API contract is: absent avatar → "".  Changing this
     # to null=True post-1.0 would be a breaking serializer change.
@@ -120,6 +126,12 @@ class User(AbstractUser):
     number_locale = models.CharField(max_length=16, blank=True, default="en-US")
     close_editor_on_enter = models.BooleanField(default=True)
     has_completed_tour = models.BooleanField(default=False)
+    theme = models.CharField(
+        max_length=8,
+        choices=Theme.choices,
+        default=Theme.SYSTEM,
+        blank=True,
+    )
     # The board to open automatically after login. SET_NULL so that deleting a
     # board never cascades to deleting the user. The frontend verifies access
     # before redirecting to prevent an IDOR leak via a stale FK.

@@ -95,6 +95,7 @@ class UserSerializer(serializers.ModelSerializer):
             "timezone", "date_format", "time_format", "number_locale",
             "close_editor_on_enter",
             "has_completed_tour",
+            "theme",
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
             "notif_card_moved", "notif_comment_added", "notif_board_invite",
             "default_board_id",
