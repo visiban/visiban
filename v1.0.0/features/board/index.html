@@ -1248,6 +1248,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#activity-drawer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Activity drawer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#board-sharing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3390,6 +3401,17 @@
 <p>Admins can manage board members directly from the board toolbar via the <strong>Members</strong> button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. Press <strong>Escape</strong> or click <strong>×</strong> to close the dialog. See <a href="../rbac/roles/">Roles &amp; Permissions</a> for what each role can do.</p>
 <h2 id="real-time-indicator">Real-time indicator<a class="headerlink" href="#real-time-indicator" title="Permanent link">&para;</a></h2>
 <p>The toolbar shows a pulsing green <strong>Live</strong> dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See <a href="../realtime/">Real-time Updates</a>.</p>
+<h2 id="activity-drawer">Activity drawer<a class="headerlink" href="#activity-drawer" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.1.0</strong></p>
+</blockquote>
+<p>A right-hand panel that streams the most recent board events — card moves, creations, and membership changes — as they happen. Open and close it with <strong>⌘\</strong> (Ctrl+\ on Linux/Windows) or the activity button in the board toolbar.</p>
+<p>The drawer has two filter rows:</p>
+<ul>
+<li><strong>Kind</strong>: <em>All</em>, <em>Moves</em> (includes creations), <em>Members</em></li>
+<li><strong>Window</strong>: <em>1h</em>, <em>24h</em>, <em>7d</em> — defaults to <strong>24h</strong> so the drawer stays focused on today's activity rather than all history. Widen to <strong>7d</strong> to scan back through the week, or narrow to <strong>1h</strong> for what's happened in the last hour.</li>
+</ul>
+<p>The drawer is a live summary, not the canonical audit trail. For the full ordered history with no window filter, click <strong>Open full history →</strong> at the bottom of the drawer (also reachable from any card's <strong>History</strong> tab — see <a href="../card-history/">Card History</a>).</p>
 <h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.0.0</strong></p>
