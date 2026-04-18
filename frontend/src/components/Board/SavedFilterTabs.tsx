@@ -13,9 +13,9 @@ interface Props {
   hasActiveFilters: boolean;
 }
 
-const activeClass = "bg-blue-600 text-white font-medium px-2.5 py-1 rounded";
-const inactiveClass =
-  "text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded hover:bg-slate-700 transition";
+const focusClass = "focus:outline-none focus:ring-2 focus:ring-blue-500";
+const activeClass = `bg-blue-600 text-white font-medium px-2.5 py-1 rounded ${focusClass}`;
+const inactiveClass = `text-slate-400 hover:text-slate-200 px-2.5 py-1 rounded hover:bg-slate-700 transition ${focusClass}`;
 
 /**
  * A compact row of tab pills that gives one-click access to saved filter presets,
@@ -43,16 +43,20 @@ export default function SavedFilterTabs({
   // Show "+ Save current" when filters are active but not yet saved as a preset.
   const showSaveCurrent = hasActiveFilters && activeFilterId === null;
 
+  // role="group" + aria-pressed (toggle-button semantics) rather than role="tab"
+  // because we do not implement the full ARIA tabs keyboard pattern (arrow-key
+  // roving tabindex, Home/End). Screen readers interpret a partial tabs pattern
+  // as broken; plain buttons with aria-pressed is a simpler, complete contract.
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="Saved filter presets"
       className="flex items-center gap-1 flex-wrap text-xs"
     >
       {/* "All" pill — clears every filter dimension */}
       <button
-        role="tab"
-        aria-selected={allIsActive}
+        type="button"
+        aria-pressed={allIsActive}
         onClick={onClearAll}
         className={allIsActive ? activeClass : inactiveClass}
       >
@@ -65,8 +69,8 @@ export default function SavedFilterTabs({
         return (
           <button
             key={f.id}
-            role="tab"
-            aria-selected={isActive}
+            type="button"
+            aria-pressed={isActive}
             onClick={() => onLoad(f)}
             title={f.name}
             className={`${isActive ? activeClass : inactiveClass} max-w-[10rem] truncate`}
@@ -79,8 +83,9 @@ export default function SavedFilterTabs({
       {/* Shown only when the user has active unsaved filters */}
       {showSaveCurrent && (
         <button
+          type="button"
           onClick={onSaveCurrentClick}
-          className="text-slate-500 hover:text-slate-300 px-2.5 py-1 rounded hover:bg-slate-700 transition"
+          className={`text-slate-500 hover:text-slate-300 px-2.5 py-1 rounded hover:bg-slate-700 transition ${focusClass}`}
         >
           + Save current
         </button>

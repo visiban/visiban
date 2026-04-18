@@ -46,34 +46,34 @@ describe('SavedFilterTabs', () => {
 
   it('renders "All" pill plus one pill per saved filter', () => {
     render(<SavedFilterTabs {...defaultProps()} />)
-    expect(screen.getByRole('tab', { name: 'All' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: filterA.name })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: filterB.name })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: filterA.name })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: filterB.name })).toBeInTheDocument()
   })
 
-  it('"All" pill has aria-selected=true when no filter is active and no active filters exist', () => {
+  it('"All" pill has aria-pressed=true when no filter is active and no active filters exist', () => {
     render(<SavedFilterTabs {...defaultProps()} />)
-    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('filter pills have aria-selected=false when no preset is active', () => {
+  it('filter pills have aria-pressed=false when no preset is active', () => {
     render(<SavedFilterTabs {...defaultProps()} />)
-    expect(screen.getByRole('tab', { name: filterA.name })).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByRole('tab', { name: filterB.name })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('button', { name: filterA.name })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: filterB.name })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('active filter pill has aria-selected=true; "All" loses selection', () => {
+  it('active filter pill has aria-pressed=true; "All" loses selection', () => {
     render(<SavedFilterTabs {...defaultProps({ activeFilterId: filterA.id })} />)
-    expect(screen.getByRole('tab', { name: filterA.name })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: filterB.name })).toHaveAttribute('aria-selected', 'false')
-    expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('button', { name: filterA.name })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: filterB.name })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('clicking a filter pill calls onLoad with the correct filter', async () => {
     const user = userEvent.setup()
     const onLoad = vi.fn()
     render(<SavedFilterTabs {...defaultProps({ onLoad })} />)
-    await user.click(screen.getByRole('tab', { name: filterA.name }))
+    await user.click(screen.getByRole('button', { name: filterA.name }))
     expect(onLoad).toHaveBeenCalledOnce()
     expect(onLoad).toHaveBeenCalledWith(filterA)
   })
@@ -82,8 +82,34 @@ describe('SavedFilterTabs', () => {
     const user = userEvent.setup()
     const onClearAll = vi.fn()
     render(<SavedFilterTabs {...defaultProps({ onClearAll })} />)
-    await user.click(screen.getByRole('tab', { name: 'All' }))
+    await user.click(screen.getByRole('button', { name: 'All' }))
     expect(onClearAll).toHaveBeenCalledOnce()
+  })
+
+  it('all pills include the standard focus ring classes', () => {
+    render(<SavedFilterTabs {...defaultProps({ activeFilterId: filterA.id })} />)
+    for (const name of ['All', filterA.name, filterB.name]) {
+      const el = screen.getByRole('button', { name })
+      expect(el.className).toContain('focus:ring-2')
+      expect(el.className).toContain('focus:ring-blue-500')
+    }
+  })
+
+  it('Enter key on a focused pill activates onLoad (keyboard users)', async () => {
+    const user = userEvent.setup()
+    const onLoad = vi.fn()
+    render(<SavedFilterTabs {...defaultProps({ onLoad })} />)
+    const pill = screen.getByRole('button', { name: filterA.name })
+    pill.focus()
+    await user.keyboard('{Enter}')
+    expect(onLoad).toHaveBeenCalledOnce()
+    expect(onLoad).toHaveBeenCalledWith(filterA)
+  })
+
+  it('uses role="group", not role="tablist" (partial tab pattern avoided)', () => {
+    render(<SavedFilterTabs {...defaultProps()} />)
+    expect(screen.getByRole('group', { name: 'Saved filter presets' })).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
   })
 
   it('does not show "+ Save current" when hasActiveFilters is false', () => {
