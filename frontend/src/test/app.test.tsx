@@ -212,6 +212,12 @@ describe('App', () => {
   })
 
 
+  it('renders mobile hamburger button when authenticated', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeInTheDocument()
+  })
+
   it('shows board name in breadcrumb when board is loaded', () => {
     mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     // Navbar is mocked so we can't check breadcrumb content directly,

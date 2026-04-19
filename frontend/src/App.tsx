@@ -30,6 +30,11 @@ export default function App() {
   const navigate = useNavigate();
   const [starVersion, setStarVersion] = useState(0);
   const handleStarToggled = useCallback(() => setStarVersion((v) => v + 1), []);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEscapeStack(() => {
+    if (!mobileMenuOpen) return false;
+    setMobileMenuOpen(false);
+  }, 20);
   // Prevent double-firing in React StrictMode when consuming pendingJoinToken.
   const oauthJoinFired = useRef(false);
 
@@ -113,8 +118,27 @@ export default function App() {
             <ViewportGate>
               <div className="flex h-screen overflow-hidden">
                 <ThemeServerSync user={user} onUserUpdated={updateUser} />
-                <AppSidebar user={user} starVersion={starVersion} />
+                <AppSidebar
+                  user={user}
+                  starVersion={starVersion}
+                  mobileOpen={mobileMenuOpen}
+                  onMobileClose={() => setMobileMenuOpen(false)}
+                />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                  {/* Mobile navigation bar — visible below lg breakpoint only */}
+                  <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
+                    <button
+                      onClick={() => setMobileMenuOpen(true)}
+                      className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      aria-label="Open navigation menu"
+                      aria-expanded={mobileMenuOpen}
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                        <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <span className="text-sm font-semibold text-fg">Visiban</span>
+                  </div>
                   <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
                 </div>
               </div>

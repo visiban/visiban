@@ -13,9 +13,11 @@ import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 interface Props {
   user: User;
   starVersion?: number;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export default function AppSidebar({ user, starVersion = 0 }: Props) {
+export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, onMobileClose }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -242,12 +244,33 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
   }
 
   return (
+    <>
+      {/* Mobile backdrop — covers page when drawer is open on sub-lg viewports */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-backdrop/60 z-40 lg:hidden"
+          onClick={onMobileClose}
+          aria-hidden="true"
+        />
+      )}
     <aside
-      className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line hidden lg:flex flex-col h-full overflow-hidden transition-all duration-200`}
+      className={`${sidebarWidth} shrink-0 bg-sunken border-r border-line flex-col h-full overflow-hidden transition-all duration-200
+        ${mobileOpen ? "fixed inset-y-0 left-0 z-50 flex" : "hidden lg:flex"}`}
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >
-      {/* Collapse toggle */}
+      {/* Collapse toggle / mobile close */}
       <div className="flex items-center justify-end px-2 py-2 border-b border-line shrink-0">
+        {mobileOpen && onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface mr-auto lg:hidden focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            aria-label="Close navigation menu"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
         <button
           onClick={() => setCollapsed((v) => !v)}
           className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -682,6 +705,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
         />
       )}
     </aside>
+    </>
   );
 }
 
