@@ -151,7 +151,7 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByText('Sprint Board'))
     const link = screen.getByText('Sprint Board').closest('a')
-    expect(link?.className).toMatch(/blue/)
+    expect(link?.className).toMatch(/info/)
   })
 
   it('renders Dashboard link', async () => {
@@ -169,7 +169,7 @@ describe('AppSidebar', () => {
     vi.mocked(listBoards).mockResolvedValue([])
     render(<AppSidebar user={fakeUser} />)
     const homeLink = screen.getByText('Dashboard').closest('a')
-    expect(homeLink?.className).toMatch(/blue/)
+    expect(homeLink?.className).toMatch(/info/)
   })
 
   it('shows Dashboard icon in collapsed mode', async () => {
@@ -327,7 +327,7 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getByTitle('Personal boards'))
     const btn = screen.getByTitle('Personal boards')
-    expect(btn.className).toMatch(/blue/)
+    expect(btn.className).toMatch(/info/)
   })
 
   it('persists group expanded state in localStorage', async () => {
@@ -522,7 +522,7 @@ describe('AppSidebar', () => {
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => screen.getAllByText('Sprint Board'))
     const link = screen.getAllByText('Sprint Board')[0].closest('a')
-    expect(link?.className).toMatch(/blue/)
+    expect(link?.className).toMatch(/info/)
   })
 
   it('shows Recent trigger in collapsed rail when recent boards exist', async () => {

@@ -56,17 +56,17 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
   ];
 
   return (
-    <aside className="w-72 bg-slate-800 border-l border-slate-700 flex flex-col shrink-0">
+    <aside className="w-72 bg-surface border-l border-line flex flex-col shrink-0">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-line flex items-center justify-between">
         <div>
-          <div className="text-sm font-medium text-slate-200">Activity</div>
-          <div className="text-[11px] text-slate-500">Live · board events</div>
+          <div className="text-sm font-medium text-fg">Activity</div>
+          <div className="text-[11px] text-fg-muted">Live · board events</div>
         </div>
         <button
           onClick={onClose}
           aria-label="Close activity drawer"
-          className="text-slate-400 hover:text-white hover:bg-slate-700 p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 3l10 10M13 3L3 13" />
@@ -75,16 +75,16 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       </div>
 
       {/* Filter tabs */}
-      <div className="px-4 py-2 border-b border-slate-700 flex gap-1 text-[11px]" role="group" aria-label="Activity kind filter">
+      <div className="px-4 py-2 border-b border-line flex gap-1 text-[11px]" role="group" aria-label="Activity kind filter">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             aria-pressed={tab === t.id}
-            className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               tab === t.id
-                ? "bg-slate-700 text-slate-200 font-medium"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-surface-hover text-fg font-medium"
+                : "text-fg-tertiary hover:text-fg"
             }`}
           >
             {t.label}
@@ -94,21 +94,21 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
 
       {/* Time window selector */}
       <div
-        className="px-4 py-1.5 border-b border-slate-700 flex items-center gap-2 text-[11px]"
+        className="px-4 py-1.5 border-b border-line flex items-center gap-2 text-[11px]"
         role="group"
         aria-label="Activity time window"
       >
-        <span className="text-slate-500 shrink-0">Window</span>
+        <span className="text-fg-muted shrink-0">Window</span>
         <div className="flex gap-1">
           {windows.map((w) => (
             <button
               key={w.id}
               onClick={() => setTimeWindow(w.id)}
               aria-pressed={timeWindow === w.id}
-              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 timeWindow === w.id
-                  ? "bg-slate-700 text-slate-200 font-medium"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-surface-hover text-fg font-medium"
+                  : "text-fg-tertiary hover:text-fg"
               }`}
             >
               {w.label}
@@ -120,19 +120,19 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       {/* Feed */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-xs">
         {filtered.length === 0 ? (
-          <p className="text-slate-500 italic text-center py-8">No activity yet</p>
+          <p className="text-fg-muted italic text-center py-8">No activity yet</p>
         ) : (
           filtered.map((entry) => (
             <div key={entry.id}>
-              <div className="text-slate-300">
+              <div className="text-fg-secondary">
                 <span className="font-medium">{entry.actor}</span>
                 {" "}
                 {entry.headline}
               </div>
               {entry.detail && (
-                <div className="text-slate-500">{entry.detail}</div>
+                <div className="text-fg-muted">{entry.detail}</div>
               )}
-              <div className="text-slate-600 mt-0.5">
+              <div className="text-fg-faint mt-0.5">
                 {formatRelativeTime(entry.timestamp.toISOString())}
               </div>
             </div>
@@ -141,14 +141,14 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-slate-700 text-[11px] text-slate-500 flex items-center justify-between">
+      <div className="px-4 py-2 border-t border-line text-[11px] text-fg-muted flex items-center justify-between">
         <button
           onClick={onOpenHistory}
-          className="text-slate-400 hover:text-slate-200 transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          className="text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         >
           Open full history →
         </button>
-        <span className="text-slate-600">⌘\ to close</span>
+        <span className="text-fg-faint">⌘\ to close</span>
       </div>
     </aside>
   );

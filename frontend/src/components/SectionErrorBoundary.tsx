@@ -35,19 +35,19 @@ export default class SectionErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       return (
         <div className="flex items-center justify-center p-8">
-          <div className="bg-slate-800 rounded-lg border border-red-500/30 p-6 max-w-md w-full text-center">
-            <h2 className="text-red-400 font-semibold text-sm mb-1">
+          <div className="bg-surface rounded-lg border border-danger/30 p-6 max-w-md w-full text-center">
+            <h2 className="text-danger font-semibold text-sm mb-1">
               {this.props.section} failed to load
             </h2>
-            <p className="text-slate-400 text-xs mb-3">
+            <p className="text-fg-tertiary text-xs mb-3">
               An unexpected error occurred in this section.
             </p>
-            <pre className="text-xs text-slate-500 bg-slate-900 rounded p-2 overflow-auto max-h-24 mb-3 text-left">
+            <pre className="text-xs text-fg-muted bg-sunken rounded p-2 overflow-auto max-h-24 mb-3 text-left">
               {this.state.error.message}
             </pre>
             <button
               onClick={() => this.setState({ error: null })}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="bg-primary hover:bg-primary-hover text-fg text-xs px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Retry
             </button>

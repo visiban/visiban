@@ -33,8 +33,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
+    <div className="min-h-screen bg-sunken flex items-center justify-center">
+      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
         </div>
@@ -44,36 +44,36 @@ export default function ForgotPasswordPage() {
             <h1
               ref={confirmHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Check your email
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               If an account exists for{" "}
-              <span className="font-medium text-slate-300 break-all">{submittedEmail}</span>
+              <span className="font-medium text-fg-secondary break-all">{submittedEmail}</span>
               , you'll receive a link to reset your password shortly. Check your
               spam folder if it doesn't arrive within a few minutes.
             </p>
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Back to sign in
             </button>
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold text-white mt-6 mb-2">
+            <h1 className="text-xl font-semibold text-fg mt-6 mb-2">
               Reset your password
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               Enter your email address and we'll send you a link to reset your
               password.
             </p>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <div>
-                <label htmlFor="fp-email" className="block text-slate-400 text-xs mb-1">
+                <label htmlFor="fp-email" className="block text-fg-tertiary text-xs mb-1">
                   Email address
                 </label>
                 <input
@@ -84,24 +84,24 @@ export default function ForgotPasswordPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                 />
               </div>
               <p className="text-xs h-4">
-                {error && <span className="text-red-400" role="alert">{error}</span>}
+                {error && <span className="text-danger" role="alert">{error}</span>}
               </p>
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {submitting ? "Sending…" : "Send reset link"}
               </button>
-              <p className="text-center text-xs text-slate-400 mt-1">
+              <p className="text-center text-xs text-fg-tertiary mt-1">
                 <button
                   type="button"
                   onClick={() => navigate("/")}
-                  className="text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition"
+                  className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
                 >
                   ← Back to sign in
                 </button>

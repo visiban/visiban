@@ -76,8 +76,8 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
+    <div className="min-h-screen bg-sunken flex items-center justify-center">
+      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
         </div>
@@ -87,22 +87,22 @@ export default function ResetPasswordPage() {
             <h1
               ref={successHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Password updated
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               Your password has been reset. You can now sign in with your new
               password.
             </p>
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Sign in
             </button>
-            <p className="text-xs text-slate-500 mt-3 text-center">
+            <p className="text-xs text-fg-muted mt-3 text-center">
               Redirecting in {countdown}s…
             </p>
           </>
@@ -111,26 +111,26 @@ export default function ResetPasswordPage() {
             <h1
               ref={tokenErrorHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-6 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-6 mb-2 focus:outline-none"
             >
               Link expired or invalid
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               This password reset link has expired or has already been used.
               Reset links are valid for 3 days and can only be used once.
             </p>
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Request a new link
             </button>
-            <p className="text-center text-xs text-slate-400 mt-3">
+            <p className="text-center text-xs text-fg-tertiary mt-3">
               <button
                 type="button"
                 onClick={() => navigate("/")}
-                className="text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition"
+                className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
               >
                 ← Back to sign in
               </button>
@@ -138,12 +138,12 @@ export default function ResetPasswordPage() {
           </>
         ) : (
           <>
-            <h1 className="text-xl font-semibold text-white mt-6 mb-6">
+            <h1 className="text-xl font-semibold text-fg mt-6 mb-6">
               Set a new password
             </h1>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <div>
-                <label htmlFor="rp-password" className="block text-slate-400 text-xs mb-1">
+                <label htmlFor="rp-password" className="block text-fg-tertiary text-xs mb-1">
                   New password
                 </label>
                 <input
@@ -153,12 +153,12 @@ export default function ResetPasswordPage() {
                   autoFocus
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                 />
-                <p className="text-xs text-slate-500 mt-1">Must be at least 8 characters</p>
+                <p className="text-xs text-fg-muted mt-1">Must be at least 8 characters</p>
               </div>
               <div>
-                <label htmlFor="rp-confirm" className="block text-slate-400 text-xs mb-1">
+                <label htmlFor="rp-confirm" className="block text-fg-tertiary text-xs mb-1">
                   Confirm new password
                 </label>
                 <input
@@ -167,24 +167,24 @@ export default function ResetPasswordPage() {
                   required
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-slate-300 placeholder-slate-500 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                 />
               </div>
               <p className="text-xs h-4">
-                {error && <span className="text-red-400" role="alert">{error}</span>}
+                {error && <span className="text-danger" role="alert">{error}</span>}
               </p>
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {submitting ? "Resetting…" : "Set new password"}
               </button>
-              <p className="text-center text-xs text-slate-400 mt-1">
+              <p className="text-center text-xs text-fg-tertiary mt-1">
                 <button
                   type="button"
                   onClick={() => navigate("/")}
-                  className="text-slate-400 hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition"
+                  className="text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
                 >
                   ← Back to sign in
                 </button>

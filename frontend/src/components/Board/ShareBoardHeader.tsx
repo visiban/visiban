@@ -13,7 +13,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
   const navigate = useNavigate();
 
   return (
-    <header className="h-12 bg-slate-800 border-b border-slate-700 flex items-center px-4 gap-3 shrink-0">
+    <header className="h-12 bg-surface border-b border-line flex items-center px-4 gap-3 shrink-0">
       {/* Wordmark */}
       <img
         src="/brand/visiban_wordmark_dark.png"
@@ -22,15 +22,15 @@ export default function ShareBoardHeader({ boardName }: Props) {
       />
 
       {/* Separator */}
-      <span className="text-slate-600 select-none">/</span>
+      <span className="text-fg-faint select-none">/</span>
 
       {/* Board name */}
-      <span className="truncate min-w-0 text-sm text-slate-300" title={boardName}>
+      <span className="truncate min-w-0 text-sm text-fg-secondary" title={boardName}>
         {boardName}
       </span>
 
       {/* View only badge */}
-      <span className="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+      <span className="bg-info/20 text-info text-xs px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
         View only
       </span>
 
@@ -40,7 +40,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
       {/* Sign-in CTA */}
       <button
         onClick={() => navigate("/login")}
-        className="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+        className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
       >
         Sign in to collaborate
       </button>

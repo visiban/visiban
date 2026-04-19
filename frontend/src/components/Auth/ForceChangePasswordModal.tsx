@@ -49,54 +49,54 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
       dismissable={false}
       labelId="force-pw-title"
     >
-      <p className="text-slate-400 text-sm mb-6">
+      <p className="text-fg-tertiary text-sm mb-6">
         Your account was set up with a temporary password. You must set a new password before continuing.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label htmlFor="fcp-current" className="block text-slate-400 text-xs mb-1">Temporary password</label>
+          <label htmlFor="fcp-current" className="block text-fg-tertiary text-xs mb-1">Temporary password</label>
           <input
             id="fcp-current"
             type="password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
             autoFocus
           />
         </div>
         <div>
-          <label htmlFor="fcp-next" className="block text-slate-400 text-xs mb-1">New password <span className="text-slate-500">(min 12 characters)</span></label>
+          <label htmlFor="fcp-next" className="block text-fg-tertiary text-xs mb-1">New password <span className="text-fg-muted">(min 12 characters)</span></label>
           <input
             id="fcp-next"
             type="password"
             value={next}
             onChange={(e) => setNext(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
           />
         </div>
         <div>
-          <label htmlFor="fcp-confirm" className="block text-slate-400 text-xs mb-1">Confirm new password</label>
+          <label htmlFor="fcp-confirm" className="block text-fg-tertiary text-xs mb-1">Confirm new password</label>
           <input
             id="fcp-confirm"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
           />
         </div>
 
         <p className="text-xs h-4">
-          {error && <span className="text-red-400">{error}</span>}
+          {error && <span className="text-danger">{error}</span>}
         </p>
 
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Set new password"}
         </button>

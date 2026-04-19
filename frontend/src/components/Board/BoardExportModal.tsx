@@ -44,10 +44,10 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
             {(["json", "csv"] as const).map((fmt) => (
               <label
                 key={fmt}
-                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 ${
+                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
                   exportFormat === fmt
-                    ? "border-blue-500 bg-blue-500/10"
-                    : "border-slate-600 hover:bg-slate-700/40"
+                    ? "border-primary-emphasis bg-info/10"
+                    : "border-line-strong hover:bg-surface-hover/40"
                 }`}
               >
                 <input
@@ -59,8 +59,8 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
                   className="sr-only"
                 />
                 <div>
-                  <span className="text-sm text-slate-200 font-medium">{fmt.toUpperCase()}</span>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <span className="text-sm text-fg font-medium">{fmt.toUpperCase()}</span>
+                  <p className="text-xs text-fg-muted mt-0.5">
                     {fmt === "json"
                       ? "Full history: movements, activity log, and assignees"
                       : "Card data only, no history"}
@@ -73,14 +73,14 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
 
         <button
           onClick={handleExport}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-primary hover:bg-primary-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Export {exportFormat.toUpperCase()}
         </button>
 
         <p className="text-xs h-4">
           {status && (
-            <span className={status.type === "success" ? "text-green-400" : "text-red-400"}>
+            <span className={status.type === "success" ? "text-success" : "text-danger"}>
               {status.text}
             </span>
           )}

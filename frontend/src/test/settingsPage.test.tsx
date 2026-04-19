@@ -370,9 +370,9 @@ describe('AppearanceTab', () => {
     expect(screen.getByText('Dark')).toBeInTheDocument()
   })
 
-  it('does not render a Light theme placeholder', async () => {
+  it('renders Light theme option', async () => {
     await openAppearanceTab()
-    expect(screen.queryByText('Light')).not.toBeInTheDocument()
+    expect(screen.getByText('Light')).toBeInTheDocument()
     expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
   })
 
@@ -388,7 +388,7 @@ describe('AppearanceTab', () => {
     await openAppearanceTab()
     // The Dark label should have the blue-selected styling
     const darkLabel = screen.getByText('Dark').closest('label')
-    expect(darkLabel?.className).toMatch(/border-blue-500/)
+    expect(darkLabel?.className).toMatch(/border-primary-emphasis/)
   })
 
   it('renders native radio inputs for accessibility', async () => {

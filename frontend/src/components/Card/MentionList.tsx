@@ -44,7 +44,7 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
   }
 
   return (
-    <div className="bg-slate-800 border border-slate-600 rounded-lg shadow-xl py-1 min-w-40 max-w-64">
+    <div className="bg-surface border border-line-strong rounded-lg shadow-xl py-1 min-w-40 max-w-64">
       {props.items.map((u, i) => (
         <button
           key={u.username}
@@ -55,13 +55,13 @@ const MentionList = forwardRef<MentionListRef, Props>((props, ref) => {
           }}
           className={`w-full text-left px-3 py-1.5 text-sm transition ${
             i === selectedIndex
-              ? "bg-slate-700 text-white"
-              : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              ? "bg-surface-hover text-fg"
+              : "text-fg-secondary hover:bg-surface-hover hover:text-fg"
           }`}
         >
           <span className="font-medium">@{u.username}</span>
           {userDisplayName(u) !== u.username && (
-            <span className="text-slate-500 ml-2 text-xs">{userDisplayName(u)}</span>
+            <span className="text-fg-muted ml-2 text-xs">{userDisplayName(u)}</span>
           )}
         </button>
       ))}

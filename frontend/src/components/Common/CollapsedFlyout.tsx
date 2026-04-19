@@ -67,11 +67,11 @@ export default function CollapsedFlyout({
       ref={panelRef}
       role="menu"
       data-testid="collapsed-flyout"
-      className="fixed z-50 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl py-1 max-h-80 overflow-y-auto"
+      className="fixed z-50 w-56 bg-surface border border-line rounded-lg shadow-xl py-1 max-h-80 overflow-y-auto"
       style={{ top: anchor.top, left: anchor.left + 4 }}
     >
       {/* Flyout header */}
-      <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700 mb-1">
+      <div className="px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider border-b border-line mb-1">
         {title}
       </div>
 
@@ -80,12 +80,12 @@ export default function CollapsedFlyout({
           {/* Section separator + heading when there are multiple sections */}
           {si > 0 && (
             <div className="mx-4 my-1">
-              <div className="h-px bg-slate-900" />
-              <div className="h-px bg-slate-600/50" />
+              <div className="h-px bg-sunken" />
+              <div className="h-px bg-surface-active/50" />
             </div>
           )}
           {sections.length > 1 && (
-            <div className="px-3 pt-1 pb-0.5 text-xs text-slate-600 uppercase tracking-wider">
+            <div className="px-3 pt-1 pb-0.5 text-xs text-fg-faint uppercase tracking-wider">
               {section.title}
             </div>
           )}
@@ -103,20 +103,20 @@ export default function CollapsedFlyout({
                 style={{ paddingLeft: 12 + depth * 12 }}
                 className={`flex items-center gap-2 py-1.5 pr-3 text-sm transition truncate ${
                   item.active
-                    ? "bg-blue-600/20 text-blue-400 font-medium"
+                    ? "bg-info/20 text-info font-medium"
                     : depth > 0
-                      ? "text-slate-400 hover:text-white hover:bg-slate-700"
-                      : "text-slate-300 hover:text-white hover:bg-slate-700"
+                      ? "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+                      : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
                 }`}
               >
                 {isGroup ? (
                   // Folder icon for group items
-                  <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="w-3.5 h-3.5 shrink-0 text-fg-muted" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                   </svg>
                 ) : (
                   // Clipboard icon for board items
-                  <svg className="w-3.5 h-3.5 shrink-0 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="w-3.5 h-3.5 shrink-0 text-fg-muted" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                     <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
                   </svg>

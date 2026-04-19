@@ -40,16 +40,16 @@ export default function ConfirmEmailPage() {
   }, [status, navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-      <div className="bg-slate-800 rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
+    <div className="min-h-screen bg-sunken flex items-center justify-center">
+      <div className="bg-surface rounded-2xl shadow-2xl p-6 sm:p-10 w-full max-w-sm">
         <div className="flex flex-col items-center mb-8">
           <img src="/brand/visiban_wordmark_dark.png" alt="Visiban" className="w-40" />
         </div>
 
         {status === "loading" && (
           <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-slate-400">Verifying your email…</p>
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-fg-tertiary">Verifying your email…</p>
           </div>
         )}
 
@@ -58,21 +58,21 @@ export default function ConfirmEmailPage() {
             <h1
               ref={successHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-2 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
             >
               Email verified
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               Your email address has been confirmed. You can now sign in.
             </p>
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Sign in
             </button>
-            <p className="text-xs text-slate-500 mt-3 text-center">
+            <p className="text-xs text-fg-muted mt-3 text-center">
               Redirecting in {countdown}s…
             </p>
           </>
@@ -83,11 +83,11 @@ export default function ConfirmEmailPage() {
             <h1
               ref={errorHeadingRef}
               tabIndex={-1}
-              className="text-xl font-semibold text-white mt-2 mb-2 focus:outline-none"
+              className="text-xl font-semibold text-fg mt-2 mb-2 focus:outline-none"
             >
               Link expired or invalid
             </h1>
-            <p className="text-sm text-slate-400 mb-6">
+            <p className="text-sm text-fg-tertiary mb-6">
               This confirmation link has expired or has already been used.
               Ask your admin to resend the invitation, or sign in if your
               account is already active.
@@ -95,7 +95,7 @@ export default function ConfirmEmailPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Go to sign in
             </button>

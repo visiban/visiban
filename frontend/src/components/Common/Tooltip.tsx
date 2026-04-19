@@ -65,7 +65,7 @@ export default function Tooltip({ content, children, position = "bottom", delay 
         <div
           id={id}
           role="tooltip"
-          className="bg-slate-900 text-slate-200 text-xs rounded px-2 py-1 shadow-lg pointer-events-none whitespace-nowrap z-50"
+          className="bg-sunken text-fg text-xs rounded px-2 py-1 shadow-lg pointer-events-none whitespace-nowrap z-50"
           style={{
             position: "fixed",
             top: coords.top,

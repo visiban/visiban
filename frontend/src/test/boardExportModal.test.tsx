@@ -122,7 +122,7 @@ describe('BoardExportModal', () => {
 
     const span = screen.getByText('Download started')
     expect(span).toBeInTheDocument()
-    expect(span.className).toContain('text-green-400')
+    expect(span.className).toContain('text-success')
   })
 
   it('"Download started" disappears after 3 seconds', async () => {
@@ -165,7 +165,7 @@ describe('BoardExportModal', () => {
 
     const errorSpan = screen.getByText('Export failed — please try again')
     expect(errorSpan).toBeInTheDocument()
-    expect(errorSpan.className).toContain('text-red-400')
+    expect(errorSpan.className).toContain('text-danger')
   })
 
   it('error message appears when exportBoardCsv throws', async () => {

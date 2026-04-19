@@ -136,7 +136,7 @@ export default function OnboardingTour({ onComplete }: Props) {
     <div className="fixed inset-0 z-50" data-testid="onboarding-tour">
       {/* Backdrop with cutout — uses CSS clip-path to create a spotlight effect */}
       <div
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-backdrop/60"
         style={{
           clipPath: `polygon(
             0% 0%, 0% 100%, 100% 100%, 100% 0%,
@@ -153,7 +153,7 @@ export default function OnboardingTour({ onComplete }: Props) {
 
       {/* Spotlight border around the target element */}
       <div
-        className="absolute border-2 border-blue-400 rounded-lg pointer-events-none"
+        className="absolute border-2 border-info rounded-lg pointer-events-none"
         style={{
           top: targetRect.top - padding,
           left: targetRect.left - padding,
@@ -164,27 +164,27 @@ export default function OnboardingTour({ onComplete }: Props) {
 
       {/* Tooltip */}
       <div
-        className="absolute bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-4 z-50"
+        className="absolute bg-surface border border-line rounded-lg shadow-xl p-4 z-50"
         style={{ top: pos.top, left: pos.left, width: 320 }}
         data-testid="tour-tooltip"
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-fg-tertiary">
             Step {step + 1} of {STEPS.length}
           </span>
           <button
             onClick={finish}
-            className="text-xs text-slate-400 hover:text-white transition"
+            className="text-xs text-fg-tertiary hover:text-fg transition"
           >
             Skip tour
           </button>
         </div>
-        <h3 className="text-sm font-medium text-slate-200 mb-1">{currentStep.title}</h3>
-        <p className="text-sm text-slate-400 mb-4">{currentStep.body}</p>
+        <h3 className="text-sm font-medium text-fg mb-1">{currentStep.title}</h3>
+        <p className="text-sm text-fg-tertiary mb-4">{currentStep.body}</p>
         <div className="flex justify-end">
           <button
             onClick={handleNext}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-primary hover:bg-primary-hover text-fg text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {step < STEPS.length - 1 ? "Next" : "Done"}
           </button>

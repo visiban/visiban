@@ -72,19 +72,19 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
 
   return (
     <div
-      className="w-80 shrink-0 bg-slate-800 border-l border-slate-700 flex flex-col overflow-hidden"
+      className="w-80 shrink-0 bg-surface border-l border-line flex flex-col overflow-hidden"
       role="complementary"
       aria-label="Movement detail"
     >
       {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-slate-700">
-        <h2 className="text-sm font-medium text-slate-200 pr-2 leading-snug line-clamp-2">
+      <div className="flex items-start justify-between px-4 py-3 border-b border-line">
+        <h2 className="text-sm font-medium text-fg pr-2 leading-snug line-clamp-2">
           {movement.card_title}
         </h2>
         <button
           ref={closeRef}
           onClick={onClose}
-          className="text-slate-400 hover:text-white hover:bg-slate-700 rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           aria-label="Close panel"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -94,53 +94,53 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
       </div>
 
       {/* Selected movement */}
-      <div className="px-4 py-3 border-b border-slate-700 space-y-1.5">
-        <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">This movement</p>
-        <p className="text-xs text-slate-300">
-          <span className="text-slate-500">When </span>
+      <div className="px-4 py-3 border-b border-line space-y-1.5">
+        <p className="text-xs text-fg-muted uppercase tracking-wide font-medium">This movement</p>
+        <p className="text-xs text-fg-secondary">
+          <span className="text-fg-muted">When </span>
           {formatTs(movement.moved_at)}
         </p>
-        <p className="text-xs text-slate-300">
-          <span className="text-slate-500">By </span>
-          {movement.moved_by ? userDisplayName(movement.moved_by) : <span className="text-slate-600 italic">Unknown</span>}
+        <p className="text-xs text-fg-secondary">
+          <span className="text-fg-muted">By </span>
+          {movement.moved_by ? userDisplayName(movement.moved_by) : <span className="text-fg-faint italic">Unknown</span>}
         </p>
-        <div className="text-xs text-slate-300 space-y-0.5">
+        <div className="text-xs text-fg-secondary space-y-0.5">
           <p>
-            <span className="text-slate-500">From </span>
-            <span className="text-slate-200">{movement.from_column_name ?? "—"}</span>
+            <span className="text-fg-muted">From </span>
+            <span className="text-fg">{movement.from_column_name ?? "—"}</span>
             {movement.from_swimlane_name && (
-              <span className="text-slate-500"> · {movement.from_swimlane_name}</span>
+              <span className="text-fg-muted"> · {movement.from_swimlane_name}</span>
             )}
           </p>
           <p>
-            <span className="text-slate-500">To </span>
-            <span className="text-slate-200">{movement.to_column_name ?? "—"}</span>
+            <span className="text-fg-muted">To </span>
+            <span className="text-fg">{movement.to_column_name ?? "—"}</span>
             {movement.to_swimlane_name && (
-              <span className="text-slate-500"> · {movement.to_swimlane_name}</span>
+              <span className="text-fg-muted"> · {movement.to_swimlane_name}</span>
             )}
           </p>
         </div>
         {movement.notes && (
-          <p className="text-xs text-slate-400 italic mt-1">{movement.notes}</p>
+          <p className="text-xs text-fg-tertiary italic mt-1">{movement.notes}</p>
         )}
       </div>
 
       {/* Other movements for the same card on this page */}
       {relatedMovements.length > 1 && (
         <div className="px-4 py-3 flex-1 overflow-y-auto">
-          <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-2">
+          <p className="text-xs text-fg-muted uppercase tracking-wide font-medium mb-2">
             Other movements on this page
           </p>
           <ol className="space-y-2">
             {relatedMovements
               .filter((m) => m.id !== movement.id)
               .map((m) => (
-                <li key={m.id} className="text-xs text-slate-400 space-y-0.5">
-                  <p className="text-slate-500 tabular-nums">{formatTs(m.moved_at)}</p>
+                <li key={m.id} className="text-xs text-fg-tertiary space-y-0.5">
+                  <p className="text-fg-muted tabular-nums">{formatTs(m.moved_at)}</p>
                   <p>
-                    <span className="text-slate-200">{m.to_column_name ?? "—"}</span>
+                    <span className="text-fg">{m.to_column_name ?? "—"}</span>
                     {m.to_swimlane_name && (
-                      <span className="text-slate-500"> · {m.to_swimlane_name}</span>
+                      <span className="text-fg-muted"> · {m.to_swimlane_name}</span>
                     )}
                   </p>
                 </li>
@@ -259,7 +259,7 @@ export default function MovementHistoryView({ board }: Props) {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* Filter row */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-800 flex-wrap shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-line-subtle flex-wrap shrink-0">
           <SingleSelectDropdown
             label="Swimlane"
             options={swimlaneOptions}
@@ -279,35 +279,35 @@ export default function MovementHistoryView({ board }: Props) {
             onChange={(v) => applyFilters({ ...filters, userId: v })}
           />
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-slate-500">From</span>
+            <span className="text-xs text-fg-muted">From</span>
             <input
               type="date"
               value={filters.since}
               onChange={(e) => applyFilters({ ...filters, since: e.target.value })}
-              className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
+              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-36"
               aria-label="Since date"
             />
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs text-slate-500">To</span>
+            <span className="text-xs text-fg-muted">To</span>
             <input
               type="date"
               value={filters.until}
               onChange={(e) => applyFilters({ ...filters, until: e.target.value })}
-              className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
+              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-36"
               aria-label="Until date"
             />
           </div>
           {hasFilters(filters) && (
             <button
               onClick={() => applyFilters(EMPTY_FILTERS)}
-              className="text-xs text-slate-500 hover:text-slate-300 underline shrink-0 transition"
+              className="text-xs text-fg-muted hover:text-fg-secondary underline shrink-0 transition"
             >
               Clear filters
             </button>
           )}
           {board.capabilities?.movement_export && (
-            <button className="ml-auto px-3 py-1 text-xs rounded bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button className="ml-auto px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
               Export
             </button>
           )}
@@ -316,15 +316,15 @@ export default function MovementHistoryView({ board }: Props) {
         {/* Body */}
         {loading ? (
           <div className="flex items-center justify-center flex-1 py-16">
-            <span className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+            <span className="w-6 h-6 border-2 border-primary-emphasis border-t-transparent rounded-full animate-spin" aria-label="Loading" />
           </div>
         ) : error ? (
           <div className="flex items-center justify-center flex-1 py-16">
-            <p className="text-sm text-slate-400">Failed to load movement history.</p>
+            <p className="text-sm text-fg-tertiary">Failed to load movement history.</p>
           </div>
         ) : !data || data.count === 0 ? (
           <div className="flex items-center justify-center flex-1 py-16">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-fg-tertiary">
               {hasFilters(filters)
                 ? "No movements match the current filters."
                 : "No card movements recorded yet."}
@@ -335,12 +335,12 @@ export default function MovementHistoryView({ board }: Props) {
             {/* Scrollable table */}
             <div className="flex-1 overflow-y-auto">
               <table className="w-full text-sm border-collapse" role="grid" aria-label="Movement history">
-                <thead className="sticky top-0 bg-slate-900 z-10">
+                <thead className="sticky top-0 bg-sunken z-10">
                   <tr>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-36">Time</th>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide w-28">User</th>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Card</th>
-                    <th className="text-left px-4 py-2 text-xs text-slate-500 font-medium uppercase tracking-wide">Movement</th>
+                    <th className="text-left px-4 py-2 text-xs text-fg-muted font-medium uppercase tracking-wide w-36">Time</th>
+                    <th className="text-left px-4 py-2 text-xs text-fg-muted font-medium uppercase tracking-wide w-28">User</th>
+                    <th className="text-left px-4 py-2 text-xs text-fg-muted font-medium uppercase tracking-wide">Card</th>
+                    <th className="text-left px-4 py-2 text-xs text-fg-muted font-medium uppercase tracking-wide">Movement</th>
                   </tr>
                 </thead>
                 <tbody ref={tbodyRef}>
@@ -359,41 +359,41 @@ export default function MovementHistoryView({ board }: Props) {
                         role="row"
                         aria-selected={isSelected}
                         data-testid="history-row"
-                        className={`border-b border-slate-800 cursor-pointer transition-colors focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
                           isSelected
-                            ? "bg-blue-600/10"
+                            ? "bg-info/10"
                             : isFocused
-                            ? "bg-slate-800/60"
-                            : "hover:bg-slate-800/40"
+                            ? "bg-surface/60"
+                            : "hover:bg-surface/40"
                         }`}
                       >
-                        <td className="px-4 py-2 text-xs text-slate-500 tabular-nums whitespace-nowrap align-top">
+                        <td className="px-4 py-2 text-xs text-fg-muted tabular-nums whitespace-nowrap align-top">
                           {new Date(m.moved_at).toLocaleString(undefined, {
                             dateStyle: "short",
                             timeStyle: "short",
                           })}
                         </td>
-                        <td className="px-4 py-2 text-xs text-slate-400 align-top truncate max-w-[7rem]">
+                        <td className="px-4 py-2 text-xs text-fg-tertiary align-top truncate max-w-[7rem]">
                           {m.moved_by
                             ? userDisplayName(m.moved_by)
-                            : <span className="text-slate-600 italic">Unknown</span>}
+                            : <span className="text-fg-faint italic">Unknown</span>}
                         </td>
-                        <td className="px-4 py-2 text-xs text-slate-200 align-top">
+                        <td className="px-4 py-2 text-xs text-fg align-top">
                           {m.card_title}
                         </td>
-                        <td className="px-4 py-2 text-xs text-slate-400 align-top">
+                        <td className="px-4 py-2 text-xs text-fg-tertiary align-top">
                           {m.movement_type === 'archived' ? (
-                            <span className="text-slate-400 italic">Archived</span>
+                            <span className="text-fg-tertiary italic">Archived</span>
                           ) : m.movement_type === 'unarchived' ? (
-                            <span className="text-violet-400">Reactivated</span>
+                            <span className="text-accent-violet">Reactivated</span>
                           ) : (
                             <>
                               {m.from_column_name && (
-                                <span className="text-slate-500">{m.from_column_name} → </span>
+                                <span className="text-fg-muted">{m.from_column_name} → </span>
                               )}
-                              <span className="text-slate-200">{m.to_column_name ?? "—"}</span>
+                              <span className="text-fg">{m.to_column_name ?? "—"}</span>
                               {m.to_swimlane_name && m.to_swimlane_name !== m.from_swimlane_name && (
-                                <span className="text-slate-500"> · {m.to_swimlane_name}</span>
+                                <span className="text-fg-muted"> · {m.to_swimlane_name}</span>
                               )}
                             </>
                           )}
@@ -406,23 +406,23 @@ export default function MovementHistoryView({ board }: Props) {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 shrink-0">
-              <span className="text-xs text-slate-500">
+            <div className="flex items-center justify-between px-4 py-2 border-t border-line-subtle shrink-0">
+              <span className="text-xs text-fg-muted">
                 {data.count} events found
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 text-xs rounded bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   ← Prev
                 </button>
-                <span className="text-xs text-slate-500 tabular-nums">{page} / {totalPages}</span>
+                <span className="text-xs text-fg-muted tabular-nums">{page} / {totalPages}</span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-3 py-1 text-xs rounded bg-slate-800 border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Next →
                 </button>

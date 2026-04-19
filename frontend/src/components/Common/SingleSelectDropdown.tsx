@@ -39,15 +39,15 @@ export default function SingleSelectDropdown<T extends string | number>({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-slate-800 border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           selected !== null
-            ? "border-blue-400 text-blue-400"
-            : "border-slate-600 text-slate-300 hover:border-slate-400"
+            ? "border-info text-info"
+            : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
       >
         {displayLabel}
         <svg
-          className="w-3 h-3 text-slate-500"
+          className="w-3 h-3 text-fg-muted"
           viewBox="0 0 16 16"
           fill="currentColor"
         >
@@ -62,13 +62,13 @@ export default function SingleSelectDropdown<T extends string | number>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]">
           {options.map((opt, i) => (
             <div key={opt.value}>
               {i > 0 && (
                 <div role="separator" className="mx-4">
-                  <div className="h-px bg-slate-900" />
-                  <div className="h-px bg-slate-600/50" />
+                  <div className="h-px bg-sunken" />
+                  <div className="h-px bg-surface-active/50" />
                 </div>
               )}
               <button
@@ -76,8 +76,8 @@ export default function SingleSelectDropdown<T extends string | number>({
                   onChange(selected === opt.value ? null : opt.value);
                   setOpen(false);
                 }}
-                className={`w-full text-left px-3 py-1.5 hover:bg-slate-700 text-sm transition ${
-                  selected === opt.value ? "text-blue-400" : "text-slate-300"
+                className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${
+                  selected === opt.value ? "text-info" : "text-fg-secondary"
                 }`}
               >
                 {opt.label}

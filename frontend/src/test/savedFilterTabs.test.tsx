@@ -91,7 +91,7 @@ describe('SavedFilterTabs', () => {
     for (const name of ['All', filterA.name, filterB.name]) {
       const el = screen.getByRole('button', { name })
       expect(el.className).toContain('focus:ring-2')
-      expect(el.className).toContain('focus:ring-blue-500')
+      expect(el.className).toContain('focus:ring-primary-emphasis')
     }
   })
 

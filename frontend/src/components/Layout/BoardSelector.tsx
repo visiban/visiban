@@ -39,27 +39,27 @@ export default function BoardSelector({ user, onSelect }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+    <div className="min-h-screen bg-sunken flex items-center justify-center">
       <div className="w-full max-w-md">
-        <h2 className="text-white text-2xl font-bold mb-6 text-center">Your Boards</h2>
+        <h2 className="text-fg text-2xl font-bold mb-6 text-center">Your Boards</h2>
 
         {loading ? (
-          <p className="text-slate-400 text-center">Loading…</p>
+          <p className="text-fg-tertiary text-center">Loading…</p>
         ) : (
           <div className="flex flex-col gap-2 mb-4">
             {boards.map((b) => (
               <div key={b.id} className="group relative">
                 <button
                   onClick={() => onSelect(b)}
-                  className="w-full bg-slate-800 hover:bg-slate-700 text-white text-left px-4 py-3 rounded transition"
+                  className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition"
                 >
                   <p className="font-medium">{b.name}</p>
-                  {b.description && <p className="text-sm text-slate-400 mt-0.5">{b.description}</p>}
+                  {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
                 </button>
                 {b.owner.id === user.id && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-slate-500 hover:text-red-400 focus:text-red-400 p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     title="Delete board"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -70,14 +70,14 @@ export default function BoardSelector({ user, onSelect }: Props) {
               </div>
             ))}
             {boards.length === 0 && !creating && (
-              <p className="text-slate-500 text-center text-sm">No boards yet.</p>
+              <p className="text-fg-muted text-center text-sm">No boards yet.</p>
             )}
           </div>
         )}
 
         <button
           onClick={() => setCreating(true)}
-          className="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-400 py-3 rounded text-sm transition"
+          className="w-full border border-dashed border-line-strong text-fg-tertiary hover:text-fg hover:border-line-emphasis py-3 rounded text-sm transition"
         >
           + New board
         </button>
@@ -96,24 +96,24 @@ export default function BoardSelector({ user, onSelect }: Props) {
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-            <div className="bg-slate-800 rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-white font-semibold text-lg mb-2">Delete board?</h3>
-              <p className="text-slate-400 text-sm mb-1">
-                <span className="text-white font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
+          <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
+            <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
+              <h3 className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
+              <p className="text-fg-tertiary text-sm mb-1">
+                <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
               </p>
-              <p className="text-red-400 text-sm mb-4">This cannot be undone.</p>
+              <p className="text-danger text-sm mb-4">This cannot be undone.</p>
               {hasCards && (
                 <div className="mb-4">
-                  <p className="text-slate-400 text-xs mb-2">
-                    This board has <span className="text-white font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
+                  <p className="text-fg-tertiary text-xs mb-2">
+                    This board has <span className="text-fg font-medium">{board?.card_count} card{board?.card_count !== 1 ? "s" : ""}</span>. Type the board name to confirm deletion.
                   </p>
                   <input
                     type="text"
                     value={deleteConfirmInput}
                     onChange={(e) => setDeleteConfirmInput(e.target.value)}
                     placeholder={`Type "${board?.name}" to confirm`}
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+                    className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                     autoFocus
                     onKeyDown={(e) => { if (e.key === "Escape") { setConfirmDeleteId(null); setDeleteConfirmInput(""); } }}
                   />
@@ -122,14 +122,14 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                  className="text-slate-400 text-sm hover:text-white px-3 py-1.5"
+                  className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
                   disabled={!canDelete}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete
                 </button>

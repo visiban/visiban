@@ -8,10 +8,10 @@ import type { Board, Card, Column } from "../../types";
 type PriorityLevel = "high" | "medium" | "low" | "none";
 
 const PRIORITY_COLOR: Record<PriorityLevel, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-400",
-  low: "bg-blue-500",
-  none: "bg-slate-600",
+  high: "bg-danger-emphasis",
+  medium: "bg-warning-emphasis",
+  low: "bg-primary-emphasis",
+  none: "bg-surface-active",
 };
 
 function priorityLevel(p: string | null | undefined): PriorityLevel {
@@ -186,13 +186,13 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[12vh]"
+      className="fixed inset-0 z-50 bg-backdrop/60 flex items-start justify-center pt-[12vh]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-[480px] max-w-[90vw] bg-slate-800 border border-slate-600 rounded-lg shadow-2xl flex flex-col max-h-[60vh]">
+      <div className="w-[480px] max-w-[90vw] bg-surface border border-line-strong rounded-lg shadow-2xl flex flex-col max-h-[60vh]">
         {/* Search input */}
-        <div className="px-3 py-2 border-b border-slate-700 flex items-center gap-2 shrink-0">
-          <svg className="w-4 h-4 text-slate-500 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <div className="px-3 py-2 border-b border-line flex items-center gap-2 shrink-0">
+          <svg className="w-4 h-4 text-fg-muted shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
           </svg>
           <input
@@ -202,14 +202,14 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             onKeyDown={handleKeyDown}
             placeholder="Jump to anything…"
-            className="bg-transparent flex-1 text-sm text-slate-200 placeholder-slate-500 outline-none"
+            className="bg-transparent flex-1 text-sm text-fg placeholder-fg-muted outline-none"
             aria-label="Command palette search"
             aria-autocomplete="list"
             aria-activedescendant={results[activeIndex] ? `palette-item-${results[activeIndex].key}` : undefined}
             role="combobox"
             aria-expanded={results.length > 0}
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-500 shrink-0">
+          <kbd className="text-[10px] px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted shrink-0">
             esc
           </kbd>
         </div>
@@ -217,10 +217,10 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
         {/* Results */}
         <div ref={listRef} className="overflow-y-auto flex-1 py-1" role="listbox" aria-label="Results">
           {loadingBoards && results.length === 0 && (
-            <p className="px-3 py-2 text-xs text-slate-500 italic">Loading…</p>
+            <p className="px-3 py-2 text-xs text-fg-muted italic">Loading…</p>
           )}
           {!loadingBoards && results.length === 0 && (
-            <p className="px-3 py-2 text-xs text-slate-500 italic text-center">No results</p>
+            <p className="px-3 py-2 text-xs text-fg-muted italic text-center">No results</p>
           )}
           {results.map((item, i) => {
             const showHeader = item.kind !== lastKind;
@@ -247,7 +247,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
             return (
               <div key={item.key}>
                 {showHeader && (
-                  <div className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wide text-slate-500 select-none">
+                  <div className="px-3 pt-2 pb-0.5 text-[10px] uppercase tracking-wide text-fg-muted select-none">
                     {sectionLabel}
                   </div>
                 )}
@@ -259,7 +259,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
                   onClick={() => activate(item)}
                   onMouseEnter={() => setActiveIndex(i)}
                   className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition ${
-                    isActive ? "bg-slate-700/60" : "hover:bg-slate-700/40"
+                    isActive ? "bg-surface-hover/60" : "hover:bg-surface-hover/40"
                   }`}
                 >
                   {item.kind === "card" && item.card && (
@@ -268,16 +268,16 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
                       aria-hidden="true"
                     />
                   )}
-                  <span className={`text-sm truncate ${isActive ? "text-slate-100" : "text-slate-300"}`}>
+                  <span className={`text-sm truncate ${isActive ? "text-fg" : "text-fg-secondary"}`}>
                     {label}
                   </span>
                   {sublabel && (
-                    <span className="text-xs text-slate-500 ml-auto shrink-0 truncate max-w-[140px]">
+                    <span className="text-xs text-fg-muted ml-auto shrink-0 truncate max-w-[140px]">
                       {sublabel}
                     </span>
                   )}
                   {item.kind === "action" && item.action?.hint && (
-                    <kbd className="text-[10px] px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-slate-500 ml-auto shrink-0">
+                    <kbd className="text-[10px] px-1.5 py-0.5 bg-sunken border border-line rounded text-fg-muted ml-auto shrink-0">
                       {item.action.hint}
                     </kbd>
                   )}
@@ -288,7 +288,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
         </div>
 
         {/* Footer hints */}
-        <div className="px-3 py-2 border-t border-slate-700 text-[11px] text-slate-500 flex items-center gap-3 shrink-0">
+        <div className="px-3 py-2 border-t border-line text-[11px] text-fg-muted flex items-center gap-3 shrink-0">
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span>⌘↵ new tab</span>

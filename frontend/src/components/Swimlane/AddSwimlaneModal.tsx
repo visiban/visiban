@@ -32,34 +32,34 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
     <ModalWrapper open={true} onClose={onClose} title="Add Swimlane" maxWidth="max-w-sm">
       <div className="flex flex-col gap-3">
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Name *</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Name *</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
             placeholder="Swimlane name"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
         </div>
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Contact email</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Contact email</label>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="email@example.com"
             type="email"
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
         </div>
         <div>
-          <label className="text-xs text-slate-400 mb-1 block">Color</label>
+          <label className="text-xs text-fg-tertiary mb-1 block">Color</label>
           <div className="flex gap-2 flex-wrap">
             {PALETTE_COLORS.map((c) => (
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${color === c ? "border-white scale-110" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -68,11 +68,11 @@ export default function AddSwimlaneModal({ boardId, onAdded, onClose }: Props) {
       </div>
 
       <div className="flex justify-end gap-2 mt-5">
-        <button onClick={onClose} className="text-sm text-slate-400 hover:text-white px-3 py-1.5 transition">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Adding…" : "Add Swimlane"}
         </button>

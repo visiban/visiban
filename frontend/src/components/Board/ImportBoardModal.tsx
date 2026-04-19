@@ -79,18 +79,18 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
           {/* Size limit notice */}
-          <div className="flex gap-2.5 bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2.5 text-xs text-slate-300">
-            <span className="shrink-0 text-slate-400 mt-px">ℹ</span>
-            <span>Imports are limited to <strong className="text-slate-200">500 cards</strong>, <strong className="text-slate-200">50 columns</strong>, and <strong className="text-slate-200">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
+          <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
+            <span className="shrink-0 text-fg-tertiary mt-px">ℹ</span>
+            <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
           </div>
 
           {/* File input */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
               File
             </label>
             <div
-              className="border border-dashed border-slate-600 rounded-xl p-4 text-center cursor-pointer hover:border-slate-400 transition"
+              className="border border-dashed border-line-strong rounded-xl p-4 text-center cursor-pointer hover:border-line-emphasis transition"
               onClick={() => fileRef.current?.click()}
             >
               <input
@@ -102,13 +102,13 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
               />
               {file ? (
                 <div className="text-sm">
-                  <p className="text-white font-medium truncate">{file.name}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">
+                  <p className="text-fg font-medium truncate">{file.name}</p>
+                  <p className="text-fg-tertiary text-xs mt-0.5">
                     {formatFileSize(file.size)} &middot; {format}
                   </p>
                 </div>
               ) : (
-                <p className="text-slate-500 text-sm">
+                <p className="text-fg-muted text-sm">
                   Click to select a .json or .csv file
                 </p>
               )}
@@ -117,8 +117,8 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
 
           {/* Optional name override */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1.5">
-              Board name <span className="text-slate-600 normal-case">(optional override)</span>
+            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
+              Board name <span className="text-fg-faint normal-case">(optional override)</span>
             </label>
             <input
               value={name}
@@ -128,30 +128,30 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="Leave blank to use name from file"
-              className="w-full bg-slate-800 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-300 rounded px-3 py-1.5 text-sm placeholder-slate-500 transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
           </div>
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">
+              <p className="text-danger text-sm">{error}</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-700 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-slate-400 text-sm hover:text-white px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!file || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Importing..." : "Import"}
           </button>

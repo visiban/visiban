@@ -83,59 +83,59 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Profile</h2>
+      <h2 className="text-fg text-lg font-semibold">Profile</h2>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-400">
+      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Display name
         <input
           value={form.display_name}
           onChange={set("display_name")}
           placeholder="How you appear on the board"
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
       <div className="flex gap-3">
-        <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
           First name
           <input
             value={form.first_name}
             onChange={set("first_name")}
-            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
-        <label className="flex flex-col gap-1 flex-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
           Last name
           <input
             value={form.last_name}
             onChange={set("last_name")}
-            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-400">
+      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Username
         <input
           value={form.username}
           onChange={set("username")}
           required
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-400">
+      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Email address
         <input
           type="email"
           value={form.email}
           onChange={set("email")}
           required
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
-      <div className="flex flex-col gap-1 text-sm text-slate-400">
+      <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Timezone
         <SelectDropdown
           value={form.timezone}
@@ -146,13 +146,13 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           ]}
           className="w-full"
         />
-        <span className="text-xs text-slate-500">Used for due date labels and filters</span>
+        <span className="text-xs text-fg-muted">Used for due date labels and filters</span>
       </div>
 
-      <div className="border-t border-slate-700 pt-4">
-        <p className="text-sm text-slate-300 font-medium mb-4">Locale</p>
+      <div className="border-t border-line pt-4">
+        <p className="text-sm text-fg-secondary font-medium mb-4">Locale</p>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1 text-sm text-slate-400">
+          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
             Date format
             <SelectDropdown
               value={form.date_format}
@@ -161,7 +161,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
               className="w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 text-sm text-slate-400">
+          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
             Time format
             <SelectDropdown
               value={form.time_format}
@@ -170,7 +170,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
               className="w-full"
             />
           </div>
-          <div className="flex flex-col gap-1 text-sm text-slate-400">
+          <div className="flex flex-col gap-1 text-sm text-fg-tertiary">
             Number format
             <SelectDropdown
               value={form.number_locale}
@@ -183,15 +183,15 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
       </div>
 
       <p className="text-xs h-4">
-        {error && <span className="text-red-400">{error}</span>}
-        {saved && !error && <span className="text-green-400">Changes saved.</span>}
+        {error && <span className="text-danger">{error}</span>}
+        {saved && !error && <span className="text-success">Changes saved.</span>}
       </p>
 
       <div>
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -242,17 +242,17 @@ function SecurityTab({ user }: { user: User }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Security</h2>
+      <h2 className="text-fg text-lg font-semibold">Security</h2>
 
       {!hasPw && (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-fg-tertiary">
           You signed in with a social account. Set a password below to also enable
           username/password login.
         </p>
       )}
 
       {hasPw && (
-        <label className="flex flex-col gap-1 text-sm text-slate-400">
+        <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
           Current password
           <input
             type="password"
@@ -260,12 +260,12 @@ function SecurityTab({ user }: { user: User }) {
             onChange={set("current_password")}
             required
             autoComplete="current-password"
-            className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
       )}
 
-      <label className="flex flex-col gap-1 text-sm text-slate-400">
+      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         New password
         <input
           type="password"
@@ -274,11 +274,11 @@ function SecurityTab({ user }: { user: User }) {
           required
           autoComplete="new-password"
           minLength={12}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm text-slate-400">
+      <label className="flex flex-col gap-1 text-sm text-fg-tertiary">
         Confirm new password
         <input
           type="password"
@@ -286,20 +286,20 @@ function SecurityTab({ user }: { user: User }) {
           onChange={set("confirm")}
           required
           autoComplete="new-password"
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-500"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
       <p className="text-xs h-4">
-        {error && <span className="text-red-400">{error}</span>}
-        {saved && !error && <span className="text-green-400">{hasPw ? "Password changed successfully." : "Password set successfully."}</span>}
+        {error && <span className="text-danger">{error}</span>}
+        {saved && !error && <span className="text-success">{hasPw ? "Password changed successfully." : "Password set successfully."}</span>}
       </p>
 
       <div>
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
@@ -369,24 +369,24 @@ function AccessTokensTab() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl" data-testid="access-tokens-tab">
-      <h2 className="text-white text-lg font-semibold">Access Tokens</h2>
-      <p className="text-sm text-slate-400">
+      <h2 className="text-fg text-lg font-semibold">Access Tokens</h2>
+      <p className="text-sm text-fg-tertiary">
         Personal access tokens let you authenticate API requests. Tokens are shown once on creation.
         All tokens are revoked if you change your password.
       </p>
 
       {/* One-time reveal panel */}
       {newToken && (
-        <div className="border border-amber-600 rounded-lg p-4 bg-amber-900/20 flex flex-col gap-2" data-testid="new-token-reveal">
-          <p className="text-sm text-amber-400 font-medium">
+        <div className="border border-warning rounded-lg p-4 bg-warning/20 flex flex-col gap-2" data-testid="new-token-reveal">
+          <p className="text-sm text-warning font-medium">
             Copy your token now — it won't be shown again.
           </p>
-          <code className="font-mono text-sm text-slate-200 bg-slate-900 px-3 py-2 rounded break-all select-all" data-testid="new-token-value">
+          <code className="font-mono text-sm text-fg bg-sunken px-3 py-2 rounded break-all select-all" data-testid="new-token-value">
             {newToken.token}
           </code>
           <button
             onClick={() => setNewToken(null)}
-            className="self-end text-xs text-slate-400 hover:text-white transition"
+            className="self-end text-xs text-fg-tertiary hover:text-fg transition"
             data-testid="dismiss-token"
           >
             I've copied it — dismiss
@@ -397,7 +397,7 @@ function AccessTokensTab() {
       {/* Create form */}
       {tokens.length < PAT_MAX && (
         <form onSubmit={handleCreate} className="flex flex-col gap-3" data-testid="create-token-form">
-          <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wide">New token</h3>
+          <h3 className="text-sm font-medium text-fg-tertiary uppercase tracking-wide">New token</h3>
           <div className="flex gap-2 flex-wrap">
             <input
               type="text"
@@ -406,7 +406,7 @@ function AccessTokensTab() {
               placeholder="Token name (e.g. CI pipeline)"
               maxLength={64}
               required
-              className="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 min-w-0 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-name-input"
             />
             <input
@@ -414,13 +414,13 @@ function AccessTokensTab() {
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
               title="Optional expiry date (max 1 year)"
-              className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-expiry-input"
             />
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm px-3 py-1.5 rounded transition"
+              className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm px-3 py-1.5 rounded transition"
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}
@@ -428,14 +428,14 @@ function AccessTokensTab() {
           </div>
           <p className="text-xs h-4">
             {createError
-              ? <span className="text-red-400">{createError}</span>
-              : <span className="text-slate-500">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
+              ? <span className="text-danger">{createError}</span>
+              : <span className="text-fg-muted">Leave expiry blank for a non-expiring token (max 1 year if set).</span>
             }
           </p>
         </form>
       )}
       {tokens.length >= PAT_MAX && (
-        <p className="text-sm text-amber-400" data-testid="max-tokens-notice">
+        <p className="text-sm text-warning" data-testid="max-tokens-notice">
           You've reached the maximum of {PAT_MAX} tokens. Revoke one to create another.
         </p>
       )}
@@ -443,13 +443,13 @@ function AccessTokensTab() {
       {/* Token list */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-slate-600 border-t-blue-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-line-strong border-t-blue-500 rounded-full animate-spin" />
         </div>
       ) : tokens.length === 0 ? (
-        <p className="text-sm text-slate-500" data-testid="no-tokens-message">No access tokens yet.</p>
+        <p className="text-sm text-fg-muted" data-testid="no-tokens-message">No access tokens yet.</p>
       ) : (
         <div className="flex flex-col gap-1" data-testid="token-list">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 text-xs text-slate-500 uppercase tracking-wide border-b border-slate-700">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 px-3 py-1.5 text-xs text-fg-muted uppercase tracking-wide border-b border-line">
             <span>Name</span>
             <span>Created</span>
             <span>Expires</span>
@@ -458,29 +458,29 @@ function AccessTokensTab() {
           {tokens.map((token) => (
             <div
               key={token.id}
-              className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded hover:bg-slate-800/50"
+              className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 items-center px-3 py-2 rounded hover:bg-surface/50"
               data-testid={`token-row-${token.id}`}
             >
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-slate-200 truncate">{token.name}</span>
-                <span className="font-mono text-xs text-slate-500">{token.prefix}…</span>
+                <span className="text-sm text-fg truncate">{token.name}</span>
+                <span className="font-mono text-xs text-fg-muted">{token.prefix}…</span>
               </div>
-              <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(token.created_at)}</span>
-              <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(token.expires_at)}</span>
+              <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.created_at)}</span>
+              <span className="text-xs text-fg-tertiary whitespace-nowrap">{formatDate(token.expires_at)}</span>
               <div className="flex items-center gap-2">
                 {confirmRevokeId === token.id ? (
                   <>
                     <button
                       onClick={() => handleRevoke(token.id)}
                       disabled={revokingId === token.id}
-                      className="text-xs text-red-400 hover:text-red-300 transition"
+                      className="text-xs text-danger hover:text-danger transition"
                       data-testid={`confirm-revoke-${token.id}`}
                     >
                       {revokingId === token.id ? "Revoking…" : "Confirm"}
                     </button>
                     <button
                       onClick={() => setConfirmRevokeId(null)}
-                      className="text-xs text-slate-400 hover:text-white transition"
+                      className="text-xs text-fg-tertiary hover:text-fg transition"
                     >
                       Cancel
                     </button>
@@ -488,7 +488,7 @@ function AccessTokensTab() {
                 ) : (
                   <button
                     onClick={() => setConfirmRevokeId(token.id)}
-                    className="text-xs text-slate-400 hover:text-red-400 transition"
+                    className="text-xs text-fg-tertiary hover:text-danger transition"
                     data-testid={`revoke-${token.id}`}
                   >
                     Revoke
@@ -539,22 +539,22 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Notifications</h2>
-      <p className="text-sm text-slate-400">Choose which events send you a notification.</p>
+      <h2 className="text-fg text-lg font-semibold">Notifications</h2>
+      <p className="text-sm text-fg-tertiary">Choose which events send you a notification.</p>
       <div className="flex flex-col gap-3">
         {rows.map(({ key, label, description }) => (
           <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
             <span>
-              <span className="block text-sm text-white">{label}</span>
-              <span className="block text-xs text-slate-500">{description}</span>
+              <span className="block text-sm text-fg">{label}</span>
+              <span className="block text-xs text-fg-muted">{description}</span>
             </span>
             <button
               role="switch"
               aria-checked={prefs[key]}
               disabled={saving === key}
               onClick={() => toggle(key)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                prefs[key] ? "bg-blue-600" : "bg-slate-600"
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
+                prefs[key] ? "bg-primary" : "bg-surface-active"
               }`}
             >
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
@@ -564,16 +564,16 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
           </label>
         ))}
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
     </div>
   );
 }
 
-// VITE_THEME_LIGHT_ENABLED gates the "Light" option during the component-sweep
-// rollout (#120). While the sweep is in progress, light-mode rendering is
-// partially authored; the flag hides the choice until every in-scope component
-// has been migrated. Set to "true" in .env.local to preview.
-const LIGHT_ENABLED = import.meta.env.VITE_THEME_LIGHT_ENABLED === "true";
+// VITE_THEME_LIGHT_ENABLED originally gated the "Light" option during the
+// component-sweep rollout (#120). The sweep is complete, so Light is available
+// by default. The flag remains as an explicit opt-out ("false") for operators
+// who want to hide the option on install-specific forks.
+const LIGHT_ENABLED = import.meta.env.VITE_THEME_LIGHT_ENABLED !== "false";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; description: string }[] = [
   { value: "system", label: "System", description: "Follows your OS preference" },
@@ -588,18 +588,18 @@ function AppearanceTab() {
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Appearance</h2>
+      <h2 className="text-fg text-lg font-semibold">Appearance</h2>
 
       <div>
-        <p className="text-sm text-slate-400 mb-3">Theme</p>
+        <p className="text-sm text-fg-tertiary mb-3">Theme</p>
         <div className="flex flex-col gap-2" role="radiogroup" aria-label="Theme">
           {THEME_OPTIONS.map(({ value, label, description }) => (
             <label
               key={value}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 ${
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                 preference === value
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-slate-600 hover:bg-slate-700/40"
+                  ? "border-primary-emphasis bg-info/10"
+                  : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >
               <input
@@ -611,15 +611,15 @@ function AppearanceTab() {
                 onChange={() => setPreference(value)}
               />
               <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                preference === value ? "border-blue-500" : "border-slate-500"
+                preference === value ? "border-primary-emphasis" : "border-line-strong"
               }`}>
                 {preference === value && (
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="w-2 h-2 rounded-full bg-primary-emphasis" />
                 )}
               </span>
               <span>
-                <span className="block text-sm font-medium text-slate-200">{label}</span>
-                <span className="block text-xs text-slate-500 mt-0.5">{description}</span>
+                <span className="block text-sm font-medium text-fg">{label}</span>
+                <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
               </span>
             </label>
           ))}
@@ -651,22 +651,22 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">Behavior</h2>
+      <h2 className="text-fg text-lg font-semibold">Behavior</h2>
 
       <div>
-        <p className="text-sm text-slate-400 mb-3">Card editor</p>
+        <p className="text-sm text-fg-tertiary mb-3">Card editor</p>
         <label className="flex items-center justify-between gap-4 cursor-pointer">
           <span>
-            <span className="block text-sm text-white">Close editor on Enter</span>
-            <span className="block text-xs text-slate-500">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
+            <span className="block text-sm text-fg">Close editor on Enter</span>
+            <span className="block text-xs text-fg-muted">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
           </span>
           <button
             role="switch"
             aria-checked={user.close_editor_on_enter ?? true}
             disabled={saving}
             onClick={toggleCloseOnEnter}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              (user.close_editor_on_enter ?? true) ? "bg-blue-600" : "bg-slate-600"
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
+              (user.close_editor_on_enter ?? true) ? "bg-primary" : "bg-surface-active"
             }`}
           >
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
@@ -674,7 +674,7 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
             }`} />
           </button>
         </label>
-        <p className="text-xs h-4 mt-1">{error && <span className="text-red-400">{error}</span>}</p>
+        <p className="text-xs h-4 mt-1">{error && <span className="text-danger">{error}</span>}</p>
       </div>
     </div>
   );
@@ -683,15 +683,15 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
 function AboutTab() {
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <h2 className="text-white text-lg font-semibold">About</h2>
+      <h2 className="text-fg text-lg font-semibold">About</h2>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-slate-400">Version</span>
-          <span className="font-mono text-xs text-slate-500">{__APP_VERSION__}</span>
+          <span className="text-sm text-fg-tertiary">Version</span>
+          <span className="font-mono text-xs text-fg-muted">{__APP_VERSION__}</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-slate-400">License</span>
-          <span className="text-xs text-slate-500">Apache 2.0</span>
+          <span className="text-sm text-fg-tertiary">License</span>
+          <span className="text-xs text-fg-muted">Apache 2.0</span>
         </div>
       </div>
     </div>
@@ -722,11 +722,11 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
   }, 0);
 
   return (
-    <div className="h-full bg-slate-900 flex flex-col">
+    <div className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-        <h1 className="text-white text-2xl font-bold mb-8">Settings</h1>
+        <h1 className="text-fg text-2xl font-bold mb-8">Settings</h1>
 
         <div className="flex gap-8">
           {/* Sidebar nav */}
@@ -738,8 +738,8 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
-                        ? "bg-blue-600 text-white font-medium"
-                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                        ? "bg-primary text-on-primary font-medium"
+                        : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >
                     {tab.label}

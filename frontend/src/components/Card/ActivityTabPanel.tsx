@@ -87,26 +87,26 @@ function actorName(actor: BoardUser | null): string | null {
 }
 
 function dotColor(entry: CardTimelineEntry | ChecklistGroup): string {
-  if (entry.kind === "checklist-group") return "bg-slate-500";
+  if (entry.kind === "checklist-group") return "bg-fg-muted";
   if (entry.kind === "move") {
     const data = entry.data as unknown as CardMovement;
     // Initial creation move: from_column is null
-    if (data.from_column === null) return "bg-green-500";
-    return "bg-blue-500";
+    if (data.from_column === null) return "bg-success-emphasis";
+    return "bg-primary-emphasis";
   }
   // activity kind
   switch (entry.event_type) {
     case "comment_added":
-      return "bg-sky-400";
+      return "bg-activity-date";
     case "attachment_added":
     case "attachment_deleted":
-      return "bg-teal-500";
+      return "bg-activity-assign";
     case "archived":
-      return "bg-slate-600";
+      return "bg-surface-active";
     case "reactivated":
-      return "bg-violet-500";
+      return "bg-activity-reactivated";
     default:
-      return "bg-slate-500";
+      return "bg-fg-muted";
   }
 }
 
@@ -227,7 +227,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
     <div>
       {/* Filter row */}
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-fg-muted">
           {loading
             ? "Loading…"
             : `${totalCount} event${totalCount !== 1 ? "s" : ""}`}
@@ -244,38 +244,38 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
       {/* Loading state (initial load) */}
       {loading && (
         <div className="flex items-center justify-center py-8">
-          <span className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="ml-2 text-sm text-slate-400">Loading…</span>
+          <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="ml-2 text-sm text-fg-tertiary">Loading…</span>
         </div>
       )}
 
       {/* Error state */}
       {!loading && error && (
-        <p className="text-sm text-red-400 text-center py-4">Failed to load activity.</p>
+        <p className="text-sm text-danger text-center py-4">Failed to load activity.</p>
       )}
 
       {/* Empty state — no events at all */}
       {!loading && !error && entries.length === 0 && selectedTypes.length === 0 && (
-        <div className="flex flex-col items-center gap-2 py-8 text-slate-600">
+        <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-sm text-slate-400">No activity yet</p>
+          <p className="text-sm text-fg-tertiary">No activity yet</p>
         </div>
       )}
 
       {/* Filter-active empty state */}
       {!loading && !error && entries.length === 0 && selectedTypes.length > 0 && (
-        <div className="flex flex-col items-center gap-2 py-8 text-slate-600">
+        <div className="flex flex-col items-center gap-2 py-8 text-fg-faint">
           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-sm text-slate-400">No events match the current filter</p>
+          <p className="text-sm text-fg-tertiary">No events match the current filter</p>
           <button
             onClick={() => setSelectedTypes([])}
-            className="text-xs text-blue-400 hover:text-blue-300 transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="text-xs text-info hover:text-info transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Clear filter
           </button>
@@ -284,7 +284,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
 
       {/* Timeline */}
       {!loading && !error && entries.length > 0 && (
-        <ol className="relative border-l border-slate-700 ml-2">
+        <ol className="relative border-l border-line ml-2">
           {displayEntries.map((entry) => {
             // Checklist group
             if (entry.kind === "checklist-group") {
@@ -302,18 +302,18 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
               const itemList = cg.items.map((i) => `"${i}"`).join(", ");
               return (
                 <li key={`cg-${cg.ts}-${cg.event_type}`} className="relative mb-3 ml-4">
-                  <div className="absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-slate-800 shadow bg-slate-500" />
-                  <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                  <div className="absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow bg-fg-muted" />
+                  <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-slate-300 truncate">
+                      <span className="text-sm text-fg-secondary truncate">
                         {label}: {itemList}
                       </span>
                       {actor && (
-                        <span className="text-xs text-slate-400 ml-auto shrink-0">by {actor}</span>
+                        <span className="text-xs text-fg-tertiary ml-auto shrink-0">by {actor}</span>
                       )}
                     </div>
                     <time
-                      className="text-xs text-slate-400"
+                      className="text-xs text-fg-tertiary"
                       dateTime={cg.ts}
                       title={new Date(cg.ts).toLocaleString()}
                     >
@@ -353,31 +353,31 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
 
               return (
                 <li key={`${timelineEntry.kind}-${timelineEntry.id}`} className="relative mb-3 ml-4">
-                  <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-slate-800 shadow ${dot}`} />
-                  <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                  <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
+                  <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-slate-300 truncate" title={description}>
+                      <span className="text-sm text-fg-secondary truncate" title={description}>
                         {description}
                         {m.from_swimlane_name && m.to_swimlane_name && m.from_swimlane_name !== m.to_swimlane_name && (
-                          <span className="text-xs text-slate-400 ml-1">
+                          <span className="text-xs text-fg-tertiary ml-1">
                             ({m.from_swimlane_name} → {m.to_swimlane_name})
                           </span>
                         )}
                       </span>
                       {actor && (
-                        <span className="text-xs text-slate-400 ml-auto shrink-0">by {actor}</span>
+                        <span className="text-xs text-fg-tertiary ml-auto shrink-0">by {actor}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <time
-                        className="text-xs text-slate-400"
+                        className="text-xs text-fg-tertiary"
                         dateTime={timelineEntry.ts}
                         title={new Date(timelineEntry.ts).toLocaleString()}
                       >
                         {formatRelativeTime(timelineEntry.ts)}
                       </time>
                       {duration && (
-                        <span className="text-xs text-blue-500 ml-auto shrink-0">Spent {duration} here</span>
+                        <span className="text-xs text-info ml-auto shrink-0">Spent {duration} here</span>
                       )}
                     </div>
                   </div>
@@ -389,18 +389,18 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
             const description = activityLabel(timelineEntry.event_type, timelineEntry.data, userDateFormat);
             return (
               <li key={`${timelineEntry.kind}-${timelineEntry.id}`} className="relative mb-3 ml-4">
-                <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-slate-800 shadow ${dot}`} />
-                <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
+                <div className={`absolute -left-[1.375rem] top-1 w-3 h-3 rounded-full border-2 border-line-subtle shadow ${dot}`} />
+                <div className="bg-surface border border-line rounded-lg px-3 py-2.5 flex flex-col gap-1 shadow-sm">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-slate-300 truncate" title={description}>
+                    <span className="text-sm text-fg-secondary truncate" title={description}>
                       {description}
                     </span>
                     {actor && (
-                      <span className="text-xs text-slate-400 ml-auto shrink-0">by {actor}</span>
+                      <span className="text-xs text-fg-tertiary ml-auto shrink-0">by {actor}</span>
                     )}
                   </div>
                   <time
-                    className="text-xs text-slate-400"
+                    className="text-xs text-fg-tertiary"
                     dateTime={timelineEntry.ts}
                     title={new Date(timelineEntry.ts).toLocaleString()}
                   >
@@ -419,10 +419,10 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-slate-300 hover:text-white hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {loadingMore && (
-              <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             )}
             {loadingMore ? "Loading…" : "Load more"}
           </button>

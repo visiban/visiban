@@ -120,7 +120,7 @@ describe('CardMovementTimeline', () => {
       expect(deleted).toBeInTheDocument()
       expect(deleted.textContent).toBe('Deleted — Old Column')
       expect(deleted.className).toContain('italic')
-      expect(deleted.className).toContain('text-red-400')
+      expect(deleted.className).toContain('text-danger')
     })
   })
 

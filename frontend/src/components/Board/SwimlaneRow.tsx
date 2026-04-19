@@ -116,13 +116,13 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
       <div
         ref={(el) => { setNodeRef(el); (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el; }}
         style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, minHeight: collapsed ? undefined : (minHeight ?? undefined) }}
-        className="relative flex border-b border-slate-700 bg-slate-800"
+        className="relative flex border-b border-line bg-surface"
         onMouseEnter={onHoverEnter}
         onMouseLeave={onHoverLeave}
       >
         {/* Swimlane label — sticky to the left */}
         <div
-          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-slate-800 border-l-4 hover:bg-slate-700/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
+          className={`shrink-0 flex items-center gap-2 pl-1 pr-3 sticky left-0 z-10 bg-surface border-l-4 hover:bg-surface-hover/30 group relative ${collapsed ? "py-1" : "py-3 items-start"}`}
           style={{ width: sidebarWidth ?? 220, borderLeftColor: swimlane.color || "transparent" }}
           data-tour-step="swimlane"
           data-no-pan
@@ -133,7 +133,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className={`text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
+              className={`text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿
@@ -153,24 +153,24 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 }}
                 onBlur={commitRename}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full text-sm bg-slate-900 text-white border border-blue-500 rounded px-1 py-0 outline-none"
+                className="w-full text-sm bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
               />
             ) : (
               <p
-                className={`text-sm text-slate-300 truncate ${isAdmin ? "cursor-text hover:text-blue-200" : ""}`}
+                className={`text-sm text-fg-secondary truncate ${isAdmin ? "cursor-text hover:text-info" : ""}`}
                 title={isAdmin ? "Click to rename" : swimlane.name}
                 onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
               >
                 {swimlane.name}
               </p>
             )}
-            {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-slate-400 truncate">{swimlane.contact_email}</p>}
+            {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {!collapsed && (
               <button
                 onClick={() => { if (isAdmin) setEditing(true); }}
-                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-slate-400 hover:text-white opacity-30 group-hover:opacity-100" : "text-slate-600 opacity-50 cursor-not-allowed"}`}
+                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded ${isAdmin ? "text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
                 title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
                 disabled={!isAdmin}
               >
@@ -180,7 +180,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-blue-500 rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-blue-400" : "text-slate-400 hover:text-white"}`}
+              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}
             >
@@ -194,7 +194,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </button>
             <button
               onClick={onToggleCollapse}
-              className="text-slate-400 hover:text-white transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              className="text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               aria-pressed={collapsed}
               aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
               title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
@@ -260,12 +260,12 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               onMouseLeave={() => onSepHoverChange?.(null)}
               onMouseDown={handleSepMouseDown}
             >
-              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
-              <div className={`flex-1 transition-colors ${sepHighlighted ? "bg-blue-400/5" : "bg-slate-900/70"}`} />
-              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-blue-400/50" : "bg-slate-600/70"}`} />
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
+              <div className={`flex-1 transition-colors ${sepHighlighted ? "bg-info/5" : "bg-sunken/70"}`} />
+              <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
               {isAdmin && onInsertColumn && sepHighlighted && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-blue-400 text-[10px] font-bold leading-none bg-slate-900 px-0.5 rounded-sm">+</span>
+                  <span className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
                 </div>
               )}
             </div>
@@ -278,7 +278,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 {sep}
                 <div className="w-10 shrink-0 flex items-center justify-center py-1">
                   {cellCount > 0 && (
-                    <span className="text-xs text-slate-600 font-medium">{cellCount}</span>
+                    <span className="text-xs text-fg-faint font-medium">{cellCount}</span>
                   )}
                 </div>
               </div>
@@ -294,9 +294,9 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             return (
               <div key={col.id} className="contents">
                 {sep}
-                <div className={`w-10 shrink-0 flex items-center justify-center py-1${hasMatch ? " animate-pulse bg-blue-500/15" : ""}`}>
+                <div className={`w-10 shrink-0 flex items-center justify-center py-1${hasMatch ? " animate-pulse bg-info/15" : ""}`}>
                   {(hasMatch ? matchCount : cellCount) > 0 && (
-                    <span className={`text-xs font-medium ${hasMatch ? "text-blue-400" : "text-slate-400"}`}>
+                    <span className={`text-xs font-medium ${hasMatch ? "text-info" : "text-fg-tertiary"}`}>
                       {hasMatch ? matchCount : cellCount}
                     </span>
                   )}
@@ -316,11 +316,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div key={col.id} className="contents">
                 {sep}
                 <div
-                  className={`shrink-0 flex items-center justify-center bg-slate-950${hasMatch ? " animate-pulse" : ""}`}
+                  className={`shrink-0 flex items-center justify-center bg-canvas${hasMatch ? " animate-pulse" : ""}`}
                   style={{ width: cellWidth }}
                 >
                   {displayCount > 0 ? (
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-blue-500/20 text-blue-400" : "bg-slate-800 text-slate-400"}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${hasMatch ? "bg-info/20 text-info" : "bg-surface text-fg-tertiary"}`}>
                       {displayCount}
                     </span>
                   ) : null}
@@ -362,17 +362,17 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         })}
         {/* Trailing separator to match header's trailing ColumnSeparator */}
         <div className="shrink-0 flex items-stretch" style={{ width: 16 }}>
-          <div className="w-px self-stretch bg-slate-600/70" />
-          <div className="flex-1 bg-slate-900/70" />
-          <div className="w-px self-stretch bg-slate-600/70" />
+          <div className="w-px self-stretch bg-surface-active/70" />
+          <div className="flex-1 bg-sunken/70" />
+          <div className="w-px self-stretch bg-surface-active/70" />
         </div>
         {/* Bottom resize handle — drag to set row min-height */}
         {setSwimlaneHeight && (
           <div
-            className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-blue-400/20 transition-colors group/resize"
+            className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-info/20 transition-colors group/resize"
             onMouseDown={handleHeightResizeStart}
           >
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-blue-400/0 group-hover/resize:bg-blue-400/40 transition-colors" />
+            <div className="absolute bottom-0 left-0 right-0 h-px bg-info/0 group-hover/resize:bg-info/40 transition-colors" />
           </div>
         )}
       </div>

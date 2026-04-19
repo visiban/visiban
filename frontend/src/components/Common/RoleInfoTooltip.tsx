@@ -29,7 +29,7 @@ export default function RoleInfoTooltip({ children, label = "Role information" }
       <button
         ref={btnRef}
         type="button"
-        className="w-4 h-4 rounded-full border border-slate-600 text-[10px] text-slate-400 hover:text-slate-200 hover:border-slate-400 flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-4 h-4 rounded-full border border-line-strong text-[10px] text-fg-tertiary hover:text-fg hover:border-line-emphasis flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         aria-label={label}
         tabIndex={0}
         onMouseEnter={show}
@@ -43,7 +43,7 @@ export default function RoleInfoTooltip({ children, label = "Role information" }
         <div
           role="tooltip"
           style={{ position: "fixed", top: anchor.top, right: anchor.right, maxWidth: 280, zIndex: 9999 }}
-          className="w-72 bg-slate-900 border border-slate-600 rounded-xl p-3 shadow-xl pointer-events-none"
+          className="w-72 bg-sunken border border-line-strong rounded-xl p-3 shadow-xl pointer-events-none"
         >
           {children}
         </div>,

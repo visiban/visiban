@@ -270,7 +270,7 @@ describe('BoardView', () => {
 
   it('live dot is green and pulsing when connected', () => {
     const { container } = render(<BoardView {...defaultProps()} />)
-    const dot = container.querySelector('.bg-green-400')
+    const dot = container.querySelector('.bg-success-emphasis')
     expect(dot).toBeInTheDocument()
     expect(dot?.className).toMatch(/animate-pulse/)
   })
@@ -752,7 +752,7 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       const archived = screen.getByLabelText('Show archived cards')
       await userEvent.setup().click(archived)
-      expect(archived.className).toMatch(/text-amber-400/)
+      expect(archived.className).toMatch(/text-warning/)
       expect(archived.getAttribute('aria-pressed')).toBe('true')
     })
 
@@ -816,16 +816,16 @@ describe('BoardView', () => {
       mockSearchParams = new URLSearchParams()
       render(<BoardView {...defaultProps()} />)
       const badge = screen.getByText('Beta')
-      expect(badge.className).toContain('bg-amber-500/20')
-      expect(badge.className).toContain('text-amber-400')
+      expect(badge.className).toContain('bg-warning/20')
+      expect(badge.className).toContain('text-warning')
     })
 
     it('badge has active amber classes when Analytics IS the active tab', () => {
       mockSearchParams = new URLSearchParams('view=analytics')
       render(<BoardView {...defaultProps()} />)
       const badge = screen.getByText('Beta')
-      expect(badge.className).toContain('bg-amber-500/30')
-      expect(badge.className).toContain('text-amber-300')
+      expect(badge.className).toContain('bg-warning/30')
+      expect(badge.className).toContain('text-warning')
     })
   })
 

@@ -55,7 +55,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
       ref={popoverRef}
       role="tooltip"
       style={style}
-      className={`bg-slate-800 border border-slate-600 rounded-lg shadow-xl p-3 text-sm pointer-events-auto select-none
+      className={`bg-surface border border-line-strong rounded-lg shadow-xl p-3 text-sm pointer-events-auto select-none
         ${prefersReducedMotion ? "" : "animate-fade-in"}
       `}
       onMouseEnter={onMouseEnter}
@@ -63,12 +63,12 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
     >
       {/* Title row with priority badge */}
       <div className="flex items-start gap-2">
-        <p className="text-slate-200 font-medium leading-snug flex-1 min-w-0 line-clamp-2">
+        <p className="text-fg font-medium leading-snug flex-1 min-w-0 line-clamp-2">
           {card.title}
         </p>
         {card.priority !== "low" && (
           <span
-            className="px-1.5 py-0.5 text-[10px] rounded font-semibold text-white shrink-0 capitalize"
+            className="px-1.5 py-0.5 text-[10px] rounded font-semibold text-fg shrink-0 capitalize"
             style={{ backgroundColor: priorityColor }}
           >
             {card.priority}
@@ -78,7 +78,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
 
       {/* Description — truncated to ~3 lines */}
       {card.description && (
-        <p className="text-xs text-slate-300 mt-2 leading-relaxed line-clamp-3">
+        <p className="text-xs text-fg-secondary mt-2 leading-relaxed line-clamp-3">
           {card.description}
         </p>
       )}
@@ -88,9 +88,9 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         <div className="mt-3 space-y-1 text-xs">
           <div className="flex items-center gap-2">
             {/* Progress bar */}
-            <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-surface-hover rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 rounded-full transition-all"
+                className="h-full bg-success-emphasis rounded-full transition-all"
                 style={{
                   width: `${Math.round((card.checklist_done / card.checklist_total) * 100)}%`,
                 }}
@@ -99,8 +99,8 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
             <span
               className={
                 card.checklist_done === card.checklist_total
-                  ? "line-through text-slate-500"
-                  : "text-slate-300"
+                  ? "line-through text-fg-muted"
+                  : "text-fg-secondary"
               }
             >
               {card.checklist_done}/{card.checklist_total}
@@ -110,7 +110,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
       )}
 
       {/* Footer */}
-      <div className="mt-3 pt-2 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-500">
+      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-fg-muted">
         <span>
           {lastActivityText
             ? lastActivityUser
@@ -118,7 +118,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
               : lastActivityText
             : "No activity yet"}
         </span>
-        <span className="text-slate-400 shrink-0 ml-2">Click to open ↗</span>
+        <span className="text-fg-tertiary shrink-0 ml-2">Click to open ↗</span>
       </div>
     </div>
   );
