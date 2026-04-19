@@ -73,11 +73,11 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
-Three init containers run automatically on every deploy:
+Release-time tasks run automatically:
 
-1. **migrate** — applies database migrations
-2. **collectstatic** — bundles Django static assets
-3. **bootstrap** — creates the initial admin account (first install only)
+1. **migrate** — applies database migrations. Runs as a Helm `pre-install` / `pre-upgrade` Job (`templates/migrate-job.yaml`) so only **one** pod migrates per release, regardless of `backendReplicaCount`. Inspect with `kubectl get jobs -l app.kubernetes.io/component=migrate` and `kubectl logs job/<release>-visiban-migrate`.
+2. **collectstatic** (init container) — bundles Django static assets.
+3. **bootstrap** (init container, first install only) — creates the initial admin account.
 
 ### 4. Retrieve the admin password
 
