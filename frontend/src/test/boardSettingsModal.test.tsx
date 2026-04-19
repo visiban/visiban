@@ -151,9 +151,10 @@ describe('BoardSettingsModal — Members tab', () => {
 
   it('shows role selects for each member when isAdmin=true', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
-    // Custom dropdown triggers show the current role label for each member
-    expect(screen.getByRole('button', { name: 'Admin' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Member' })).toBeInTheDocument()
+    // Custom dropdown triggers (role="combobox") show the current role label for each member
+    const combos = screen.getAllByRole('combobox')
+    expect(combos.some((c) => c.textContent?.includes('Admin'))).toBe(true)
+    expect(combos.some((c) => c.textContent?.includes('Member'))).toBe(true)
   })
 
   it('shows role badges (not selects) when isAdmin=false', () => {
@@ -170,8 +171,9 @@ describe('BoardSettingsModal — Members tab', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
     // Open Bob's dropdown (currently showing 'Member') and select 'Viewer'
-    await user.click(screen.getByRole('button', { name: 'Member' }))
-    await user.click(screen.getByRole('button', { name: 'Viewer' }))
+    const memberCombo = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
+    await user.click(memberCombo)
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
 
     expect(mockSetBoardMember).toHaveBeenCalledWith(1, 2, 'viewer')
   })
@@ -181,12 +183,14 @@ describe('BoardSettingsModal — Members tab', () => {
     mockSetBoardMember.mockResolvedValue({ id: 11, user: fakeMember2, role: 'viewer', is_moderator: false, joined_at: '' })
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
 
-    await user.click(screen.getByRole('button', { name: 'Member' }))
-    await user.click(screen.getByRole('button', { name: 'Viewer' }))
+    const memberCombo2 = screen.getAllByRole('combobox').find((c) => c.textContent?.includes('Member'))!
+    await user.click(memberCombo2)
+    await user.click(screen.getByRole('option', { name: 'Viewer' }))
 
     await waitFor(() => {
       // After the API resolves, Bob's dropdown trigger shows 'Viewer'
-      expect(screen.getByRole('button', { name: 'Viewer' })).toBeInTheDocument()
+      const combos = screen.getAllByRole('combobox')
+      expect(combos.some((c) => c.textContent?.includes('Viewer'))).toBe(true)
     })
   })
 
@@ -360,9 +364,10 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     await stageAlice()
 
     expect(screen.getAllByText('Alice Wonder').length).toBeGreaterThanOrEqual(1)
-    // Staged user defaults to 'member' role — at least one 'Member' dropdown button is present
+    // Staged user defaults to 'member' role — at least one 'Member' combobox is present
     // (there may be another for the existing Bob Smith row)
-    expect(screen.getAllByRole('button', { name: 'Member' }).length).toBeGreaterThanOrEqual(1)
+    const memberCombos = screen.getAllByRole('combobox').filter((c) => c.textContent?.includes('Member'))
+    expect(memberCombos.length).toBeGreaterThanOrEqual(1)
   })
 
   it('can change the staged user role', async () => {
@@ -370,18 +375,19 @@ describe('BoardSettingsModal — add-member flow (Members tab)', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
     await stageAlice()
 
-    // Two 'Member' buttons exist: Bob Smith's row + Alice's staged entry.
+    // Two 'Member' comboboxes exist: Bob Smith's row + Alice's staged entry.
     // The staged entry is the last one — click it to open the dropdown.
-    const memberButtons = screen.getAllByRole('button', { name: 'Member' })
+    const memberCombos = screen.getAllByRole('combobox').filter((c) => c.textContent?.includes('Member'))
     await act(async () => {
-      memberButtons[memberButtons.length - 1].click()
+      memberCombos[memberCombos.length - 1].click()
     })
     await act(async () => {
-      screen.getByRole('button', { name: 'Viewer' }).click()
+      screen.getByRole('option', { name: 'Viewer' }).click()
     })
 
     // Alice's staged dropdown now shows 'Viewer'
-    expect(screen.getByRole('button', { name: 'Viewer' })).toBeInTheDocument()
+    const combos = screen.getAllByRole('combobox')
+    expect(combos.some((c) => c.textContent?.includes('Viewer'))).toBe(true)
   })
 
   it('can remove a staged user via ✕ button', async () => {
