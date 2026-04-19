@@ -11,7 +11,8 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -40,21 +41,48 @@ class UserSearchRateThrottle(UserRateThrottle):
     scope = "user_search"
 
 
-class PasswordResetThrottle(AnonRateThrottle):
-    """Rate limit for the password-reset request endpoint.
+class PasswordResetThrottle(SimpleRateThrottle):
+    """Rate-limit password reset requests by IP, authenticated or not.
 
-    Prevents a caller from using the reset flow to trigger bulk email sends.
-    5 requests per hour per IP is generous enough for legitimate use (a user
-    who lost access to their email and needs to retry) while blocking abuse.
+    AnonRateThrottle skips authenticated users; SimpleRateThrottle keyed on IP
+    applies unconditionally, preventing inbox flooding from authenticated sessions.
     """
 
     scope = "password_reset"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
 
 
 class ThrottledPasswordResetView(DjRestAuthPasswordResetView):
     """dj-rest-auth PasswordResetView with a project-specific rate limit applied."""
 
     throttle_classes = [PasswordResetThrottle]
+
+
+class PasswordResetConfirmThrottle(SimpleRateThrottle):
+    """Rate-limit password reset confirm requests by IP, authenticated or not.
+
+    Prevents automated token-stuffing against the confirm endpoint. Keyed on IP
+    so the limit applies regardless of session state.
+    """
+
+    scope = "password_reset_confirm"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
+
+class ThrottledPasswordResetConfirmView(DjRestAuthPasswordResetConfirmView):
+    """dj-rest-auth PasswordResetConfirmView with a project-specific rate limit applied."""
+
+    throttle_classes = [PasswordResetConfirmThrottle]
 
 
 class VerifyEmailThrottle(AnonRateThrottle):
