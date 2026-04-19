@@ -11,7 +11,8 @@ Visiban has been deployed!
 
 2. Backend API is available under /api/ (proxied through the frontend Nginx).
 
-3. Run database migrations (handled automatically by an init container on every deploy).
+3. Run database migrations (handled automatically by a pre-install/pre-upgrade
+   Job on every release — see `kubectl get jobs -l app.kubernetes.io/component=migrate`).
 
 4. Django admin — access via port-forward to the backend service:
   kubectl port-forward svc/{{ include "visiban.fullname" . }}-backend 8000:8000
