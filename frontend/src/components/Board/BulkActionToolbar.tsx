@@ -26,6 +26,11 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const assignRef = useRef<HTMLButtonElement>(null);
   const priorityRef = useRef<HTMLButtonElement>(null);
 
+  // Item refs for keyboard navigation within each dropdown menu
+  const moveItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const assignItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const priorityItemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   // Priority 25: dropdown Escape closes the open dropdown and returns focus to its trigger.
   useEscapeStack(() => {
     if (dropdown === null) return false;
@@ -168,6 +173,72 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
     { value: "urgent", color: "#EF4444" },
   ];
 
+  // Assign dropdown items: Unassign + non-viewer members
+  const assignMembers = board.members.filter((m) => m.role !== "viewer");
+  // Total assign items = 1 (Unassign) + assignMembers.length
+  const assignItemCount = 1 + assignMembers.length;
+
+  // Generic arrow-key handler for a flat list of item refs
+  const makeItemKeyDown = (
+    itemRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>,
+    itemCount: number,
+    triggerRef: React.RefObject<HTMLButtonElement | null>,
+  ) => (e: React.KeyboardEvent, i: number) => {
+    if (e.key === "ArrowDown") {
+      itemRefs.current[Math.min(i + 1, itemCount - 1)]?.focus();
+      e.preventDefault();
+    } else if (e.key === "ArrowUp") {
+      if (i === 0) triggerRef.current?.focus();
+      else itemRefs.current[i - 1]?.focus();
+      e.preventDefault();
+    } else if (e.key === "Home") {
+      itemRefs.current[0]?.focus();
+      e.preventDefault();
+    } else if (e.key === "End") {
+      itemRefs.current[itemCount - 1]?.focus();
+      e.preventDefault();
+    }
+  };
+
+  // Generic trigger key handler: open + focus first item on ArrowDown
+  const makeTriggerKeyDown = (
+    isOpen: boolean,
+    openFn: () => void,
+    itemRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>,
+  ) => (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        openFn();
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      itemRefs.current[0]?.focus();
+      e.preventDefault();
+    }
+  };
+
+  const handleMoveItemKeyDown = makeItemKeyDown(moveItemRefs, board.columns.length, moveRef);
+  const handleAssignItemKeyDown = makeItemKeyDown(assignItemRefs, assignItemCount, assignRef);
+  const handlePriorityItemKeyDown = makeItemKeyDown(priorityItemRefs, priorities.length, priorityRef);
+
+  const handleMoveTriggerKeyDown = makeTriggerKeyDown(
+    dropdown === "move",
+    () => toggle("move"),
+    moveItemRefs,
+  );
+  const handleAssignTriggerKeyDown = makeTriggerKeyDown(
+    dropdown === "assign",
+    () => toggle("assign"),
+    assignItemRefs,
+  );
+  const handlePriorityTriggerKeyDown = makeTriggerKeyDown(
+    dropdown === "priority",
+    () => toggle("priority"),
+    priorityItemRefs,
+  );
+
   return (
     <>
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-xl shadow-2xl px-4 py-2.5 border border-line">
@@ -181,17 +252,26 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           <button
             ref={moveRef}
             onClick={() => toggle("move")}
+            onKeyDown={handleMoveTriggerKeyDown}
             disabled={busy}
+            aria-haspopup="menu"
+            aria-expanded={dropdown === "move"}
             className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
           >
             Move to...
           </button>
           {dropdown === "move" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
-              {board.columns.map((col) => (
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto"
+            >
+              {board.columns.map((col, i) => (
                 <button
                   key={col.id}
+                  ref={(el) => { moveItemRefs.current[i] = el; }}
+                  role="menuitem"
                   onClick={() => handleMove(col)}
+                  onKeyDown={(e) => handleMoveItemKeyDown(e, i)}
                   className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
@@ -207,23 +287,35 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           <button
             ref={assignRef}
             onClick={() => toggle("assign")}
+            onKeyDown={handleAssignTriggerKeyDown}
             disabled={busy}
+            aria-haspopup="menu"
+            aria-expanded={dropdown === "assign"}
             className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
           >
             Assign to...
           </button>
           {dropdown === "assign" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto">
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[160px] max-h-64 overflow-auto"
+            >
               <button
+                ref={(el) => { assignItemRefs.current[0] = el; }}
+                role="menuitem"
                 onClick={() => handleAssign(null)}
+                onKeyDown={(e) => handleAssignItemKeyDown(e, 0)}
                 className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg-tertiary italic"
               >
                 Unassign
               </button>
-              {board.members.filter((m) => m.role !== "viewer").map((m) => (
+              {assignMembers.map((m, i) => (
                 <button
                   key={m.user.id}
+                  ref={(el) => { assignItemRefs.current[i + 1] = el; }}
+                  role="menuitem"
                   onClick={() => handleAssign(m.user.id)}
+                  onKeyDown={(e) => handleAssignItemKeyDown(e, i + 1)}
                   className="w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg"
                 >
                   {userDisplayName(m.user)}
@@ -238,17 +330,26 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           <button
             ref={priorityRef}
             onClick={() => toggle("priority")}
+            onKeyDown={handlePriorityTriggerKeyDown}
             disabled={busy}
+            aria-haspopup="menu"
+            aria-expanded={dropdown === "priority"}
             className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
           >
             Priority...
           </button>
           {dropdown === "priority" && (
-            <div className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px]">
-              {priorities.map((p) => (
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 mb-2 bg-sunken border border-line rounded-lg shadow-xl py-1 min-w-[120px]"
+            >
+              {priorities.map((p, i) => (
                 <button
                   key={p.value}
+                  ref={(el) => { priorityItemRefs.current[i] = el; }}
+                  role="menuitem"
                   onClick={() => handlePriority(p.value)}
+                  onKeyDown={(e) => handlePriorityItemKeyDown(e, i)}
                   className="flex items-center gap-2 w-full text-left text-xs px-3 py-1.5 hover:bg-surface-hover text-fg capitalize"
                 >
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />

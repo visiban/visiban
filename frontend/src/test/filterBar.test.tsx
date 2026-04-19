@@ -196,6 +196,38 @@ describe('FilterBar — Clear all button styling', () => {
   })
 })
 
+describe('FilterBar — dropdown ARIA attributes', () => {
+  it('SingleSelectDropdown trigger has aria-haspopup and aria-expanded', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    // "Due date" is rendered as a SingleSelectDropdown
+    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('SingleSelectDropdown trigger aria-expanded becomes true when open', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
+    await userEvent.setup().click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('CheckboxDropdown trigger has aria-haspopup and aria-expanded', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    // "Assignee" is rendered as a CheckboxDropdown
+    const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-haspopup', 'true')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('CheckboxDropdown trigger aria-expanded becomes true when open', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
+    await userEvent.setup().click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+})
+
 describe('FilterBar — MyCardsButton', () => {
   it('does not render My cards button when currentUser is not provided', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
 export interface CheckboxDropdownProps<T extends string | number> {
@@ -18,6 +18,8 @@ export default function CheckboxDropdown<T extends string | number>({
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const menuId = `${id}-menu`;
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
@@ -59,6 +61,9 @@ export default function CheckboxDropdown<T extends string | number>({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-controls={menuId}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           selected.length > 0
             ? "border-info text-info"
@@ -82,7 +87,13 @@ export default function CheckboxDropdown<T extends string | number>({
       </button>
 
       {open && (
-        <div ref={menuRef} className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div
+          ref={menuRef}
+          role="group"
+          id={menuId}
+          aria-label={label}
+          className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]"
+        >
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-fg-muted italic">
               No options available

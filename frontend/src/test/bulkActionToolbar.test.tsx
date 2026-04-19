@@ -521,6 +521,39 @@ describe('BulkActionToolbar', () => {
     expect(onClearSelection).not.toHaveBeenCalled()
   })
 
+  it('"Move to..." trigger has aria-haspopup="menu"', () => {
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    const trigger = screen.getByText('Move to...').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+  })
+
+  it('"Move to..." trigger aria-expanded reflects open state', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    const trigger = screen.getByText('Move to...').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(trigger)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+
   it('shows warning in delete modal when member selects cards by others', async () => {
     const user = userEvent.setup()
     // memberUser is used both as a board member (BoardUser shape) and as the
