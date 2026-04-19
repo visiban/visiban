@@ -3003,6 +3003,10 @@
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.1.0
 </code></pre></div>
 <p>Init containers run <code>migrate</code> before the new backend pod becomes ready, so migrations are applied automatically. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback procedures.</p>
+<div class="admonition warning">
+<p class="admonition-title">Always pin the image tag</p>
+<p>The chart defaults <code>backend.image.tag</code> and <code>frontend.image.tag</code> to the current release (e.g. <code>v1.0.0</code>). <strong>Never deploy with <code>tag: "latest"</code> or an empty tag</strong> — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (<code>v1.0.0</code>, <code>v1.1.0</code>, etc.), or to an image digest (<code>sha256:...</code>) for maximum reproducibility. The chart prints a warning in <code>helm install</code> / <code>helm upgrade</code> output when it detects an unpinned tag.</p>
+</div>
 <h2 id="django-admin-access">Django admin access<a class="headerlink" href="#django-admin-access" title="Permanent link">&para;</a></h2>
 <p>The Django admin panel (<code>/admin/</code>) is restricted to loopback at the Nginx layer. Access it via port-forward:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
