@@ -25,13 +25,13 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={onCreateBoard}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Create my first board
         </button>
         <button
           onClick={onJoinGroup}
-          className="px-6 py-2.5 border border-line-strong hover:border-line-emphasis text-fg-secondary hover:text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-6 py-2.5 border border-line-strong hover:border-line-emphasis text-fg-secondary hover:text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Join a group with an invite link
         </button>

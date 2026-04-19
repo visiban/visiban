@@ -216,10 +216,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
       data-tour-step="card"
       className={`group bg-surface rounded-md select-none transition-all border relative z-0
         ${readOnly ? "cursor-default" : "cursor-pointer hover:-translate-y-0.5 hover:z-20"}
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
         ${isDragging && !overlay ? "opacity-25 !shadow-none !translate-y-0" : ""}
         ${overlay ? "rotate-1 opacity-95 !-translate-y-1" : ""}
-        ${highlighted ? "ring-2 ring-blue-400 ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-blue-400 bg-info/20" : ""}
+        ${highlighted ? "ring-2 ring-primary-soft ring-offset-1 ring-offset-sunken animate-pulse" : selected ? "ring-2 ring-primary-soft bg-info/20" : ""}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -243,8 +243,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
           aria-checked={selected}
           tabIndex={0}
           className={`absolute top-1 right-1 w-4 h-4 rounded border flex items-center justify-center cursor-pointer transition z-10
-            focus:outline-none focus:ring-2 focus:ring-blue-500
-            ${selected ? "bg-blue-500 border-blue-500 text-white opacity-100" : "border-line-strong bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100"}
+            focus:outline-none focus:ring-2 focus:ring-primary-emphasis
+            ${selected ? "bg-primary-emphasis border-primary-emphasis text-on-primary opacity-100" : "border-line-strong bg-surface-hover opacity-0 group-hover:opacity-100 focus:opacity-100"}
           `}
           onClick={(e) => { e.stopPropagation(); e.preventDefault(); onSelect(); }}
           onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}
@@ -332,7 +332,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
             {/* Recently moved dot — shown in both modes (<24h) */}
             {isRecent && (
-              <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" title="Recently moved" />
+              <span className="w-2 h-2 rounded-full bg-primary-emphasis shrink-0" title="Recently moved" />
             )}
 
             {/* Last-moved text label — expanded mode only (≥24h ago) */}

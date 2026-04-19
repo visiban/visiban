@@ -40,7 +40,7 @@ export default function ShareBoardHeader({ boardName }: Props) {
       {/* Sign-in CTA */}
       <button
         onClick={() => navigate("/login")}
-        className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+        className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
       >
         Sign in to collaborate
       </button>

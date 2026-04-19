@@ -91,7 +91,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.display_name}
           onChange={set("display_name")}
           placeholder="How you appear on the board"
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
@@ -101,7 +101,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.first_name}
             onChange={set("first_name")}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
         <label className="flex flex-col gap-1 flex-1 text-sm text-fg-tertiary">
@@ -109,7 +109,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           <input
             value={form.last_name}
             onChange={set("last_name")}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
       </div>
@@ -120,7 +120,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.username}
           onChange={set("username")}
           required
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
@@ -131,7 +131,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
           value={form.email}
           onChange={set("email")}
           required
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
@@ -191,7 +191,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -260,7 +260,7 @@ function SecurityTab({ user }: { user: User }) {
             onChange={set("current_password")}
             required
             autoComplete="current-password"
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
           />
         </label>
       )}
@@ -274,7 +274,7 @@ function SecurityTab({ user }: { user: User }) {
           required
           autoComplete="new-password"
           minLength={12}
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
@@ -286,7 +286,7 @@ function SecurityTab({ user }: { user: User }) {
           onChange={set("confirm")}
           required
           autoComplete="new-password"
-          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-fg-muted"
+          className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent transition placeholder-fg-muted"
         />
       </label>
 
@@ -299,7 +299,7 @@ function SecurityTab({ user }: { user: User }) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
@@ -406,7 +406,7 @@ function AccessTokensTab() {
               placeholder="Token name (e.g. CI pipeline)"
               maxLength={64}
               required
-              className="flex-1 min-w-0 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 min-w-0 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-name-input"
             />
             <input
@@ -414,13 +414,13 @@ function AccessTokensTab() {
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
               title="Optional expiry date (max 1 year)"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               data-testid="token-expiry-input"
             />
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-fg text-sm px-3 py-1.5 rounded transition"
+              className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm px-3 py-1.5 rounded transition"
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}
@@ -553,8 +553,8 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
               aria-checked={prefs[key]}
               disabled={saving === key}
               onClick={() => toggle(key)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                prefs[key] ? "bg-blue-600" : "bg-surface-active"
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
+                prefs[key] ? "bg-primary" : "bg-surface-active"
               }`}
             >
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
@@ -596,9 +596,9 @@ function AppearanceTab() {
           {THEME_OPTIONS.map(({ value, label, description }) => (
             <label
               key={value}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 ${
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                 preference === value
-                  ? "border-blue-500 bg-info/10"
+                  ? "border-primary-emphasis bg-info/10"
                   : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >
@@ -611,10 +611,10 @@ function AppearanceTab() {
                 onChange={() => setPreference(value)}
               />
               <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                preference === value ? "border-blue-500" : "border-line-strong"
+                preference === value ? "border-primary-emphasis" : "border-line-strong"
               }`}>
                 {preference === value && (
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="w-2 h-2 rounded-full bg-primary-emphasis" />
                 )}
               </span>
               <span>
@@ -665,8 +665,8 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
             aria-checked={user.close_editor_on_enter ?? true}
             disabled={saving}
             onClick={toggleCloseOnEnter}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-              (user.close_editor_on_enter ?? true) ? "bg-blue-600" : "bg-surface-active"
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
+              (user.close_editor_on_enter ?? true) ? "bg-primary" : "bg-surface-active"
             }`}
           >
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
@@ -738,7 +738,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
-                        ? "bg-blue-600 text-white font-medium"
+                        ? "bg-primary text-on-primary font-medium"
                         : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >

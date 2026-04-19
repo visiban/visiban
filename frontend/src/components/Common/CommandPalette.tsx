@@ -8,9 +8,9 @@ import type { Board, Card, Column } from "../../types";
 type PriorityLevel = "high" | "medium" | "low" | "none";
 
 const PRIORITY_COLOR: Record<PriorityLevel, string> = {
-  high: "bg-red-500",
-  medium: "bg-amber-400",
-  low: "bg-blue-500",
+  high: "bg-danger-emphasis",
+  medium: "bg-warning-emphasis",
+  low: "bg-primary-emphasis",
   none: "bg-surface-active",
 };
 
@@ -186,7 +186,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[12vh]"
+      className="fixed inset-0 z-50 bg-backdrop/60 flex items-start justify-center pt-[12vh]"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="w-[480px] max-w-[90vw] bg-surface border border-line-strong rounded-lg shadow-2xl flex flex-col max-h-[60vh]">

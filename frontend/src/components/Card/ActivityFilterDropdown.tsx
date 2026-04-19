@@ -103,7 +103,7 @@ export default function ActivityFilterDropdown({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           selected.length > 0
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
@@ -191,7 +191,7 @@ export default function ActivityFilterDropdown({
                     type="button"
                     onClick={handleReset}
                     disabled={!canReset}
-                    className="w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                    className="w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover text-fg-secondary disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                   >
                     Reset to default
                   </button>

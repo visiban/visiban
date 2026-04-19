@@ -352,7 +352,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 title="Favorites"
                 aria-haspopup="true"
                 aria-expanded={favoritesAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   favoritesAnchor
                     ? "text-warning bg-surface-hover"
                     : isActiveFavoriteBoard
@@ -456,7 +456,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 title="Recent boards"
                 aria-haspopup="true"
                 aria-expanded={recentAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   recentAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveRecentBoard
@@ -479,7 +479,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 title="Groups"
                 aria-haspopup="true"
                 aria-expanded={groupsAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   groupsAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveGroupBoard
@@ -523,7 +523,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
                 title="Personal boards"
                 aria-haspopup="true"
                 aria-expanded={personalAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   personalAnchor
                     ? "text-fg bg-surface-hover"
                     : isActivePersonalBoard

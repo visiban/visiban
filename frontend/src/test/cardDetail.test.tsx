@@ -167,7 +167,7 @@ describe('CardDetail', () => {
   it('clicking the backdrop calls onClose', async () => {
     const props = defaultProps()
     const { container } = render(<CardDetail {...props} />)
-    const backdrop = container.querySelector('.bg-black\\/40') as HTMLElement
+    const backdrop = container.querySelector('.bg-backdrop\\/40') as HTMLElement
     await userEvent.setup().click(backdrop)
     expect(props.onClose).toHaveBeenCalledOnce()
   })
@@ -741,7 +741,7 @@ describe('CardDetail', () => {
         render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
         // Dot is aria-hidden and has no text — find by its unique class combination
         const wrapper = document.querySelector('.relative.shrink-0')
-        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).toBeInTheDocument()
+        expect(wrapper?.querySelector('.bg-primary-emphasis.rounded-full')).toBeInTheDocument()
       })
 
       it('dot disappears after the move button is clicked for the first time', async () => {
@@ -749,7 +749,7 @@ describe('CardDetail', () => {
         render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
         await userEvent.setup().click(screen.getByRole('button', { name: /Move card to different column or swimlane/ }))
         const wrapper = document.querySelector('.relative.shrink-0')
-        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).not.toBeInTheDocument()
+        expect(wrapper?.querySelector('.bg-primary-emphasis.rounded-full')).not.toBeInTheDocument()
       })
 
       it('dot is absent when move-to-seen is already true in localStorage', () => {
@@ -757,7 +757,7 @@ describe('CardDetail', () => {
         const onMoveCard = vi.fn().mockResolvedValue(undefined)
         render(<CardDetail {...defaultProps()} board={makeBoardWithTwoCols()} onMoveCard={onMoveCard} />)
         const wrapper = document.querySelector('.relative.shrink-0')
-        expect(wrapper?.querySelector('.bg-blue-500.rounded-full')).not.toBeInTheDocument()
+        expect(wrapper?.querySelector('.bg-primary-emphasis.rounded-full')).not.toBeInTheDocument()
       })
     })
   })

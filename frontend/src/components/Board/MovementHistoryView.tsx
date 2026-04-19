@@ -84,7 +84,7 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
         <button
           ref={closeRef}
           onClick={onClose}
-          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-0.5 shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           aria-label="Close panel"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
@@ -284,7 +284,7 @@ export default function MovementHistoryView({ board }: Props) {
               type="date"
               value={filters.since}
               onChange={(e) => applyFilters({ ...filters, since: e.target.value })}
-              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
+              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-36"
               aria-label="Since date"
             />
           </div>
@@ -294,7 +294,7 @@ export default function MovementHistoryView({ board }: Props) {
               type="date"
               value={filters.until}
               onChange={(e) => applyFilters({ ...filters, until: e.target.value })}
-              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36"
+              className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent w-36"
               aria-label="Until date"
             />
           </div>
@@ -307,7 +307,7 @@ export default function MovementHistoryView({ board }: Props) {
             </button>
           )}
           {board.capabilities?.movement_export && (
-            <button className="ml-auto px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button className="ml-auto px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
               Export
             </button>
           )}
@@ -316,7 +316,7 @@ export default function MovementHistoryView({ board }: Props) {
         {/* Body */}
         {loading ? (
           <div className="flex items-center justify-center flex-1 py-16">
-            <span className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+            <span className="w-6 h-6 border-2 border-primary-emphasis border-t-transparent rounded-full animate-spin" aria-label="Loading" />
           </div>
         ) : error ? (
           <div className="flex items-center justify-center flex-1 py-16">
@@ -359,7 +359,7 @@ export default function MovementHistoryView({ board }: Props) {
                         role="row"
                         aria-selected={isSelected}
                         data-testid="history-row"
-                        className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
                           isSelected
                             ? "bg-info/10"
                             : isFocused
@@ -385,7 +385,7 @@ export default function MovementHistoryView({ board }: Props) {
                           {m.movement_type === 'archived' ? (
                             <span className="text-fg-tertiary italic">Archived</span>
                           ) : m.movement_type === 'unarchived' ? (
-                            <span className="text-violet-400">Reactivated</span>
+                            <span className="text-accent-violet">Reactivated</span>
                           ) : (
                             <>
                               {m.from_column_name && (
@@ -414,7 +414,7 @@ export default function MovementHistoryView({ board }: Props) {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   ← Prev
                 </button>
@@ -422,7 +422,7 @@ export default function MovementHistoryView({ board }: Props) {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1 text-xs rounded bg-surface border border-line-strong text-fg-secondary hover:text-fg hover:border-line-emphasis disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Next →
                 </button>

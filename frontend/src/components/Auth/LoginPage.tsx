@@ -127,7 +127,7 @@ export default function LoginPage({ onLogin }: Props) {
             placeholder={mode === "login" ? "Username or email" : "Email address"}
             value={loginField}
             onChange={(e) => setLoginField(e.target.value)}
-            className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
           />
           <div>
             <input
@@ -136,14 +136,14 @@ export default function LoginPage({ onLogin }: Props) {
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
             />
             {mode === "login" && (
               <div className="flex justify-end mt-1">
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-password")}
-                  className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition"
+                  className="text-xs text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition"
                 >
                   Forgot password?
                 </button>
@@ -157,7 +157,7 @@ export default function LoginPage({ onLogin }: Props) {
               placeholder="Confirm password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full bg-surface border border-line text-fg-secondary placeholder-fg-muted rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
             />
           )}
           {mode === "register" && !registrationOpen && !hasInviteToken && (
@@ -169,7 +169,7 @@ export default function LoginPage({ onLogin }: Props) {
           <button
             type="submit"
             disabled={submitting || (mode === "register" && !registrationOpen && !hasInviteToken)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
           </button>
@@ -181,7 +181,7 @@ export default function LoginPage({ onLogin }: Props) {
               <button
                 type="button"
                 onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); }}
-                className="text-info hover:text-info underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                className="text-info hover:text-info underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               >
                 {mode === "login" ? "Create one" : "Sign in"}
               </button>
@@ -203,7 +203,7 @@ export default function LoginPage({ onLogin }: Props) {
                 // exception to the site's slate palette. See https://developers.google.com/identity/branding-guidelines
                 <a
                   href={oauthUrl("google", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-white text-gray-900 hover:bg-gray-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-white text-gray-900 hover:bg-gray-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <GoogleIcon />
                   Continue with Google
@@ -212,7 +212,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.github && (
                 <a
                   href={oauthUrl("github", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <GitHubIcon />
                   Continue with GitHub
@@ -221,7 +221,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.gitlab && (
                 <a
                   href={oauthUrl("gitlab", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-orange-600 text-white font-medium py-2.5 px-4 rounded hover:bg-orange-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-warning-bg text-on-warning font-medium py-2.5 px-4 rounded hover:bg-warning-bg-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <GitLabIcon />
                   Continue with GitLab
@@ -230,7 +230,7 @@ export default function LoginPage({ onLogin }: Props) {
               {providers.oidc && (
                 <a
                   href={oauthUrl("oidc", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex items-center justify-center gap-3 bg-surface-hover text-fg font-medium py-2.5 px-4 rounded hover:bg-surface-active transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Continue with {providers.oidc_name ?? "SSO"}
                 </a>

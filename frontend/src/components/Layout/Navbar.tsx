@@ -107,14 +107,14 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-fg-secondary hover:text-fg transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+              className="relative text-fg-secondary hover:text-fg transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10 2a6 6 0 00-6 6v3l-1.293 1.293A1 1 0 003 14h14a1 1 0 00.707-1.707L16 11V8a6 6 0 00-6-6zM8 17a2 2 0 004 0H8z" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-danger-emphasis text-on-danger text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
@@ -125,7 +125,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-info hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                    className="text-xs text-info hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
                   >
                     Mark all read
                   </button>
@@ -138,7 +138,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                     <button
                       key={n.id}
                       onClick={() => handleClickNotification(n)}
-                      className="w-full text-left px-3 py-2.5 border-b border-line hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+                      className="w-full text-left px-3 py-2.5 border-b border-line hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     >
                       <p className="text-xs text-fg leading-snug">{n.verb}</p>
                       <p className="text-[10px] text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
@@ -154,13 +154,13 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
           <button
             onClick={() => navigate("/settings", { state: { from: location } })}
-            className="text-fg text-sm hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+            className="text-fg text-sm hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded px-1"
           >
             {userDisplayName(user)}
           </button>
           <button
             onClick={onLogout}
-            className="text-xs text-fg-tertiary hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded px-1"
+            className="text-xs text-fg-tertiary hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded px-1"
           >
             Sign out
           </button>

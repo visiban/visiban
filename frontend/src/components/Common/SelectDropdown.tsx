@@ -60,7 +60,7 @@ export default function SelectDropdown<T extends string>({
         title={disabled && disabledReason ? disabledReason : undefined}
         aria-label={disabled && disabledReason ? disabledReason : undefined}
         onClick={() => setOpen((v) => !v)}
-        className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken
+        className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken
           ${open
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"

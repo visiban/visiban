@@ -270,7 +270,7 @@ describe('BoardView', () => {
 
   it('live dot is green and pulsing when connected', () => {
     const { container } = render(<BoardView {...defaultProps()} />)
-    const dot = container.querySelector('.bg-green-400')
+    const dot = container.querySelector('.bg-success-emphasis')
     expect(dot).toBeInTheDocument()
     expect(dot?.className).toMatch(/animate-pulse/)
   })

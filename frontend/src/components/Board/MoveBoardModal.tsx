@@ -85,7 +85,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
         <button
           onClick={handleMove}
           disabled={!hasChanged || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Moving…" : "Move"}
         </button>
@@ -169,7 +169,7 @@ function PickerRow({
       <span className={`shrink-0 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition ${
         selected ? "border-info" : "border-line-strong"
       }`}>
-        {selected && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
+        {selected && <span className="w-1.5 h-1.5 rounded-full bg-primary-soft" />}
       </span>
       <span>{icon}</span>
       <span className="flex-1 truncate font-medium">{label}</span>

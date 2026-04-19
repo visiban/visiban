@@ -40,16 +40,46 @@
   --fg-muted: 100 116 139;         /* slate-500 — stats, captions, placeholders */
   --fg-faint: 71 85 105;           /* slate-600 — hover-reveal affordances, separator highlight */
 
-  /* Semantic — dark mode keeps bright -400 shades */
-  --danger: 248 113 113;           /* red-400 */
-  --warning: 251 146 60;           /* orange-400 — also covers amber for warning toasts */
-  --success: 74 222 128;           /* green-400 */
-  --info: 96 165 250;              /* blue-400 — active filter/selection emphasis */
+  /* Semantic — dark mode keeps bright -400 shades for text/icon use */
+  --danger: 248 113 113;           /* red-400 — text/icon */
+  --warning: 251 146 60;           /* orange-400 — text/icon */
+  --success: 74 222 128;           /* green-400 — text/icon */
+  --info: 96 165 250;              /* blue-400 — active filter/selection text */
 
-  /* Accent — the Visiban blue used for primary actions. Not themed; identical
-     in both modes so brand consistency is preserved. */
-  --accent: 37 99 235;             /* blue-600 */
-  --accent-hover: 29 78 216;       /* blue-700 */
+  /* Interactive — primary action (Visiban brand blue).
+     The `-bg` variants are the solid button fills; `-emphasis` and `-soft` are
+     the focus-ring / border / filter-badge shades. Brand blue is identical in
+     both themes. */
+  --primary: 37 99 235;            /* blue-600 — button bg */
+  --primary-hover: 29 78 216;      /* blue-700 — button hover bg */
+  --primary-emphasis: 59 130 246;  /* blue-500 — focus rings, active borders */
+  --primary-soft: 96 165 250;      /* blue-400 — first-encounter dots, soft accents */
+
+  /* Interactive — destructive action */
+  --danger-bg: 220 38 38;          /* red-600 — danger button bg */
+  --danger-bg-hover: 185 28 28;    /* red-700 — danger hover */
+  --danger-emphasis: 239 68 68;    /* red-500 — danger focus ring / card border */
+
+  /* Interactive — warning action */
+  --warning-bg: 217 119 6;         /* amber-600 — archive/warn button bg */
+  --warning-bg-hover: 180 83 9;    /* amber-700 — warning hover */
+  --warning-emphasis: 245 158 11;  /* amber-500 — card border for warnings */
+
+  /* Interactive — positive action */
+  --success-bg: 22 163 74;         /* green-600 — success button bg (rare) */
+  --success-emphasis: 34 197 94;   /* green-500 — timeline dot / success marker */
+
+  /* On-color — text that sits on top of the solid *-bg fills above.
+     White on mid-600 shades passes WCAG AA in both themes. */
+  --on-primary: 255 255 255;
+  --on-danger: 255 255 255;
+  --on-warning: 255 255 255;
+
+  /* Accent — violet for non-standard semantic markers (reactivated events, etc.) */
+  --accent-violet: 167 139 250;    /* violet-400 — reads on dark surfaces */
+
+  /* Modal backdrop / scrim */
+  --backdrop: 0 0 0;
 }
 
 [data-theme="light"] {
@@ -74,15 +104,36 @@
   --fg-muted: 100 116 139;         /* slate-500 — same; passes AA on white */
   --fg-faint: 148 163 184;         /* slate-400 */
 
-  /* Semantic — shifted darker for WCAG AA contrast on white */
+  /* Semantic text/icon colors — shifted darker for WCAG AA contrast on white */
   --danger: 220 38 38;             /* red-600 */
   --warning: 234 88 12;            /* orange-600 */
   --success: 22 163 74;            /* green-600 */
   --info: 37 99 235;               /* blue-600 */
 
-  /* Accent unchanged — see note above */
-  --accent: 37 99 235;
-  --accent-hover: 29 78 216;
+  /* Interactive — same Visiban brand blue in both themes */
+  --primary: 37 99 235;
+  --primary-hover: 29 78 216;
+  --primary-emphasis: 59 130 246;
+  --primary-soft: 96 165 250;
+
+  --danger-bg: 220 38 38;
+  --danger-bg-hover: 185 28 28;
+  --danger-emphasis: 239 68 68;
+
+  --warning-bg: 217 119 6;
+  --warning-bg-hover: 180 83 9;
+  --warning-emphasis: 245 158 11;
+
+  --success-bg: 22 163 74;
+  --success-emphasis: 34 197 94;
+
+  --on-primary: 255 255 255;
+  --on-danger: 255 255 255;
+  --on-warning: 255 255 255;
+
+  --accent-violet: 124 58 237;     /* violet-600 — WCAG AA on white */
+
+  --backdrop: 0 0 0;
 }
 
 body {

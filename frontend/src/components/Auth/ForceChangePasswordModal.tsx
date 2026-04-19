@@ -61,7 +61,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={current}
             onChange={(e) => setCurrent(e.target.value)}
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
             autoFocus
           />
@@ -73,7 +73,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={next}
             onChange={(e) => setNext(e.target.value)}
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
           />
         </div>
@@ -84,7 +84,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             required
           />
         </div>
@@ -96,7 +96,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Set new password"}
         </button>

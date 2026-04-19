@@ -93,7 +93,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         </div>
         {cards.length === 0 && active && (
           <div className={`h-10 rounded border-2 border-dashed transition-colors ${
-            isOver ? "border-blue-500 bg-info/20" : "border-line"
+            isOver ? "border-primary-emphasis bg-info/20" : "border-line"
           }`} />
         )}
       </SortableContext>
@@ -113,10 +113,10 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
                 if (e.key === "Escape") setAdding(false);
               }}
               placeholder="Card title…"
-              className="w-full text-xs border border-blue-500 rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"
+              className="w-full text-xs border border-primary-emphasis rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"
             />
             <div className="flex gap-1.5 mt-1.5">
-              <button onClick={handleAdd} className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">Add</button>
+              <button onClick={handleAdd} className="text-xs bg-primary text-on-primary px-2.5 py-1 rounded hover:bg-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
               <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-fg-tertiary hover:text-fg-secondary transition">Cancel</button>
             </div>
             <p className="text-xs h-4"><span className="text-danger">{addError}</span></p>

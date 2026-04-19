@@ -41,7 +41,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
     }
   };
 
-  const inputCls = "w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted";
+  const inputCls = "w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted";
 
   return (
     <ModalWrapper open={true} onClose={onClose} title="Your profile" maxWidth="max-w-md">
@@ -93,7 +93,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>

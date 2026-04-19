@@ -133,7 +133,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             <span
               {...attributes}
               {...listeners}
-              className={`text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
+              className={`text-fg-faint hover:text-fg-secondary cursor-grab active:cursor-grabbing text-sm select-none shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition-opacity ${collapsed ? "" : "mt-0.5"}`}
               title="Drag to reorder"
             >
               ⠿
@@ -153,7 +153,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 }}
                 onBlur={commitRename}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full text-sm bg-sunken text-fg border border-blue-500 rounded px-1 py-0 outline-none"
+                className="w-full text-sm bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
               />
             ) : (
               <p
@@ -170,7 +170,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {!collapsed && (
               <button
                 onClick={() => { if (isAdmin) setEditing(true); }}
-                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
+                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded ${isAdmin ? "text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
                 title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
                 disabled={!isAdmin}
               >
@@ -180,7 +180,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {/* Focus icon — toggles single-swimlane focus mode on/off */}
             <button
               onClick={() => isFocused ? onExitFocus() : onFocus(swimlane.id)}
-              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-blue-500 rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
+              className={`opacity-0 group-hover:opacity-100 focus:opacity-100 transition focus:ring-2 focus:ring-primary-emphasis rounded shrink-0 focus:outline-none ${isFocused ? "!opacity-100 text-info" : "text-fg-tertiary hover:text-fg"}`}
               title={isFocused ? "Exit focus" : `Focus on ${swimlane.name}`}
               aria-pressed={isFocused}
             >
@@ -194,7 +194,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             </button>
             <button
               onClick={onToggleCollapse}
-              className="text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              className="text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               aria-pressed={collapsed}
               aria-label={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}
               title={collapsed ? `Expand ${swimlane.name}` : `Collapse ${swimlane.name}`}

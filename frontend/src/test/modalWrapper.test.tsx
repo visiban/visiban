@@ -179,7 +179,7 @@ describe('ModalWrapper', () => {
       </ModalWrapper>
     )
     const backdrop = container.firstChild as HTMLElement
-    expect(backdrop.className).toContain('bg-black/60')
+    expect(backdrop.className).toContain('bg-backdrop/60')
     expect(backdrop.className).toContain('z-50')
     expect(backdrop.className).toContain('fixed')
     expect(backdrop.className).toContain('inset-0')

@@ -105,7 +105,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <h2 className="text-fg text-lg font-semibold">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
-              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               + New top-level group
             </button>
@@ -131,13 +131,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setImportingBoard(true)}
-                className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Import
               </button>
               <button
                 onClick={() => setCreatingBoard(true)}
-                className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-sm bg-primary hover:bg-primary-hover text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 + New board
               </button>
@@ -154,7 +154,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                 <div key={b.id} className="group relative">
                   <button
                     onClick={() => navigate(`/boards/${b.id}`)}
-                    className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     <p className="font-medium">{b.name}</p>
                     {b.description && <p className="text-sm text-fg-tertiary mt-0.5">{b.description}</p>}
@@ -162,7 +162,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition">
                     <button
                       onClick={(e) => { e.stopPropagation(); setMovingBoard(b); }}
-                      className="text-fg-muted hover:text-info p-1 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                      className="text-fg-muted hover:text-info p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       title="Move to group"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -173,7 +173,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                     {b.owner.id === user.id && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                        className="text-fg-muted hover:text-danger p-1 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                        className="text-fg-muted hover:text-danger p-1 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                         title="Delete board"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -238,13 +238,13 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           value={joinToken}
           onChange={(e) => setJoinToken(e.target.value)}
           placeholder="https://…/join/abc123 or abc123"
-          className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted mb-4"
+          className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted mb-4"
           autoFocus
           onKeyDown={(e) => { if (e.key === "Enter") handleJoinSubmit(); }}
         />
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
-          <button onClick={handleJoinSubmit} className="bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Join</button>
+          <button onClick={() => setJoiningGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
+          <button onClick={handleJoinSubmit} className="bg-primary hover:bg-primary-hover text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Join</button>
         </div>
       </ModalWrapper>
 
@@ -275,7 +275,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
                   value={deleteConfirmInput}
                   onChange={(e) => setDeleteConfirmInput(e.target.value)}
                   placeholder={`Type "${board?.name}" to confirm`}
-                  className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                  className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                   autoFocus
                 />
               </div>
@@ -283,14 +283,14 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteBoard(confirmDeleteId)}
                 disabled={!canDelete}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
               >
                 Delete
               </button>

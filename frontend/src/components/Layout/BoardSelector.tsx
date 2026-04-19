@@ -59,7 +59,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                 {b.owner.id === user.id && (
                   <button
                     onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); setDeleteConfirmInput(""); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-danger focus:text-danger p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     title="Delete board"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -96,7 +96,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
             <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
               <p className="text-fg-tertiary text-sm mb-1">
@@ -113,7 +113,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                     value={deleteConfirmInput}
                     onChange={(e) => setDeleteConfirmInput(e.target.value)}
                     placeholder={`Type "${board?.name}" to confirm`}
-                    className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                    className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                     autoFocus
                     onKeyDown={(e) => { if (e.key === "Escape") { setConfirmDeleteId(null); setDeleteConfirmInput(""); } }}
                   />
@@ -129,7 +129,7 @@ export default function BoardSelector({ user, onSelect }: Props) {
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
                   disabled={!canDelete}
-                  className="bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete
                 </button>

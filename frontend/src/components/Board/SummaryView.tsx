@@ -82,7 +82,7 @@ export default function SummaryView({ boardId, columns }: Props) {
                         <div
                           key={col}
                           title={`${col}: ${count}`}
-                          className="bg-blue-400 first:rounded-l last:rounded-r overflow-hidden flex items-center justify-center text-[8px] font-bold text-white/80 leading-none"
+                          className="bg-primary-soft first:rounded-l last:rounded-r overflow-hidden flex items-center justify-center text-[8px] font-bold text-on-primary/80 leading-none"
                           style={{
                             width: `${pct}%`,
                             opacity: 0.4 + (idx / columns.length) * 0.6,

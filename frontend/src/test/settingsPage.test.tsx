@@ -388,7 +388,7 @@ describe('AppearanceTab', () => {
     await openAppearanceTab()
     // The Dark label should have the blue-selected styling
     const darkLabel = screen.getByText('Dark').closest('label')
-    expect(darkLabel?.className).toMatch(/border-blue-500/)
+    expect(darkLabel?.className).toMatch(/border-primary-emphasis/)
   })
 
   it('renders native radio inputs for accessibility', async () => {

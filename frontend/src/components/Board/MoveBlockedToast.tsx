@@ -55,7 +55,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
           isAdmin && (
             <button
               onClick={onForce}
-              className="mt-1.5 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+              className="mt-1.5 text-xs text-warning hover:text-warning underline transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             >
               Move anyway (admin override)
             </button>
@@ -64,7 +64,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
       </div>
       <button
         onClick={onDismiss}
-        className="text-fg-muted hover:text-fg transition shrink-0 text-lg leading-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+        className="text-fg-muted hover:text-fg transition shrink-0 text-lg leading-none focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         aria-label="Dismiss"
       >
         ×

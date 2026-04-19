@@ -136,12 +136,12 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
                 }}
                 placeholder="Subgroup name"
                 disabled={subgroupSaving}
-                className="flex-1 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted transition disabled:opacity-40"
+                className="flex-1 bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition disabled:opacity-40"
               />
               <button
                 onClick={handleAddSubgroup}
                 disabled={!subgroupName.trim() || subgroupSaving}
-                className="text-sm font-medium bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-nowrap"
+                className="text-sm font-medium bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis whitespace-nowrap"
               >
                 {subgroupSaving ? "Adding…" : "+ Add"}
               </button>
@@ -167,7 +167,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         <div className="flex items-center justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className="text-sm font-medium bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm font-medium bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Done
           </button>
@@ -193,7 +193,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
               if (e.key === "Enter") { e.preventDefault(); handleCreate(); }
             }}
             placeholder={parentGroup ? "e.g. Backend" : "e.g. Engineering"}
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted transition"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted transition"
           />
         </div>
         <div>
@@ -206,7 +206,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What is this group for?"
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted resize-none transition"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted resize-none transition"
           />
         </div>
         <p className="text-xs h-4">
@@ -214,11 +214,11 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         </p>
       </div>
       <div className="flex items-center justify-end gap-3 mt-5">
-        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500">Cancel</button>
+        <button onClick={onClose} className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleCreate}
           disabled={!name.trim() || saving || description.length > DESCRIPTION_MAX}
-          className="text-sm font-medium bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm font-medium bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Creating…" : parentGroup ? "Create Subgroup" : "Create Group"}
         </button>

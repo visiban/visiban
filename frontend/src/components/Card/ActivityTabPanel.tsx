@@ -91,20 +91,20 @@ function dotColor(entry: CardTimelineEntry | ChecklistGroup): string {
   if (entry.kind === "move") {
     const data = entry.data as unknown as CardMovement;
     // Initial creation move: from_column is null
-    if (data.from_column === null) return "bg-green-500";
-    return "bg-blue-500";
+    if (data.from_column === null) return "bg-success-emphasis";
+    return "bg-primary-emphasis";
   }
   // activity kind
   switch (entry.event_type) {
     case "comment_added":
-      return "bg-sky-400";
+      return "bg-activity-date";
     case "attachment_added":
     case "attachment_deleted":
-      return "bg-teal-500";
+      return "bg-activity-assign";
     case "archived":
       return "bg-surface-active";
     case "reactivated":
-      return "bg-violet-500";
+      return "bg-activity-reactivated";
     default:
       return "bg-fg-muted";
   }
@@ -244,7 +244,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
       {/* Loading state (initial load) */}
       {loading && (
         <div className="flex items-center justify-center py-8">
-          <span className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span className="ml-2 text-sm text-fg-tertiary">Loading…</span>
         </div>
       )}
@@ -275,7 +275,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           <p className="text-sm text-fg-tertiary">No events match the current filter</p>
           <button
             onClick={() => setSelectedTypes([])}
-            className="text-xs text-info hover:text-info transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="text-xs text-info hover:text-info transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Clear filter
           </button>
@@ -419,10 +419,10 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
           <button
             onClick={handleLoadMore}
             disabled={loadingMore}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm rounded text-fg-secondary hover:text-fg hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {loadingMore && (
-              <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             )}
             {loadingMore ? "Loading…" : "Load more"}
           </button>

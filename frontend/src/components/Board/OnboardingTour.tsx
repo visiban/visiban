@@ -136,7 +136,7 @@ export default function OnboardingTour({ onComplete }: Props) {
     <div className="fixed inset-0 z-50" data-testid="onboarding-tour">
       {/* Backdrop with cutout — uses CSS clip-path to create a spotlight effect */}
       <div
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0 bg-backdrop/60"
         style={{
           clipPath: `polygon(
             0% 0%, 0% 100%, 100% 100%, 100% 0%,
@@ -184,7 +184,7 @@ export default function OnboardingTour({ onComplete }: Props) {
         <div className="flex justify-end">
           <button
             onClick={handleNext}
-            className="bg-blue-600 hover:bg-blue-700 text-fg text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-primary hover:bg-primary-hover text-fg text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {step < STEPS.length - 1 ? "Next" : "Done"}
           </button>

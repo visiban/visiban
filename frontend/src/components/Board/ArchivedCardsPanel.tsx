@@ -80,7 +80,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-backdrop/50" onClick={onClose} />
 
       {/* Panel */}
       <div
@@ -97,7 +97,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
           </h2>
           <button
             onClick={onClose}
-            className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded p-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             aria-label="Close"
           >
             ✕
@@ -136,7 +136,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                         <button
                           onClick={() => handleUnarchive(card)}
                           disabled={unarchivingId === card.id}
-                          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           {unarchivingId === card.id ? "Unarchiving…" : "Unarchive"}
                         </button>
@@ -149,7 +149,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                 <button
                   onClick={handleLoadMore}
                   disabled={loadingMore}
-                  className="mt-4 w-full text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="mt-4 w-full text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover py-2 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   {loadingMore ? "Loading…" : `Load more (${total - cards.length} remaining)`}
                 </button>

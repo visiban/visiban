@@ -61,7 +61,7 @@ function ToolbarButton({
         onClick();
       }}
       title={title}
-      className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         active
           ? "bg-surface-active text-fg"
           : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
@@ -112,7 +112,7 @@ function ColorPicker({
         type="button"
         onMouseDown={(e) => { e.preventDefault(); setOpen((o) => !o); }}
         title="Text color"
-        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-1 ${
+        className={`px-2 py-1 rounded text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis flex items-center gap-1 ${
           active ? "bg-surface-active text-fg" : "text-fg-tertiary hover:bg-surface-hover hover:text-fg"
         }`}
       >
@@ -349,7 +349,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onClick={enterEdit}
-            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition p-1 rounded text-fg-muted hover:text-fg-secondary hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Edit description"
             tabIndex={0}
             onFocus={enterEdit}
@@ -516,7 +516,7 @@ export default function RichTextEditor({
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-            className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 transition font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Save
           </button>

@@ -70,7 +70,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-line bg-surface cursor-pointer hover:bg-surface-hover transition overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-line bg-surface cursor-pointer hover:bg-surface-hover transition overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-emphasis"
         data-no-pan
         tabIndex={0}
         role="button"
@@ -120,7 +120,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }}
-            className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+            className="text-fg-muted hover:text-fg-secondary transition text-xs shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
             title="Collapse column"
           >
             ◀
@@ -144,7 +144,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-blue-500 rounded px-1 py-0 outline-none"
+              className="flex-1 min-w-0 text-sm font-medium bg-sunken text-fg border border-primary-emphasis rounded px-1 py-0 outline-none"
             />
           ) : (
             <span
@@ -158,7 +158,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {/* Edit icon — opens full modal */}
           <button
             type="button"
-            className={`ml-auto transition text-xs shrink-0 focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-blue-500 rounded ${isAdmin ? "text-fg-faint group-hover/col:text-fg-tertiary hover:text-fg" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
+            className={`ml-auto transition text-xs shrink-0 focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded ${isAdmin ? "text-fg-faint group-hover/col:text-fg-tertiary hover:text-fg" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
             title={isAdmin ? "Edit column settings" : nonAdminTitle}
             onClick={isAdmin ? (e) => { e.stopPropagation(); setEditing(true); } : undefined}
             disabled={!isAdmin}

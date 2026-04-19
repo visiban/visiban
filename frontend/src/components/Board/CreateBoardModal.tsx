@@ -193,7 +193,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="e.g. Q3 Pipeline, Acme Onboarding…"
-              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
           </div>
 
@@ -224,9 +224,9 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                           key={t.slug}
                           onClick={() => handleSelectTemplate(t.slug)}
                           className={[
-                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
+                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
                             isSelected
-                              ? "border-blue-500 bg-info/10 ring-1 ring-blue-500/40"
+                              ? "border-primary-emphasis bg-info/10 ring-1 ring-primary-emphasis/40"
                               : "border-line bg-surface hover:border-line-emphasis",
                           ].join(" ")}
                         >
@@ -265,9 +265,9 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                         <button
                           onClick={() => handleSelectTemplate(blankTemplate.slug)}
                           className={[
-                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
+                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
                             isSelected
-                              ? "border-blue-500 bg-info/10 ring-1 ring-blue-500/40"
+                              ? "border-primary-emphasis bg-info/10 ring-1 ring-primary-emphasis/40"
                               : "border-line bg-surface hover:border-line-emphasis",
                           ].join(" ")}
                         >
@@ -329,7 +329,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder={selected?.lane_placeholder || "e.g. General"}
-              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
             <p className="text-fg-muted text-xs mt-1">
               Leave blank to start with no swimlanes — you can add them later.
@@ -343,7 +343,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               type="checkbox"
               checked={setAsDefault}
               onChange={(e) => setSetAsDefault(e.target.checked)}
-              className="mt-0.5 w-4 h-4 rounded border-line-strong bg-surface text-blue-500 focus:ring-blue-500 focus:ring-offset-sunken cursor-pointer flex-shrink-0"
+              className="mt-0.5 w-4 h-4 rounded border-line-strong bg-surface text-info focus:ring-primary-emphasis focus:ring-offset-sunken cursor-pointer flex-shrink-0"
             />
             <div>
               <label htmlFor="set-default-board" className="text-sm text-fg-secondary cursor-pointer">
@@ -372,7 +372,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
           <button
             onClick={handleSubmit}
             disabled={!name.trim() || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Creating…" : "Create Board"}
           </button>

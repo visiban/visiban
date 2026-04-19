@@ -15,9 +15,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-purple-600 text-purple-100",
-  member: "bg-blue-600 text-blue-100",
-  collaborator: "bg-teal-600 text-teal-100",
+  admin: "bg-palette-purple text-palette-purple-pale",
+  member: "bg-primary text-info",
+  collaborator: "bg-palette-teal text-palette-teal-pale",
   viewer: "bg-surface-active text-fg",
 };
 
@@ -157,7 +157,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
         {!atLimit && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-xs bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             New link
           </button>
@@ -248,7 +248,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(link)}
-                        className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="text-xs bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         {copiedId === link.id ? "Copied!" : "Copy"}
                       </button>
@@ -268,7 +268,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
                     </div>
                     {confirmRevokeId === link.id ? (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Revoke</button>
+                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Revoke</button>
                         <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">Cancel</button>
                       </div>
                     ) : (
@@ -305,7 +305,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
               onChange={(e) => setFormName(e.target.value)}
               placeholder="e.g. Engineering onboarding"
               maxLength={100}
-              className="text-xs bg-surface border border-line rounded px-2 py-1.5 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-fg-muted"
+              className="text-xs bg-surface border border-line rounded px-2 py-1.5 text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder:text-fg-muted"
             />
           </div>
 
@@ -372,7 +372,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="text-xs bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {creating ? "Creating…" : "Create link"}
             </button>

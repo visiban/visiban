@@ -401,7 +401,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <a
                       href={`/groups/${ancestor.id}`}
                       onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
-                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
+                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
                       title={ancestor.name}
                     >
                       {ancestor.name}
@@ -423,7 +423,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={handleRenameKeyDown}
                     onBlur={handleRenameSave}
-                    className="text-fg text-2xl font-bold w-full bg-transparent border border-blue-500 rounded px-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="text-fg text-2xl font-bold w-full bg-transparent border border-primary-emphasis rounded px-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                   />
                 ) : (
                   <div className="flex items-center gap-2">
@@ -461,7 +461,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   onChange={(e) => setDescriptionValue(e.target.value)}
                   onKeyDown={handleDescriptionKeyDown}
                   onBlur={handleDescriptionSave}
-                  className="w-full bg-sunken border border-info rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder-fg-muted"
+                  className="w-full bg-sunken border border-info rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
                   placeholder="Add a description…"
                 />
               ) : isAdmin ? (
@@ -525,7 +525,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             onClick={() => setSearchParams({})}
             className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
               activeTab === "boards"
-                ? "text-fg border-blue-500"
+                ? "text-fg border-primary-emphasis"
                 : "text-fg-tertiary hover:text-fg border-transparent"
             }`}
           >
@@ -536,7 +536,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               onClick={() => setSearchParams({ tab: "settings" })}
               className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${
                 activeTab === "settings"
-                  ? "text-fg border-blue-500"
+                  ? "text-fg border-primary-emphasis"
                   : "text-fg-tertiary hover:text-fg border-transparent"
               }`}
             >
@@ -554,7 +554,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setShowCreateSubgroup(true)}
-                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     + Create subgroup
                   </button>
@@ -570,7 +570,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       key={sg.id}
                       onClick={() => navigate(`/groups/${sg.id}`)}
-                      className="bg-surface hover:bg-surface-hover border border-line rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="bg-surface hover:bg-surface-hover border border-line rounded p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         {/* Group/subgroup icon */}
@@ -595,7 +595,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setImportingBoard(true)}
-                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Import
                   </button>
@@ -607,7 +607,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       role="switch"
                       aria-checked={showSubgroupBoards}
                       onClick={() => setShowSubgroupBoards((v) => !v)}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-blue-600" : "bg-surface-active"}`}
+                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-primary" : "bg-surface-active"}`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
                     </button>
@@ -619,7 +619,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <div key={b.id} className="group/board relative flex items-center">
                     <button
                       onClick={() => navigate(`/boards/${b.id}`)}
-                      className="flex-1 bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <div className="flex items-center gap-2">
                         {/* Board icon */}
@@ -633,7 +633,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     <button
                       onClick={() => setMovingBoard(b)}
                       title="Move to another group"
-                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="absolute right-3 opacity-0 group-hover/board:opacity-100 focus:opacity-100 transition text-fg-muted hover:text-info p-1 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8 5a1 1 0 000 2h5.586l-1.293 1.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L13.586 5H8z" />
@@ -645,7 +645,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {isAdmin && (
                   <button
                     onClick={() => setCreatingBoard(true)}
-                    className="w-full border-2 border-dashed border-line hover:border-line-emphasis hover:bg-surface/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border-2 border-dashed border-line hover:border-line-emphasis hover:bg-surface/50 rounded px-4 py-3 text-left transition group focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     <p className="text-fg-muted group-hover:text-fg-secondary font-medium transition">+ New board</p>
                   </button>
@@ -726,7 +726,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {confirmRemoveMemberId === m.user.id ? (
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-fg-tertiary">Remove?</span>
-                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Yes</button>
                             <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                           </div>
                         ) : (
@@ -742,7 +742,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <div className="flex items-center gap-2 shrink-0">
                         <p className="text-fg-muted text-xs capitalize">{m.role}</p>
                         {m.role === "site_admin" && (
-                          <span className="text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded">site admin</span>
+                          <span className="text-xs bg-palette-purple-deep text-palette-purple-soft px-1.5 py-0.5 rounded">site admin</span>
                         )}
                       </div>
                     )}
@@ -828,7 +828,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       {confirmRemoveLabelId === label.id ? (
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-fg-tertiary">Remove?</span>
-                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Yes</button>
                           <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                         </div>
                       ) : (
@@ -859,12 +859,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     onChange={(e) => setNewLabelName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddGroupLabel(); }}
                     placeholder="Label name…"
-                    className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                    className="flex-1 bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                   />
                   <button
                     onClick={handleAddGroupLabel}
                     disabled={addingLabel || !newLabelName.trim()}
-                    className="text-sm text-fg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm text-fg bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Add
                   </button>
@@ -874,7 +874,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </section>
 
             {/* Danger zone */}
-            <section className="border border-red-900/50 rounded-xl p-5">
+            <section className="border border-danger/40 rounded-xl p-5">
               <h2 className="text-danger font-semibold mb-1">Danger zone</h2>
               <p className="text-fg-muted text-sm mb-4">These actions are permanent and cannot be undone.</p>
               <div className="flex flex-wrap gap-3">
@@ -975,7 +975,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               value={transferConfirmation}
               onChange={(e) => setTransferConfirmation(e.target.value)}
               placeholder={group?.name}
-              className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </div>
 
@@ -993,7 +993,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <button
               onClick={handleTransferOwnership}
               disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
-              className="text-sm text-fg bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="text-sm text-fg bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
             >
               {transferring ? "Transferring…" : "Transfer ownership"}
             </button>
@@ -1011,7 +1011,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
           <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
-          <button onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-red-500">Delete group</button>
+          <button onClick={handleDeleteGroup} className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>
     </div>

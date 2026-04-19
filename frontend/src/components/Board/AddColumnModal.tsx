@@ -45,7 +45,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
             placeholder="e.g. In Progress"
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -55,7 +55,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               value={wipLimit}
               onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 5"
-              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </div>
           <div>
@@ -64,7 +64,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               value={weightLimit}
               onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 20"
-              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </div>
         </div>
@@ -75,7 +75,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${color === c ? "border-white scale-110" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -88,7 +88,7 @@ export default function AddColumnModal({ boardId, onAdded, onClose }: Props) {
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Adding…" : "Add Column"}
         </button>

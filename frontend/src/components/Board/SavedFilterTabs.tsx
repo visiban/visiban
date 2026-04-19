@@ -13,8 +13,8 @@ interface Props {
   hasActiveFilters: boolean;
 }
 
-const focusClass = "focus:outline-none focus:ring-2 focus:ring-blue-500";
-const activeClass = `bg-blue-600 text-white font-medium px-2.5 py-1 rounded ${focusClass}`;
+const focusClass = "focus:outline-none focus:ring-2 focus:ring-primary-emphasis";
+const activeClass = `bg-primary text-on-primary font-medium px-2.5 py-1 rounded ${focusClass}`;
 const inactiveClass = `text-fg-tertiary hover:text-fg px-2.5 py-1 rounded hover:bg-surface-hover transition ${focusClass}`;
 
 /**

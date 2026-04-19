@@ -94,9 +94,9 @@ function ViewToggle({
   const btn = (label: string, val: "board" | "summary" | "history" | "analytics", tourStep?: string) => (
     <button
       onClick={() => onChange(val)}
-      className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         view === val
-          ? "bg-blue-600 text-white"
+          ? "bg-primary text-on-primary"
           : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
       }`}
       {...(tourStep ? { "data-tour-step": tourStep } : {})}
@@ -111,9 +111,9 @@ function ViewToggle({
       {btn("History", "history", "history")}
       <button
         onClick={() => onChange("analytics")}
-        className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           view === "analytics"
-            ? "bg-blue-600 text-white"
+            ? "bg-primary text-on-primary"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
       >
@@ -983,7 +983,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 expandAllSwimlanes();
               }
             }}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             aria-label={allExpanded ? "Collapse all columns and swimlanes" : "Expand all columns and swimlanes"}
           >
             {allExpanded ? "Collapse" : "Expand"}
@@ -991,7 +991,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <button
             data-tour-step="filter"
             onClick={() => setShowFilters((v) => !v)}
-            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
             aria-pressed={showFilters || activeCount > 0}
             aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
           >
@@ -1007,7 +1007,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
               aria-pressed={cardLayout === "compact"}
               aria-label={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}
-              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 cardLayout === "compact"
                   ? "text-info bg-info/10"
                   : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
@@ -1031,7 +1031,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </Tooltip>
           <button
             onClick={() => setShowArchived((v) => !v)}
-            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
             aria-pressed={showArchived}
             aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
           >
@@ -1051,7 +1051,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <button
               onClick={() => setPaletteOpen(true)}
               aria-label="Open command palette"
-              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
                 <circle cx="11" cy="11" r="6" />
@@ -1064,7 +1064,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               onClick={() => setDrawerOpen((v) => !v)}
               aria-pressed={drawerOpen}
               aria-label={drawerOpen ? "Close activity drawer" : "Open activity drawer"}
-              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 drawerOpen ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
               }`}
             >
@@ -1081,7 +1081,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <Tooltip content="Keyboard shortcuts">
             <button
               onClick={() => setShowShortcuts((v) => !v)}
-              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label="Keyboard shortcuts"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
@@ -1097,7 +1097,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <Tooltip content="Export board">
             <button
               onClick={() => { markExportSeen(); setShowExport(true); }}
-              className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label="Export board"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
@@ -1105,7 +1105,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {!exportSeen && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full pointer-events-none" aria-hidden="true" />
+                <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
               )}
             </button>
           </Tooltip>
@@ -1113,7 +1113,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <Tooltip content="Board settings">
               <button
                 onClick={() => setShowSettings(true)}
-                className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 aria-label="Board settings"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
@@ -1144,8 +1144,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             }
           >
             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              socketStatus === "connected" ? "bg-green-400 animate-pulse"
-              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-amber-400 animate-pulse"
+              socketStatus === "connected" ? "bg-success-emphasis animate-pulse"
+              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-warning-emphasis animate-pulse"
               : "bg-fg-muted"
             }`} />
             <span className="hidden lg:inline">
@@ -1233,21 +1233,21 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {/* Collapsed swimlanes strip — shows count and "Expand all lanes" button */}
       {view === "board" && collapsedSwimlaneIds.size > 0 && (
-        <div className="bg-info/15 border-b border-blue-500/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info shrink-0">
+        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info shrink-0">
           <svg className="w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
             <line x1="2" y1="5" x2="14" y2="5" />
             <line x1="2" y1="11" x2="14" y2="11" />
             <polyline points="10,2 13,5 10,8" />
           </svg>
           <span>
-            <span className="font-medium text-blue-200">{collapsedSwimlaneIds.size}</span>
+            <span className="font-medium text-info">{collapsedSwimlaneIds.size}</span>
             {" "}
             {collapsedSwimlaneIds.size === 1 ? "lane" : "lanes"} collapsed
           </span>
           <div className="flex-1" />
           <button
             onClick={expandAllSwimlanes}
-            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Expand all lanes
           </button>
@@ -1256,7 +1256,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {/* Focus mode banner — sits outside the scroll container so it does not scroll away */}
       {focusedSwimlaneId !== null && (
-        <div className="bg-info/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150">
+        <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150">
           <svg className="w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="8" cy="8" r="3" />
             <line x1="8" y1="1" x2="8" y2="4" />
@@ -1265,9 +1265,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             <line x1="12" y1="8" x2="15" y2="8" />
           </svg>
           <span className="text-info">Focused on:</span>
-          <span className="font-medium text-blue-200 truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
+          <span className="font-medium text-info truncate max-w-[24rem]">{focusedSwimlane?.name}</span>
           <div className="flex-1" />
-          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <button onClick={exitFocus} className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
             Exit focus
           </button>
         </div>
@@ -1356,7 +1356,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddColumn(true)}
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-sm bg-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   + Add column
                 </button>
@@ -1456,7 +1456,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddSwimlane(true)}
-                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-sm bg-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   + Add swimlane
                 </button>
@@ -1610,7 +1610,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {confirmDeleteColumn && (() => {
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
         return (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
             <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
               <h3 className="text-fg font-semibold text-lg mb-2">Delete column?</h3>
               <p className="text-fg-tertiary text-sm mb-1">
@@ -1637,7 +1637,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onColumnDeleted(confirmDeleteColumn.id);
                     setConfirmDeleteColumn(null);
                   }}
-                  className="bg-red-600 hover:bg-red-700 text-fg text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete
                 </button>

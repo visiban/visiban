@@ -135,7 +135,7 @@ describe('CardItem', () => {
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-2')
-    expect(root.className).toContain('ring-blue-400')
+    expect(root.className).toContain('ring-primary-soft')
     expect(root.className).toContain('animate-pulse')
   })
 
@@ -163,7 +163,7 @@ describe('CardItem', () => {
     pastDate.setDate(pastDate.getDate() - 5)
     const iso = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`
     render(<CardItem card={makeCard({ due_date: iso })} />)
-    // The overdue span has text-red-500 class
+    // The overdue span has text-danger class
     const dueBadge = screen.getByTitle(`Due ${iso}`)
     expect(dueBadge.className).toContain('text-danger')
   })
@@ -191,7 +191,7 @@ describe('CardItem', () => {
   it('does not apply amber ring class when is_stale is true (removed in favor of overlay)', () => {
     const { container } = render(<CardItem card={makeCard({ is_stale: true })} />)
     const root = container.firstChild as HTMLElement
-    expect(root.className).not.toContain('ring-amber-400')
+    expect(root.className).not.toContain('ring-warning-emphasis')
   })
 
   it('does not render clock emoji when is_stale is true (removed in favor of overlay)', () => {
@@ -276,7 +276,7 @@ describe('CardItem', () => {
     const { container } = render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
-    expect(root.className).toContain('ring-blue-400')
+    expect(root.className).toContain('ring-primary-soft')
   })
 
   it('shows a due date indicator when due_date is set to today (local date)', () => {

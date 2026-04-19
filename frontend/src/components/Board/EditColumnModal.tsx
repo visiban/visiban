@@ -51,7 +51,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+            className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
           />
         </div>
 
@@ -62,7 +62,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               value={wipLimit}
               onChange={(e) => setWipLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="None"
-              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </div>
           <div>
@@ -71,7 +71,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               value={weightLimit}
               onChange={(e) => setWeightLimit(e.target.value.replace(/\D/g, ""))}
               placeholder="None"
-              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
               <button
                 key={c}
                 onClick={() => setColor(c)}
-                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${color === c ? "border-white scale-110" : "border-transparent"}`}
                 style={{ backgroundColor: c }}
               />
             ))}
@@ -128,7 +128,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           type="button"
           onClick={() => { onClose(); onRequestDelete(column); }}
           disabled={cardCount > 0}
-          className="w-full px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+          className="w-full px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
         >
           Delete column
         </button>
@@ -139,7 +139,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Save"}
         </button>

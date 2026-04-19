@@ -48,7 +48,7 @@ export default function ConfirmEmailPage() {
 
         {status === "loading" && (
           <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-fg-tertiary">Verifying your email…</p>
           </div>
         )}
@@ -68,7 +68,7 @@ export default function ConfirmEmailPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Sign in
             </button>
@@ -95,7 +95,7 @@ export default function ConfirmEmailPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Go to sign in
             </button>

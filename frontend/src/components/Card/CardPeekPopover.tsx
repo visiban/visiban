@@ -90,7 +90,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
             {/* Progress bar */}
             <div className="flex-1 h-1.5 bg-surface-hover rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 rounded-full transition-all"
+                className="h-full bg-success-emphasis rounded-full transition-all"
                 style={{
                   width: `${Math.round((card.checklist_done / card.checklist_total) * 100)}%`,
                 }}

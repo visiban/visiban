@@ -44,9 +44,9 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
             {(["json", "csv"] as const).map((fmt) => (
               <label
                 key={fmt}
-                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 ${
+                className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
                   exportFormat === fmt
-                    ? "border-blue-500 bg-info/10"
+                    ? "border-primary-emphasis bg-info/10"
                     : "border-line-strong hover:bg-surface-hover/40"
                 }`}
               >
@@ -73,7 +73,7 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
 
         <button
           onClick={handleExport}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full bg-primary hover:bg-primary-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Export {exportFormat.toUpperCase()}
         </button>

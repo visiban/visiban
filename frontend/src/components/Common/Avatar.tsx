@@ -1,14 +1,14 @@
 import type { User } from "../../types";
 
 const PALETTE = [
-  "bg-teal-600",
-  "bg-amber-600",
-  "bg-violet-600",
-  "bg-rose-600",
-  "bg-blue-600",
-  "bg-emerald-600",
-  "bg-orange-600",
-  "bg-cyan-600",
+  "bg-palette-teal",
+  "bg-warning-bg",
+  "bg-palette-violet",
+  "bg-palette-rose",
+  "bg-primary",
+  "bg-palette-emerald",
+  "bg-warning-bg",
+  "bg-palette-cyan",
 ];
 
 function hashUsername(username: string): number {
@@ -48,7 +48,7 @@ export default function Avatar({ user, size = "md", className = "" }: Props) {
   const base = `rounded-full flex items-center justify-center overflow-hidden shrink-0 font-medium ${sizeClass} ${className}`;
 
   if (!user) {
-    return <div className={`${base} bg-fg-muted text-white`}>?</div>;
+    return <div className={`${base} bg-fg-muted text-on-primary`}>?</div>;
   }
 
   if (user.avatar_url) {
@@ -65,7 +65,7 @@ export default function Avatar({ user, size = "md", className = "" }: Props) {
   const colorClass = PALETTE[hashUsername(user.username ?? "") % PALETTE.length];
   const displayName = user.display_name?.trim() || `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() || user.username;
   return (
-    <div className={`${base} ${colorClass} text-white`} title={displayName}>
+    <div className={`${base} ${colorClass} text-on-primary`} title={displayName}>
       {initials}
     </div>
   );

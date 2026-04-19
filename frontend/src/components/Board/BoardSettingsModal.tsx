@@ -262,7 +262,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 key={t}
                 onClick={() => setTab(t)}
                 className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px ${
-                  tab === t ? "border-blue-500 text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
+                  tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
               >
                 {label}
@@ -346,7 +346,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked
                               disabled
                               readOnly
-                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
+                              className="rounded border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5 opacity-60 cursor-not-allowed"
                             />
                             <span className="text-xs text-fg-muted">Moderator</span>
                           </label>
@@ -357,7 +357,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked={m.is_moderator}
                               disabled={isDisabled}
                               onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
-                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5"
+                              className="rounded border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5"
                             />
                             <span className="text-xs text-fg-tertiary">Moderator</span>
                           </label>
@@ -369,7 +369,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               checked={false}
                               disabled
                               readOnly
-                              className="rounded border-line-strong bg-surface-hover text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
+                              className="rounded border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5 opacity-40 cursor-not-allowed"
                             />
                             <span className="text-xs text-fg-muted">Moderator</span>
                           </label>
@@ -422,7 +422,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         onChange={(e) => { setInviteQuery(e.target.value); setInviteSuccess(null); }}
                         onKeyDown={(e) => { if (e.key === "Escape") { setSuggestions([]); setDropdownAnchor(null); setInviteQuery(""); } }}
                         placeholder="Search by name or email…"
-                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
@@ -488,7 +488,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <button
                       onClick={handleInviteSubmit}
                       disabled={staged.length === 0 || inviting}
-                      className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full py-2 rounded bg-primary hover:bg-primary-hover text-fg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
                     </button>
@@ -614,7 +614,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           value={stalenessThreshold}
                           onChange={(e) => setStalenessThreshold(Number(e.target.value))}
                           onBlur={handleStalenessBlur}
-                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                         />
                         <span className="text-sm text-fg-tertiary">days threshold</span>
                       </div>
@@ -631,7 +631,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           value={stalenessWarningPct}
                           onChange={(e) => setStalenessWarningPct(Number(e.target.value))}
                           onBlur={handleStalenessWarningPctBlur}
-                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 w-20 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
                         />
                         <span className="text-sm text-fg-tertiary">% warning</span>
                       </div>
@@ -685,7 +685,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                     <button
                       onClick={handleCopyShareUrl}
-                      className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                      className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
                     >
                       {shareCopied ? "Copied!" : "Copy"}
                     </button>
@@ -709,9 +709,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   {(["json", "csv"] as const).map((fmt) => (
                     <label
                       key={fmt}
-                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-blue-500 ${
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
                         exportFormat === fmt
-                          ? "border-blue-500 bg-info/10"
+                          ? "border-primary-emphasis bg-info/10"
                           : "border-line-strong hover:bg-surface-hover/40"
                       }`}
                     >
@@ -736,7 +736,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </div>
                 <button
                   onClick={() => { if (exportFormat === "json") { exportBoardJson(board.id); } else { exportBoardCsv(board.id); } onClose(); }}
-                  className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full mt-3 bg-primary hover:bg-primary-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Export {exportFormat.toUpperCase()}
                 </button>
@@ -758,12 +758,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         value={deleteInput}
                         onChange={(e) => setDeleteInput(e.target.value)}
                         placeholder={board.name}
-                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                        className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                       />
                       <button
                         disabled={deleteInput !== board.name}
                         onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                        className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                       >
                         Delete board
                       </button>
@@ -771,7 +771,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   ) : (
                     <button
                       onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                      className="w-full bg-red-600 hover:bg-red-700 text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                     >
                       Delete board
                     </button>

@@ -129,7 +129,7 @@ export default function SavedFiltersDropdown({
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
-        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           savedFilters.length > 0
             ? "border-line-strong text-fg-secondary hover:border-line-emphasis"
             : "border-line-strong text-fg-muted hover:border-line-emphasis"
@@ -168,7 +168,7 @@ export default function SavedFiltersDropdown({
                 }}
                 placeholder="Filter name…"
                 maxLength={100}
-                className="w-full bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
               />
               {/* Reserve vertical space for error so the panel height is stable */}
               <p className="text-xs h-4 mt-1">
@@ -178,13 +178,13 @@ export default function SavedFiltersDropdown({
                 <button
                   onClick={() => void handleSave()}
                   disabled={saving}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-40 transition"
+                  className="bg-primary hover:bg-primary-hover text-on-primary px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 transition"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
                 <button
                   onClick={() => { setSaveMode(false); setSaveError(null); }}
-                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis transition"
                 >
                   Cancel
                 </button>
@@ -245,7 +245,7 @@ export default function SavedFiltersDropdown({
                     <button
                       onClick={(e) => { e.stopPropagation(); onDelete(f.id); }}
                       aria-label={`Delete saved filter "${f.name}"`}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 text-fg-muted hover:text-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M3 3l10 10M13 3L3 13" />

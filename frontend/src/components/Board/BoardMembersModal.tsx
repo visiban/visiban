@@ -96,7 +96,7 @@ export default function BoardMembersModal({ board, onClose, onMembersChanged }: 
                   confirmRemoveUserId === m.user.id ? (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="text-[11px] text-fg-tertiary">Remove?</span>
-                      <button onClick={() => handleRemove(m.user.id)} className="text-[11px] text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-red-500 rounded px-1">Yes</button>
+                      <button onClick={() => handleRemove(m.user.id)} className="text-[11px] text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Yes</button>
                       <button onClick={() => setConfirmRemoveUserId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
                     </div>
                   ) : (

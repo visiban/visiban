@@ -29,13 +29,13 @@ Three variants — use no others:
 
 | Variant | Classes |
 |---|---|
-| Primary | `bg-blue-600 hover:bg-blue-700 text-white` |
+| Primary | `bg-primary hover:bg-primary-hover text-on-primary` |
 | Secondary | bare text (`text-fg-secondary`) + `hover:text-fg hover:bg-surface-hover` |
 | Icon-only | `hover:bg-surface-hover` with icon content |
 
 - Consistent sizing: `px-3 py-1.5 text-sm rounded` for most buttons
-- Focus state: `focus:outline-none focus:ring-2 focus:ring-blue-500` (use `focus:ring-red-500` for danger buttons)
-- Danger variant (destructive actions): `bg-red-600 hover:bg-red-700 text-white`
+- Focus state: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (use `focus:ring-danger-emphasis` for danger buttons)
+- Danger variant (destructive actions): `bg-danger-bg hover:bg-danger-bg-hover text-on-danger`
 - Disabled state: `disabled:opacity-40 disabled:cursor-not-allowed` — never `disabled:opacity-50`
 - Primary and danger buttons always include `font-medium`
 - Border radius: always `rounded` — never `rounded-lg` on buttons
@@ -43,7 +43,7 @@ Three variants — use no others:
 ## Inputs and textareas
 
 - `bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary`
-- Focus ring: `focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`
+- Focus ring: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent`
 - Placeholder: `placeholder-fg-muted`
 
 ## Dropdown menus
@@ -53,7 +53,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 **Trigger button**
 - `bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition`
 - Default state: `border-line-strong text-fg-secondary hover:border-line-emphasis`
-- Open / active-filter state: `border-blue-400 text-info`
+- Open / active-filter state: `border-primary-soft text-info`
 
 **Menu panel**
 - `bg-surface border border-line-strong rounded-lg shadow-lg py-1`
@@ -78,7 +78,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 
 ## Modals and dialogs
 
-- Backdrop: `fixed inset-0 bg-black/60 z-50`
+- Backdrop: `fixed inset-0 bg-backdrop/60 z-50`
 - Panel: `bg-surface border border-line rounded-lg shadow-xl`
 - Consistent padding: `p-6` for content, `pb-4` for header
 - Close button: icon-only variant, top-right corner
@@ -89,14 +89,14 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 ## Badges and labels
 
 - **Priority pills use filled background everywhere** — green/orange/red/dark-red fill, white text. Do not use outline/ring style; filled is more immediately scannable.
-- Filter active-count badge: `bg-blue-500/20 text-info` — never `bg-blue-100 text-blue-700` (light-mode colors)
+- Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
 
 ## Board navigation bar
 
 The sub-nav bar directly below the main navbar contains view tabs, actions, and status:
 
-- **Active tab** (e.g. "Board"): `bg-blue-600 text-white rounded px-3 py-1 text-sm font-medium`
+- **Active tab** (e.g. "Board"): `bg-primary text-on-primary rounded px-3 py-1 text-sm font-medium`
 - **Inactive tabs** (e.g. "Summary", "Analytics"): `text-fg-tertiary hover:text-fg px-3 py-1 text-sm` — no background
 - **Vertical separators** between logical groups: `text-fg-faint select-none` rendered as `|`
 - **Live indicator**: green dot + "Live" label — `flex items-center gap-1 text-sm text-success` with `●` prefix; always top-right of the sub-nav
@@ -111,7 +111,7 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **Over-limit states use text color + `font-semibold` only — no filled background:**
   - WIP over-limit: `text-danger font-semibold`
   - Weight over-limit: `text-warning font-semibold`
-  - Never use `bg-red-900/50` or any filled background for over-limit stats — it competes with the column header surface color
+  - Never use a filled `bg-danger/…` background for over-limit stats — it competes with the column header surface color
 - Column color dot: `w-2.5 h-2.5 rounded-full flex-shrink-0` in the column's assigned color
 - Nav arrows (`◄` / `►`): `text-fg-faint hover:text-fg-secondary text-xs transition`
 - Column name truncates with ellipsis — never wraps
@@ -127,9 +127,9 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 
 - Container: `bg-surface rounded-lg border p-2.5 cursor-grab`
 - **Border color = priority/status indicator** — full border on all sides (not just left accent):
-  - Default / low: `border-blue-500`
-  - Medium: `border-orange-500`
-  - High / blocked: `border-red-500`
+  - Default / low: `border-primary-emphasis`
+  - Medium: `border-warning-emphasis`
+  - High / blocked: `border-danger-emphasis`
   - No priority: `border-line`
 - Card title: `text-sm text-fg`
 - No drop shadow — the colored border provides visual weight
@@ -142,8 +142,8 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 ## Avatar chips
 
 - Shape: `rounded-full flex items-center justify-center flex-shrink-0`
-- Size: `w-6 h-6 text-xs font-medium text-white`
-- Background: deterministic color based on user — use a consistent palette (teal `bg-teal-600`, amber `bg-amber-600`, violet `bg-violet-600`, rose `bg-rose-600`, etc.)
+- Size: `w-6 h-6 text-xs font-medium text-on-primary`
+- Background: deterministic color based on user — use a consistent palette (teal `bg-palette-teal`, amber `bg-warning-bg`, violet `bg-palette-violet`, rose `bg-palette-rose`, etc.)
 - Content: 2-letter uppercase initials only
 - Position on cards: bottom-right, `absolute` or flex end
 - Never show more than the initials — no full name, no tooltip required (but allowed)
@@ -164,14 +164,14 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 Never render browser-default radio circles. Use `sr-only` native `<input type="radio">` inside a `label` container — this preserves native keyboard navigation (arrow keys, Tab, Space) while hiding the visual control.
 
 Represent selection state on the container:
-- Selected: `border-blue-500 bg-blue-500/10`
+- Selected: `border-primary-emphasis bg-primary-emphasis/10`
 - Unselected: `border-line-strong hover:bg-surface-hover/40`
-- Keyboard focus: `focus-within:ring-2 focus-within:ring-blue-500 rounded-lg` on the `label`
+- Keyboard focus: `focus-within:ring-2 focus-within:ring-primary-emphasis rounded-lg` on the `label`
 - Transition: `transition-colors duration-150`
 
 Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted mt-0.5` for the description line below it.
 
-The action button following a radio group uses the primary variant (`bg-blue-600 hover:bg-blue-700 text-white`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
+The action button following a radio group uses the primary variant (`bg-primary hover:bg-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
 
 ## Ancestor breadcrumbs
 
@@ -185,7 +185,7 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
       <a
         href={`/groups/${ancestor.id}`}
         onClick={(e) => { e.preventDefault(); navigate(`/groups/${ancestor.id}`); }}
-        className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition max-w-[12rem] truncate"
+        className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
         title={ancestor.name}
       >
         {ancestor.name}
@@ -197,7 +197,7 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
 </nav>
 ```
 
-- Ancestor links: `text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-blue-500 rounded transition`
+- Ancestor links: `text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition`
 - Separator `/`: `text-fg-faint mx-1.5 select-none`
 - Current item (non-linked): `text-sm text-fg-secondary`
 - Per-item max-width: `max-w-[12rem] truncate` with `title` attribute for full name
@@ -208,8 +208,8 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
 
 For plain-text description fields that are inline-editable by admins:
 
-- **Idle / view state**: wrap content in a `border border-transparent hover:border-line-emphasis cursor-text rounded px-2 py-1.5 -mx-2 transition-colors` container; hover-reveal pencil icon must include `focus:opacity-100 focus:ring-2 focus:ring-blue-500`
-- **Edit state**: `bg-sunken border border-blue-400 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent` on the `<textarea>`; `resize-none`; Escape cancels, blur saves
+- **Idle / view state**: wrap content in a `border border-transparent hover:border-line-emphasis cursor-text rounded px-2 py-1.5 -mx-2 transition-colors` container; hover-reveal pencil icon must include `focus:opacity-100 focus:ring-2 focus:ring-primary-emphasis`
+- **Edit state**: `bg-sunken border border-primary-soft rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent` on the `<textarea>`; `resize-none`; Escape cancels, blur saves
 - **Error slot**: always render `<p className="text-xs h-4">` below the field unconditionally; place error text in a `<span className="text-danger">` inside it — never conditionally render the container itself
 - **Non-admin, non-empty**: render plain `<p className="text-sm text-fg-tertiary whitespace-pre-wrap">`
 - **Non-admin, empty**: render nothing (`null`) — do not show a placeholder the user cannot act on
@@ -239,7 +239,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Loading and spinner states
 
-- **Canonical animated spinner:** `w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin` (inline context). Use `w-8 h-8` for full-page center spinners. Always wrap in `flex items-center justify-center gap-2` with a `text-sm text-fg-tertiary` label when the wait context is not obvious.
+- **Canonical animated spinner:** `w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin` (inline context). Use `w-8 h-8` for full-page center spinners. Always wrap in `flex items-center justify-center gap-2` with a `text-sm text-fg-tertiary` label when the wait context is not obvious.
 - Center spinners with `flex items-center justify-center`
 
 ## Empty states
@@ -278,7 +278,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 - **`html: true` (default) on the Markdown extension is required** — `html: false` strips `<span style="color:...">` from the serialized output, silently discarding text colors on save. Never set `html: false`.
 - **`rehypeRaw` is required on `<ReactMarkdown>`** to render `<span style="color:...">` HTML spans from the Color extension in view mode
 - **`onKeyDown stopPropagation` is required on `EditorContent`** — prevents board-level single-key shortcuts (e.g. `f` for filter) from firing while the user types in the description
-- **View/edit toggle pattern:** hover shows `border-line-strong cursor-text` + ✎ icon (`group-hover:opacity-100 opacity-0`); click enters edit mode with `border-blue-400 bg-sunken`. Apply this pattern to all future rich editable fields.
+- **View/edit toggle pattern:** hover shows `border-line-strong cursor-text` + ✎ icon (`group-hover:opacity-100 opacity-0`); click enters edit mode with `border-primary-soft bg-sunken`. Apply this pattern to all future rich editable fields.
 - `readOnly` prop must be wired to `!canEdit` at every call site — viewers see rendered markdown only, no hover affordance
 
 ## Conditional admin-only elements
@@ -317,7 +317,7 @@ The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboa
 - Panel: `w-56 bg-surface border border-line rounded-lg shadow-xl py-1 max-h-80 overflow-y-auto z-50`
 - Header row: `px-3 py-1.5 text-xs font-semibold text-fg-muted uppercase tracking-wider border-b border-line mb-1`
 - Items: `px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover transition truncate`
-- Active item: `bg-blue-600/20 text-info font-medium`
+- Active item: `bg-primary/20 text-info font-medium`
 
 **Toggle behaviour:**
 - Click to open, click again to close
@@ -333,7 +333,7 @@ The collapsed rail (48px, `w-12`) is for **fixed destinations only** — Dashboa
 </div>
 ```
 
-**Trigger active state:** when the currently active route belongs to an item inside the flyout, apply `text-info bg-blue-600/20` to the trigger icon (same as direct nav links). This communicates "you are here" without opening the flyout.
+**Trigger active state:** when the currently active route belongs to an item inside the flyout, apply `text-info bg-primary/20` to the trigger icon (same as direct nav links). This communicates "you are here" without opening the flyout.
 
 **Groups flyout hierarchy** — the Groups flyout must be populated by flattening `sidebarTree` in depth-first pre-order, not from the flat `groups` array. Never source the Groups flyout from `groups.map(...)`:
 - Flatten using a local recursive function carrying a `depth` counter; pass the result as `FlyoutItem[]`
@@ -356,7 +356,7 @@ The expanded sidebar renders groups and their boards as a recursive tree. Rules:
 
 When surfacing a feature that users may not discover on their own, use a static dot indicator:
 
-- **Token:** `bg-blue-500 rounded-full` — distinct from `bg-blue-400`, which is reserved for active filter/selection states
+- **Token:** `bg-primary-emphasis rounded-full` — distinct from `bg-primary-soft`, which is reserved for active filter/selection states
 - **Size:** `w-2 h-2` minimum — `w-1.5` (6px) is too small to draw attention at desktop scale
 - **Position:** `absolute top-0 right-0` inside the button's `relative` wrapper
 - **Pointer events:** always `pointer-events-none` — the dot must never intercept clicks intended for the button beneath it
@@ -386,14 +386,14 @@ Each key in either namespace requires a `load()` function with try/catch + fallb
 
 When a persistent board-wide mode is active (e.g. focus mode, a future "view-only" lock), render a full-width strip between the filter row and the scroll container. The strip must sit **outside** the scroll container so it does not scroll away.
 
-- Style: `bg-blue-600/15 border-b border-blue-500/40 px-4 py-2 flex items-center gap-3 text-sm text-blue-300 transition-opacity duration-150`
-- Use `bg-blue-600/15` to signal "active mode" — distinct from transient toast notices (`bg-surface-hover/80`) and warnings (amber)
-- Exit controls within the strip use the **secondary button variant** (`text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-blue-500`) — never the primary variant
-- Mode name or target label: `font-medium text-blue-200 truncate max-w-[24rem]` with `flex-shrink-0` on the exit button
+- Style: `bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info transition-opacity duration-150`
+- Use `bg-primary/15` to signal "active mode" — distinct from transient toast notices (`bg-surface-hover/80`) and warnings (amber)
+- Exit controls within the strip use the **secondary button variant** (`text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:ring-2 focus:ring-primary-emphasis`) — never the primary variant
+- Mode name or target label: `font-medium text-info truncate max-w-[24rem]` with `flex-shrink-0` on the exit button
 
 ## Common dropdown primitives
 
-`SingleSelectDropdown` and `CheckboxDropdown` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both follow the dropdown menu spec (trigger: `bg-surface border rounded px-2 py-1`, active/filtered state: `border-blue-400 text-info`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
+`SingleSelectDropdown` and `CheckboxDropdown` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both follow the dropdown menu spec (trigger: `bg-surface border rounded px-2 py-1`, active/filtered state: `border-primary-soft text-info`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
 
 ## Summary and analytics table layout
 
@@ -418,12 +418,12 @@ Apply this consistently in `CardMovementTimeline` and `MovementHistoryView`:
 
 | Event type | Timeline dot | Card left border |
 |---|---|---|
-| Column move | `bg-blue-500` | none |
+| Column move | `bg-primary-emphasis` | none |
 | Activity (comment, assign) | `bg-fg-muted` | none |
 | Archived | `bg-surface-active` | `border-l-2 border-line-strong` |
-| Reactivated (restored) | `bg-violet-500` | `border-l-2 border-violet-500` |
+| Reactivated (restored) | `bg-activity-reactivated` | `border-l-2 border-activity-reactivated` |
 
-- System event label text (`text-fg-tertiary italic` for "Archived", `text-violet-400` for "Reactivated") is visually distinct from column-move text (`text-fg-secondary font-medium`)
+- System event label text (`text-fg-tertiary italic` for "Archived", `text-accent-violet` for "Reactivated") is visually distinct from column-move text (`text-fg-secondary font-medium`)
 - Do not collapse system events by default — Jordan's audit trail use case requires them visible
 
 ## Read-only mode for interactive components
@@ -454,12 +454,12 @@ When a token or secret is shown exactly once after creation (e.g. invite links, 
 
 When a destructive admin action has preconditions requiring data collection (e.g. board ownership transfer before user deactivation), use a dedicated modal — not `ConfirmDialog`:
 
-- Modal follows the standard spec: `bg-surface border border-line rounded-lg shadow-xl`, `p-6` content, `fixed inset-0 bg-black/60 z-50` backdrop
+- Modal follows the standard spec: `bg-surface border border-line rounded-lg shadow-xl`, `p-6` content, `fixed inset-0 bg-backdrop/60 z-50` backdrop
 - Must use `useEscapeStack` for Escape key handling; focus must be trapped inside the modal
 - Board list: `flex flex-col divide-y divide-line`; each row: board name (`text-sm text-fg truncate` with `title`) + card count (`text-xs text-fg-muted`)
 - User picker: typeahead input following `BoardSettingsModal` invite search pattern; include `text-xs text-fg-muted` helper text below the input describing any scoping constraint (e.g. "Only users who are members of all boards listed above")
 - Irreversibility warning: `text-sm text-warning` sentence above the confirm button — not a text-input confirmation, not a red banner. Use amber (not red) because the action is reversible by re-transferring manually
-- Confirm button: danger variant (`bg-red-600 hover:bg-red-700 text-white`) with a label describing both actions (e.g. "Transfer ownership and deactivate")
+- Confirm button: danger variant (`bg-danger-bg hover:bg-danger-bg-hover text-on-danger`) with a label describing both actions (e.g. "Transfer ownership and deactivate")
 - If no eligible transfer target exists: block deactivation and show a `text-sm text-warning` message naming the specific board(s) with a direct action prompt (e.g. "Add another member to [board name] before deactivating this user")
 
 ## Card metadata row coexistence

@@ -128,7 +128,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
                 if (e.key === "Escape") onCancel();
               }}
               placeholder="Leave blank to use name from file"
-              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
+              className="w-full bg-surface border border-line focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent text-fg-secondary rounded px-3 py-1.5 text-sm placeholder-fg-muted transition"
             />
           </div>
 
@@ -144,14 +144,14 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
         <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
-            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!file || submitting}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Importing..." : "Import"}
           </button>

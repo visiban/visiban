@@ -206,7 +206,7 @@ export default function ShareBoardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <span className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" aria-label="Loading" />
+        <span className="w-8 h-8 border-2 border-primary-emphasis border-t-transparent rounded-full animate-spin" aria-label="Loading" />
       </div>
     );
   }
@@ -244,7 +244,7 @@ function ShareExpiredPage() {
         </p>
         <a
           href="/"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="bg-primary hover:bg-primary-hover text-on-primary px-4 py-2 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Sign in to Visiban
         </a>

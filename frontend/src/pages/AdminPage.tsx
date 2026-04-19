@@ -78,19 +78,19 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
     return () => el.removeEventListener('keydown', trap);
   }, []);
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-backdrop/60 z-50 flex items-center justify-center p-4">
       <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-message" className="bg-surface border border-line rounded-lg shadow-xl p-6 max-w-sm w-full">
         <p id="confirm-dialog-message" className="text-sm text-fg-secondary mb-6">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Confirm
           </button>
@@ -160,7 +160,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               onChange={set("username")}
               required
               autoComplete="off"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </label>
 
@@ -172,7 +172,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               onChange={set("email")}
               required
               autoComplete="off"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
           </label>
 
@@ -188,7 +188,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               required
               minLength={12}
               autoComplete="new-password"
-              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+              className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
             />
             <span className="text-xs text-fg-muted">Minimum 12 characters</span>
           </div>
@@ -209,14 +209,14 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {saving ? "Creating…" : "Create user"}
             </button>
@@ -332,7 +332,7 @@ function InviteLinksTab() {
           <select
             value={form.expires_in_days ?? ""}
             onChange={(e) => setForm((f) => ({ ...f, expires_in_days: e.target.value === "" ? null : Number(e.target.value) }))}
-            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
           >
             {TTL_OPTIONS.map((o) => (
               <option key={String(o.value)} value={o.value ?? ""}>{o.label}</option>
@@ -349,7 +349,7 @@ function InviteLinksTab() {
             role="switch"
             aria-checked={form.single_use}
             onClick={() => setForm((f) => ({ ...f, single_use: !f.single_use }))}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${form.single_use ? "bg-blue-600" : "bg-surface-active"}`}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${form.single_use ? "bg-primary" : "bg-surface-active"}`}
           >
             <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${form.single_use ? "translate-x-4" : "translate-x-1"}`} />
           </button>
@@ -361,7 +361,7 @@ function InviteLinksTab() {
         <button
           type="submit"
           disabled={creating}
-          className="self-start px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="self-start px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {creating ? "Creating…" : "Create link"}
         </button>
@@ -380,13 +380,13 @@ function InviteLinksTab() {
             </span>
             <button
               onClick={handleCopy}
-              className="shrink-0 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="shrink-0 px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
             <button
               onClick={() => setNewLink(null)}
-              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="shrink-0 px-3 py-1.5 text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Done
             </button>
@@ -424,13 +424,13 @@ function InviteLinksTab() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleRevoke(link.id)}
-                      className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Confirm revoke
                     </button>
                     <button
                       onClick={() => setRevokeConfirm(null)}
-                      className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Cancel
                     </button>
@@ -438,7 +438,7 @@ function InviteLinksTab() {
                 ) : (
                   <button
                     onClick={() => setRevokeConfirm(link.id)}
-                    className="shrink-0 text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="shrink-0 text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Revoke
                   </button>
@@ -559,7 +559,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                   placeholder="Search for a member…"
                   value={memberSearch[board.id] ?? ""}
                   onChange={(e) => handleMemberSearch(board.id, e.target.value)}
-                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted"
+                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                 />
                 {(memberResults[board.id] ?? []).length > 0 && (
                   <ul className="absolute z-10 w-full mt-1 bg-surface border border-line rounded shadow-lg max-h-40 overflow-y-auto">
@@ -592,14 +592,14 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
             disabled={saving || !allAssigned}
-            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>
@@ -709,11 +709,11 @@ function SettingsTab() {
           {REGISTRATION_MODE_OPTIONS.map(({ value, label, description }) => (
             <label
               key={value}
-              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 ${
+              className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                 saving ? "opacity-50 pointer-events-none" : ""
               } ${
                 settings?.registration_mode === value
-                  ? "border-blue-500 bg-info/10"
+                  ? "border-primary-emphasis bg-info/10"
                   : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >
@@ -729,12 +729,12 @@ function SettingsTab() {
               <span
                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                   settings?.registration_mode === value
-                    ? "border-blue-500"
+                    ? "border-primary-emphasis"
                     : "border-line-strong"
                 }`}
               >
                 {settings?.registration_mode === value && (
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="w-2 h-2 rounded-full bg-primary-emphasis" />
                 )}
               </span>
               <span>
@@ -760,8 +760,8 @@ function SettingsTab() {
             aria-checked={settings?.uploads_enabled ?? true}
             onClick={handleUploadsToggle}
             disabled={saving}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              settings?.uploads_enabled ? "bg-blue-600" : "bg-surface-active"
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+              settings?.uploads_enabled ? "bg-primary" : "bg-surface-active"
             }`}
           >
             <span
@@ -911,7 +911,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         <h2 className="text-fg text-lg font-semibold">Users</h2>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           + Add User
         </button>
@@ -922,7 +922,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         value={search}
         onChange={handleSearchChange}
         placeholder="Search by name, email, or username…"
-        className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-fg-muted max-w-md"
+        className="bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted max-w-md"
       />
 
       {actionError && (
@@ -966,7 +966,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                               </span>
                             )}
                             {u.can_access_all_content && (
-                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-violet-500/20 text-violet-400">
+                              <span className="px-1.5 py-0.5 text-xs rounded-full bg-accent-violet/20 text-accent-violet">
                                 All content
                               </span>
                             )}
@@ -1045,7 +1045,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           <button
                             onClick={() => handleGrantContentAccess(u)}
                             title="Grants read/write access to all boards and groups regardless of membership"
-                            className="text-xs text-fg-tertiary hover:text-violet-400 transition"
+                            className="text-xs text-fg-tertiary hover:text-accent-violet transition"
                           >
                             Grant all-content
                           </button>
@@ -1182,7 +1182,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
-                        ? "bg-blue-600 text-fg font-medium"
+                        ? "bg-primary text-fg font-medium"
                         : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >

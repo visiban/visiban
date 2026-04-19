@@ -113,7 +113,7 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
             i === 0 ? "border-r border-line-strong" : ""
           } ${
             mode === m
-              ? "bg-blue-600 text-white"
+              ? "bg-primary text-on-primary"
               : "text-fg-tertiary hover:text-fg-secondary hover:bg-surface-hover"
           }`}
         >
@@ -204,7 +204,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                   aria-pressed={days === d}
                   className={`text-xs px-3 py-1 rounded-full border transition ${
                     days === d
-                      ? "bg-blue-600 text-white border-blue-600"
+                      ? "bg-primary text-on-primary border-primary"
                       : "border-line-strong text-fg-tertiary hover:border-info"
                   }`}
                 >

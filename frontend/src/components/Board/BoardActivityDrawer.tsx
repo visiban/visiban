@@ -66,7 +66,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
         <button
           onClick={onClose}
           aria-label="Close activity drawer"
-          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-fg-tertiary hover:text-fg hover:bg-surface-hover p-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <path d="M3 3l10 10M13 3L3 13" />
@@ -81,7 +81,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
             key={t.id}
             onClick={() => setTab(t.id)}
             aria-pressed={tab === t.id}
-            className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
               tab === t.id
                 ? "bg-surface-hover text-fg font-medium"
                 : "text-fg-tertiary hover:text-fg"
@@ -105,7 +105,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
               key={w.id}
               onClick={() => setTimeWindow(w.id)}
               aria-pressed={timeWindow === w.id}
-              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`px-2 py-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                 timeWindow === w.id
                   ? "bg-surface-hover text-fg font-medium"
                   : "text-fg-tertiary hover:text-fg"
@@ -144,7 +144,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
       <div className="px-4 py-2 border-t border-line text-[11px] text-fg-muted flex items-center justify-between">
         <button
           onClick={onOpenHistory}
-          className="text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+          className="text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
         >
           Open full history →
         </button>
