@@ -17,7 +17,6 @@ describe('BoardExportModal', () => {
   const defaultProps = { boardId: 42, onClose: vi.fn() }
 
   beforeEach(() => {
-    vi.useFakeTimers()
     vi.clearAllMocks()
     // Default: export functions succeed silently (they call window.open, return void)
     mockExportBoardJson.mockImplementation(() => undefined)
