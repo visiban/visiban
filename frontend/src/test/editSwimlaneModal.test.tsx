@@ -17,9 +17,12 @@ const mockDeleteSwimlane = deleteSwimlane as ReturnType<typeof vi.fn>
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
     id: 1,
+    uid: 'swimlane-uid-1',
     name: 'Default',
     color: '#6B7280',
     position: 0,
+    is_collapsed: false,
+    created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }
 }
