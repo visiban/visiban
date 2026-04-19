@@ -2630,8 +2630,8 @@
 </ol>
 <p>Other desktop environments (KDE Plasma, XFCE, Cinnamon) expose the same <code>prefers-color-scheme</code> signal through their respective appearance settings; check your desktop's documentation for details.</p>
 <h2 id="light-palette-availability">Light palette availability<a class="headerlink" href="#light-palette-availability" title="Permanent link">&para;</a></h2>
-<p>During the 1.x release cycle, the light palette is rolled out incrementally alongside a component-by-component migration. While this rollout is in progress, administrators may keep the <strong>Light</strong> option hidden in the picker until the migration is complete for all components. The <strong>System</strong> and <strong>Dark</strong> options are always available.</p>
-<p>If <strong>Light</strong> is not present in your picker, your administrator has not yet enabled it for this instance.</p>
+<p>The <strong>Light</strong> option is available by default in every Visiban installation.</p>
+<p>Administrators who wish to hide the Light option — for example, on an install-specific fork that has not adopted the light palette — can set the build-time environment variable <code>VITE_THEME_LIGHT_ENABLED=false</code> when building the frontend image. The <strong>System</strong> and <strong>Dark</strong> options are always available regardless.</p>
 <h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
 <p>Two related enhancements are tracked on the roadmap but are not part of the initial light-theme release:</p>
 <ul>
