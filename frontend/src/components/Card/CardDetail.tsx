@@ -644,9 +644,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             <button
                               key={c}
                               onClick={() => { setNewLabelColor(c); if (newLabelName.trim()) handleCreateLabel(c); }}
-                              className={`w-5 h-5 rounded-full border-2 transition ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
+                              aria-label={newLabelName.trim() ? `Create "${newLabelName.trim()}" with color ${c}` : `Select color ${c}`}
+                              aria-pressed={newLabelColor === c}
+                              className={`w-5 h-5 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${newLabelColor === c ? "border-white scale-110" : "border-transparent"}`}
                               style={{ backgroundColor: c }}
-                              title={newLabelName.trim() ? `Create "${newLabelName.trim()}" with this color` : "Pick color"}
                             />
                           ))}
                         </div>
