@@ -263,3 +263,40 @@ class EmailConfirmRedirectThrottleScopeTests(TestCase):
             "EmailConfirmRedirectThrottle; without it the redirect endpoint "
             "is unthrottled (the original #754 vulnerability).",
         )
+
+
+# ---------------------------------------------------------------------------
+# AllauthConfirmEmailOverrideTests — accounts/confirm-email/ URL override (#755)
+# ---------------------------------------------------------------------------
+
+@override_settings(LOGIN_REDIRECT_URL="http://localhost:5173")
+class AllauthConfirmEmailOverrideTests(TestCase):
+    """The allauth template-based ConfirmEmailView at accounts/confirm-email/<key>/
+    must be overridden by EmailConfirmRedirectView before the allauth include.
+
+    Without the override, hitting that URL raises ImproperlyConfigured because
+    Visiban ships no allauth templates (it is a headless SPA). The re_path
+    registered before path("accounts/", include("allauth.urls")) ensures the
+    redirect view intercepts the request and sends the browser to the SPA (#755).
+    """
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_allauth_confirm_email_url_redirects_to_spa(self):
+        """GET /accounts/confirm-email/<key>/ returns 302 to the SPA confirm-email route."""
+        key = "Mg:1uABcd-somekey"
+        r = self.client.get(f"/accounts/confirm-email/{key}/", follow=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], f"http://localhost:5173/confirm-email/{key}")
+
+    def test_allauth_confirm_email_url_does_not_render_template(self):
+        """The response must be a redirect, not a 500/ImproperlyConfigured error.
+
+        Without the URL override allauth's ConfirmEmailView attempts to render
+        a template that does not exist and raises ImproperlyConfigured (status 500).
+        A non-500 redirect confirms the override is in place.
+        """
+        key = "Mg:1uABcd-somekey"
+        r = self.client.get(f"/accounts/confirm-email/{key}/", follow=False)
+        self.assertIn(r.status_code, (301, 302), "Expected a redirect, not a server error")

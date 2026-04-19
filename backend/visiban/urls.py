@@ -22,6 +22,15 @@ class UnsupportedVersionView(APIView):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Safety-net: allauth's built-in confirm-email view at accounts/confirm-email/<key>/
+    # raises ImproperlyConfigured (TemplateResponseMixin has no template) because Visiban
+    # ships no allauth templates — it is a headless SPA. Registering this re_path BEFORE
+    # the allauth include ensures the redirect view wins and the SPA handles confirmation.
+    # Same character class and length bound as the api/v1/auth/registration/ override above.
+    re_path(
+        r"^accounts/confirm-email/(?P<key>[\w:\-]{1,200})/$",
+        EmailConfirmRedirectView.as_view(),
+    ),
     path("accounts/", include("allauth.urls")),
     # All versioned API endpoints live under /api/v1/.
     # The v1 prefix is a literal path segment — not a captured kwarg — so view
