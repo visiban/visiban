@@ -103,6 +103,18 @@ describe('ShareBoardPage — valid token', () => {
     expect(screen.queryByLabelText('Stale')).not.toBeInTheDocument()
   })
 
+  it('renders full swimlane name without truncation', async () => {
+    const longName = 'Mobile Application Relaunch - Phase Two'
+    mockGetPublicBoard.mockResolvedValue({
+      ...fakeBoard,
+      swimlanes: [{ ...fakeBoard.swimlanes[0], name: longName }],
+    })
+    renderSharePage()
+    await waitFor(() => expect(screen.getByText(longName)).toBeInTheDocument())
+    const nameEl = screen.getByText(longName)
+    expect(nameEl.className).not.toContain('truncate')
+  })
+
   it('does not show stale indicator even when is_stale is true (removed from share page)', async () => {
     // The amber dot was removed from the share page per spec — aging tint is board-view-only.
     mockGetPublicBoard.mockResolvedValue({
