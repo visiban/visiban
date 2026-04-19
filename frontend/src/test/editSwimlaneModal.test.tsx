@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import EditSwimlaneModal from '../components/Board/EditSwimlaneModal'
-import type { Swimlane, User } from '../types'
+import type { Swimlane } from '../types'
 
 vi.mock('../api/boards', () => ({
   updateSwimlane: vi.fn(),
@@ -13,12 +13,6 @@ import { updateSwimlane, deleteSwimlane } from '../api/boards'
 
 const mockUpdateSwimlane = updateSwimlane as ReturnType<typeof vi.fn>
 const mockDeleteSwimlane = deleteSwimlane as ReturnType<typeof vi.fn>
-
-const fakeOwner: User = {
-  id: 1, username: 'admin', email: 'a@b.com', first_name: 'Admin',
-  last_name: '', avatar_url: '', display_name: 'Admin',
-  is_site_admin: false, must_change_password: false, must_change_username: false,
-}
 
 function makeSwimlane(overrides: Partial<Swimlane> = {}): Swimlane {
   return {
