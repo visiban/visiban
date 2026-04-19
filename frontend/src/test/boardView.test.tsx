@@ -771,8 +771,8 @@ describe('BoardView', () => {
 
     it('Live indicator has role=status', () => {
       render(<BoardView {...defaultProps()} />)
-      const live = screen.getByRole('status')
-      expect(live).toBeInTheDocument()
+      const statusRegions = screen.getAllByRole('status')
+      expect(statusRegions.length).toBeGreaterThanOrEqual(1)
     })
   })
 

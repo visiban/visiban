@@ -16,7 +16,7 @@ import {
   useSensors,
   useDroppable,
 } from "@dnd-kit/core";
-import type { DragEndEvent, DragStartEvent, CollisionDetection } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import type { BoardMembership, Card, Column, Label, Swimlane, User } from "../../types";
 import { useBoardContext } from "../../contexts/BoardContext";
@@ -326,6 +326,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
+  const [dndAnnouncement, setDndAnnouncement] = useState("");
+  const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
   // null = no message; non-null string = message to show in the not-found toast.
@@ -810,11 +812,33 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     clearSelection();
     const id = String(e.active.id);
     if (id.startsWith("col:")) {
-      setActiveColumn(board.columns.find((c) => c.id === Number(id.slice(4))) ?? null);
+      const col = board.columns.find((c) => c.id === Number(id.slice(4))) ?? null;
+      setActiveColumn(col);
+      if (col) setDndAnnouncement(`Column '${col.name}' picked up`);
     } else if (id.startsWith("swim:")) {
-      setActiveSwimlane(board.swimlanes.find((s) => s.id === Number(id.slice(5))) ?? null);
+      const swim = board.swimlanes.find((s) => s.id === Number(id.slice(5))) ?? null;
+      setActiveSwimlane(swim);
+      if (swim) setDndAnnouncement(`Swimlane '${swim.name}' picked up`);
     } else {
-      setActiveCard(board.cards.find((c) => c.id === Number(id)) ?? null);
+      const card = board.cards.find((c) => c.id === Number(id)) ?? null;
+      setActiveCard(card);
+      if (card) setDndAnnouncement(`Card '${card.title}' picked up`);
+    }
+  };
+
+  const handleDragOver = (e: DragOverEvent) => {
+    if (!e.over) return;
+    const overId = String(e.over.id);
+    if (!overId.startsWith("cell:")) return;
+    if (dndHoverThrottleRef.current) return;
+    dndHoverThrottleRef.current = setTimeout(() => {
+      dndHoverThrottleRef.current = null;
+    }, 300);
+    const [, colId, swimId] = overId.split(":");
+    const col = board.columns.find((c) => c.id === Number(colId));
+    const swim = board.swimlanes.find((s) => s.id === Number(swimId));
+    if (col && swim) {
+      setDndAnnouncement(`Over column '${col.name}', swimlane '${swim.name}'`);
     }
   };
 
@@ -872,10 +896,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
 
     setActiveCard(null);
-    if (!over) return;
+    if (!over) {
+      setDndAnnouncement("Move canceled, card returned to original position");
+      return;
+    }
     // Guard: card drops must land on a cell: zone. col:/swim: zones are not valid targets for cards.
     // Without this, over.id like "col:3" causes swimId = undefined → NaN → null → backend 404.
-    if (!String(over.id).startsWith("cell:")) return;
+    if (!String(over.id).startsWith("cell:")) {
+      setDndAnnouncement("Move canceled, card returned to original position");
+      return;
+    }
     const [, colId, swimId] = String(over.id).split(":");
     const cardId = Number(activeId);
     const card = board.cards.find((c) => c.id === cardId);
@@ -883,6 +913,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
     const targetColumnId = Number(colId);
     const targetSwimlaneId = Number(swimId);
+    const targetCol = board.columns.find((c) => c.id === targetColumnId);
+    const targetSwim = board.swimlanes.find((s) => s.id === targetSwimlaneId);
+    if (targetCol && targetSwim) {
+      setDndAnnouncement(`Card '${card.title}' moved to column '${targetCol.name}', swimlane '${targetSwim.name}'`);
+    }
+
     const siblings = board.cards
       .filter((c) => c.column === targetColumnId && c.swimlane === targetSwimlaneId && c.id !== cardId)
       .sort((a, b) => a.position - b.position);
@@ -1273,8 +1309,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
 
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{dndAnnouncement}</div>
+
       <SectionErrorBoundary section="Board grid">
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
         {/* flex-row wrapper lets the activity drawer sit alongside the scroll container */}
         <div className="flex flex-row flex-1 min-h-0 overflow-hidden">
         {/*
