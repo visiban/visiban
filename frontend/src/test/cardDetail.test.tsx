@@ -206,9 +206,10 @@ describe('CardDetail', () => {
   it('renders assignee select with board members', async () => {
     render(<CardDetail {...defaultProps()} />)
     // Trigger shows 'Unassigned' when no assignee is set
-    expect(screen.getByRole('button', { name: /Unassigned/ })).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
     // Open the dropdown to see member options
-    await userEvent.setup().click(screen.getByRole('button', { name: /Unassigned/ }))
+    await userEvent.setup().click(screen.getByRole('combobox'))
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
   })
 
@@ -801,7 +802,7 @@ describe('CardDetail', () => {
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // fakeUser is the creator
       render(<CardDetail {...props} currentUser={fakeUser} />)
-      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      const trigger = screen.getByRole('combobox')
       expect(trigger).not.toBeDisabled()
     })
 
@@ -814,7 +815,7 @@ describe('CardDetail', () => {
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // owned by fakeUser (id 1), not otherUser (id 99)
       render(<CardDetail {...props} currentUser={otherUser} />)
-      const trigger = screen.getByRole('button', { name: /Assigning cards requires/ })
+      const trigger = screen.getByRole('combobox')
       expect(trigger).toBeDisabled()
     })
 
@@ -827,7 +828,7 @@ describe('CardDetail', () => {
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // owned by fakeUser, not modUser
       render(<CardDetail {...props} currentUser={modUser} />)
-      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      const trigger = screen.getByRole('combobox')
       expect(trigger).not.toBeDisabled()
     })
 
@@ -835,7 +836,7 @@ describe('CardDetail', () => {
       const props = defaultProps() // board.current_user_role defaults to 'admin'
       props.card = makeCard({ created_by: { id: 99, username: "other", display_name: "Other", avatar_url: "" } }) // owned by someone else
       render(<CardDetail {...props} currentUser={fakeUser} />)
-      const trigger = screen.getByRole('button', { name: /Unassigned/ })
+      const trigger = screen.getByRole('combobox')
       expect(trigger).not.toBeDisabled()
     })
   })

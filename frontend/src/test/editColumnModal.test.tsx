@@ -134,4 +134,39 @@ describe('EditColumnModal', () => {
       expect.objectContaining({ is_done: false })
     )
   })
+
+  it('color swatch buttons have aria-label', () => {
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={makeColumn({ color: '#6B7280' })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onRequestDelete={onRequestDelete}
+        onClose={onClose}
+      />
+    )
+    const swatches = screen.getAllByRole('button', { name: /Select color/ })
+    expect(swatches.length).toBeGreaterThan(0)
+    swatches.forEach(btn => expect(btn).toHaveAttribute('aria-label'))
+  })
+
+  it('selected color swatch has aria-pressed=true, others false', () => {
+    const selectedColor = '#6B7280'
+    render(
+      <EditColumnModal
+        boardId={1}
+        column={makeColumn({ color: selectedColor })}
+        cardCount={0}
+        onUpdated={onUpdated}
+        onRequestDelete={onRequestDelete}
+        onClose={onClose}
+      />
+    )
+    const swatches = screen.getAllByRole('button', { name: /Select color/ })
+    const pressed = swatches.filter(btn => btn.getAttribute('aria-pressed') === 'true')
+    const unpressed = swatches.filter(btn => btn.getAttribute('aria-pressed') === 'false')
+    expect(pressed).toHaveLength(1)
+    expect(unpressed.length).toBeGreaterThan(0)
+  })
 })

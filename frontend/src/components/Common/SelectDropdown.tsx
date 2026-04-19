@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
 export interface SelectDropdownOption<T extends string> {
@@ -30,24 +30,80 @@ export default function SelectDropdown<T extends string>({
   className = "",
 }: Props<T>) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxId = useId();
+  const optionIdPrefix = useId();
 
-  useDropdownEscape(open, () => setOpen(false), triggerRef);
+  useDropdownEscape(open, () => { setOpen(false); setActiveIndex(-1); }, triggerRef);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setActiveIndex(-1);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  // Initialize activeIndex to the currently selected option when opening
+  useEffect(() => {
+    if (open) {
+      const idx = options.findIndex((o) => o.value === value);
+      setActiveIndex(idx >= 0 ? idx : 0);
+    }
+  }, [open, value, options]);
+
+  const handleSelect = (val: T) => {
+    onChange(val);
+    setOpen(false);
+    setActiveIndex(-1);
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    switch (e.key) {
+      case "ArrowDown":
+      case "ArrowUp": {
+        e.preventDefault();
+        if (!open) {
+          setOpen(true);
+        } else {
+          const next = e.key === "ArrowDown"
+            ? Math.min(activeIndex + 1, options.length - 1)
+            : Math.max(activeIndex - 1, 0);
+          setActiveIndex(next);
+        }
+        break;
+      }
+      case "Enter":
+      case " ": {
+        if (!open) {
+          e.preventDefault();
+          setOpen(true);
+        } else if (activeIndex >= 0 && activeIndex < options.length) {
+          e.preventDefault();
+          handleSelect(options[activeIndex].value);
+        }
+        break;
+      }
+      case "Tab": {
+        if (open) {
+          setOpen(false);
+          setActiveIndex(-1);
+        }
+        break;
+      }
+    }
+  };
+
   const selected = options.find((o) => o.value === value);
   const label = selected?.label ?? placeholder ?? value;
+  const activeDescendant = open && activeIndex >= 0 ? `${optionIdPrefix}-${activeIndex}` : undefined;
 
   const triggerPadding = size === "xs" ? "px-2 py-1 text-sm" : "px-2.5 py-1.5 text-sm";
 
@@ -56,10 +112,16 @@ export default function SelectDropdown<T extends string>({
       <button
         ref={triggerRef}
         type="button"
+        role="combobox"
         disabled={disabled}
         title={disabled && disabledReason ? disabledReason : undefined}
         aria-label={disabled && disabledReason ? disabledReason : undefined}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-activedescendant={activeDescendant}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={handleTriggerKeyDown}
         className={`${triggerPadding} bg-surface border rounded outline-none flex items-center gap-1 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken
           ${open
             ? "border-info text-info"
@@ -81,7 +143,11 @@ export default function SelectDropdown<T extends string>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-full max-h-60 overflow-y-auto">
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-full max-h-60 overflow-y-auto"
+        >
           {options.map((opt, i) => (
             <div key={opt.value}>
               {i > 0 && (
@@ -90,17 +156,18 @@ export default function SelectDropdown<T extends string>({
                   <div className="h-px bg-surface-active/50" />
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                className={`w-full text-left px-3 py-1.5 text-sm transition hover:bg-surface-hover
+              <div
+                id={`${optionIdPrefix}-${i}`}
+                role="option"
+                aria-selected={opt.value === value}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(opt.value)}
+                className={`w-full text-left px-3 py-1.5 text-sm transition cursor-pointer hover:bg-surface-hover
+                  ${i === activeIndex ? "bg-surface-hover" : ""}
                   ${opt.value === value ? "text-info" : "text-fg-secondary"}`}
               >
                 {opt.label}
-              </button>
+              </div>
             </div>
           ))}
         </div>

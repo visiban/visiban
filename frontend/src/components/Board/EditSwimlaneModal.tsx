@@ -92,7 +92,9 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
                   <button
                     key={c}
                     onClick={() => setColor(c)}
-                    className={`w-7 h-7 rounded-full border-2 transition ${color === c ? "border-white scale-110" : "border-transparent"}`}
+                    aria-label={`Select color ${c}`}
+                    aria-pressed={color === c}
+                    className={`w-7 h-7 rounded-full border-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${color === c ? "border-white scale-110" : "border-transparent"}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
