@@ -9,6 +9,7 @@ import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
+import { Toggle } from "../Common/Toggle";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -509,20 +510,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               {isAdmin && onUpdateBoardSettings ? (
                 <section>
                   <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Limit enforcement</h3>
-                  <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer">
+                  <div className="flex items-center justify-between py-2 border-b border-line/60">
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Enforce WIP limits</span>
                       <p className="text-xs text-fg-muted mt-0.5">
                         When enabled, moving a card into a column that is at or over its WIP limit is blocked. Admins can override.
                       </p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <Toggle
                       checked={board.enforce_wip_limits}
-                      onChange={(e) => onUpdateBoardSettings({ enforce_wip_limits: e.target.checked })}
-                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                      onChange={(v) => onUpdateBoardSettings({ enforce_wip_limits: v })}
+                      aria-label="Enforce WIP limits"
                     />
-                  </label>
+                  </div>
                   {/* Hard WIP mode — visually subordinated under the soft enforcement toggle */}
                   <div className="ml-6 border-l-2 border-line pl-4 py-2 border-b border-line/60">
                     <div className="flex items-center justify-between">
@@ -532,18 +532,16 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           Hard mode is active regardless of whether soft enforcement is on. When enabled, no one — including admins — can override a WIP block.
                         </p>
                       </div>
-                      <input
-                        type="checkbox"
+                      <Toggle
                         checked={board.enforce_wip_hard}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // Require inline confirmation before enabling hard mode.
+                        onChange={(v) => {
+                          if (v) {
                             setPendingHardWip(true);
                           } else {
                             onUpdateBoardSettings({ enforce_wip_hard: false });
                           }
                         }}
-                        className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                        aria-label="Hard mode (no admin override)"
                       />
                     </div>
                     {pendingHardWip && (
@@ -567,20 +565,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     )}
                   </div>
-                  <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer">
+                  <div className="flex items-center justify-between py-2 border-b border-line/60">
                     <div className="min-w-0 pr-4">
                       <span className="text-sm text-fg">Enforce weight limits</span>
                       <p className="text-xs text-fg-muted mt-0.5">
                         When enabled, moving a card into a column that would exceed its weight budget is blocked. Admins can override. Columns must have a weight limit set for this to take effect.
                       </p>
                     </div>
-                    <input
-                      type="checkbox"
+                    <Toggle
                       checked={board.enforce_weight_limits}
-                      onChange={(e) => onUpdateBoardSettings({ enforce_weight_limits: e.target.checked })}
-                      className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                      onChange={(v) => onUpdateBoardSettings({ enforce_weight_limits: v })}
+                      aria-label="Enforce weight limits"
                     />
-                  </label>
+                  </div>
                 </section>
               ) : (
                 <section>
@@ -657,10 +654,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </p>
 
                 {/* Toggle row */}
-                <label className="flex items-center justify-between py-2 border-b border-line/60 cursor-pointer mb-3">
+                <div className="flex items-center justify-between py-2 border-b border-line/60 mb-3">
                   <span className="text-sm text-fg">Enable public share link</span>
-                  <input
-                    type="checkbox"
+                  <Toggle
                     checked={shareToken !== null}
                     disabled={shareLoading}
                     onChange={() => {
@@ -670,9 +666,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         handleEnableShare();
                       }
                     }}
-                    className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                    aria-label="Enable public share link"
                   />
-                </label>
+                </div>
 
                 {/* URL field — shown when enabled */}
                 {shareToken !== null && shareUrl && (

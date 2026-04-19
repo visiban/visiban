@@ -605,17 +605,17 @@ describe('BoardSettingsModal — Sharing tab', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
     expect(screen.getByText('Public sharing')).toBeInTheDocument()
     expect(screen.getByText('Enable public share link')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Enable public share link' })).toBeInTheDocument()
   })
 
   it('enabling share calls enableBoardSharing and shows URL', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
 
-    const checkbox = screen.getByRole('checkbox')
-    expect(checkbox).not.toBeChecked()
+    const toggle = screen.getByRole('switch', { name: 'Enable public share link' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
 
-    await user.click(checkbox)
+    await user.click(toggle)
     await waitFor(() => expect(mockEnableBoardSharing).toHaveBeenCalledWith(1))
     await waitFor(() => expect(screen.getByText(/abc-token-123/)).toBeInTheDocument())
   })
@@ -628,10 +628,10 @@ describe('BoardSettingsModal — Sharing tab', () => {
     // URL should be visible initially
     expect(screen.getByText(/existing-token-xyz/)).toBeInTheDocument()
 
-    const checkbox = screen.getByRole('checkbox')
-    expect(checkbox).toBeChecked()
+    const toggle = screen.getByRole('switch', { name: 'Enable public share link' })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
 
-    await user.click(checkbox)
+    await user.click(toggle)
     await waitFor(() => expect(mockDisableBoardSharing).toHaveBeenCalledWith(1))
     await waitFor(() => expect(screen.queryByText(/existing-token-xyz/)).toBeNull())
   })

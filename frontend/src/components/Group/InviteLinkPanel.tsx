@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
+import { ToggleField } from "../Common/Toggle";
 
 interface Props {
   groupId: number;
@@ -340,18 +341,13 @@ export default function InviteLinkPanel({ groupId }: Props) {
           </div>
 
           {/* Single-use toggle */}
-          <label className="flex items-center justify-between cursor-pointer">
-            <div className="min-w-0 pr-4">
-              <span className="text-xs text-fg-secondary">Single use</span>
-              <p className="text-xs text-fg-muted mt-0.5">Link expires after one person joins.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={formSingleUse}
-              onChange={(e) => setFormSingleUse(e.target.checked)}
-              className="w-4 h-4 rounded accent-blue-500 shrink-0"
-            />
-          </label>
+          <ToggleField
+            label="Single use"
+            description="Link expires after one person joins."
+            labelSize="xs"
+            checked={formSingleUse}
+            onChange={setFormSingleUse}
+          />
 
           {/* Reserved error slot — always rendered to prevent layout shift */}
           <p className="text-[11px] h-4">
