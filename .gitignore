@@ -59,3 +59,7 @@ site/
 /package.json
 /package-lock.json
 values.secret.yaml
+
+# Claude Code agent worktrees
+.claude/worktrees/
+.claude/scheduled_tasks.lock

@@ -1,0 +1,1 @@
+Removed the desktop-only `ViewportGate` blocker screen — the mobile navigation bar introduced in #524 already handles sub-1024 px viewports with a proper responsive layout, making the "use a larger screen" alert unnecessary.

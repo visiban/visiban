@@ -9,7 +9,6 @@ import ForceChangePasswordModal from "./components/Auth/ForceChangePasswordModal
 import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal";
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
-import ViewportGate from "./components/Layout/ViewportGate";
 import BoardView from "./components/Board/BoardView";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import Dashboard from "./pages/Dashboard";
@@ -115,7 +114,6 @@ export default function App() {
       {user ? (
         <>
           <Route path="/*" element={
-            <ViewportGate>
               <div className="flex h-screen overflow-hidden">
                 <ThemeServerSync user={user} onUserUpdated={updateUser} />
                 <AppSidebar
@@ -142,7 +140,6 @@ export default function App() {
                   <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
                 </div>
               </div>
-            </ViewportGate>
           } />
         </>
       ) : (
