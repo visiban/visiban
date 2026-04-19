@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import { exportBoardCsv, exportBoardJson } from "../../api/boards";
 
@@ -14,6 +14,15 @@ interface Props {
 export default function BoardExportModal({ boardId, onClose }: Props) {
   const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [status, setStatus] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel any pending status-clear timer when the modal unmounts so the callback
+  // does not fire into a torn-down test environment (or a stale React tree).
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current !== null) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   function handleExport() {
     try {
@@ -23,7 +32,8 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
         exportBoardCsv(boardId);
       }
       setStatus({ text: "Download started", type: "success" });
-      setTimeout(() => setStatus(null), 3000);
+      if (statusTimerRef.current !== null) clearTimeout(statusTimerRef.current);
+      statusTimerRef.current = setTimeout(() => setStatus(null), 3000);
     } catch {
       setStatus({ text: "Export failed — please try again", type: "error" });
     }

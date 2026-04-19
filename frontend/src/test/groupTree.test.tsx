@@ -101,11 +101,10 @@ describe('GroupTree', () => {
       </MemoryRouter>
     )
     expect(screen.queryByText('Backend')).not.toBeInTheDocument()
-    // click the expand chevron — has title "Expand Engineering" or similar; fall back to the
-    // first non-navigation button inside the row (the chevron has no accessible name, so we
-    // use the title attribute set on it in the component).
-    const engineeringRow = screen.getByText('Engineering').closest('button')!
-    const chevron = engineeringRow.querySelector('button')!
+    // The row wrapper is now a div[role="button"]; the chevron is a real <button> inside it
+    // with an aria-label of "Expand <group name>" — use that stable selector instead of
+    // querySelector('button') on the row, which would find the add-subgroup button first.
+    const chevron = screen.getByRole('button', { name: 'Expand Engineering' })
     await userEvent.setup().click(chevron)
     expect(screen.getByText('Backend')).toBeInTheDocument()
   })
@@ -123,16 +122,20 @@ describe('GroupTree', () => {
     expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
   })
 
-  it('group row is a button (keyboard-reachable) with a focus ring class (#481)', () => {
+  it('group row is keyboard-reachable (role=button, tabIndex=0) with a focus ring class (#481)', () => {
     const nodes = buildGroupTree([makeGroup({ id: 1, name: 'Engineering' })])
     render(
       <MemoryRouter>
         <GroupTree nodes={nodes} onGroupCreated={vi.fn()} />
       </MemoryRouter>
     )
-    const rowBtn = screen.getByText('Engineering').closest('button')!
-    expect(rowBtn.tagName).toBe('BUTTON')
-    expect(rowBtn.className).toMatch(/focus:ring/)
+    // The row is a div[role="button"] — not a <button> — to avoid the HTML spec
+    // prohibition on nesting interactive elements inside <button>.
+    const rowEl = screen.getByText('Engineering').closest('[role="button"]') as HTMLElement
+    expect(rowEl.tagName).toBe('DIV')
+    expect(rowEl.getAttribute('role')).toBe('button')
+    expect(rowEl.tabIndex).toBe(0)
+    expect(rowEl.className).toMatch(/focus:ring/)
   })
 
   it('closes CreateGroupModal when modal calls onClose', async () => {

@@ -57,13 +57,21 @@ function GroupNode({
 
   return (
     <div className="relative">
-      {/* Row */}
-      <button
+      {/* Row — uses div+role=button instead of <button> to avoid the HTML spec prohibition
+          on interactive content (button, a) nested inside <button>. The chevron and
+          add-subgroup buttons are real <button> elements whose stopPropagation calls must
+          work in real browsers; wrapping them in an outer <button> causes the parser to
+          close the outer element early, turning them into siblings and breaking propagation. */}
+      <div
+        role="button"
+        tabIndex={0}
         className="w-full flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-hover/50 transition cursor-pointer group/row focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         onClick={() => navigate(`/groups/${group.id}`)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/groups/${group.id}`); } }}
       >
         {/* Chevron — reserves space for leaf nodes to keep alignment */}
         <button
+          aria-label={expanded ? `Collapse ${group.name}` : `Expand ${group.name}`}
           onClick={(e) => { e.stopPropagation(); if (hasChildren) setExpanded((v) => !v); }}
           className={`shrink-0 w-4 h-4 flex items-center justify-center rounded text-fg-muted hover:text-fg-secondary transition-transform duration-150 ${expanded && hasChildren ? "rotate-90" : ""} ${!hasChildren ? "opacity-0 pointer-events-none" : ""}`}
         >
@@ -97,7 +105,7 @@ function GroupNode({
         <svg className="w-3.5 h-3.5 text-fg-faint group-hover/row:text-fg-tertiary shrink-0 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
-      </button>
+      </div>
 
       {/* Children with ├── / └── connectors */}
       {hasChildren && expanded && (
