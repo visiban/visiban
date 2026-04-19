@@ -108,6 +108,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
   const [swimlaneName, setSwimlaneName] = useState("");
   const [setAsDefault, setSetAsDefault] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const swimlaneRef = useRef<HTMLInputElement>(null);
 
@@ -155,9 +156,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
   const handleSubmit = async () => {
     if (!name.trim() || submitting) return;
+    setSubmitError(null);
     setSubmitting(true);
     try {
       await onConfirm(name.trim(), selectedSlug, swimlaneName.trim(), setAsDefault);
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { name?: string[]; detail?: string } } }).response?.data;
+      const msg = data?.name?.[0] ?? data?.detail ?? "Something went wrong. Please try again.";
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -187,7 +193,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
             <input
               ref={nameRef}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setSubmitError(null); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSubmit();
                 if (e.key === "Escape") onCancel();
@@ -197,11 +203,11 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
             />
           </div>
 
-          {/* Template picker */}
-          <div>
-            <label className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-2">
+          {/* Template picker — fieldset/legend + sr-only radio inputs for screen-reader and keyboard navigation */}
+          <fieldset>
+            <legend className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-2">
               Template
-            </label>
+            </legend>
             {templatesLoading ? (
               <div className="flex items-center justify-center py-8">
                 <span className="w-5 h-5 border-2 border-line-strong border-t-line-strong rounded-full animate-spin" />
@@ -220,16 +226,24 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                     {namedTemplates.map((t) => {
                       const isSelected = t.slug === selectedSlug;
                       return (
-                        <button
+                        <label
                           key={t.slug}
-                          onClick={() => handleSelectTemplate(t.slug)}
                           className={[
-                            "text-left rounded p-3.5 border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
+                            "text-left rounded-lg p-3.5 border transition-colors duration-150 cursor-pointer",
+                            "focus-within:ring-2 focus-within:ring-primary-emphasis",
                             isSelected
-                              ? "border-primary-emphasis bg-info/10 ring-1 ring-primary-emphasis/40"
-                              : "border-line bg-surface hover:border-line-emphasis",
+                              ? "border-primary-emphasis bg-primary-emphasis/10"
+                              : "border-line-strong hover:bg-surface-hover/40",
                           ].join(" ")}
                         >
+                          <input
+                            type="radio"
+                            name="template"
+                            value={t.slug}
+                            checked={isSelected}
+                            onChange={() => handleSelectTemplate(t.slug)}
+                            className="sr-only"
+                          />
                           {/* Icon + name row */}
                           <div className="flex items-center gap-2 mb-1">
                             <span className={isSelected ? "text-info" : "text-fg-tertiary"}>
@@ -252,7 +266,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                               />
                             ))}
                           </div>
-                        </button>
+                        </label>
                       );
                     })}
                   </div>
@@ -262,15 +276,23 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                     const isSelected = blankTemplate.slug === selectedSlug;
                     return (
                       <div className="border-t border-line pt-3 mt-1">
-                        <button
-                          onClick={() => handleSelectTemplate(blankTemplate.slug)}
+                        <label
                           className={[
-                            "w-full text-left rounded-xl p-3.5 border transition-all flex items-center gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken",
+                            "w-full text-left rounded-xl p-3.5 border transition-colors duration-150 flex items-center gap-4 cursor-pointer",
+                            "focus-within:ring-2 focus-within:ring-primary-emphasis",
                             isSelected
-                              ? "border-primary-emphasis bg-info/10 ring-1 ring-primary-emphasis/40"
-                              : "border-line bg-surface hover:border-line-emphasis",
+                              ? "border-primary-emphasis bg-primary-emphasis/10"
+                              : "border-line-strong hover:bg-surface-hover/40",
                           ].join(" ")}
                         >
+                          <input
+                            type="radio"
+                            name="template"
+                            value={blankTemplate.slug}
+                            checked={isSelected}
+                            onChange={() => handleSelectTemplate(blankTemplate.slug)}
+                            className="sr-only"
+                          />
                           <span className={`flex-shrink-0 ${isSelected ? "text-info" : "text-fg-tertiary"}`}>
                             {ICONS.blank}
                           </span>
@@ -279,14 +301,14 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                             <p className="text-fg-tertiary text-xs leading-snug mt-0.5">{blankTemplate.description}</p>
                           </div>
                           <span className="text-fg-muted text-xs flex-shrink-0">No preset columns</span>
-                        </button>
+                        </label>
                       </div>
                     );
                   })()}
                 </>
               );
             })()}
-          </div>
+          </fieldset>
 
           {/* Column preview strip — always rendered after load to prevent layout jump on template switch */}
           {!templatesLoading && (
@@ -362,7 +384,8 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-line flex items-center gap-3">
+          <p className="text-xs h-4 flex-1"><span className="text-danger">{submitError}</span></p>
           <button
             onClick={onCancel}
             className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition"
