@@ -92,7 +92,7 @@ describe('LoginPage', () => {
   })
 
   it('shows password mismatch error in register mode', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
@@ -105,7 +105,7 @@ describe('LoginPage', () => {
   })
 
   it('shows short password error in register mode', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
@@ -122,7 +122,7 @@ describe('LoginPage', () => {
     mockLogin.mockResolvedValue({})
     mockGetCurrentUser.mockResolvedValue(fakeUser)
 
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
     await user.type(screen.getByPlaceholderText('Username or email'), 'test')
@@ -144,7 +144,7 @@ describe('LoginPage', () => {
   it('shows error on login failure', async () => {
     mockLogin.mockRejectedValue({ response: { data: { non_field_errors: ['Invalid credentials'] } } })
 
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
     await user.type(screen.getByPlaceholderText('Username or email'), 'test')
@@ -159,7 +159,7 @@ describe('LoginPage', () => {
     mockRegister.mockResolvedValue({})
     mockGetCurrentUser.mockResolvedValue(fakeUser)
 
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
