@@ -6,7 +6,7 @@ from .models import (
     Board, BoardMembership, Column, Swimlane, Label, Card, CardMovement,
     CardComment, CardActivity, CardAttachment, CardChecklist, Notification,
 )
-from .serializers import CardSerializer, ColumnSerializer
+from .serializers import ColumnSerializer
 from .views._helpers import _refetched_card_data
 
 

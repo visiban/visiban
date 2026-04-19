@@ -92,8 +92,10 @@ class CardAdminBroadcastTests(TestCase):
 
     def test_delete_queryset_broadcasts_once_per_card(self):
         c1, c2 = self._new_card(), self._new_card()
-        c1.title = "One"; c1.save()
-        c2.title = "Two"; c2.save()
+        c1.title = "One"
+        c1.save()
+        c2.title = "Two"
+        c2.save()
         uids = {c1.uid, c2.uid}
         request = _make_request(self.admin_user)
         qs = Card.objects.filter(pk__in=[c1.pk, c2.pk])
@@ -155,7 +157,8 @@ class ColumnAdminBroadcastTests(TestCase):
 
     def test_delete_queryset_broadcasts_once_per_column(self):
         c1, c2 = self._new_column(position=0, name="A"), self._new_column(position=1, name="B")
-        c1.save(); c2.save()
+        c1.save()
+        c2.save()
         uids = {c1.uid, c2.uid}
         request = _make_request(self.admin_user)
         qs = Column.objects.filter(pk__in=[c1.pk, c2.pk])
