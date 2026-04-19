@@ -148,9 +148,22 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
       .catch(() => { setError("Failed to load analytics."); setLoading(false); });
   }, [boardId, days]);
 
-  if (loading) return <div className="flex-1 flex items-center justify-center bg-sunken text-fg-tertiary">Loading analytics…</div>;
+  if (loading) return (
+    <div className="flex-1 flex items-center justify-center bg-sunken gap-2">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <span className="text-sm text-fg-tertiary">Loading analytics…</span>
+    </div>
+  );
   if (error) return <div className="flex-1 flex items-center justify-center bg-sunken text-danger">{error}</div>;
-  if (!data) return null;
+  if (!data || !data.swimlanes) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-sunken">
+      <svg className="w-10 h-10 text-fg-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h18v18H3V3zm0 4.5h18M7.5 3v18" />
+      </svg>
+      <p className="text-fg-tertiary text-sm font-medium">No analytics data</p>
+      <p className="text-fg-muted text-xs">Move cards between columns to start generating heatmap data.</p>
+    </div>
+  );
 
   const { staleness_threshold_days: threshold, stale_warning_pct: warningPct } = data;
 
