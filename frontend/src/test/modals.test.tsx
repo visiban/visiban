@@ -168,6 +168,55 @@ describe('CreateBoardModal', () => {
     await user.click(screen.getByText('Create Board'))
     expect(onConfirm).toHaveBeenCalledWith('My Board', 'simple_kanban', '', false)
   })
+
+  it('shows submission error when onConfirm rejects (#486)', async () => {
+    const onConfirm = vi.fn().mockRejectedValue({
+      response: { data: { detail: 'A board with this name already exists.' } },
+    })
+    render(<CreateBoardModal onConfirm={onConfirm} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByLabelText('Set as my default board')).toBeInTheDocument())
+    await user.type(screen.getByPlaceholderText(/e.g. Q3 Pipeline/i), 'My Board')
+    await user.click(screen.getByText('Create Board'))
+    expect(await screen.findByText('A board with this name already exists.')).toBeInTheDocument()
+  })
+
+  it('clears submission error when name input changes (#486)', async () => {
+    const onConfirm = vi.fn().mockRejectedValue({ response: { data: { detail: 'Server error.' } } })
+    render(<CreateBoardModal onConfirm={onConfirm} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByLabelText('Set as my default board')).toBeInTheDocument())
+    const nameInput = screen.getByPlaceholderText(/e.g. Q3 Pipeline/i)
+    await user.type(nameInput, 'My Board')
+    await user.click(screen.getByText('Create Board'))
+    await screen.findByText('Server error.')
+    await user.type(nameInput, '!')
+    expect(screen.queryByText('Server error.')).not.toBeInTheDocument()
+  })
+
+  it('template options are radio inputs with correct name attribute (#482)', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())
+    const radios = screen.getAllByRole('radio')
+    expect(radios.length).toBeGreaterThan(0)
+    radios.forEach((r) => expect(r).toHaveAttribute('name', 'template'))
+  })
+
+  it('template picker is wrapped in a fieldset with a legend (#482)', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    await waitFor(() => expect(screen.getByText('Simple Kanban')).toBeInTheDocument())
+    expect(screen.getByRole('group', { name: /template/i })).toBeInTheDocument()
+  })
+
+  it('selecting a template checks its radio input (#482)', async () => {
+    render(<CreateBoardModal onConfirm={vi.fn()} onCancel={vi.fn()} />)
+    const user = userEvent.setup()
+    await waitFor(() => expect(screen.getByText('Sales Pipeline')).toBeInTheDocument())
+    const salesLabel = screen.getByText('Sales Pipeline').closest('label')!
+    await user.click(salesLabel)
+    const salesRadio = salesLabel.querySelector('input[type="radio"]') as HTMLInputElement
+    expect(salesRadio.checked).toBe(true)
+  })
 })
 
 describe('ImportBoardModal', () => {
