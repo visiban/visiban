@@ -2777,11 +2777,11 @@
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
 </code></pre></div>
-<p>Three init containers run automatically on every deploy:</p>
+<p>Release-time tasks run automatically:</p>
 <ol>
-<li><strong>migrate</strong> — applies database migrations</li>
-<li><strong>collectstatic</strong> — bundles Django static assets</li>
-<li><strong>bootstrap</strong> — creates the initial admin account (first install only)</li>
+<li><strong>migrate</strong> — applies database migrations. Runs as a Helm <code>pre-install</code> / <code>pre-upgrade</code> Job (<code>templates/migrate-job.yaml</code>) so only <strong>one</strong> pod migrates per release, regardless of <code>backendReplicaCount</code>. Inspect with <code>kubectl get jobs -l app.kubernetes.io/component=migrate</code> and <code>kubectl logs job/&lt;release&gt;-visiban-migrate</code>.</li>
+<li><strong>collectstatic</strong> (init container) — bundles Django static assets.</li>
+<li><strong>bootstrap</strong> (init container, first install only) — creates the initial admin account.</li>
 </ol>
 <h3 id="4-retrieve-the-admin-password">4. Retrieve the admin password<a class="headerlink" href="#4-retrieve-the-admin-password" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>deploy/visiban-backend<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
