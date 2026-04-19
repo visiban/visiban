@@ -158,7 +158,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() => screen.getAllByTestId('history-row'))
 
     fireEvent.click(screen.getByRole('button', { name: /^Column/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Done' }))
 
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
@@ -173,7 +173,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() => screen.getAllByTestId('history-row'))
 
     fireEvent.click(screen.getByRole('button', { name: /^User/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Alice' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Alice' }))
 
     await waitFor(() =>
       expect(mockGetMovements).toHaveBeenCalledWith(
@@ -202,7 +202,7 @@ describe('MovementHistoryView — filters', () => {
     await waitFor(() => screen.getAllByTestId('history-row'))
 
     fireEvent.click(screen.getByRole('button', { name: /^Column/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Done' }))
 
     await waitFor(() => expect(screen.getByText('Clear filters')).toBeInTheDocument())
 
@@ -225,7 +225,7 @@ describe('MovementHistoryView — filters', () => {
     // Simulate filtered empty state by having data then filter returning 0
     mockGetMovements.mockResolvedValue({ results: [], count: 0 })
     fireEvent.click(screen.getByRole('button', { name: /^Column/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Done' }))
 
     await waitFor(() =>
       expect(screen.getByText('No movements match the current filters.')).toBeInTheDocument()
