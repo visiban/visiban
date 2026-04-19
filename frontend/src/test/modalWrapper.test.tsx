@@ -206,10 +206,7 @@ describe('ModalWrapper', () => {
     )
     const user = userEvent.setup()
     // Buttons inside the modal
-    const first = screen.getByRole('button', { name: 'First' })
     const second = screen.getByRole('button', { name: 'Second' })
-    // Close button is rendered by ModalWrapper; it is part of the trap
-    const close = screen.getByRole('button', { name: 'Close' })
 
     // Move focus to the last focusable element (Close button appears first in DOM)
     // Tab past the last to wrap to first
@@ -231,9 +228,8 @@ describe('ModalWrapper', () => {
       </ModalWrapper>
     )
     const user = userEvent.setup()
-    const close = screen.getByRole('button', { name: 'Close' })
     // Focus the close button (appears first in DOM as first focusable)
-    close.focus()
+    screen.getByRole('button', { name: 'Close' }).focus()
     await user.tab({ shift: true })
     // Should wrap to last focusable (Beta button)
     const focused = document.activeElement
