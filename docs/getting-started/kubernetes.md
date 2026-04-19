@@ -288,6 +288,9 @@ helm upgrade visiban helm/visiban \
 
 Init containers run `migrate` before the new backend pod becomes ready, so migrations are applied automatically. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
 
+!!! warning "Always pin the image tag"
+    The chart defaults `backend.image.tag` and `frontend.image.tag` to the current release (e.g. `v1.0.0`). **Never deploy with `tag: "latest"` or an empty tag** — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (`v1.0.0`, `v1.1.0`, etc.), or to an image digest (`sha256:...`) for maximum reproducibility. The chart prints a warning in `helm install` / `helm upgrade` output when it detects an unpinned tag.
+
 ## Django admin access
 
 The Django admin panel (`/admin/`) is restricted to loopback at the Nginx layer. Access it via port-forward:

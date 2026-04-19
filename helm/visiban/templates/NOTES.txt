@@ -28,3 +28,21 @@ Visiban has been deployed!
 IMPORTANT: Change the default secret values before going to production:
   --set secret.djangoSecretKey=<strong-random-key>
   --set postgresql.auth.password=<strong-password>
+
+{{- $backendTag := .Values.backend.image.tag | toString }}
+{{- $frontendTag := .Values.frontend.image.tag | toString }}
+{{- if or (eq $backendTag "") (eq $backendTag "latest") (eq $frontendTag "") (eq $frontendTag "latest") }}
+
+WARNING: Unpinned image tag detected.
+{{- if or (eq $backendTag "") (eq $backendTag "latest") }}
+  backend.image.tag  = {{ if eq $backendTag "" }}"" (empty){{ else }}"{{ $backendTag }}"{{ end }}
+{{- end }}
+{{- if or (eq $frontendTag "") (eq $frontendTag "latest") }}
+  frontend.image.tag = {{ if eq $frontendTag "" }}"" (empty){{ else }}"{{ $frontendTag }}"{{ end }}
+{{- end }}
+
+  Deploying with an empty tag or "latest" is not reproducible — pod restarts
+  may pull a different image than the one you validated, and rollbacks cannot
+  recover a known-good state. Always pin to a specific release tag such as
+  "v1.0.0". See docs/getting-started/kubernetes.md for upgrade guidance.
+{{- end }}
