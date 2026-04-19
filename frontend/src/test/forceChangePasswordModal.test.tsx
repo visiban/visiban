@@ -74,7 +74,7 @@ describe('ForceChangePasswordModal', () => {
   })
 
   it('calls changePassword and invokes onChanged on success', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const updatedUser = { ...baseUser, must_change_password: false }
     mockChangePassword.mockResolvedValue(undefined)
 
@@ -110,7 +110,7 @@ describe('ForceChangePasswordModal', () => {
   })
 
   it('shows fallback error message when API returns no detail', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockChangePassword.mockRejectedValue(new Error('Network error'))
 
     render(<ForceChangePasswordModal user={baseUser} onChanged={onChanged} />)

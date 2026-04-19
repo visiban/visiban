@@ -246,7 +246,7 @@ describe('SecurityTab — password account', () => {
   })
 
   async function openSecurityTab() {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     renderSettings()
     const securityTab = screen.getAllByText('Security')[0]
     await user.click(securityTab)
