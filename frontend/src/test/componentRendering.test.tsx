@@ -604,6 +604,76 @@ describe('ColumnHeader', () => {
     fireEvent.keyDown(btn, { key: 'Enter' })
     expect(onToggleCollapse).toHaveBeenCalledOnce()
   })
+
+  it('collapsed over-WIP: shows warning glyph and updated title when cardCount > wip_limit', () => {
+    const cards = [makeCard(), makeCard(), makeCard()]
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review', wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Expand "Review" · Over WIP limit (3/2)')).toBeInTheDocument()
+    expect(screen.getByText('⚠')).toBeInTheDocument()
+  })
+
+  it('collapsed at WIP limit: no warning glyph when cardCount === wip_limit', () => {
+    const cards = [makeCard(), makeCard()]
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review', wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Expand "Review"')).toBeInTheDocument()
+    expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
+
+  it('collapsed no WIP limit: no warning glyph when wip_limit is null', () => {
+    const cards = [makeCard(), makeCard(), makeCard()]
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review', wip_limit: null })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
+
+  it('collapsed wip_limit=0: no warning glyph (0 treated as no limit)', () => {
+    const cards = [makeCard()]
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review', wip_limit: 0 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------

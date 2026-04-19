@@ -30,7 +30,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
 
   const cardCount = cards.length;
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
-  const overWip = column.wip_limit !== null && cardCount > column.wip_limit;
+  const overWip = column.wip_limit !== null && column.wip_limit > 0 && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
 
   const startRenaming = () => {
@@ -76,7 +76,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         role="button"
         onClick={onToggleCollapse}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
-        title={`Expand "${column.name}"`}
+        title={overWip ? `Expand "${column.name}" · Over WIP limit (${cardCount}/${column.wip_limit})` : `Expand "${column.name}"`}
       >
         {/* Color dot is the drag handle — same pattern as expanded header */}
         <span
@@ -93,6 +93,9 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         >
           {cardCount}
         </span>
+        {overWip && (
+          <span aria-hidden="true" className="text-[10px] text-danger leading-none">⚠</span>
+        )}
         <span
           className="text-[11px] font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
           style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
