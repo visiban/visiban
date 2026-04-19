@@ -1,0 +1,3 @@
+- The guided onboarding tour now covers 8 steps (up from 4), adding walkthroughs for view tabs, swimlane collapse, the Live connection indicator, and Space+drag canvas panning (#770)
+- A new full-screen tour step type introduces the Space+drag panning hint without requiring a spotlight anchor on a specific element (#770)
+- Users can restart the onboarding tour at any time from Settings → Behavior or from the keyboard shortcuts overlay (#770)
