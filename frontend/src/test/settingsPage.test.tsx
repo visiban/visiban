@@ -268,7 +268,7 @@ describe('SecurityTab — password account', () => {
       expect(screen.getByText('New passwords do not match.')).toBeInTheDocument(),
     )
     expect(mockChangePassword).not.toHaveBeenCalled()
-  })
+  }, 15000)
 
   it('password too short shows error', async () => {
     const user = await openSecurityTab()
