@@ -25,7 +25,7 @@ export default function OnboardingEmptyState({ onCreateBoard, onJoinGroup }: Pro
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={onCreateBoard}
-          className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-fg text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Create my first board
         </button>
