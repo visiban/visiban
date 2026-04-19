@@ -94,7 +94,7 @@ function StaticSwimlaneSidebar({ swimlane }: { swimlane: Swimlane }) {
       className="bg-surface flex items-center px-3 py-2 min-w-0"
       style={{ borderLeft: `4px solid ${swimlane.color}` }}
     >
-      <span className="text-sm text-fg-secondary truncate" title={swimlane.name}>{swimlane.name}</span>
+      <span className="text-sm text-fg-secondary break-words">{swimlane.name}</span>
     </div>
   );
 }
