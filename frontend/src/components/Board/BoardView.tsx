@@ -1654,7 +1654,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
-      {!currentUser?.has_completed_tour && (
+      {currentUser && !currentUser.has_completed_tour && (
         <OnboardingTour
           onComplete={() => {
             if (currentUser && onUserUpdated) {
