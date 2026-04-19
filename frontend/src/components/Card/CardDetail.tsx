@@ -90,7 +90,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const weightSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveButtonRef = useRef<HTMLButtonElement>(null);
   const [showMovePopover, setShowMovePopover] = useState(false);
-  const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [movePopoverAnchor, setMovePopoverAnchor] = useState<{ top: number; left: number } | null>(null);
   const [moveTargetColumn, setMoveTargetColumn] = useState<number | null>(null);
   const [moveTargetSwimlane, setMoveTargetSwimlane] = useState<number | null>(null);
   const [moveSubmitting, setMoveSubmitting] = useState(false);
@@ -400,7 +400,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       // popover isn't clipped by the panel's overflow-hidden container.
                       const rect = moveButtonRef.current?.getBoundingClientRect();
                       if (rect) {
-                        setMovePopoverAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                        // Right-align to button, clamped so the popover never clips the left edge.
+                        const popoverWidth = 256; // w-64
+                        const left = Math.max(8, window.innerWidth - (window.innerWidth - rect.right) - popoverWidth);
+                        setMovePopoverAnchor({ top: rect.bottom + 4, left });
                       }
                       setMoveTargetColumn(localCard.column);
                       setMoveTargetSwimlane(localCard.swimlane);
@@ -972,7 +975,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       {showMovePopover && movePopoverAnchor && (
         <div
           className="fixed w-64 bg-surface border border-line rounded-lg shadow-xl p-4 z-[60] flex flex-col gap-3"
-          style={{ top: movePopoverAnchor.top, right: movePopoverAnchor.right }}
+          style={{ top: movePopoverAnchor.top, left: movePopoverAnchor.left }}
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-fg-tertiary">Move to</p>
           <div className="flex flex-col gap-1.5">
