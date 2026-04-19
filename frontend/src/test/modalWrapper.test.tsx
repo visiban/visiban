@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import ModalWrapper from '../components/shared/ModalWrapper'
 
 describe('ModalWrapper', () => {
@@ -194,6 +195,46 @@ describe('ModalWrapper', () => {
     const p = screen.getByText('Padded content')
     expect(p.parentElement?.className).toContain('px-6')
     expect(p.parentElement?.className).toContain('pb-6')
+  })
+
+  it('traps Tab focus inside the modal panel', async () => {
+    render(
+      <ModalWrapper open={true} onClose={vi.fn()} title="Focus Trap">
+        <button>First</button>
+        <button>Second</button>
+      </ModalWrapper>
+    )
+    const user = userEvent.setup()
+    // Buttons inside the modal
+    const second = screen.getByRole('button', { name: 'Second' })
+
+    // Move focus to the last focusable element (Close button appears first in DOM)
+    // Tab past the last to wrap to first
+    second.focus()
+    await user.tab()
+    // After the last button (second), Tab wraps to the first focusable (close)
+    // or back to first button — either way focus stays inside the dialog
+    const focused = document.activeElement
+    expect(screen.getByRole('dialog').contains(focused)).toBe(true)
+    // Specifically not the document body
+    expect(focused).not.toBe(document.body)
+  })
+
+  it('traps Shift+Tab focus to the last element when on first', async () => {
+    render(
+      <ModalWrapper open={true} onClose={vi.fn()} title="Focus Trap Reverse">
+        <button>Alpha</button>
+        <button>Beta</button>
+      </ModalWrapper>
+    )
+    const user = userEvent.setup()
+    // Focus the close button (appears first in DOM as first focusable)
+    screen.getByRole('button', { name: 'Close' }).focus()
+    await user.tab({ shift: true })
+    // Should wrap to last focusable (Beta button)
+    const focused = document.activeElement
+    expect(screen.getByRole('dialog').contains(focused)).toBe(true)
+    expect(focused).not.toBe(document.body)
   })
 
   it('does not wrap children in padding div when noPadding is true', () => {

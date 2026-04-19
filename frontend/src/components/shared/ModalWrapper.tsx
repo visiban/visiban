@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 interface ModalWrapperProps {
   open: boolean;
@@ -61,12 +62,14 @@ export default function ModalWrapper({
     onClose();
   }, 40);
 
-  // Focus trap: move focus into the panel on mount
+  // Move focus into the panel on open; trap focus while modal is open
   useEffect(() => {
     if (open) {
       panelRef.current?.focus();
     }
   }, [open]);
+
+  useFocusTrap(panelRef, open);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
