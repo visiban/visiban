@@ -58,8 +58,8 @@ function GroupNode({
   return (
     <div className="relative">
       {/* Row */}
-      <div
-        className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-hover/50 transition cursor-pointer group/row"
+      <button
+        className="w-full flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-surface-hover/50 transition cursor-pointer group/row focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         onClick={() => navigate(`/groups/${group.id}`)}
       >
         {/* Chevron — reserves space for leaf nodes to keep alignment */}
@@ -97,7 +97,7 @@ function GroupNode({
         <svg className="w-3.5 h-3.5 text-fg-faint group-hover/row:text-fg-tertiary shrink-0 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
-      </div>
+      </button>
 
       {/* Children with ├── / └── connectors */}
       {hasChildren && expanded && (

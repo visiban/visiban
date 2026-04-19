@@ -101,10 +101,12 @@ describe('GroupTree', () => {
       </MemoryRouter>
     )
     expect(screen.queryByText('Backend')).not.toBeInTheDocument()
-    // click the expand chevron (first button in the row)
-    const allButtons = screen.getAllByRole('button')
-    // The chevron is the first button inside the Engineering row
-    await userEvent.setup().click(allButtons[0])
+    // click the expand chevron — has title "Expand Engineering" or similar; fall back to the
+    // first non-navigation button inside the row (the chevron has no accessible name, so we
+    // use the title attribute set on it in the component).
+    const engineeringRow = screen.getByText('Engineering').closest('button')!
+    const chevron = engineeringRow.querySelector('button')!
+    await userEvent.setup().click(chevron)
     expect(screen.getByText('Backend')).toBeInTheDocument()
   })
 
@@ -119,6 +121,18 @@ describe('GroupTree', () => {
     const addBtn = screen.getByTitle('Add subgroup to Engineering')
     await userEvent.setup().click(addBtn)
     expect(screen.getByTestId('create-group-modal')).toBeInTheDocument()
+  })
+
+  it('group row is a button (keyboard-reachable) with a focus ring class (#481)', () => {
+    const nodes = buildGroupTree([makeGroup({ id: 1, name: 'Engineering' })])
+    render(
+      <MemoryRouter>
+        <GroupTree nodes={nodes} onGroupCreated={vi.fn()} />
+      </MemoryRouter>
+    )
+    const rowBtn = screen.getByText('Engineering').closest('button')!
+    expect(rowBtn.tagName).toBe('BUTTON')
+    expect(rowBtn.className).toMatch(/focus:ring/)
   })
 
   it('closes CreateGroupModal when modal calls onClose', async () => {
