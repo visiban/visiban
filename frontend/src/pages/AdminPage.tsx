@@ -1182,7 +1182,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full text-left px-3 py-2 rounded text-sm transition ${
                       activeTab === tab.id
-                        ? "bg-primary text-fg font-medium"
+                        ? "bg-primary text-on-primary font-medium"
                         : "text-fg-tertiary hover:text-fg hover:bg-surface"
                     }`}
                   >
