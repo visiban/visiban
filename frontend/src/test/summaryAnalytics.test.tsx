@@ -91,10 +91,28 @@ describe('AnalyticsView', () => {
     localStorage.clear()
   })
 
-  it('shows loading state', () => {
+  it('shows loading spinner', () => {
     mockGetBoardAnalytics.mockReturnValue(new Promise(() => {}))
     render(<AnalyticsView boardId={1} currentUserRole="admin" />)
     expect(screen.getByText(/Loading analytics/)).toBeInTheDocument()
+    // Canonical spinner element is present
+    expect(document.querySelector('.animate-spin')).not.toBeNull()
+  })
+
+  it('shows empty state when API returns null (#672)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue(null)
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText('No analytics data')).toBeInTheDocument()
+    expect(screen.getByText(/Move cards between columns/)).toBeInTheDocument()
+  })
+
+  it('shows empty state when swimlanes is null (#672)', async () => {
+    mockGetBoardAnalytics.mockResolvedValue({
+      days: 30, columns: [], swimlanes: null,
+      stalled_threshold_days: 7, staleness_threshold_days: 14, stale_warning_pct: 50,
+    })
+    render(<AnalyticsView boardId={1} currentUserRole="admin" />)
+    expect(await screen.findByText('No analytics data')).toBeInTheDocument()
   })
 
   it('shows error on failure', async () => {
