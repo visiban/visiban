@@ -250,7 +250,7 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
       <div className="flex items-center justify-end px-2 py-2 border-b border-line shrink-0">
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface"
+          className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
@@ -565,14 +565,14 @@ export default function AppSidebar({ user, starVersion = 0 }: Props) {
         <div className="shrink-0 border-t border-line px-3 py-2 flex flex-col gap-1">
           <button
             onClick={() => setShowCreateBoard(true)}
-            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left"
+            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             <span className="text-base leading-none">+</span>
             <span>New board</span>
           </button>
           <button
             onClick={() => setShowCreateGroup(true)}
-            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left"
+            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             <span className="text-base leading-none">+</span>
             <span>New group</span>
