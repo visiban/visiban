@@ -2,6 +2,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
   onClose: () => void;
+  onRestartTour?: () => void;
 }
 
 const SHORTCUTS = [
@@ -14,7 +15,7 @@ const SHORTCUTS = [
   { key: "Space + drag", description: "Pan the board" },
 ];
 
-export default function KeyboardShortcutsOverlay({ onClose }: Props) {
+export default function KeyboardShortcutsOverlay({ onClose, onRestartTour }: Props) {
   return (
     <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-sm">
       <table className="w-full text-sm">
@@ -31,6 +32,24 @@ export default function KeyboardShortcutsOverlay({ onClose }: Props) {
           ))}
         </tbody>
       </table>
+      {onRestartTour && (
+        <>
+          <div className="my-3">
+            <div className="h-px bg-sunken" />
+            <div className="h-px bg-surface-active/50" />
+          </div>
+          <button
+            onClick={onRestartTour}
+            className="flex items-center gap-2 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover w-full px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" strokeLinecap="round"/>
+              <polyline points="8,1 8,4 11,4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Restart tour
+          </button>
+        </>
+      )}
     </ModalWrapper>
   );
 }

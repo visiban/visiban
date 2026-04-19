@@ -109,6 +109,7 @@ const fakeUser: User = {
   id: 1, username: 'alice', email: 'a@example.com', first_name: 'Alice',
   last_name: 'Smith', avatar_url: '', display_name: 'Alice Smith',
   is_site_admin: false, must_change_password: false, must_change_username: false,
+  has_completed_tour: true,
 }
 
 function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {

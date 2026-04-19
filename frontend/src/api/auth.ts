@@ -52,6 +52,9 @@ export const updateDefaultBoard = (boardId: number | null) =>
 export const completeTour = () =>
   client.patch<import("../types").User>("/api/v1/auth/me/", { has_completed_tour: true }).then((r) => r.data);
 
+export const resetTour = (): Promise<void> =>
+  client.patch("/api/v1/auth/me/", { has_completed_tour: false }).then(() => undefined);
+
 export const searchUsers = (query: string) =>
   client.get<User[]>(`/api/v1/users/?search=${encodeURIComponent(query)}`).then((r) => r.data);
 

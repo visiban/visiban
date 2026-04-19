@@ -28,6 +28,14 @@ describe('OnboardingTour', () => {
     mockEscapeHandlers.length = 0
 
     // Set up DOM elements that the tour steps target
+    const viewTabs = document.createElement('div')
+    viewTabs.setAttribute('data-tour-step', 'view-tabs')
+    viewTabs.getBoundingClientRect = () => ({
+      top: 10, left: 10, bottom: 30, right: 200, width: 190, height: 20,
+      x: 10, y: 10, toJSON: () => {},
+    })
+    document.body.appendChild(viewTabs)
+
     const swimlane = document.createElement('div')
     swimlane.setAttribute('data-tour-step', 'swimlane')
     swimlane.style.position = 'fixed'
@@ -40,6 +48,14 @@ describe('OnboardingTour', () => {
       x: 50, y: 100, toJSON: () => {},
     })
     document.body.appendChild(swimlane)
+
+    const swimlaneCollapse = document.createElement('button')
+    swimlaneCollapse.setAttribute('data-tour-step', 'swimlane-collapse')
+    swimlaneCollapse.getBoundingClientRect = () => ({
+      top: 100, left: 200, bottom: 120, right: 220, width: 20, height: 20,
+      x: 200, y: 100, toJSON: () => {},
+    })
+    document.body.appendChild(swimlaneCollapse)
 
     const card = document.createElement('div')
     card.setAttribute('data-tour-step', 'card')
@@ -64,6 +80,14 @@ describe('OnboardingTour', () => {
       x: 400, y: 10, toJSON: () => {},
     })
     document.body.appendChild(filter)
+
+    const liveIndicator = document.createElement('span')
+    liveIndicator.setAttribute('data-tour-step', 'live-indicator')
+    liveIndicator.getBoundingClientRect = () => ({
+      top: 10, left: 500, bottom: 25, right: 540, width: 40, height: 15,
+      x: 500, y: 10, toJSON: () => {},
+    })
+    document.body.appendChild(liveIndicator)
   })
 
   afterEach(() => {
@@ -75,18 +99,23 @@ describe('OnboardingTour', () => {
     expect(screen.getByTestId('onboarding-tour')).toBeTruthy()
   })
 
-  it('shows step 1 of 4 initially', () => {
+  it('has 8 steps total', () => {
     render(<OnboardingTour onComplete={onComplete} />)
-    expect(screen.getByText('Step 1 of 4')).toBeTruthy()
-    expect(screen.getByText('Swimlanes are your clients')).toBeTruthy()
+    expect(screen.getByText('Step 1 of 8')).toBeTruthy()
+  })
+
+  it('shows step 1 of 8 initially with view-tabs title', () => {
+    render(<OnboardingTour onComplete={onComplete} />)
+    expect(screen.getByText('Step 1 of 8')).toBeTruthy()
+    expect(screen.getByText('Switch between views')).toBeTruthy()
   })
 
   it('advances to next step on Next click', async () => {
     render(<OnboardingTour onComplete={onComplete} />)
     fireEvent.click(screen.getByText('Next'))
     await waitFor(() => {
-      expect(screen.getByText('Step 2 of 4')).toBeTruthy()
-      expect(screen.getByText('Drag cards to track progress')).toBeTruthy()
+      expect(screen.getByText('Step 2 of 8')).toBeTruthy()
+      expect(screen.getByText('Swimlanes are your clients')).toBeTruthy()
     })
   })
 
@@ -99,15 +128,15 @@ describe('OnboardingTour', () => {
     })
   })
 
-  it('calls completeTour API and onComplete on Done (last step)', async () => {
+  it('calls completeTour API and onComplete on Got it (last fullScreen step)', async () => {
     render(<OnboardingTour onComplete={onComplete} />)
-    // Advance through all 4 steps
-    fireEvent.click(screen.getByText('Next')) // step 2
-    fireEvent.click(screen.getByText('Next')) // step 3
-    fireEvent.click(screen.getByText('Next')) // step 4
-    // Now we should see "Done" button
-    await waitFor(() => expect(screen.getByText('Done')).toBeTruthy())
-    fireEvent.click(screen.getByText('Done'))
+    // Advance through all 7 spotlight steps to reach the fullScreen step (step 8)
+    for (let i = 0; i < 7; i++) {
+      fireEvent.click(screen.getByText('Next'))
+    }
+    // Step 8 is the fullScreen step — button reads "Got it"
+    await waitFor(() => expect(screen.getByText('Got it')).toBeTruthy())
+    fireEvent.click(screen.getByText('Got it'))
     await waitFor(() => {
       expect(mockCompleteTour).toHaveBeenCalled()
       expect(onComplete).toHaveBeenCalled()
@@ -121,12 +150,38 @@ describe('OnboardingTour', () => {
   })
 
   it('does not render when target element is missing and skips to next step', async () => {
-    // Remove the swimlane element so step 1 has no target
-    document.querySelector('[data-tour-step="swimlane"]')?.remove()
+    // Remove the view-tabs element so step 1 has no target; it should skip to step 2 (swimlane)
+    document.querySelector('[data-tour-step="view-tabs"]')?.remove()
     render(<OnboardingTour onComplete={onComplete} />)
-    // Should skip to step 2 (card)
+    // Should skip to step 2 (swimlane)
     await waitFor(() => {
-      expect(screen.getByText('Drag cards to track progress')).toBeTruthy()
+      expect(screen.getByText('Swimlanes are your clients')).toBeTruthy()
+    })
+  })
+
+  it('renders the fullScreen centered card layout for the pan-board step', async () => {
+    render(<OnboardingTour onComplete={onComplete} />)
+    // Advance to step 8 (index 7) — the fullScreen step
+    for (let i = 0; i < 7; i++) {
+      fireEvent.click(screen.getByText('Next'))
+    }
+    await waitFor(() => {
+      expect(screen.getByText('Pan the board')).toBeTruthy()
+      expect(screen.getByText('Got it')).toBeTruthy()
+      // The fullScreen layout does not render the spotlight tooltip
+      expect(screen.queryByTestId('tour-tooltip')).toBeNull()
+    })
+  })
+
+  it('fullScreen step renders the Space + drag hint', async () => {
+    render(<OnboardingTour onComplete={onComplete} />)
+    for (let i = 0; i < 7; i++) {
+      fireEvent.click(screen.getByText('Next'))
+    }
+    await waitFor(() => {
+      expect(screen.getByText('Pan the board')).toBeTruthy()
+      // The Space kbd hint should be present
+      expect(screen.getByText('Space')).toBeTruthy()
     })
   })
 })

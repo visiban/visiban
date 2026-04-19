@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
-import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken } from "../api/auth";
+import { updateCurrentUser, changePassword, listTokens, createToken, revokeToken, resetTour } from "../api/auth";
 import Navbar from "../components/Layout/Navbar";
 import type { User, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 import { useTheme } from "../context/ThemeContext";
@@ -443,7 +443,7 @@ function AccessTokensTab() {
       {/* Token list */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-line-strong border-t-blue-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : tokens.length === 0 ? (
         <p className="text-sm text-fg-muted" data-testid="no-tokens-message">No access tokens yet.</p>
@@ -634,6 +634,9 @@ function AppearanceTab() {
 function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetConfirmed, setResetConfirmed] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const toggleCloseOnEnter = async () => {
     const newVal = !(user.close_editor_on_enter ?? true);
@@ -646,6 +649,22 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
       setError("Failed to save. Please try again.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetTour = async () => {
+    setResetting(true);
+    setResetConfirmed(false);
+    setResetError(null);
+    try {
+      await resetTour();
+      onUserUpdated({ ...user, has_completed_tour: false });
+      setResetConfirmed(true);
+      setTimeout(() => setResetConfirmed(false), 4000);
+    } catch {
+      setResetError("Failed to reset tour. Please try again.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -675,6 +694,21 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
           </button>
         </label>
         <p className="text-xs h-4 mt-1">{error && <span className="text-danger">{error}</span>}</p>
+      </div>
+
+      <div className="border-t border-line pt-4">
+        <p className="text-sm text-fg-secondary font-medium mb-3">Onboarding</p>
+        <button
+          disabled={resetting}
+          onClick={handleResetTour}
+          className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+        >
+          {resetting ? "Resetting…" : "Restart onboarding tour"}
+        </button>
+        <p className="text-xs h-4 mt-1">
+          {resetConfirmed && <span className="text-success">Tour will restart on your next visit to a board.</span>}
+          {resetError && <span className="text-danger">{resetError}</span>}
+        </p>
       </div>
     </div>
   );
