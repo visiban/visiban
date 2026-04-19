@@ -86,7 +86,7 @@ describe('Notification dropdown', () => {
   })
 
   it('clicking a card notification navigates to /boards/:id?card=:card_id', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(1)
     mockedListNotifications.mockResolvedValue([mockNotifications[0]])
 
@@ -102,7 +102,7 @@ describe('Notification dropdown', () => {
   })
 
   it('clicking a board-only notification (no card_id) navigates to /boards/:id', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const boardOnlyNotification: Notification = {
       id: 3,
       verb: 'You were added to Sprint 1',
@@ -160,7 +160,7 @@ describe('Notification dropdown', () => {
   })
 
   it('clicking a notification removes it from the list and decrements count', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(2)
     mockedListNotifications.mockResolvedValue([...mockNotifications])
 
@@ -197,7 +197,7 @@ describe('Notification dropdown', () => {
   })
 
   it('mark-all-read clears the notification list and count', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(2)
     mockedListNotifications.mockResolvedValue([...mockNotifications])
 
@@ -229,7 +229,7 @@ describe('Notification dropdown', () => {
   })
 
   it('renders "View board" affordance for board invite notifications', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     const boardInviteNotification: Notification = {
       id: 4,
       verb: 'You were added to Sprint 1',
@@ -254,7 +254,7 @@ describe('Notification dropdown', () => {
   })
 
   it('does not render "View board" affordance for card-scoped notifications', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(1)
     mockedListNotifications.mockResolvedValue([mockNotifications[0]])
 
@@ -268,7 +268,7 @@ describe('Notification dropdown', () => {
   })
 
   it('shows empty state when there are no notifications', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(0)
     mockedListNotifications.mockResolvedValue([])
 
