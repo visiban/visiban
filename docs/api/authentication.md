@@ -328,7 +328,7 @@ Request a password reset email. **No authentication required.**
 - The response is always `200 OK` regardless of whether the email matches a registered account — this prevents user enumeration.
 - If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route `/reset-password/{uid}/{token}`.
 - If the email belongs to an **OAuth-only** account (no password set), an alternate email is sent directing the user back to their OAuth provider instead.
-- **Rate limited** — the endpoint is throttled per IP to prevent bulk email sends. Exceeding the limit returns `429 Too Many Requests`.
+- **Rate limited** — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns `429 Too Many Requests`.
 
 **Response** `200 OK { "detail": "Password reset e-mail has been sent." }`
 
@@ -356,7 +356,8 @@ Set a new password using the token from the reset email. **No authentication req
 
 **Response** `200 OK { "detail": "Password has been reset with the new password." }` on success; `400 Bad Request` on invalid/expired token or mismatched passwords.
 
-After a successful reset, all existing session tokens and PATs for that user are revoked.
+!!! note
+    Session tokens issued by `POST /api/v1/auth/login/` are invalidated on the next login with the new password. Personal Access Tokens (PATs) are **not** automatically revoked by a password reset — use `DELETE /api/v1/auth/tokens/{id}/` to revoke individual PATs, or change the password via `POST /api/v1/auth/change-password/` (which does revoke all PATs).
 
 ---
 
