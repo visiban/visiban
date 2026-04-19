@@ -435,6 +435,11 @@ describe('AddColumnModal', () => {
     expect(screen.getByText('Add Column', { selector: 'h2' })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('e.g. In Progress')).toBeInTheDocument()
   })
+
+  it('color swatch buttons have aria-label and aria-pressed', () => {
+    render(<AddColumnModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: /Select color/ })).toHaveLength(6)
+  })
 })
 
 describe('EditColumnModal', () => {
@@ -570,6 +575,11 @@ describe('AddSwimlaneModal', () => {
     expect(screen.getByText('Add Swimlane', { selector: 'h2' })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Swimlane name')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('email@example.com')).toBeInTheDocument()
+  })
+
+  it('color swatch buttons have aria-label and aria-pressed', () => {
+    render(<AddSwimlaneModal boardId={1} onAdded={vi.fn()} onClose={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: /Select color/ })).toHaveLength(8)
   })
 })
 
