@@ -997,7 +997,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   return (
     <>
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
-      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 bg-surface border-b border-line shrink-0 gap-2">
+      <div className="overflow-x-auto shrink-0 bg-surface border-b border-line">
+      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 gap-2 min-w-max">
         {/* Zone 1: View navigation */}
         <ViewToggle view={view} onChange={setView} />
 
@@ -1191,6 +1192,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </span>
           </span>
         </div>
+      </div>
       </div>
 
       {/* Filter row — own row so it doesn't compress the toolbar */}

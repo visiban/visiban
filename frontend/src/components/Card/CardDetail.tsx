@@ -352,7 +352,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-backdrop/40" onClick={onClose} />
 
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-[540px] bg-surface shadow-2xl flex flex-col overflow-hidden outline-none">
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="card-detail-title" tabIndex={-1} className="w-full sm:w-[540px] bg-surface shadow-2xl flex flex-col overflow-hidden outline-none">
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-line">
           <div className="flex-1 min-w-0">
