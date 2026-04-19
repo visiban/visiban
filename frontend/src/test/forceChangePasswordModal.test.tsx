@@ -92,7 +92,7 @@ describe('ForceChangePasswordModal', () => {
   })
 
   it('shows server error on API failure', async () => {
-    const user = userEvent.setup()
+    const user = userEvent.setup({ delay: null })
     mockChangePassword.mockRejectedValue({
       response: { data: { detail: 'Current password is incorrect.' } },
     })
