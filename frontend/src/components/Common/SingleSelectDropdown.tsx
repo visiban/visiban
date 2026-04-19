@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
 export interface SingleSelectDropdownProps<T extends string | number> {
@@ -17,6 +17,9 @@ export default function SingleSelectDropdown<T extends string | number>({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const id = useId();
+  const menuId = `${id}-menu`;
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
@@ -34,11 +37,47 @@ export default function SingleSelectDropdown<T extends string | number>({
       ? label
       : options.find((o) => o.value === selected)?.label ?? label;
 
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+        setOpen(true);
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      itemRefs.current[0]?.focus();
+      e.preventDefault();
+    }
+  };
+
+  const handleItemKeyDown = (e: React.KeyboardEvent, i: number) => {
+    if (e.key === "ArrowDown") {
+      itemRefs.current[Math.min(i + 1, options.length - 1)]?.focus();
+      e.preventDefault();
+    } else if (e.key === "ArrowUp") {
+      if (i === 0) triggerRef.current?.focus();
+      else itemRefs.current[i - 1]?.focus();
+      e.preventDefault();
+    } else if (e.key === "Home") {
+      itemRefs.current[0]?.focus();
+      e.preventDefault();
+    } else if (e.key === "End") {
+      itemRefs.current[options.length - 1]?.focus();
+      e.preventDefault();
+    }
+  };
+
   return (
     <div ref={ref} className="relative">
       <button
         ref={triggerRef}
+        id={`${id}-trigger`}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={handleTriggerKeyDown}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
           selected !== null
             ? "border-info text-info"
@@ -62,7 +101,12 @@ export default function SingleSelectDropdown<T extends string | number>({
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]">
+        <div
+          role="menu"
+          id={menuId}
+          aria-labelledby={`${id}-trigger`}
+          className="absolute top-full mt-1 left-0 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[140px]"
+        >
           {options.map((opt, i) => (
             <div key={opt.value}>
               {i > 0 && (
@@ -72,10 +116,13 @@ export default function SingleSelectDropdown<T extends string | number>({
                 </div>
               )}
               <button
+                ref={(el) => { itemRefs.current[i] = el; }}
+                role="menuitem"
                 onClick={() => {
                   onChange(selected === opt.value ? null : opt.value);
                   setOpen(false);
                 }}
+                onKeyDown={(e) => handleItemKeyDown(e, i)}
                 className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${
                   selected === opt.value ? "text-info" : "text-fg-secondary"
                 }`}
