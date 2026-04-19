@@ -193,6 +193,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </svg>
             </button>
             <button
+              data-tour-step="swimlane-collapse"
               onClick={onToggleCollapse}
               className="text-fg-tertiary hover:text-fg transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               aria-pressed={collapsed}

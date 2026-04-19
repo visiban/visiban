@@ -25,10 +25,12 @@ vi.mock('../components/Layout/Navbar', () => ({
 
 const mockUpdateCurrentUser = vi.fn()
 const mockChangePassword = vi.fn()
+const mockResetTour = vi.fn()
 
 vi.mock('../api/auth', () => ({
   updateCurrentUser: (...args: unknown[]) => mockUpdateCurrentUser(...args),
   changePassword: (...args: unknown[]) => mockChangePassword(...args),
+  resetTour: (...args: unknown[]) => mockResetTour(...args),
 }))
 
 const mockSetPreference = vi.fn()
@@ -453,5 +455,83 @@ describe('NotificationsTab', () => {
     const switches = screen.getAllByRole('switch')
     await user.click(switches[0])
     expect(await screen.findByText('Failed to save. Please try again.')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// BehaviorTab — restart tour
+// ---------------------------------------------------------------------------
+
+describe('BehaviorTab — restart tour', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  async function openBehaviorTab() {
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByText('Behavior'))
+    return user
+  }
+
+  it('renders the Restart onboarding tour button', async () => {
+    await openBehaviorTab()
+    expect(screen.getByRole('button', { name: 'Restart onboarding tour' })).toBeInTheDocument()
+  })
+
+  it('clicking the button calls resetTour and onUserUpdated', async () => {
+    mockResetTour.mockResolvedValueOnce(undefined)
+    const onUserUpdated = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={onUserUpdated} />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('Behavior'))
+    await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
+    await waitFor(() => expect(mockResetTour).toHaveBeenCalledTimes(1))
+    expect(onUserUpdated).toHaveBeenCalledWith(
+      expect.objectContaining({ has_completed_tour: false }),
+    )
+  })
+
+  it('shows confirmation message after successful reset', async () => {
+    mockResetTour.mockResolvedValueOnce(undefined)
+    const user = await openBehaviorTab()
+    await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText('Tour will restart on your next visit to a board.'),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it('shows error message when resetTour fails', async () => {
+    mockResetTour.mockRejectedValueOnce(new Error('network'))
+    const user = await openBehaviorTab()
+    await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText('Failed to reset tour. Please try again.'),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it('button shows "Resetting…" while request is in flight', async () => {
+    let resolveReset!: () => void
+    mockResetTour.mockReturnValueOnce(new Promise<void>((res) => { resolveReset = res }))
+    const user = await openBehaviorTab()
+    await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
+    expect(await screen.findByRole('button', { name: 'Resetting…' })).toBeDisabled()
+    resolveReset()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Restart onboarding tour' })).toBeInTheDocument(),
+    )
   })
 })

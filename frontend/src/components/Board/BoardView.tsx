@@ -999,7 +999,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
       <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 bg-surface border-b border-line shrink-0 gap-2">
         {/* Zone 1: View navigation */}
-        <ViewToggle view={view} onChange={setView} />
+        <div data-tour-step="view-tabs">
+          <ViewToggle view={view} onChange={setView} />
+        </div>
 
         {/* Divider 1 */}
         <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
@@ -1160,6 +1162,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </Tooltip>
           )}
           <span
+            data-tour-step="live-indicator"
             className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-1 ${
               socketStatus === "connected" ? "text-success"
               : socketStatus === "reconnecting" || socketStatus === "connecting" ? "text-warning"
@@ -1594,7 +1597,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
-      {showShortcuts && <KeyboardShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
+      {showShortcuts && (
+        <KeyboardShortcutsOverlay
+          onClose={() => setShowShortcuts(false)}
+          onRestartTour={currentUser && onUserUpdated ? () => {
+            if (currentUser && onUserUpdated) {
+              onUserUpdated({ ...currentUser, has_completed_tour: false });
+            }
+          } : undefined}
+        />
+      )}
 
       <CommandPalette
         open={paletteOpen}
@@ -1635,7 +1647,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
-      {!currentUser?.has_completed_tour && board && board.swimlanes.length > 0 && board.cards.length > 0 && (
+      {!currentUser?.has_completed_tour && (
         <OnboardingTour
           onComplete={() => {
             if (currentUser && onUserUpdated) {
