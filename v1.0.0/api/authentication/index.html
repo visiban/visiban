@@ -3253,7 +3253,7 @@
 <li>The response is always <code>200 OK</code> regardless of whether the email matches a registered account — this prevents user enumeration.</li>
 <li>If the email belongs to an account with a usable password, a reset link is emailed. The link points to the frontend route <code>/reset-password/{uid}/{token}</code>.</li>
 <li>If the email belongs to an <strong>OAuth-only</strong> account (no password set), an alternate email is sent directing the user back to their OAuth provider instead.</li>
-<li><strong>Rate limited</strong> — the endpoint is throttled per IP to prevent bulk email sends. Exceeding the limit returns <code>429 Too Many Requests</code>.</li>
+<li><strong>Rate limited</strong> — 5 requests per hour per IP in production (unlimited in debug mode). Exceeding the limit returns <code>429 Too Many Requests</code>.</li>
 </ul>
 <p><strong>Response</strong> <code>200 OK { "detail": "Password reset e-mail has been sent." }</code></p>
 <hr />
@@ -3294,7 +3294,10 @@
 </tbody>
 </table>
 <p><strong>Response</strong> <code>200 OK { "detail": "Password has been reset with the new password." }</code> on success; <code>400 Bad Request</code> on invalid/expired token or mismatched passwords.</p>
-<p>After a successful reset, all existing session tokens and PATs for that user are revoked.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Session tokens issued by <code>POST /api/v1/auth/login/</code> are invalidated on the next login with the new password. Personal Access Tokens (PATs) are <strong>not</strong> automatically revoked by a password reset — use <code>DELETE /api/v1/auth/tokens/{id}/</code> to revoke individual PATs, or change the password via <code>POST /api/v1/auth/change-password/</code> (which does revoke all PATs).</p>
+</div>
 <hr />
 <h2 id="change-password">Change password<a class="headerlink" href="#change-password" title="Permanent link">&para;</a></h2>
 <h3 id="post-apiv1authchange-password"><code>POST /api/v1/auth/change-password/</code><a class="headerlink" href="#post-apiv1authchange-password" title="Permanent link">&para;</a></h3>
