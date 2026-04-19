@@ -443,7 +443,7 @@ function AccessTokensTab() {
       {/* Token list */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-line-strong border-t-blue-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : tokens.length === 0 ? (
         <p className="text-sm text-fg-muted" data-testid="no-tokens-message">No access tokens yet.</p>

@@ -233,7 +233,7 @@ export default function OnboardingTour({ onComplete }: Props) {
             ${targetRect.left - padding}px 0%
           )`,
         }}
-        onClick={finish}
+        onClick={handleNext}
       />
 
       {/* Spotlight border around the target element */}
@@ -269,7 +269,7 @@ export default function OnboardingTour({ onComplete }: Props) {
         <div className="flex justify-end">
           <button
             onClick={handleNext}
-            className="bg-primary hover:bg-primary-hover text-fg text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="bg-primary hover:bg-primary-hover text-on-primary font-medium text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {step < STEPS.length - 1 ? "Next" : "Done"}
           </button>

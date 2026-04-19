@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { getCardStatus } from "../../api/cards";
+import { resetTour } from "../../api/auth";
 import { useSearchParams } from "react-router-dom";
 import SummaryView from "./SummaryView";
 import AnalyticsView from "./AnalyticsView";
@@ -1600,10 +1601,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {showShortcuts && (
         <KeyboardShortcutsOverlay
           onClose={() => setShowShortcuts(false)}
-          onRestartTour={currentUser && onUserUpdated ? () => {
+          onRestartTour={currentUser ? async () => {
+            try {
+              await resetTour();
+            } catch {
+              // Best-effort — proceed even if the API call fails so the tour restarts locally.
+            }
             if (currentUser && onUserUpdated) {
               onUserUpdated({ ...currentUser, has_completed_tour: false });
             }
+            setShowShortcuts(false);
           } : undefined}
         />
       )}

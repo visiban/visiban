@@ -35,10 +35,11 @@ export default function KeyboardShortcutsOverlay({ onClose, onRestartTour }: Pro
       {onRestartTour && (
         <>
           <div className="my-3">
-            <div className="h-px bg-line" />
+            <div className="h-px bg-sunken" />
+            <div className="h-px bg-surface-active/50" />
           </div>
           <button
-            onClick={() => { onRestartTour(); onClose(); }}
+            onClick={onRestartTour}
             className="flex items-center gap-2 text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover w-full px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
