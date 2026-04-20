@@ -3,7 +3,6 @@
 Covers: _validate_upload_mime, card_status action,
 BoardTemplateListView, and _sanitize_csv_field.
 """
-import io
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
