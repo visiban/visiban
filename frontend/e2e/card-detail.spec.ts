@@ -32,7 +32,7 @@ test.describe('card detail', () => {
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.getByText(CARD.title).first().click()
     // Card detail panel or modal opens with the card title visible.
-    await expect(page.getByText(CARD.title)).toHaveCount({ minimum: 1 })
+    await expect(page.getByText(CARD.title).first()).toBeVisible()
     // Description should be rendered.
     await expect(page.getByText(CARD.description)).toBeVisible({ timeout: 5_000 })
   })

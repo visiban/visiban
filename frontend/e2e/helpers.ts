@@ -53,6 +53,6 @@ export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> 
   // WebSocket stub — sends a connected event immediately so the board does not
   // render in "disconnected" state during tests.
   await page.routeWebSocket(`**/ws/boards/${board.id}/`, (ws) => {
-    ws.onopen(() => ws.send(JSON.stringify({ event: 'connected', data: {} })))
+    ws.send(JSON.stringify({ event: 'connected', data: {} }))
   })
 }
