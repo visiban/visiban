@@ -19,14 +19,9 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card
+from boards.models import BoardMembership, Column, Swimlane, Card
+from boards.tests.conftest import _make_board
 from django.utils import timezone
-
-
-def _make_board(owner, enforce=False):
-    board = Board.objects.create(name="WIP Board", owner=owner, enforce_wip_limits=enforce)
-    BoardMembership.objects.create(board=board, user=owner, role=BoardMembership.Role.ADMIN)
-    return board
 
 
 class WipEnforcementTests(TestCase):
@@ -38,7 +33,7 @@ class WipEnforcementTests(TestCase):
         self.admin = User.objects.create_user(username="admin", password="pass")
         self.member = User.objects.create_user(username="member", password="pass")
 
-        self.board = _make_board(self.admin, enforce=True)
+        self.board = _make_board(self.admin, enforce_wip_limits=True)
         BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
 
         # col_a is the source column (no limit); col_b has a WIP limit of 2
@@ -242,12 +237,7 @@ class TestHardWipEnforcement(TestCase):
 
         # Board with hard enforcement enabled; soft enforcement left at its default (True)
         # to ensure hard mode is tested independently of soft mode interactions.
-        self.board = Board.objects.create(
-            name="Hard WIP Board",
-            owner=self.admin,
-            enforce_wip_hard=True,
-        )
-        BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
+        self.board = _make_board(self.admin, name="Hard WIP Board", enforce_wip_hard=True)
         BoardMembership.objects.create(board=self.board, user=self.member, role=BoardMembership.Role.MEMBER)
 
         self.col_a = Column.objects.create(board=self.board, name="Backlog", position=0)
