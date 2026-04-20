@@ -259,8 +259,8 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       style={{ minWidth: collapsed ? "48px" : "220px", maxWidth: collapsed ? "48px" : "220px" }}
     >
       {/* Collapse toggle / mobile close */}
-      <div className="flex items-center justify-end px-2 py-2 border-b border-line shrink-0">
-        {mobileOpen && onMobileClose && (
+      <div className={`border-b border-line shrink-0 ${collapsed ? "py-1" : "flex items-center justify-end px-2 py-2"}`}>
+        {!collapsed && mobileOpen && onMobileClose && (
           <button
             onClick={onMobileClose}
             className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface mr-auto lg:hidden focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -273,7 +273,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
         )}
         <button
           onClick={() => setCollapsed((v) => !v)}
-          className="text-fg-tertiary hover:text-fg transition p-1 rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className={`text-fg-tertiary hover:text-fg transition rounded hover:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${collapsed ? "flex items-center justify-center h-8 w-10 mx-auto my-0.5" : "p-1"}`}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
@@ -375,7 +375,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 title="Favorites"
                 aria-haspopup="true"
                 aria-expanded={favoritesAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   favoritesAnchor
                     ? "text-warning bg-surface-hover"
                     : isActiveFavoriteBoard
@@ -479,7 +479,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 title="Recent boards"
                 aria-haspopup="true"
                 aria-expanded={recentAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   recentAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveRecentBoard
@@ -502,7 +502,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 title="Groups"
                 aria-haspopup="true"
                 aria-expanded={groupsAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   groupsAnchor
                     ? "text-fg bg-surface-hover"
                     : isActiveGroupBoard
@@ -546,7 +546,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
                 title="Personal boards"
                 aria-haspopup="true"
                 aria-expanded={personalAnchor !== null}
-                className={`flex items-center justify-center h-8 w-8 mx-1 my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`flex items-center justify-center h-8 w-10 mx-auto my-0.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   personalAnchor
                     ? "text-fg bg-surface-hover"
                     : isActivePersonalBoard

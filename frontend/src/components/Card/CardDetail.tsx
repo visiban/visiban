@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useMoveToSeenPref } from "../../hooks/useMoveToSeenPref";
+import { useAutosaveStatus } from "../../hooks/useAutosaveStatus";
+import AutosaveIndicator from "../Common/AutosaveIndicator";
 import type { BoardFull, Card, CardAttachment, CardChecklistItem, CardComment, Label, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -67,7 +69,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [labelError, setLabelError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<CardAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const { status: descStatus, fadingOut: descFadingOut, runSave: descRunSave } = useAutosaveStatus();
+  const { status: weightStatus, fadingOut: weightFadingOut, runSave: weightRunSave } = useAutosaveStatus();
   const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dueDateRef = useRef<HTMLInputElement>(null);
@@ -126,15 +129,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const save = async (patch: CardPatch) => {
     // Snapshot pre-save state so we can roll back if the API call fails.
     const prev = localCard;
-    setSaveError(null);
     try {
       const updated = await updateCard(board.id, localCard.id, patch);
       setLocalCard(updated);
       onUpdated(updated);
     } catch (err) {
       setLocalCard(prev);
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setSaveError(detail ?? "Failed to save — please try again.");
+      throw err;
     }
   };
 
@@ -176,7 +177,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
       // Restore if user cleared the title entirely
       setLocalCard((c) => ({ ...c, title: card.title }));
     } else if (trimmed !== card.title) {
-      await save({ title: trimmed });
+      await save({ title: trimmed }).catch(() => {});
     }
   };
 
@@ -433,11 +434,6 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           >×</button>
         </div>
 
-        {/* Save error — reserved space so layout never shifts */}
-        <p className="text-xs h-4 px-5 pt-1">
-          {saveError && <span className="text-danger">{saveError}</span>}
-        </p>
-
         {/* Tabs */}
         <div role="tablist" className="flex border-b border-line text-sm">
           {(["details", "activity"] as const).map((t) => (
@@ -467,7 +463,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   value={localCard.description ?? ""}
                   onSave={(md) => {
                     setLocalCard((c) => ({ ...c, description: md }));
-                    save({ description: md });
+                    descRunSave(save({ description: md }));
                   }}
                   readOnly={!canEdit}
                   showActions={canEdit}
@@ -475,6 +471,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   minHeight="min-h-32"
                   members={board.members}
                 />
+                <AutosaveIndicator status={descStatus} fadingOut={descFadingOut} />
               </div>
 
               <div className="border-t border-line" />
@@ -487,7 +484,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     value={String(localCard.assignee?.id ?? "")}
                     onChange={(v) => {
                       const id = v ? Number(v) : null;
-                      save({ assignee_id: id });
+                      save({ assignee_id: id }).catch(() => {});
                     }}
                     options={[
                       { value: "", label: "Unassigned" },
@@ -541,13 +538,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             onChange={(e) => {
                               const v = e.target.value || null;
                               setLocalCard((c) => ({ ...c, due_date: v }));
-                              save({ due_date: v });
+                              save({ due_date: v }).catch(() => {});
                             }}
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           />
                         </div>
                         <button
-                          onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }); }}
+                          onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
                           className="text-fg-faint hover:text-danger transition text-xs shrink-0"
                           title="Clear due date"
                         >
@@ -579,7 +576,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         onChange={(e) => {
                           const v = e.target.value || null;
                           setLocalCard((c) => ({ ...c, due_date: v }));
-                          save({ due_date: v });
+                          save({ due_date: v }).catch(() => {});
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
@@ -595,7 +592,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }); }}
+                      onClick={() => { setLocalCard((c) => ({ ...c, priority: opt.value })); save({ priority: opt.value }).catch(() => {}); }}
                       className={`text-xs px-3 py-1 rounded-full border font-medium transition ${
                         localCard.priority === opt.value
                           ? "text-on-primary border-transparent shadow-sm"
@@ -683,7 +680,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       const w = Math.max(1, localCard.weight - 1);
                       setLocalCard((c) => ({ ...c, weight: w }));
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
-                      weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
+                      weightSaveTimer.current = setTimeout(() => weightRunSave(save({ weight: w })), 600);
                     }}
                     className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >−</button>
@@ -693,11 +690,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       const w = localCard.weight + 1;
                       setLocalCard((c) => ({ ...c, weight: w }));
                       if (weightSaveTimer.current) clearTimeout(weightSaveTimer.current);
-                      weightSaveTimer.current = setTimeout(() => save({ weight: w }), 600);
+                      weightSaveTimer.current = setTimeout(() => weightRunSave(save({ weight: w })), 600);
                     }}
                     className="w-7 h-7 rounded-full border border-line-strong text-fg-tertiary hover:bg-surface-hover transition text-sm font-medium"
                   >+</button>
                 </div>
+                <AutosaveIndicator status={weightStatus} fadingOut={weightFadingOut} />
               </div>
 
               <div className="border-t border-line" />
