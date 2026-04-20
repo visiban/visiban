@@ -17,6 +17,7 @@ import ImportBoardModal from "../components/Board/ImportBoardModal";
 import { importBoard } from "../api/boards";
 import type { Board, Group, GroupMembership, Priority, User } from "../types";
 import SelectDropdown from "../components/Common/SelectDropdown";
+import Spinner from "../components/Common/Spinner";
 import RoleInfoTooltip from "../components/Common/RoleInfoTooltip";
 import ModalWrapper from "../components/shared/ModalWrapper";
 
@@ -361,7 +362,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   if (loading) {
     return (
       <div className="h-full bg-sunken flex items-center justify-center">
-        <span className="text-fg-tertiary">Loading…</span>
+        <Spinner size="lg" />
       </div>
     );
   }
@@ -657,7 +658,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {/* Subgroup boards */}
                 {showSubgroupBoards && (
                   loadingSubgroupBoards ? (
-                    <p className="text-fg-muted text-sm px-1">Loading subgroup boards…</p>
+                    <Spinner />
                   ) : subgroupBoards.length === 0 ? (
                     <p className="text-fg-faint text-sm px-1">No boards in subgroups.</p>
                   ) : (

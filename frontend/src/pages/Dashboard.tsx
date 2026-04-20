@@ -12,6 +12,7 @@ import ImportBoardModal from "../components/Board/ImportBoardModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, User } from "../types";
+import Spinner from "../components/Common/Spinner";
 
 interface Props {
   user: User;
@@ -111,7 +112,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             </button>
           </div>
           {loadingGroups ? (
-            <p className="text-fg-muted text-sm">Loading…</p>
+            <Spinner />
           ) : groups.length === 0 ? (
             <p className="text-fg-faint text-sm">No groups yet. Create one to collaborate with others.</p>
           ) : (
@@ -144,7 +145,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
             </div>
           </div>
           {loadingBoards ? (
-            <p className="text-fg-muted text-sm">Loading…</p>
+            <Spinner />
           ) : (
             <div className="flex flex-col gap-2">
               {personalBoards.length === 0 && (

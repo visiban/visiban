@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { listBoardTemplates } from "../../api/boards";
 import type { BoardTemplate, User } from "../../types";
 import ModalWrapper from "../shared/ModalWrapper";
+import Spinner from "../Common/Spinner";
 
 // ---------------------------------------------------------------------------
 // Static icon map — SVG paths kept inline to avoid adding a dependency.
@@ -209,8 +210,8 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
               Template
             </legend>
             {templatesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <span className="w-5 h-5 border-2 border-line-strong border-t-line-strong rounded-full animate-spin" />
+              <div className="py-8">
+                <Spinner />
               </div>
             ) : templatesError ? (
               <p className="text-danger text-sm py-4 text-center">

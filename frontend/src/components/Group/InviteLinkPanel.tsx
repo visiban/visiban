@@ -3,6 +3,7 @@ import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/g
 import type { GroupInviteLink } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
 import { ToggleField } from "../Common/Toggle";
+import Spinner from "../Common/Spinner";
 
 interface Props {
   groupId: number;
@@ -166,7 +167,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
       </div>
 
       {loading ? (
-        <p className="text-xs text-fg-muted">Loading…</p>
+        <Spinner />
       ) : links.length === 0 ? (
         <p className="text-xs text-fg-muted">No invite links.</p>
       ) : (

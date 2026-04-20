@@ -9,6 +9,7 @@ import CollapsedFlyout from "../Common/CollapsedFlyout";
 import { buildSidebarTree } from "../../utils/groupTree";
 import type { SidebarTreeNode } from "../../utils/groupTree";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
+import Spinner from "../Common/Spinner";
 
 interface Props {
   user: User;
@@ -299,8 +300,8 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       {/* Tree */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         {loading && (
-          <div className="px-3 py-2 text-fg-muted text-xs">
-            {collapsed ? "…" : "Loading…"}
+          <div className="px-3 py-2">
+            <Spinner size="sm" />
           </div>
         )}
 

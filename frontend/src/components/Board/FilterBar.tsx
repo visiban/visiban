@@ -168,7 +168,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             className="bg-surface border border-line rounded px-2 py-1 pr-7 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
           />
           {isSearching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-info border-t-transparent rounded-full animate-spin" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           )}
         </div>
 
