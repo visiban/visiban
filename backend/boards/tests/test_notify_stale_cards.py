@@ -16,14 +16,12 @@ board.staleness_threshold_days directly.
 
 import datetime
 from io import StringIO
-from unittest.mock import patch
-
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardMovement, Column, Notification, Swimlane
+from boards.models import BoardMembership, Card, CardMovement, Column, Notification, Swimlane
 from boards.tests.conftest import _make_board
 
 

@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Card, CardComment, Column, Swimlane
+from boards.models import BoardMembership, Card, CardComment, Column, Swimlane
 from boards.permissions import get_board_role, SITE_ADMIN
 from boards.tests.conftest import _make_board
 

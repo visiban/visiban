@@ -19,7 +19,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership, Column, Swimlane, Card
+from boards.models import BoardMembership, Column, Swimlane, Card
 from boards.tests.conftest import _make_board
 from django.utils import timezone
 
