@@ -533,8 +533,7 @@ describe('AppSidebar', () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([fakeBoard])
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument())
-    expect(screen.getByTitle('Recent boards')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTitle('Recent boards')).toBeInTheDocument())
   })
 
   it('clicking Recent trigger opens flyout listing recent boards', async () => {

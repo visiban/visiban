@@ -7,11 +7,17 @@ from rest_framework import status
 from accounts.models import User
 from boards.models import Board, BoardMembership, Card, CardComment, Column, Swimlane
 from boards.permissions import get_board_role, SITE_ADMIN
+from boards.tests.conftest import _make_board
 
 
-def make_board(owner):
-    board = Board.objects.create(name="Test Board", owner=owner)
-    BoardMembership.objects.create(board=board, user=owner, role=BoardMembership.Role.ADMIN)
+def _make_board_with_structure(owner):
+    """Create a board with one Column and one Swimlane, registering owner as ADMIN.
+
+    Returns (board, col, swim).  Uses the shared _make_board factory for the
+    board + membership creation; column and swimlane are added here because
+    several test classes in this file need them ready in setUp.
+    """
+    board = _make_board(owner)
     col = Column.objects.create(board=board, name="Backlog", position=0, allow_card_creation=True)
     swim = Swimlane.objects.create(board=board, name="General", position=0)
     return board, col, swim
@@ -20,7 +26,7 @@ def make_board(owner):
 class GetBoardRoleTests(TestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username="owner", password="pass")
-        self.board, _, _ = make_board(self.owner)
+        self.board, _, _ = _make_board_with_structure(self.owner)
 
     def test_owner_gets_admin_role(self):
         role = get_board_role(self.owner, self.board)
@@ -82,7 +88,7 @@ class CanAccessAllContentBoardQuerysetTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.owner = User.objects.create_user(username="owner", password="pass")
-        self.board, _, _ = make_board(self.owner)
+        self.board, _, _ = _make_board_with_structure(self.owner)
 
     def test_can_access_all_content_false_does_not_return_unjoined_boards(self):
         """A user with is_site_admin=True but can_access_all_content=False cannot list unjoined boards."""
@@ -148,7 +154,7 @@ class CardCreationRBACTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.owner = User.objects.create_user(username="owner", password="pass")
-        self.board, self.col, self.swim = make_board(self.owner)
+        self.board, self.col, self.swim = _make_board_with_structure(self.owner)
 
     def _create_card(self, user):
         self.client.force_authenticate(user)
@@ -188,7 +194,7 @@ class CardMutationRBACTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.owner = User.objects.create_user(username="owner", password="pass")
-        self.board, self.col, self.swim = make_board(self.owner)
+        self.board, self.col, self.swim = _make_board_with_structure(self.owner)
         self.card = Card.objects.create(
             board=self.board,
             column=self.col,
@@ -230,7 +236,7 @@ class ColumnCreationRBACTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.owner = User.objects.create_user(username="owner", password="pass")
-        self.board, _, _ = make_board(self.owner)
+        self.board, _, _ = _make_board_with_structure(self.owner)
 
     def _create_column(self, user):
         self.client.force_authenticate(user)
@@ -263,7 +269,7 @@ class ViewerCollaboratorBoundaryTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.owner = User.objects.create_user(username="owner2", password="pass")
-        self.board, self.col, self.swim = make_board(self.owner)
+        self.board, self.col, self.swim = _make_board_with_structure(self.owner)
         # A card owned by the board owner for all sub-tests
         self.card = Card.objects.create(
             board=self.board,
@@ -452,8 +458,9 @@ class GroupInheritedBoardAccessTests(TestCase):
 
     def _make_group_board(self, group):
         """Create a board owned by self.owner and linked to *group*."""
-        board = Board.objects.create(name="Group Board", owner=self.owner, group=group)
-        BoardMembership.objects.create(board=board, user=self.owner, role=BoardMembership.Role.ADMIN)
+        board = _make_board(self.owner, name="Group Board")
+        board.group = group
+        board.save(update_fields=["group"])
         return board
 
     def test_direct_group_member_gets_role(self):

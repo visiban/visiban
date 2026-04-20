@@ -6,12 +6,7 @@ from rest_framework import status
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Column, Swimlane, Card, CardMovement
-
-
-def make_board(owner):
-    board = Board.objects.create(name="Test Board", owner=owner)
-    BoardMembership.objects.create(board=board, user=owner, role=BoardMembership.Role.ADMIN)
-    return board
+from boards.tests.conftest import _make_board
 
 
 class CardMoveTests(TestCase):
@@ -23,7 +18,7 @@ class CardMoveTests(TestCase):
         self.user = User.objects.create_user(username="tester", password="pass")
         self.client.force_authenticate(self.user)
 
-        self.board = make_board(self.user)
+        self.board = _make_board(self.user)
         self.col_a = Column.objects.create(board=self.board, name="Backlog", position=0)
         self.col_b = Column.objects.create(board=self.board, name="In Progress", position=1)
         self.swim_x = Swimlane.objects.create(board=self.board, name="Acme", position=0)
@@ -99,7 +94,7 @@ class CardMoveTests(TestCase):
         self.assertEqual(movement.to_swimlane, self.swim_y)
 
     def test_move_validates_column_belongs_to_board(self):
-        other_board = make_board(self.user)
+        other_board = _make_board(self.user)
         other_col = Column.objects.create(board=other_board, name="Other", position=0)
         resp = self.client.post(self._move_url(), {
             "column_id": other_col.pk,
@@ -109,7 +104,7 @@ class CardMoveTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_move_validates_swimlane_belongs_to_board(self):
-        other_board = make_board(self.user)
+        other_board = _make_board(self.user)
         other_swim = Swimlane.objects.create(board=other_board, name="Other", position=0)
         resp = self.client.post(self._move_url(), {
             "column_id": self.col_b.pk,

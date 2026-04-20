@@ -15,7 +15,9 @@ vi.mock('react-router-dom', () => ({
 vi.mock('../api/boards', () => ({
   getBoardFull: vi.fn(),
   updateBoard: vi.fn(),
+  patchBoard: vi.fn(),
   reorderColumns: vi.fn(),
+  reorderSwimlanes: vi.fn(),
   deleteSwimlane: vi.fn(),
   deleteColumn: vi.fn(),
 }))
