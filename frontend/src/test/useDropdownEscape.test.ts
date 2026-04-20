@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { renderHook, cleanup, act } from '@testing-library/react'
 import { fireEvent } from '@testing-library/dom'
-import { useRef } from 'react'
 import { useDropdownEscape } from '../hooks/useDropdownEscape'
 import { useEscapeStack } from '../hooks/useEscapeStack'
 
