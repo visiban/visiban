@@ -28,6 +28,9 @@ cp .env.example .env
 docker compose up --build
 ```
 
+!!! note "`--build` is required on first install and after pulling updates"
+    The `--build` flag tells Docker Compose to build the images before starting containers. It is required the first time you run the stack (no pre-built images exist locally yet) and any time you pull code changes that affect the `Dockerfile` or frontend assets. Omitting it on a fresh clone will fail; omitting it after `git pull` may leave you running stale images.
+
 Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
 This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production Deployment](#production-deployment) below for a production deployment.
@@ -150,7 +153,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `REDIS_CACHE_URL` | No | Redis DSN for the Django cache — rate limiting, health checks (default: `redis://localhost:6379/1`). In Docker Compose this is set automatically. Use a different database index than `REDIS_URL` to avoid key collisions. |
 | `FRONTEND_URL` | No | Full URL of the React SPA (default: `http://localhost:5173`) — allauth redirects here after OAuth login/logout. **Must be set in production.** |
 | `DEBUG` | No | Set `True` for local dev only |
-| `ALLOWED_HOSTS` | No | Comma-separated hostnames (default: `localhost,127.0.0.1`) |
+| `ALLOWED_HOSTS` | No | Comma-separated hostnames (default: `localhost,127.0.0.1`). **Must be set to your actual domain in production** — the default only permits loopback addresses and will cause Django to reject all requests from a real hostname. |
 | `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed frontend origins (default: `http://localhost:5173`). Also controls `CSRF_TRUSTED_ORIGINS` unless `CSRF_TRUSTED_ORIGINS` is set explicitly. |
 | `CSRF_TRUSTED_ORIGINS` | No | Override CSRF trusted origins independently of `CORS_ALLOWED_ORIGINS`. Defaults to `CORS_ALLOWED_ORIGINS`. |
 | `SITE_DOMAIN` | No | Public hostname used for OAuth callbacks (default: `localhost:8000`) — must match your OAuth app's redirect URI |
@@ -206,6 +209,15 @@ Before starting the production stack, confirm each item below. The backend will 
 | `CORS_ALLOWED_ORIGINS` | Must be set to your production frontend origin (e.g. `https://yourdomain.com`). The default `http://localhost:5173` is only suitable for local development. |
 | `DEBUG` | Must be `false` in production. Running with `DEBUG=true` leaks stack traces to HTTP responses and disables the `DJANGO_SECRET_KEY` guard. |
 | `ALLOWED_HOSTS` | Must include your domain name (e.g. `yourdomain.com`). |
+
+!!! warning "`ALLOWED_HOSTS` must be set before going live"
+    The codebase default for `ALLOWED_HOSTS` is `localhost,127.0.0.1`. If you deploy without explicitly setting this variable to your real domain, Django will reject every inbound HTTP request with a `400 Bad Request` — the site will be unreachable. Set it to your public hostname before starting the production stack:
+
+    ```bash
+    ALLOWED_HOSTS=yourdomain.com
+    ```
+
+    If you serve the application on a non-standard port or via a load balancer, include the hostname without the port. Django reads the `Host` header, not the port.
 
 The production stack (`docker-compose.prod.yml`) replaces the Vite dev server with:
 
