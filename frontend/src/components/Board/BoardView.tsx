@@ -32,6 +32,7 @@ import AddSwimlaneModal from "../Swimlane/AddSwimlaneModal";
 import BoardSettingsModal from "./BoardSettingsModal";
 import BoardExportModal from "./BoardExportModal";
 import { useExportSeenPref } from "../../hooks/useExportSeenPref";
+import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
@@ -510,6 +511,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showExport, setShowExport] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
+  const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
@@ -573,7 +575,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         return;
       }
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        (e.target as HTMLElement).closest?.('[contenteditable="true"]')
+      ) return;
       if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => {
@@ -1118,11 +1125,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </svg>
             </button>
           </Tooltip>
+          <span className="hidden lg:inline text-xs text-fg-muted select-none shrink-0">
+            ? for shortcuts
+          </span>
           <Tooltip content="Keyboard shortcuts">
             <button
-              onClick={() => setShowShortcuts((v) => !v)}
-              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-              aria-label="Keyboard shortcuts"
+              onClick={() => { markShortcutsSeen(); setShowShortcuts((v) => !v); }}
+              className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              aria-label={showShortcuts ? "Close keyboard shortcuts" : "Keyboard shortcuts"}
+              aria-pressed={showShortcuts}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
                 <rect x="2" y="6" width="20" height="12" rx="2" />
@@ -1132,6 +1143,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 <line x1="18" y1="10" x2="18" y2="10.01" />
                 <line x1="8" y1="14" x2="16" y2="14" />
               </svg>
+              {!shortcutsSeen && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
+              )}
             </button>
           </Tooltip>
           <Tooltip content="Export board">

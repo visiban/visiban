@@ -58,13 +58,14 @@ export function useRecentBoardsPref(): {
   // Drop entries whose board id is not in the accessible set — handles boards
   // that were deleted, had membership revoked, or came from a different instance
   // (stale localStorage surviving a DB reset).
+  // save() is called before setRecentBoards so the write is synchronous and not
+  // inside a React functional updater (which React 18 can call during render).
   const pruneByIds = (validIds: Set<number>) => {
-    setRecentBoards((prev) => {
-      const filtered = prev.filter((e) => validIds.has(e.id));
-      if (filtered.length === prev.length) return prev;
-      save(filtered);
-      return filtered;
-    });
+    const current = load();
+    const filtered = current.filter((e) => validIds.has(e.id));
+    if (filtered.length === current.length) return;
+    save(filtered);
+    setRecentBoards(filtered);
   };
 
   return { recentBoards, recordVisit, pruneByIds };

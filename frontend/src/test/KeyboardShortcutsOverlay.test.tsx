@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import KeyboardShortcutsOverlay from '../components/Board/KeyboardShortcutsOverlay'
 
 describe('KeyboardShortcutsOverlay', () => {
-  it('renders all four shortcuts', () => {
+  it('renders all shortcuts', () => {
     render(<KeyboardShortcutsOverlay onClose={() => {}} />)
     expect(screen.getByText('Toggle filter bar')).toBeInTheDocument()
     expect(screen.getByText('Open filters and focus search')).toBeInTheDocument()
