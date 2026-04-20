@@ -20,6 +20,7 @@ import {
   getBoard,
   getBoardFull,
   updateBoard,
+  patchBoard,
   deleteBoard,
   moveBoardToGroup,
   importBoard,
@@ -27,6 +28,14 @@ import {
   exportBoardJson,
   getBoardAnalytics,
   getBoardSummary,
+  getBoardMovements,
+  starBoard,
+  unstarBoard,
+  listStarredBoards,
+  enableBoardSharing,
+  disableBoardSharing,
+  getPublicBoard,
+  listBoardTemplates,
   createColumn,
   updateColumn,
   deleteColumn,
@@ -87,6 +96,105 @@ describe('Board API wrappers', () => {
   it('deleteBoard sends DELETE', async () => {
     await deleteBoard(7)
     expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/7/')
+  })
+
+  describe('patchBoard', () => {
+    it('sends PATCH to /api/boards/:id/ with data', async () => {
+      mockClient.patch.mockResolvedValue({ data: { id: 3, name: 'Patched' } })
+      const result = await patchBoard(3, { name: 'Patched' })
+      expect(mockClient.patch).toHaveBeenCalledWith('/api/v1/boards/3/', { name: 'Patched' })
+      expect(result).toEqual({ id: 3, name: 'Patched' })
+    })
+
+    it('rejects when server returns an error', async () => {
+      mockClient.patch.mockRejectedValueOnce(new Error('400 Bad Request'))
+      await expect(patchBoard(3, { name: '' })).rejects.toThrow('400 Bad Request')
+    })
+  })
+
+  describe('starBoard / unstarBoard / listStarredBoards', () => {
+    it('starBoard sends POST to /api/boards/:id/star/', async () => {
+      mockClient.post.mockResolvedValue({ data: { id: 5, is_starred: true } })
+      const result = await starBoard(5)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/5/star/')
+      expect(result).toEqual({ id: 5, is_starred: true })
+    })
+
+    it('unstarBoard sends DELETE to /api/boards/:id/star/', async () => {
+      mockClient.delete.mockResolvedValue({ data: { id: 5, is_starred: false } })
+      const result = await unstarBoard(5)
+      expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/5/star/')
+      expect(result).toEqual({ id: 5, is_starred: false })
+    })
+
+    it('listStarredBoards calls GET /api/boards/ with starred=true param', async () => {
+      mockClient.get.mockResolvedValue({ data: { results: [{ id: 5, is_starred: true }] } })
+      const result = await listStarredBoards()
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/', { params: { starred: 'true' } })
+      expect(result).toEqual([{ id: 5, is_starred: true }])
+    })
+  })
+
+  describe('enableBoardSharing / disableBoardSharing', () => {
+    it('enableBoardSharing sends POST to /api/boards/:id/share/', async () => {
+      const shareData = { share_token: 'tok123', share_url: 'https://example.com/share/tok123' }
+      mockClient.post.mockResolvedValue({ data: shareData })
+      const result = await enableBoardSharing(4)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/share/')
+      expect(result).toEqual(shareData)
+    })
+
+    it('enableBoardSharing rejects when server returns an error', async () => {
+      mockClient.post.mockRejectedValueOnce(new Error('403 Forbidden'))
+      await expect(enableBoardSharing(4)).rejects.toThrow('403 Forbidden')
+    })
+
+    it('disableBoardSharing sends DELETE to /api/boards/:id/share/', async () => {
+      mockClient.delete.mockResolvedValue({ data: {} })
+      await disableBoardSharing(4)
+      expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/4/share/')
+    })
+
+    it('disableBoardSharing rejects when server returns an error', async () => {
+      mockClient.delete.mockRejectedValueOnce(new Error('404 Not Found'))
+      await expect(disableBoardSharing(4)).rejects.toThrow('404 Not Found')
+    })
+  })
+
+  describe('getBoardMovements', () => {
+    it('sends GET to /api/boards/:id/movements/ with no params', async () => {
+      const payload = { results: [], count: 0, offset: 0, page_size: 25 }
+      mockClient.get.mockResolvedValue({ data: payload })
+      const result = await getBoardMovements(2)
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/2/movements/', { params: {} })
+      expect(result).toEqual(payload)
+    })
+
+    it('passes query params through to the endpoint', async () => {
+      mockClient.get.mockResolvedValue({ data: { results: [], count: 0, offset: 0, page_size: 25 } })
+      await getBoardMovements(2, { swimlane: '5', limit: '10' })
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/2/movements/', { params: { swimlane: '5', limit: '10' } })
+    })
+  })
+
+  describe('getPublicBoard', () => {
+    it('sends GET to /api/share/:token/', async () => {
+      const boardPublic = { id: 1, name: 'Shared Board' }
+      mockClient.get.mockResolvedValue({ data: boardPublic })
+      const result = await getPublicBoard('tok-abc')
+      expect(mockClient.get).toHaveBeenCalledWith('/api/share/tok-abc/')
+      expect(result).toEqual(boardPublic)
+    })
+  })
+
+  describe('listBoardTemplates', () => {
+    it('sends GET to /api/boards/templates/', async () => {
+      const templates = [{ id: 'kanban', name: 'Kanban' }]
+      mockClient.get.mockResolvedValue({ data: templates })
+      const result = await listBoardTemplates()
+      expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/templates/')
+      expect(result).toEqual(templates)
+    })
   })
 
   describe('importBoard', () => {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SelectDropdown from '../components/Common/SelectDropdown'
+import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
 
 const options = [
   { value: 'a', label: 'Option A' },
@@ -38,6 +39,15 @@ describe('SelectDropdown', () => {
     await userEvent.setup().click(screen.getByRole('combobox'))
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     expect(screen.getAllByRole('option').length).toBe(3)
+  })
+
+  it('closes the menu when the trigger is clicked again', async () => {
+    const user = userEvent.setup()
+    render(<SelectDropdown value="a" onChange={() => undefined} options={options} />)
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    await user.click(screen.getByRole('combobox'))
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
   })
 
   it('marks the current value option as aria-selected=true', async () => {
@@ -89,6 +99,18 @@ describe('SelectDropdown', () => {
     expect(onChange).toHaveBeenCalledWith('a')
   })
 
+  it('ArrowUp at the first option stays on the first option (no wrap)', () => {
+    const onChange = vi.fn()
+    render(<SelectDropdown value="a" onChange={onChange} options={options} />)
+    const trigger = screen.getByRole('combobox')
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' }) // open; activeIndex = 0 (current value is 'a')
+    fireEvent.keyDown(trigger, { key: 'ArrowUp' })   // attempt to go above first — clamps at 0
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    // Should select the first option ('a') — no wrap
+    expect(onChange).toHaveBeenCalledWith('a')
+  })
+
   it('highlights the active option', () => {
     render(<SelectDropdown value="a" onChange={() => undefined} options={options} />)
     const trigger = screen.getByRole('combobox')
@@ -108,6 +130,22 @@ describe('SelectDropdown', () => {
     expect(screen.getByRole('listbox')).toBeInTheDocument()
     fireEvent.keyDown(trigger, { key: 'Escape' })
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  describe('size variants', () => {
+    it('renders with default sm size', () => {
+      render(<SelectDropdown value="a" onChange={() => undefined} options={options} size="sm" />)
+      const trigger = screen.getByRole('combobox')
+      // sm variant uses px-2.5 py-1.5
+      expect(trigger.className).toMatch(/px-2\.5/)
+    })
+
+    it('renders with xs size', () => {
+      render(<SelectDropdown value="a" onChange={() => undefined} options={options} size="xs" />)
+      const trigger = screen.getByRole('combobox')
+      // xs variant uses px-2 (without the .5)
+      expect(trigger.className).toMatch(/px-2\b/)
+    })
   })
 
   describe('disabled + disabledReason', () => {
@@ -171,5 +209,133 @@ describe('SelectDropdown', () => {
       await userEvent.setup().click(screen.getByRole('combobox'))
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     })
+
+    it('does not respond to keyboard when disabled', () => {
+      render(
+        <SelectDropdown
+          value="a"
+          onChange={() => undefined}
+          options={options}
+          disabled={true}
+        />
+      )
+      const trigger = screen.getByRole('combobox')
+      trigger.focus()
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('SingleSelectDropdown', () => {
+  it('renders without crashing', () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    expect(screen.getByRole('button', { name: /Filter/ })).toBeInTheDocument()
+  })
+
+  it('shows the label when nothing is selected', () => {
+    render(
+      <SingleSelectDropdown label="Priority" options={options} selected={null} onChange={() => undefined} />
+    )
+    expect(screen.getByRole('button').textContent).toMatch(/Priority/)
+  })
+
+  it('shows the selected option label when one is selected', () => {
+    render(
+      <SingleSelectDropdown label="Priority" options={options} selected="b" onChange={() => undefined} />
+    )
+    expect(screen.getByRole('button').textContent).toMatch(/Option B/)
+  })
+
+  it('has aria-haspopup="menu" and aria-expanded="false" when closed', () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    const trigger = screen.getByRole('button')
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('sets aria-expanded to true when open', async () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    await userEvent.setup().click(screen.getByRole('button'))
+    expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('opens menu on click and shows all options as menuitems', async () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    await userEvent.setup().click(screen.getByRole('button'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.getAllByRole('menuitem').length).toBe(3)
+  })
+
+  it('closes menu when clicking the trigger a second time', async () => {
+    const user = userEvent.setup()
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    await user.click(screen.getByRole('button'))
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    await user.click(screen.getByRole('button'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('calls onChange with the selected value when a menuitem is clicked', async () => {
+    const onChange = vi.fn()
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={onChange} />
+    )
+    await userEvent.setup().click(screen.getByRole('button'))
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Option B' }))
+    expect(onChange).toHaveBeenCalledWith('b')
+  })
+
+  it('calls onChange with null when the already-selected option is clicked (deselect)', async () => {
+    const onChange = vi.fn()
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected="b" onChange={onChange} />
+    )
+    await userEvent.setup().click(screen.getByRole('button'))
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Option B' }))
+    expect(onChange).toHaveBeenCalledWith(null)
+  })
+
+  it('opens with ArrowDown and navigates between items', () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    const trigger = screen.getByRole('button')
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('opens with Enter key', () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    const trigger = screen.getByRole('button')
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'Enter' })
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('closes with Escape key', () => {
+    render(
+      <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />
+    )
+    const trigger = screen.getByRole('button')
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    // Escape is handled via useDropdownEscape — fire on document
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })

@@ -229,6 +229,20 @@ describe('CardDetail', () => {
     })
   })
 
+  it('priority buttons are keyboard reachable and have accessible text labels', () => {
+    render(<CardDetail {...defaultProps()} />)
+    // Each priority button must be reachable by role and accessible name
+    // (per CLAUDE.md radio-group convention, interactive priority controls must
+    // have sr-only labels or visible text so screen readers can identify them)
+    const lowBtn = screen.getByRole('button', { name: 'Low' })
+    const highBtn = screen.getByRole('button', { name: 'High' })
+    expect(lowBtn).toBeInTheDocument()
+    expect(highBtn).toBeInTheDocument()
+    // Buttons must not be disabled — all priorities are always selectable
+    expect(lowBtn).not.toBeDisabled()
+    expect(highBtn).not.toBeDisabled()
+  })
+
   it('renders existing labels from board', () => {
     render(<CardDetail {...defaultProps()} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()

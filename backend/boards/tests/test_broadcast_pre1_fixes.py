@@ -58,7 +58,7 @@ class BoardConsumerMemberRemovedTests(TestCase):
     def _run(self, coro):
         """Run an async coroutine synchronously in tests."""
         import asyncio
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_member_removed_closes_connection_for_affected_user(self):
         """board_event closes the connection when member.removed targets this user."""

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 
-// Mock the boards API used by AnalyticsView
+// Single consolidated mock for all boards API functions used in this file.
 vi.mock('../api/boards', () => ({
   getBoardAnalytics: vi.fn(),
+  createLabel: vi.fn(),
 }))
 
 // Mock the cards API used by CardDetail
@@ -21,13 +22,6 @@ vi.mock('../api/cards', () => ({
   deleteChecklistItem: vi.fn(),
   createLabel: vi.fn(),
 }))
-
-vi.mock('../api/boards', async () => {
-  return {
-    getBoardAnalytics: vi.fn(),
-    createLabel: vi.fn(),
-  }
-})
 
 import { getBoardAnalytics } from '../api/boards'
 import AnalyticsView from '../components/Board/AnalyticsView'

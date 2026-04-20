@@ -143,4 +143,13 @@ describe('BoardCell', () => {
     const { container } = render(<BoardCell {...props} />)
     expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
   })
+
+  it('+ Add card button has an accessible name reachable by role', () => {
+    render(<BoardCell {...defaultProps()} />)
+    // The button must be discoverable by its accessible name so screen reader
+    // users know what the action does without visual context
+    const addBtn = screen.getByRole('button', { name: '+ Add card' })
+    expect(addBtn).toBeInTheDocument()
+    expect(addBtn).not.toBeDisabled()
+  })
 })

@@ -68,6 +68,14 @@ describe('RichTextEditor', () => {
       expect(screen.queryByTitle('Edit description')).not.toBeInTheDocument()
     })
 
+    it('hover-reveal pencil icon includes focus:opacity-100 so keyboard users can reach it', () => {
+      render(<RichTextEditor value="some text" onSave={onSave} />)
+      const pencil = screen.getByTitle('Edit description')
+      // focus:opacity-100 ensures the button is visible and activatable via keyboard Tab
+      // even when the mouse is not hovering — critical for keyboard-only users
+      expect(pencil.className).toContain('focus:opacity-100')
+    })
+
     it('has cursor-text class when editable', () => {
       const { container } = render(<RichTextEditor value="text" onSave={onSave} />)
       expect(container.firstChild).toHaveClass('cursor-text')
