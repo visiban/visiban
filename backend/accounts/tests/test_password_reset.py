@@ -160,3 +160,44 @@ class PasswordResetConfirmTests(TestCase):
         # Second use of the same token must fail.
         r2 = self.client.post("/api/v1/auth/password/reset/confirm/", payload)
         self.assertEqual(r2.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class PasswordResetThrottleStructureTests(TestCase):
+    """Verify throttle classes are wired correctly and use IP-based (not anon-only) keys."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="throttle_user", email="throttle@example.com", password="strongpass1"
+        )
+
+    def test_password_reset_throttle_is_simple_rate_throttle(self):
+        from rest_framework.throttling import SimpleRateThrottle, AnonRateThrottle
+        from accounts.views import PasswordResetThrottle
+        self.assertTrue(issubclass(PasswordResetThrottle, SimpleRateThrottle))
+        self.assertFalse(issubclass(PasswordResetThrottle, AnonRateThrottle))
+
+    def test_password_reset_throttle_key_is_not_none_for_authenticated_user(self):
+        from accounts.views import PasswordResetThrottle
+        throttle = PasswordResetThrottle()
+        throttle.scope = "password_reset"
+        request = MagicMock()
+        request.user = self.user
+        request.META = {"REMOTE_ADDR": "192.0.2.1"}
+        key = throttle.get_cache_key(request, MagicMock())
+        self.assertIsNotNone(key)
+        self.assertIn("192.0.2.1", key)
+
+    def test_password_reset_confirm_view_uses_confirm_throttle(self):
+        from accounts.views import ThrottledPasswordResetConfirmView, PasswordResetConfirmThrottle
+        throttle_classes = ThrottledPasswordResetConfirmView.throttle_classes
+        self.assertIn(PasswordResetConfirmThrottle, throttle_classes)
+
+    def test_password_reset_confirm_throttle_key_is_ip_based(self):
+        from accounts.views import PasswordResetConfirmThrottle
+        throttle = PasswordResetConfirmThrottle()
+        throttle.scope = "password_reset_confirm"
+        request = MagicMock()
+        request.META = {"REMOTE_ADDR": "203.0.113.5"}
+        key = throttle.get_cache_key(request, MagicMock())
+        self.assertIsNotNone(key)
+        self.assertIn("203.0.113.5", key)

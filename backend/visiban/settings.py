@@ -256,6 +256,8 @@ REST_FRAMEWORK = {
         "register": "9999/hour" if DEBUG else "10/min",
         # Password reset: prevents the reset flow from being used for bulk email sends.
         "password_reset": "9999/hour" if DEBUG else "5/hour",
+        # Password reset confirm: prevents automated token-stuffing against the confirm endpoint.
+        "password_reset_confirm": "9999/hour" if DEBUG else "10/hour",
         # Public board share-link reads: generous but bounded to limit scraping.
         "share_link": "120/hour",
         # Choose-username: prevents username enumeration via "already taken" probing.

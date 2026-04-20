@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from accounts.views import InviteRegisterView, ThrottledPasswordResetView, EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.views import InviteRegisterView, ThrottledPasswordResetView, ThrottledPasswordResetConfirmView, EmailConfirmRedirectView, VerifyEmailThrottle
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
 
@@ -40,6 +40,9 @@ urlpatterns = [
     # Override the default PasswordResetView with our rate-limited subclass to
     # prevent the reset flow from being used for bulk email sends.
     path("api/v1/auth/password/reset/", ThrottledPasswordResetView.as_view()),
+    # Registered before dj_rest_auth.urls so Django's URL resolver picks this
+    # throttled subclass instead of the default PasswordResetConfirmView.
+    path("api/v1/auth/password/reset/confirm/", ThrottledPasswordResetConfirmView.as_view()),
     path("api/v1/auth/", include("dj_rest_auth.urls")),
     # Override the default RegisterView with InviteRegisterView so that
     # invite-only mode validates tokens atomically with user creation.
