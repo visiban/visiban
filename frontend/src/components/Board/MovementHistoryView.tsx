@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getBoardMovements } from "../../api/boards";
-import type { BoardFull, CardMovement } from "../../types";
+import type { BoardFull, CardMovement, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import { formatDateTimeUser } from "../../utils/date";
+import type { UserDatePrefs } from "../../utils/date";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,9 +56,10 @@ interface SlideInPanelProps {
   /** All movements for the same card visible on the current page — for context. */
   relatedMovements: CardMovement[];
   onClose: () => void;
+  user?: UserDatePrefs | null;
 }
 
-function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps) {
+function SlideInPanel({ movement, relatedMovements, onClose, user }: SlideInPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   // Focus the close button on open so keyboard users can immediately dismiss.
@@ -64,11 +67,7 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
     closeRef.current?.focus();
   }, []);
 
-  const formatTs = (iso: string) =>
-    new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const formatTs = (iso: string) => formatDateTimeUser(iso, user);
 
   return (
     <div
@@ -158,6 +157,8 @@ function SlideInPanel({ movement, relatedMovements, onClose }: SlideInPanelProps
 
 interface Props {
   board: BoardFull;
+  /** Current authenticated user — used for date/time formatting preferences. */
+  currentUser?: User | null;
 }
 
 const PAGE_SIZE = 50;
@@ -171,7 +172,7 @@ const PAGE_SIZE = 50;
  *   Enter               — open slide-in for the focused row
  *   Escape              — close slide-in panel
  */
-export default function MovementHistoryView({ board }: Props) {
+export default function MovementHistoryView({ board, currentUser }: Props) {
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState<HistoryFilters>(() => {
     const columnId = searchParams.get('column_id');
@@ -368,10 +369,7 @@ export default function MovementHistoryView({ board }: Props) {
                         }`}
                       >
                         <td className="px-4 py-2 text-xs text-fg-muted tabular-nums whitespace-nowrap align-top">
-                          {new Date(m.moved_at).toLocaleString(undefined, {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })}
+                          {formatDateTimeUser(m.moved_at, currentUser)}
                         </td>
                         <td className="px-4 py-2 text-xs text-fg-tertiary align-top truncate max-w-[7rem]">
                           {m.moved_by
@@ -438,6 +436,7 @@ export default function MovementHistoryView({ board }: Props) {
           movement={selectedMovement}
           relatedMovements={relatedMovements}
           onClose={() => setSelectedMovement(null)}
+          user={currentUser}
         />
       )}
     </div>

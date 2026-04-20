@@ -11,7 +11,8 @@ import type { CardPatch } from "../../api/cards";
 import { createLabel } from "../../api/boards";
 import { PALETTE_COLORS, PRIORITY_COLORS } from "../../constants/colors";
 import ActivityTabPanel from "./ActivityTabPanel";
-import { formatDateStr, formatDueDate } from "../../utils/date";
+import { formatDateStr, formatDueDate, formatDateTimeUser } from "../../utils/date";
+import type { UserDatePrefs } from "../../utils/date";
 import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
@@ -33,20 +34,16 @@ interface Props {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, used by tests and co-located with the component for cohesion
-export function formatCommentTime(iso: string): string {
+export function formatCommentTime(iso: string, user?: UserDatePrefs | null): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return new Date(iso).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  // For dates older than 24 hours use the user's preferred format so the
+  // timestamp matches the format they see everywhere else in the app.
+  return formatDateTimeUser(iso, user);
 }
 
 
@@ -880,7 +877,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-fg-secondary">{authorName}</span>
-                            <span className="text-[10px] text-fg-muted" title={new Date(c.created_at).toLocaleString()}>{formatCommentTime(c.created_at)}</span>
+                            <span className="text-[10px] text-fg-muted" title={formatDateTimeUser(c.created_at, currentUser)}>{formatCommentTime(c.created_at, currentUser)}</span>
                             {canDeleteComment(c) && (
                               confirmDeleteCommentId === c.id ? (
                                 <div className="ml-auto flex items-center gap-1">
@@ -949,7 +946,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
             </div>
           ) : (
-            <ActivityTabPanel boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} />
+            <ActivityTabPanel boardId={board.id} cardId={card.id} userDateFormat={userDateFormat} user={currentUser} />
           )}
           </div>
           {/* Scroll affordance — fade gradient at bottom signals more content below */}

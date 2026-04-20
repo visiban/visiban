@@ -1,3 +1,141 @@
+// ---------------------------------------------------------------------------
+// Minimal user-preference shape consumed by the formatting utilities below.
+// We use a structural subset rather than importing the full User type so this
+// module stays free of circular imports and remains independently testable.
+// ---------------------------------------------------------------------------
+
+export interface UserDatePrefs {
+  date_format?: string | null;
+  time_format?: string | null;
+  timezone?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// User-preference-aware formatters
+// ---------------------------------------------------------------------------
+
+/**
+ * Formats an ISO 8601 date string or Date object using the user's `date_format`
+ * and `timezone` preferences. Falls back to the browser timezone when
+ * `user.timezone` is missing or null, and to MM/DD/YYYY when `user.date_format`
+ * is missing or null.
+ *
+ * Nothing stored in state or sent to the API is changed — this only affects
+ * how values are rendered.
+ */
+export function formatDate(value: string | Date, user: UserDatePrefs | null | undefined): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (isNaN(d.getTime())) return String(value);
+
+  const tz = user?.timezone || undefined; // undefined → browser default
+  const fmt = user?.date_format || "MM/DD/YYYY";
+
+  // Map our format tokens to Intl options, then reformat to the user's pattern.
+  // We derive year/month/day parts from Intl to get proper timezone conversion.
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    const y = get("year");
+    const m = get("month");
+    const day = get("day");
+    switch (fmt) {
+      case "DD/MM/YYYY": return `${day}/${m}/${y}`;
+      case "YYYY-MM-DD": return `${y}-${m}-${day}`;
+      default: return `${m}/${day}/${y}`; // MM/DD/YYYY
+    }
+  } catch {
+    return formatDateStr(
+      d.toISOString().slice(0, 10),
+      fmt,
+    );
+  }
+}
+
+/**
+ * Formats an ISO 8601 datetime string or Date object using the user's
+ * `date_format`, `time_format`, and `timezone` preferences. Appends the
+ * time portion (12-hour or 24-hour) after the date.
+ *
+ * Nothing stored in state or sent to the API is changed — this only affects
+ * how values are rendered.
+ */
+export function formatDateTimeUser(
+  value: string | Date,
+  user: UserDatePrefs | null | undefined,
+): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (isNaN(d.getTime())) return String(value);
+
+  const tz = user?.timezone || undefined;
+  const timeFmt = user?.time_format || "12h";
+  const datePart = formatDate(d, user);
+
+  try {
+    const hour12 = timeFmt !== "24h";
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12,
+    }).formatToParts(d);
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    const hour = get("hour");
+    const minute = get("minute");
+    if (hour12) {
+      const dayPeriod = get("dayPeriod").toUpperCase() || (parts.find((p) => p.type === "dayPeriod")?.value.toUpperCase() ?? "");
+      return `${datePart} ${hour}:${minute} ${dayPeriod}`;
+    }
+    return `${datePart} ${hour.padStart(2, "0")}:${minute}`;
+  } catch {
+    // Fallback: use the non-timezone-aware formatDateTime helper
+    return formatDateTime(typeof value === "string" ? value : d.toISOString(), user?.date_format ?? "MM/DD/YYYY", timeFmt);
+  }
+}
+
+/**
+ * Parses a user-entered date string back to ISO 8601 (YYYY-MM-DD) for API
+ * submission. Handles the three supported display formats:
+ *   MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD
+ *
+ * Returns the original string unchanged if parsing fails, so callers can
+ * surface a validation error rather than silently dropping the input.
+ */
+export function parseDate(input: string, dateFormat = "MM/DD/YYYY"): string {
+  const s = input.trim();
+  if (!s) return s;
+
+  // Already ISO format — pass through unchanged
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  try {
+    switch (dateFormat) {
+      case "DD/MM/YYYY": {
+        const [d, m, y] = s.split("/");
+        if (!d || !m || !y) return input;
+        return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      }
+      case "YYYY-MM-DD":
+        // Non-ISO separators (e.g. "2025.12.31") — normalise to dashes
+        return s.replace(/[./]/g, "-");
+      default: {
+        // MM/DD/YYYY (US default)
+        const [m, d, y] = s.split("/");
+        if (!d || !m || !y) return input;
+        return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      }
+    }
+  } catch {
+    return input;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 export const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
   { value: "UTC", label: "UTC" },
   { value: "America/New_York", label: "Eastern Time" },

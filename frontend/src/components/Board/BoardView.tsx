@@ -953,7 +953,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SectionErrorBoundary section="Movement history">
-          <MovementHistoryView board={board} />
+          <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
       </div>
     );

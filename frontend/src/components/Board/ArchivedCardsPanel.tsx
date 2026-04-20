@@ -3,6 +3,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, User } from "../../types";
 import { getArchivedCards } from "../../api/cards";
 import { unarchiveCard } from "../../api/cards";
+import { formatDate } from "../../utils/date";
 
 interface Props {
   board: BoardFull;
@@ -129,7 +130,7 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
                     <div className="flex items-center justify-between mt-1">
                       <span className="text-xs text-fg-muted">
                         {card.archived_at
-                          ? `Archived ${new Date(card.archived_at).toLocaleDateString()}`
+                          ? `Archived ${formatDate(card.archived_at, currentUser)}`
                           : ""}
                       </span>
                       {canUnarchive(card) && (
