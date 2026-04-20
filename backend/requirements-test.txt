@@ -1,4 +1,5 @@
 coverage
+factory-boy>=3.3.0
 pytest
 pytest-django
 pytest-split
