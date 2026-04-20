@@ -83,7 +83,7 @@ describe('GroupDetail', () => {
     mockGetSubgroups.mockReturnValue(new Promise(() => {}))
     mockGetGroupBoards.mockReturnValue(new Promise(() => {}))
     renderGroupDetail()
-    expect(screen.getByText(/Loading/)).toBeInTheDocument()
+    expect(document.querySelector('[role="status"]')).not.toBeNull()
   })
 
   it('shows error on failure', async () => {
