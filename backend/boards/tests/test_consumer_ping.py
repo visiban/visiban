@@ -80,7 +80,7 @@ class BoardConsumerPingTests(TestCase):
                 text_data=json.dumps({"event": "ping"})
             )
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_ping_task_canceled_on_disconnect(self):
         """disconnect() should cancel the ping task."""
@@ -98,7 +98,7 @@ class BoardConsumerPingTests(TestCase):
             # Task should be canceled after disconnect.
             assert consumer._ping_task is None
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_ping_task_not_started_on_auth_failure(self):
         """If connect() rejects auth, no ping task should be started."""
@@ -110,7 +110,7 @@ class BoardConsumerPingTests(TestCase):
             await consumer.connect()
             assert consumer._ping_task is None
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_connect_access_denied_closes_with_4003(self):
         """connect() should close with code 4003 when _has_access returns False."""
@@ -122,7 +122,7 @@ class BoardConsumerPingTests(TestCase):
             consumer.close.assert_called_once_with(code=4003)
             assert consumer._ping_task is None
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_board_event_sends_payload(self):
         """board_event() should forward the payload as JSON text."""
@@ -137,7 +137,7 @@ class BoardConsumerPingTests(TestCase):
                 text_data=json.dumps(payload)
             )
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_board_event_member_removed_closes_connection(self):
         """board_event() should close the socket when the current user is removed."""
@@ -151,7 +151,7 @@ class BoardConsumerPingTests(TestCase):
             consumer.close.assert_called_once()
             consumer.send.assert_not_called()
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_board_event_member_removed_other_user_not_closed(self):
         """board_event() should NOT close when a *different* user is removed."""
@@ -165,7 +165,7 @@ class BoardConsumerPingTests(TestCase):
             consumer.close.assert_not_called()
             consumer.send.assert_called_once_with(text_data=json.dumps(payload))
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())
 
     def test_has_access_board_not_found_returns_false(self):
         """_has_access() should return False when the board does not exist."""
@@ -180,4 +180,4 @@ class BoardConsumerPingTests(TestCase):
             result = await consumer._has_access(user, -1)
             assert result is False
 
-        asyncio.get_event_loop().run_until_complete(run())
+        asyncio.run(run())

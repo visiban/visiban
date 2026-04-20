@@ -580,4 +580,41 @@ describe('BulkActionToolbar', () => {
 
     expect(screen.getByText(/None of the selected cards will be deleted/)).toBeInTheDocument()
   })
+
+  it('dropdown triggers have aria-expanded reflecting open/closed state', async () => {
+    const user = userEvent.setup()
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    const moveTrigger = screen.getByText('Move to...').closest('button') as HTMLButtonElement
+    expect(moveTrigger).toHaveAttribute('aria-expanded', 'false')
+    await user.click(moveTrigger)
+    expect(moveTrigger).toHaveAttribute('aria-expanded', 'true')
+    // Closing: click again
+    await user.click(moveTrigger)
+    expect(moveTrigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('deselect-all button has an accessible title so screen reader users know its purpose', () => {
+    render(
+      <BulkActionToolbar
+        board={makeBoard()}
+        selectedCardIds={selectedIds}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+      />
+    )
+    const deselect = screen.getByTitle('Deselect all (Esc)')
+    expect(deselect).toBeInTheDocument()
+    expect(deselect.tagName.toLowerCase()).toBe('button')
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import FilterBar, { EMPTY_FILTER } from '../components/Board/FilterBar'
 import type { FilterState } from '../components/Board/FilterBar'
@@ -225,6 +225,20 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
     await userEvent.setup().click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('keyboard navigation: ArrowDown from open SingleSelectDropdown moves focus to first menu item', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
+    trigger.focus()
+    // Open the menu
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    // ArrowDown from trigger moves focus into the menu items
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const items = screen.getAllByRole('menuitem')
+    // First menu item should have received focus
+    expect(document.activeElement).toBe(items[0])
   })
 })
 
