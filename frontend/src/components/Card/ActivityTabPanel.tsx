@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { getCardTimeline } from "../../api/cards";
 import type { CardTimelineEntry, CardActivity, CardMovement, BoardUser } from "../../types";
 import { userDisplayName } from "../../types";
-import { formatRelativeTime, formatDateStr } from "../../utils/date";
+import { formatRelativeTime, formatDateStr, formatDateTimeUser } from "../../utils/date";
+import type { UserDatePrefs } from "../../utils/date";
 import ActivityFilterDropdown from "./ActivityFilterDropdown";
 
 interface ActivityTabPanelProps {
   boardId: number;
   cardId: number;
   userDateFormat?: string;
+  user?: UserDatePrefs | null;
 }
 
 const EVENT_TYPE_OPTIONS = [
@@ -157,7 +159,7 @@ function formatDuration(ms: number): string {
   return `${days}d`;
 }
 
-export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM/DD/YYYY" }: ActivityTabPanelProps) {
+export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM/DD/YYYY", user }: ActivityTabPanelProps) {
   const [entries, setEntries] = useState<CardTimelineEntry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -315,7 +317,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
                     <time
                       className="text-xs text-fg-tertiary"
                       dateTime={cg.ts}
-                      title={new Date(cg.ts).toLocaleString()}
+                      title={formatDateTimeUser(cg.ts, user)}
                     >
                       {formatRelativeTime(cg.ts)}
                     </time>
@@ -372,7 +374,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
                       <time
                         className="text-xs text-fg-tertiary"
                         dateTime={timelineEntry.ts}
-                        title={new Date(timelineEntry.ts).toLocaleString()}
+                        title={formatDateTimeUser(timelineEntry.ts, user)}
                       >
                         {formatRelativeTime(timelineEntry.ts)}
                       </time>

@@ -7,7 +7,8 @@ import Navbar from "../components/Layout/Navbar";
 import type { User, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
 import { useTheme } from "../context/ThemeContext";
 import type { ThemePreference } from "../context/ThemeContext";
-import { TIMEZONE_OPTIONS, browserTimezone } from "../utils/date";
+import { TIMEZONE_OPTIONS, browserTimezone, formatDate as formatDateUtil } from "../utils/date";
+import type { UserDatePrefs } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
 
 type Tab = "profile" | "security" | "access-tokens" | "notifications" | "appearance" | "behavior" | "about";
@@ -310,7 +311,7 @@ function SecurityTab({ user }: { user: User }) {
 
 const PAT_MAX = 10;
 
-function AccessTokensTab() {
+function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -364,7 +365,7 @@ function AccessTokensTab() {
 
   const formatDate = (iso: string | null) => {
     if (!iso) return "Never";
-    return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return formatDateUtil(iso, user);
   };
 
   return (
@@ -787,7 +788,7 @@ export default function SettingsPage({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && <ProfileTab user={user} onUserUpdated={onUserUpdated} from={from} />}
             {activeTab === "security" && <SecurityTab user={user} />}
-            {activeTab === "access-tokens" && <AccessTokensTab />}
+            {activeTab === "access-tokens" && <AccessTokensTab user={user} />}
             {activeTab === "notifications" && <NotificationsTab user={user} onUserUpdated={onUserUpdated} />}
             {activeTab === "appearance" && <AppearanceTab />}
             {activeTab === "behavior" && <BehaviorTab user={user} onUserUpdated={onUserUpdated} />}
