@@ -194,7 +194,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     members: [{ id: 1, user: fakeUser, role: 'admin', is_moderator: false, joined_at: '' }],
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
-    allowed_priorities: ['low', 'medium', 'high', 'critical'] as BoardFull['allowed_priorities'],
+    allowed_priorities: ['low', 'medium', 'high', 'urgent'] as BoardFull['allowed_priorities'],
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
     is_starred: false,
     created_at: '', updated_at: '',
