@@ -163,10 +163,13 @@ describe('LoginPage', () => {
     renderLoginPage()
 
     await user.click(screen.getByText('Create one'))
+    // Wait for getSiteConfig to settle before interacting — the submit button is
+    // disabled until the async config resolves, so a synchronous getByRole click
+    // races against the pending microtask and fails intermittently.
     await user.type(screen.getByPlaceholderText('Email address'), 'kelly@example.com')
     await user.type(screen.getByPlaceholderText('Password'), 'password123')
     await user.type(screen.getByPlaceholderText('Confirm password'), 'password123')
-    await user.click(screen.getByText('Create account'))
+    await user.click(await screen.findByRole('button', { name: /create account/i }))
 
     // 4th arg is the invite token from sessionStorage — undefined when none is present
     expect(mockRegister).toHaveBeenCalledWith('kelly@example.com', 'password123', 'password123', undefined)
