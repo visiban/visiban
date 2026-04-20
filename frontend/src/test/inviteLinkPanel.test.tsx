@@ -103,13 +103,13 @@ describe('InviteLinkPanel', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: 'New link' }))
     expect(screen.getByText('Single use')).toBeInTheDocument()
     expect(screen.getByText('Link expires after one person joins.')).toBeInTheDocument()
-    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    expect(screen.getByRole('switch')).toBeInTheDocument()
   })
 
   it('single-use toggle is unchecked by default', async () => {
     render(<InviteLinkPanel groupId={1} />)
     await userEvent.setup().click(await screen.findByRole('button', { name: 'New link' }))
-    expect(screen.getByRole('checkbox')).not.toBeChecked()
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
   })
 
   it('passes single_use=true to createInviteLink when toggle is checked', async () => {
@@ -117,7 +117,7 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel groupId={1} />)
     await user.click(await screen.findByRole('button', { name: 'New link' }))
-    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('switch'))
     await user.click(screen.getByRole('button', { name: 'Create link' }))
     expect(mockCreateInviteLink).toHaveBeenCalledWith(1, expect.objectContaining({ single_use: true }))
   })
@@ -185,10 +185,10 @@ describe('InviteLinkPanel', () => {
     const user = userEvent.setup()
     render(<InviteLinkPanel groupId={1} />)
     await user.click(await screen.findByRole('button', { name: 'New link' }))
-    await user.click(screen.getByRole('checkbox')) // check it
+    await user.click(screen.getByRole('switch')) // check it
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     // Re-open form — toggle should be unchecked again
     await user.click(screen.getByRole('button', { name: 'New link' }))
-    expect(screen.getByRole('checkbox')).not.toBeChecked()
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
   })
 })
