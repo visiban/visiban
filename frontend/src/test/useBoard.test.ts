@@ -95,7 +95,12 @@ describe('useBoard', () => {
 
   it('navigates to / when board returns 404', async () => {
     mockGetBoardFull.mockRejectedValue({ response: { status: 404 } })
-    renderHook(() => useBoard())
+
+    // Wrap render in act so the rejected promise is flushed before waitFor
+    // asserts — without this the rejection races against the assertion.
+    await act(async () => {
+      renderHook(() => useBoard())
+    })
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true })
