@@ -82,10 +82,18 @@ class ServeMediaView(APIView):
         if django_settings.DEBUG:
             # Development: serve the file directly through Django. Not used in
             # production where Nginx handles the transfer via X-Accel-Redirect.
-            from django.http import FileResponse
+            from django.http import FileResponse, Http404
             import os
-            file_path = os.path.join(django_settings.MEDIA_ROOT, path)
-            resp = FileResponse(open(file_path, "rb"), content_type=content_type)
+            # Defense-in-depth: the CardAttachment lookup above already binds
+            # `path` to a DB row so an attacker cannot request arbitrary files,
+            # but resolve and verify the path is contained within MEDIA_ROOT
+            # before opening so a future regression in upload sanitization
+            # cannot escalate into a read primitive on the dev server.
+            media_root = os.path.realpath(django_settings.MEDIA_ROOT)
+            resolved = os.path.realpath(os.path.join(media_root, path))
+            if os.path.commonpath([media_root, resolved]) != media_root:
+                raise Http404
+            resp = FileResponse(open(resolved, "rb"), content_type=content_type)
             resp["Content-Disposition"] = disposition
             return resp
 

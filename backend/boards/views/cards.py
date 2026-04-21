@@ -207,6 +207,7 @@ class CardViewSet(viewsets.ModelViewSet):
     # each issue a full select_related board fetch.  Matches the pattern
     # already used by ColumnViewSet and SwimlaneViewSet.
     _cached_board_role = None
+    _cached_board_ctx = None
 
     def _board_and_role(self):
         if self._cached_board_role is None:
@@ -217,6 +218,34 @@ class CardViewSet(viewsets.ModelViewSet):
 
     def _board(self):
         return self._board_and_role()[0]
+
+    def _board_context(self):
+        """Return per-request cached member IDs, assignable IDs, and labels qs.
+
+        Mutation endpoints call `_refetched_card_data` once each; without a
+        cache, every call re-fires `_get_effective_member_ids` +
+        `_get_assignable_member_ids` (1-2 queries each) and a Label query.
+        Cache once per request so consecutive mutation responses share the
+        same resolved sets.
+        """
+        if self._cached_board_ctx is None:
+            board = self._board()
+            self._cached_board_ctx = {
+                "board": board,
+                "member_ids": _get_effective_member_ids(board),
+                "assignable_ids": _get_assignable_member_ids(board),
+                "labels_qs": board.labels.all(),
+            }
+        return self._cached_board_ctx
+
+    def _refetch_card_data(self, card):
+        bc = self._board_context()
+        return _refetched_card_data(
+            card, self.request, bc["board"],
+            member_ids=bc["member_ids"],
+            assignable_ids=bc["assignable_ids"],
+            labels_qs=bc["labels_qs"],
+        )
 
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
@@ -230,27 +259,27 @@ class CardViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
         return qs
 
+    # Hard row cap on /cards/ list responses. The /full/ endpoint is the only
+    # path that returns the complete board; /cards/ is for targeted lookups
+    # (search, priority filter, etc.) and must bound its response so a board
+    # with thousands of matching cards cannot return an unbounded payload.
+    _LIST_MAX_ROWS = 200
+
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        # Cap search results after ordering is applied — slicing before filter_queryset()
+        # Cap results after ordering is applied — slicing before filter_queryset()
         # would prevent OrderingFilter from calling .order_by() on the queryset.
-        # The full board is always loaded via /full/; search is for targeted lookup only.
-        if request.query_params.get("search", "").strip():
-            queryset = queryset[:200]
+        queryset = queryset[:self._LIST_MAX_ROWS]
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
-        board = self._board()
-        ctx["board"] = board
-        # Pre-compute member IDs and board labels once per request so
-        # CardSerializer.__init__ does not re-query per card (N+1 fix — #490).
-        ctx["_member_ids"] = _get_effective_member_ids(board)
-        ctx["_assignable_member_ids"] = _get_assignable_member_ids(board)
-        # Use board.labels.all() to hit the prefetch cache populated by
-        # get_board_for_user(), avoiding a redundant Label query per request.
-        ctx["_board_labels_qs"] = board.labels.all()
+        bc = self._board_context()
+        ctx["board"] = bc["board"]
+        ctx["_member_ids"] = bc["member_ids"]
+        ctx["_assignable_member_ids"] = bc["assignable_ids"]
+        ctx["_board_labels_qs"] = bc["labels_qs"]
         return ctx
 
     def perform_create(self, serializer):
@@ -284,7 +313,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 moved_by=self.request.user,
                 notes="Card created",
             )
-            card_data = _refetched_card_data(card, self.request, board)
+            card_data = self._refetch_card_data(card)
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.created", card_data))
             if card.description:
                 # Notify any @mentioned board members in the initial description.
@@ -1082,7 +1111,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=CardActivity.EventType.COMMENT_ADDED,
                 from_value="", to_value="", actor=request.user,
             )
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
             # Parse @username mentions and notify each mentioned board member.
@@ -1131,7 +1160,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 )
         with transaction.atomic():
             comment.delete()
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1200,7 +1229,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 size=file.size,
                 uploaded_by=request.user,
             )
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
@@ -1231,7 +1260,7 @@ class CardViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             attachment.file.delete(save=False)
             attachment.delete()
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1262,7 +1291,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 card=card, event_type=CardActivity.EventType.CHECKLIST_ITEM_ADDED,
                 from_value="", to_value=item.text, actor=request.user,
             )
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
@@ -1293,7 +1322,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     from_value=item.text, to_value="", actor=request.user,
                 )
                 item.delete()
-                card_data = _refetched_card_data(card, request, board)
+                card_data = self._refetch_card_data(card)
                 board_id = board.id
                 transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -1312,7 +1341,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     card=card, event_type=checklist_event_type,
                     from_value="", to_value=item.text, actor=request.user,
                 )
-            card_data = _refetched_card_data(card, request, board)
+            card_data = self._refetch_card_data(card)
             board_id = board.id
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(serializer.data)

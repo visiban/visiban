@@ -54,14 +54,13 @@ class BoardViewSet(
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
         # select_related("owner", "group") prevents one JOIN-per-board for the
-        # owner and group_name serializer fields. Prefetch card labels and card
-        # assignees so that board-scoped card rendering avoids per-card queries
-        # (#670). Annotate to avoid 3 further subqueries per board (member_count,
-        # card_count, is_starred).
-        return qs.select_related("owner", "group").prefetch_related(
-            "cards__labels",
-            "cards__assignee",
-        ).annotate(
+        # owner and group_name serializer fields. Annotate to avoid 3 further
+        # subqueries per board (member_count, card_count, is_starred). The
+        # /full/ endpoint loads card data via its own queryset in
+        # get_board_for_user(); BoardSerializer (used by list/retrieve) never
+        # reads card fields so prefetching cards__labels / cards__assignee
+        # here only loaded data that was immediately discarded.
+        return qs.select_related("owner", "group").annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(
@@ -108,7 +107,13 @@ class BoardViewSet(
             # will relay it to the dashboard.  The backend broadcast is added now so
             # the event shape is established as a 1.0 contract.
             board_id = board.id
-            board_data = BoardSerializer(board, context={"request": self.request}).data
+            # Re-fetch through get_queryset() so the broadcast payload uses the
+            # annotated row (_member_count, _card_count, _is_starred) rather
+            # than the bare post-save instance. Without the annotations,
+            # BoardSerializer.get_is_starred() falls through to a live EXISTS
+            # query on every board.created broadcast.
+            annotated = self.get_queryset().get(pk=board_id)
+            board_data = BoardSerializer(annotated, context={"request": self.request}).data
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
             )

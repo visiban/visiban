@@ -466,6 +466,35 @@ class CardFilterTests(TestCase):
         self.assertNotIn("High priority", titles)  # no due date
 
 
+class CardListRowCapTests(TestCase):
+    """Assert CardViewSet.list caps the response at _LIST_MAX_ROWS (#791).
+
+    /cards/ is for targeted lookups (search, priority filter, etc.). The
+    complete board is always loaded via /full/.  Without the cap a board
+    with thousands of matching cards could return an unbounded payload.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="listcap", password="pass")
+        self.board, self.col, _, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_unfiltered_list_respects_row_cap(self):
+        # Create one more than the cap to prove the extra row is dropped.
+        from boards.views.cards import CardViewSet
+        cap = CardViewSet._LIST_MAX_ROWS
+        bulk = [
+            Card(board=self.board, column=self.col, swimlane=self.swim,
+                 title=f"c{i}", created_by=self.user, position=i)
+            for i in range(cap + 1)
+        ]
+        Card.objects.bulk_create(bulk)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.json()), cap)
+
+
 class CardListQueryCountTests(TestCase):
     """Assert that the card list endpoint does not produce N+1 queries as card count grows.
 

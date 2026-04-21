@@ -443,6 +443,11 @@ class CardChecklist(models.Model):
     class Meta:
         db_table = "card_checklist_items"
         ordering = ["position"]
+        indexes = [
+            # Covers the default ORDER BY position for a given card without a
+            # filesort on cards with many checklist items.
+            models.Index(fields=["card", "position"], name="checklist_card_pos_idx"),
+        ]
 
     def __str__(self):
         return self.text
