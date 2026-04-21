@@ -51,7 +51,7 @@ export function ToggleField({ checked, onChange, label, description, disabled, l
       <div className="min-w-0 pr-4">
         <span id={labelId} className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-secondary`}>{label}</span>
         {description && (
-          <p className={`${labelSize === "xs" ? "text-xs" : "text-xs"} text-fg-muted mt-0.5`}>{description}</p>
+          <p className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-muted mt-0.5`}>{description}</p>
         )}
       </div>
       <Toggle
