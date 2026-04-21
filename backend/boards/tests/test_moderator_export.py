@@ -16,7 +16,7 @@ def _make_board(owner):
 
 
 class ExportRoleRestrictionTests(TestCase):
-    """Export is allowed for all board members; non-members are blocked (#384)."""
+    """Export is allowed for all board members; non-members are blocked (#384, #800 VoC)."""
 
     def setUp(self):
         self.owner = User.objects.create_user(username="owner", password="pass")
@@ -29,14 +29,14 @@ class ExportRoleRestrictionTests(TestCase):
         return user
 
     def test_viewer_can_export(self):
-        """Viewers already have read access to all card/movement data — export is consistent (#384)."""
+        """Viewers already have read access to all card/movement data — export is consistent (#384, #800 VoC)."""
         viewer = self._add_member("viewer", BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_collaborator_can_export(self):
-        """Collaborators already have read access to card data — export is consistent (#384)."""
+        """Collaborators already have read access to card data — export is consistent (#384, #800 VoC)."""
         collab = self._add_member("collab", BoardMembership.Role.COLLABORATOR)
         self.client.force_authenticate(collab)
         r = self.client.get(f"/api/v1/boards/{self.board.id}/export/")

@@ -392,4 +392,22 @@ describe('BoardView socket event routing — new event types', () => {
     // Should not throw when the optional callback is absent
     act(() => { getOnEvent.dispatch({ event: 'board.deleted', data: { board_uid: 'abc123', board_id: 1 } }) })
   })
+
+  it('board.star_changed merges is_starred when user_id matches current user (#814)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { board_id: 1, user_id: fakeUser.id, is_starred: true } }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith({ is_starred: true })
+  })
+
+  it('board.star_changed is ignored when user_id is a different user (#814)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { board_id: 1, user_id: 999, is_starred: true } }) })
+    expect(ctx.mergeBoardState).not.toHaveBeenCalled()
+  })
 })

@@ -552,19 +552,22 @@ class BoardImportExportMixin:
                         [obj for obj, _ in backfill], ["created_at"]
                     )
 
-        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
-        # is_starred reads from annotation fast-paths instead of 3 fallback queries.
-        from django.db.models import Count, Exists, OuterRef, Q
-        board = Board.objects.select_related("owner", "group").annotate(
-            _member_count=Count("memberships", distinct=True),
-            _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
-            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
-        ).get(pk=board.pk)
-        board_data = BoardSerializer(board, context={"request": request}).data
-        board_id = board.pk
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
-        )
+            # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+            # is_starred reads from annotation fast-paths instead of 3 fallback queries.
+            # Register the broadcast inside the atomic block so a rollback does
+            # not fire a phantom board.created event for a board that never
+            # committed (#815).
+            from django.db.models import Count, Exists, OuterRef, Q
+            board = Board.objects.select_related("owner", "group").annotate(
+                _member_count=Count("memberships", distinct=True),
+                _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+            ).get(pk=board.pk)
+            board_data = BoardSerializer(board, context={"request": request}).data
+            board_id = board.pk
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
+            )
         return Response(board_data, status=status.HTTP_201_CREATED)
 
     def _import_csv(self, request, file):
@@ -812,27 +815,39 @@ class BoardImportExportMixin:
             if label_through_objs:
                 label_through_model.objects.bulk_create(label_through_objs, ignore_conflicts=True)
 
-        # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
-        # is_starred reads from annotation fast-paths instead of 3 fallback queries.
-        from django.db.models import Count, Exists, OuterRef, Q
-        board = Board.objects.select_related("owner", "group").annotate(
-            _member_count=Count("memberships", distinct=True),
-            _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
-            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
-        ).get(pk=board.pk)
-        board_data = BoardSerializer(board, context={"request": request}).data
-        board_id = board.pk
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
-        )
+            # Re-fetch with annotations so BoardSerializer.get_member_count / card_count /
+            # is_starred reads from annotation fast-paths instead of 3 fallback queries.
+            # Register the broadcast inside the atomic block so a rollback does
+            # not fire a phantom board.created event for a board that never
+            # committed (#815).
+            from django.db.models import Count, Exists, OuterRef, Q
+            board = Board.objects.select_related("owner", "group").annotate(
+                _member_count=Count("memberships", distinct=True),
+                _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
+                _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+            ).get(pk=board.pk)
+            board_data = BoardSerializer(board, context={"request": request}).data
+            board_id = board.pk
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
+            )
         return Response(board_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
         """Export board data as CSV or JSON. Requires member or admin access."""
         board, role = get_board_for_user(pk, request.user)
-        # Viewers and collaborators can read all movement/card data via the API, so
-        # denying them a bulk export of the same data is inconsistent (#384).
+        # Viewers and collaborators can read every card/movement via the
+        # paginated API, so denying them a bulk export of the same data is
+        # inconsistent (#384). This policy was re-affirmed by the VoC panel
+        # on 2026-04-21 (#800): PM and senior-engineer workflows rely on
+        # self-serve export for stakeholder reports and incident retros.
+        #
+        # Bulk export is still a data-exfil vector, so the default ships
+        # paired with two follow-up controls:
+        #   * #806 — audit log for every export (user, role, format, rows)
+        #   * #807 — per-board `export_min_role` setting (viewer default /
+        #            admin opt-in) for regulated or sensitive boards
         if role not in (
             BoardMembershipModel.Role.VIEWER,
             BoardMembershipModel.Role.COLLABORATOR,

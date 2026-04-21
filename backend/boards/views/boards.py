@@ -174,13 +174,28 @@ class BoardViewSet(
     def star(self, request, pk=None):
         """Star or unstar a board for the requesting user."""
         board = self.get_object()
-        if request.method == "POST":
-            BoardFavorite.objects.get_or_create(user=request.user, board=board)
-        else:
-            BoardFavorite.objects.filter(user=request.user, board=board).delete()
-        # Re-fetch via get_queryset() so the _is_starred annotation reflects the
-        # change just made — the object fetched by get_object() above is stale.
-        board = self.get_queryset().get(pk=board.pk)
+        with transaction.atomic():
+            if request.method == "POST":
+                BoardFavorite.objects.get_or_create(user=request.user, board=board)
+                is_starred = True
+            else:
+                BoardFavorite.objects.filter(user=request.user, board=board).delete()
+                is_starred = False
+            # Re-fetch via get_queryset() so the _is_starred annotation reflects the
+            # change just made — the object fetched by get_object() above is stale.
+            board = self.get_queryset().get(pk=board.pk)
+            # Star is per-user state, but a user may have multiple tabs open on
+            # the same board; broadcast so other sessions of the same user sync
+            # without a full refetch. Clients filter on user_id === me (#814).
+            board_id = board.pk
+            user_id = request.user.id
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(
+                    board_id,
+                    "board.star_changed",
+                    {"board_id": board_id, "user_id": user_id, "is_starred": is_starred},
+                )
+            )
         return Response(self.get_serializer(board).data)
 
     @action(detail=True, methods=["post", "delete"], url_path="share")
