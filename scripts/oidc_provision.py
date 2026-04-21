@@ -15,6 +15,7 @@ exists, so it is safe to re-run.
 
 import argparse
 import json
+import os
 import sys
 import time
 
@@ -39,8 +40,8 @@ def _get_admin_token(base_url: str) -> str:
         data={
             "client_id": "admin-cli",
             "grant_type": "password",
-            "username": "admin",
-            "password": "admin",
+            "username": os.environ.get("KEYCLOAK_ADMIN_USER", "admin"),
+            "password": os.environ.get("KEYCLOAK_ADMIN_PASSWORD", "admin"),
         },
         timeout=15,
     )
