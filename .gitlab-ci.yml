@@ -890,7 +890,10 @@ trivy-scan:
 dep-scan-osv:
   stage: security
   image:
-    name: ghcr.io/google/osv-scanner:latest
+    # Pinned — :latest rolled from v1 to v2, which restructured the CLI
+    # (subcommands) and ships a distroless image with the binary at /osv-scanner
+    # instead of on PATH.
+    name: ghcr.io/google/osv-scanner:v2.3.5
     entrypoint: [""]
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -901,15 +904,16 @@ dep-scan-osv:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $OSV_SCAN == "true"'
       allow_failure: true
   script:
-    # Write JSON report first (osv-scanner exits non-zero on any finding)
-    - osv-scanner
+    # Binary lives at /osv-scanner in the distroless image (not on PATH).
+    # Write JSON report first (osv-scanner exits non-zero on any finding).
+    - /osv-scanner scan source
         --lockfile backend/requirements.txt
         --lockfile frontend/package-lock.json
         --format json
-        --output osv-report.json
+        --output-file osv-report.json
         || true
     # Print human-readable summary; exit with osv-scanner's own exit code
-    - osv-scanner
+    - /osv-scanner scan source
         --lockfile backend/requirements.txt
         --lockfile frontend/package-lock.json
   artifacts:
