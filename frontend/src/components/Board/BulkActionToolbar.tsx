@@ -3,6 +3,7 @@ import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardFull, Card, Column, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { moveCard, updateCard, deleteCard, archiveCard } from "../../api/cards";
+import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
   board: BoardFull;
@@ -404,38 +405,38 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         </span>
       </div>
 
-      {/* Delete confirmation modal */}
-      {confirmDelete && (
-        <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
-          <div role="dialog" aria-modal="true" aria-labelledby="bulk-delete-title" className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
-            <h3 id="bulk-delete-title" className="text-fg font-semibold text-lg mb-2">Delete {count} card{count !== 1 ? "s" : ""}?</h3>
-            <p className="text-fg-tertiary text-sm mb-5">
-              This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
-            </p>
-            {!canModifyAll && othersCards.length > 0 && (
-              <p className="text-xs text-warning -mt-3 mb-4">
-                {othersCards.length === count
-                  ? "You can only delete cards you created. None of the selected cards will be deleted."
-                  : `${othersCards.length} card${othersCards.length !== 1 ? "s" : ""} created by others will be skipped.`}
-              </p>
-            )}
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+      <ModalWrapper
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title={`Delete ${count} card${count !== 1 ? "s" : ""}?`}
+        maxWidth="max-w-sm"
+        labelId="bulk-delete-title"
+      >
+        <p className="text-fg-tertiary text-sm mb-5">
+          This will permanently delete {count === 1 ? "this card" : `all ${count} selected cards`}. This cannot be undone.
+        </p>
+        {!canModifyAll && othersCards.length > 0 && (
+          <p className="text-xs text-warning -mt-3 mb-4">
+            {othersCards.length === count
+              ? "You can only delete cards you created. None of the selected cards will be deleted."
+              : `${othersCards.length} card${othersCards.length !== 1 ? "s" : ""} created by others will be skipped.`}
+          </p>
+        )}
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={() => setConfirmDelete(false)}
+            className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+          >
+            Delete
+          </button>
         </div>
-      )}
+      </ModalWrapper>
     </>
   );
 }

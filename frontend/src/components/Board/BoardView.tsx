@@ -54,6 +54,7 @@ import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
 import CommandPalette from "../Common/CommandPalette";
+import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
   onBoardDeleted?: () => void;
@@ -1694,40 +1695,42 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {confirmDeleteColumn && (() => {
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
         return (
-          <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
-            <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-fg font-semibold text-lg mb-2">Delete column?</h3>
-              <p className="text-fg-tertiary text-sm mb-1">
-                <span className="text-fg font-medium">{confirmDeleteColumn.name}</span> will be permanently deleted.
-              </p>
-              {cardCount > 0 && (
-                <p className="text-danger text-sm mb-1">
-                  {cardCount} active card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
-                </p>
-              )}
+          <ModalWrapper
+            open
+            onClose={() => setConfirmDeleteColumn(null)}
+            title="Delete column?"
+            maxWidth="max-w-sm"
+          >
+            <p className="text-fg-tertiary text-sm mb-1">
+              <span className="text-fg font-medium">{confirmDeleteColumn.name}</span> will be permanently deleted.
+            </p>
+            {cardCount > 0 && (
               <p className="text-danger text-sm mb-1">
-                Any archived cards in this column will also be permanently deleted.
+                {cardCount} active card{cardCount !== 1 ? "s" : ""} in this column will also be deleted.
               </p>
-              <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setConfirmDeleteColumn(null)}
-                  className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    onColumnDeleted(confirmDeleteColumn.id);
-                    setConfirmDeleteColumn(null);
-                  }}
-                  className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
-                >
-                  Delete
-                </button>
-              </div>
+            )}
+            <p className="text-danger text-sm mb-1">
+              Any archived cards in this column will also be permanently deleted.
+            </p>
+            <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteColumn(null)}
+                className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onColumnDeleted(confirmDeleteColumn.id);
+                  setConfirmDeleteColumn(null);
+                }}
+                className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+              >
+                Delete
+              </button>
             </div>
-          </div>
+          </ModalWrapper>
         );
       })()}
     </>

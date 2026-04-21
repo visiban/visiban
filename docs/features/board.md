@@ -49,7 +49,7 @@ Admins can double-click the swimlane label to open the Edit Swimlane modal.
 
 ### Swimlane focus mode
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 Focus mode collapses all other swimlane rows so you can work with a single swimlane without distraction — useful on dense boards with many swimlanes.
 
@@ -114,7 +114,7 @@ When dragging a column, a red **Delete** drop target appears at the right edge o
 
 ### Hard WIP enforcement
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 By default, WIP limit enforcement is "soft" — board admins can bypass a full column by appending `?force=true` to the move request. The **Enforce WIP hard** board setting removes this override entirely. When enabled:
 
@@ -228,7 +228,7 @@ When all filters are active and no cards match, a **"No cards match"** banner ap
 
 ### Saved filters
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 You can save the current filter combination under a name and restore it later in one click. Saved filters are stored server-side, so they persist across devices and browsers.
 
@@ -269,7 +269,7 @@ See [Analytics](analytics.md) for details on the Summary and Analytics views.
 
 ### History view
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 The **History** tab in the board toolbar shows a chronological log of all card movements across the entire board, newest first, paginated at 50 records per page.
 
@@ -351,7 +351,7 @@ The toolbar shows a pulsing green **Live** dot in the top-right area when the We
 
 ## Activity drawer
 
-> **Added in 1.1.0**
+> **Added in 1.1**
 
 A right-hand panel that streams the most recent board events — card moves, creations, and membership changes — as they happen. Open and close it with **⌘\\** (Ctrl+\\ on Linux/Windows) or the activity button in the board toolbar.
 
@@ -364,7 +364,7 @@ The drawer is a live summary, not the canonical audit trail. For the full ordere
 
 ## Board sharing
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 Board admins can generate a public read-only link that lets anyone view the board without signing in.
 

@@ -162,7 +162,7 @@ function PickerRow({
   return (
     <button
       onClick={onSelect}
-      className={`flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-left transition text-sm ${
+      className={`flex items-center gap-2 flex-1 px-3 py-2 rounded text-left transition text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         selected ? "bg-info/50 text-info" : "hover:bg-surface-hover text-fg-secondary"
       }`}
     >

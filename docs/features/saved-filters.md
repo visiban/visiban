@@ -1,5 +1,6 @@
 # Saved Filters
 
+> **Added in 1.0**
 
 Save a named filter combination on any board and restore it in one click. Saved filters are stored server-side, so they are available on every device and browser you use to access Visiban.
 

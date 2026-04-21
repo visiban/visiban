@@ -10,6 +10,7 @@ import type { ThemePreference } from "../context/ThemeContext";
 import { TIMEZONE_OPTIONS, browserTimezone, formatDate as formatDateUtil } from "../utils/date";
 import type { UserDatePrefs } from "../utils/date";
 import SelectDropdown from "../components/Common/SelectDropdown";
+import { Toggle } from "../components/Common/Toggle";
 
 type Tab = "profile" | "security" | "access-tokens" | "notifications" | "appearance" | "behavior" | "about";
 
@@ -378,7 +379,7 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
 
       {/* One-time reveal panel */}
       {newToken && (
-        <div className="border border-warning rounded-lg p-4 bg-warning/20 flex flex-col gap-2" data-testid="new-token-reveal">
+        <div className="border border-warning/50 rounded-lg p-4 bg-sunken flex flex-col gap-2" data-testid="new-token-reveal">
           <p className="text-sm text-warning font-medium">
             Copy your token now — it won't be shown again.
           </p>
@@ -549,19 +550,12 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
               <span className="block text-sm text-fg">{label}</span>
               <span className="block text-xs text-fg-muted">{description}</span>
             </span>
-            <button
-              role="switch"
-              aria-checked={prefs[key]}
+            <Toggle
+              checked={prefs[key]}
+              onChange={() => toggle(key)}
               disabled={saving === key}
-              onClick={() => toggle(key)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
-                prefs[key] ? "bg-primary" : "bg-surface-active"
-              }`}
-            >
-              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                prefs[key] ? "translate-x-4" : "translate-x-1"
-              }`} />
-            </button>
+              aria-label={label}
+            />
           </label>
         ))}
       </div>
@@ -680,19 +674,12 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
             <span className="block text-sm text-fg">Close editor on Enter</span>
             <span className="block text-xs text-fg-muted">When on, pressing Enter in the inline card input submits the card and closes the editor. Enabled by default.</span>
           </span>
-          <button
-            role="switch"
-            aria-checked={user.close_editor_on_enter ?? true}
+          <Toggle
+            checked={user.close_editor_on_enter ?? true}
+            onChange={() => toggleCloseOnEnter()}
             disabled={saving}
-            onClick={toggleCloseOnEnter}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
-              (user.close_editor_on_enter ?? true) ? "bg-primary" : "bg-surface-active"
-            }`}
-          >
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-              (user.close_editor_on_enter ?? true) ? "translate-x-4" : "translate-x-1"
-            }`} />
-          </button>
+            aria-label="Close editor on Enter"
+          />
         </label>
         <p className="text-xs h-4 mt-1">{error && <span className="text-danger">{error}</span>}</p>
       </div>

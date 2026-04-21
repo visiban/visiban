@@ -5,6 +5,9 @@
 ### `GET /api/v1/groups/`
 List all groups accessible to the current user.
 
+!!! note "Response shape differs from `GET /api/v1/groups/{id}/`"
+    The list endpoint uses a leaner `GroupSerializer` that **does not** include the `ancestors` field — only the single-object retrieve endpoint (`GET /api/v1/groups/{id}/`) returns `ancestors`. Clients iterating the list and reading `entry.ancestors` will get `undefined`. Fetch the single group if you need the ancestor chain.
+
 ### `POST /api/v1/groups/`
 Create a group. Any authenticated user may create a top-level group. Creating a subgroup requires admin of the parent.
 
@@ -39,7 +42,7 @@ Get group details.
 | `shared_labels` | array | Labels shared across all boards in this group |
 | `default_board_member_role` | string | Role assigned to group members on new boards |
 | `allowed_priorities` | array | Priority values permitted on boards in this group. Empty array means all priorities allowed. |
-| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. |
+| `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
 
 ### `PUT /api/v1/groups/{id}/`

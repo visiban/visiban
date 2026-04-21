@@ -14,12 +14,12 @@ interface ActivityTabPanelProps {
 }
 
 const EVENT_TYPE_OPTIONS = [
-  { value: "move",       label: "Column moves",  color: "#3b82f6" },
+  { value: "move",       label: "Column moves",  color: "rgb(var(--primary-emphasis))" },
   { value: "comment",    label: "Comments",       color: "#38bdf8" },
-  { value: "field",      label: "Field changes",  color: "#64748b" },
-  { value: "checklist",  label: "Checklist",      color: "#64748b" },
+  { value: "field",      label: "Field changes",  color: "rgb(var(--fg-muted))" },
+  { value: "checklist",  label: "Checklist",      color: "rgb(var(--fg-muted))" },
   { value: "attachment", label: "Attachments",    color: "#14b8a6" },
-  { value: "system",     label: "System events",  color: "#475569" },
+  { value: "system",     label: "System events",  color: "rgb(var(--fg-muted))" },
 ] as const;
 
 // Default filter lens — Column moves is the canonical "what happened to this

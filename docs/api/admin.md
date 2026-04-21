@@ -128,6 +128,14 @@ Update a user's account flags. Site admin only.
 { "is_active": false }
 ```
 
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"detail": "..."}` | Invalid field value, or attempting to demote yourself / the last active site admin. |
+| `403 Forbidden` | `{"detail": "..."}` | Caller is not a site admin. |
+| `409 Conflict` | `{"code": "owned_boards", "detail": "...", "owned_boards": [{"id", "uid", "name"}, ...]}` | Caller attempted to set `is_active: false` on a user who owns one or more boards. Use [`POST /api/v1/admin/users/{id}/deactivate/`](#post-apiv1adminusersiddeactivate) instead and supply a `transfers` list. The `owned_boards` array identifies which boards block the deactivation. |
+
 ### `POST /api/v1/admin/users/{id}/deactivate/`
 
 Deactivate a user account and transfer ownership of any boards they own to other members.

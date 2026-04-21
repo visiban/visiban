@@ -89,6 +89,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 ## Badges and labels
 
 - **Priority pills use filled background everywhere** — green/orange/red/dark-red fill, white text. Do not use outline/ring style; filled is more immediately scannable.
+- **Label pills are an exception to the filled-pill rule** — labels carry arbitrary user-assigned colors (any hue, any lightness), so white-on-fill would fail contrast on light labels. Use a tint (`color + "22"` alpha suffix for the background, `color + "44"` for the border) with the label color as the text color. This is the only permitted outline-style pill in the system.
 - Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
 

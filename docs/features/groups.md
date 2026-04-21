@@ -1,5 +1,7 @@
 # Groups
 
+> **Added in 1.0**
+
 Groups organize boards and users into a hierarchy. A board can belong to one group; a group can have one parent group (unlimited nesting, traversal capped at 6 levels).
 
 ## Group description
