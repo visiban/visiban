@@ -41,7 +41,7 @@ export async function routeAuth(page: Page): Promise<void> {
 }
 
 export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> {
-  await page.route(`**/api/v1/boards/${board.id}/`, (route) =>
+  await page.route(`**/api/v1/boards/${board.id}/full/`, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(board) }),
   )
   await page.route(`**/api/v1/boards/${board.id}/cards/`, (route) =>
