@@ -50,7 +50,8 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `column.created` | New column created | Full `ColumnSerializer` object |
 | `column.updated` | Column renamed, recolored, or settings changed | Full `ColumnSerializer` object |
 | `column.deleted` | Column deleted | `{ "column_id": <int> }` |
-| `columns.reordered` | Column order changed | `{ "columns": [<ColumnSerializer>, ...] }` — all columns in new order |
+| `column.reordered` | Column order changed (since 1.1) | `{ "columns": [<ColumnSerializer>, ...] }` — all columns in new order |
+| `columns.reordered` | Deprecated plural alias for `column.reordered`; emitted alongside it until removed in 2.0 | Same as `column.reordered` |
 
 ### Swimlane events
 
@@ -59,7 +60,8 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `swimlane.created` | New swimlane created | `SwimlaneSerializer` object (public fields only — `contact_email` and `notes` are omitted regardless of role) |
 | `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above) |
 | `swimlane.deleted` | Swimlane deleted | `{ "swimlane_id": <int> }` |
-| `swimlanes.reordered` | Swimlane order changed | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
+| `swimlane.reordered` | Swimlane order changed (since 1.1) | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
+| `swimlanes.reordered` | Deprecated plural alias for `swimlane.reordered`; emitted alongside it until removed in 2.0 | Same as `swimlane.reordered` |
 
 !!! note
     `contact_email` and `notes` are intentionally omitted from WebSocket swimlane payloads to prevent viewer-role clients from receiving PII that the REST API would withhold. Admins who need these fields should re-fetch the swimlane via REST after receiving an update event.

@@ -21,7 +21,7 @@ export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabe
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 ${
-        checked ? "bg-indigo-600" : "bg-surface-active"
+        checked ? "bg-primary" : "bg-surface-active"
       }`}
     >
       <span

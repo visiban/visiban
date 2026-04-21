@@ -6,9 +6,27 @@ argument-hint: "<full|security|performance|frontend|docs|contracts|deps|enterpri
 
 # Pre-Release Audit
 
-You are running a pre-release audit of the full Visiban codebase. Unlike day-to-day agents (which are scoped to what changed in a branch), every agent here audits the **entire codebase** through a "public contract" lens — asking "what becomes a commitment we can't take back at 1.0+?" rather than "is this change correct?".
+You are running a pre-release audit of the full Visiban codebase. Unlike day-to-day agents (which are scoped to what changed in a branch), every agent here audits the **entire codebase** through a "public contract" lens — asking "what becomes a commitment we can't take back at the next release?" rather than "is this change correct?".
 
-## Step 0 — Determine audit type
+## Step 0 — Determine current working release
+
+Before anything else, determine the **current working release** (the version we are about to cut next). This is used to label issues, frame agent prompts, and decide severity. Do not hardcode `1.0` or `1.1` — always resolve dynamically.
+
+Resolution order:
+1. Read `frontend/package.json` — the `version` field records the **last shipped** release (e.g. `1.0.0`).
+2. The **current working release** is the next open GitLab milestone strictly greater than the shipped version. Query:
+   ```bash
+   glab api "projects/visiban%2Fvisiban/milestones?state=active" 2>/dev/null \
+     | python3 -c "import json,sys; ms=json.load(sys.stdin); print('\n'.join(m['title'] for m in sorted(ms, key=lambda m: [int(x) for x in m['title'].split('.')])))"
+   ```
+   Pick the smallest milestone title greater than the shipped version. That is `$WORKING_RELEASE` (e.g. `1.1`).
+3. Confirm with the user in one line: "Auditing against the **$WORKING_RELEASE** release (last shipped: $SHIPPED). Proceed?" — only if the audit type is `full`. For targeted audits, skip the confirmation and proceed silently.
+
+Export `$WORKING_RELEASE` for use in every subsequent step. Every agent prompt, every GitLab issue, and the final gate check reference this variable — never a hardcoded version string.
+
+---
+
+## Step 0.1 — Determine audit type
 
 Read `$ARGUMENTS`. Valid types: `full`, `security`, `performance`, `frontend`, `docs`, `contracts`, `deps`, `enterprise`, `tests`.
 
@@ -34,36 +52,38 @@ Wait for the user's choice before proceeding.
 
 ## Step 0.5 — Pre-flight: check for prior audit findings
 
-Before launching any agents, check whether a recent pre-release audit has already been run and its findings already filed as GitLab issues.
+Before launching any agents, check whether a recent pre-release audit has already been run and its findings already filed as GitLab issues for the current working release.
 
 ```bash
-glab issue list --repo visiban/visiban --state opened --label "pre-1.0" --search "audit" 2>/dev/null | head -20
-glab issue list --repo visiban/visiban --state opened --label "pre-1.0" 2>/dev/null | head -30
+glab issue list --repo visiban/visiban --state opened --label "$WORKING_RELEASE" --search "audit" 2>/dev/null | head -20
+glab issue list --repo visiban/visiban --state opened --label "$WORKING_RELEASE" 2>/dev/null | head -30
 ```
 
 Also check for recently closed audit issues (resolved since last run):
 ```bash
-glab issue list --repo visiban/visiban --state closed --label "pre-1.0" --updated-after "$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d '7 days ago' +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)" 2>/dev/null | head -20
+glab issue list --repo visiban/visiban --state closed --label "$WORKING_RELEASE" --updated-after "$(date -v-7d +%Y-%m-%d 2>/dev/null || date -d '7 days ago' +%Y-%m-%d 2>/dev/null || date +%Y-%m-%d)" 2>/dev/null | head -20
 ```
 
-**If open `pre-1.0` issues exist from a prior audit:**
+**If open `$WORKING_RELEASE` issues exist from a prior audit:**
 1. List them for the user grouped by severity (🔴 blocking vs 🟡 should-fix).
-2. Say: "A prior audit has N open finding(s) still unresolved (see above). Re-running will re-discover the same issues. Options:
+2. Say: "A prior audit has N open finding(s) against $WORKING_RELEASE still unresolved (see above). Re-running will re-discover the same issues. Options:
    - **resolve** — work through the open issues first, then re-run the audit
    - **continue** — re-run anyway (e.g. significant code has changed since the last run)
    - **targeted** — run only a specific sub-audit (e.g. `/pre-release security`) on the area you just fixed"
 3. Wait for the user's choice before proceeding.
    - If "resolve" → stop here. Do not launch any agents.
-   - If "targeted" → jump to Step 0 to let the user pick a specific audit type.
+   - If "targeted" → jump to Step 0.1 to let the user pick a specific audit type.
    - If "continue" → proceed to Step 1.
 
-**If no open `pre-1.0` issues exist** (or the label returns no results) → proceed to Step 1 immediately with no prompt.
+**If no open `$WORKING_RELEASE` issues exist** → proceed to Step 1 immediately with no prompt.
 
 ---
 
 ## Step 1 — Run the audit
 
-For each agent below, the prompt must be written for **full codebase audit mode** — not "what changed in this branch". Frame every prompt as: "Audit the full Visiban codebase as if preparing a 1.0 public release. Identify any issues that would become public commitments we can't easily reverse."
+For each agent below, the prompt must be written for **full codebase audit mode** — not "what changed in this branch". Frame every prompt as: "Audit the full Visiban codebase as if preparing the **$WORKING_RELEASE** public release. Identify any issues that would become public commitments we can't easily reverse once $WORKING_RELEASE ships."
+
+The phrasing "public commitment" still applies even after 1.0 — every minor release freezes the API, WS event schema, settings names, and DB migration pattern for that release line.
 
 ### `security`
 Run in parallel:
@@ -87,7 +107,7 @@ Run in parallel:
 
 ### `contracts`
 Run in parallel:
-1. **architect** — Full codebase architecture audit in "public contract" mode. Review the REST API shape, WebSocket event schema, TypeScript interfaces, settings/env vars, and OSS/enterprise extension boundary. Flag any API shape, field name, event type, or extension point that is inconsistent or fragile and would be painful to change post-1.0.
+1. **architect** — Full codebase architecture audit in "public contract" mode. Review the REST API shape, WebSocket event schema, TypeScript interfaces, settings/env vars, and OSS/enterprise extension boundary. Flag any API shape, field name, event type, or extension point that is inconsistent or fragile and would be painful to change in $WORKING_RELEASE or later. **Account for what already shipped** in prior releases — the architect must not flag already-shipped contracts as "fix now" if they can only be changed in a major bump; instead flag them as "track for next major".
 2. **migration-check** — Full migration history audit. Check for destructive operations, missing migrations, NOT NULL columns without defaults, and any pattern that would break a zero-downtime deploy.
 
 ### `deps`
@@ -109,7 +129,7 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 1. Collect all 🔴 blocking findings from the 4 agents.
 2. If any 🔴 findings exist:
    - Present them to the user in the consolidated report format (summary + blocking section only).
-   - Ask: "Wave 1 found N blocking issue(s). Fix these first, or continue the audit? (fix first / continue)"
+   - Ask: "Wave 1 found N blocking issue(s) against $WORKING_RELEASE. Fix these first, or continue the audit? (fix first / continue)"
    - If "fix first" → stop here. Run Step 3 (GitLab issue check) for the Wave 1 findings only, then run Step 4 gate check. Do not launch Wave 2.
    - If "continue" → proceed to Wave 2.
 3. If no 🔴 findings → proceed to Wave 2 immediately (no prompt needed).
@@ -121,7 +141,7 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 1. Collect all 🔴 blocking findings from Wave 2.
 2. If any 🔴 findings exist:
    - Present them (along with any Wave 1 blockers) in the consolidated format.
-   - Ask: "Wave 2 found N additional blocking issue(s). Fix these first, or continue the audit? (fix first / continue)"
+   - Ask: "Wave 2 found N additional blocking issue(s) against $WORKING_RELEASE. Fix these first, or continue the audit? (fix first / continue)"
    - If "fix first" → stop here. Run Step 3 for all findings so far, then Step 4. Do not launch Wave 3.
    - If "continue" → proceed to Wave 3.
 3. If no 🔴 findings → proceed to Wave 3 immediately.
@@ -136,25 +156,27 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 After all agents complete, produce a consolidated report using this format:
 
 ```
-## Pre-Release Audit Report — <type> — <date>
+## Pre-Release Audit Report — <type> — <date> — targeting <WORKING_RELEASE>
 
 ### Summary
 🔴 Blocking: N   🟡 Should-fix: N   🟢 Clean: N
 
 ### 🔴 Blocking findings
-(issues that must be resolved before a release tag is cut)
+(issues that must be resolved before the $WORKING_RELEASE tag is cut)
 
 ### 🟡 Should-fix findings
-(issues that should be tracked and resolved soon after release)
+(issues that should be tracked against $WORKING_RELEASE but may slip to a patch release)
 
 ### 🟢 Clean areas
 (agents that found no issues)
 ```
 
-Severity guide:
-- 🔴 **Blocking** — security vulnerability, data loss risk, broken public API contract, missing migration, or anything that would be painful/impossible to fix post-release without a major bump
-- 🟡 **Should-fix** — quality issue, stale doc, performance concern, or UX violation that is not release-blocking but should be tracked
+Severity guide (scoped to $WORKING_RELEASE):
+- 🔴 **Blocking** — security vulnerability, data loss risk, broken public API contract being introduced in $WORKING_RELEASE, missing migration, or anything that would be painful/impossible to reverse once $WORKING_RELEASE ships
+- 🟡 **Should-fix** — quality issue, stale doc, performance concern, or UX violation that is not release-blocking but should be tracked against $WORKING_RELEASE
 - 🟢 **Clean** — no issues found by this agent
+
+**Already-shipped public contracts** (introduced in a prior release) that cannot be changed without a major bump are not $WORKING_RELEASE issues — they are next-major-release issues. File them against the next open major milestone instead.
 
 ---
 
@@ -168,12 +190,13 @@ After the report:
    ```
 
 2. For findings that do **not** have an existing open issue, offer to create one:
-   - 🔴 findings → milestone: current release (or next RC)
-   - 🟡 findings → milestone: next minor release or `post-1.0`
-   - Label 🔴 as `pre-1.0` (red), 🟡 as `post-1.0` (blue)
+   - 🔴 findings introduced in $WORKING_RELEASE → milestone: **$WORKING_RELEASE**, label: **$WORKING_RELEASE**, priority::P0
+   - 🟡 findings against $WORKING_RELEASE → milestone: **$WORKING_RELEASE**, label: **$WORKING_RELEASE**
+   - Already-shipped contract issues needing a major bump → milestone: **next open major milestone** (e.g. `2.0`), label: that major milestone
+   - All findings go under the current working milestone unless they genuinely require a major bump to fix — **do not use generic labels like `post-1.0`**; always name the specific target milestone
 
 3. Ask the user: "Create GitLab issues for the N untracked findings above? (y/n)"
-   - If yes, create them using `glab issue create` with heredoc descriptions
+   - If yes, create them using `glab issue create` with heredoc descriptions and `--milestone "$WORKING_RELEASE"` (or the next-major milestone for already-shipped contracts)
    - If no, list the findings as a checklist the user can act on manually
 
 ---
@@ -182,9 +205,9 @@ After the report:
 
 If the audit type was `full`:
 
-- If any 🔴 blocking findings remain unresolved → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s). Resolve these before running `/release`."
+- If any 🔴 blocking findings remain unresolved against $WORKING_RELEASE → **do not proceed to `/release`**. Tell the user: "Pre-release audit found N blocking issue(s) against $WORKING_RELEASE. Resolve these before running `/release`."
 - If only 🟡 findings remain → advise the user to triage them, then they may proceed to `/release`
-- If all findings are 🟢 → "Pre-release audit passed. You may proceed to `/release`."
+- If all findings are 🟢 → "Pre-release audit passed. You may proceed to `/release` for $WORKING_RELEASE."
 
 ---
 

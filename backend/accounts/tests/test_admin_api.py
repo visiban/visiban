@@ -126,6 +126,16 @@ class AdminUsersListTests(TestCase):
         self.assertIn("alice", usernames)
         self.assertIn("bob", usernames)
 
+    def test_response_uses_offset_count_envelope(self):
+        """#806 — AdminUserPagination must return the project-wide {count, offset, page_size, results} envelope."""
+        r = self.client.get("/api/v1/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        body = r.json()
+        self.assertEqual(set(body.keys()), {"count", "offset", "page_size", "results"})
+        self.assertIsInstance(body["count"], int)
+        self.assertEqual(body["offset"], 0)
+        self.assertEqual(body["page_size"], 50)
+
     def test_search_by_username(self):
         r = self.client.get("/api/v1/admin/users/?search=alice")
         self.assertEqual(r.status_code, status.HTTP_200_OK)

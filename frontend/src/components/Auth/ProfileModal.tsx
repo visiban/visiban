@@ -82,7 +82,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
           {saved && <span className="text-success">Changes saved.</span>}
         </p>
 
-        <div className="flex justify-end gap-2 mt-1">
+        <div className="flex justify-end gap-3 mt-1">
           <button
             type="button"
             onClick={onClose}
@@ -93,7 +93,7 @@ export default function ProfileModal({ user, onClose, onUpdated }: Props) {
           <button
             type="submit"
             disabled={saving}
-            className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-sm font-medium bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {saving ? "Saving…" : "Save changes"}
           </button>

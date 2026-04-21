@@ -666,7 +666,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       <button
                         key={b.id}
                         onClick={() => navigate(`/boards/${b.id}`)}
-                        className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded-xl transition"
+                        className="w-full bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         <div className="flex items-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">

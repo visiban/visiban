@@ -74,7 +74,8 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `column.created` | Column added to the board |
 | `column.updated` | Column renamed, recolored, or limits changed |
 | `column.deleted` | Column deleted |
-| `columns.reordered` | Columns reordered by an admin |
+| `column.reordered` | Columns reordered by an admin (since 1.1) |
+| `columns.reordered` | Deprecated plural alias for `column.reordered`; removed in 2.0 |
 
 ### Swimlane events
 
@@ -83,7 +84,8 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `swimlane.created` | Swimlane added to the board |
 | `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
 | `swimlane.deleted` | Swimlane deleted |
-| `swimlanes.reordered` | Swimlanes reordered by an admin |
+| `swimlane.reordered` | Swimlanes reordered by an admin (since 1.1) |
+| `swimlanes.reordered` | Deprecated plural alias for `swimlane.reordered`; removed in 2.0 |
 
 ### Label events
 
@@ -135,15 +137,20 @@ For most events, `data` is the full serialized object. Deletion and archive-remo
 
 ### Reorder payloads
 
-The `columns.reordered` and `swimlanes.reordered` events include the full list of objects in their new order:
+The reorder events include the full list of objects in their new order. Since 1.1, the server emits both a plural (legacy 1.0) and singular (canonical) event name simultaneously during the deprecation window:
 
 ```json
+{ "event": "column.reordered",  "data": { "columns": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 { "event": "columns.reordered", "data": { "columns": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 ```
 
 ```json
+{ "event": "swimlane.reordered",  "data": { "swimlanes": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 { "event": "swimlanes.reordered", "data": { "swimlanes": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 ```
+
+!!! warning "Deprecation"
+    New clients should subscribe to the singular event names (`column.reordered`, `swimlane.reordered`). The plural forms are retained for backward compatibility and will be removed in 2.0. Clients that handle both names today will continue to work across the deprecation window.
 
 ### `card.moved` payload
 
