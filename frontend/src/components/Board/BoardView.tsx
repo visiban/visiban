@@ -275,7 +275,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const card = (d.card as { title?: string } | undefined);
       const movement = d.movement as { from_column_name?: string; to_column_name?: string; user?: { display_name?: string } } | undefined;
       entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: crypto.randomUUID(),
         timestamp: new Date(),
         kind: "move",
         actor: movement?.user?.display_name ?? "Someone",
@@ -285,7 +285,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "card.created") {
       const card = d as { title?: string; created_by?: { display_name?: string } };
       entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: crypto.randomUUID(),
         timestamp: new Date(),
         kind: "create",
         actor: card.created_by?.display_name ?? "Someone",
@@ -295,7 +295,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "member.added") {
       const m = d as { user?: { display_name?: string } };
       entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: crypto.randomUUID(),
         timestamp: new Date(),
         kind: "member",
         actor: m.user?.display_name ?? "Someone",
@@ -304,7 +304,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       };
     } else if (event.event === "member.removed") {
       entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: crypto.randomUUID(),
         timestamp: new Date(),
         kind: "member",
         actor: "A member",
