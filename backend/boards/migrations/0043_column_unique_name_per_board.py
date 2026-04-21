@@ -37,6 +37,11 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Reverse is a no-op: the dedup pass rewrites column names in place
+        # (e.g. "Done" → "Done (2)"). The original duplicate names cannot be
+        # recovered from the suffixed forms. Forward is idempotent — a
+        # re-run on already-deduped data produces no changes because the
+        # (board_id, name) pairs are already unique.
         migrations.RunPython(deduplicate_column_names, migrations.RunPython.noop),
         migrations.AlterUniqueTogether(
             name="column",

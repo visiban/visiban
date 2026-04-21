@@ -41,5 +41,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Reverse is a no-op: the original action_type values before the
+        # forward ran were all "" (the field default before #572); reversing
+        # to that state would clobber any new inserts that happened after
+        # the migration applied. Forward is idempotent — it only touches
+        # rows where action_type="" still, so a partial-apply re-run is safe.
         migrations.RunPython(backfill_action_type, migrations.RunPython.noop),
     ]

@@ -6,8 +6,13 @@ app startup (e.g. in an AppConfig.ready() method).  OSS code calls them at
 specific hook sites; the lists are empty by default so OSS behaviour is
 unchanged when the enterprise package is absent.
 
-Stability guarantee (1.0+): hook signatures and names must not change in a
-minor/patch release.  Enterprise relies on these staying stable.
+Stability guarantee (1.0+): hook signatures, names, and the *list* type
+must not change in a minor/patch release. Enterprise code mutates these
+lists in place via ``.append(...)`` — rebinding the module attribute
+(``hooks.MOVEMENT_EXPORT_BACKENDS = [...]``) or converting to a tuple
+would silently drop enterprise registrations (#820). Any future change
+to the hook container type requires a major version bump coordinated
+with the enterprise repository.
 """
 
 # Movement history export hook (#342 / enterprise delivery-report feature).

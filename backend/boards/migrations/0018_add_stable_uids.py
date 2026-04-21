@@ -16,7 +16,13 @@ from boards.uid import _generate_uid  # stable contract module — never importe
 
 
 def backfill_uids(apps, schema_editor):
-    """Assign a unique uid to every existing row in the five core models."""
+    """Assign a unique uid to every existing row in the five core models.
+
+    Idempotent: the ``filter(uid__isnull=True)`` guard means a partial-apply
+    re-run only touches rows that still have ``uid IS NULL``. Rows backfilled
+    by a prior partial run keep their previously assigned uids, so external
+    references to those uids remain stable across re-runs (#825).
+    """
     for model_name in ("Board", "Column", "Swimlane", "Label", "Card"):
         Model = apps.get_model("boards", model_name)
         batch = []
@@ -125,6 +131,11 @@ class Migration(migrations.Migration):
             field=models.CharField(blank=True, default="", max_length=16),
         ),
         # ── Phase 2: backfill ─────────────────────────────────────────────────
+        # Reverse is a no-op for both backfills: the uid columns are added
+        # by this migration so an Unapply drops them entirely (handled by
+        # AddField reverse). Forwards are idempotent — they only populate
+        # rows where uid is still NULL (backfill_uids) or "" for movement
+        # uids, so a partial-apply re-run is safe.
         migrations.RunPython(backfill_uids, migrations.RunPython.noop),
         migrations.RunPython(backfill_movement_uids, migrations.RunPython.noop),
         # ── Phase 3: apply unique=True, null=False, and default ───────────────
