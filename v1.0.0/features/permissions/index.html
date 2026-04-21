@@ -2622,8 +2622,8 @@
 <td>Export board (CSV / JSON)</td>
 <td style="text-align: center;">✓</td>
 <td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
 </tr>
 <tr>
 <td><strong>Cards</strong></td>
@@ -2826,6 +2826,10 @@
 <div class="admonition note">
 <p class="admonition-title">Viewer boundary enforced since 1.0</p>
 <p>Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in <a href="https://gitlab.com/visiban/visiban/-/issues/248">#248</a>: all write operations now return <code>403 Forbidden</code> for Viewers.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Board export is available to every board member</p>
+<p>Any role with read access to a board can export its full CSV or JSON dump — including Viewers and Collaborators. A role that can read every card via the paginated API can already reconstruct the board, so a separate role gate on bulk export would be inconsistent. This policy was re-affirmed in <a href="https://gitlab.com/visiban/visiban/-/issues/800">#800</a>. A per-board <code>export_min_role</code> override is planned in <a href="https://gitlab.com/visiban/visiban/-/issues/807">#807</a> so administrators can lock down sensitive boards without changing the global default, and an audit log of every export is planned in <a href="https://gitlab.com/visiban/visiban/-/issues/806">#806</a>.</p>
 </div>
 <h2 id="how-to-set-roles">How to set roles<a class="headerlink" href="#how-to-set-roles" title="Permanent link">&para;</a></h2>
 <ol>
