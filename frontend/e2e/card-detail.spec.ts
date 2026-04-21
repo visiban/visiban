@@ -11,19 +11,19 @@ test.describe('card detail', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CARD) }),
     )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/movements/`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/comments/`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/activity/`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/checklist/`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
     await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/attachments/`, (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
     )
   })
 
