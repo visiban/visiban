@@ -7,22 +7,22 @@ test.describe('card detail', () => {
     await routeAuth(page)
     await routeBoard(page)
     // Card detail endpoint returns the full card shape.
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CARD) }),
     )
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/movements/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/movements/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
     )
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/comments/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/comments/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
     )
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/activity/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/activity/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
     )
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/checklist/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/checklist/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
     )
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/attachments/`, (route) =>
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/attachments/`, (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
     )
   })
@@ -45,7 +45,7 @@ test.describe('card detail', () => {
 
   test('updates the card title inline', async ({ page }) => {
     const updatedCard = { ...CARD, title: 'Updated title' }
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/`, async (route) => {
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/`, async (route) => {
       if (route.request().method() === 'PATCH') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(updatedCard) })
       }

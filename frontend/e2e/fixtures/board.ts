@@ -149,7 +149,7 @@ export const BOARD_FULL = {
   enforce_wip_hard: false,
   enforce_weight_limits: false,
   share_token: null,
-  my_role: 'admin' as const,
+  current_user_role: 'admin' as const,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }

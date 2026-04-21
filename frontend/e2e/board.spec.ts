@@ -45,7 +45,9 @@ test.describe('board view', () => {
     await page.getByText('+ Add card').first().click()
     const titleInput = page.getByPlaceholder('Card title…')
     await titleInput.fill('New task')
-    await titleInput.press('Enter')
+    // close_editor_on_enter is false in the user fixture, so Enter does not submit.
+    // Click the "Add" button explicitly.
+    await page.getByRole('button', { name: 'Add' }).first().click()
 
     // The new card title should appear in the board.
     await expect(page.getByText('New task').first()).toBeVisible({ timeout: 5_000 })
@@ -53,7 +55,7 @@ test.describe('board view', () => {
 
   test('moves a card between columns via drag-and-drop', async ({ page }) => {
     let moveRequestBody: unknown = null
-    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.uid}/move/`, async (route) => {
+    await page.route(`**/api/v1/boards/${BOARD_FULL.id}/cards/${CARD.id}/move/`, async (route) => {
       moveRequestBody = JSON.parse(route.request().postData() ?? '{}')
       return route.fulfill({
         status: 200,
