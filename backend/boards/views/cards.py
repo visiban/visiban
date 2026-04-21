@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import transaction
-from django.db.models import F, Q, Sum, prefetch_related_objects
+from django.db.models import Count, F, Q, Sum, Window, prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -994,14 +994,19 @@ class CardViewSet(viewsets.ModelViewSet):
 
         fetch_cap = offset + limit
 
+        # Annotate `_total` via window function so the page fetch carries the
+        # full count alongside each row — avoids a separate COUNT(*) round-trip
+        # for movements and activities (#798).
         if include_moves:
             movements_qs = (
                 CardMovement.objects.filter(card=card)
                 .select_related("moved_by")
                 .order_by("-moved_at")
             )
-            move_count = movements_qs.count()
-            capped_movements = movements_qs[:fetch_cap]
+            capped_movements = list(
+                movements_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
+            )
+            move_count = capped_movements[0]._total if capped_movements else 0
         else:
             move_count = 0
             capped_movements = []
@@ -1012,8 +1017,10 @@ class CardViewSet(viewsets.ModelViewSet):
                 .select_related("actor")
                 .order_by("-created_at")
             )
-            activity_count = activities_qs.count()
-            capped_activities = activities_qs[:fetch_cap]
+            capped_activities = list(
+                activities_qs.annotate(_total=Window(Count("id")))[:fetch_cap]
+            )
+            activity_count = capped_activities[0]._total if capped_activities else 0
         else:
             activity_count = 0
             capped_activities = []
