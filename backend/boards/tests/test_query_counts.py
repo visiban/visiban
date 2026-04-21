@@ -471,3 +471,55 @@ class BoardListQueryCountTests(TestCase):
             f"boards/ query count grew from {baseline} to {doubled} when boards "
             "were added — member_count/card_count/is_starred/owner N+1 regression detected.",
         )
+
+
+class MovementsEndpointQueryCountTests(TestCase):
+    """GET /api/boards/{id}/movements/ must collapse count + page into one
+    query via Window(Count("id")) annotation (#798)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="mv_u", password="x")
+        self.board, self.cols, self.lanes = _seed_board(
+            self.user, n_cols=2, n_lanes=2, cards_per_cell=1
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _get_movements(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/movements/")
+
+    def test_movements_count_does_not_grow_with_history(self):
+        """Adding more movements must not change the query count: the Window
+        annotation pulls the total from the page query itself."""
+        baseline = _query_count(self._get_movements)
+
+        # Add many more movements. With the old `count() + page` pattern the
+        # count remains constant too — but if anyone reverts to per-row
+        # COUNT() subqueries this guard will fire.
+        col = self.cols[0]
+        lane = self.lanes[0]
+        card = Card.objects.filter(board=self.board).first()
+        for _ in range(20):
+            CardMovement.objects.create(
+                card=card,
+                to_column=col, to_column_name=col.name, to_column_uid=col.uid,
+                to_swimlane=lane, to_swimlane_name=lane.name, to_swimlane_uid=lane.uid,
+                from_column=None, from_column_name="", from_column_uid="",
+                from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
+                moved_by=self.user,
+            )
+
+        scaled = _query_count(self._get_movements)
+        self.assertEqual(
+            baseline, scaled,
+            f"movements/ query count grew from {baseline} to {scaled} when "
+            "movements were added — N+1 regression detected.",
+        )
+
+    def test_movements_response_count_matches_total(self):
+        """The Window-annotated total must equal the actual row count."""
+        # Seeded board already has movements (one per card).
+        resp = self._get_movements()
+        self.assertEqual(resp.status_code, 200)
+        actual_total = CardMovement.objects.filter(card__board=self.board).count()
+        self.assertEqual(resp.data["count"], actual_total)

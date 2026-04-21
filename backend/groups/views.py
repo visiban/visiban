@@ -500,6 +500,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         accessible_ids = get_accessible_group_ids(request.user)
 
         # Walk down from the target group to find all descendant group IDs.
+        # Bounded BFS: at most _GROUP_TRAVERSAL_MAX_DEPTH (=6) round-trips,
+        # one query per level. A recursive CTE would collapse this to a
+        # single query but adds PG-specific raw SQL; the fixed cap keeps
+        # the cost predictable and well below problematic levels (#793).
         descendant_ids = {group.pk}
         frontier = {group.pk}
         for _ in range(_GROUP_TRAVERSAL_MAX_DEPTH):
@@ -582,6 +586,12 @@ class GroupViewSet(viewsets.ModelViewSet):
             board_ids = list(group.boards.values_list("id", flat=True))
 
             def _broadcast_transfer(gid=group.pk, oid=int(new_owner_id), bids=board_ids):
+                # Per-board fan-out is intentional: each board has its own
+                # channel group, so the WebSocket layer requires one
+                # `broadcast_board_event` per board to reach connected clients.
+                # Ownership transfer is a low-frequency operation (#795); if a
+                # group regularly carries 100+ boards we should move this to a
+                # background task, but the synchronous loop is acceptable today.
                 from boards.broadcast import broadcast_board_event
                 for bid in bids:
                     broadcast_board_event(bid, "group.updated", {"id": gid, "owner_id": oid})

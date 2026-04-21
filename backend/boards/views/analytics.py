@@ -3,7 +3,7 @@
 import datetime
 import statistics
 
-from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery
+from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Window
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -556,8 +556,13 @@ class BoardAnalyticsMixin:
             backend = hooks.MOVEMENT_EXPORT_BACKENDS[0]
             return backend(board, qs, request)
 
-        total = qs.count()
-        page = qs[offset: offset + PAGE_SIZE]
+        # Annotate `_total` via window function so the page fetch returns the
+        # full count alongside each row — saves a second `COUNT(*)` round-trip
+        # on boards with long movement history (#798).
+        page = list(
+            qs.annotate(_total=Window(Count("id")))[offset: offset + PAGE_SIZE]
+        )
+        total = page[0]._total if page else qs.count()
 
         from ..serializers import CardMovementSerializer
         serializer = CardMovementSerializer(page, many=True, context={"request": request})
