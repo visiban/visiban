@@ -56,9 +56,7 @@ test.describe('card detail', () => {
     await page.getByText(CARD.title).first().click()
 
     // Find the title field in the detail panel and update it.
-    const titleField = page.getByRole('textbox', { name: /title/i }).or(
-      page.locator('[data-testid="card-title"], input[name="title"]'),
-    ).first()
+    const titleField = page.locator('#card-detail-title')
     await titleField.fill('Updated title')
     await titleField.press('Enter')
 

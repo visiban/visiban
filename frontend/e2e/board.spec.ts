@@ -42,8 +42,8 @@ test.describe('board view', () => {
     await expect(page.getByText(COLUMN_TODO.name).first()).toBeVisible({ timeout: 10_000 })
 
     // Click the "+ Add card" affordance in the first column/swimlane cell.
-    await page.getByText(/^\+\s*add card$/i).first().click()
-    const titleInput = page.getByPlaceholder(/card title|title/i).or(page.locator('input[name="title"], textarea[name="title"]')).first()
+    await page.getByText('+ Add card').first().click()
+    const titleInput = page.getByPlaceholder('Card title…')
     await titleInput.fill('New task')
     await titleInput.press('Enter')
 

@@ -40,16 +40,18 @@ test.describe('login flow', () => {
 
   test('shows the login form when unauthenticated', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: /sign in|log in|welcome/i })).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByLabel(/username/i)).toBeVisible()
-    await expect(page.getByLabel(/password/i)).toBeVisible()
+    // LoginPage has no heading element — use the submit button as the page-load signal.
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible({ timeout: 10_000 })
+    // Inputs are identified by placeholder; the form has no <label> elements.
+    await expect(page.getByPlaceholder('Username or email')).toBeVisible()
+    await expect(page.getByPlaceholder('Password')).toBeVisible()
   })
 
   test('logs in with valid credentials and reaches the dashboard', async ({ page }) => {
     await page.goto('/')
-    await page.getByLabel(/username/i).fill('testuser')
-    await page.getByLabel(/password/i).fill('testpass123')
-    await page.getByRole('button', { name: /sign in|log in/i }).click()
+    await page.getByPlaceholder('Username or email').fill('testuser')
+    await page.getByPlaceholder('Password').fill('testpass123')
+    await page.getByRole('button', { name: 'Sign in' }).click()
     // After login the app renders the authenticated shell (sidebar + dashboard).
     await expect(page).toHaveURL('/', { timeout: 10_000 })
     // The sidebar contains the user's display name or a board/groups section.
@@ -65,9 +67,9 @@ test.describe('login flow', () => {
       }),
     )
     await page.goto('/')
-    await page.getByLabel(/username/i).fill('testuser')
-    await page.getByLabel(/password/i).fill('wrongpassword')
-    await page.getByRole('button', { name: /sign in|log in/i }).click()
+    await page.getByPlaceholder('Username or email').fill('testuser')
+    await page.getByPlaceholder('Password').fill('wrongpassword')
+    await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page.getByText(/unable to log in|invalid credentials|incorrect/i)).toBeVisible({ timeout: 5_000 })
   })
 })
