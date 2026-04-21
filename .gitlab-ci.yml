@@ -546,6 +546,7 @@ frontend-lint:
     # sast job allowance for pre-existing react-hooks/exhaustive-deps warnings.
     - npm run lint -- src/ --max-warnings 15
     - npx tsc -p tsconfig.app.json --noEmit
+    - npx tsc -p tsconfig.e2e.json --noEmit
 
 # ─── Frontend — test ──────────────────────────────────────────────────────────
 
@@ -574,6 +575,42 @@ frontend-test:
         coverage_format: cobertura
         path: frontend/coverage/cobertura-coverage.xml
     when: always
+
+# ─── Frontend — E2E (Playwright) ─────────────────────────────────────────────
+#
+# Runs the Playwright suite against the Vite dev server using the official
+# Microsoft Playwright Docker image (browsers pre-installed, no download step).
+# API calls are intercepted by page.route() so no backend is required.
+#
+# Starts as allow_failure: true to tolerate transient flakiness during the
+# initial rollout period.  Promote to required after three consecutive clean
+# weeks of pipeline history on main.
+#
+# Uses workers: 1 (via playwright.config.ts) to stay within the 2 GB runner
+# memory budget (Chromium ~500 MB + Vite dev server ~400 MB).
+
+playwright-e2e:
+  stage: test
+  needs: []
+  image: mcr.microsoft.com/playwright:v1.59.1-noble
+  allow_failure: true
+  rules:
+    - changes:
+        - frontend/**/*
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - cd frontend
+    - npm ci --prefer-offline
+  script:
+    - npx playwright test --output=test-results
+  artifacts:
+    when: always
+    paths:
+      - frontend/playwright-report/
+      - frontend/test-results/
+    reports:
+      junit: frontend/test-results/junit.xml
+    expire_in: 7 days
 
 # ─── Changelog check (MR only) ────────────────────────────────────────────────
 #
@@ -624,7 +661,7 @@ changelog-check:
         '\.(md|sh)$' \
         || true)
       MEANINGFUL=$(echo "$MEANINGFUL" | grep -Ev \
-        '^(frontend/src/test/|backend/.*/tests/)' \
+        '^(frontend/src/test/|frontend/e2e/|backend/.*/tests/)' \
         || true)
       if [ -z "$MEANINGFUL" ]; then
         echo "INFO — only non-product files changed; skipping changelog check."
