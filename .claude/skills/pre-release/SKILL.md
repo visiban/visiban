@@ -153,19 +153,32 @@ Run all agents above in 3 parallel waves **with gate checks between waves**. A g
 
 ## Step 2 — Consolidate findings
 
-After all agents complete, produce a consolidated report using this format:
+After all agents complete, before writing the report, **cross-reference every finding against GitLab issues in both `opened` and `closed` states**. A finding that matches a closed issue is not automatically new — it may be a regression, an already-decided design trade-off, or a won't-fix. Re-reporting it without that context wastes the user's time and erases the prior reasoning.
+
+For each finding, run:
+```bash
+glab issue list --repo visiban/visiban --state all --search "<keyword>" 2>/dev/null | head -20
+```
+
+Annotate every finding in the report with one of these tags:
+- `(tracked in #N)` — open issue already exists; do not re-file
+- `(closed #N — <date>, <one-line close reason>)` — closed issue matches; user will classify in Step 3
+- `(untracked)` — no open or closed match
+
+Then produce a consolidated report using this format:
 
 ```
 ## Pre-Release Audit Report — <type> — <date> — targeting <WORKING_RELEASE>
 
 ### Summary
 🔴 Blocking: N   🟡 Should-fix: N   🟢 Clean: N
+Tracking: N tracked · N matched closed · N untracked
 
 ### 🔴 Blocking findings
-(issues that must be resolved before the $WORKING_RELEASE tag is cut)
+(issues that must be resolved before the $WORKING_RELEASE tag is cut — each annotated with its tracking tag)
 
 ### 🟡 Should-fix findings
-(issues that should be tracked against $WORKING_RELEASE but may slip to a patch release)
+(issues that should be tracked against $WORKING_RELEASE but may slip to a patch release — each annotated with its tracking tag)
 
 ### 🟢 Clean areas
 (agents that found no issues)
@@ -184,19 +197,32 @@ Severity guide (scoped to $WORKING_RELEASE):
 
 After the report:
 
-1. Query GitLab for open issues related to each 🔴 and 🟡 finding:
+1. Query GitLab for **both open and closed** issues related to each 🔴 and 🟡 finding. A closed match often represents a prior decision (fixed, won't-fix, or deferred) — re-filing without context turns the audit into a whack-a-mole loop and erases prior reasoning.
    ```bash
-   glab issue list --repo visiban/visiban --state opened --search "<keyword>"
+   # Open and closed, merged and ranked by recency — use per finding keyword
+   glab issue list --repo visiban/visiban --state all --search "<keyword>" 2>/dev/null | head -20
    ```
+   Extract 2–3 keywords per finding (file path stem, endpoint, error class, security term) and run the search for each. For multi-faceted findings, run more than one query.
 
-2. For findings that do **not** have an existing open issue, offer to create one:
+2. Classify each finding against the search results:
+   - **Already tracked (open)** — an open issue already exists. Annotate the finding with the issue ID (`tracked in #N`) and skip issue creation. Do **not** open a duplicate.
+   - **Previously closed (possible regression or re-opened question)** — a closed issue matches. Read the closed issue's description, final comment, and close reason. Present to the user:
+     > Finding X matches closed issue #N ("<title>", closed <date>, resolution: <one-line summary of the close reason>). Options:
+     > - **regression** — the problem recurred; reopen #N with a note
+     > - **new instance** — same class of bug, different location; open a new issue that references #N
+     > - **already decided** — the closed issue resolved this class of issue (e.g. explicit design decision); drop from the report
+     
+     Wait for the user's choice before taking action. Never silently re-file a finding that matches a closed issue.
+   - **Untracked** — no open or closed match. Offer to create an issue (see step 3).
+
+3. For untracked findings, offer to create issues:
    - 🔴 findings introduced in $WORKING_RELEASE → milestone: **$WORKING_RELEASE**, label: **$WORKING_RELEASE**, priority::P0
    - 🟡 findings against $WORKING_RELEASE → milestone: **$WORKING_RELEASE**, label: **$WORKING_RELEASE**
    - Already-shipped contract issues needing a major bump → milestone: **next open major milestone** (e.g. `2.0`), label: that major milestone
    - All findings go under the current working milestone unless they genuinely require a major bump to fix — **do not use generic labels like `post-1.0`**; always name the specific target milestone
 
-3. Ask the user: "Create GitLab issues for the N untracked findings above? (y/n)"
-   - If yes, create them using `glab issue create` with heredoc descriptions and `--milestone "$WORKING_RELEASE"` (or the next-major milestone for already-shipped contracts)
+4. Ask the user: "Create GitLab issues for the N untracked findings above? (y/n)"
+   - If yes, create them using `glab issue create` with heredoc descriptions and `--milestone "$WORKING_RELEASE"` (or the next-major milestone for already-shipped contracts). Cross-link any "new instance" findings to the closed issue they relate to.
    - If no, list the findings as a checklist the user can act on manually
 
 ---
