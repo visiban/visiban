@@ -602,7 +602,7 @@ playwright-e2e:
     - cd frontend
     - npm ci --prefer-offline
   script:
-    - npx playwright test --reporter=list,junit --output=test-results
+    - npx playwright test --output=test-results
   artifacts:
     when: always
     paths:

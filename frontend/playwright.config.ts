@@ -13,7 +13,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    process.env.CI ? ['gitlab', {}] : ['list', {}],
+    ['list', {}],
+    ...(process.env.CI ? [['junit', { outputFile: 'test-results/junit.xml' }] as [string, object]] : []),
   ],
   use: {
     baseURL: 'http://localhost:5173',
