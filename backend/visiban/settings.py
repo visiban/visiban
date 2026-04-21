@@ -1,7 +1,25 @@
+import os
 import sys
+import warnings
 import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
+
+
+def _warn_deprecated_env_alias(old_name: str, new_name: str) -> None:
+    """Emit a one-shot DeprecationWarning when a legacy env var is set.
+
+    Only fires when the operator has actually set the old name in the
+    environment — checking ``env()`` with defaults would warn on every
+    worker start regardless of whether the alias is in use (#819).
+    """
+    if os.environ.get(old_name):
+        warnings.warn(
+            f"{old_name} is deprecated; rename it to {new_name}. "
+            f"The {old_name} alias will be removed in a future release.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
 # Detect when running under `manage.py test` or pytest so we can substitute
 # fast in-process backends for Redis-backed services. This avoids requiring a
@@ -40,6 +58,7 @@ _OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
 # OIDC_CLIENT_SECRET is the canonical name (consistent with GOOGLE_CLIENT_SECRET,
 # GITHUB_CLIENT_SECRET, etc.).  OIDC_SECRET is a deprecated alias kept for one
 # release cycle to avoid breaking existing deployments; it will be removed in 1.1.
+_warn_deprecated_env_alias("OIDC_SECRET", "OIDC_CLIENT_SECRET")
 _OIDC_CLIENT_SECRET = (
     env("OIDC_CLIENT_SECRET", default="")
     or env("OIDC_SECRET", default="")
@@ -375,6 +394,7 @@ SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # ACCOUNT_EMAIL_VERIFICATION is kept as a deprecated alias for one release so that
 # existing installs do not break after upgrading. If both are set, EMAIL_VERIFICATION
 # takes precedence.
+_warn_deprecated_env_alias("ACCOUNT_EMAIL_VERIFICATION", "EMAIL_VERIFICATION")
 _email_verification_explicit = env("EMAIL_VERIFICATION", default="")
 ACCOUNT_EMAIL_VERIFICATION = (
     _email_verification_explicit

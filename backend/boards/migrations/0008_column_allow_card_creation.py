@@ -22,5 +22,10 @@ class Migration(migrations.Migration):
             name="allow_card_creation",
             field=models.BooleanField(default=False),
         ),
+        # Reverse is a no-op: the backfill sets allow_card_creation=True on
+        # the left-most column per board. Reversing would require knowing
+        # which rows were True before the forward ran, which was never
+        # recorded. Forward is idempotent (re-running simply sets the same
+        # column True again) so a partial-apply re-run is safe.
         migrations.RunPython(set_first_column_allow_creation, migrations.RunPython.noop),
     ]

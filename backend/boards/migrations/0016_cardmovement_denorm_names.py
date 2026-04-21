@@ -53,5 +53,11 @@ class Migration(migrations.Migration):
             name="to_swimlane_name",
             field=models.CharField(blank=True, default="", max_length=255),
         ),
+        # Reverse is a no-op: the denormalized name columns are added by
+        # this migration, so a reverse would drop them anyway via the
+        # AddField reverse. Forward is idempotent — re-running copies the
+        # current FK.name into the denorm column; existing values are
+        # overwritten with the same values for live FKs and left unchanged
+        # for deleted FKs.
         migrations.RunPython(backfill_names, migrations.RunPython.noop),
     ]
