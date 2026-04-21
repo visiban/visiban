@@ -70,13 +70,19 @@ class SwimlaneSetCollapsedTests(TestCase):
         self.swimlane.refresh_from_db()
         self.assertTrue(self.swimlane.is_collapsed)
 
-    def test_viewer_can_set_collapsed(self):
-        """Viewer-role members are still board members and should be allowed."""
+    def test_viewer_cannot_set_collapsed(self):
+        """Viewers are read-only and must not mutate board structure (#790).
+
+        is_collapsed is persisted on the Swimlane model and affects the
+        default view for every board member, so it is a board-structure
+        write and requires at least member role — aligned with the rest of
+        the permission matrix for write actions.
+        """
         viewer = User.objects.create_user(username="collapse_viewer", password="pass")
         _add_member(self.board, viewer, BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
         r = self.client.patch(self._url(), {"is_collapsed": True}, format="json")
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_non_member_gets_403(self):
         """A user who is not a board member must not access the action."""

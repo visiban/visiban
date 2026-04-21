@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Prefetch
 from rest_framework.exceptions import PermissionDenied
 
-from ..models import Board, BoardFavorite, BoardMembership, Card, Label
+from ..models import Board, BoardFavorite, BoardMembership, Card
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import CardSerializer, _card_queryset
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
@@ -96,7 +96,7 @@ def _can_modify_others_content(board, role, user):
         return False
 
 
-def _refetched_card_data(card, request, board):
+def _refetched_card_data(card, request, board, *, member_ids=None, assignable_ids=None, labels_qs=None):
     """Re-fetch a card through the prefetch pipeline and serialize it.
 
     Mutation endpoints modify a card instance that lacks the prefetch
@@ -104,13 +104,20 @@ def _refetched_card_data(card, request, board):
     movements). This helper issues a single query with all prefetches so
     the serializer can resolve related fields without N+1 queries.
 
-    Pre-computes _member_ids and _board_labels_qs so CardSerializer.__init__
-    can scope its writable querysets without issuing additional live queries
-    per mutation response (avoids 2–4 extra queries each time).
+    Callers that have already computed the board context for the request
+    (e.g. CardViewSet) should pass ``member_ids``, ``assignable_ids``, and
+    ``labels_qs`` to avoid re-issuing the same lookups on every mutation —
+    without the cache this adds 2–4 extra queries per mutation response.
+    ``labels_qs`` defaults to ``board.labels.all()`` which hits the prefetch
+    cache populated by ``get_board_for_user`` when the board came through
+    that path.
     """
-    member_ids = _get_effective_member_ids(board)
-    assignable_ids = _get_assignable_member_ids(board)
-    labels_qs = Label.objects.filter(board=board)
+    if member_ids is None:
+        member_ids = _get_effective_member_ids(board)
+    if assignable_ids is None:
+        assignable_ids = _get_assignable_member_ids(board)
+    if labels_qs is None:
+        labels_qs = board.labels.all()
     refetched = _card_queryset(Card.objects.filter(pk=card.pk)).get()
     return CardSerializer(
         refetched,
