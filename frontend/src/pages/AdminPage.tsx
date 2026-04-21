@@ -361,7 +361,7 @@ function InviteLinksTab() {
         <button
           type="submit"
           disabled={creating}
-          className="self-start px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="self-start px-3 py-1.5 text-sm font-medium bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {creating ? "Creating…" : "Create link"}
         </button>

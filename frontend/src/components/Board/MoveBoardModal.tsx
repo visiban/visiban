@@ -75,7 +75,7 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
         </div>
       )}
 
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="flex justify-end gap-3 mt-5">
         <button
           onClick={onClose}
           className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition"

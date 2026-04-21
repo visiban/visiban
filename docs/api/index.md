@@ -54,11 +54,13 @@ The `data` object contains the serialized resource (card, column, swimlane, etc.
 | `column.created` | A new column is created |
 | `column.updated` | A column's fields are updated |
 | `column.deleted` | A column is deleted |
-| `columns.reordered` | Column positions are changed |
+| `column.reordered` | Column positions are changed (since 1.1; replaces deprecated `columns.reordered`) |
+| `columns.reordered` | **Deprecated** (removed in 2.0) — plural alias of `column.reordered` |
 | `swimlane.created` | A new swimlane is created |
 | `swimlane.updated` | A swimlane's fields are updated |
 | `swimlane.deleted` | A swimlane is deleted |
-| `swimlanes.reordered` | Swimlane positions are changed |
+| `swimlane.reordered` | Swimlane positions are changed (since 1.1; replaces deprecated `swimlanes.reordered`) |
+| `swimlanes.reordered` | **Deprecated** (removed in 2.0) — plural alias of `swimlane.reordered` |
 | `label.created` | A new label is created |
 | `label.updated` | A label's fields are updated |
 | `label.deleted` | A label is deleted |

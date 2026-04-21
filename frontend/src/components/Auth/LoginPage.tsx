@@ -203,7 +203,7 @@ export default function LoginPage({ onLogin }: Props) {
                 // exception to the site's slate palette. See https://developers.google.com/identity/branding-guidelines
                 <a
                   href={oauthUrl("google", mode, hasInviteToken)}
-                  className="flex items-center justify-center gap-3 bg-white text-gray-900 hover:bg-gray-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="flex items-center justify-center gap-3 bg-white text-slate-900 hover:bg-slate-100 font-medium py-2.5 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   <GoogleIcon />
                   Continue with Google

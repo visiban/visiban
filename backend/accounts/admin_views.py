@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
+from visiban.pagination import OffsetCountPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -168,10 +168,11 @@ class DeactivateSerializer(drf_serializers.Serializer):
 # Pagination
 # ---------------------------------------------------------------------------
 
-class AdminUserPagination(PageNumberPagination):
-    page_size = 50
-    page_size_query_param = "page_size"
-    max_page_size = 200
+class AdminUserPagination(OffsetCountPagination):
+    # Aligns with the project-wide {count, offset, page_size, results} envelope.
+    # The frontend (AdminPage) reads page_size/offset/count; next/previous URL links are unused.
+    default_limit = 50
+    max_limit = 200
 
 
 # ---------------------------------------------------------------------------

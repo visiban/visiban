@@ -316,6 +316,20 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
   })
 
+  it('column.reordered (singular, since 1.1) routes to applyColumnOrder with column list', async () => {
+    // #807 — backend emits both plural (legacy) and singular (canonical) names during the
+    // deprecation window; the client must accept either.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const columns: Column[] = [
+      { id: 11, uid: 'col002', name: 'Done', position: 0, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
+    ]
+    act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns } }) })
+    expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
+  })
+
   it('swimlanes.reordered routes to applySwimlaneOrder with swimlane list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
@@ -325,6 +339,19 @@ describe('BoardView socket event routing — new event types', () => {
       { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
     ]
     act(() => { getOnEvent.dispatch({ event: 'swimlanes.reordered', data: { swimlanes } }) })
+    expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
+  })
+
+  it('swimlane.reordered (singular, since 1.1) routes to applySwimlaneOrder with swimlane list', async () => {
+    // #807 — see column.reordered test above for the dual-emission rationale.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const swimlanes: Swimlane[] = [
+      { id: 21, uid: 'lane002', name: 'Customer B', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
+    ]
+    act(() => { getOnEvent.dispatch({ event: 'swimlane.reordered', data: { swimlanes } }) })
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
   })
 

@@ -68,8 +68,8 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         </p>
         {card.priority !== "low" && (
           <span
-            className="px-1.5 py-0.5 text-[10px] rounded font-semibold text-fg shrink-0 capitalize"
-            style={{ backgroundColor: priorityColor }}
+            className="px-1.5 py-0.5 text-[10px] rounded font-semibold shrink-0 capitalize"
+            style={{ backgroundColor: priorityColor, color: "#fff" }}
           >
             {card.priority}
           </span>

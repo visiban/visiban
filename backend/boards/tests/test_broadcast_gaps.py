@@ -298,7 +298,9 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
+            # Since 1.1 both the legacy plural and new singular names are emitted; see issue #807.
             self.assertIn("columns.reordered", event_types)
+            self.assertIn("column.reordered", event_types)
 
     def test_column_reorder_broadcast_not_called_before_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
@@ -318,7 +320,9 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
+            # Since 1.1 both the legacy plural and new singular names are emitted; see issue #807.
             self.assertIn("swimlanes.reordered", event_types)
+            self.assertIn("swimlane.reordered", event_types)
 
     def test_swimlane_reorder_broadcast_not_called_before_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:

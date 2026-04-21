@@ -137,5 +137,12 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
             lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", {"swimlanes": list(lanes_data)}))
+            # Emit both plural (legacy 1.0) and singular (canonical from 1.1) event names.
+            # The plural form is deprecated and will be removed in 2.0. See issue #807.
+            def _broadcast_swimlane_reorder() -> None:
+                payload = {"swimlanes": list(lanes_data)}
+                _broadcast.broadcast_board_event(board_id, "swimlanes.reordered", payload)
+                _broadcast.broadcast_board_event(board_id, "swimlane.reordered", payload)
+
+            transaction.on_commit(_broadcast_swimlane_reorder)
         return Response(lanes_data)
