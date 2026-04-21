@@ -78,6 +78,7 @@ def run_smoke_test(
     username: str,
     password: str,
     expected_email: str,
+    verify_ssl: bool = True,
 ) -> None:
     print(f"Running OIDC smoke test against {base_url}")
 
@@ -85,9 +86,9 @@ def run_smoke_test(
     _wait_for_url(f"{base_url}/api/health/liveness/", timeout=60)
 
     session = requests.Session()
-    # Disable SSL verification — local dev uses plain HTTP
-    session.verify = False
-    requests.packages.urllib3.disable_warnings()
+    session.verify = verify_ssl
+    if not verify_ssl:
+        requests.packages.urllib3.disable_warnings()
 
     # ── Step 1: Hit Visiban's OIDC login endpoint ──────────────────────────────
     # allauth's default SOCIALACCOUNT_LOGIN_ON_GET = False renders a confirmation
@@ -236,6 +237,12 @@ def main() -> None:
         default="testuser@example.com",
         help="Expected email address after login (default: testuser@example.com)",
     )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        default=False,
+        help="Disable SSL certificate verification (use only with HTTP or self-signed certs)",
+    )
     args = parser.parse_args()
 
     try:
@@ -244,6 +251,7 @@ def main() -> None:
             username=args.username,
             password=args.password,
             expected_email=args.expected_email,
+            verify_ssl=not args.no_verify,
         )
     except (AssertionError, RuntimeError) as exc:
         print(f"\nFAIL: {exc}", file=sys.stderr)
