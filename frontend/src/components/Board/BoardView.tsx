@@ -267,6 +267,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "board.deleted") {
       // Board was deleted by another user — navigate away
       onBoardDeleted?.();
+    } else if (event.event === "board.star_changed") {
+      // Star is per-user state; only apply when the event belongs to the
+      // current user's session (e.g. another tab for the same user).
+      const payload = d as { user_id?: number; is_starred?: boolean };
+      if (currentUser && payload.user_id === currentUser.id) {
+        mergeBoardState({ is_starred: !!payload.is_starred });
+      }
     }
   }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser]);
 

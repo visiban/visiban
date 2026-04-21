@@ -1,5 +1,7 @@
 """Tests for BoardViewSet star/unstar action and ?starred= filter."""
 
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -89,3 +91,25 @@ class BoardStarTests(TestCase):
         anon = APIClient()
         r = anon.post(f"/api/v1/boards/{self.board.id}/star/")
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+    # --- broadcast ---
+
+    def test_star_broadcasts_star_changed(self):
+        """star fires board.star_changed via on_commit so other sessions of the same user sync (#814)."""
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.post(f"/api/v1/boards/{self.board.id}/star/")
+        event_types = [call.args[1] for call in mock_broadcast.call_args_list]
+        self.assertIn("board.star_changed", event_types)
+        star_call = next(c for c in mock_broadcast.call_args_list if c.args[1] == "board.star_changed")
+        payload = star_call.args[2]
+        self.assertEqual(payload["user_id"], self.user.id)
+        self.assertTrue(payload["is_starred"])
+
+    def test_unstar_broadcasts_star_changed_false(self):
+        BoardFavorite.objects.create(user=self.user, board=self.board)
+        with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.client.delete(f"/api/v1/boards/{self.board.id}/star/")
+        star_call = next(c for c in mock_broadcast.call_args_list if c.args[1] == "board.star_changed")
+        self.assertFalse(star_call.args[2]["is_starred"])

@@ -757,6 +757,13 @@ class JoinGroupView(APIView):
         return [IsAuthenticated(), MustNotHavePendingPasswordChange(), MustNotHavePendingUsernameChange()]
 
     def get(self, request, token):
+        # Intentionally public preview — the token itself is a capability: 160
+        # bits of entropy from `secrets.token_hex(20)` in
+        # `GroupInviteLink.generate`, rate-limited to 10 req/hour/IP, and
+        # invalidated by revocation or expiry. Returning group_name/role to a
+        # holder of the raw token is by design so invitees can confirm what
+        # they are joining before authenticating. Treat the group name as
+        # public-via-this-path (#801).
         # Truncate token in log to avoid leaking the full value into log files
         # while still making it possible to correlate with an audit trail.
         token_hint = str(token)[:8]
