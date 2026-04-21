@@ -31,8 +31,7 @@ test.describe('card detail', () => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
     await page.getByText(CARD.title).first().click()
-    // Card detail panel or modal opens with the card title visible.
-    await expect(page.getByText(CARD.title).first()).toBeVisible()
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     // Description should be rendered.
     await expect(page.getByText(CARD.description)).toBeVisible({ timeout: 5_000 })
   })
@@ -40,6 +39,7 @@ test.describe('card detail', () => {
   test('shows the card description in the detail panel', async ({ page }) => {
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByText(CARD.title).first().click()
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
     await expect(page.getByText(CARD.description)).toBeVisible({ timeout: 5_000 })
   })
 
@@ -54,6 +54,7 @@ test.describe('card detail', () => {
 
     await page.goto(`/boards/${BOARD_FULL.id}`)
     await page.getByText(CARD.title).first().click()
+    await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 5_000 })
 
     // Find the title field in the detail panel and update it.
     const titleField = page.locator('#card-detail-title')
