@@ -195,7 +195,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
 
   const hasFavorites = starredBoards.length > 0 || starredGroups.length > 0;
   const isActiveFavoriteBoard = activeBoardId !== null && starredBoards.some((b) => b.id === activeBoardId);
-  const isActiveGroupBoard = activeBoardId !== null && boards.some((b) => b.id === activeBoardId && b.group !== null);
+  const isActiveGroupBoard = activeBoardId !== null && boards.some((b) => b.id === activeBoardId && b.group !== null && groupIds.has(b.group));
   const isActivePersonalBoard = activeBoardId !== null && personalBoards.some((b) => b.id === activeBoardId);
   const isActiveRecentBoard = activeBoardId !== null && recentBoards.some((b) => b.id === activeBoardId);
 

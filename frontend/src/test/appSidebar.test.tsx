@@ -568,6 +568,23 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Shared With Me')).toBeInTheDocument()
   })
 
+  it('does not highlight the Groups trigger for an orphaned board in collapsed mode', async () => {
+    // An orphaned board (group ≠ null, but group not in listGroups) must NOT light up the
+    // Groups collapsed-rail trigger — it lives in Personal, so only Personal should be active.
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/88' })
+    const orphanedBoard: Board = {
+      ...fakeBoard, id: 88, name: 'Shared With Me', group: 77, group_name: 'Engineering',
+    }
+    const otherGroup: Group = { ...fakeGroup, id: 55, name: 'Unrelated' }
+    vi.mocked(listGroups).mockResolvedValue([otherGroup])   // group 77 is NOT here
+    vi.mocked(listBoards).mockResolvedValue([orphanedBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Personal boards'))
+    expect(screen.getByTitle('Personal boards').className).toMatch(/info/)
+    expect(screen.getByTitle('Groups').className).not.toMatch(/info/)
+  })
+
   it('records a Recent visit on mount when initially on a board URL and boards are not yet loaded', async () => {
     // On initial load the location.pathname effect fires before listBoards resolves;
     // the data-load effect must also record the visit once the data arrives.
