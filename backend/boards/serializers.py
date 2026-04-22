@@ -349,6 +349,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     share_token = serializers.SerializerMethodField()
+    share_token_expires_at = serializers.SerializerMethodField()
     capabilities = serializers.SerializerMethodField()
 
     class Meta:
@@ -356,7 +357,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         fields = [
             "id", "uid", "name", "description", "owner", "group", "group_name", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
 
@@ -596,6 +597,24 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 role = get_board_role(request.user, obj)
         if role in (BM.Role.ADMIN, SITE_ADMIN):
             return str(obj.share_token) if obj.share_token else None
+        return None
+
+    def get_share_token_expires_at(self, obj):
+        """Expose the share-link TTL only to board admins; null for all others.
+
+        Mirrors the visibility rules of get_share_token — the expiry timestamp
+        is only meaningful alongside the token itself, and both are admin-only
+        state.
+        """
+        from .models import BoardMembership as BM
+        from .permissions import get_board_role, SITE_ADMIN
+        role = self.context.get("role")
+        if role is None:
+            request = self.context.get("request")
+            if request and request.user.is_authenticated:
+                role = get_board_role(request.user, obj)
+        if role in (BM.Role.ADMIN, SITE_ADMIN):
+            return obj.share_token_expires_at.isoformat() if obj.share_token_expires_at else None
         return None
 
     def get_capabilities(self, obj):

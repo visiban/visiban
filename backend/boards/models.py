@@ -90,6 +90,14 @@ class Board(models.Model):
         null=True, blank=True, default=None, editable=False, unique=True,
         help_text="Public share token. Null means sharing is disabled. Never set directly — use the share action.",
     )
+    share_token_expires_at = models.DateTimeField(
+        null=True, blank=True, default=None,
+        help_text=(
+            "Optional TTL on the public share link (#804). Null means the token "
+            "never expires. Past this timestamp the share endpoint returns 410 "
+            "Gone — the token is not auto-rotated, only refused."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -57,7 +57,7 @@ class BoardFullSerializerContractTests(TestCase):
             "staleness_threshold_days", "stale_warning_pct", "allowed_priorities",
             "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits",
             "created_at", "updated_at", "current_user_role", "is_starred",
-            "share_token", "capabilities",
+            "share_token", "share_token_expires_at", "capabilities",
         }
         missing = required - set(r.data.keys())
         self.assertFalse(missing, f"BoardFull response is missing fields: {missing}")

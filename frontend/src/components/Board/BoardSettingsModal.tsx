@@ -89,6 +89,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
   // Sharing tab state — token is initialized from the board payload (admin-only field).
   const [shareToken, setShareToken] = useState<string | null>(board.share_token ?? null);
+  const [shareExpiresAt, setShareExpiresAt] = useState<string | null>(board.share_token_expires_at ?? null);
+  // Selected TTL for the *next* enable action. Null = "never expires".
+  const [shareTtl, setShareTtl] = useState<7 | 30 | 90 | null>(null);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareStatus, setShareStatus] = useState<string | null>(null);
@@ -99,8 +102,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setShareLoading(true);
     setShareStatus(null);
     try {
-      const data = await enableBoardSharing(board.id);
+      const data = await enableBoardSharing(board.id, shareTtl);
       setShareToken(data.share_token);
+      setShareExpiresAt(data.share_token_expires_at);
       setShareStatus(null);
     } catch {
       setShareStatus("Failed to enable sharing. Please try again.");
@@ -115,6 +119,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     try {
       await disableBoardSharing(board.id);
       setShareToken(null);
+      setShareExpiresAt(null);
       setShareStatus(null);
     } catch {
       setShareStatus("Failed to disable sharing. Please try again.");
@@ -670,22 +675,53 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   />
                 </div>
 
+                {/* TTL selector — only shown while sharing is OFF, so admins choose
+                    expiry up-front. Once enabled, the chosen expiry is locked in
+                    until the link is disabled and re-enabled. */}
+                {shareToken === null && (
+                  <div className="flex items-center justify-between py-2 mb-3">
+                    <label htmlFor="share-ttl-select" className="text-sm text-fg-secondary">
+                      Expires in
+                    </label>
+                    <SelectDropdown
+                      value={shareTtl === null ? "never" : String(shareTtl)}
+                      onChange={(v) => setShareTtl(v === "never" ? null : (Number(v) as 7 | 30 | 90))}
+                      options={[
+                        { value: "never", label: "Never" },
+                        { value: "7",     label: "7 days" },
+                        { value: "30",    label: "30 days" },
+                        { value: "90",    label: "90 days" },
+                      ]}
+                      disabled={shareLoading}
+                    />
+                  </div>
+                )}
+
                 {/* URL field — shown when enabled */}
                 {shareToken !== null && shareUrl && (
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="flex-1 text-[11px] bg-sunken border border-line rounded px-2 py-1.5 text-fg-tertiary truncate"
-                      title={shareUrl}
-                    >
-                      {shareUrl}
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="flex-1 text-[11px] bg-sunken border border-line rounded px-2 py-1.5 text-fg-tertiary truncate"
+                        title={shareUrl}
+                      >
+                        {shareUrl}
+                      </div>
+                      <button
+                        onClick={handleCopyShareUrl}
+                        className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
+                      >
+                        {shareCopied ? "Copied!" : "Copy"}
+                      </button>
                     </div>
-                    <button
-                      onClick={handleCopyShareUrl}
-                      className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis shrink-0"
-                    >
-                      {shareCopied ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
+                    {/* Expiry indicator — surfaces the TTL the admin chose at enable time
+                        so they don't have to remember it. */}
+                    <p className="text-xs text-fg-muted mt-2" data-testid="share-expiry-line">
+                      {shareExpiresAt
+                        ? `Expires ${new Date(shareExpiresAt).toLocaleString()}`
+                        : "Never expires"}
+                    </p>
+                  </>
                 )}
 
                 {/* Status row — always reserve height */}

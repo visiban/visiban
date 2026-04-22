@@ -46,7 +46,7 @@ Update board fields. Both `PUT` and `PATCH` are accepted — all fields are opti
 Delete board. Requires board owner or site admin.
 
 ### `GET /api/v1/boards/{id}/full/`
-Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
+Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
@@ -446,25 +446,38 @@ If a token already exists, calling this endpoint immediately invalidates the pre
 
 **Permissions:** board `admin` or `site_admin` only.
 
+**Request (optional)**
+```json
+{
+  "expires_in_days": 7
+}
+```
+
+`expires_in_days` is optional. Allowed values: `7`, `30`, `90`, or `null` (the default — never expires). Any other integer returns `400 Bad Request`. New in 1.1 (#804).
+
 **Response**
 ```json
 {
   "share_token": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "share_url": "https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  "share_url": "https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "share_token_expires_at": "2026-04-28T17:30:00+00:00"
 }
 ```
 
-**Errors:** `403 Forbidden` if the caller is not a board admin.
+`share_token_expires_at` is `null` when no TTL was requested.
+
+**Errors:** `403 Forbidden` if the caller is not a board admin. `400 Bad Request` if `expires_in_days` is not one of the allowed values.
 
 ### `DELETE /api/v1/boards/{id}/share/`
-Revoke the public share token for the board. Requires board admin. All existing share links immediately return `404 Not Found` after revocation.
+Revoke the public share token for the board. Requires board admin. All existing share links immediately return `404 Not Found` after revocation. Both the token and any TTL are cleared.
 
 **Permissions:** board `admin` or `site_admin` only.
 
 **Response**
 ```json
 {
-  "share_token": null
+  "share_token": null,
+  "share_token_expires_at": null
 }
 ```
 
@@ -602,7 +615,9 @@ Returns a read-only board payload identified by its UUID share token. No authent
 
 **Rate limiting:** 120 requests/hour per IP. Exceeding the limit returns `429 Too Many Requests`.
 
-**Errors:** `404 Not Found` if the token is invalid, has been revoked, or does not exist.
+**Errors:**
+- `404 Not Found` if the token is invalid, has been revoked, or does not exist.
+- `410 Gone` if the token's TTL has elapsed (admin set an expiry at enable time and that timestamp has passed). The token is *not* auto-rotated — an admin must disable and re-enable sharing to get a fresh link. Body: `{"detail": "This share link has expired."}`. Added in 1.1 (#804).
 
 **Response**
 ```json
