@@ -2634,6 +2634,54 @@
 <li>Dates are ISO 8601 strings: <code>"2026-04-01"</code></li>
 <li>Permission errors return <code>403 Forbidden</code>; missing resources return <code>404 Not Found</code></li>
 </ul>
+<h3 id="url-path-style">URL path style<a class="headerlink" href="#url-path-style" title="Permanent link">&para;</a></h3>
+<p>Path segments use <code>kebab-case</code> (e.g. <code>/auth/change-password/</code>, <code>/boards/&lt;id&gt;/saved-filters/</code>, <code>/boards/&lt;id&gt;/move-group/</code>). This is the canonical style and the convention you should rely on when writing new integrations.</p>
+<p>One legacy endpoint still accepts a <code>snake_case</code> alias for backward compatibility:</p>
+<table>
+<thead>
+<tr>
+<th>Canonical (use this)</th>
+<th>Deprecated alias (2.0 removal)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PATCH /boards/&lt;id&gt;/swimlanes/&lt;id&gt;/set-collapsed/</code></td>
+<td><code>PATCH /boards/&lt;id&gt;/swimlanes/&lt;id&gt;/set_collapsed/</code></td>
+</tr>
+</tbody>
+</table>
+<p>The snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window.</p>
+<h3 id="expanding-foreign-key-fields">Expanding foreign-key fields<a class="headerlink" href="#expanding-foreign-key-fields" title="Permanent link">&para;</a></h3>
+<p>Endpoints that return a foreign key as an integer id may also support a nested companion field gated on the <code>?expand=&lt;name&gt;</code> query parameter. The default response shape is unchanged; passing <code>expand</code> adds a parallel <code>_detail</code> field populated with a minimal nested object.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Expandable field</th>
+<th>Query</th>
+<th>Default shape</th>
+<th>Expanded shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /boards/</code></td>
+<td><code>group</code></td>
+<td><code>?expand=group</code></td>
+<td><code>group_detail: null</code></td>
+<td><code>group_detail: { id, name, parent, parent_name }</code></td>
+</tr>
+<tr>
+<td><code>GET /boards/&lt;id&gt;/full/</code></td>
+<td><code>group</code></td>
+<td><code>?expand=group</code></td>
+<td><code>group_detail: null</code></td>
+<td><code>group_detail: { id, name, parent, parent_name }</code></td>
+</tr>
+</tbody>
+</table>
+<p>Multiple expansions may be combined with a comma, e.g. <code>?expand=group,members</code>. Unknown values are silently ignored. The original FK id fields (<code>group</code>, <code>group_name</code>) always remain in the response for backward compatibility.</p>
 
 
 
