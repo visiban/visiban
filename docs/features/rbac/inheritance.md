@@ -31,3 +31,13 @@ An explicit `BoardMembership` always takes precedence over inherited group membe
 ## Collaborator and viewer
 
 `collaborator` and `viewer` are valid at both the group and board level. When assigned as a group membership role they are inherited by all boards within the group exactly like `admin` and `member`. An explicit `BoardMembership` always overrides the inherited value for that specific board.
+
+## Visibility of descendant groups
+
+Parent-group membership implies visibility into all descendant sub-groups and their boards. A user added to a parent group can:
+
+- See descendant sub-groups listed under the parent (in the sidebar tree and the Group detail page)
+- See and navigate to boards inside those sub-groups
+- Have their effective role on those boards resolved by the inheritance rules above
+
+There is no way to grant membership on a parent group while hiding a specific sub-group from that member. If a sub-group holds content that should not be visible to parent-group members, move it to a separate top-level group instead. This visibility model is applied consistently across the sidebar, the Group detail page, and the `/api/groups/{id}/subgroups/` and `/api/groups/{id}/descendant-boards/` endpoints.

@@ -667,38 +667,47 @@ class SubgroupMemberInheritanceTests(TestCase):
 
 
 class SubgroupVisibilityTests(TestCase):
-    """Finding 4: subgroups action must only return subgroups the requesting user is a member of."""
+    """subgroups action follows the documented RBAC inheritance model.
+
+    Parent-group membership implies visibility into descendant subgroups — a
+    user added to G sees G's subgroups so the "Show subgroup boards" toggle
+    renders and descendant-board navigation works. This reverses the pre-1.0
+    narrow filter from commit 7ca7b6c9 "Finding 4", which is now the odd one
+    out compared to descendant_boards, the sidebar tree, and
+    get_accessible_group_ids (#846).
+    """
 
     def setUp(self):
         self.owner = User.objects.create_user(username="owner_sgv", password="pass")
         self.outsider = User.objects.create_user(username="outsider_sgv", password="pass")
         # parent group — owner is admin
         self.parent = _make_group(self.owner, "Parent SGV")
-        # subgroup_visible: outsider is a member
-        self.subgroup_visible = _make_group(self.owner, "Visible Sub")
-        self.subgroup_visible.parent = self.parent
-        self.subgroup_visible.save()
+        # direct_sub: outsider has explicit membership on this subgroup
+        self.direct_sub = _make_group(self.owner, "Direct Sub")
+        self.direct_sub.parent = self.parent
+        self.direct_sub.save()
         GroupMembership.objects.create(
-            group=self.subgroup_visible, user=self.outsider, role=GroupMembership.Role.MEMBER
+            group=self.direct_sub, user=self.outsider, role=GroupMembership.Role.MEMBER
         )
         # Add outsider to parent so they can call the endpoint
         GroupMembership.objects.create(
             group=self.parent, user=self.outsider, role=GroupMembership.Role.MEMBER
         )
-        # subgroup_hidden: outsider is NOT a member
-        self.subgroup_hidden = _make_group(self.owner, "Hidden Sub")
-        self.subgroup_hidden.parent = self.parent
-        self.subgroup_hidden.save()
+        # inherited_sub: outsider has no direct membership — visibility is
+        # inherited from their parent-group membership
+        self.inherited_sub = _make_group(self.owner, "Inherited Sub")
+        self.inherited_sub.parent = self.parent
+        self.inherited_sub.save()
         self.client = APIClient()
         self.client.force_authenticate(self.outsider)
 
-    def test_subgroups_only_shows_accessible_subgroups(self):
-        """Outsider should see subgroup_visible but not subgroup_hidden."""
+    def test_parent_member_sees_subgroups_via_inheritance(self):
+        """Parent-group membership grants visibility into all descendant subgroups."""
         r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()]
-        self.assertIn(self.subgroup_visible.id, ids)
-        self.assertNotIn(self.subgroup_hidden.id, ids)
+        self.assertIn(self.direct_sub.id, ids)
+        self.assertIn(self.inherited_sub.id, ids)
 
     def test_owner_sees_all_subgroups(self):
         """Owner is a member of all groups they create, so sees all subgroups."""
@@ -706,8 +715,106 @@ class SubgroupVisibilityTests(TestCase):
         r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = [g["id"] for g in r.json()]
-        self.assertIn(self.subgroup_visible.id, ids)
-        self.assertIn(self.subgroup_hidden.id, ids)
+        self.assertIn(self.direct_sub.id, ids)
+        self.assertIn(self.inherited_sub.id, ids)
+
+    def test_non_member_gets_403(self):
+        """A user who belongs to neither the parent nor any subgroup must be refused."""
+        stranger = User.objects.create_user(username="stranger_sgv", password="pass")
+        self.client.force_authenticate(stranger)
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
+        self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+
+
+class Issue846ParentMembershipVisibilityTests(TestCase):
+    """Regression coverage for #846 — parent-group member sees subgroup boards.
+
+    Scenario: User A creates group G, creates subgroup SG under G, adds a
+    board to SG, then invites User B as a direct member of G (but not SG).
+    User B must see SG in the subgroups list AND see SG's boards via
+    descendant-boards. Both endpoints must agree on visibility so the
+    "Show subgroup boards" toggle on GroupDetail renders correctly.
+    """
+
+    def setUp(self):
+        from boards.models import Board
+
+        self.owner = User.objects.create_user(username="owner_846", password="pass")
+        self.invited = User.objects.create_user(username="invited_846", password="pass")
+        self.parent = _make_group(self.owner, "Parent 846")
+        self.subgroup = _make_group(self.owner, "Sub 846")
+        self.subgroup.parent = self.parent
+        self.subgroup.save()
+        self.board = Board.objects.create(
+            name="Subgroup Board", owner=self.owner, group=self.subgroup
+        )
+        # Invite as a direct member of the parent only — not the subgroup.
+        GroupMembership.objects.create(
+            group=self.parent, user=self.invited, role=GroupMembership.Role.MEMBER
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.invited)
+
+    def test_invited_member_sees_subgroup_in_parent_subgroups_list(self):
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        ids = [g["id"] for g in r.json()]
+        self.assertIn(self.subgroup.id, ids)
+
+    def test_invited_member_sees_subgroup_boards_via_descendant_boards(self):
+        r = self.client.get(f"/api/v1/groups/{self.parent.id}/descendant-boards/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        board_ids = [b["id"] for b in r.json()]
+        self.assertIn(self.board.id, board_ids)
+
+    def test_subgroups_and_descendant_boards_agree_on_visibility(self):
+        """Pins the two endpoints together so they cannot drift apart again."""
+        subgroups_resp = self.client.get(f"/api/v1/groups/{self.parent.id}/subgroups/")
+        boards_resp = self.client.get(f"/api/v1/groups/{self.parent.id}/descendant-boards/")
+        self.assertEqual(subgroups_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(boards_resp.status_code, status.HTTP_200_OK)
+        subgroup_ids = {g["id"] for g in subgroups_resp.json()}
+        board_parent_ids = {b["group"] for b in boards_resp.json()}
+        # Every board returned by descendant-boards must live in a group the
+        # caller can also discover via the subgroups list (or the parent itself).
+        self.assertTrue(
+            board_parent_ids.issubset(subgroup_ids | {self.parent.id}),
+            f"descendant-boards returned boards in groups {board_parent_ids - subgroup_ids - {self.parent.id}} "
+            f"that were not visible via /subgroups/",
+        )
+
+
+class DeepSubgroupVisibilityTests(TestCase):
+    """Pins depth-3 subgroup visibility for parent-group members.
+
+    get_accessible_group_ids walks descendants up to _GROUP_TRAVERSAL_MAX_DEPTH
+    (=6). A user in the root group must see subgroups 2+ levels down so the
+    expanded sidebar tree and the subgroup-boards toggle keep working at depth.
+    """
+
+    def test_parent_member_sees_grandchild_subgroup(self):
+        owner = User.objects.create_user(username="owner_deep", password="pass")
+        member = User.objects.create_user(username="member_deep", password="pass")
+        root = _make_group(owner, "Root")
+        level1 = _make_group(owner, "Level 1")
+        level1.parent = root
+        level1.save()
+        level2 = _make_group(owner, "Level 2")
+        level2.parent = level1
+        level2.save()
+        GroupMembership.objects.create(
+            group=root, user=member, role=GroupMembership.Role.MEMBER
+        )
+        client = APIClient()
+        client.force_authenticate(member)
+
+        r1 = client.get(f"/api/v1/groups/{root.id}/subgroups/")
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        self.assertIn(level1.id, [g["id"] for g in r1.json()])
+
+        r2 = client.get(f"/api/v1/groups/{level1.id}/subgroups/")
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        self.assertIn(level2.id, [g["id"] for g in r2.json()])
 
 
 class GroupStarMembershipTests(TestCase):

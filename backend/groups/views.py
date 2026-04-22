@@ -342,20 +342,18 @@ class GroupViewSet(viewsets.ModelViewSet):
     def subgroups(self, request, pk=None):
         group = self.get_object()
         _require_group_member(request.user, group)
-        # Filter subgroups to only those the requesting user is a direct member of
-        # (or owns, or is a site admin). get_accessible_group_ids includes descendants
-        # of groups the user is a member of, which would expose subgroups the user
-        # has no explicit membership in. Use a direct-membership filter instead.
-        if getattr(request.user, "can_access_all_content", False):
-            subgroups = group.subgroups.all()
-        else:
-            from django.db.models import Q
-            accessible_ids = set(
-                Group.objects.filter(
-                    Q(owner=request.user) | Q(memberships__user=request.user)
-                ).values_list("id", flat=True)
-            )
-            subgroups = group.subgroups.filter(id__in=accessible_ids)
+        # Subgroup visibility follows the documented RBAC inheritance model:
+        # parent-group membership implies visibility into descendant groups.
+        # This aligns `subgroups` with `descendant_boards`, the sidebar tree,
+        # and get_accessible_group_ids — previously the odd one out (see
+        # commit 7ca7b6c9 "Finding 4", reversed for #846). Without this, a
+        # member added to a parent group sees "0 boards" and no
+        # "Show subgroup boards" toggle because the toggle renders only when
+        # this endpoint returns subgroups, yet descendant-boards would
+        # already expose those same boards if the UI knew to ask.
+        from .models import get_accessible_group_ids
+        accessible_ids = get_accessible_group_ids(request.user)
+        subgroups = group.subgroups.filter(id__in=accessible_ids)
         # Annotate and prefetch so GroupSerializer avoids per-subgroup queries —
         # mirrors the approach in get_queryset().
         subgroups = subgroups.select_related("owner", "parent").prefetch_related("labels").annotate(
