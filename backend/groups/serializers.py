@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from accounts.serializers import BoardUserSerializer
-from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite
+from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite, _GROUP_TRAVERSAL_MAX_DEPTH
 
 
 class GroupLabelSerializer(serializers.ModelSerializer):
@@ -16,13 +16,39 @@ class GroupBriefSerializer(serializers.ModelSerializer):
     ``?expand=group``. Deliberately flat and small to avoid adding N+1 risk
     to list endpoints: no counts, no owner, no labels — just enough to render
     a breadcrumb link without a follow-up request.
+
+    ``ancestors`` is root-first ({id, name}, not including the group itself)
+    so callers can render a full relative breadcrumb for the group without
+    extra requests (#845).
     """
 
     parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)
+    ancestors = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
-        fields = ["id", "name", "parent", "parent_name"]
+        fields = ["id", "name", "parent", "parent_name", "ancestors"]
+
+    def get_ancestors(self, obj):
+        # A context-provided ``group_ancestor_map`` (id -> {"name", "parent_id"})
+        # lets the caller resolve every ancestor with a single bulk query — used
+        # by endpoints that render many boards at once (e.g. descendant_boards)
+        # to avoid an N+1 walk. Falls back to ``Group.ancestors()`` otherwise.
+        group_map = self.context.get("group_ancestor_map") if self.context else None
+        if group_map is not None:
+            chain = []
+            node_id = obj.parent_id
+            depth = 0
+            while node_id is not None and depth < _GROUP_TRAVERSAL_MAX_DEPTH:
+                entry = group_map.get(node_id)
+                if entry is None:
+                    break
+                chain.append({"id": node_id, "name": entry["name"]})
+                node_id = entry.get("parent_id")
+                depth += 1
+            chain.reverse()
+            return chain
+        return [{"id": g.id, "name": g.name} for g in reversed(obj.ancestors())]
 
 
 class GroupSerializer(serializers.ModelSerializer):

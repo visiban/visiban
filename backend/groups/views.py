@@ -522,7 +522,12 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         boards = (
             Board.objects.filter(group_id__in=visible_descendant_ids)
-            .select_related("owner", "group")
+            # ``group__parent`` joins the immediate parent so
+            # GroupBriefSerializer.parent_name (``source="parent.name"``)
+            # doesn't issue a per-board lookup when the response is serialized.
+            # #845 adds ancestors via a dedicated bulk map, but parent_name
+            # is a separate field path that has its own N+1 if not joined here.
+            .select_related("owner", "group", "group__parent")
             .annotate(
                 _member_count=Count("memberships", distinct=True),
                 _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
@@ -531,7 +536,29 @@ class GroupViewSet(viewsets.ModelViewSet):
                 ),
             )
         )
-        return Response(BoardSerializer(boards, many=True, context={"request": request}).data)
+
+        # Build a one-query ancestor map for every group we may need to resolve
+        # while serializing — the descendants plus any ancestor of the target
+        # group. Without this, GroupBriefSerializer.get_ancestors would walk
+        # parent pointers per board (#845 N+1 mitigation).
+        ancestor_ids = {g.pk for g in group.ancestors()}
+        map_ids = visible_descendant_ids | ancestor_ids | {group.pk}
+        group_ancestor_map = {
+            g["id"]: {"name": g["name"], "parent_id": g["parent_id"]}
+            for g in Group.objects.filter(pk__in=map_ids).values("id", "name", "parent_id")
+        }
+
+        # Force ``?expand=group`` internally so BoardSerializer returns the
+        # GroupBriefSerializer payload (including ancestors) for every board —
+        # the GroupDetail boards list needs the full relative path to render
+        # its metadata column (#845). Uses the ``_force_expand`` context flag
+        # rather than mutating the request so the public expand API is unchanged.
+        context = {
+            "request": request,
+            "_force_expand": {"group"},
+            "group_ancestor_map": group_ancestor_map,
+        }
+        return Response(BoardSerializer(boards, many=True, context=context).data)
 
     # ------------------------------------------------------------------
     # Ownership transfer

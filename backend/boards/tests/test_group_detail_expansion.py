@@ -158,4 +158,6 @@ class GroupDetailExpansionTests(TestCase):
         """
         r = self.client.get(f"/api/v1/boards/{self.board.id}/full/?expand=group")
         detail = r.data["group_detail"]
-        self.assertEqual(set(detail.keys()), {"id", "name", "parent", "parent_name"})
+        # ``ancestors`` was added in #845 to support the GroupDetail breadcrumb
+        # path — it is still minimal (id + name per entry, no owner / counts / labels).
+        self.assertEqual(set(detail.keys()), {"id", "name", "parent", "parent_name", "ancestors"})

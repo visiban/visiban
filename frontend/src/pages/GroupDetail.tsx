@@ -11,6 +11,7 @@ import {
 import Navbar from "../components/Layout/Navbar";
 import CreateGroupModal from "../components/Group/CreateGroupModal";
 import InviteLinkPanel from "../components/Group/InviteLinkPanel";
+import BoardGroupPath from "../components/Group/BoardGroupPath";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
@@ -63,7 +64,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [importingBoard, setImportingBoard] = useState(false);
   const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
-  const [subgroupBoards, setSubgroupBoards] = useState<{ board: Board; groupName: string }[]>([]);
+  const [subgroupBoards, setSubgroupBoards] = useState<Board[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
 
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -134,11 +135,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         // Exclude boards already shown in the direct boards list; the descendant
         // endpoint returns boards from the root group too.
         const directIds = new Set(boards.map((b) => b.id));
-        setSubgroupBoards(
-          bs
-            .filter((b) => !directIds.has(b.id))
-            .map((b) => ({ board: b, groupName: b.group_name ?? "" }))
-        );
+        setSubgroupBoards(bs.filter((b) => !directIds.has(b.id)));
       })
       .catch(() => setSubgroupBoards([]))
       .finally(() => setLoadingSubgroupBoards(false));
@@ -662,7 +659,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   ) : subgroupBoards.length === 0 ? (
                     <p className="text-fg-faint text-sm px-1">No boards in subgroups.</p>
                   ) : (
-                    subgroupBoards.map(({ board: b, groupName }) => (
+                    subgroupBoards.map((b) => (
                       <button
                         key={b.id}
                         onClick={() => navigate(`/boards/${b.id}`)}
@@ -672,8 +669,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-fg-tertiary shrink-0" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                           </svg>
-                          <p className="font-medium flex-1">{b.name}</p>
-                          <span className="text-xs text-fg-muted ml-2 shrink-0">{groupName}</span>
+                          <p className="font-medium flex-1 min-w-0 truncate">{b.name}</p>
+                          <BoardGroupPath
+                            ancestors={b.group_detail?.ancestors ?? []}
+                            currentGroupId={groupId}
+                            directGroupName={b.group_name ?? ""}
+                          />
                         </div>
                         {b.description && <p className="text-sm text-fg-tertiary mt-0.5 ml-6">{b.description}</p>}
                       </button>

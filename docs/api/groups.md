@@ -99,7 +99,7 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 ### `GET /api/v1/groups/{id}/descendant-boards/`
 List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.
 
-**Response** — array of board summary objects (same shape as `GET /api/v1/groups/{id}/boards/`).
+**Response** — array of board summary objects (same shape as `GET /api/v1/groups/{id}/boards/`). Each board's `group_detail` is always populated with a `GroupBrief` payload including the `ancestors` chain, so callers can render a full relative breadcrumb without an extra request (#845). `ancestors` is root-first and does **not** include the board's direct parent group — that name is in `group_name`.
 
 **Errors:** `403 Forbidden` if the caller is not a group member; `404 Not Found` if the group does not exist.
 
