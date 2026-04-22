@@ -286,17 +286,43 @@ class CardAttachmentSerializer(serializers.ModelSerializer):
         return obj.file.url
 
 
+def _expand_requested(context, name):
+    """Return True when the caller passed ``?expand=<name>`` (or a CSV containing it).
+
+    Gates nested object expansion on serializers that would otherwise return only
+    a foreign-key id. Keeping existing flat fields unchanged preserves the 1.0
+    contract; the nested payload is additive. See #817.
+    """
+    request = context.get("request") if context else None
+    if request is None:
+        return False
+    raw = request.query_params.get("expand", "")
+    if not raw:
+        return False
+    return name in {p.strip() for p in raw.split(",") if p.strip()}
+
+
 class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["uid", "created_at", "updated_at"]
+
+    def get_group_detail(self, obj):
+        # Nested expansion is opt-in via ``?expand=group`` so the default response
+        # shape stays unchanged — list endpoints do not pay for a join they didn't
+        # ask for. See #817.
+        if not _expand_requested(self.context, "group") or obj.group_id is None:
+            return None
+        from groups.serializers import GroupBriefSerializer
+        return GroupBriefSerializer(obj.group).data
 
     def validate_stale_warning_pct(self, value):
         if value < 0 or value > 100:
@@ -346,6 +372,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     members = serializers.SerializerMethodField()
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    group_detail = serializers.SerializerMethodField()
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     share_token = serializers.SerializerMethodField()
@@ -355,11 +382,18 @@ class BoardFullSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
         fields = [
-            "id", "uid", "name", "description", "owner", "group", "group_name", "columns", "swimlanes",
+            "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
+
+    def get_group_detail(self, obj):
+        # See BoardSerializer.get_group_detail — same gating rule (#817).
+        if not _expand_requested(self.context, "group") or obj.group_id is None:
+            return None
+        from groups.serializers import GroupBriefSerializer
+        return GroupBriefSerializer(obj.group).data
 
     def to_representation(self, instance):
         """Pre-compute board-scoped caches before delegating to field serialization.

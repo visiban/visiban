@@ -256,6 +256,13 @@ export interface CardComment {
   updated_at: string;
 }
 
+export interface GroupBrief {
+  id: number;
+  name: string;
+  parent: number | null;
+  parent_name: string | null;
+}
+
 export interface Board {
   id: number;
   uid: string;
@@ -264,6 +271,7 @@ export interface Board {
   owner: BoardUser;
   group: number | null;
   group_name: string | null;
+  group_detail?: GroupBrief | null;
   member_count: number;
   card_count: number;
   staleness_threshold_days: number;
@@ -285,6 +293,7 @@ export interface BoardFull {
   owner: BoardUser;
   group: number | null;
   group_name: string | null;
+  group_detail?: GroupBrief | null;
   columns: Column[];
   swimlanes: Swimlane[];
   cards: Card[];

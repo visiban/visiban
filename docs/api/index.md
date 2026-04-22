@@ -88,3 +88,26 @@ Operators and integrators may treat the `/api/v1/` surface as stable for the lif
 - Write endpoints (`POST`, `PUT`, `PATCH`, `DELETE`) require a valid CSRF token or use token-based auth
 - Dates are ISO 8601 strings: `"2026-04-01"`
 - Permission errors return `403 Forbidden`; missing resources return `404 Not Found`
+
+### URL path style
+
+Path segments use `kebab-case` (e.g. `/auth/change-password/`, `/boards/<id>/saved-filters/`, `/boards/<id>/move-group/`). This is the canonical style and the convention you should rely on when writing new integrations.
+
+One legacy endpoint still accepts a `snake_case` alias for backward compatibility:
+
+| Canonical (use this) | Deprecated alias (2.0 removal) |
+|---|---|
+| `PATCH /boards/<id>/swimlanes/<id>/set-collapsed/` | `PATCH /boards/<id>/swimlanes/<id>/set_collapsed/` |
+
+The snake_case path remains routable through every 1.x release. It will be removed in 2.0 after a full minor-release deprecation window.
+
+### Expanding foreign-key fields
+
+Endpoints that return a foreign key as an integer id may also support a nested companion field gated on the `?expand=<name>` query parameter. The default response shape is unchanged; passing `expand` adds a parallel `_detail` field populated with a minimal nested object.
+
+| Endpoint | Expandable field | Query | Default shape | Expanded shape |
+|---|---|---|---|---|
+| `GET /boards/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name }` |
+| `GET /boards/<id>/full/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name }` |
+
+Multiple expansions may be combined with a comma, e.g. `?expand=group,members`. Unknown values are silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.

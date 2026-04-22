@@ -60,7 +60,13 @@ class BoardViewSet(
         # get_board_for_user(); BoardSerializer (used by list/retrieve) never
         # reads card fields so prefetching cards__labels / cards__assignee
         # here only loaded data that was immediately discarded.
-        return qs.select_related("owner", "group").annotate(
+        # When ?expand=group is requested, pull the group's parent in the same
+        # JOIN so GroupBriefSerializer.parent_name does not fire one extra query
+        # per board in the list response (#817).
+        expand = self.request.query_params.get("expand", "")
+        expand_group = "group" in {p.strip() for p in expand.split(",") if p.strip()}
+        group_related = "group__parent" if expand_group else "group"
+        return qs.select_related("owner", group_related).annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
             _is_starred=Exists(
