@@ -3134,7 +3134,7 @@
 </table>
 <h3 id="get-apiv1groupsiddescendant-boards"><code>GET /api/v1/groups/{id}/descendant-boards/</code><a class="headerlink" href="#get-apiv1groupsiddescendant-boards" title="Permanent link">&para;</a></h3>
 <p>List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.</p>
-<p><strong>Response</strong> — array of board summary objects (same shape as <code>GET /api/v1/groups/{id}/boards/</code>).</p>
+<p><strong>Response</strong> — array of board summary objects (same shape as <code>GET /api/v1/groups/{id}/boards/</code>). Each board's <code>group_detail</code> is always populated with a <code>GroupBrief</code> payload including the <code>ancestors</code> chain, so callers can render a full relative breadcrumb without an extra request (#845). <code>ancestors</code> is root-first and does <strong>not</strong> include the board's direct parent group — that name is in <code>group_name</code>.</p>
 <p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a group member; <code>404 Not Found</code> if the group does not exist.</p>
 <hr />
 <h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>

@@ -2670,18 +2670,19 @@
 <td><code>group</code></td>
 <td><code>?expand=group</code></td>
 <td><code>group_detail: null</code></td>
-<td><code>group_detail: { id, name, parent, parent_name }</code></td>
+<td><code>group_detail: { id, name, parent, parent_name, ancestors }</code></td>
 </tr>
 <tr>
 <td><code>GET /boards/&lt;id&gt;/full/</code></td>
 <td><code>group</code></td>
 <td><code>?expand=group</code></td>
 <td><code>group_detail: null</code></td>
-<td><code>group_detail: { id, name, parent, parent_name }</code></td>
+<td><code>group_detail: { id, name, parent, parent_name, ancestors }</code></td>
 </tr>
 </tbody>
 </table>
 <p>Multiple expansions may be combined with a comma, e.g. <code>?expand=group,members</code>. Unknown values are silently ignored. The original FK id fields (<code>group</code>, <code>group_name</code>) always remain in the response for backward compatibility.</p>
+<p>The <code>ancestors</code> field on the expanded <code>group_detail</code> payload is root-first and excludes the group itself (callers already have that in <code>name</code>). Useful for rendering breadcrumbs without a follow-up request. Added in 1.1 (#845).</p>
 
 
 
