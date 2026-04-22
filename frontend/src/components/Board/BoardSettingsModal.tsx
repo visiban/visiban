@@ -4,7 +4,8 @@ import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
 import type { BoardFull, BoardMembership, User } from "../../types";
 import { userDisplayName } from "../../types";
-import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing } from "../../api/boards";
+import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
+import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
 import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
@@ -86,6 +87,29 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
+
+  // #843 — per-board export threshold. Plain-English labels per UX spec; the
+  // server validates on write and may reject unknown values.
+  const [exportMinRole, setExportMinRole] = useState<BoardExportMinRole>(
+    (board.export_min_role as BoardExportMinRole) ?? "viewer",
+  );
+  const [exportRoleError, setExportRoleError] = useState<string | null>(null);
+
+  // #842 — export audit history. Lazy-loaded when an admin opens the Data tab
+  // for the first time so viewers and collaborators never pay the request.
+  const [exportHistory, setExportHistory] = useState<BoardExportLogEntry[] | null>(null);
+  const [exportHistoryLoading, setExportHistoryLoading] = useState(false);
+  const [exportHistoryError, setExportHistoryError] = useState<string | null>(null);
+
+  // #843 — client-side mirror of the backend threshold gate for UI hiding.
+  // Owner and site_admin always bypass (captured through current_user_role).
+  const EXPORT_ROLE_RANK: Record<string, number> = { viewer: 0, collaborator: 1, member: 2, admin: 3 };
+  const currentRole = board.current_user_role;
+  const canExport =
+    currentRole === "site_admin" ||
+    currentRole === "admin" ||
+    (currentRole != null &&
+      EXPORT_ROLE_RANK[currentRole] >= (EXPORT_ROLE_RANK[exportMinRole] ?? 0));
 
   // Sharing tab state — token is initialized from the board payload (admin-only field).
   const [shareToken, setShareToken] = useState<string | null>(board.share_token ?? null);
@@ -241,6 +265,35 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     setStalenessWarningPct(clamped);
     patchBoard(board.id, { stale_warning_pct: clamped });
   };
+
+  // #843 — save export_min_role immediately on change. Admins only; non-admins
+  // never see the control (see Data tab render). On a server rejection we
+  // revert the local state so the UI does not drift from persisted state.
+  const handleExportMinRoleChange = async (value: BoardExportMinRole) => {
+    const previous = exportMinRole;
+    setExportMinRole(value);
+    setExportRoleError(null);
+    try {
+      await patchBoard(board.id, { export_min_role: value });
+    } catch {
+      setExportMinRole(previous);
+      setExportRoleError("Failed to update export permission. Please try again.");
+    }
+  };
+
+  // #842 — load the audit history the first time an admin opens the Data tab.
+  // The endpoint is admin-only server-side; we mirror that gate here so we
+  // don't issue a request that would 403 for viewers/collaborators.
+  useEffect(() => {
+    if (tab !== "data" || !isAdmin) return;
+    if (exportHistory !== null || exportHistoryLoading) return;
+    setExportHistoryLoading(true);
+    setExportHistoryError(null);
+    getBoardExportHistory(board.id, { page_size: 10 })
+      .then((resp) => setExportHistory(resp.results))
+      .catch(() => setExportHistoryError("Could not load export history."))
+      .finally(() => setExportHistoryLoading(false));
+  }, [tab, isAdmin, board.id, exportHistory, exportHistoryLoading]);
 
   return (
     <ModalWrapper
@@ -736,7 +789,39 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {tab === "data" && (
             <div className="flex flex-col gap-6">
               <section>
-                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-3">Export</h3>
+                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export permission</h3>
+                {isAdmin ? (
+                  <>
+                    <p className="text-xs text-fg-muted mb-2">
+                      Choose who can export this board. Owners and site admins always bypass this threshold.
+                    </p>
+                    <SelectDropdown
+                      value={exportMinRole}
+                      onChange={(v) => handleExportMinRoleChange(v as BoardExportMinRole)}
+                      options={[
+                        { value: "viewer", label: "Anyone with read access (default)" },
+                        { value: "collaborator", label: "Collaborators and above" },
+                        { value: "member", label: "Members and above" },
+                        { value: "admin", label: "Admins only" },
+                      ]}
+                    />
+                    <p className="text-xs h-4 mt-1">
+                      {exportRoleError && <span className="text-danger">{exportRoleError}</span>}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    {exportMinRole === "viewer" && "Anyone with read access can export this board."}
+                    {exportMinRole === "collaborator" && "Collaborators and above can export this board."}
+                    {exportMinRole === "member" && "Members and above can export this board."}
+                    {exportMinRole === "admin" && "Only admins can export this board."}
+                  </p>
+                )}
+              </section>
+
+              {canExport && (
+              <section>
+                <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export</h3>
                 <div className="flex flex-col gap-2">
                   {(["json", "csv"] as const).map((fmt) => (
                     <label
@@ -773,6 +858,44 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   Export {exportFormat.toUpperCase()}
                 </button>
               </section>
+              )}
+
+              {isAdmin && (
+                <section>
+                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export history</h3>
+                  {exportHistoryLoading && (
+                    <div className="flex items-center gap-2 text-sm text-fg-tertiary">
+                      <span className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      Loading export history…
+                    </div>
+                  )}
+                  <p className="text-sm h-5 mt-1">
+                    {exportHistoryError && <span className="text-danger">{exportHistoryError}</span>}
+                  </p>
+                  {!exportHistoryLoading && !exportHistoryError && exportHistory && exportHistory.length === 0 && (
+                    <p className="text-sm text-fg-muted">No exports have been recorded for this board yet.</p>
+                  )}
+                  {!exportHistoryLoading && exportHistory && exportHistory.length > 0 && (
+                    <ul className="flex flex-col divide-y divide-line">
+                      {exportHistory.map((entry) => (
+                        <li key={entry.id} className="py-2 flex flex-col gap-0.5">
+                          <div className="flex items-center justify-between text-sm text-fg">
+                            <span className="truncate">
+                              {entry.actor ? userDisplayName(entry.actor) : "(deactivated user)"}
+                            </span>
+                            <span className="font-mono text-xs text-fg-muted">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="text-xs text-fg-muted">
+                            {entry.role_at_export} — {entry.export_format.toUpperCase()} · {entry.row_count} card{entry.row_count === 1 ? "" : "s"}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
 
               {isAdmin && onBoardDeleted && (
                 <section className="border-t border-line pt-5">

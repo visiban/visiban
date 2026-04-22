@@ -9,7 +9,7 @@ from accounts.models import User
 from accounts.serializers import BoardUserSerializer
 
 from .models import (
-    Board, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
+    Board, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
     CardComment, CardActivity, CardAttachment, CardChecklist, SavedFilter,
 )
 
@@ -30,6 +30,17 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = BoardMembership
         fields = ["id", "user", "role", "is_moderator", "joined_at"]
+
+
+class BoardExportLogSerializer(serializers.ModelSerializer):
+    """Read-only payload for the export-history endpoint (#842)."""
+
+    actor = BoardUserSerializer(read_only=True)
+
+    class Meta:
+        model = BoardExportLog
+        fields = ["id", "actor", "role_at_export", "export_format", "row_count", "created_at"]
+        read_only_fields = fields
 
 
 class ColumnSerializer(serializers.ModelSerializer):
@@ -312,7 +323,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     def get_group_detail(self, obj):
@@ -327,6 +338,20 @@ class BoardSerializer(serializers.ModelSerializer):
     def validate_stale_warning_pct(self, value):
         if value < 0 or value > 100:
             raise serializers.ValidationError("stale_warning_pct must be between 0 and 100.")
+        return value
+
+    def validate_export_min_role(self, value):
+        # #843: whitelist only the board-relative role hierarchy. ``site_admin``
+        # is rejected because it is a cross-cutting identity, not a board-level
+        # threshold — conflating the two would confuse the gate logic.
+        # ``owner`` is not a BoardMembership.Role; the owner always bypasses
+        # the threshold, so admitting it as a setting value would be
+        # meaningless.
+        allowed = {"viewer", "collaborator", "member", "admin"}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"export_min_role must be one of: {sorted(allowed)}."
+            )
         return value
 
     def validate_allowed_priorities(self, value):
@@ -384,7 +409,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         fields = [
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
 

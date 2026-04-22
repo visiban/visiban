@@ -34,7 +34,7 @@ function makeBoard(): BoardFull {
       { id: 1, user: { id: 1, username: 'jdoe', avatar_url: '', display_name: 'Jane Doe' }, role: 'admin', is_moderator: false, joined_at: '' },
     ],
     staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer', is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
     owner: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
     capabilities: { movement_export: false },
   }

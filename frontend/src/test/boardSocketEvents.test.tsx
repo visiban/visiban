@@ -128,7 +128,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer',
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
@@ -366,6 +366,19 @@ describe('BoardView socket event routing — new event types', () => {
     // would fire a redundant PATCH API call on the receiving client.
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
     expect(ctx.updateBoardSettings).not.toHaveBeenCalled()
+  })
+
+  it('board.updated carrying export_min_role forwards the field to mergeBoardState (#843)', async () => {
+    // #843 — raising export_min_role on an admin client must propagate via
+    // board.updated to every other connected user, so canExport recomputes
+    // and the Export button hides without a reload.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const patch = { export_min_role: 'admin' as const }
+    act(() => { getOnEvent.dispatch({ event: 'board.updated', data: patch }) })
+    expect(ctx.mergeBoardState).toHaveBeenCalledWith(patch)
   })
 
   it('board.updated does not throw when mergeBoardState is provided', async () => {
