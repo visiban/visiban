@@ -284,9 +284,21 @@ export interface Board {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  export_min_role: BoardExportMinRole;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
+
+export interface BoardExportLogEntry {
+  id: number;
+  actor: BoardUser | null;
+  role_at_export: "viewer" | "collaborator" | "member" | "admin" | "owner" | "site_admin";
+  export_format: string;
+  row_count: number;
+  created_at: string;
 }
 
 export interface BoardFull {
@@ -309,6 +321,7 @@ export interface BoardFull {
   enforce_wip_limits: boolean;
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
+  export_min_role: BoardExportMinRole;
   is_starred: boolean;
   created_at: string;
   updated_at: string;

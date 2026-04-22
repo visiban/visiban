@@ -40,7 +40,7 @@ const fakeBoard = {
   allowed_priorities: ['low', 'medium', 'high', 'urgent'] as const,
   enforce_wip_limits: false,
   enforce_wip_hard: false,
-  enforce_weight_limits: false,
+  enforce_weight_limits: false, export_min_role: 'viewer',
   is_starred: false,
   created_at: '',
   updated_at: '',

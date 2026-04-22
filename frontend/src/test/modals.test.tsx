@@ -83,7 +83,7 @@ const fakeUser: User = {
 const fakeBoard: Board = {
   id: 1, uid: 'boarduid0001', name: 'Test Board', description: '', owner: fakeUser,
   group: null, group_name: null, member_count: 1, card_count: 0,
-  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
+  staleness_threshold_days: 7, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer',
   is_starred: false, created_at: '', updated_at: '',
 }
 

@@ -183,6 +183,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const onCardUnarchived = onCardAdded;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
   const canEdit = isAdmin || board.current_user_role === "member";
+  // #843 — mirror of the backend per-board export gate. Owner / site_admin
+  // always bypass; everyone else must meet ``board.export_min_role``. When
+  // the threshold flips via WebSocket, the Export button re-evaluates on
+  // re-render and hides itself, and the auto-close effect below dismisses
+  // an open export modal so the user doesn't click into a 403.
+  const EXPORT_ROLE_RANK: Record<string, number> = { viewer: 0, collaborator: 1, member: 2, admin: 3 };
+  const exportMinRole = board.export_min_role ?? "viewer";
+  const canExport =
+    board.current_user_role === "site_admin" ||
+    board.current_user_role === "admin" ||
+    (board.current_user_role != null &&
+      EXPORT_ROLE_RANK[board.current_user_role] >= (EXPORT_ROLE_RANK[exportMinRole] ?? 0));
 
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
@@ -521,6 +533,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  // #843 — close the standalone export modal if a board.updated broadcast
+  // raises the threshold above the user's role while they have the modal
+  // open. Without this, a non-admin sees an Export button that silently
+  // 403s when clicked.
+  useEffect(() => {
+    if (showExport && !canExport) setShowExport(false);
+  }, [showExport, canExport]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
@@ -1160,6 +1179,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </button>
           </Tooltip>
+          {canExport && (
           <Tooltip content="Export board">
             <button
               onClick={() => { markExportSeen(); setShowExport(true); }}
@@ -1175,6 +1195,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </button>
           </Tooltip>
+          )}
           {isAdmin && (
             <Tooltip content="Board settings">
               <button

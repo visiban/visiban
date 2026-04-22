@@ -13,6 +13,7 @@ vi.mock('../api/boards', () => ({
   deleteBoard: vi.fn(),
   enableBoardSharing: vi.fn(),
   disableBoardSharing: vi.fn(),
+  getBoardExportHistory: vi.fn().mockResolvedValue({ results: [], count: 0, next: null, previous: null }),
 }))
 
 vi.mock('../api/auth', () => ({
@@ -75,7 +76,7 @@ const fakeBoard: BoardFull = {
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
-  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
+  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer',
   is_starred: false,
   created_at: '',
   updated_at: '',
@@ -743,5 +744,57 @@ describe('BoardSettingsModal — Moderator toggle', () => {
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toBeChecked()
     expect(checkbox).toBeDisabled()
+  })
+})
+
+// ─── Export controls (#842 + #843) ─────────────────────────────────────────
+
+describe('BoardSettingsModal — Export permission (#843)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPatchBoard.mockResolvedValue({})
+  })
+
+  it('admin sees the threshold dropdown on the Data tab', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.getByText('Export permission')).toBeInTheDocument()
+    // SelectDropdown renders its trigger as role="combobox"; the selected
+    // option label is rendered as child text inside the button.
+    expect(screen.getByText('Anyone with read access (default)')).toBeInTheDocument()
+  })
+
+  it('non-admin sees a plain-English read-only sentence (no dropdown)', () => {
+    const boardAdminOnly = { ...fakeBoard, export_min_role: 'admin' as const, current_user_role: 'member' as const }
+    render(<BoardSettingsModal board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.getByText('Only admins can export this board.')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).toBeNull()
+  })
+
+  it('Export section is hidden when role is below threshold', () => {
+    const boardAdminOnly = { ...fakeBoard, export_min_role: 'admin' as const, current_user_role: 'member' as const }
+    render(<BoardSettingsModal board={boardAdminOnly} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.queryByRole('button', { name: /Export JSON|Export CSV/i })).toBeNull()
+  })
+
+  it('Export section is visible when role meets threshold', () => {
+    const boardMember = { ...fakeBoard, export_min_role: 'member' as const, current_user_role: 'member' as const }
+    render(<BoardSettingsModal board={boardMember} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.getByRole('button', { name: /Export JSON/i })).toBeInTheDocument()
+  })
+})
+
+describe('BoardSettingsModal — Export history (#842)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('admin sees Export history section on the Data tab', async () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
+  })
+
+  it('non-admin does not see Export history section', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
+    expect(screen.queryByText('Export history')).toBeNull()
   })
 })

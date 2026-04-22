@@ -23,13 +23,55 @@ from accounts.models import User
 from groups.models import Group, GroupMembership
 
 from ..models import (
-    Board, BoardFavorite, BoardMembership as BoardMembershipModel, Card, CardActivity,
-    CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
+    Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
+    CardActivity, CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
 )
 from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
-from ..serializers import BoardSerializer
+from ..serializers import BoardExportLogSerializer, BoardSerializer
 from ._helpers import get_board_for_user
+
+# #843: rank of each BoardMembership.Role for the export-threshold comparison.
+# Owner and site_admin are not ranked here — they always bypass the threshold
+# in ``_can_export_at_min_role`` below.
+_EXPORT_ROLE_RANK = {
+    BoardMembershipModel.Role.VIEWER: 0,
+    BoardMembershipModel.Role.COLLABORATOR: 1,
+    BoardMembershipModel.Role.MEMBER: 2,
+    BoardMembershipModel.Role.ADMIN: 3,
+}
+
+
+def _role_at_export(board, user, role):
+    """Return the audit-log string for the actor's role at export time (#842).
+
+    Owner is captured distinctly from promoted admin so Jordan's retro use
+    case can tell the two apart. Site admins with no board membership are
+    recorded verbatim as ``site_admin``.
+    """
+    if role == SITE_ADMIN:
+        return "site_admin"
+    if board.owner_id == user.id:
+        return "owner"
+    return role
+
+
+def _can_export_at_min_role(board, user, role):
+    """True iff the user's role meets ``board.export_min_role`` (#843).
+
+    Owner and site_admin always bypass the threshold — they are always
+    considered above any board-level role. The threshold is stored as a
+    plain string so unknown/future values fall back to the most permissive
+    default (``viewer``) rather than locking out existing users on a typo.
+    """
+    if role == SITE_ADMIN or board.owner_id == user.id:
+        return True
+    threshold = board.export_min_role or "viewer"
+    actor_rank = _EXPORT_ROLE_RANK.get(role)
+    threshold_rank = _EXPORT_ROLE_RANK.get(threshold, 0)
+    if actor_rank is None:
+        return False
+    return actor_rank >= threshold_rank
 
 logger = logging.getLogger(__name__)
 
@@ -859,11 +901,26 @@ class BoardImportExportMixin:
                 {"detail": "Board export requires board membership."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        # #843: enforce the per-board export threshold on top of the base
+        # membership gate. Owners and site admins bypass. The error body
+        # includes a parseable ``code`` and ``min_role`` so the frontend can
+        # render "Export is restricted to {label} and above" — the hidden-
+        # button UX is the primary path, this covers direct-URL hits and
+        # races between role changes and the broadcast.
+        if not _can_export_at_min_role(board, request.user, role):
+            return Response(
+                {
+                    "detail": "Export is restricted on this board.",
+                    "code": "export_restricted",
+                    "min_role": board.export_min_role or "viewer",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         export_format = request.query_params.get("format", "csv")
         today = datetime.date.today().isoformat()
         safe_name = slugify(board.name) or "board"
 
-        cards = (
+        cards = list(
             Card.objects.filter(board=board)
             .select_related("column", "swimlane", "assignee", "created_by")
             .prefetch_related(
@@ -879,6 +936,10 @@ class BoardImportExportMixin:
             )
             .order_by("position")
         )
+        # Row count for the audit log (#842). ``cards`` is materialized once
+        # here so both the JSON and CSV branches share the count without
+        # double-iterating the queryset.
+        row_count = len(cards)
 
         if export_format == "json":
             columns = board.columns.order_by("position")
@@ -986,6 +1047,18 @@ class BoardImportExportMixin:
             response = HttpResponse(content, content_type="application/json")
             response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.json"'
             response["Cache-Control"] = "no-store"
+            # #842: audit-log the successful export after the response body is
+            # assembled. Not wrapped in a transaction — a failure during the
+            # network send should still leave the audit row in place because
+            # the data was read from the DB. Failed/denied exports are
+            # deliberately not logged; the permission gate returns earlier.
+            BoardExportLog.objects.create(
+                board=board,
+                actor=request.user,
+                role_at_export=_role_at_export(board, request.user, role),
+                export_format="json",
+                row_count=row_count,
+            )
             return response
 
         # Default: CSV export
@@ -1034,4 +1107,38 @@ class BoardImportExportMixin:
         response = HttpResponse(buf.getvalue(), content_type="text/csv")
         response["Content-Disposition"] = f'attachment; filename="{safe_name}-{today}.csv"'
         response["Cache-Control"] = "no-store"
+        # #842: audit-log the successful export (see note in JSON branch).
+        BoardExportLog.objects.create(
+            board=board,
+            actor=request.user,
+            role_at_export=_role_at_export(board, request.user, role),
+            export_format="csv",
+            row_count=row_count,
+        )
         return response
+
+    @action(detail=True, methods=["get"], url_path="export-history")
+    def export_history(self, request, pk=None):
+        """Return recent ``BoardExportLog`` rows for this board (#842).
+
+        Admin+ only — viewers and collaborators do not see audit data. Paginated
+        using the viewset's configured paginator so boards with heavy export
+        traffic don't blow the response size.
+        """
+        board, role = get_board_for_user(pk, request.user)
+        if role not in (BoardMembershipModel.Role.ADMIN, SITE_ADMIN):
+            return Response(
+                {"detail": "Export history is restricted to board admins."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        qs = (
+            BoardExportLog.objects.filter(board=board)
+            .select_related("actor")
+            .order_by("-created_at")
+        )
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            data = BoardExportLogSerializer(page, many=True, context={"request": request}).data
+            return self.get_paginated_response(data)
+        data = BoardExportLogSerializer(qs, many=True, context={"request": request}).data
+        return Response(data)

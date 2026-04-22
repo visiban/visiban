@@ -305,10 +305,14 @@ Click **Export** in the board toolbar to download the board data:
 - **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
-Export requires **Member** role or above. Viewers and collaborators cannot export. The export endpoints are:
+By default, any board member can export. Admins can raise the threshold per board under **Board Settings → Data → Export permission** to restrict exports to collaborators, members, or admins only. Owners and site admins always bypass the threshold. When a user's role is below the threshold, the **Export** button is hidden and direct API calls return `403 export_restricted`. The export endpoints are:
 
 - `GET /api/v1/boards/{id}/export/` — CSV
 - `GET /api/v1/boards/{id}/export/?format=json` — JSON
+
+#### Export audit history
+
+Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (`csv` / `json`), and the number of rows exported. Admins can review the log under **Board Settings → Data → Export history**, or via `GET /api/v1/boards/{id}/export-history/` (admin-only). Failed exports (permission denied, rate limited) are not logged.
 
 ### Import
 

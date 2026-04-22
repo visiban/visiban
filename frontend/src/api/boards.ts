@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -93,6 +93,18 @@ export const exportBoardCsv = (boardId: number) => {
 export const exportBoardJson = (boardId: number) => {
   window.open(`${client.defaults.baseURL}/api/v1/boards/${boardId}/export/?format=json`, '_blank');
 };
+
+// #842 — admin-only export audit history. Paginated by the viewset's default paginator.
+export const getBoardExportHistory = (
+  boardId: number,
+  params: Record<string, string | number> = {},
+) =>
+  client
+    .get<{ results: BoardExportLogEntry[]; count: number; next: string | null; previous: string | null }>(
+      `/api/v1/boards/${boardId}/export-history/`,
+      { params },
+    )
+    .then((r) => r.data);
 
 // Labels
 export const listLabels = (boardId: number) =>

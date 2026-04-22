@@ -98,6 +98,19 @@ class Board(models.Model):
             "Gone — the token is not auto-rotated, only refused."
         ),
     )
+    export_min_role = models.CharField(
+        max_length=20,
+        default="viewer",
+        help_text=(
+            "Minimum BoardMembership.Role required to export this board (#843). "
+            "Default ``viewer`` preserves pre-1.1 behavior where every role with "
+            "read access can export. Owners and site admins always bypass this "
+            "threshold. The valid values are viewer / collaborator / member / "
+            "admin — validated at the serializer layer so the DB column stays "
+            "a simple CharField that will accept future values without a "
+            "schema migration."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -585,3 +598,59 @@ class SavedFilter(models.Model):
 
     def __str__(self):
         return f"{self.user} / {self.board} / {self.name}"
+
+
+class BoardExportLog(models.Model):
+    """Audit entry for a successful board export (#842).
+
+    Written by ``BoardImportExportMixin.export`` after the response body is
+    assembled. Deliberately records only successful exports — a denied
+    attempt never reached the data, so it is not an exfiltration event.
+    Failed-export logging is tracked as a 1.2 follow-up.
+
+    The ``actor`` FK is SET_NULL so the audit row survives user
+    deactivation — admins investigating a past export must still be able to
+    see *who* ran it even after that user has been removed. ``role_at_export``
+    is captured verbatim at write time rather than recomputed on read, so
+    subsequent role changes do not rewrite history. The special sentinel
+    ``"owner"`` is used when the actor is the board owner (distinct from a
+    promoted admin); ``"site_admin"`` is used when a site admin without
+    board membership exports.
+    """
+
+    board = models.ForeignKey(
+        Board, on_delete=models.CASCADE, related_name="export_logs"
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="board_export_logs",
+    )
+    role_at_export = models.CharField(
+        max_length=20,
+        help_text=(
+            "Board role the actor held when the export ran. "
+            "One of: viewer, collaborator, member, admin, owner, site_admin. "
+            "Captured verbatim so later role changes do not rewrite history."
+        ),
+    )
+    export_format = models.CharField(
+        max_length=20,
+        help_text="Export format string as requested (e.g. ``json`` / ``csv``).",
+    )
+    row_count = models.PositiveIntegerField(
+        help_text="Number of cards included in the export payload."
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "board_export_logs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["board", "-created_at"], name="bel_board_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.board_id} / {self.actor_id} / {self.export_format} @ {self.created_at}"

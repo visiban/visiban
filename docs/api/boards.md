@@ -33,6 +33,7 @@ Get board summary. Response includes:
 | `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
 | `enforce_wip_hard` | boolean | When `true`, WIP limits cannot be overridden by any role — all users are blocked (default: `false`) |
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
+| `export_min_role` | string | Minimum role required to export this board. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"` (default: `"viewer"`). Owners and site admins always bypass. Admin-only when writing; sending any other value (including `"site_admin"` or `"owner"`) returns `400 Bad Request`. Added in 1.1 (#843). |
 | `stale_warning_pct` | integer | Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
@@ -40,7 +41,7 @@ Get board summary. Response includes:
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, and `enforce_wip_hard`; non-admins sending these fields receive `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, and `export_min_role`; non-admins sending these fields receive `403 Forbidden`.
 
 ### `DELETE /api/v1/boards/{id}/`
 Delete board. Requires board owner or site admin.
@@ -199,7 +200,7 @@ Time-in-stage heatmap derived from `CardMovement` records.
 
 A cell is flagged as an outlier (`is_outlier: true`) when its per-swimlane average meets or exceeds the board's `staleness_threshold_days`. Heatmap color-coding uses `staleness_threshold_days` and `stale_warning_pct` to determine green, yellow, and red thresholds (see [Analytics — Color-coding](../features/analytics.md#color-coding)). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.
 
-CSV export (`Export CSV` button) is available to `member`, `admin`, and `site_admin` roles only.
+CSV export (`Export CSV` button) is available to any board member whose role meets the board's `export_min_role` threshold. Owners and site admins always bypass.
 
 ---
 
@@ -341,14 +342,14 @@ Delete a saved filter preset. Only the owning user can delete their own filters 
 ## Export & Import
 
 ### `GET /api/v1/boards/{id}/export/`
-Export the board as CSV. Returns a downloadable `text/csv` file. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
+Export the board as CSV. Returns a downloadable `text/csv` file. Requires board membership — non-members receive `403 Forbidden` with body `{"detail": "Board export requires board membership."}`. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
 `Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`.
 
 ### `GET /api/v1/boards/{id}/export/?format=json`
-Export the board as JSON. Returns `application/json`. Requires `member` or `admin` role — viewers and collaborators receive `403 Forbidden`.
+Export the board as JSON. Returns `application/json`. Same permission rules as the CSV variant: requires board membership and meeting the `export_min_role` threshold. Owners and site admins always bypass.
 
 **Response shape:**
 
@@ -379,6 +380,37 @@ Export the board as JSON. Returns `application/json`. Requires `member` or `admi
   ]
 }
 ```
+
+### `GET /api/v1/boards/{id}/export-history/`
+Return recent successful board exports for audit purposes (#842). Requires board `admin` or `site_admin` role — other roles (including board owners who are not also admins) receive `403 Forbidden` with body `{"detail": "Export history is restricted to board admins."}`. Failed exports (permission denied, rate limited) are not logged.
+
+**Response** (paginated — standard DRF envelope with `count`, `next`, `previous`, `results`; ordered newest-first)
+
+```json
+{
+  "count": 12,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 42,
+      "actor": { "id": 1, "username": "alice", "display_name": "Alice", "avatar_url": "" },
+      "role_at_export": "member",
+      "export_format": "csv",
+      "row_count": 128,
+      "created_at": "2026-04-22T14:31:02Z"
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `actor` | The user who performed the export, or `null` if the user has since been deleted. |
+| `role_at_export` | Role the actor held at the moment of export. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"`, `"owner"`, `"site_admin"` — captured at write time, not recomputed on read. |
+| `export_format` | `"csv"` or `"json"`. |
+| `row_count` | Number of cards included in the export. |
+| `created_at` | ISO 8601 timestamp. |
 
 ### `POST /api/v1/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
