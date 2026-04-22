@@ -62,6 +62,16 @@ When asked to create a release, invoke `/release`. The skill handles version str
 
 ---
 
+## Cost discipline — always on
+
+Claude Code sessions on this repo run at roughly 110 M tokens per active day; the prompt cache makes that affordable only while it stays warm. Apply these by default:
+
+- **Don't idle a live session past the 5-minute cache TTL** — a cache miss on a 1 M-token working context costs several dollars. If a task genuinely needs a longer wait, end the session and resume later rather than holding an idle prompt. When scheduling wake-ups, stay under 270s or commit to 20+ min; avoid the ~300s dead zone.
+- **Brief subagents like a new colleague joining the room** — terse prompts force the subagent to re-read context the main thread already has, at full cached-read cost. Include file paths, line numbers, and the specific question. The `Explore` and `/pre-release` agents are the highest-leverage to get right because their working contexts are the largest.
+- **Prefer `ToolSearch` over speculative tool calls** — deferred tools keep the tool catalogue off the hot path. Only load the schema for a tool you are actually about to call; don't pre-fetch a cluster of tool definitions "just in case".
+
+---
+
 ## General conventions
 
 - **Never commit or push directly to `main`** — all changes go through a feature branch and MR, no exceptions (including docs, chores, and hotfixes)
