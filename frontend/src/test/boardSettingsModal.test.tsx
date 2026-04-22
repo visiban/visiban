@@ -587,7 +587,7 @@ describe('BoardSettingsModal — initialTab prop', () => {
 describe('BoardSettingsModal — Sharing tab', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnableBoardSharing.mockResolvedValue({ share_token: 'abc-token-123', share_url: 'http://localhost/share/abc-token-123' })
+    mockEnableBoardSharing.mockResolvedValue({ share_token: 'abc-token-123', share_url: 'http://localhost/share/abc-token-123', share_token_expires_at: null })
     mockDisableBoardSharing.mockResolvedValue({})
   })
 
@@ -616,8 +616,36 @@ describe('BoardSettingsModal — Sharing tab', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false')
 
     await user.click(toggle)
-    await waitFor(() => expect(mockEnableBoardSharing).toHaveBeenCalledWith(1))
+    await waitFor(() => expect(mockEnableBoardSharing).toHaveBeenCalledWith(1, null))
     await waitFor(() => expect(screen.getByText(/abc-token-123/)).toBeInTheDocument())
+  })
+
+  it('selecting a TTL forwards expires_in_days to enableBoardSharing (#804)', async () => {
+    mockEnableBoardSharing.mockResolvedValue({
+      share_token: 'tok-7d',
+      share_url: 'http://localhost/share/tok-7d',
+      share_token_expires_at: '2026-04-28T00:00:00Z',
+    })
+    const user = (await import('@testing-library/user-event')).default.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+
+    // Open the TTL select and choose "7 days"
+    const ttlTrigger = screen.getByRole('combobox')
+    await user.click(ttlTrigger)
+    const sevenDays = await screen.findByRole('option', { name: '7 days' })
+    await user.click(sevenDays)
+
+    const toggle = screen.getByRole('switch', { name: 'Enable public share link' })
+    await user.click(toggle)
+
+    await waitFor(() => expect(mockEnableBoardSharing).toHaveBeenCalledWith(1, 7))
+    await waitFor(() => expect(screen.getByTestId('share-expiry-line').textContent).toMatch(/Expires/))
+  })
+
+  it('shows "Never expires" when sharing is enabled with no TTL (#804)', () => {
+    const boardWithToken = { ...fakeBoard, share_token: 'tok-perm', share_token_expires_at: null }
+    render(<BoardSettingsModal board={boardWithToken} isAdmin={true} onClose={vi.fn()} initialTab="sharing" />)
+    expect(screen.getByTestId('share-expiry-line').textContent).toBe('Never expires')
   })
 
   it('disabling share calls disableBoardSharing and hides URL', async () => {

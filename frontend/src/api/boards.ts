@@ -113,8 +113,17 @@ export const importBoard = (file: File, name?: string, groupId?: number) => {
 export const getPublicBoard = (token: string) =>
   client.get<BoardPublic>(`/api/share/${token}/`).then((r) => r.data);
 
-export const enableBoardSharing = (boardId: number) =>
-  client.post<{ share_token: string; share_url: string }>(`/api/v1/boards/${boardId}/share/`).then((r) => r.data);
+// expiresInDays = null → never expires; allowed values: 7, 30, 90.
+// The backend rejects anything else with 400 — keep this list in sync.
+export type ShareTtlDays = 7 | 30 | 90 | null;
+
+export const enableBoardSharing = (boardId: number, expiresInDays: ShareTtlDays = null) =>
+  client
+    .post<{ share_token: string; share_url: string; share_token_expires_at: string | null }>(
+      `/api/v1/boards/${boardId}/share/`,
+      { expires_in_days: expiresInDays },
+    )
+    .then((r) => r.data);
 
 export const disableBoardSharing = (boardId: number) =>
   client.delete(`/api/v1/boards/${boardId}/share/`);

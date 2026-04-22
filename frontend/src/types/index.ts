@@ -302,6 +302,7 @@ export interface BoardFull {
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
   capabilities: { movement_export: boolean };
   share_token?: string | null;
+  share_token_expires_at?: string | null;
 }
 
 export interface GroupLabel {

@@ -136,11 +136,23 @@ describe('Board API wrappers', () => {
   })
 
   describe('enableBoardSharing / disableBoardSharing', () => {
-    it('enableBoardSharing sends POST to /api/boards/:id/share/', async () => {
-      const shareData = { share_token: 'tok123', share_url: 'https://example.com/share/tok123' }
+    it('enableBoardSharing sends POST to /api/boards/:id/share/ with null TTL by default', async () => {
+      const shareData = { share_token: 'tok123', share_url: 'https://example.com/share/tok123', share_token_expires_at: null }
       mockClient.post.mockResolvedValue({ data: shareData })
       const result = await enableBoardSharing(4)
-      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/share/')
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/share/', { expires_in_days: null })
+      expect(result).toEqual(shareData)
+    })
+
+    it('enableBoardSharing forwards an explicit TTL choice (#804)', async () => {
+      const shareData = {
+        share_token: 'tok456',
+        share_url: 'https://example.com/share/tok456',
+        share_token_expires_at: '2026-05-01T00:00:00Z',
+      }
+      mockClient.post.mockResolvedValue({ data: shareData })
+      const result = await enableBoardSharing(4, 7)
+      expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/share/', { expires_in_days: 7 })
       expect(result).toEqual(shareData)
     })
 

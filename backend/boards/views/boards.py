@@ -207,20 +207,50 @@ class BoardViewSet(
         Both operations are admin-only; the token is a public credential.
         """
         import uuid as _uuid
+        from datetime import timedelta
+        from django.utils import timezone
         board, role = get_board_for_user(pk, request.user)
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
+        # Optional TTL (#804). Null or missing means "never expires"; any
+        # integer in ALLOWED_TTL_DAYS sets share_token_expires_at to now+N days.
+        # Kept as a fixed allowlist rather than an arbitrary int so that UI
+        # copy and docs ("Expire in 7/30/90 days / never") stay authoritative.
+        ALLOWED_TTL_DAYS = {7, 30, 90}
         with transaction.atomic():
             if request.method == "POST":
+                expires_in_days = request.data.get("expires_in_days") if hasattr(request, "data") else None
+                expires_at = None
+                if expires_in_days is not None:
+                    try:
+                        days = int(expires_in_days)
+                    except (TypeError, ValueError):
+                        return Response(
+                            {"detail": "expires_in_days must be an integer or null."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if days not in ALLOWED_TTL_DAYS:
+                        return Response(
+                            {"detail": f"expires_in_days must be one of {sorted(ALLOWED_TTL_DAYS)} or null."},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    expires_at = timezone.now() + timedelta(days=days)
                 board.share_token = _uuid.uuid4()
-                board.save(update_fields=["share_token"])
+                board.share_token_expires_at = expires_at
+                board.save(update_fields=["share_token", "share_token_expires_at"])
                 share_url = request.build_absolute_uri(f"/api/share/{board.share_token}")
-                response_data = {"share_token": str(board.share_token), "share_url": share_url}
+                response_data = {
+                    "share_token": str(board.share_token),
+                    "share_url": share_url,
+                    "share_token_expires_at": expires_at.isoformat() if expires_at else None,
+                }
             else:
-                # DELETE
+                # DELETE — clear both the token and the TTL so re-enabling
+                # starts from a clean "never expires" default.
                 board.share_token = None
-                board.save(update_fields=["share_token"])
-                response_data = {"share_token": None}
+                board.share_token_expires_at = None
+                board.save(update_fields=["share_token", "share_token_expires_at"])
+                response_data = {"share_token": None, "share_token_expires_at": None}
 
             # Notify connected clients so the Sharing tab updates without a reload.
             # Re-fetch through get_queryset() so the broadcast payload includes

@@ -1,6 +1,8 @@
 """ShareBoardView — public read-only board access via share token."""
 
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
@@ -52,4 +54,13 @@ class ShareBoardView(APIView):
             Board.objects.prefetch_related("columns", "swimlanes", "labels"),
             share_token=token_uuid,
         )
+        # TTL enforcement (#804): once the expiry has passed, stop serving the
+        # board but keep returning 410 Gone rather than 404 so the caller can
+        # tell "expired" apart from "never existed". Token is not auto-rotated
+        # here — an admin must disable or regenerate it explicitly.
+        if board.share_token_expires_at is not None and board.share_token_expires_at <= timezone.now():
+            return Response(
+                {"detail": "This share link has expired."},
+                status=status.HTTP_410_GONE,
+            )
         return Response(PublicBoardSerializer(board).data)
