@@ -410,15 +410,18 @@ describe('AppSidebar', () => {
     expect(screen.queryByTestId('create-board-modal')).not.toBeInTheDocument()
   })
 
-  it('New board modal confirm calls createBoard and navigates', async () => {
+  it('New board modal confirm calls createBoard, navigates, adds board to Personal, and records Recent visit', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
-    vi.mocked(createBoard).mockResolvedValue({ ...fakeBoard, id: 55 })
+    vi.mocked(createBoard).mockResolvedValue({ ...fakeBoard, id: 55, name: 'New Board', group: null, group_name: null })
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
     await userEvent.setup().click(screen.getByText('New board'))
     await userEvent.setup().click(screen.getByText('Confirm create board'))
     expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
+    await waitFor(() => expect(screen.getAllByText('New Board').length).toBeGreaterThan(0))
+    const stored: { id: number }[] = JSON.parse(localStorage.getItem('user:prefs:recent-boards') ?? '[]')
+    expect(stored.some((e) => e.id === 55)).toBe(true)
   })
 
   it('clicking New group opens CreateGroupModal', async () => {

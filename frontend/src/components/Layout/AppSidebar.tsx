@@ -626,7 +626,9 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
         <CreateBoardModal
           onConfirm={async (name, template, swimlaneName) => {
             const board = await createBoard({ name, template, swimlane_name: swimlaneName });
+            setBoards((prev) => [board, ...prev]);
             setShowCreateBoard(false);
+            recordVisit({ id: board.id, name: board.name, groupAncestors: [] });
             navigate(`/boards/${board.id}`);
           }}
           onCancel={() => setShowCreateBoard(false)}
