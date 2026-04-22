@@ -81,8 +81,28 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             instance.delete()
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.deleted", {"swimlane_uid": swimlane_uid}))
 
-    @action(detail=True, methods=["patch"])
+    @action(detail=True, methods=["patch"], url_path="set-collapsed")
+    def set_collapsed_kebab(self, request, board_pk=None, pk=None):
+        """Canonical kebab-case alias for the swimlane is_collapsed toggle (#816).
+
+        All new callers should use ``PATCH /swimlanes/<pk>/set-collapsed/``.
+        The snake_case route ``set_collapsed`` below is kept as a deprecated
+        alias and scheduled for removal in 2.0; both routes share the exact
+        same implementation.
+        """
+        return self._set_collapsed_impl(request, pk)
+
+    @action(detail=True, methods=["patch"], url_path="set_collapsed")
     def set_collapsed(self, request, board_pk=None, pk=None):
+        """Deprecated snake_case alias for ``set-collapsed`` (#816).
+
+        Retained to preserve the 1.0 URL contract. The canonical kebab-case
+        path is ``set-collapsed``; the snake_case form will be removed in 2.0
+        after one full minor-release deprecation window.
+        """
+        return self._set_collapsed_impl(request, pk)
+
+    def _set_collapsed_impl(self, request, pk):
         """Allow non-viewer board members to set the default is_collapsed state on a swimlane.
 
         This action is intentionally open below the admin gate used by the

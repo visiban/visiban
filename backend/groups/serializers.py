@@ -9,6 +9,22 @@ class GroupLabelSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "color"]
 
 
+class GroupBriefSerializer(serializers.ModelSerializer):
+    """Minimal Group payload for inline expansion on other resources (#817).
+
+    Used by BoardSerializer / BoardFullSerializer when the caller passes
+    ``?expand=group``. Deliberately flat and small to avoid adding N+1 risk
+    to list endpoints: no counts, no owner, no labels — just enough to render
+    a breadcrumb link without a follow-up request.
+    """
+
+    parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)
+
+    class Meta:
+        model = Group
+        fields = ["id", "name", "parent", "parent_name"]
+
+
 class GroupSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)

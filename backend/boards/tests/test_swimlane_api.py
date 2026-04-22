@@ -134,3 +134,21 @@ class SwimlaneSetCollapsedTests(TestCase):
         url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/"
         r = self.client.patch(url, {"name": "Hacked Name"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_kebab_case_alias_works(self):
+        """The canonical kebab-case path set-collapsed must work (#816)."""
+        self.client.force_authenticate(self.admin)
+        url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set-collapsed/"
+        r = self.client.patch(url, {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.swimlane.refresh_from_db()
+        self.assertTrue(self.swimlane.is_collapsed)
+
+    def test_snake_case_alias_still_routable(self):
+        """The deprecated snake_case path set_collapsed must remain routable
+        through the 1.x series; removal is scheduled for 2.0 (#816).
+        """
+        self.client.force_authenticate(self.admin)
+        url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set_collapsed/"
+        r = self.client.patch(url, {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
