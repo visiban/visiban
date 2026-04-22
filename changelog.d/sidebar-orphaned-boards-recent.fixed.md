@@ -1,0 +1,3 @@
+- Boards where the user is a direct member but not a group member were invisible in the sidebar — they now appear correctly in the Personal section or group tree regardless of group membership
+- Boards in nested groups where the user holds no group membership were similarly invisible and are now shown
+- The Recent Boards section failed to record a visit when navigating directly to a board URL due to a race condition between the visit recorder and the initial board list fetch; the ordering is now enforced so every direct-load visit is captured

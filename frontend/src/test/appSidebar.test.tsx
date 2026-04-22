@@ -149,8 +149,10 @@ describe('AppSidebar', () => {
     mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
     localStorage.setItem('sidebar-groups-expanded', JSON.stringify([10]))
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => screen.getByText('Sprint Board'))
-    const link = screen.getByText('Sprint Board').closest('a')
+    // Sprint Board appears in both the Recent section and the expanded group tree;
+    // use getAllByText to avoid throwing on multiple matches.
+    await waitFor(() => expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0))
+    const link = screen.getAllByText('Sprint Board')[0].closest('a')
     expect(link?.className).toMatch(/info/)
   })
 
@@ -408,15 +410,18 @@ describe('AppSidebar', () => {
     expect(screen.queryByTestId('create-board-modal')).not.toBeInTheDocument()
   })
 
-  it('New board modal confirm calls createBoard and navigates', async () => {
+  it('New board modal confirm calls createBoard, navigates, adds board to Personal, and records Recent visit', async () => {
     vi.mocked(listGroups).mockResolvedValue([])
     vi.mocked(listBoards).mockResolvedValue([])
-    vi.mocked(createBoard).mockResolvedValue({ ...fakeBoard, id: 55 })
+    vi.mocked(createBoard).mockResolvedValue({ ...fakeBoard, id: 55, name: 'New Board', group: null, group_name: null })
     render(<AppSidebar user={fakeUser} />)
     await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
     await userEvent.setup().click(screen.getByText('New board'))
     await userEvent.setup().click(screen.getByText('Confirm create board'))
     expect(mockNavigate).toHaveBeenCalledWith('/boards/55')
+    await waitFor(() => expect(screen.getAllByText('New Board').length).toBeGreaterThan(0))
+    const stored: { id: number }[] = JSON.parse(localStorage.getItem('user:prefs:recent-boards') ?? '[]')
+    expect(stored.some((e) => e.id === 55)).toBe(true)
   })
 
   it('clicking New group opens CreateGroupModal', async () => {
@@ -548,6 +553,53 @@ describe('AppSidebar', () => {
     await userEvent.setup().click(screen.getByTitle('Recent boards'))
     expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
     expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0)
+  })
+
+  // ── Orphaned board (board member only, group not accessible) ─────────────
+
+  it('shows a board in the Personal section when the user is a board member but not a group member', async () => {
+    // Board belongs to group 77, but listGroups returns nothing (user has no group membership).
+    // The board must appear in the Personal section rather than being invisible.
+    const orphanedBoard: Board = {
+      ...fakeBoard, id: 88, name: 'Shared With Me', group: 77, group_name: 'Engineering',
+    }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([orphanedBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+    expect(screen.getByText('Personal')).toBeInTheDocument()
+    expect(screen.getByText('Shared With Me')).toBeInTheDocument()
+  })
+
+  it('does not highlight the Groups trigger for an orphaned board in collapsed mode', async () => {
+    // An orphaned board (group ≠ null, but group not in listGroups) must NOT light up the
+    // Groups collapsed-rail trigger — it lives in Personal, so only Personal should be active.
+    localStorage.setItem('sidebar-collapsed', 'true')
+    mockUseLocation.mockReturnValue({ pathname: '/boards/88' })
+    const orphanedBoard: Board = {
+      ...fakeBoard, id: 88, name: 'Shared With Me', group: 77, group_name: 'Engineering',
+    }
+    const otherGroup: Group = { ...fakeGroup, id: 55, name: 'Unrelated' }
+    vi.mocked(listGroups).mockResolvedValue([otherGroup])   // group 77 is NOT here
+    vi.mocked(listBoards).mockResolvedValue([orphanedBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => screen.getByTitle('Personal boards'))
+    expect(screen.getByTitle('Personal boards').className).toMatch(/info/)
+    expect(screen.getByTitle('Groups').className).not.toMatch(/info/)
+  })
+
+  it('records a Recent visit on mount when initially on a board URL and boards are not yet loaded', async () => {
+    // On initial load the location.pathname effect fires before listBoards resolves;
+    // the data-load effect must also record the visit once the data arrives.
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+    const stored: { id: number }[] = JSON.parse(
+      localStorage.getItem('user:prefs:recent-boards') ?? '[]'
+    )
+    expect(stored.some((e) => e.id === 42)).toBe(true)
   })
 
   // ── Auto-expand ancestors ──────────────────────────────────────────────────
