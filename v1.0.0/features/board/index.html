@@ -1209,6 +1209,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Export">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#export-audit-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export audit history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -3374,11 +3391,13 @@
 <li><strong>JSON</strong> (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.</li>
 <li><strong>CSV</strong> — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.</li>
 </ul>
-<p>Export requires <strong>Member</strong> role or above. Viewers and collaborators cannot export. The export endpoints are:</p>
+<p>By default, any board member can export. Admins can raise the threshold per board under <strong>Board Settings → Data → Export permission</strong> to restrict exports to collaborators, members, or admins only. Owners and site admins always bypass the threshold. When a user's role is below the threshold, the <strong>Export</strong> button is hidden and direct API calls return <code>403 export_restricted</code>. The export endpoints are:</p>
 <ul>
 <li><code>GET /api/v1/boards/{id}/export/</code> — CSV</li>
 <li><code>GET /api/v1/boards/{id}/export/?format=json</code> — JSON</li>
 </ul>
+<h4 id="export-audit-history">Export audit history<a class="headerlink" href="#export-audit-history" title="Permanent link">&para;</a></h4>
+<p>Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (<code>csv</code> / <code>json</code>), and the number of rows exported. Admins can review the log under <strong>Board Settings → Data → Export history</strong>, or via <code>GET /api/v1/boards/{id}/export-history/</code> (admin-only). Failed exports (permission denied, rate limited) are not logged.</p>
 <h3 id="import">Import<a class="headerlink" href="#import" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Import</strong> on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.</p>
 <p><strong>JSON import</strong> restores full card history:</p>
