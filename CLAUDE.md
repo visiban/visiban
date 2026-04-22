@@ -84,6 +84,7 @@ Claude Code sessions on this repo run at roughly 110 M tokens per active day; th
   4. Open MR targeting `main`, wait for a **green pipeline**, then merge
 - Release commits also go through branches and MRs — `scripts/release.sh` handles this automatically
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
+- **Every MR that resolves a tracked issue must include `Closes #NNN`** (or `Fixes #NNN` / `Resolves #NNN`) in the description body — one line per issue. Without these keywords GitLab will not auto-close the issue on merge.
 - **Changelog entries use fragment files** — create a file in `changelog.d/` named `<issue-or-slug>.<type>.md` (e.g. `434.fixed.md`) instead of editing `CHANGELOG.md` directly. Valid types: `added`, `changed`, `fixed`, `security`. The CI `changelog-check` job enforces this. Fragments are assembled into `CHANGELOG.md` automatically at release time by `scripts/assemble-changelog.sh`. **Never edit `CHANGELOG.md` directly on a feature branch.**
 - **Every new or modified feature must include test cases and documentation updates in the same MR** — do not ship a feature without both. This applies to frontend and backend changes equally:
   - Frontend tests: `frontend/src/test/`
