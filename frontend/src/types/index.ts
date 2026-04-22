@@ -262,6 +262,9 @@ export interface GroupBrief {
   name: string;
   parent: number | null;
   parent_name: string | null;
+  // Root-first ancestor chain (excluding the group itself). Added by
+  // GroupBriefSerializer when the caller requests ?expand=group (#845).
+  ancestors?: { id: number; name: string }[];
 }
 
 export interface Board {

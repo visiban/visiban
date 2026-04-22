@@ -105,3 +105,57 @@ class DescendantBoardsTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         board_ids = [b["id"] for b in r.json()]
         self.assertIn(deep_board.id, board_ids)
+
+    # ------------------------------------------------------------------
+    # #845 — ancestors in group_detail for full relative breadcrumb
+    # ------------------------------------------------------------------
+
+    def test_group_detail_includes_ancestors_root_first(self):
+        """Each board response includes group_detail.ancestors (root-first)."""
+        r = self._get(self.root.id)
+        boards = {b["id"]: b for b in r.json()}
+
+        grandchild_payload = boards[self.grandchild_board.id]
+        self.assertIsNotNone(grandchild_payload.get("group_detail"))
+        ancestors = grandchild_payload["group_detail"]["ancestors"]
+        # Root-first: [root, child]; the board's own group (grandchild) is NOT
+        # in the ancestors list — it is the subject.
+        self.assertEqual([a["name"] for a in ancestors], ["Root", "Child"])
+        self.assertEqual([a["id"] for a in ancestors], [self.root.id, self.child.id])
+
+    def test_group_detail_ancestors_empty_for_root_level_board(self):
+        """A board whose group has no parent returns ancestors=[]."""
+        # The root_board lives in self.root which has parent=None.
+        r = self._get(self.root.id)
+        boards = {b["id"]: b for b in r.json()}
+        self.assertEqual(boards[self.root_board.id]["group_detail"]["ancestors"], [])
+
+    def test_descendant_boards_ancestors_avoids_n_plus_1(self):
+        """Resolving ancestors for many boards must not scale per-board.
+
+        Uses 50 boards so any per-board FK lookup (ancestors walk or the
+        parent_name join) would clearly exceed the constant-query budget.
+        """
+        for i in range(50):
+            _make_board(self.owner, self.grandchild, name=f"Extra {i}")
+
+        from django.test.utils import CaptureQueriesContext
+        from django.db import connection
+
+        # Warm any first-request caches (session, user lookup).
+        self._get(self.root.id)
+
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get(self.root.id)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        # With the bulk ancestor map (#845) and ``group__parent`` joined in
+        # the boards queryset, query count is bounded regardless of how many
+        # boards are returned. A per-board FK lookup would push this well
+        # past the threshold at 50+ boards.
+        self.assertLess(
+            len(ctx.captured_queries),
+            25,
+            msg=f"Descendant boards endpoint issued {len(ctx.captured_queries)} "
+                f"queries for 53 boards — ancestor / parent_name N+1 regression "
+                f"suspected.",
+        )

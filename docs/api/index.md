@@ -107,7 +107,9 @@ Endpoints that return a foreign key as an integer id may also support a nested c
 
 | Endpoint | Expandable field | Query | Default shape | Expanded shape |
 |---|---|---|---|---|
-| `GET /boards/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name }` |
-| `GET /boards/<id>/full/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name }` |
+| `GET /boards/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
+| `GET /boards/<id>/full/` | `group` | `?expand=group` | `group_detail: null` | `group_detail: { id, name, parent, parent_name, ancestors }` |
 
 Multiple expansions may be combined with a comma, e.g. `?expand=group,members`. Unknown values are silently ignored. The original FK id fields (`group`, `group_name`) always remain in the response for backward compatibility.
+
+The `ancestors` field on the expanded `group_detail` payload is root-first and excludes the group itself (callers already have that in `name`). Useful for rendering breadcrumbs without a follow-up request. Added in 1.1 (#845).

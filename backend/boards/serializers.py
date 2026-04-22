@@ -292,7 +292,15 @@ def _expand_requested(context, name):
     Gates nested object expansion on serializers that would otherwise return only
     a foreign-key id. Keeping existing flat fields unchanged preserves the 1.0
     contract; the nested payload is additive. See #817.
+
+    Internal callers (viewsets rendering a pre-bulked payload for their own UI)
+    can inject ``_force_expand`` as a set in context to opt-in without polluting
+    the public ``expand`` query-param API (#845).
     """
+    if context:
+        force = context.get("_force_expand")
+        if force and name in force:
+            return True
     request = context.get("request") if context else None
     if request is None:
         return False
@@ -322,7 +330,9 @@ class BoardSerializer(serializers.ModelSerializer):
         if not _expand_requested(self.context, "group") or obj.group_id is None:
             return None
         from groups.serializers import GroupBriefSerializer
-        return GroupBriefSerializer(obj.group).data
+        # Forward context so nested serializers can see ``group_ancestor_map``
+        # (when the viewset pre-bulked ancestors to avoid N+1) — see #845.
+        return GroupBriefSerializer(obj.group, context=self.context).data
 
     def validate_stale_warning_pct(self, value):
         if value < 0 or value > 100:
