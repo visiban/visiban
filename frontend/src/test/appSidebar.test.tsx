@@ -149,8 +149,10 @@ describe('AppSidebar', () => {
     mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
     localStorage.setItem('sidebar-groups-expanded', JSON.stringify([10]))
     render(<AppSidebar user={fakeUser} />)
-    await waitFor(() => screen.getByText('Sprint Board'))
-    const link = screen.getByText('Sprint Board').closest('a')
+    // Sprint Board appears in both the Recent section and the expanded group tree;
+    // use getAllByText to avoid throwing on multiple matches.
+    await waitFor(() => expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0))
+    const link = screen.getAllByText('Sprint Board')[0].closest('a')
     expect(link?.className).toMatch(/info/)
   })
 
@@ -548,6 +550,36 @@ describe('AppSidebar', () => {
     await userEvent.setup().click(screen.getByTitle('Recent boards'))
     expect(screen.getByTestId('collapsed-flyout')).toBeInTheDocument()
     expect(screen.getAllByText('Sprint Board').length).toBeGreaterThan(0)
+  })
+
+  // ── Orphaned board (board member only, group not accessible) ─────────────
+
+  it('shows a board in the Personal section when the user is a board member but not a group member', async () => {
+    // Board belongs to group 77, but listGroups returns nothing (user has no group membership).
+    // The board must appear in the Personal section rather than being invisible.
+    const orphanedBoard: Board = {
+      ...fakeBoard, id: 88, name: 'Shared With Me', group: 77, group_name: 'Engineering',
+    }
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([orphanedBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+    expect(screen.getByText('Personal')).toBeInTheDocument()
+    expect(screen.getByText('Shared With Me')).toBeInTheDocument()
+  })
+
+  it('records a Recent visit on mount when initially on a board URL and boards are not yet loaded', async () => {
+    // On initial load the location.pathname effect fires before listBoards resolves;
+    // the data-load effect must also record the visit once the data arrives.
+    mockUseLocation.mockReturnValue({ pathname: '/boards/42' })
+    vi.mocked(listGroups).mockResolvedValue([fakeGroup])
+    vi.mocked(listBoards).mockResolvedValue([fakeBoard])
+    render(<AppSidebar user={fakeUser} />)
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+    const stored: { id: number }[] = JSON.parse(
+      localStorage.getItem('user:prefs:recent-boards') ?? '[]'
+    )
+    expect(stored.some((e) => e.id === 42)).toBe(true)
   })
 
   // ── Auto-expand ancestors ──────────────────────────────────────────────────

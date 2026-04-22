@@ -58,6 +58,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
   const [recentAnchor, setRecentAnchor] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
+    const initialPath = location.pathname;
     Promise.all([listGroups(), listBoards()])
       .then(([g, b]) => {
         setGroups(g);
@@ -66,10 +67,24 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
         // deletions, revoked memberships, or a stale localStorage referencing
         // a prior instance (DB reset). Only runs once per mount after load.
         pruneByIds(new Set(b.map((brd) => brd.id)));
+        // The location.pathname effect fires before listBoards() resolves on
+        // initial load, so boards.find() returns undefined and the visit is
+        // never recorded. Record it here using the freshly loaded data.
+        const match = initialPath.match(/\/boards\/(\d+)/);
+        if (match) {
+          const boardId = Number(match[1]);
+          const board = b.find((brd) => brd.id === boardId);
+          if (board) {
+            const parentGroupName = board.group !== null
+              ? g.find((grp) => grp.id === board.group)?.name ?? board.group_name ?? undefined
+              : undefined;
+            recordVisit({ id: board.id, name: board.name, groupAncestors: parentGroupName ? [parentGroupName] : [] });
+          }
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  // pruneByIds is stable from the hook; listGroups/listBoards are module imports.
+  // pruneByIds and recordVisit are stable from their hooks.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -113,7 +128,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     const board = boards.find((b) => b.id === boardId);
     if (!board) return;
     const parentGroupName = board.group !== null
-      ? groups.find((g) => g.id === board.group)?.name
+      ? groups.find((g) => g.id === board.group)?.name ?? board.group_name ?? undefined
       : undefined;
     recordVisit({
       id: board.id,
@@ -172,7 +187,10 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     return match ? Number(match[1]) : null;
   })();
 
-  const personalBoards = boards.filter((b) => b.group === null);
+  const groupIds = new Set(groups.map((g) => g.id));
+  // Include boards whose group is not accessible (user is a direct board member
+  // only) — these are invisible in the group tree and must appear somewhere.
+  const personalBoards = boards.filter((b) => b.group === null || !groupIds.has(b.group!));
   const sidebarTree = buildSidebarTree(groups, boards);
 
   const hasFavorites = starredBoards.length > 0 || starredGroups.length > 0;
