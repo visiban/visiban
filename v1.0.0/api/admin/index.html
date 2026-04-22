@@ -2877,6 +2877,33 @@
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;is_active&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Invalid field value, or attempting to demote yourself / the last active site admin.</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Caller is not a site admin.</td>
+</tr>
+<tr>
+<td><code>409 Conflict</code></td>
+<td><code>{"code": "owned_boards", "detail": "...", "owned_boards": [{"id", "uid", "name"}, ...]}</code></td>
+<td>Caller attempted to set <code>is_active: false</code> on a user who owns one or more boards. Use <a href="#post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code></a> instead and supply a <code>transfers</code> list. The <code>owned_boards</code> array identifies which boards block the deactivation.</td>
+</tr>
+</tbody>
+</table>
 <h3 id="post-apiv1adminusersiddeactivate"><code>POST /api/v1/admin/users/{id}/deactivate/</code><a class="headerlink" href="#post-apiv1adminusersiddeactivate" title="Permanent link">&para;</a></h3>
 <p>Deactivate a user account and transfer ownership of any boards they own to other members.</p>
 <p><strong>Permission:</strong> <code>IsSiteAdmin</code>. Cannot deactivate your own account.</p>

@@ -2951,6 +2951,10 @@
 <h2 id="groups">Groups<a class="headerlink" href="#groups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groups"><code>GET /api/v1/groups/</code><a class="headerlink" href="#get-apiv1groups" title="Permanent link">&para;</a></h3>
 <p>List all groups accessible to the current user.</p>
+<div class="admonition note">
+<p class="admonition-title">Response shape differs from <code>GET /api/v1/groups/{id}/</code></p>
+<p>The list endpoint uses a leaner <code>GroupSerializer</code> that <strong>does not</strong> include the <code>ancestors</code> field — only the single-object retrieve endpoint (<code>GET /api/v1/groups/{id}/</code>) returns <code>ancestors</code>. Clients iterating the list and reading <code>entry.ancestors</code> will get <code>undefined</code>. Fetch the single group if you need the ancestor chain.</p>
+</div>
 <h3 id="post-apiv1groups"><code>POST /api/v1/groups/</code><a class="headerlink" href="#post-apiv1groups" title="Permanent link">&para;</a></h3>
 <p>Create a group. Any authenticated user may create a top-level group. Creating a subgroup requires admin of the parent.</p>
 <p><strong>Request</strong>
@@ -3062,7 +3066,7 @@
 <tr>
 <td><code>ancestors</code></td>
 <td>array</td>
-<td>Ordered list of ancestor groups from root to immediate parent. Each entry is <code>{ "id": 1, "name": "Acme Corp" }</code>. Empty for top-level groups.</td>
+<td>Ordered list of ancestor groups from root to immediate parent. Each entry is <code>{ "id": 1, "name": "Acme Corp" }</code>. Empty for top-level groups. <strong>Only present on this single-object retrieve endpoint</strong> — the list endpoint (<code>GET /api/v1/groups/</code>) omits <code>ancestors</code>.</td>
 </tr>
 <tr>
 <td><code>created_at</code></td>
