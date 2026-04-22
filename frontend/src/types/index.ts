@@ -141,6 +141,7 @@ export interface CardChecklistItem {
   text: string;
   is_checked: boolean;
   position: number;
+  created_by_id: number | null;
 }
 
 export interface CardAttachment {
