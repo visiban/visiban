@@ -1,5 +1,6 @@
 # Onboarding Tour
 
+> **Added in 1.0**
 
 When a new user opens a board for the first time, Visiban displays a 4-step guided tour that introduces the core concepts:
 

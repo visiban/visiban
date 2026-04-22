@@ -1,5 +1,7 @@
 # Card Archiving
 
+> **Added in 1.0**
+
 Archiving is a soft-delete for cards — an archived card is hidden from the active board but its history is preserved and it can be unarchived at any time.
 
 ## Archiving a card

@@ -274,7 +274,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                     <path d="M2 4h12v1.5H2V4zm0 3h12v1.5H2V7zm0 3h8v1.5H2V10z" />
                   </svg>
                 )}
-                {/* Label pills — truncated full name, up to 3 then overflow */}
+                {/* Label pills — truncated full name, up to 3 then overflow.
+                    Exception to the "filled pill" rule: labels use user-assigned colors
+                    that may be light or low-contrast against white text. Tint + colored
+                    border keeps the label readable across any hue. See frontend/CLAUDE.md. */}
                 {!hideLabels && card.labels.slice(0, 3).map((label) => {
                   const display = label.name.length > 8 ? label.name.slice(0, 7) + "…" : label.name;
                   return (

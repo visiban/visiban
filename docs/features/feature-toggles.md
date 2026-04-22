@@ -1,5 +1,6 @@
 # Feature Toggles
 
+> **Added in 1.0**
 
 Site admins can enable or disable specific features across the entire instance from the admin panel. Toggling a feature does not delete or alter any existing data — it only gates access to that functionality going forward.
 

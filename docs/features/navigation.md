@@ -54,7 +54,7 @@ Every icon in the collapsed rail shows an immediate tooltip on hover with the se
 
 ### Collapsed rail flyout panels
 
-> **Added in 1.0.0**
+> **Added in 1.0**
 
 When the sidebar is collapsed to the 48 px icon rail, clicking a section trigger icon opens a flyout panel to the right of the rail. The flyout contains the full list of items for that section with scroll support, so you can browse and navigate without expanding the sidebar.
 

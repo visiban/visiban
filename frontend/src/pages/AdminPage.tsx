@@ -15,6 +15,7 @@ import {
 import Avatar from "../components/Common/Avatar";
 import Navbar from "../components/Layout/Navbar";
 import ModalWrapper from "../components/shared/ModalWrapper";
+import { Toggle } from "../components/Common/Toggle";
 import type { AdminInviteLink, AdminUser, CreatedAdminInviteLink, RegistrationMode, SiteSettings } from "../types";
 import type { User } from "../types";
 
@@ -344,15 +345,11 @@ function InviteLinksTab() {
         </div>
 
         <label className="flex items-center gap-3 cursor-pointer text-sm text-fg-secondary">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={form.single_use}
-            onClick={() => setForm((f) => ({ ...f, single_use: !f.single_use }))}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${form.single_use ? "bg-primary" : "bg-surface-active"}`}
-          >
-            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${form.single_use ? "translate-x-4" : "translate-x-1"}`} />
-          </button>
+          <Toggle
+            checked={form.single_use}
+            onChange={(checked) => setForm((f) => ({ ...f, single_use: checked }))}
+            aria-label="Single-use"
+          />
           Single-use
         </label>
 
@@ -755,21 +752,12 @@ function SettingsTab() {
             <span className="block text-sm font-medium text-fg">File uploads</span>
             <span className="block text-xs text-fg-muted">Allow members to attach files to cards</span>
           </div>
-          <button
-            role="switch"
-            aria-checked={settings?.uploads_enabled ?? true}
-            onClick={handleUploadsToggle}
+          <Toggle
+            checked={settings?.uploads_enabled ?? true}
+            onChange={() => handleUploadsToggle()}
             disabled={saving}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-              settings?.uploads_enabled ? "bg-primary" : "bg-surface-active"
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${
-                settings?.uploads_enabled ? "translate-x-4" : "translate-x-1"
-              }`}
-            />
-          </button>
+            aria-label="File uploads"
+          />
         </div>
       </div>
 

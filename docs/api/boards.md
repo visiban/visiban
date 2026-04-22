@@ -381,7 +381,41 @@ Export the board as JSON. Returns `application/json`. Requires `member` or `admi
 ```
 
 ### `POST /api/v1/boards/import/`
-Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group (requires group admin). Creates a new board atomically. Requires authentication.
+Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
+
+**Permission:** authenticated user. When `group_id` is set, the caller must be an admin of that group (direct or inherited); a non-admin receives `403 Forbidden`.
+
+**Request** (`multipart/form-data`)
+
+| Field | Required | Description |
+|---|---|---|
+| `file` | ✓ | The JSON or CSV export file. Format is detected from the file contents. |
+| `name` | | Override the imported board name. |
+| `group_id` | | Place the imported board into this group. Requires group admin (see Permission above). |
+
+**Response** `201 Created`
+
+Returns the newly created board object, using the same shape as `GET /api/v1/boards/{id}/`:
+
+```json
+{
+  "id": 512,
+  "uid": "bd_1a2b3c4d5e6f7890",
+  "name": "Imported Board",
+  "owner": { "id": 7, "username": "alice", "display_name": "Alice" },
+  "group": null,
+  "created_at": "2026-04-21T14:02:11Z",
+  "updated_at": "2026-04-21T14:02:11Z"
+}
+```
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, exceeds the upload size limit, is not valid JSON/CSV, or references columns/swimlanes that fail validation. |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
+| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not an admin of that group. |
 
 ---
 
