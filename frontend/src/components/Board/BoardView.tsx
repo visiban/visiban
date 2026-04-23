@@ -39,6 +39,7 @@ import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
 import SplitButton from "../Common/SplitButton";
 import OverflowMenu from "../Layout/OverflowMenu";
 import type { OverflowItem } from "../Layout/OverflowMenu";
+import { formatShortcut } from "../../utils/platform";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
@@ -1136,7 +1137,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         id: "drawer",
         label: drawerOpen ? "Close activity drawer" : "Open activity drawer",
         icon: ActivityDrawerIcon,
-        shortcut: "⌘\\",
+        shortcut: formatShortcut({ mod: true, key: "\\" }),
         onSelect: () => setDrawerOpen((v) => !v),
       });
       if (isAdmin) {
@@ -1157,7 +1158,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         id: "export",
         label: "Export board",
         icon: ExportIcon,
-        shortcut: "⌘⇧E",
+        shortcut: formatShortcut({ mod: true, shift: true, key: "E" }),
         onSelect: () => {
           markExportSeen();
           setShowExport(true);
@@ -1369,20 +1370,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               );
             }}
           />
-          <button
-            data-tour-step="filter"
-            onClick={() => setShowFilters((v) => !v)}
-            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
-            aria-pressed={showFilters || activeCount > 0}
-            aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
-          >
-            {showFilters ? "Hide filters" : "Filters"}
-            {!showFilters && activeCount > 0 && (
-              <span className="ml-1.5 bg-info/20 text-info rounded-full px-1.5 py-0.5 font-medium">
-                {activeCount}
-              </span>
-            )}
-          </button>
+          <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
+            <button
+              data-tour-step="filter"
+              onClick={() => setShowFilters((v) => !v)}
+              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              aria-pressed={showFilters || activeCount > 0}
+              aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+            >
+              {showFilters ? "Hide filters" : "Filters"}
+              {!showFilters && activeCount > 0 && (
+                <span className="ml-1.5 bg-info/20 text-info rounded-full px-1.5 py-0.5 font-medium">
+                  {activeCount}
+                </span>
+              )}
+            </button>
+          </Tooltip>
           {!foldToolbarControls && (
           <Tooltip content={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}>
             <button
@@ -1421,7 +1424,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 3: Utilities (direct at lg; folded into overflow at md/sm) */}
         <div className="flex items-center gap-1">
-          <Tooltip content={drawerOpen ? "Close activity drawer (⌘\\)" : "Open activity drawer (⌘\\)"}>
+          <Tooltip content={`${drawerOpen ? "Close activity drawer" : "Open activity drawer"} (${formatShortcut({ mod: true, key: "\\" })})`}>
             <button
               onClick={() => setDrawerOpen((v) => !v)}
               aria-pressed={drawerOpen}
@@ -1433,7 +1436,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {ActivityDrawerIcon}
             </button>
           </Tooltip>
-          <Tooltip content="Keyboard shortcuts">
+          <Tooltip content="Keyboard shortcuts (?)">
             <button
               onClick={() => { markShortcutsSeen(); setShowShortcuts((v) => !v); }}
               className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -1447,7 +1450,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </button>
           </Tooltip>
           {canExport && (
-          <Tooltip content="Export board">
+          <Tooltip content={`Export board (${formatShortcut({ mod: true, shift: true, key: "E" })})`}>
             <button
               onClick={() => { markExportSeen(); setShowExport(true); }}
               className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

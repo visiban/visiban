@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
 import UserMenu from "./UserMenu";
+import { formatShortcut, isMacPlatform } from "../../utils/platform";
 
 interface BreadcrumbItem {
   label: string;
@@ -158,15 +159,15 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
-            aria-label="Search (Cmd+K)"
-            title="Search (⌘K)"
+            aria-label={`Search (${isMacPlatform() ? "Cmd+K" : "Ctrl+K"})`}
+            title={`Search (${formatShortcut({ mod: true, key: "K" })})`}
             className="flex items-center gap-2 px-2 py-1 text-xs text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis w-8 h-8 justify-center lg:w-40 lg:h-auto lg:justify-between shrink-0"
           >
             <span className="flex items-center gap-2">
               <span aria-hidden="true">🔍</span>
               <span className="hidden lg:inline">Search</span>
             </span>
-            <span aria-hidden="true" className="hidden lg:inline text-fg-faint">⌘K</span>
+            <span aria-hidden="true" className="hidden lg:inline text-fg-faint">{formatShortcut({ mod: true, key: "K" })}</span>
           </button>
 
           {/* Notification bell */}

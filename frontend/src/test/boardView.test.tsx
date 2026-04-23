@@ -857,9 +857,33 @@ describe('BoardView', () => {
     it('keyboard shortcuts and settings icons have tooltips', () => {
       render(<BoardView {...defaultProps()} />)
       const shortcuts = screen.getByLabelText('Keyboard shortcuts')
-      expect(shortcuts.getAttribute('data-tooltip')).toBe('Keyboard shortcuts')
+      expect(shortcuts.getAttribute('data-tooltip')).toBe('Keyboard shortcuts (?)')
       const settings = screen.getByLabelText('Board settings')
       expect(settings.getAttribute('data-tooltip')).toBe('Board settings')
+    })
+
+    it('Filters, Export, and Activity drawer tooltips advertise their keyboard shortcuts', () => {
+      // Force Mac so the shortcut renders with ⌘ glyphs; non-Mac path is
+      // covered by platform.test.ts.
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+      Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
+      render(<BoardView {...defaultProps()} />)
+      const filters = screen.getByLabelText('Filters')
+      expect(filters.getAttribute('data-tooltip')).toBe('Filters (F)')
+      const exportBtn = screen.getByLabelText('Export board')
+      expect(exportBtn.getAttribute('data-tooltip')).toBe('Export board (⌘⇧E)')
+      const drawer = screen.getByLabelText('Open activity drawer')
+      expect(drawer.getAttribute('data-tooltip')).toBe('Open activity drawer (⌘\\)')
+    })
+
+    it('non-Mac platform renders Ctrl/Shift tooltip labels', () => {
+      Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true })
+      Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
+      render(<BoardView {...defaultProps()} />)
+      const exportBtn = screen.getByLabelText('Export board')
+      expect(exportBtn.getAttribute('data-tooltip')).toBe('Export board (Ctrl+Shift+E)')
+      const drawer = screen.getByLabelText('Open activity drawer')
+      expect(drawer.getAttribute('data-tooltip')).toBe('Open activity drawer (Ctrl+\\)')
     })
 
     it('Live indicator has role=status', () => {

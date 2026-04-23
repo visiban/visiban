@@ -45,6 +45,11 @@ describe('Navbar', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUnreadCount.mockResolvedValue(0)
+    // Force the Mac platform code path so existing assertions that expect
+    // ⌘K glyphs keep passing. A parallel suite lives in platform.test.ts for
+    // the non-Mac branch.
+    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+    Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
   })
 
   it('renders app name link', () => {
