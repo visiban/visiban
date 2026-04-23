@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
@@ -27,9 +28,13 @@ export interface SplitButtonProps {
 /**
  * Segmented button with a primary action on the left and a chevron menu
  * trigger on the right. Each half is an independent `<button>` with its own
- * focus ring and tab stop — the WAI-ARIA split-button pattern. The caller
- * owns the menu items via renderMenu; SplitButton owns the panel chrome,
- * positioning, outside-click dismissal, Escape handling, and open state.
+ * focus ring and tab stop — the WAI-ARIA split-button pattern.
+ *
+ * The menu panel is portaled to document.body to escape the toolbar's
+ * `overflow-x-auto` region (CSS spec: `overflow-x: auto` with the default
+ * `overflow-y: visible` promotes the y-axis to `auto` too, clipping any
+ * descendant dropdown). Position is captured at click time via
+ * `getBoundingClientRect` and used for `position: fixed` rendering.
  */
 export default function SplitButton({
   primaryLabel,
@@ -44,47 +49,76 @@ export default function SplitButton({
   className = "",
 }: SplitButtonProps) {
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  // Menu anchor captured at click time — right-edge aligned to the chevron so
+  // the menu doesn't drift off-screen at narrow widths. Stored as state (not
+  // ref) so position survives a re-render without re-measuring.
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const chevronRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const menuId = `${id}-menu`;
 
-  const close = () => setOpen(false);
+  const close = () => {
+    setOpen(false);
+    setAnchor(null);
+  };
   useDropdownEscape(open, close, chevronRef);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t)) return;
+      if (chevronRef.current?.contains(t)) return;
+      close();
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+    // `close` is stable for the scope of this effect's deps (all setters are stable)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const openMenu = () => {
+    const rect = chevronRef.current?.getBoundingClientRect();
+    if (rect) {
+      setAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen(true);
+  };
+
+  const toggleMenu = () => {
+    if (open) close();
+    else openMenu();
+  };
+
   const handleChevronKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        setOpen(true);
-      }
-    } else if (e.key === "ArrowDown") {
-      // Delegated to the menu's roving-focus handler on its first item via
-      // autoFocus — no-op here but keep preventDefault so the page doesn't scroll.
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      openMenu();
+    } else if (open && e.key === "ArrowDown") {
       e.preventDefault();
     }
   };
 
-  return (
+  const panel = open && anchor ? (
     <div
-      ref={wrapperRef}
-      className={`relative inline-flex items-stretch shrink-0 rounded ${className}`}
+      ref={panelRef}
+      role="menu"
+      id={menuId}
+      aria-label={menuAriaLabel ?? `${primaryLabel} menu`}
+      style={{ position: "fixed", top: anchor.top, right: anchor.right }}
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[200px]"
     >
+      {renderMenu({ close })}
+    </div>
+  ) : null;
+
+  return (
+    <div className={`inline-flex items-stretch shrink-0 rounded ${className}`}>
       <button
         type="button"
         onClick={() => {
-          if (open) setOpen(false);
+          if (open) close();
           onPrimary();
         }}
         disabled={primaryDisabled}
@@ -98,7 +132,8 @@ export default function SplitButton({
       <button
         ref={chevronRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleMenu}
+        onMouseDown={(e) => { if (open) e.stopPropagation(); }}
         onKeyDown={handleChevronKeyDown}
         disabled={menuDisabled}
         aria-haspopup="menu"
@@ -125,16 +160,7 @@ export default function SplitButton({
           />
         </svg>
       </button>
-      {open && (
-        <div
-          role="menu"
-          id={menuId}
-          aria-label={menuAriaLabel ?? `${primaryLabel} menu`}
-          className="absolute top-full right-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[200px]"
-        >
-          {renderMenu({ close })}
-        </div>
-      )}
+      {panel && createPortal(panel, document.body)}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
@@ -35,14 +36,9 @@ interface OverflowMenuProps {
 /**
  * Row 2 board toolbar overflow kebab (`⋮`) with an items-driven menu.
  *
- * When items is empty the kebab is not rendered — the menu has nothing to
- * offer and the `.` shortcut is a no-op (the BoardView caller gates the
- * shortcut handler on items.length > 0).
- *
- * Items pass through in order. Each item may request an engraved separator
- * before it via `separatorBefore: true`. Disabled items must supply a
- * `disabledReason` string — the dropdown spec requires an explanation for any
- * greyed-out control.
+ * The menu panel is portaled to document.body so future Row 2 restructures
+ * don't reintroduce the `overflow-x-auto` clipping trap that hid the
+ * SplitButton dropdown on narrow viewports.
  */
 export default function OverflowMenu({
   items,
@@ -55,8 +51,9 @@ export default function OverflowMenu({
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isControlled ? externalOpen : internalOpen;
 
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const id = useId();
   const menuId = `${id}-menu`;
@@ -64,25 +61,37 @@ export default function OverflowMenu({
   const setOpen = (v: boolean) => {
     if (isControlled) onExternalOpenChange?.(v);
     else setInternalOpen(v);
+    if (!v) setAnchor(null);
   };
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
+  // Capture position whenever the menu opens (internally or externally).
+  useEffect(() => {
+    if (!open) {
+      setAnchor(null);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-    // setOpen is stable via isControlled branching; intentionally not in deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Focus the first enabled item when opened via keyboard (either `.` external
-  // open or chevron keyboard activation). Defer a tick so the menu DOM exists.
+  // Focus the first enabled item when opened (keyboard or external path).
   useEffect(() => {
     if (!open) return;
     const t = window.setTimeout(() => {
@@ -150,12 +159,74 @@ export default function OverflowMenu({
 
   if (items.length === 0) return null;
 
+  const panel = open && anchor ? (
+    <div
+      ref={panelRef}
+      role="menu"
+      id={menuId}
+      aria-label="More board actions"
+      style={{ position: "fixed", top: anchor.top, right: anchor.right }}
+      className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-h-[70vh] overflow-y-auto"
+    >
+      {items.map((item, i) => (
+        <div key={item.id}>
+          {item.separatorBefore && (
+            <div role="separator" className="mx-4 my-1">
+              <div className="h-px bg-sunken" />
+              <div className="h-px bg-surface-active/50" />
+            </div>
+          )}
+          <button
+            ref={(el) => {
+              itemRefs.current[i] = el;
+            }}
+            type="button"
+            role="menuitem"
+            disabled={item.disabled}
+            title={item.disabled ? item.disabledReason : undefined}
+            aria-label={
+              item.disabled && item.disabledReason
+                ? `${item.label} — ${item.disabledReason}`
+                : undefined
+            }
+            onClick={() => {
+              if (item.disabled) return;
+              item.onSelect();
+              setOpen(false);
+            }}
+            onKeyDown={(e) => handleItemKeyDown(e, i)}
+            className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {item.icon !== undefined && (
+              <span
+                className="w-4 text-center flex-shrink-0 text-fg-muted"
+                aria-hidden="true"
+              >
+                {item.icon}
+              </span>
+            )}
+            <span className="flex-1 text-left truncate">{item.label}</span>
+            {item.shortcut && (
+              <kbd
+                className="bg-surface-hover text-fg-muted text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"
+                aria-hidden="true"
+              >
+                {item.shortcut}
+              </kbd>
+            )}
+          </button>
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   return (
-    <div ref={wrapperRef} className="relative">
+    <div className="relative">
       <button
         ref={triggerRef}
         type="button"
         onClick={handleTriggerClick}
+        onMouseDown={(e) => { if (open) e.stopPropagation(); }}
         onKeyDown={handleTriggerKeyDown}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -184,64 +255,7 @@ export default function OverflowMenu({
           />
         )}
       </button>
-      {open && (
-        <div
-          role="menu"
-          id={menuId}
-          aria-label="More board actions"
-          className="absolute top-full right-0 mt-1 z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-h-[70vh] overflow-y-auto"
-        >
-          {items.map((item, i) => (
-            <div key={item.id}>
-              {item.separatorBefore && (
-                <div role="separator" className="mx-4 my-1">
-                  <div className="h-px bg-sunken" />
-                  <div className="h-px bg-surface-active/50" />
-                </div>
-              )}
-              <button
-                ref={(el) => {
-                  itemRefs.current[i] = el;
-                }}
-                type="button"
-                role="menuitem"
-                disabled={item.disabled}
-                title={item.disabled ? item.disabledReason : undefined}
-                aria-label={
-                  item.disabled && item.disabledReason
-                    ? `${item.label} — ${item.disabledReason}`
-                    : undefined
-                }
-                onClick={() => {
-                  if (item.disabled) return;
-                  item.onSelect();
-                  setOpen(false);
-                }}
-                onKeyDown={(e) => handleItemKeyDown(e, i)}
-                className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {item.icon !== undefined && (
-                  <span
-                    className="w-4 text-center flex-shrink-0 text-fg-muted"
-                    aria-hidden="true"
-                  >
-                    {item.icon}
-                  </span>
-                )}
-                <span className="flex-1 text-left truncate">{item.label}</span>
-                {item.shortcut && (
-                  <kbd
-                    className="bg-surface-hover text-fg-muted text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong flex-shrink-0"
-                    aria-hidden="true"
-                  >
-                    {item.shortcut}
-                  </kbd>
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      {panel && createPortal(panel, document.body)}
     </div>
   );
 }
