@@ -138,7 +138,9 @@ export default function App() {
                     </button>
                     <span className="text-sm font-semibold text-fg">Visiban</span>
                   </div>
-                  <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+                  <main role="main" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <AuthenticatedRoutes user={user} onLogout={logout} onUserUpdated={updateUser} onStarToggled={handleStarToggled} />
+                  </main>
                 </div>
               </div>
           } />

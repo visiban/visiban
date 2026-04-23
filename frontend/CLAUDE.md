@@ -93,7 +93,27 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
 
+## Top chrome — two-row composition
+
+The authenticated UI is framed by two horizontally-divided chrome rows and a main region. Maintain this skeleton across all routes; feature work lands inside the rows, not on top of them.
+
+| Row | Purpose | Surface | Height | Typography | Landmark |
+|---|---|---|---|---|---|
+| Row 1 | App header (logo, breadcrumb, star, utilities, account) | `bg-sunken border-b border-line` | `h-14` | `text-sm text-fg` | `<header role="banner">` |
+| Row 2 | Board chrome (view tabs, actions, utilities, connection status) | `bg-surface border-b border-line` | `h-10` | `text-xs text-fg-tertiary` (default; active view tab keeps its own active styling) | `<nav aria-label="Board toolbar">` |
+| Filter row | Conditional card filter chips | `bg-surface border-b border-line` | auto (single row, wraps) | inherits | `role="search" aria-label="Card filters"` on the wrapper |
+| Main | Route content | inherits from route | `flex-1` | — | `<main role="main">` wraps `<AuthenticatedRoutes>` in `App.tsx` |
+
+- **The accessible name for Row 2 is `"Board toolbar"`, not `"Board chrome"`** — "chrome" is developer jargon that announces as meaningless noise in screen readers. If internal design docs reference "chrome", the landmark label still stays `"Board toolbar"`.
+- **Vertical dividers** between logical zones inside Row 2: `w-px h-4 bg-surface-hover mx-1` with `aria-hidden="true"`. Use between zone 1/2 and zone 2/3; never as a heading/section break.
+- **Row 2 single source of vertical rhythm** — the outer `<nav>` owns the `h-10 flex items-center`. The inner toolbar container uses `h-full flex items-center` and must not re-introduce `py-*` padding, which would double-pad against zone button `p-1.5`/`px-3 py-1` heights.
+- **Horizontal overflow behavior on narrow viewports:** `overflow-x-auto` stays on the outer `<nav>`; the inner toolbar uses `min-w-max` so the full control set scrolls horizontally rather than wrapping or compressing.
+- **Never add a fifth landmark in chrome** — if a future feature needs a new region, fold it into one of the existing landmarks. Four landmarks (`banner`, `navigation: Breadcrumb`, `navigation: Board toolbar`, `search: Card filters`) plus `main` is the cap.
+- **Always query landmarks by accessible name in tests** — with multiple `<nav>` elements in the tree, bare `getByRole('navigation')` is ambiguous. Use `getByRole('navigation', { name: 'Board toolbar' })`.
+
 ## Board navigation bar
+
+This section refines the Row 2 landmark described in § Top chrome — two-row composition above. Anything here is scoped to individual controls inside that `<nav aria-label="Board toolbar">`; the outer surface, height, typography, and dividers are set by the top-chrome section. Do not re-specify them here.
 
 The sub-nav bar directly below the main navbar contains view tabs, actions, and status:
 

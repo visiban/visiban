@@ -138,4 +138,20 @@ describe('Navbar', () => {
     expect(screen.queryByText('dev')).not.toBeInTheDocument()
     expect(screen.queryByText(/^\d+\.\d+/)).not.toBeInTheDocument()
   })
+
+  it('renders Row 1 as <header role="banner"> with h-14', () => {
+    renderNavbar()
+    const banner = screen.getByRole('banner')
+    expect(banner.tagName).toBe('HEADER')
+    expect(banner.className).toMatch(/\bh-14\b/)
+    expect(banner.className).toMatch(/bg-sunken/)
+  })
+
+  it('logo link is keyboard-reachable with a visible focus ring', () => {
+    renderNavbar()
+    const logoLink = screen.getByAltText('Visiban').closest('a')
+    expect(logoLink).not.toBeNull()
+    expect(logoLink?.className).toMatch(/focus:ring-2/)
+    expect(logoLink?.className).toMatch(/focus:ring-primary-emphasis/)
+  })
 })
