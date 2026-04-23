@@ -33,6 +33,7 @@ type AvatarUser = Pick<User, "avatar_url" | "display_name" | "username"> &
 const SIZE_CLASSES = {
   xs: "w-5 h-5 text-[10px]",
   sm: "w-6 h-6 text-xs",
+  trigger: "w-7 h-7 text-xs",
   md: "w-8 h-8 text-sm",
   lg: "w-10 h-10 text-base",
 };
