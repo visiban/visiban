@@ -3093,7 +3093,8 @@
 <hr />
 <h2 id="subgroups">Subgroups<a class="headerlink" href="#subgroups" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidsubgroups"><code>GET /api/v1/groups/{id}/subgroups/</code><a class="headerlink" href="#get-apiv1groupsidsubgroups" title="Permanent link">&para;</a></h3>
-<p>List direct subgroups. Requires group membership.</p>
+<p>List direct subgroups of this group that are visible to the requesting user. Requires membership in this group or any ancestor group. Visibility follows the RBAC inheritance model: members of a parent group see all descendant subgroups (not only subgroups they have been added to directly) — see <a href="../../features/rbac/inheritance/#visibility-of-descendant-groups">Role Inheritance</a> for the full rule.</p>
+<p><strong>Response</strong> — array of <code>Group</code> summary objects (same shape as the list endpoint; <code>ancestors</code> is omitted for parity with <code>GET /api/v1/groups/</code>).</p>
 <hr />
 <h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidboards"><code>GET /api/v1/groups/{id}/boards/</code><a class="headerlink" href="#get-apiv1groupsidboards" title="Permanent link">&para;</a></h3>
