@@ -1045,7 +1045,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     <>
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
       <div className="overflow-x-auto shrink-0 bg-surface border-b border-line">
-      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 gap-2 min-w-max">
+      <div data-testid="board-toolbar" className="flex items-center pl-3 pr-4 py-1.5 gap-2 min-w-max">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
           <ViewToggle view={view} onChange={setView} />
