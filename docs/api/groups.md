@@ -75,7 +75,9 @@ Remove a member. Requires group admin. Cannot remove a site admin.
 ## Subgroups
 
 ### `GET /api/v1/groups/{id}/subgroups/`
-List direct subgroups. Requires group membership.
+List direct subgroups of this group that are visible to the requesting user. Requires membership in this group or any ancestor group. Visibility follows the RBAC inheritance model: members of a parent group see all descendant subgroups (not only subgroups they have been added to directly) — see [Role Inheritance](../features/rbac/inheritance.md#visibility-of-descendant-groups) for the full rule.
+
+**Response** — array of `Group` summary objects (same shape as the list endpoint; `ancestors` is omitted for parity with `GET /api/v1/groups/`).
 
 ---
 
