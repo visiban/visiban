@@ -2884,6 +2884,9 @@
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsboard_idcards"><code>GET /api/v1/boards/{board_id}/cards/</code><a class="headerlink" href="#get-apiv1boardsboard_idcards" title="Permanent link">&para;</a></h3>
 <p>List all cards on the board. Pagination is disabled — all cards are returned in a single response.</p>
+<blockquote>
+<p><strong>Response shape:</strong> This endpoint returns a bare JSON array (<code>[ {...}, {...} ]</code>), not the standard <code>{count, offset, page_size, results}</code> pagination envelope used by other list endpoints. The endpoint is intentionally unpaginated because the board UI bulk-loads cards via <code>GET /api/v1/boards/{board_id}/full/</code>. Generic API clients that assume a pagination envelope must special-case this endpoint.</p>
+</blockquote>
 <p><strong>Query parameters</strong></p>
 <table>
 <thead>
