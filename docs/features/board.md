@@ -193,10 +193,30 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `f` | Toggle the filter bar |
 | `/` | Open the filter bar and focus the search input |
 | `?` | Show / hide the keyboard shortcuts overlay |
+| `.` | Open the overflow menu in the board toolbar |
 | `Esc` | Deselect cards / close the card detail panel or any open dialog |
+| `⌘K` / `Ctrl+K` | Open the command palette |
+| `⌘\` / `Ctrl+\` | Toggle the activity drawer |
+| `⌘⇧E` / `Ctrl+Shift+E` | Open the Export board dialog (when export is permitted) |
+| `⌘,` / `Ctrl+,` | Open the Board settings dialog (admins only) |
 | `Space` + drag | Pan the board (see [Board panning](#board-panning)) |
 
-Shortcuts are ignored when focus is inside an input, textarea, or select element.
+Bare single-key shortcuts (`f`, `/`, `?`, `.`) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (`⌘K`, `⌘\`, `⌘⇧E`) fire from any focus location.
+
+### Board toolbar layout
+
+The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:
+
+- **Zone 1** — view tabs (Board / Summary / History / Analytics)
+- **Zone 2** — board controls (Collapse split button, Filters, Layout toggle, Archived)
+- **Zone 3** (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)
+- **Trailing cluster** — overflow kebab (`⋮`) and connection status; always visible
+
+The **Collapse** button is a split control: clicking the main segment collapses or expands everything at once (preserving one-click muscle memory), while clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.
+
+The overflow kebab (`⋮`) contains Export, Keyboard shortcuts, and Replay onboarding tour. On viewports below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into the overflow menu as well — the toolbar degrades gracefully without hiding functionality.
+
+On viewports below 768 px (phones and narrow tablets), Zone 2 becomes a horizontally-scrolling strip while the trailing cluster stays pinned to the right edge so the overflow kebab is always reachable.
 
 ## Card layout
 

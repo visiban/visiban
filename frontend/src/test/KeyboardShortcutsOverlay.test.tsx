@@ -48,7 +48,13 @@ describe('KeyboardShortcutsOverlay', () => {
     expect(keys).toContain('f')
     expect(keys).toContain('/')
     expect(keys).toContain('?')
+    expect(keys).toContain('.')
     expect(keys).toContain('Esc')
+  })
+
+  it('documents the . shortcut for the overflow menu (#853)', () => {
+    render(<KeyboardShortcutsOverlay onClose={() => {}} />)
+    expect(screen.getByText('Open the overflow menu')).toBeInTheDocument()
   })
 
   it('renders in a fixed overlay container', () => {

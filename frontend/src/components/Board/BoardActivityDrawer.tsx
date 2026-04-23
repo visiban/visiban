@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatRelativeTime } from "../../utils/date";
+import { formatShortcut } from "../../utils/platform";
 
 export type ActivityEntry = {
   id: string;
@@ -148,7 +149,7 @@ export default function BoardActivityDrawer({ feed, onClose, onOpenHistory, now 
         >
           Open full history →
         </button>
-        <span className="text-fg-faint">⌘\ to close</span>
+        <span className="text-fg-faint">{formatShortcut({ mod: true, key: "\\" })} to close</span>
       </div>
     </aside>
   );

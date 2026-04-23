@@ -107,7 +107,7 @@ The authenticated UI is framed by two horizontally-divided chrome rows and a mai
 - **The accessible name for Row 2 is `"Board toolbar"`, not `"Board chrome"`** — "chrome" is developer jargon that announces as meaningless noise in screen readers. If internal design docs reference "chrome", the landmark label still stays `"Board toolbar"`.
 - **Vertical dividers** between logical zones inside Row 2: `w-px h-4 bg-surface-hover mx-1` with `aria-hidden="true"`. Use between zone 1/2 and zone 2/3; never as a heading/section break.
 - **Row 2 single source of vertical rhythm** — the outer `<nav>` owns the `h-10 flex items-center`. The inner toolbar container uses `h-full flex items-center` and must not re-introduce `py-*` padding, which would double-pad against zone button `p-1.5`/`px-3 py-1` heights.
-- **Horizontal overflow behavior on narrow viewports:** `overflow-x-auto` stays on the outer `<nav>`; the inner toolbar uses `min-w-max` so the full control set scrolls horizontally rather than wrapping or compressing.
+- **Horizontal overflow behavior on narrow viewports:** when Row 2 has a pinned trailing cluster (overflow kebab + connection status), the scrollable region is an inner wrapper with `flex-1 min-w-0 overflow-x-auto`, not the outer `<nav>`. The inner toolbar inside that region uses `min-w-max` so the control set scrolls horizontally. The pinned cluster sits as a sibling flex-child of the scrollable region with `shrink-0` and `border-l border-line` so it is always visible even when the scroll region overflows. When a Row 2 layout has no pinned trailing cluster (e.g. non-board routes), `overflow-x-auto` may stay on the outer `<nav>`.
 - **Never add a fifth landmark in chrome** — if a future feature needs a new region, fold it into one of the existing landmarks. Four landmarks (`banner`, `navigation: Breadcrumb`, `navigation: Board toolbar`, `search: Card filters`) plus `main` is the cap.
 - **Always query landmarks by accessible name in tests** — with multiple `<nav>` elements in the tree, bare `getByRole('navigation')` is ambiguous. Use `getByRole('navigation', { name: 'Board toolbar' })`.
 
@@ -446,7 +446,33 @@ When a persistent board-wide mode is active (e.g. focus mode, a future "view-onl
 
 ## Common dropdown primitives
 
-`SingleSelectDropdown` and `CheckboxDropdown` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both follow the dropdown menu spec (trigger: `bg-surface border rounded px-2 py-1`, active/filtered state: `border-primary-soft text-info`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
+`SingleSelectDropdown`, `CheckboxDropdown`, and `SplitButton` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both dropdowns follow the dropdown menu spec (trigger: `bg-surface border rounded px-2 py-1`, active/filtered state: `border-primary-soft text-info`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
+
+### SplitButton
+
+Use `SplitButton` whenever a toolbar action has a dominant single-click behavior plus a menu of granular variants (e.g. Collapse / Collapse lanes / Collapse columns). Rules:
+
+- **Two sibling `<button>` elements** inside a visual container — each with its own tab stop and focus ring. Never implement a split button as a single focus target with two click zones; it fails the WAI-ARIA Menu Button pattern and breaks keyboard access for power users.
+- **Segmentation token:** `border-line-strong` on the chevron's left edge — not `border-line`. The stronger token is required so the visual bisection is obvious at rest on `bg-surface`.
+- **Primary segment size:** `text-xs px-2 py-1 rounded-l` — matches Row 2 text buttons (Filters, Archived).
+- **Chevron segment size:** `px-1.5 py-1 rounded-r` with a `w-3 h-3` chevron SVG (stroke 1.5). Use the same chevron shape as `SingleSelectDropdown` (`M4 6l4 4 4-4`).
+- **Menu open state** on the chevron: `text-info bg-info/10`, identical to the active-toggle treatment used by other Row 2 controls. The primary segment never changes state.
+- **Menu panel** uses the shared dropdown chrome: `bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[200px]`, right-aligned to the chevron.
+- **Items author their own content** via `renderMenu({ close })` — SplitButton owns positioning, outside-click, Escape handling, and open state; the caller decides the item shape, vocabulary, and disabled logic.
+- **Menu vocabulary** must match app-wide terminology. In Visiban, the axis terms are "swimlanes" and "columns" (not "lanes", "rows"). Use action-first copy (`Hide all swimlanes`, not `Collapse lanes`) so occasional users aren't forced to learn domain jargon to operate the menu.
+- **Disabled items stay rendered.** If an action would be a no-op (e.g. `Hide all swimlanes` when everything is already collapsed), apply `disabled` to the item rather than removing it — the menu shape is stable across states so users can build a mental model.
+- **Two engraved separator groups** inside a collapse-style menu: Hide-variants first, Show-variants second, separated by the canonical double-`<div>` engraved separator. Both groups are always rendered.
+
+### OverflowMenu
+
+`OverflowMenu` in `src/components/Layout/` is the Row 2 kebab (`⋮`) menu. It is driven by an `items: OverflowItem[]` prop so enterprise surfaces (audit log, automation rules) can inject entries without modifying the OSS component.
+
+- **Trigger icon:** `p-1.5 rounded` kebab (`w-4 h-4` SVG with three `r=1.75` circles), `text-fg-tertiary hover:text-fg hover:bg-surface-hover`. Open-state uses `text-info bg-info/10`.
+- **First-encounter dot:** uses the shared `user:prefs:overflow-seen` key via `useOverflowSeenPref`. The dot clears on **intentional click of the kebab**, never on the `.` keyboard shortcut — the shortcut proves the user already knows the menu exists.
+- **Row anatomy:** `flex items-center gap-3 px-3 py-1.5 text-sm text-fg-secondary`, three slots — a `w-4 text-center` icon, a `flex-1 truncate` label, and an optional right-aligned `<kbd>` shortcut hint styled identically to `KeyboardShortcutsOverlay`.
+- **Separators** use `separatorBefore: true` on the item that should be preceded by the engraved double-`<div>`. The separator is implicitly omitted on the first rendered item.
+- **Disabled items require `disabledReason`** — the string is rendered as a `title` attribute and contributes to the `aria-label`. A silently-greyed item is a dead end; always explain why.
+- **Items are responsive-aware** — at sub-`lg` viewports, fold the direct Row 2 secondary controls into the items array so functionality is preserved without cluttering the toolbar. Do not spray `matchMedia` checks across consumers; use `useIsLargeViewport` / `useIsMediumViewport` hooks and build the items list in `BoardView` once.
 
 - **`SingleSelectDropdown` — `triggerPrefix` slot for decorative icons.** When a trigger needs a leading icon (e.g. `🔍 This board ▾`), pass it via the `triggerPrefix` prop. The component wraps the node in `aria-hidden="true"` — keep the accessible name on the dropdown label, not the icon. Do not bake icons into each option label; that duplicates the glyph across the menu panel and couples the icon to the option rather than the trigger.
 
