@@ -50,10 +50,16 @@
      The `-bg` variants are the solid button fills; `-emphasis` and `-soft` are
      the focus-ring / border / filter-badge shades. Brand blue is identical in
      both themes. */
-  --primary: 37 99 235;            /* blue-600 — button bg */
-  --primary-hover: 29 78 216;      /* blue-700 — button hover bg */
+  --primary: 37 99 235;            /* blue-600 — brand tint (avatars, active tabs, toggle tracks) */
+  --primary-hover: 29 78 216;      /* blue-700 — paired hover for brand-tint surfaces */
   --primary-emphasis: 59 130 246;  /* blue-500 — focus rings, active borders */
   --primary-soft: 96 165 250;      /* blue-400 — first-encounter dots, soft accents */
+
+  /* Primary CTA fill. In dark mode this mirrors --primary/--primary-hover (blue-600/700),
+     which clears WCAG AA against white on slate-900. In light mode it darkens to blue-900/800
+     for comfortable AAA contrast — see issue #855. */
+  --button-primary: 37 99 235;
+  --button-primary-hover: 29 78 216;
 
   /* Interactive — destructive action */
   --danger-bg: 220 38 38;          /* red-600 — danger button bg */
@@ -110,11 +116,15 @@
   --success: 22 163 74;            /* green-600 */
   --info: 37 99 235;               /* blue-600 */
 
-  /* Interactive — same Visiban brand blue in both themes */
+  /* Brand-tint surfaces stay on Visiban blue-600 in light mode (avatars, active tabs, toggles). */
   --primary: 37 99 235;
   --primary-hover: 29 78 216;
   --primary-emphasis: 59 130 246;
   --primary-soft: 96 165 250;
+
+  /* Primary CTA fill darkens to blue-900/800 on white for comfortable AAA contrast (#855). */
+  --button-primary: 30 58 138;       /* blue-900 — 10.36:1 on white */
+  --button-primary-hover: 30 64 175; /* blue-800 — 8.59:1 on white */
 
   --danger-bg: 220 38 38;
   --danger-bg-hover: 185 28 28;

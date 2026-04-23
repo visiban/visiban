@@ -1711,7 +1711,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddColumn(true)}
-                  className="text-sm bg-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="text-sm bg-button-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   + Add column
                 </button>
@@ -1811,7 +1811,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               {isAdmin && (
                 <button
                   onClick={() => setShowAddSwimlane(true)}
-                  className="text-sm bg-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="text-sm bg-button-primary text-on-primary px-4 py-2 rounded font-medium hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   + Add swimlane
                 </button>

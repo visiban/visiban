@@ -98,7 +98,7 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Sign in
             </button>
@@ -122,7 +122,7 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Request a new link
             </button>
@@ -176,7 +176,7 @@ export default function ResetPasswordPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {submitting ? "Resetting…" : "Set new password"}
               </button>

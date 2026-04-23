@@ -47,7 +47,7 @@ export default class SectionErrorBoundary extends Component<Props, State> {
             </pre>
             <button
               onClick={() => this.setState({ error: null })}
-              className="bg-primary hover:bg-primary-hover text-fg text-xs px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-xs font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Retry
             </button>

@@ -784,7 +784,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       />
                       <div className="flex justify-end gap-3">
                         <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
-                        <button onClick={handleBulkAdd} className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
+                        <button onClick={handleBulkAdd} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
                       </div>
                     </div>
                   </div>
@@ -935,7 +935,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     <div className="flex justify-end">
                       <button
                         onClick={handleComment}
-                        className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         Comment
                       </button>
@@ -1000,7 +1000,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <button
               onClick={handleMoveSubmit}
               disabled={moveSubmitting || moveTargetColumn === null || moveTargetSwimlane === null || (moveTargetColumn === localCard.column && moveTargetSwimlane === localCard.swimlane)}
-              className="text-sm bg-primary hover:bg-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >{moveSubmitting ? "Moving…" : "Move"}</button>
           </div>
         </div>

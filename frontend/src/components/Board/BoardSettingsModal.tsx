@@ -547,7 +547,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <button
                       onClick={handleInviteSubmit}
                       disabled={staged.length === 0 || inviting}
-                      className="w-full py-2 rounded bg-primary hover:bg-primary-hover text-fg text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      className="w-full py-2 rounded bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       {inviting ? "Adding…" : staged.length > 0 ? `Add ${staged.length} member${staged.length !== 1 ? "s" : ""} to board` : "Add to board"}
                     </button>
@@ -853,7 +853,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </div>
                 <button
                   onClick={() => { if (exportFormat === "json") { exportBoardJson(board.id); } else { exportBoardCsv(board.id); } onClose(); }}
-                  className="w-full mt-3 bg-primary hover:bg-primary-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="w-full mt-3 bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Export {exportFormat.toUpperCase()}
                 </button>
@@ -918,7 +918,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       <button
                         disabled={deleteInput !== board.name}
                         onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                        className="w-full bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                        className="w-full bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                       >
                         Delete board
                       </button>
@@ -926,7 +926,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   ) : (
                     <button
                       onClick={async () => { await deleteBoard(board.id); onBoardDeleted(); }}
-                      className="w-full bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                      className="w-full bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                     >
                       Delete board
                     </button>

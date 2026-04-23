@@ -68,7 +68,7 @@ export default function ConfirmEmailPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Sign in
             </button>
@@ -95,7 +95,7 @@ export default function ConfirmEmailPage() {
             <button
               type="button"
               onClick={() => navigate("/")}
-              className="w-full bg-primary hover:bg-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Go to sign in
             </button>

@@ -971,7 +971,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   <button
                     onClick={handleAddGroupLabel}
                     disabled={addingLabel || !newLabelName.trim()}
-                    className="text-sm text-fg bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    className="text-sm text-on-primary bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                   >
                     Add
                   </button>

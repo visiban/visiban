@@ -193,7 +193,7 @@ function ProfileTab({ user, onUserUpdated, from }: { user: User; onUserUpdated: 
         <button
           type="submit"
           disabled={saving}
-          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Save changes"}
         </button>
@@ -301,7 +301,7 @@ function SecurityTab({ user }: { user: User }) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? (hasPw ? "Changing…" : "Setting…") : (hasPw ? "Change password" : "Set password")}
         </button>
@@ -422,7 +422,7 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
             <button
               type="submit"
               disabled={creating || !name.trim()}
-              className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-fg text-sm px-3 py-1.5 rounded transition"
+              className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary text-sm font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               data-testid="create-token-button"
             >
               {creating ? "Creating…" : "Generate token"}

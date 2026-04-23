@@ -96,7 +96,7 @@ export default function ForceChangePasswordModal({ user, onChanged }: Props) {
         <button
           type="submit"
           disabled={saving}
-          className="bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded px-4 py-2 text-sm font-medium transition mt-2 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Saving…" : "Set new password"}
         </button>

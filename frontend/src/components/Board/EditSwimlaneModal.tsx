@@ -114,7 +114,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || saving}
-                className="text-sm bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
