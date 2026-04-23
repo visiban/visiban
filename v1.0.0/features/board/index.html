@@ -1080,6 +1080,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Keyboard shortcuts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#board-toolbar-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board toolbar layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3198,8 +3215,28 @@
 <td>Show / hide the keyboard shortcuts overlay</td>
 </tr>
 <tr>
+<td><code>.</code></td>
+<td>Open the overflow menu in the board toolbar</td>
+</tr>
+<tr>
 <td><code>Esc</code></td>
 <td>Deselect cards / close the card detail panel or any open dialog</td>
+</tr>
+<tr>
+<td><code>⌘K</code> / <code>Ctrl+K</code></td>
+<td>Open the command palette</td>
+</tr>
+<tr>
+<td><code>⌘\</code> / <code>Ctrl+\</code></td>
+<td>Toggle the activity drawer</td>
+</tr>
+<tr>
+<td><code>⌘⇧E</code> / <code>Ctrl+Shift+E</code></td>
+<td>Open the Export board dialog (when export is permitted)</td>
+</tr>
+<tr>
+<td><code>⌘,</code> / <code>Ctrl+,</code></td>
+<td>Open the Board settings dialog (admins only)</td>
 </tr>
 <tr>
 <td><code>Space</code> + drag</td>
@@ -3207,7 +3244,18 @@
 </tr>
 </tbody>
 </table>
-<p>Shortcuts are ignored when focus is inside an input, textarea, or select element.</p>
+<p>Bare single-key shortcuts (<code>f</code>, <code>/</code>, <code>?</code>, <code>.</code>) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (<code>⌘K</code>, <code>⌘\</code>, <code>⌘⇧E</code>) fire from any focus location.</p>
+<h3 id="board-toolbar-layout">Board toolbar layout<a class="headerlink" href="#board-toolbar-layout" title="Permanent link">&para;</a></h3>
+<p>The board toolbar (Row 2) groups controls into three zones plus a pinned trailing cluster:</p>
+<ul>
+<li><strong>Zone 1</strong> — view tabs (Board / Summary / History / Analytics)</li>
+<li><strong>Zone 2</strong> — board controls (Collapse split button, Filters, Layout toggle, Archived)</li>
+<li><strong>Zone 3</strong> (wide viewports only) — board tools (Activity drawer, Keyboard shortcuts, Export, Settings)</li>
+<li><strong>Trailing cluster</strong> — overflow kebab (<code>⋮</code>) and connection status; always visible</li>
+</ul>
+<p>The <strong>Collapse</strong> button is a split control: clicking the main segment collapses or expands everything at once (preserving one-click muscle memory), while clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.</p>
+<p>The overflow kebab (<code>⋮</code>) contains Export, Keyboard shortcuts, and Replay onboarding tour. On viewports below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into the overflow menu as well — the toolbar degrades gracefully without hiding functionality.</p>
+<p>On viewports below 768 px (phones and narrow tablets), Zone 2 becomes a horizontally-scrolling strip while the trailing cluster stays pinned to the right edge so the overflow kebab is always reachable.</p>
 <h2 id="card-layout">Card layout<a class="headerlink" href="#card-layout" title="Permanent link">&para;</a></h2>
 <p>The toolbar contains a <strong>compact layout toggle</strong> (icon button) that switches between two card display modes:</p>
 <table>
