@@ -639,6 +639,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return () => document.removeEventListener("keydown", handler);
   }, [toggleCollapsedSwimlane]);
 
+  // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
+  useEffect(() => {
+    const open = () => setShowShortcuts(true);
+    window.addEventListener("visiban:open-shortcuts", open);
+    return () => window.removeEventListener("visiban:open-shortcuts", open);
+  }, []);
+
   useEscapeStack(() => {
     if (view === "analytics" || view === "history" || view === "summary") { setView("board"); return; }
     return false;

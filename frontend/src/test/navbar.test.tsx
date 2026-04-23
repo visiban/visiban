@@ -52,20 +52,20 @@ describe('Navbar', () => {
     expect(screen.getByAltText('Visiban')).toBeInTheDocument()
   })
 
-  it('renders user display name', () => {
+  it('renders an account menu trigger (avatar + chevron) instead of a bare sign-out button', () => {
     renderNavbar()
-    expect(screen.getByText('Jane Doe')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Account menu for Jane Doe/ })).toBeInTheDocument()
+    // The pre-MR Row 1 rendered "Sign out" as a top-level button. After #850 it lives
+    // only inside the user menu (collapsed by default), so it must not appear in the DOM on render.
+    expect(screen.queryByRole('button', { name: /^Sign out$/ })).not.toBeInTheDocument()
   })
 
-  it('renders sign out button', () => {
-    renderNavbar()
-    expect(screen.getByText('Sign out')).toBeInTheDocument()
-  })
-
-  it('calls onLogout when sign out is clicked', async () => {
+  it('calls onLogout when Sign out is chosen from the user menu', async () => {
     const onLogout = vi.fn()
     renderNavbar({ onLogout })
-    await userEvent.setup().click(screen.getByText('Sign out'))
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /Sign out/ }))
     expect(onLogout).toHaveBeenCalledOnce()
   })
 

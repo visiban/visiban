@@ -149,6 +149,19 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - Position on cards: bottom-right, `absolute` or flex end
 - Never show more than the initials — no full name, no tooltip required (but allowed)
 - **Always use the `Avatar` component** (`src/components/Common/Avatar.tsx`) — never hand-roll avatar circles with inline palette arrays or hardcoded background colors. The `Avatar` component owns the canonical `-600` tone palette and handles initials, image avatars, and deterministic color assignment.
+- **Sizes:** `xs` (20px), `sm` (24px, default chip on cards), `trigger` (28px, reserved for nav/chrome menu triggers — sits between chip and user-header sizes), `md` (32px), `lg` (40px)
+
+## User menu (top-chrome)
+
+The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all account-scoped actions (`Profile & preferences`, `Keyboard shortcuts`, `Help & docs`, `Sign out`). Rules:
+
+- **Trigger:** `Avatar` at `size="trigger"` (28px) + a small inline `▾` chevron. `aria-haspopup="menu"`, `aria-expanded={open}`, `aria-label={`Account menu for ${displayName}`}`. Never render a bare text `Sign out` button in the navbar — Sign out lives only inside the menu, is always the last item, and uses the danger treatment (`text-danger hover:bg-danger-bg/20`).
+- **Panel:** `w-56 bg-surface border border-line-strong rounded-lg shadow-xl py-1 z-50`, `role="menu"`, positioned `absolute right-0 top-full mt-1` relative to the trigger.
+- **Header row:** non-interactive `role="none"` block — display name in `text-sm font-medium text-fg`, email in `text-xs text-fg-muted`, both `truncate` with `title`. Omit the email line entirely when missing; never render a placeholder.
+- **Items:** each a `<button role="menuitem">` (or `<a role="menuitem">` for external links) with the shared dropdown item classes plus a fixed `w-4 text-center flex-shrink-0` icon slot so labels align across rows. `tabIndex={-1}` on all items; roving focus via arrow keys, Home/End.
+- **Separators:** standard engraved double-`<div>` pattern, `mx-4 my-1`. Two total: after header, before Sign out.
+- **Dismissal:** Esc (via `useEscapeStack` at priority 25), outside-click, Tab out. On Esc close, refocus the trigger.
+- **Theme entry is prohibited until a theme system ships** — do not add a dead link for theme switching.
 
 ## Swimlane label panel
 

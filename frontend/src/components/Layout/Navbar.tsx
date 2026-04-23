@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
-import { userDisplayName } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
+import UserMenu from "./UserMenu";
 
 interface BreadcrumbItem {
   label: string;
@@ -22,9 +22,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
   // Poll the unread count every 30 s. Real-time push via UserConsumer is
   // deferred to 1.1 — the polling interval is intentional until then.
@@ -73,6 +73,34 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showBell]);
+
+  // `g u` chord shortcut — opens the user menu.
+  // `g` primes the chord for 1 s; `u` commits. Guarded against typing contexts.
+  useEffect(() => {
+    let primedAt = 0;
+    const inTypingContext = (el: EventTarget | null): boolean => {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (inTypingContext(e.target)) return;
+      if (e.key === "g") {
+        primedAt = Date.now();
+        return;
+      }
+      if (e.key === "u" && primedAt && Date.now() - primedAt < 1000) {
+        e.preventDefault();
+        primedAt = 0;
+        setUserMenuOpen((v) => (v ? v : true));
+        return;
+      }
+      primedAt = 0;
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const relativeTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -172,18 +200,12 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
             )}
           </div>
 
-          <button
-            onClick={() => navigate("/settings", { state: { from: location } })}
-            className="text-fg text-sm hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded px-1"
-          >
-            {userDisplayName(user)}
-          </button>
-          <button
-            onClick={onLogout}
-            className="text-xs text-fg-tertiary hover:text-fg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded px-1"
-          >
-            Sign out
-          </button>
+          <UserMenu
+            user={user}
+            open={userMenuOpen}
+            onOpenChange={setUserMenuOpen}
+            onLogout={onLogout}
+          />
         </div>
       </header>
 
