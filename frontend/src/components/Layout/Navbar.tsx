@@ -8,6 +8,7 @@ interface BreadcrumbItem {
   label: string;
   href?: string;
   suffix?: React.ReactNode;
+  render?: React.ReactNode;
 }
 
 interface Props {
@@ -92,7 +93,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
         {breadcrumb?.map((item, i) => (
           <span key={i} className="flex items-center gap-2">
             <span className="text-fg-muted">/</span>
-            {item.href ? (
+            {item.render ? (
+              item.render
+            ) : item.href ? (
               <Link to={item.href} className="text-fg text-sm font-medium hover:text-fg transition">
                 {item.label}
               </Link>

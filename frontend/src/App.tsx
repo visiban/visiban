@@ -10,6 +10,7 @@ import ForceRenameUsernameModal from "./components/Auth/ForceRenameUsernameModal
 import Navbar from "./components/Layout/Navbar";
 import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
+import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
@@ -175,7 +176,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   onStarToggled: () => void;
 }) {
   const navigate = useNavigate();
-  const { board, loading, error, forceMoveCard, moveError, clearMoveError } = useBoardContext();
+  const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings } = useBoardContext();
 
   const isAdmin = board?.current_user_role === "admin" || board?.current_user_role === "site_admin";
 
@@ -233,7 +234,17 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
         onUserUpdated={onUserUpdated}
         breadcrumb={[
           ...(board?.group ? [{ label: board.group_name ?? "Group", href: `/groups/${board.group}` }] : []),
-          { label: board?.name ?? "…", suffix: starButton },
+          {
+            label: board?.name ?? "…",
+            suffix: starButton,
+            render: board ? (
+              <InlineBoardName
+                name={board.name}
+                canEdit={isAdmin}
+                onSave={async (name) => { await updateBoardSettings({ name }); }}
+              />
+            ) : undefined,
+          },
         ]}
       />
       <div className="flex-1 flex flex-col overflow-hidden bg-sunken relative">
