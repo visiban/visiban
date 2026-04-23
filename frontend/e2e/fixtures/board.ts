@@ -82,6 +82,12 @@ export const SWIMLANE = {
   created_at: '2026-01-01T00:00:00Z',
 }
 
+export const LABEL_BUG = {
+  id: 1,
+  name: 'bug',
+  color: '#EF4444',
+}
+
 export const CARD = {
   id: 1,
   uid: 'card000001a',
@@ -98,13 +104,26 @@ export const CARD = {
   created_by: BOARD_USER,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
-  last_moved_at: null,
+  last_moved_at: null as string | null,
   attachment_count: 0,
   checklist_total: 0,
   checklist_done: 0,
   is_stale: false,
   archived_at: null,
   version: 1,
+}
+
+// A card that has been idle long enough to trigger the aging overlay
+// (>= staleness_threshold_days, with 2026-04-22 as "today"). Used by
+// e2e/card-aging.spec.ts.
+export const CARD_STALE = {
+  ...CARD,
+  id: 2,
+  uid: 'card000002s',
+  title: 'Stale task',
+  position: 1,
+  is_stale: true,
+  last_moved_at: '2026-04-01T00:00:00Z',
 }
 
 export const BOARD_LIST_ITEM = {
@@ -114,10 +133,18 @@ export const BOARD_LIST_ITEM = {
   description: '',
   owner: BOARD_USER,
   group: null,
+  group_name: null,
   member_count: 1,
   card_count: 1,
   my_role: 'admin' as const,
   is_starred: false,
+  staleness_threshold_days: 7,
+  stale_warning_pct: 50,
+  allowed_priorities: [],
+  enforce_wip_limits: true,
+  enforce_wip_hard: false,
+  enforce_weight_limits: false,
+  export_min_role: 'viewer' as const,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }
@@ -138,18 +165,22 @@ export const BOARD_FULL = {
     },
   ],
   group: null,
+  group_name: null,
   columns: [COLUMN_TODO, COLUMN_DONE],
   swimlanes: [SWIMLANE],
   cards: [CARD],
-  labels: [],
+  labels: [LABEL_BUG],
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
   enforce_wip_limits: true,
   enforce_wip_hard: false,
   enforce_weight_limits: false,
+  export_min_role: 'viewer' as const,
+  is_starred: false,
   share_token: null,
   current_user_role: 'admin' as const,
+  capabilities: { movement_export: true },
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }
