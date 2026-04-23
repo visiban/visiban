@@ -43,8 +43,17 @@ const PING_TIMEOUT_MS = 45_000;
 export function useBoardSocket(
   boardId: number | null,
   onEvent: (event: BoardEvent) => void
-): { connected: boolean; status: SocketStatus } {
+): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
+  // `lastEventAt` ticks once per incoming message (including pings). It's used
+  // by ConnectionStatus + useIsStale to decide when to show the "stale" badge.
+  // Kept in state (not ref) so consumers re-render when a new event lands;
+  // pings arrive every 30 s so the re-render cost is negligible.
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null);
+  // Reconnect counter: increments on every `onclose → reconnecting` transition,
+  // resets on successful open. Surfaced by ConnectionStatus during the
+  // "reconnecting" state; intentionally not shown during the first "connecting".
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
@@ -81,12 +90,14 @@ export function useBoardSocket(
       ws.onopen = () => {
         if (!canceled) {
           setStatus("connected");
+          setReconnectAttempt(0);
           resetPingTimeout();
         }
       };
 
       ws.onmessage = (e) => {
         resetPingTimeout();
+        setLastEventAt(Date.now());
         try {
           const data = JSON.parse(e.data) as BoardEvent;
           // Silently consume server keepalive pings — they are not board events.
@@ -107,6 +118,7 @@ export function useBoardSocket(
         if (e.code === 1000) return;
         // Unexpected close (including ping timeout 4002) — schedule reconnect
         setStatus("reconnecting");
+        setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);
       };
     }
@@ -121,5 +133,5 @@ export function useBoardSocket(
     };
   }, [boardId]);
 
-  return { connected: status === "connected", status };
+  return { connected: status === "connected", status, lastEventAt, reconnectAttempt };
 }

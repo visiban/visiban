@@ -61,7 +61,7 @@ vi.mock('react-router-dom', () => ({
 }))
 
 vi.mock('../hooks/useBoardSocket', () => ({
-  useBoardSocket: () => ({ connected: true, status: 'connected' }),
+  useBoardSocket: () => ({ connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }),
 }))
 
 vi.mock('../hooks/useBoardPan', () => ({
@@ -269,11 +269,14 @@ describe('BoardView', () => {
     expect(screen.getByText('Live')).toBeInTheDocument()
   })
 
-  it('live dot is green and pulsing when connected', () => {
+  it('live dot is green and quiet (no animation) when connected', () => {
+    // ConnectionStatus (#851) is quiet-when-healthy — the connected dot is a
+    // static bare green dot, no pulse. Pulse is reserved for degraded states
+    // (connecting/reconnecting/stale).
     const { container } = render(<BoardView {...defaultProps()} />)
     const dot = container.querySelector('.bg-success-emphasis')
     expect(dot).toBeInTheDocument()
-    expect(dot?.className).toMatch(/animate-pulse/)
+    expect(dot?.className).not.toMatch(/animate-pulse/)
   })
 
   it('FilterBar renders in its own row below the toolbar', async () => {

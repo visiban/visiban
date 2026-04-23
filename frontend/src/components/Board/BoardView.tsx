@@ -8,7 +8,7 @@ import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
-import LiveIndicator from "../Common/LiveIndicator";
+import ConnectionStatus from "../Common/ConnectionStatus";
 import {
   DndContext,
   DragOverlay,
@@ -347,7 +347,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     collectActivityEvent(event);
   }, [handleSocketEvent, collectActivityEvent]);
 
-  const { status: socketStatus } = useBoardSocket(board.id, combinedSocketHandler);
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
@@ -1045,7 +1045,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     <>
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
       <div className="overflow-x-auto shrink-0 bg-surface border-b border-line">
-      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 gap-2 min-w-max">
+      <div data-testid="board-toolbar" className="flex items-center pl-3 pr-4 py-1.5 gap-2 min-w-max">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
           <ViewToggle view={view} onChange={setView} />
@@ -1218,7 +1218,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </button>
             </Tooltip>
           )}
-          <LiveIndicator status={socketStatus} tourStep="live-indicator" className="ml-1" />
+          <ConnectionStatus
+            status={socketStatus}
+            lastEventAt={socketLastEventAt}
+            reconnectAttempt={socketReconnectAttempt}
+            onRefresh={silentReload}
+            tourStep="live-indicator"
+            className="ml-1"
+          />
         </div>
       </div>
       </div>
