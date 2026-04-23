@@ -16,7 +16,14 @@ Authentication uses session cookies — the same mechanism as the REST API. The 
 ws://localhost:8000/ws/boards/42/
 ```
 
-The server validates the session via Django's `AuthMiddlewareStack` and checks board membership before completing the WebSocket handshake. An unauthenticated or non-member connection receives a close frame with code `4003`.
+The server validates the session via Django's `AuthMiddlewareStack` and checks board membership before completing the WebSocket handshake. The connection is closed with one of two application-defined codes if either check fails:
+
+| Close code | Meaning |
+|---|---|
+| `4001` | Unauthenticated — no valid session cookie. The client must log in before reconnecting. |
+| `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. |
+
+Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
 
 ---
 
@@ -134,9 +141,11 @@ ws.onmessage = (event) => {
 };
 
 ws.onclose = (event) => {
-  if (event.code === 4003) {
-    // authentication failure — session invalid or not a board member
+  if (event.code === 4001) {
+    // not authenticated — redirect to login
+  } else if (event.code === 4003) {
+    // authenticated but not a member of this board — do not retry
   }
-  // reconnect logic and re-fetch full board state
+  // otherwise: reconnect logic and re-fetch full board state
 };
 ```

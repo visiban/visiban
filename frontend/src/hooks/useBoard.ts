@@ -11,9 +11,6 @@ export type MoveBlockedError =
   | { code: "version_conflict"; detail: string; current_version: number }
   | { code: "permission_denied"; detail: string };
 
-/** @deprecated Use MoveBlockedError */
-export type WipLimitError = Extract<MoveBlockedError, { code: "wip_limit_exceeded" }>;
-
 interface PendingMove {
   cardId: number;
   columnId: number;
