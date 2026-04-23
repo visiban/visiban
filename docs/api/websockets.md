@@ -1,10 +1,17 @@
 # WebSocket API
 
-Visiban uses WebSockets to push real-time board updates to all connected clients. The WebSocket connection is board-scoped — each open board tab maintains one connection and receives all mutation events for that board.
+Visiban uses WebSockets to push real-time updates to all connected clients. Two channels are available:
+
+- **Board channel** — scoped to one board; receives all mutation events for that board
+- **Group channel** (since 1.1) — scoped to one group; receives board create/update/delete events for boards that live in that group
+
+A single open board tab maintains one board channel connection. A group-list page (`/groups/<id>`) maintains one group channel connection.
 
 ---
 
-## Connecting
+## Board channel
+
+### Connecting
 
 ```
 ws://<host>/ws/boards/<board_id>/
@@ -99,6 +106,32 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `member.added` | User added to board | Full `BoardMembershipSerializer` object |
 | `member.updated` | Member role or moderator flag changed | Full `BoardMembershipSerializer` object |
 | `member.removed` | User removed from board | `{ "user_id": <int> }` |
+
+---
+
+## Group channel (since 1.1)
+
+Pushes board create/update/delete events for boards that currently live in the group, letting the group page keep its board list live without polling.
+
+### Connecting
+
+```
+ws://<host>/ws/groups/<group_id>/
+```
+
+Authentication uses the same session-cookie mechanism as the board channel. The server checks group membership (via `get_accessible_group_ids`) before completing the handshake and closes with the same `4001` / `4003` codes on failure.
+
+### Event reference
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object |
+| `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object |
+| `board.deleted` | Board deleted, or moved out of this group | `{ "board_id": <int>, "board_uid": <string> }` |
+
+A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.
+
+Personal boards (no group) do not emit events on any group channel.
 
 ---
 
