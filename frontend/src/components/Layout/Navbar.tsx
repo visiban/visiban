@@ -151,6 +151,24 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-3">
+          {/* Global search entry (#852). Reserves the Row 1 slot for #191; until
+              then, clicking dispatches visiban:open-palette for BoardView to catch.
+              Off-board routes: event has no listener; the slot is still visible
+              per #805 chrome contract. */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
+            aria-label="Search (Cmd+K)"
+            title="Search (⌘K)"
+            className="flex items-center gap-2 px-2 py-1 text-xs text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis w-8 h-8 justify-center lg:w-40 lg:h-auto lg:justify-between shrink-0"
+          >
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true">🔍</span>
+              <span className="hidden lg:inline">Search</span>
+            </span>
+            <span aria-hidden="true" className="hidden lg:inline text-fg-faint">⌘K</span>
+          </button>
+
           {/* Notification bell */}
           <div ref={bellRef} className="relative">
             <button

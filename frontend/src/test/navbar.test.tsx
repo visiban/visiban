@@ -155,3 +155,51 @@ describe('Navbar', () => {
     expect(logoLink?.className).toMatch(/focus:ring-primary-emphasis/)
   })
 })
+
+describe('Navbar — global search entry (#852)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetUnreadCount.mockResolvedValue(0)
+  })
+
+  it('renders the Row 1 global search button with an accessible name', () => {
+    renderNavbar()
+    expect(screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })).toBeInTheDocument()
+  })
+
+  it('shows the visible "Search" label and ⌘K hint at lg+', () => {
+    renderNavbar()
+    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+    // Both the visible label and the shortcut hint render in the DOM; they're
+    // hidden below lg via `hidden lg:inline` so jsdom still sees them.
+    expect(btn).toHaveTextContent('Search')
+    expect(btn).toHaveTextContent('⌘K')
+  })
+
+  it('uses the responsive width classes — w-8 square below lg, w-40 at lg+', () => {
+    renderNavbar()
+    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+    expect(btn.className).toMatch(/\bw-8\b/)
+    expect(btn.className).toMatch(/\blg:w-40\b/)
+  })
+
+  it('clicking the button dispatches visiban:open-palette', async () => {
+    const listener = vi.fn()
+    window.addEventListener('visiban:open-palette', listener)
+    try {
+      renderNavbar()
+      await userEvent.setup().click(screen.getByRole('button', { name: /Search \(Cmd\+K\)/ }))
+      expect(listener).toHaveBeenCalledOnce()
+    } finally {
+      window.removeEventListener('visiban:open-palette', listener)
+    }
+  })
+
+  it('renders to the left of the notification bell in Row 1', () => {
+    renderNavbar()
+    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+    const bell = screen.getByTitle('Notifications')
+    // Compare document position — search button precedes the bell.
+    expect(btn.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
