@@ -855,11 +855,13 @@ describe('BoardView', () => {
     })
 
     it('keyboard shortcuts and settings icons have tooltips', () => {
+      Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true })
+      Object.defineProperty(navigator, 'userAgentData', { value: undefined, configurable: true })
       render(<BoardView {...defaultProps()} />)
       const shortcuts = screen.getByLabelText('Keyboard shortcuts')
       expect(shortcuts.getAttribute('data-tooltip')).toBe('Keyboard shortcuts (?)')
       const settings = screen.getByLabelText('Board settings')
-      expect(settings.getAttribute('data-tooltip')).toBe('Board settings')
+      expect(settings.getAttribute('data-tooltip')).toBe('Board settings (⌘,)')
     })
 
     it('Filters, Export, and Activity drawer tooltips advertise their keyboard shortcuts', () => {
@@ -1124,6 +1126,30 @@ describe('BoardView', () => {
       // does not silently render an Export UI that the viewer can't act on.
       fireEvent.keyDown(document, { key: 'E', metaKey: true, shiftKey: true })
       expect(screen.queryByLabelText('Export board')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('⌘, shortcut (#853 follow-up)', () => {
+    it('opens the Board settings modal for admins', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: ',', metaKey: true })
+      expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+    })
+
+    it('Ctrl+, also opens the Board settings modal (Linux/Windows)', () => {
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: ',', ctrlKey: true })
+      expect(screen.getByTestId('settings-modal')).toBeInTheDocument()
+    })
+
+    it('does not fire when the user is not an admin', () => {
+      mockBoardContextValue = defaultContext({
+        board: makeBoard({ current_user_role: 'viewer' }),
+      })
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: ',', metaKey: true })
+      expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
     })
   })
 })

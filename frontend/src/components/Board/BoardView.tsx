@@ -717,6 +717,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setShowExport(true);
         return;
       }
+      // ⌘, / Ctrl+, — open board settings (admins only)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === ",") {
+        if (!isAdmin) return;
+        e.preventDefault();
+        setShowSettings(true);
+        return;
+      }
       if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => {
@@ -746,7 +753,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [toggleCollapsedSwimlane, canExport, markExportSeen]);
+  }, [toggleCollapsedSwimlane, canExport, markExportSeen, isAdmin]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
   useEffect(() => {
@@ -1145,6 +1152,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           id: "settings",
           label: "Board settings",
           icon: SettingsIcon,
+          shortcut: formatShortcut({ mod: true, key: "," }),
           onSelect: () => setShowSettings(true),
         });
       }
@@ -1464,7 +1472,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </Tooltip>
           )}
           {isAdmin && (
-            <Tooltip content="Board settings">
+            <Tooltip content={`Board settings (${formatShortcut({ mod: true, key: "," })})`}>
               <button
                 onClick={() => setShowSettings(true)}
                 className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"

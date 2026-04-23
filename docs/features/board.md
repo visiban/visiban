@@ -198,6 +198,7 @@ Right-click any board cell to open an inline card creation input directly in tha
 | `⌘K` / `Ctrl+K` | Open the command palette |
 | `⌘\` / `Ctrl+\` | Toggle the activity drawer |
 | `⌘⇧E` / `Ctrl+Shift+E` | Open the Export board dialog (when export is permitted) |
+| `⌘,` / `Ctrl+,` | Open the Board settings dialog (admins only) |
 | `Space` + drag | Pan the board (see [Board panning](#board-panning)) |
 
 Bare single-key shortcuts (`f`, `/`, `?`, `.`) are ignored when focus is inside an input, textarea, select, or contenteditable element. Modifier-combo shortcuts (`⌘K`, `⌘\`, `⌘⇧E`) fire from any focus location.
