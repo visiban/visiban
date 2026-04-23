@@ -975,7 +975,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "summary") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <div className="flex items-center gap-2 px-3 h-10 bg-surface border-b border-line shrink-0 text-xs text-fg-tertiary">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SectionErrorBoundary section="Summary">
@@ -988,7 +988,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "history") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <div className="flex items-center gap-2 px-3 h-10 bg-surface border-b border-line shrink-0 text-xs text-fg-tertiary">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SectionErrorBoundary section="Movement history">
@@ -1001,7 +1001,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "analytics") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <div className="flex items-center gap-2 px-3 h-10 bg-surface border-b border-line shrink-0 text-xs text-fg-tertiary">
           <ViewToggle view={view} onChange={setView} />
         </div>
         <SectionErrorBoundary section="Analytics">
@@ -1037,8 +1037,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   return (
     <>
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
-      <div className="overflow-x-auto shrink-0 bg-surface border-b border-line">
-      <div data-testid="board-toolbar" className="flex items-center px-3 py-1.5 gap-2 min-w-max">
+      <nav role="navigation" aria-label="Board chrome" className="overflow-x-auto shrink-0 bg-surface border-b border-line h-10 text-xs text-fg-tertiary">
+      <div data-testid="board-toolbar" className="flex items-center px-3 gap-2 min-w-max h-full">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
           <ViewToggle view={view} onChange={setView} />
@@ -1214,11 +1214,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <LiveIndicator status={socketStatus} tourStep="live-indicator" className="ml-1" />
         </div>
       </div>
-      </div>
+      </nav>
 
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
-        <>
+        <div role="search" aria-label="Card filters">
           {/* Preset tab pills — one-click load of saved filters, above the chip row */}
           {savedFilters.length > 0 && (
             <div className="px-3 pt-1.5 bg-surface border-t border-line shrink-0">
@@ -1271,7 +1271,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               hiddenCount={hiddenCount}
             />
           </div>
-        </>
+        </div>
       )}
       {filteredCardIds !== null && filteredCardIds.size === 0 && (
         <div className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">

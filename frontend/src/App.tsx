@@ -247,7 +247,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
           },
         ]}
       />
-      <div className="flex-1 flex flex-col overflow-hidden bg-sunken relative">
+      <main role="main" className="flex-1 flex flex-col overflow-hidden bg-sunken relative">
         {/* Move blocked toast — shown for WIP or weight limit violations */}
         {moveError && (
           <MoveBlockedToast
@@ -280,7 +280,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             onUserUpdated={onUserUpdated}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 }

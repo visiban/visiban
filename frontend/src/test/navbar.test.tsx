@@ -99,4 +99,28 @@ describe('Navbar', () => {
     expect(screen.queryByText('dev')).not.toBeInTheDocument()
     expect(screen.queryByText(/^\d+\.\d+/)).not.toBeInTheDocument()
   })
+
+  describe('ARIA landmarks and Row 1 surface (#848)', () => {
+    it('renders the header as a banner landmark', () => {
+      renderNavbar()
+      const banner = screen.getByRole('banner')
+      expect(banner.tagName).toBe('HEADER')
+    })
+
+    it('applies Row 1 height and surface tokens', () => {
+      renderNavbar()
+      const banner = screen.getByRole('banner')
+      expect(banner.className).toContain('h-14')
+      expect(banner.className).toContain('bg-sunken')
+      expect(banner.className).toContain('border-b')
+      expect(banner.className).toContain('border-line')
+    })
+
+    it('applies Row 1 typography tokens', () => {
+      renderNavbar()
+      const banner = screen.getByRole('banner')
+      expect(banner.className).toContain('text-sm')
+      expect(banner.className).toContain('text-fg')
+    })
+  })
 })

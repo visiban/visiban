@@ -86,7 +86,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
 
   return (
     <>
-      <header className="h-16 bg-sunken border-b border-line flex items-center px-4 gap-3 shrink-0">
+      <header role="banner" className="h-14 bg-sunken border-b border-line flex items-center px-4 gap-3 shrink-0 text-sm text-fg">
         <Link to="/" className="flex items-center hover:opacity-80 transition">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>

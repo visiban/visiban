@@ -777,6 +777,42 @@ describe('BoardView', () => {
     })
   })
 
+  describe('ARIA landmarks and Row 2 chrome (#848)', () => {
+    it('board chrome row is a navigation landmark with label', () => {
+      render(<BoardView {...defaultProps()} />)
+      const nav = screen.getByRole('navigation', { name: 'Board chrome' })
+      expect(nav.tagName).toBe('NAV')
+    })
+
+    it('board chrome row applies Row 2 height and surface tokens', () => {
+      render(<BoardView {...defaultProps()} />)
+      const nav = screen.getByRole('navigation', { name: 'Board chrome' })
+      expect(nav.className).toContain('h-10')
+      expect(nav.className).toContain('bg-surface')
+      expect(nav.className).toContain('border-b')
+      expect(nav.className).toContain('border-line')
+    })
+
+    it('renders zone dividers between logical groups in the board chrome', () => {
+      render(<BoardView {...defaultProps()} />)
+      const toolbar = screen.getByTestId('board-toolbar')
+      const dividers = Array.from(toolbar.children).filter(
+        (el) => el.tagName === 'DIV' && el.classList.contains('w-px') && el.classList.contains('bg-surface-hover')
+      )
+      expect(dividers.length).toBeGreaterThanOrEqual(2)
+      for (const d of dividers) {
+        expect(d.getAttribute('aria-hidden')).toBe('true')
+      }
+    })
+
+    it('filter row is a search landmark when open', async () => {
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByLabelText('Filters'))
+      const search = screen.getByRole('search', { name: 'Card filters' })
+      expect(search).toBeInTheDocument()
+    })
+  })
+
   describe('ViewToggle Beta badge', () => {
     beforeEach(() => {
       vi.clearAllMocks()
