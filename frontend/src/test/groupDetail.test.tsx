@@ -528,12 +528,16 @@ describe('GroupDetail', () => {
     it('appends a new board on board.created and applies the fade-in class', async () => {
       await loadGroup()
       const incoming = { ...existingBoard, id: 2, name: 'Live Board' }
+      // act(sync) flushes the state update synchronously, so the row is in the
+      // DOM immediately. Using findByText here would poll for up to several
+      // hundred ms, during which the component's 200 ms setTimeout can fire and
+      // clear animate-fade-in before we assert on it (flaky under CI load).
       act(() => {
         capturedOnEvent?.({ event: 'board.created', data: incoming } as BoardEvent)
       })
-      expect(await screen.findByText('Live Board')).toBeInTheDocument()
-      // The row wrapper carries animate-fade-in on first render.
-      const trigger = screen.getByText('Live Board').closest('[data-board-id]') as HTMLElement
+      const liveBoard = screen.getByText('Live Board')
+      expect(liveBoard).toBeInTheDocument()
+      const trigger = liveBoard.closest('[data-board-id]') as HTMLElement
       expect(trigger.parentElement?.className).toContain('animate-fade-in')
     })
 
