@@ -205,6 +205,8 @@ Use this pattern whenever showing a full ancestor chain (e.g. group hierarchies)
 - Container: `flex flex-wrap items-center` — wraps on narrow viewports
 - Root-level items with no ancestors render nothing (omit the `<nav>` entirely)
 
+**Navbar breadcrumb override:** the top-chrome breadcrumb in `Navbar.tsx` uses the same pattern but renders the terminal (current) segment as `text-sm text-fg font-medium max-w-[18rem]` instead of `text-fg-secondary max-w-[12rem]`. The board/page name is the primary context indicator in the chrome, so it reads brighter and has more room to breathe. Standalone ancestor breadcrumbs elsewhere keep `text-fg-secondary max-w-[12rem]`.
+
 ## Inline description fields (non-RTE)
 
 For plain-text description fields that are inline-editable by admins:

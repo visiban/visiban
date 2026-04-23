@@ -75,6 +75,45 @@ describe('Navbar', () => {
     expect(screen.getByText('Sprint Board')).toBeInTheDocument()
   })
 
+  it('wraps breadcrumb in a nav landmark labeled "Breadcrumb"', () => {
+    renderNavbar({ breadcrumb: [{ label: 'Engineering', href: '/groups/1' }, { label: 'Sprint Board' }] })
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
+  })
+
+  it('renders group segment as a link to the group page', () => {
+    renderNavbar({ breadcrumb: [{ label: 'Engineering', href: '/groups/42' }, { label: 'Sprint Board' }] })
+    const link = screen.getByRole('link', { name: 'Engineering' })
+    expect(link).toHaveAttribute('href', '/groups/42')
+  })
+
+  it('marks the current (last) breadcrumb segment with aria-current="page"', () => {
+    renderNavbar({ breadcrumb: [{ label: 'Engineering', href: '/groups/1' }, { label: 'Sprint Board' }] })
+    const current = screen.getByText('Sprint Board')
+    expect(current).toHaveAttribute('aria-current', 'page')
+    expect(current.tagName).toBe('SPAN')
+  })
+
+  it('omits the group segment entirely when the board has no group', () => {
+    renderNavbar({ breadcrumb: [{ label: 'Solo Board' }] })
+    expect(screen.queryByRole('link', { name: /group/i })).not.toBeInTheDocument()
+    // Exactly one separator '/' renders before the single (board) segment.
+    const nav = screen.getByRole('navigation', { name: 'Breadcrumb' })
+    expect(nav.textContent).toBe('/Solo Board')
+  })
+
+  it('renders a logo-only (no breadcrumb nav) on pages with no breadcrumb prop', () => {
+    renderNavbar()
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument()
+  })
+
+  it('sets title attribute on long names so truncation exposes the full value on hover', () => {
+    const longGroup = 'A very long group name that will definitely exceed twelve rem and be truncated'
+    const longBoard = 'An equally verbose board name chosen deliberately for testing the eighteen rem cap'
+    renderNavbar({ breadcrumb: [{ label: longGroup, href: '/groups/1' }, { label: longBoard }] })
+    expect(screen.getByRole('link', { name: longGroup })).toHaveAttribute('title', longGroup)
+    expect(screen.getByText(longBoard)).toHaveAttribute('title', longBoard)
+  })
+
   it('renders notification bell', () => {
     renderNavbar()
     expect(screen.getByTitle('Notifications')).toBeInTheDocument()

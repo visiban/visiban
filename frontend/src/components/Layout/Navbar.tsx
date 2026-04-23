@@ -90,21 +90,38 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
         <Link to="/" className="flex items-center hover:opacity-80 transition">
           <img src="/brand/visiban_fullbleed_pulse_light.png" alt="Visiban" className="h-12 w-12 object-contain rounded-lg" />
         </Link>
-        {breadcrumb?.map((item, i) => (
-          <span key={i} className="flex items-center gap-2">
-            <span className="text-fg-muted">/</span>
-            {item.render ? (
-              item.render
-            ) : item.href ? (
-              <Link to={item.href} className="text-fg text-sm font-medium hover:text-fg transition">
-                {item.label}
-              </Link>
-            ) : (
-              <span className="text-fg text-sm font-medium">{item.label}</span>
-            )}
-            {item.suffix}
-          </span>
-        ))}
+        {breadcrumb && breadcrumb.length > 0 && (
+          <nav aria-label="Breadcrumb" className="flex items-center min-w-0">
+            {breadcrumb.map((item, i) => {
+              const isLast = i === breadcrumb.length - 1;
+              return (
+                <span key={i} className="flex items-center min-w-0">
+                  <span className="text-fg-faint mx-1.5 select-none" aria-hidden="true">/</span>
+                  {item.render ? (
+                    item.render
+                  ) : item.href ? (
+                    <Link
+                      to={item.href}
+                      className="text-sm text-fg-tertiary hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
+                      title={item.label}
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className="text-sm text-fg font-medium max-w-[18rem] truncate"
+                      title={item.label}
+                      aria-current={isLast ? "page" : undefined}
+                    >
+                      {item.label}
+                    </span>
+                  )}
+                  {item.suffix}
+                </span>
+              );
+            })}
+          </nav>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {/* Notification bell */}
           <div ref={bellRef} className="relative">
