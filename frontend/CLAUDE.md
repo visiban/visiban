@@ -448,6 +448,26 @@ When a persistent board-wide mode is active (e.g. focus mode, a future "view-onl
 
 `SingleSelectDropdown` and `CheckboxDropdown` live in `src/components/Common/`. Do not re-implement these inline in feature components. Both follow the dropdown menu spec (trigger: `bg-surface border rounded px-2 py-1`, active/filtered state: `border-primary-soft text-info`). Any new component that needs a select or checkbox dropdown must import from `Common`, never duplicate inline.
 
+- **`SingleSelectDropdown` — `triggerPrefix` slot for decorative icons.** When a trigger needs a leading icon (e.g. `🔍 This board ▾`), pass it via the `triggerPrefix` prop. The component wraps the node in `aria-hidden="true"` — keep the accessible name on the dropdown label, not the icon. Do not bake icons into each option label; that duplicates the glyph across the menu panel and couples the icon to the option rather than the trigger.
+
+## Global search entry (Row 1)
+
+The `🔍 Search ⌘K` button in `Navbar.tsx` is the single visible entry point for the command palette. Do not render a second palette trigger button anywhere in the chrome — the Row 2 icon was removed in #852. Clicking the button dispatches a `visiban:open-palette` window event; `BoardView` listens for it and opens the existing board-scoped palette. Off-board routes have no listener yet (the slot is reserved for #191's richer global search).
+
+- Responsive width: icon-only square at sub-`lg` (`w-8 h-8 justify-center`), `w-40` at `lg+` with the word `Search` and the `⌘K` hint visible
+- Accessible name: `Search (Cmd+K)` — the magnifying-glass emoji is decorative (`aria-hidden`)
+- Never re-add a Row 2 palette trigger, and never wire a new component to open the palette directly — always dispatch `visiban:open-palette` so the single listener in `BoardView` stays the board-scoped bridge
+
+## Board search scope toggle
+
+The filter bar's search input carries a `SingleSelectDropdown` scope toggle to its left when `onScopeChange` is provided by the parent. Scope is URL-persisted via `?scope=all` (absent ⇒ `board`) so the selection is link-shareable. Rules:
+
+- Trigger copy follows the selected option (`This board` / `Everywhere`) with a leading `🔍` via `triggerPrefix`
+- Selecting `Everywhere` sets `?scope=all` **and** dispatches `visiban:open-palette` — until #191 ships, the palette is the cross-board search surface
+- While `scope=all`, the board search input is disabled (`disabled:opacity-40 disabled:cursor-not-allowed`) but its value is preserved, and a helper line `Searching across all your boards` appears below (`text-xs text-fg-muted`, `aria-describedby` wired to the input)
+- Placeholder is the exact string `Search cards on this board…` — keep US English and the ellipsis character
+- Do not conflate scope with `FilterState` — scope is a search-surface selector, not a card-filter dimension; keep it in its own state/URL merge in `BoardView`
+
 ## Summary and analytics table layout
 
 - Any table in a Summary or Analytics view that may exceed the viewport width must **pin its first column** sticky-left: `sticky left-0 bg-sunken` (matching the column's own background token)

@@ -131,8 +131,15 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({
 vi.mock('../components/Board/BoardSettingsModal', () => ({
   default: () => <div data-testid="settings-modal">Settings Modal</div>,
 }))
+// Capture props passed into FilterBar so tests can assert on `scope` and `onScopeChange`
+// without rendering the real component (kept mocked to avoid touching dropdown/avatar
+// dependencies here — FilterBar has its own dedicated suite).
+let capturedFilterBarProps: { scope?: 'board' | 'all'; onScopeChange?: (s: 'board' | 'all') => void } = {}
 vi.mock('../components/Board/FilterBar', () => ({
-  default: () => <div data-testid="filter-bar">FilterBar</div>,
+  default: (props: { scope?: 'board' | 'all'; onScopeChange?: (s: 'board' | 'all') => void }) => {
+    capturedFilterBarProps = props
+    return <div data-testid="filter-bar" data-scope={props.scope}>FilterBar</div>
+  },
   EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
   countActiveFilters: () => 0,
 }))
@@ -421,16 +428,23 @@ describe('BoardView', () => {
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
   })
 
-  describe('command palette wiring (#763)', () => {
-    it('renders a Command palette trigger button in Zone 3', () => {
+  describe('command palette wiring (#763, updated for #852)', () => {
+    // #852 — the Row 2 trigger button was removed; the single trigger now lives in
+    // Navbar Row 1 and dispatches a visiban:open-palette event. BoardView listens
+    // for the event and opens the board-scoped palette. ⌘K continues to work on
+    // board routes; the Row 2 Zone 3 button no longer exists.
+
+    it('does NOT render a Row 2 "Open command palette" trigger button (#852 — single source of truth in Row 1)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.getByLabelText('Open command palette')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Open command palette')).not.toBeInTheDocument()
     })
 
-    it('clicking the trigger opens the command palette', async () => {
+    it('visiban:open-palette window event opens the palette', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
-      await userEvent.setup().click(screen.getByLabelText('Open command palette'))
+      act(() => {
+        window.dispatchEvent(new CustomEvent('visiban:open-palette'))
+      })
       expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
     })
 
@@ -443,10 +457,6 @@ describe('BoardView', () => {
 
     it('⌘K shortcut fires even when focus is inside an input (MR promise)', () => {
       render(<BoardView {...defaultProps()} />)
-      // Construct an input in the DOM and dispatch from it — verifies the
-      // shortcut bypasses the INPUT/TEXTAREA guard further down the handler,
-      // as promised by the MR description. (Using a synthetic input keeps the
-      // test independent of whether the filter bar is open.)
       const synthInput = document.createElement('input')
       document.body.appendChild(synthInput)
       synthInput.focus()
@@ -465,6 +475,85 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: 'k' })
       expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('#852 — Row 2 shortcuts hint text removed', () => {
+    it('does NOT render the "? for shortcuts" hint text in Row 2', () => {
+      render(<BoardView {...defaultProps()} />)
+      // The hint label text is gone — keyboard icon button stays.
+      expect(screen.queryByText(/\? for shortcuts/i)).not.toBeInTheDocument()
+    })
+
+    it('still renders the keyboard shortcuts icon button', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByLabelText(/Keyboard shortcuts/i)).toBeInTheDocument()
+    })
+
+    it('? hotkey still opens the shortcuts overlay', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('shortcuts-overlay')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: '?' })
+      expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
+    })
+  })
+
+  describe('#852 — search scope URL param (?scope=board|all)', () => {
+    it('hydrates scope="all" from ?scope=all on initial load and forwards to FilterBar', () => {
+      mockSearchParams = new URLSearchParams('scope=all')
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      // Open filter bar so FilterBar is mounted and receives props
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(capturedFilterBarProps.scope).toBe('all')
+      expect(typeof capturedFilterBarProps.onScopeChange).toBe('function')
+    })
+
+    it('defaults to scope="board" when the URL param is absent', () => {
+      mockSearchParams = new URLSearchParams()
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(capturedFilterBarProps.scope).toBe('board')
+    })
+
+    it('treats any non-"all" scope param as "board"', () => {
+      mockSearchParams = new URLSearchParams('scope=garbage')
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      expect(capturedFilterBarProps.scope).toBe('board')
+    })
+
+    it('calling onScopeChange("all") writes ?scope=all to the URL (round-trip)', () => {
+      mockSearchParams = new URLSearchParams()
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      act(() => {
+        capturedFilterBarProps.onScopeChange?.('all')
+      })
+      // setSearchParams was called with a function; invoke the last call's updater
+      // against a fresh URLSearchParams to inspect what it writes.
+      const lastCall = mockSetSearchParams.mock.calls.at(-1)
+      expect(lastCall).toBeDefined()
+      const updater = lastCall![0] as (prev: URLSearchParams) => URLSearchParams
+      const out = updater(new URLSearchParams())
+      expect(out.get('scope')).toBe('all')
+    })
+
+    it('calling onScopeChange("board") removes ?scope from the URL', () => {
+      mockSearchParams = new URLSearchParams('scope=all')
+      capturedFilterBarProps = {}
+      render(<BoardView {...defaultProps()} />)
+      fireEvent.keyDown(document, { key: 'f' })
+      act(() => {
+        capturedFilterBarProps.onScopeChange?.('board')
+      })
+      const lastCall = mockSetSearchParams.mock.calls.at(-1)
+      const updater = lastCall![0] as (prev: URLSearchParams) => URLSearchParams
+      const out = updater(new URLSearchParams('scope=all'))
+      expect(out.get('scope')).toBeNull()
     })
   })
 

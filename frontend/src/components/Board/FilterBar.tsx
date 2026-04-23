@@ -43,6 +43,13 @@ interface Props {
   isSearching?: boolean;
   currentUser?: User | null;
   hiddenCount?: number;
+  /**
+   * Search scope — "board" searches card fields on this board, "all" signals
+   * a palette-driven cross-board search. Persisted to the URL via ?scope=all
+   * (absent ⇒ "board"). Controlled by BoardView.
+   */
+  scope?: "board" | "all";
+  onScopeChange?: (scope: "board" | "all") => void;
 }
 
 interface MyCardsButtonProps {
@@ -86,8 +93,9 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
   { value: "none", label: "No due date" },
 ];
 
-export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0 }: Props) {
+export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange }: Props) {
   const activeCount = countActiveFilters(filters);
+  const searchDisabled = scope === "all";
 
   // Derive chips from active filter state (search is excluded — the input already communicates state)
   const chips: { key: string; label: string; colorDot?: string; avatarUser?: BoardUser; onDismiss: () => void }[] = [];
@@ -157,18 +165,56 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           <MyCardsButton currentUser={currentUser} filters={filters} onChange={onChange} />
         )}
 
-        <div className="relative shrink-0">
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="Search cards…"
-            value={filters.search}
-            onChange={(e) => onChange({ ...filters, search: e.target.value })}
-            onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
-            className="bg-surface border border-line rounded px-2 py-1 pr-7 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent"
+        {/* #852 — scope toggle sits to the left of the search input. Selecting
+            "Everywhere" sets ?scope=all AND opens the command palette (until
+            #191 ships a dedicated global search surface). While scope=all, the
+            board search input is disabled but retains its value, so flipping
+            back to "This board" restores the user's search. */}
+        {onScopeChange && (
+          <SingleSelectDropdown
+            label="This board"
+            triggerPrefix={<span>🔍</span>}
+            options={[
+              { value: "board", label: "This board" },
+              { value: "all", label: "Everywhere" },
+            ]}
+            // Pass null when scope is the default "board" so the trigger renders
+            // in the neutral (non-active-filter) color. Selecting "Everywhere"
+            // flips it to the active-filter styling, which is the correct signal
+            // that the user has diverted from the default scope.
+            selected={scope === "all" ? "all" : null}
+            onChange={(next) => {
+              const resolved: "board" | "all" = next === "all" ? "all" : "board";
+              onScopeChange(resolved);
+              if (resolved === "all") {
+                window.dispatchEvent(new CustomEvent("visiban:open-palette"));
+              }
+            }}
           />
-          {isSearching && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        )}
+
+        <div className="flex flex-col shrink-0">
+          <div className="relative shrink-0">
+            <input
+              ref={searchRef}
+              type="text"
+              placeholder="Search cards on this board…"
+              value={filters.search}
+              disabled={searchDisabled}
+              title={searchDisabled ? "Switch scope to \"This board\" to search here" : undefined}
+              aria-describedby={searchDisabled ? "filterbar-search-helper" : undefined}
+              onChange={(e) => onChange({ ...filters, search: e.target.value })}
+              onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
+              className="bg-surface border border-line rounded px-2 py-1 pr-7 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+            {isSearching && !searchDisabled && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            )}
+          </div>
+          {searchDisabled && (
+            <span id="filterbar-search-helper" className="text-xs text-fg-muted mt-0.5">
+              Searching across all your boards
+            </span>
           )}
         </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
 export interface SingleSelectDropdownProps<T extends string | number> {
@@ -6,6 +7,11 @@ export interface SingleSelectDropdownProps<T extends string | number> {
   options: { value: T; label: string }[];
   selected: T | null;
   onChange: (selected: T | null) => void;
+  /**
+   * Optional element rendered before the trigger label (e.g. an icon).
+   * Decorative — the component wraps it in aria-hidden.
+   */
+  triggerPrefix?: ReactNode;
 }
 
 export default function SingleSelectDropdown<T extends string | number>({
@@ -13,6 +19,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   options,
   selected,
   onChange,
+  triggerPrefix,
 }: SingleSelectDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -84,6 +91,11 @@ export default function SingleSelectDropdown<T extends string | number>({
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
         }`}
       >
+        {triggerPrefix !== undefined && (
+          <span aria-hidden="true" className="flex items-center">
+            {triggerPrefix}
+          </span>
+        )}
         {displayLabel}
         <svg
           className="w-3 h-3 text-fg-muted"

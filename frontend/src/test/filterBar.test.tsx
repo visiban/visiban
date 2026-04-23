@@ -27,7 +27,7 @@ function makeBoard(): BoardFull {
 describe('FilterBar', () => {
   it('renders search input', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    expect(screen.getByPlaceholderText('Search cards…')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Search cards on this board…')).toBeInTheDocument()
   })
 
   it('renders assignee dropdown button', () => {
@@ -88,7 +88,7 @@ describe('FilterBar', () => {
   it('typing in search calls onChange', async () => {
     const onChange = vi.fn()
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={onChange} />)
-    await userEvent.setup().type(screen.getByPlaceholderText('Search cards…'), 'bug')
+    await userEvent.setup().type(screen.getByPlaceholderText('Search cards on this board…'), 'bug')
     expect(onChange).toHaveBeenCalled()
   })
 
@@ -112,7 +112,7 @@ describe('FilterBar', () => {
     const onChange = vi.fn()
     const filters: FilterState = { ...EMPTY_FILTER, search: 'bug' }
     render(<FilterBar board={makeBoard()} filters={filters} onChange={onChange} />)
-    const input = screen.getByPlaceholderText('Search cards…')
+    const input = screen.getByPlaceholderText('Search cards on this board…')
     input.focus()
     await userEvent.setup().keyboard('{Escape}')
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTER, search: '' })
@@ -239,6 +239,99 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     const items = screen.getAllByRole('menuitem')
     // First menu item should have received focus
     expect(document.activeElement).toBe(items[0])
+  })
+})
+
+describe('FilterBar — search scope toggle (#852)', () => {
+  it('renders placeholder "Search cards on this board…" (exact copy)', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    expect(screen.getByPlaceholderText('Search cards on this board…')).toBeInTheDocument()
+  })
+
+  it('does not render the scope toggle when onScopeChange is not provided', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    expect(screen.queryByText('This board')).not.toBeInTheDocument()
+    expect(screen.queryByText('Everywhere')).not.toBeInTheDocument()
+  })
+
+  it('renders the scope toggle with "This board" trigger label when onScopeChange is provided', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={vi.fn()} />)
+    expect(screen.getByText('This board')).toBeInTheDocument()
+  })
+
+  it('opens the scope toggle menu and shows both options', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={vi.fn()} />)
+    await userEvent.setup().click(screen.getByText('This board'))
+    const menu = screen.getByRole('menu')
+    expect(menu).toHaveTextContent('This board')
+    expect(menu).toHaveTextContent('Everywhere')
+  })
+
+  it('selecting "Everywhere" calls onScopeChange("all") and dispatches visiban:open-palette', async () => {
+    const onScopeChange = vi.fn()
+    const paletteListener = vi.fn()
+    window.addEventListener('visiban:open-palette', paletteListener)
+    try {
+      render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={onScopeChange} />)
+      await userEvent.setup().click(screen.getByText('This board'))
+      await userEvent.setup().click(screen.getByRole('menuitem', { name: 'Everywhere' }))
+      expect(onScopeChange).toHaveBeenCalledWith('all')
+      expect(paletteListener).toHaveBeenCalledOnce()
+    } finally {
+      window.removeEventListener('visiban:open-palette', paletteListener)
+    }
+  })
+
+  it('selecting "This board" does NOT dispatch visiban:open-palette', async () => {
+    const onScopeChange = vi.fn()
+    const paletteListener = vi.fn()
+    window.addEventListener('visiban:open-palette', paletteListener)
+    try {
+      render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="all" onScopeChange={onScopeChange} />)
+      // Trigger label reads "Everywhere" when scope=all
+      await userEvent.setup().click(screen.getByText('Everywhere'))
+      await userEvent.setup().click(screen.getByRole('menuitem', { name: 'This board' }))
+      expect(onScopeChange).toHaveBeenCalledWith('board')
+      expect(paletteListener).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('visiban:open-palette', paletteListener)
+    }
+  })
+
+  it('disables the search input when scope=all', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="all" onScopeChange={vi.fn()} />)
+    const input = screen.getByPlaceholderText('Search cards on this board…') as HTMLInputElement
+    expect(input.disabled).toBe(true)
+  })
+
+  it('search input is enabled when scope=board (default)', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={vi.fn()} />)
+    const input = screen.getByPlaceholderText('Search cards on this board…') as HTMLInputElement
+    expect(input.disabled).toBe(false)
+  })
+
+  it('shows helper text "Searching across all your boards" when scope=all', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="all" onScopeChange={vi.fn()} />)
+    expect(screen.getByText('Searching across all your boards')).toBeInTheDocument()
+  })
+
+  it('hides helper text when scope=board', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={vi.fn()} />)
+    expect(screen.queryByText('Searching across all your boards')).not.toBeInTheDocument()
+  })
+
+  it('search input retains its value when scope flips to all (disabled but not cleared)', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, search: 'keep me' }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} scope="all" onScopeChange={vi.fn()} />)
+    const input = screen.getByPlaceholderText('Search cards on this board…') as HTMLInputElement
+    expect(input.value).toBe('keep me')
+    expect(input.disabled).toBe(true)
+  })
+
+  it('renders the 🔍 icon inside the scope toggle trigger', () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} scope="board" onScopeChange={vi.fn()} />)
+    const trigger = screen.getByText('This board').closest('button') as HTMLButtonElement
+    expect(trigger.textContent).toContain('🔍')
   })
 })
 

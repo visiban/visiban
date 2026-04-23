@@ -513,6 +513,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }, { replace: true });
   }, [setPersistedFilters, setSearchParams]);
 
+  // #852 — search scope ("board" | "all"). URL-persisted via ?scope=all so the
+  // selection is link-shareable; absent ⇒ default "board". Selecting "all"
+  // opens the command palette (handled in FilterBar) until #191 ships a
+  // dedicated global search popover.
+  const [scope, setScopeState] = useState<"board" | "all">(() => {
+    return searchParams.get("scope") === "all" ? "all" : "board";
+  });
+  const setScope = useCallback((next: "board" | "all") => {
+    setScopeState(next);
+    setSearchParams((prev) => {
+      if (next === "all") prev.set("scope", "all");
+      else prev.delete("scope");
+      return prev;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const {
     savedFilters,
     loading: savedFiltersLoading,
@@ -644,6 +660,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     const open = () => setShowShortcuts(true);
     window.addEventListener("visiban:open-shortcuts", open);
     return () => window.removeEventListener("visiban:open-shortcuts", open);
+  }, []);
+
+  // Surface the command palette from the Row 1 global search trigger in Navbar
+  // (#852). Until #191 ships a richer global search, the Row 1 button opens this
+  // same board-scoped palette when a board is mounted.
+  useEffect(() => {
+    const open = () => setPaletteOpen(true);
+    window.addEventListener("visiban:open-palette", open);
+    return () => window.removeEventListener("visiban:open-palette", open);
   }, []);
 
   useEscapeStack(() => {
@@ -1133,18 +1158,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 3: Utilities + status */}
         <div className="flex items-center gap-1">
-          <Tooltip content="Command palette (⌘K)">
-            <button
-              onClick={() => setPaletteOpen(true)}
-              aria-label="Open command palette"
-              className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                <circle cx="11" cy="11" r="6" />
-                <line x1="16" y1="16" x2="21" y2="21" strokeLinecap="round" />
-              </svg>
-            </button>
-          </Tooltip>
           <Tooltip content={drawerOpen ? "Close activity drawer (⌘\\)" : "Open activity drawer (⌘\\)"}>
             <button
               onClick={() => setDrawerOpen((v) => !v)}
@@ -1164,9 +1177,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </svg>
             </button>
           </Tooltip>
-          <span className="hidden lg:inline text-xs text-fg-muted select-none shrink-0">
-            ? for shortcuts
-          </span>
           <Tooltip content="Keyboard shortcuts">
             <button
               onClick={() => { markShortcutsSeen(); setShowShortcuts((v) => !v); }}
@@ -1283,6 +1293,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               isSearching={isSearching}
               currentUser={currentUser}
               hiddenCount={hiddenCount}
+              scope={scope}
+              onScopeChange={setScope}
             />
           </div>
         </>
