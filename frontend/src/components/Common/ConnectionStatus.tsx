@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { SocketStatus } from "../../hooks/useBoardSocket";
 import { useIsStale } from "../../hooks/useIsStale";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -47,12 +48,19 @@ export default function ConnectionStatus({
   const effective: EffectiveState = status === "connected" && isStale ? "stale" : status;
 
   const [open, setOpen] = useState(false);
+  // Popover anchor captured at click time. `null` = closed. Stored as state
+  // (not ref) so position survives a re-render without re-measuring.
+  // We portal the popover to document.body to escape the board toolbar's
+  // `overflow-x-auto` (which forces overflow-y clipping per CSS spec) —
+  // without the portal, the popover is hidden below the toolbar row.
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEscapeStack(() => {
     if (!open) return false;
     setOpen(false);
+    setAnchor(null);
     triggerRef.current?.focus();
   }, 20);
 
@@ -63,10 +71,24 @@ export default function ConnectionStatus({
       if (popoverRef.current?.contains(t)) return;
       if (triggerRef.current?.contains(t)) return;
       setOpen(false);
+      setAnchor(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  const toggleOpen = () => {
+    if (open) {
+      setOpen(false);
+      setAnchor(null);
+      return;
+    }
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setAnchor({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen(true);
+  };
 
   const variant = {
     connected:    { wrapper: "text-success px-1 py-0.5",                                       dot: "w-1.5 h-1.5 rounded-full bg-success-emphasis shrink-0",             label: "Live",           labelClass: "hidden lg:inline",    aria: "Real-time updates active" },
@@ -78,21 +100,42 @@ export default function ConnectionStatus({
 
   const handleReload = () => {
     setOpen(false);
+    setAnchor(null);
     if (onReloadPage) onReloadPage();
     else window.location.reload();
   };
 
   const handleRefresh = () => {
     setOpen(false);
+    setAnchor(null);
     onRefresh?.();
   };
 
+  const panel = open && anchor ? (
+    <div
+      ref={popoverRef}
+      role="dialog"
+      aria-label="Connection status"
+      style={{ position: "fixed", top: anchor.top, right: anchor.right }}
+      className="w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2"
+    >
+      <PopoverBody
+        state={effective}
+        lastEventAt={lastEventAt}
+        reconnectAttempt={reconnectAttempt}
+        onRefresh={onRefresh ? handleRefresh : undefined}
+        onReload={handleReload}
+      />
+    </div>
+  ) : null;
+
   return (
-    <div className={`relative ${className}`}>
+    <div className={className}>
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
+        onMouseDown={(e) => { if (open) e.stopPropagation(); }}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={variant.aria}
@@ -105,23 +148,7 @@ export default function ConnectionStatus({
           {effective === "connected" ? "" : variant.aria}
         </span>
       </button>
-
-      {open && (
-        <div
-          ref={popoverRef}
-          role="dialog"
-          aria-label="Connection status"
-          className="absolute right-0 top-full mt-1 w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3 z-50 flex flex-col gap-2"
-        >
-          <PopoverBody
-            state={effective}
-            lastEventAt={lastEventAt}
-            reconnectAttempt={reconnectAttempt}
-            onRefresh={onRefresh ? handleRefresh : undefined}
-            onReload={handleReload}
-          />
-        </div>
-      )}
+      {panel && createPortal(panel, document.body)}
     </div>
   );
 }
