@@ -8,6 +8,7 @@ import MovementHistoryView from "./MovementHistoryView";
 import { useBoardSocket } from "../../hooks/useBoardSocket";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import type { BoardEvent } from "../../hooks/useBoardSocket";
+import LiveIndicator from "../Common/LiveIndicator";
 import {
   DndContext,
   DragOverlay,
@@ -1210,38 +1211,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </button>
             </Tooltip>
           )}
-          <span
-            data-tour-step="live-indicator"
-            className={`flex items-center gap-1 text-xs font-medium shrink-0 ml-1 ${
-              socketStatus === "connected" ? "text-success"
-              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "text-warning"
-              : "text-fg-muted"
-            }`}
-            role="status"
-            aria-label={
-              socketStatus === "connected" ? "Real-time updates active"
-              : socketStatus === "reconnecting" ? "Reconnecting"
-              : socketStatus === "connecting" ? "Connecting"
-              : "Real-time updates unavailable"
-            }
-            title={
-              socketStatus === "connected" ? "Live — real-time updates active"
-              : socketStatus === "reconnecting" ? "Reconnecting…"
-              : socketStatus === "connecting" ? "Connecting…"
-              : "Offline — real-time updates unavailable"
-            }
-          >
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              socketStatus === "connected" ? "bg-success-emphasis animate-pulse"
-              : socketStatus === "reconnecting" || socketStatus === "connecting" ? "bg-warning-emphasis animate-pulse"
-              : "bg-fg-muted"
-            }`} />
-            <span className="hidden lg:inline">
-              {socketStatus === "connected" ? "Live"
-               : socketStatus === "reconnecting" || socketStatus === "connecting" ? "Reconnecting…"
-               : "Offline"}
-            </span>
-          </span>
+          <LiveIndicator status={socketStatus} tourStep="live-indicator" className="ml-1" />
         </div>
       </div>
       </div>

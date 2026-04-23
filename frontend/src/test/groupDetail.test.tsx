@@ -1,8 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import GroupDetail from '../pages/GroupDetail'
 import type { User, Group } from '../types'
+import type { BoardEvent } from '../hooks/useBoardSocket'
+
+// Capture the onEvent callback passed to useGroupSocket so tests can simulate
+// server-pushed board.created/updated/deleted events.
+let capturedOnEvent: ((evt: BoardEvent) => void) | null = null
+let capturedOnReconnected: (() => void) | null = null
+vi.mock('../hooks/useGroupSocket', () => ({
+  useGroupSocket: (
+    _groupId: number | null,
+    onEvent: (evt: BoardEvent) => void,
+    options?: { onReconnected?: () => void },
+  ) => {
+    capturedOnEvent = onEvent
+    capturedOnReconnected = options?.onReconnected ?? null
+    return { connected: true, status: 'connected' }
+  },
+}))
 
 vi.mock('../api/groups', () => ({
   getGroup: vi.fn(),
@@ -75,6 +92,8 @@ function renderGroupDetail(locationState?: Record<string, unknown>) {
 describe('GroupDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    capturedOnEvent = null
+    capturedOnReconnected = null
   })
 
   it('shows loading state', () => {
@@ -488,5 +507,117 @@ describe('GroupDetail', () => {
     // A single call with the root group ID — not one per subgroup
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledWith(1)
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1)
+  })
+
+  describe('live updates (#753)', () => {
+    const existingBoard = {
+      id: 1, name: 'Sprint Board', description: '', owner: fakeUser,
+      group: 1, group_name: 'Engineering', member_count: 1,
+      created_at: '', updated_at: '',
+    }
+
+    async function loadGroup() {
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([existingBoard])
+      renderGroupDetail()
+      await screen.findByText('Sprint Board')
+    }
+
+    it('appends a new board on board.created and applies the fade-in class', async () => {
+      await loadGroup()
+      const incoming = { ...existingBoard, id: 2, name: 'Live Board' }
+      act(() => {
+        capturedOnEvent?.({ event: 'board.created', data: incoming } as BoardEvent)
+      })
+      expect(await screen.findByText('Live Board')).toBeInTheDocument()
+      // The row wrapper carries animate-fade-in on first render.
+      const trigger = screen.getByText('Live Board').closest('[data-board-id]') as HTMLElement
+      expect(trigger.parentElement?.className).toContain('animate-fade-in')
+    })
+
+    it('ignores duplicate board.created for a board already in the list', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({ event: 'board.created', data: existingBoard } as BoardEvent)
+      })
+      // Still exactly one row for Sprint Board.
+      expect(screen.getAllByText('Sprint Board')).toHaveLength(1)
+    })
+
+    it('patches the existing row on board.updated', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.updated',
+          data: { ...existingBoard, name: 'Renamed Board' },
+        } as BoardEvent)
+      })
+      expect(await screen.findByText('Renamed Board')).toBeInTheDocument()
+      expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
+    })
+
+    it('board.updated for an unknown board id is a no-op', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.updated',
+          data: { ...existingBoard, id: 999, name: 'Ghost' },
+        } as BoardEvent)
+      })
+      expect(screen.queryByText('Ghost')).not.toBeInTheDocument()
+      expect(screen.getByText('Sprint Board')).toBeInTheDocument()
+    })
+
+    it('removes the row on board.deleted', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.deleted',
+          data: { id: 1, board_uid: 'abc' },
+        } as BoardEvent)
+      })
+      await waitFor(() => {
+        expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
+      })
+    })
+
+    it('refetches the boards list on reconnect to recover missed events', async () => {
+      await loadGroup()
+      // A board was created server-side while we were disconnected; the refetch
+      // returns the new list.
+      const refreshed = [existingBoard, { ...existingBoard, id: 9, name: 'Missed While Offline' }]
+      mockGetGroupBoards.mockResolvedValueOnce(refreshed)
+      await act(async () => {
+        capturedOnReconnected?.()
+      })
+      expect(await screen.findByText('Missed While Offline')).toBeInTheDocument()
+    })
+
+    it('restores focus to the first remaining board after a remote delete', async () => {
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      const boardA = { ...existingBoard, id: 1, name: 'Alpha' }
+      const boardB = { ...existingBoard, id: 2, name: 'Bravo' }
+      mockGetGroupBoards.mockResolvedValue([boardA, boardB])
+      renderGroupDetail()
+      const alphaBtn = (await screen.findByText('Alpha')).closest('[data-board-id]') as HTMLElement
+      alphaBtn.focus()
+      expect(document.activeElement).toBe(alphaBtn)
+
+      // Delete the currently-focused board.
+      act(() => {
+        capturedOnEvent?.({ event: 'board.deleted', data: { id: 1 } } as BoardEvent)
+      })
+
+      await waitFor(() => {
+        expect(screen.queryByText('Alpha')).not.toBeInTheDocument()
+      })
+      // Focus moved to the remaining board (Bravo).
+      const bravoBtn = screen.getByText('Bravo').closest('[data-board-id]') as HTMLElement
+      expect(document.activeElement).toBe(bravoBtn)
+    })
   })
 })

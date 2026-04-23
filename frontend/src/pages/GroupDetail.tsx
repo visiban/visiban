@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
+import { useGroupSocket } from "../hooks/useGroupSocket";
+import type { BoardEvent } from "../hooks/useBoardSocket";
+import LiveIndicator from "../components/Common/LiveIndicator";
 import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
@@ -67,6 +70,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [subgroupBoards, setSubgroupBoards] = useState<Board[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
 
+  // Set of board ids flagged for fade-in animation after a live insertion.
+  // Cleared 200ms after mount so re-renders don't replay the animation.
+  const [animateBoardIds, setAnimateBoardIds] = useState<Set<number>>(new Set());
+
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferNewOwnerId, setTransferNewOwnerId] = useState<number | "">("");
   const [transferConfirmation, setTransferConfirmation] = useState("");
@@ -123,6 +130,93 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       })
       .finally(() => setLoading(false));
   }, [groupId, navigate]);
+
+  const flagAnimate = useCallback((id: number) => {
+    setAnimateBoardIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setTimeout(() => {
+      setAnimateBoardIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 200);
+  }, []);
+
+  // Capture focus before a list mutation so we can restore it afterwards (#753).
+  // We key on the rendered button's `data-board-id`; any non-board focus is left
+  // alone.
+  const pendingRefocusRef = useRef<number | null>(null);
+  const captureFocusedBoardId = useCallback(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const raw = el?.getAttribute?.("data-board-id");
+    if (raw) pendingRefocusRef.current = Number(raw);
+  }, []);
+
+  const handleGroupEvent = useCallback((evt: BoardEvent) => {
+    const data = evt.data as { id?: number; board_id?: number; board_uid?: string } & Record<string, unknown>;
+    if (evt.event === "board.created") {
+      const incoming = data as Board;
+      if (typeof incoming.id !== "number") return;
+      setBoards((prev) => (prev.some((b) => b.id === incoming.id) ? prev : [...prev, incoming]));
+      flagAnimate(incoming.id);
+    } else if (evt.event === "board.updated") {
+      const incoming = data as Board;
+      if (typeof incoming.id !== "number") return;
+      setBoards((prev) => {
+        const exists = prev.some((b) => b.id === incoming.id);
+        // A board moved *into* this group arrives as board.updated on the per-board
+        // channel but board.created on the group channel — so updated here is a pure
+        // patch of an existing row.
+        return exists ? prev.map((b) => (b.id === incoming.id ? { ...b, ...incoming } : b)) : prev;
+      });
+    } else if (evt.event === "board.deleted") {
+      const id = typeof data.id === "number" ? data.id : data.board_id;
+      if (typeof id !== "number") return;
+      captureFocusedBoardId();
+      setBoards((prev) => prev.filter((b) => b.id !== id));
+      setSubgroupBoards((prev) => prev.filter((b) => b.id !== id));
+    }
+  }, [captureFocusedBoardId, flagAnimate]);
+
+  // Events fired while the socket was disconnected are not replayed. Refetch
+  // the boards list after a reconnect so the UI converges with server state.
+  const handleReconnected = useCallback(() => {
+    getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
+  }, [groupId]);
+
+  const { status: socketStatus } = useGroupSocket(
+    Number.isFinite(groupId) ? groupId : null,
+    handleGroupEvent,
+    { onReconnected: handleReconnected },
+  );
+
+  // After a list mutation, if the previously focused board still exists, restore
+  // focus to its row; otherwise focus the "+ New board" affordance (admins) or
+  // the first board row. Keyboard navigation stays on the list even when a
+  // remote delete removes the focused row.
+  useEffect(() => {
+    const pending = pendingRefocusRef.current;
+    if (pending === null) return;
+    pendingRefocusRef.current = null;
+    const existing = boards.find((b) => b.id === pending);
+    if (existing) {
+      document
+        .querySelector<HTMLElement>(`[data-board-id="${pending}"]`)
+        ?.focus({ preventScroll: true });
+    } else {
+      const firstBoard = boards[0];
+      if (firstBoard) {
+        document
+          .querySelector<HTMLElement>(`[data-board-id="${firstBoard.id}"]`)
+          ?.focus({ preventScroll: true });
+      }
+    }
+  }, [boards]);
 
   useEffect(() => {
     // A single request for all boards in the group subtree avoids the previous N+1
@@ -497,6 +591,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <LiveIndicator
+              status={socketStatus}
+              onReload={() => window.location.reload()}
+            />
             <button
               onClick={handleStarToggle}
               disabled={starLoading}
@@ -614,9 +712,15 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
               </div>
               <div className="flex flex-col gap-2">
                 {boards.map((b) => (
-                  <div key={b.id} className="group/board relative flex items-center">
+                  <div
+                    key={b.id}
+                    className={`group/board relative flex items-center ${
+                      animateBoardIds.has(b.id) ? "animate-fade-in" : ""
+                    }`}
+                  >
                     <button
                       onClick={() => navigate(`/boards/${b.id}`)}
+                      data-board-id={b.id}
                       className="flex-1 bg-surface hover:bg-surface-hover text-fg text-left px-4 py-3 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       <div className="flex items-center gap-2">

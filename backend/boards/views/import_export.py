@@ -607,9 +607,14 @@ class BoardImportExportMixin:
             ).get(pk=board.pk)
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
-            )
+            group_id = board.group_id
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd)
+                # Group-scoped broadcast powers the boards-list live view (#753).
+                if gid is not None:
+                    from groups.broadcast import broadcast_group_event
+                    broadcast_group_event(gid, "board.created", bd)
+            transaction.on_commit(_broadcast_created)
         return Response(board_data, status=status.HTTP_201_CREATED)
 
     def _import_csv(self, request, file):
@@ -870,9 +875,14 @@ class BoardImportExportMixin:
             ).get(pk=board.pk)
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
-            )
+            group_id = board.group_id
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd)
+                # Group-scoped broadcast powers the boards-list live view (#753).
+                if gid is not None:
+                    from groups.broadcast import broadcast_group_event
+                    broadcast_group_event(gid, "board.created", bd)
+            transaction.on_commit(_broadcast_created)
         return Response(board_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])

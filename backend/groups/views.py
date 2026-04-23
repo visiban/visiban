@@ -463,11 +463,17 @@ class GroupViewSet(viewsets.ModelViewSet):
             # identical regardless of which endpoint created the board. Deferred
             # with on_commit so subscribers never see a board that later rolls back.
             from boards.broadcast import broadcast_board_event as _broadcast_board_event
+            from .broadcast import broadcast_group_event as _broadcast_group_event
             _board_id = board.id
             _board_event_payload = BoardSerializer(board, context={"request": request}).data
-            transaction.on_commit(
-                lambda bid=_board_id, bd=_board_event_payload: _broadcast_board_event(bid, "board.created", bd)
-            )
+            _group_id = group.id
+            def _broadcast_created(
+                bid=_board_id, bd=_board_event_payload, gid=_group_id,
+            ):
+                _broadcast_board_event(bid, "board.created", bd)
+                # Powers live refresh of GroupDetail's boards list (#753).
+                _broadcast_group_event(gid, "board.created", bd)
+            transaction.on_commit(_broadcast_created)
 
         return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
 

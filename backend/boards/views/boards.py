@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from accounts.models import User
+from groups.broadcast import broadcast_group_event as _broadcast_group_event
 from groups.models import Group, GroupMembership, get_accessible_group_ids
 
 from .. import broadcast as _broadcast
@@ -120,9 +121,14 @@ class BoardViewSet(
             # query on every board.created broadcast.
             annotated = self.get_queryset().get(pk=board_id)
             board_data = BoardSerializer(annotated, context={"request": self.request}).data
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, "board.created", board_data)
-            )
+            # Group-scoped broadcast powers the boards-list live view (#753). Keyed
+            # off the annotated row so the frontend can insert without a refetch.
+            group_id = annotated.group_id
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd)
+                if gid is not None:
+                    _broadcast_group_event(gid, "board.created", bd)
+            transaction.on_commit(_broadcast_created)
 
     def perform_update(self, serializer):
         """Guard board-level updates: only admins can edit any board field.
@@ -145,9 +151,12 @@ class BoardViewSet(
             # triggering per-field subqueries from the bare post-save instance (#647).
             annotated = self.get_queryset().get(pk=board_id)
             board_data = BoardSerializer(annotated, context={"request": self.request}).data
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
-            )
+            group_id = annotated.group_id
+            def _broadcast_updated(bid=board_id, bd=board_data, gid=group_id):
+                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd)
+                if gid is not None:
+                    _broadcast_group_event(gid, "board.updated", bd)
+            transaction.on_commit(_broadcast_updated)
 
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
@@ -160,6 +169,7 @@ class BoardViewSet(
             raise PermissionDenied
         board_id = board.id
         board_uid = board.uid
+        group_id = board.group_id
         logger.info(
             "board.deleted board_id=%d board_name=%s deleted_by=%d deleted_by_username=%s",
             board.id, board.name, request.user.pk, request.user.username,
@@ -169,11 +179,12 @@ class BoardViewSet(
             # board_uid is the stable identifier for this event; board_id is kept
             # for backward compatibility with pre-1.1 clients and must not be
             # removed until a major-version bump.
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id, "board.deleted", {"board_uid": board_uid, "board_id": board_id}
-                )
-            )
+            payload = {"board_uid": board_uid, "board_id": board_id}
+            def _broadcast_deleted(bid=board_id, gid=group_id, pl=payload):
+                _broadcast.broadcast_board_event(bid, "board.deleted", pl)
+                if gid is not None:
+                    _broadcast_group_event(gid, "board.deleted", pl)
+            transaction.on_commit(_broadcast_deleted)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post", "delete"], url_path="star")
@@ -277,6 +288,7 @@ class BoardViewSet(
         if board.owner != request.user and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
 
+        old_group_id = board.group_id
         group_id = request.data.get("group_id")  # None = move to personal
         if group_id is not None:
             group = get_object_or_404(Group, pk=group_id)
@@ -298,9 +310,24 @@ class BoardViewSet(
             # triggering per-field subqueries from the bare post-save instance (#647).
             annotated = self.get_queryset().get(pk=board_id)
             board_data = BoardSerializer(annotated, context={"request": request}).data
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_data)
-            )
+            new_group_id = annotated.group_id
+            # Single on_commit callback so subscribers on the old and new group
+            # channels observe the move atomically (#753).
+            def _broadcast_move(
+                bid=board_id, bd=board_data,
+                og=old_group_id, ng=new_group_id,
+            ):
+                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd)
+                if og is not None and og != ng:
+                    _broadcast_group_event(og, "board.deleted", {
+                        "board_uid": bd.get("uid"), "board_id": bid,
+                    })
+                if ng is not None and ng != og:
+                    _broadcast_group_event(ng, "board.created", bd)
+                elif ng is not None:
+                    # Same group — treat as a metadata update.
+                    _broadcast_group_event(ng, "board.updated", bd)
+            transaction.on_commit(_broadcast_move)
         return Response(board_data)
 
     @action(detail=True, methods=["get"])
