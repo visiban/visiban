@@ -30,7 +30,7 @@ const { getOnEvent } = vi.hoisted(() => {
 vi.mock('../hooks/useBoardSocket', () => ({
   useBoardSocket: (_boardId: number, onEvent: (e: BoardEvent) => void) => {
     getOnEvent.capture(onEvent)
-    return { connected: true }
+    return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }
   },
 }))
 

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams, useLocation } from "react-rout
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import { useGroupSocket } from "../hooks/useGroupSocket";
 import type { BoardEvent } from "../hooks/useBoardSocket";
-import LiveIndicator from "../components/Common/LiveIndicator";
+import ConnectionStatus from "../components/Common/ConnectionStatus";
 import Avatar from "../components/Common/Avatar";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
@@ -189,7 +189,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     getGroupBoards(groupId).then(setBoards).catch(() => { /* stay with current list */ });
   }, [groupId]);
 
-  const { status: socketStatus } = useGroupSocket(
+  const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useGroupSocket(
     Number.isFinite(groupId) ? groupId : null,
     handleGroupEvent,
     { onReconnected: handleReconnected },
@@ -591,9 +591,10 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <LiveIndicator
+            <ConnectionStatus
               status={socketStatus}
-              onReload={() => window.location.reload()}
+              lastEventAt={socketLastEventAt}
+              reconnectAttempt={socketReconnectAttempt}
             />
             <button
               onClick={handleStarToggle}

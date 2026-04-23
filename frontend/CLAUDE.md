@@ -100,7 +100,7 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **Active tab** (e.g. "Board"): `bg-primary text-on-primary rounded px-3 py-1 text-sm font-medium`
 - **Inactive tabs** (e.g. "Summary", "Analytics"): `text-fg-tertiary hover:text-fg px-3 py-1 text-sm` — no background
 - **Vertical separators** between logical groups: `text-fg-faint select-none` rendered as `|`
-- **Live indicator**: green dot + "Live" label — `flex items-center gap-1 text-sm text-success` with `●` prefix; always top-right of the sub-nav
+- **Connection status**: use the `ConnectionStatus` component (see § Connection status indicator below) — single canonical component for the sub-nav live indicator and for the group detail header
 - **Settings link**: `text-fg-tertiary hover:text-fg text-sm`
 
 ## Column headers
@@ -162,6 +162,23 @@ The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all
 - **Separators:** standard engraved double-`<div>` pattern, `mx-4 my-1`. Two total: after header, before Sign out.
 - **Dismissal:** Esc (via `useEscapeStack` at priority 25), outside-click, Tab out. On Esc close, refocus the trigger.
 - **Theme entry is prohibited until a theme system ships** — do not add a dead link for theme switching.
+
+## Connection status indicator
+
+`ConnectionStatus` (`src/components/Common/ConnectionStatus.tsx`) is the single canonical component for surfacing WebSocket state. Do not re-introduce a second `LiveIndicator`, and do not render a bare `●ᅠLive` in feature components.
+
+- **Prominence rule — quiet when healthy, loud when degraded.** Connected state is a bare success dot with the word "Live" shown only at `lg+` viewports (`labelClass: "hidden lg:inline"`). Every other state — `connecting`, `reconnecting`, `stale`, `failed` — always shows its label with an amber or red pill background so Maya/Jordan can see degraded state at a glance.
+- **Five states:**
+  - `connected` → `text-success` dot, no background
+  - `connecting` / `reconnecting` / `stale` → `text-warning bg-warning/10 border border-warning/30 rounded px-2 py-0.5`
+  - `failed` → `text-danger bg-danger-bg/30 border border-danger-emphasis/40 rounded px-2 py-0.5`
+- **Stale detection:** `useIsStale(status, lastEventAt, thresholdMs = 60_000)` flips `connected` into the `stale` variant when no event has arrived within 60 seconds. Do not poll; the hook schedules a single `setTimeout`.
+- **Popover:** click trigger opens a `role="dialog" aria-label="Connection status"` popover (`w-64 bg-surface border border-line-strong rounded-lg shadow-xl p-3`). Dismissal via Esc (`useEscapeStack` priority 25), outside-click, or re-clicking the trigger. On Esc close, refocus the trigger.
+- **Popover actions:**
+  - connected / stale → "Refresh board" secondary button (only when `onRefresh` is passed — board pages yes, group page no)
+  - failed → "Reload page" danger button
+  - connecting / reconnecting → informational only; no button
+- **Accessibility:** trigger carries `aria-haspopup="dialog"`, `aria-expanded`, and a state-specific `aria-label` ("Real-time updates active" / "Reconnecting to real-time updates" / …). Include an inner `<span role="status" aria-live="polite" aria-atomic="true" className="sr-only">` that announces degraded states to screen readers; stay silent when connected.
 
 ## Swimlane label panel
 

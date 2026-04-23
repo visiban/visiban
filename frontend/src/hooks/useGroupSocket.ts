@@ -14,8 +14,10 @@ export function useGroupSocket(
   groupId: number | null,
   onEvent: (event: BoardEvent) => void,
   options?: { onReconnected?: () => void },
-): { connected: boolean; status: SocketStatus } {
+): { connected: boolean; status: SocketStatus; lastEventAt: number | null; reconnectAttempt: number } {
   const [status, setStatus] = useState<SocketStatus>("connecting");
+  const [lastEventAt, setLastEventAt] = useState<number | null>(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const onReconnectedRef = useRef(options?.onReconnected);
@@ -49,12 +51,14 @@ export function useGroupSocket(
         const wasReconnect = everConnected;
         everConnected = true;
         setStatus("connected");
+        setReconnectAttempt(0);
         resetPingTimeout();
         if (wasReconnect) onReconnectedRef.current?.();
       };
 
       ws.onmessage = (e) => {
         resetPingTimeout();
+        setLastEventAt(Date.now());
         try {
           const data = JSON.parse(e.data) as BoardEvent;
           if (data.event === "ping") return;
@@ -68,6 +72,7 @@ export function useGroupSocket(
         if (e.code === 4001 || e.code === 4003) { setStatus("failed"); return; }
         if (e.code === 1000) return;
         setStatus("reconnecting");
+        setReconnectAttempt((n) => n + 1);
         reconnectTimer = setTimeout(connect, 3000);
       };
     }
@@ -82,5 +87,5 @@ export function useGroupSocket(
     };
   }, [groupId]);
 
-  return { connected: status === "connected", status };
+  return { connected: status === "connected", status, lastEventAt, reconnectAttempt };
 }

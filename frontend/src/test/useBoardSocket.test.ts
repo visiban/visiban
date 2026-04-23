@@ -240,6 +240,59 @@ describe('useBoardSocket', () => {
     expect(instances).toHaveLength(2)
   })
 
+  // ---------------------------------------------------------------------------
+  // lastEventAt / reconnectAttempt (#851)
+  // ---------------------------------------------------------------------------
+
+  it('lastEventAt is null before any message arrives', () => {
+    const onEvent = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.lastEventAt).toBeNull()
+  })
+
+  it('lastEventAt ticks when an event arrives (including pings)', () => {
+    vi.setSystemTime(new Date('2026-04-23T12:00:00Z'))
+    const onEvent = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+
+    const before = Date.now()
+    act(() => {
+      latestWS().onmessage?.({ data: JSON.stringify({ event: 'ping' }) })
+    })
+    expect(result.current.lastEventAt).toBe(before)
+
+    // A real event also updates it.
+    vi.setSystemTime(new Date('2026-04-23T12:00:05Z'))
+    act(() => {
+      latestWS().onmessage?.({ data: JSON.stringify({ event: 'card.created', data: { id: 1 } }) })
+    })
+    expect(result.current.lastEventAt).toBe(Date.now())
+  })
+
+  it('reconnectAttempt increments on each reconnect and resets on open', () => {
+    const onEvent = vi.fn()
+    const { result } = renderHook(() => useBoardSocket(1, onEvent))
+
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.reconnectAttempt).toBe(0)
+
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    expect(result.current.reconnectAttempt).toBe(1)
+
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onclose?.({ code: 1006 }) })
+    expect(result.current.reconnectAttempt).toBe(2)
+
+    // Successful open resets the counter.
+    act(() => { vi.advanceTimersByTime(3000) })
+    act(() => { latestWS().onopen?.() })
+    expect(result.current.reconnectAttempt).toBe(0)
+  })
+
   it('resets the ping timeout when a message arrives', () => {
     const onEvent = vi.fn()
     renderHook(() => useBoardSocket(1, onEvent))

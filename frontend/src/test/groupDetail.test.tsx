@@ -17,7 +17,7 @@ vi.mock('../hooks/useGroupSocket', () => ({
   ) => {
     capturedOnEvent = onEvent
     capturedOnReconnected = options?.onReconnected ?? null
-    return { connected: true, status: 'connected' }
+    return { connected: true, status: 'connected', lastEventAt: null, reconnectAttempt: 0 }
   },
 }))
 
