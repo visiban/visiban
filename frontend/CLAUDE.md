@@ -29,7 +29,7 @@ Three variants — use no others:
 
 | Variant | Classes |
 |---|---|
-| Primary | `bg-primary hover:bg-primary-hover text-on-primary` |
+| Primary | `bg-button-primary hover:bg-button-primary-hover text-on-primary` |
 | Secondary | bare text (`text-fg-secondary`) + `hover:text-fg hover:bg-surface-hover` |
 | Icon-only | `hover:bg-surface-hover` with icon content |
 
@@ -39,6 +39,8 @@ Three variants — use no others:
 - Disabled state: `disabled:opacity-40 disabled:cursor-not-allowed` — never `disabled:opacity-50`
 - Primary and danger buttons always include `font-medium`
 - Border radius: always `rounded` — never `rounded-lg` on buttons
+
+**Why `--button-primary` is a separate token from `--primary`:** CTAs use `blue-900` (`#1e3a8a`, 10.36:1 on white) in light mode for comfortable AAA contrast, while `--primary` stays `blue-600` for brand-tint surfaces (avatars, active tabs, toggle tracks, saved-filter tabs). Do not consolidate these back into a single token — issue #855 intentionally split them so primary CTAs read as strong actions without desaturating the app's blue accents. Dark mode assigns both tokens the same blue-600 value; the split only matters on light backgrounds. Never use `bg-primary` on a button-shaped element, and never use `text-fg` on a `bg-button-primary` fill — `text-on-primary` is the only permitted text color on primary CTAs.
 
 ## Inputs and textareas
 
@@ -222,7 +224,7 @@ Represent selection state on the container:
 
 Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted mt-0.5` for the description line below it.
 
-The action button following a radio group uses the primary variant (`bg-primary hover:bg-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
+The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
 
 ## Ancestor breadcrumbs
 

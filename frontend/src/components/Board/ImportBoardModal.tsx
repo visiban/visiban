@@ -151,7 +151,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
           <button
             onClick={handleSubmit}
             disabled={!file || submitting}
-            className="bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-primary text-sm font-medium px-5 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {submitting ? "Importing..." : "Import"}
           </button>

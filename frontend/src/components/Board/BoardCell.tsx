@@ -116,7 +116,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               className="w-full text-xs border border-primary-emphasis rounded px-2 py-1.5 outline-none bg-surface text-fg placeholder-fg-muted"
             />
             <div className="flex gap-1.5 mt-1.5">
-              <button onClick={handleAdd} className="text-xs bg-primary text-on-primary px-2.5 py-1 rounded hover:bg-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
+              <button onClick={handleAdd} className="text-xs bg-button-primary text-on-primary px-2.5 py-1 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add</button>
               <button onClick={() => { setAdding(false); setAddError(null); }} className="text-xs text-fg-tertiary hover:text-fg-secondary transition">Cancel</button>
             </div>
             <p className="text-xs h-4"><span className="text-danger">{addError}</span></p>

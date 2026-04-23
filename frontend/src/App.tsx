@@ -265,7 +265,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
             <p className="text-danger text-sm">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="text-sm bg-primary hover:bg-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Retry
             </button>

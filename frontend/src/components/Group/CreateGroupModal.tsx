@@ -141,7 +141,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
               <button
                 onClick={handleAddSubgroup}
                 disabled={!subgroupName.trim() || subgroupSaving}
-                className="text-sm font-medium bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis whitespace-nowrap"
+                className="text-sm font-medium bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis whitespace-nowrap"
               >
                 {subgroupSaving ? "Adding…" : "+ Add"}
               </button>
@@ -167,7 +167,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         <div className="flex items-center justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className="text-sm font-medium bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-sm font-medium bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Done
           </button>
@@ -218,7 +218,7 @@ export default function CreateGroupModal({ parentGroup, onCreated, onClose }: Pr
         <button
           onClick={handleCreate}
           disabled={!name.trim() || saving || description.length > DESCRIPTION_MAX}
-          className="text-sm font-medium bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm font-medium bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {saving ? "Creating…" : parentGroup ? "Create Subgroup" : "Create Group"}
         </button>

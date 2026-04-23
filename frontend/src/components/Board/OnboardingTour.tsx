@@ -117,7 +117,7 @@ function FullScreenStep({
           <span>drag</span>
         </div>
         <div className="flex justify-end">
-          <button autoFocus onClick={finish} className="bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Got it</button>
+          <button autoFocus onClick={finish} className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Got it</button>
         </div>
       </div>
     </div>
@@ -269,7 +269,7 @@ export default function OnboardingTour({ onComplete }: Props) {
         <div className="flex justify-end">
           <button
             onClick={handleNext}
-            className="bg-primary hover:bg-primary-hover text-on-primary font-medium text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium text-sm px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             {step < STEPS.length - 1 ? "Next" : "Done"}
           </button>

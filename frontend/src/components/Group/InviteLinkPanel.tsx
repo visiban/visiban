@@ -159,7 +159,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
         {!atLimit && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="text-xs bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             New link
           </button>
@@ -250,7 +250,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(link)}
-                        className="text-xs bg-primary text-on-primary px-3 py-1.5 rounded hover:bg-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         {copiedId === link.id ? "Copied!" : "Copy"}
                       </button>
@@ -369,7 +369,7 @@ export default function InviteLinkPanel({ groupId }: Props) {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="text-xs bg-primary text-on-primary px-4 py-1.5 rounded hover:bg-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {creating ? "Creating…" : "Create link"}
             </button>

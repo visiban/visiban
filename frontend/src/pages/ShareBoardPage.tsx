@@ -244,7 +244,7 @@ function ShareExpiredPage() {
         </p>
         <a
           href="/"
-          className="bg-primary hover:bg-primary-hover text-on-primary px-4 py-2 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-4 py-2 rounded text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Sign in to Visiban
         </a>

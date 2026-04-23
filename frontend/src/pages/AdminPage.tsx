@@ -217,7 +217,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {saving ? "Creating…" : "Create user"}
             </button>
@@ -358,7 +358,7 @@ function InviteLinksTab() {
         <button
           type="submit"
           disabled={creating}
-          className="self-start px-3 py-1.5 text-sm font-medium bg-primary hover:bg-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="self-start px-3 py-1.5 text-sm font-medium bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           {creating ? "Creating…" : "Create link"}
         </button>
@@ -377,7 +377,7 @@ function InviteLinksTab() {
             </span>
             <button
               onClick={handleCopy}
-              className="shrink-0 px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="shrink-0 px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
@@ -899,7 +899,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         <h2 className="text-fg text-lg font-semibold">Users</h2>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-sm bg-primary hover:bg-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           + Add User
         </button>

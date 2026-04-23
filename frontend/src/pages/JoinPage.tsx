@@ -162,7 +162,7 @@ export default function JoinPage({ user }: Props) {
                 <p className="text-danger text-sm">{joinError}</p>
                 <button
                   onClick={handleRetry}
-                  className="bg-primary hover:bg-primary-hover text-on-primary px-3 py-1.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Try again
                 </button>
@@ -177,7 +177,7 @@ export default function JoinPage({ user }: Props) {
 
             <button
               onClick={() => handleAuthRedirect("register")}
-              className="w-full bg-primary hover:bg-primary-emphasis text-fg font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Create an account
             </button>

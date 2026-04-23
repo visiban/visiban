@@ -83,7 +83,7 @@ export default function BoardExportModal({ boardId, onClose }: Props) {
 
         <button
           onClick={handleExport}
-          className="w-full bg-primary hover:bg-primary-hover text-fg text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="w-full bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Export {exportFormat.toUpperCase()}
         </button>

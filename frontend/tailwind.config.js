@@ -43,6 +43,11 @@ export default {
         "primary-emphasis": "rgb(var(--primary-emphasis) / <alpha-value>)",
         "primary-soft": "rgb(var(--primary-soft) / <alpha-value>)",
 
+        // Primary CTA fill — darker than `--primary` in light mode (issue #855) so
+        // white-on-fill comfortably clears WCAG AAA. Matches `--primary` in dark mode.
+        "button-primary": "rgb(var(--button-primary) / <alpha-value>)",
+        "button-primary-hover": "rgb(var(--button-primary-hover) / <alpha-value>)",
+
         // Interactive — destructive / warning / positive
         "danger-bg": "rgb(var(--danger-bg) / <alpha-value>)",
         "danger-bg-hover": "rgb(var(--danger-bg-hover) / <alpha-value>)",

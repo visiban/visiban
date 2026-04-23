@@ -178,7 +178,7 @@ export default function SavedFiltersDropdown({
                 <button
                   onClick={() => void handleSave()}
                   disabled={saving}
-                  className="bg-primary hover:bg-primary-hover text-on-primary px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 transition"
+                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 transition"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
