@@ -32,10 +32,12 @@ export async function routeAuth(page: Page): Promise<void> {
   await page.route('**/api/v1/notifications/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
   )
-  await page.route('**/api/v1/boards/', (route) =>
+  // Boards list — the sidebar calls both GET /boards/ and GET /boards/?starred=true.
+  // Match both with an explicit starred handler and a fallback for the bare list.
+  await page.route(/\/api\/v1\/boards\/(\?starred=true)?$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 1, results: [BOARD_LIST_ITEM] }) }),
   )
-  await page.route('**/api/v1/groups/', (route) =>
+  await page.route(/\/api\/v1\/groups\/(\?starred=true)?$/, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
   )
 }
@@ -47,8 +49,9 @@ export async function routeBoard(page: Page, board = BOARD_FULL): Promise<void> 
   await page.route(`**/api/v1/boards/${board.id}/cards/`, (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: board.cards.length, results: board.cards }) }),
   )
+  // The saved-filters endpoint returns a bare array (not paginated).
   await page.route(`**/api/v1/boards/${board.id}/saved-filters/`, (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 0, results: [] }) }),
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
   )
   // WebSocket stub — sends a connected event immediately so the board does not
   // render in "disconnected" state during tests.
