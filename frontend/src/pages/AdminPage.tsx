@@ -1155,7 +1155,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
 
   return (
     <div className="h-full bg-sunken flex flex-col">
-      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />
+      <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={[{ label: "Administration" }]} />
 
       <main className="flex-1 overflow-y-auto p-8 max-w-5xl mx-auto w-full">
         <h1 className="text-fg text-2xl font-bold mb-8">Site Administration</h1>
