@@ -5,6 +5,8 @@
 ### `GET /api/v1/boards/{board_id}/cards/`
 List all cards on the board. Pagination is disabled — all cards are returned in a single response.
 
+> **Response shape:** This endpoint returns a bare JSON array (`[ {...}, {...} ]`), not the standard `{count, offset, page_size, results}` pagination envelope used by other list endpoints. The endpoint is intentionally unpaginated because the board UI bulk-loads cards via `GET /api/v1/boards/{board_id}/full/`. Generic API clients that assume a pagination envelope must special-case this endpoint.
+
 **Query parameters**
 
 | Parameter | Description |
