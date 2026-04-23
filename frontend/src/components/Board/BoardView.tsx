@@ -34,6 +34,11 @@ import BoardSettingsModal from "./BoardSettingsModal";
 import BoardExportModal from "./BoardExportModal";
 import { useExportSeenPref } from "../../hooks/useExportSeenPref";
 import { useShortcutsSeenPref } from "../../hooks/useShortcutsSeenPref";
+import { useOverflowSeenPref } from "../../hooks/useOverflowSeenPref";
+import { useIsLargeViewport } from "../../hooks/useIsLargeViewport";
+import SplitButton from "../Common/SplitButton";
+import OverflowMenu from "../Layout/OverflowMenu";
+import type { OverflowItem } from "../Layout/OverflowMenu";
 import FilterBar, { countActiveFilters, EMPTY_FILTER } from "./FilterBar";
 import SavedFiltersDropdown from "./SavedFiltersDropdown";
 import SavedFilterTabs from "./SavedFilterTabs";
@@ -137,6 +142,70 @@ function ViewToggle({
     </div>
   );
 }
+
+// Icon constants for the overflow menu. Kept at module scope so the JSX
+// nodes are stable across renders and the items useMemo is not invalidated
+// by fresh icon references every render.
+const LayoutCompactIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <rect x="3" y="3" width="18" height="5" rx="1" />
+    <rect x="3" y="10" width="18" height="5" rx="1" />
+    <rect x="3" y="17" width="18" height="4" rx="1" />
+  </svg>
+);
+const LayoutExpandedIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+const ArchivedIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" strokeLinejoin="round" />
+    <rect x="2" y="3" width="20" height="5" rx="1" />
+    <line x1="10" y1="12" x2="14" y2="12" strokeLinecap="round" />
+  </svg>
+);
+const ActivityDrawerIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <circle cx="5" cy="7" r="1.5" fill="currentColor" stroke="none" />
+    <line x1="9" y1="7" x2="20" y2="7" />
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <line x1="9" y1="12" x2="20" y2="12" />
+    <circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none" />
+    <line x1="9" y1="17" x2="16" y2="17" />
+  </svg>
+);
+const SettingsIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+  </svg>
+);
+const ExportIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <path d="M12 3v12M8 11l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const ShortcutsIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <line x1="6" y1="10" x2="6" y2="10.01" />
+    <line x1="10" y1="10" x2="10" y2="10.01" />
+    <line x1="14" y1="10" x2="14" y2="10.01" />
+    <line x1="18" y1="10" x2="18" y2="10.01" />
+    <line x1="8" y1="14" x2="16" y2="14" />
+  </svg>
+);
+const ReplayTourIcon = (
+  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" strokeLinecap="round" />
+    <polyline points="8,1 8,4 11,4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function BoardView({ onBoardDeleted, userTimezone = "", userDateFormat = "MM/DD/YYYY", userTimeFormat = "12h", closeEditorOnEnter = false, currentUser = null, onUserUpdated }: Props) {
   const {
@@ -560,6 +629,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
+  const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const isLargeViewport = useIsLargeViewport();
+  // At sub-`lg` viewports the secondary toolbar controls (Layout, Archived,
+  // Activity drawer, Settings, Export, Shortcuts) fold into the overflow
+  // kebab menu. At `lg` the overflow is additive (it offers a second path to
+  // Export / Shortcuts plus a home for Replay onboarding tour). The `sm`
+  // horizontal-scroll behavior is carried by the scroll container's
+  // `overflow-x-auto`, so no separate md/sm branch is needed here.
+  const foldToolbarControls = !isLargeViewport;
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
@@ -629,6 +708,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         tag === "SELECT" ||
         (e.target as HTMLElement).closest?.('[contenteditable="true"]')
       ) return;
+      // ⌘⇧E / Ctrl+Shift+E — open export modal (only when export is permitted)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "e" || e.key === "E")) {
+        if (!canExport) return;
+        e.preventDefault();
+        markExportSeen();
+        setShowExport(true);
+        return;
+      }
       if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => {
@@ -649,11 +736,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       } else if (e.key === "?") {
         e.preventDefault();
         setShowShortcuts((v) => !v);
+      } else if (e.key === ".") {
+        // Bare `.` — open the overflow menu. Guarded by the input-tag check
+        // above so a period typed into a text field does not fire.
+        e.preventDefault();
+        setOverflowOpen((v) => !v);
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [toggleCollapsedSwimlane]);
+  }, [toggleCollapsedSwimlane, canExport, markExportSeen]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
   useEffect(() => {
@@ -661,6 +753,22 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     window.addEventListener("visiban:open-shortcuts", open);
     return () => window.removeEventListener("visiban:open-shortcuts", open);
   }, []);
+
+  // Replay the onboarding tour — best-effort reset on the server, then flip
+  // the local user's has_completed_tour flag so the tour re-arms. Shared by
+  // the Shortcuts overlay "Restart tour" button and the overflow menu's
+  // "Replay onboarding tour" item; both call sites need identical behavior.
+  const replayTour = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      await resetTour();
+    } catch {
+      // Best-effort — proceed even if the API call fails so the tour restarts locally.
+    }
+    if (onUserUpdated) {
+      onUserUpdated({ ...currentUser, has_completed_tour: false });
+    }
+  }, [currentUser, onUserUpdated]);
 
   // Surface the command palette from the Row 1 global search trigger in Navbar
   // (#852). Until #191 ships a richer global search, the Row 1 button opens this
@@ -1004,6 +1112,100 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     ? board.cards.filter((c) => !c.archived_at).length - filteredCardIds.size
     : 0;
 
+  // Overflow menu items are computed unconditionally — the memo must sit above
+  // the early-return branches for summary/history/analytics views so the hook
+  // order stays stable across re-renders.
+  const overflowItems: OverflowItem[] = useMemo(() => {
+    const items: OverflowItem[] = [];
+
+    // Section 1 — folded Row 2 view controls (only at md and sm)
+    if (foldToolbarControls) {
+      items.push({
+        id: "layout",
+        label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
+        icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
+        onSelect: () => setCardLayout(cardLayout === "compact" ? "expanded" : "compact"),
+      });
+      items.push({
+        id: "archived",
+        label: showArchived ? "Hide archived cards" : "Show archived cards",
+        icon: ArchivedIcon,
+        onSelect: () => setShowArchived((v) => !v),
+      });
+      items.push({
+        id: "drawer",
+        label: drawerOpen ? "Close activity drawer" : "Open activity drawer",
+        icon: ActivityDrawerIcon,
+        shortcut: "⌘\\",
+        onSelect: () => setDrawerOpen((v) => !v),
+      });
+      if (isAdmin) {
+        items.push({
+          id: "settings",
+          label: "Board settings",
+          icon: SettingsIcon,
+          onSelect: () => setShowSettings(true),
+        });
+      }
+    }
+
+    // Section 2 — board tools (always available at every breakpoint)
+    const section2Separator = foldToolbarControls;
+    let section2First = true;
+    if (canExport) {
+      items.push({
+        id: "export",
+        label: "Export board",
+        icon: ExportIcon,
+        shortcut: "⌘⇧E",
+        onSelect: () => {
+          markExportSeen();
+          setShowExport(true);
+        },
+        separatorBefore: section2Separator && section2First,
+      });
+      section2First = false;
+    }
+    items.push({
+      id: "shortcuts",
+      label: "Keyboard shortcuts",
+      icon: ShortcutsIcon,
+      shortcut: "?",
+      onSelect: () => {
+        markShortcutsSeen();
+        setShowShortcuts(true);
+      },
+      separatorBefore: section2Separator && section2First,
+    });
+
+    // Section 3 — help (only when a user is signed in and can reset the tour)
+    if (currentUser) {
+      items.push({
+        id: "tour",
+        label: "Replay onboarding tour",
+        icon: ReplayTourIcon,
+        onSelect: () => {
+          void replayTour();
+        },
+        separatorBefore: true,
+      });
+    }
+
+    return items;
+  }, [
+    foldToolbarControls,
+    cardLayout,
+    setCardLayout,
+    showArchived,
+    drawerOpen,
+    isAdmin,
+    canExport,
+    markExportSeen,
+    markShortcutsSeen,
+    currentUser,
+    replayTour,
+  ]);
+
   if (view === "summary") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
@@ -1066,11 +1268,49 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     );
   }
 
+  // Primary click on the Collapse split button performs the dominant action —
+  // if anything is expanded, collapse all; otherwise, expand all. Preserves
+  // the 1.0 single-button behavior so muscle memory is not disturbed.
+  const onCollapsePrimary = () => {
+    if (focusedSwimlaneId !== null) exitFocus();
+    if (allExpanded) {
+      collapseAllColumns(board.columns.map((c) => c.id));
+      collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
+    } else {
+      expandAllColumns();
+      expandAllSwimlanes();
+    }
+  };
+  const onHideAllSwimlanes = () => {
+    if (focusedSwimlaneId !== null) exitFocus();
+    collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
+  };
+  const onHideAllColumns = () => {
+    if (focusedSwimlaneId !== null) exitFocus();
+    collapseAllColumns(board.columns.map((c) => c.id));
+  };
+  const onHideEverything = () => {
+    if (focusedSwimlaneId !== null) exitFocus();
+    collapseAllColumns(board.columns.map((c) => c.id));
+    collapseAllSwimlanes(board.swimlanes.map((s) => s.id));
+  };
+  const onShowAllSwimlanes = () => expandAllSwimlanes();
+  const onShowAllColumns = () => expandAllColumns();
+  const onShowEverything = () => {
+    expandAllColumns();
+    expandAllSwimlanes();
+  };
+
   return (
     <>
-      {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
-      <nav aria-label="Board toolbar" className="h-10 overflow-x-auto shrink-0 bg-surface border-b border-line">
-      <div data-testid="board-toolbar" className="flex items-center pl-3 pr-4 gap-2 min-w-max h-full">
+      {/* Primary toolbar row — scrollable region + pinned trailing cluster.
+          At sub-`lg` viewports (md/sm) the secondary controls fold into the
+          overflow kebab; at `lg` the overflow is additive. The trailing
+          cluster (overflow + ConnectionStatus) sits outside the scrollable
+          region so `⋮` stays visible when the scroll strip overflows at `sm`. */}
+      <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
+      <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
+      <div data-testid="board-toolbar" className="flex items-center gap-2 h-full min-w-max">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
           <ViewToggle view={view} onChange={setView} />
@@ -1081,24 +1321,54 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
         {/* Zone 2: Board controls */}
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => {
-              // Exit focus mode first — expanding or collapsing everything
-              // contradicts focus, which hides all other swimlanes.
-              if (focusedSwimlaneId !== null) exitFocus();
-              if (allExpanded) {
-                collapseAllColumns(board.columns.map(c => c.id));
-                collapseAllSwimlanes(board.swimlanes.map(s => s.id));
-              } else {
-                expandAllColumns();
-                expandAllSwimlanes();
-              }
+          <SplitButton
+            primaryLabel={allExpanded ? "Collapse" : "Expand"}
+            primaryAriaLabel={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
+            primaryTitle={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
+            menuAriaLabel="Collapse menu"
+            onPrimary={onCollapsePrimary}
+            renderMenu={({ close }) => {
+              // Menu items are disabled when the action would be a no-op — e.g.
+              // "Hide all swimlanes" is disabled once every swimlane is already
+              // collapsed. This teaches the mental model without removing
+              // entries; the menu shape is stable regardless of current state.
+              const allSwimlanesCollapsed = board.swimlanes.length > 0 && collapsedSwimlaneIds.size >= board.swimlanes.length;
+              const allColumnsCollapsed = board.columns.length > 0 && collapsedColumnIds.size >= board.columns.length;
+              const renderItem = (
+                label: string,
+                onClick: () => void,
+                disabled: boolean,
+              ) => (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (disabled) return;
+                    onClick();
+                    close();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {label}
+                </button>
+              );
+              return (
+                <>
+                  {renderItem("Hide all swimlanes", onHideAllSwimlanes, allSwimlanesCollapsed)}
+                  {renderItem("Hide all columns", onHideAllColumns, allColumnsCollapsed)}
+                  {renderItem("Hide everything", onHideEverything, allSwimlanesCollapsed && allColumnsCollapsed)}
+                  <div role="separator" className="mx-4 my-1">
+                    <div className="h-px bg-sunken" />
+                    <div className="h-px bg-surface-active/50" />
+                  </div>
+                  {renderItem("Show all swimlanes", onShowAllSwimlanes, allSwimlanesExpanded)}
+                  {renderItem("Show all columns", onShowAllColumns, allColumnsExpanded)}
+                  {renderItem("Show everything", onShowEverything, allExpanded)}
+                </>
+              );
             }}
-            className="text-xs text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            aria-label={allExpanded ? "Collapse all columns and swimlanes" : "Expand all columns and swimlanes"}
-          >
-            {allExpanded ? "Collapse" : "Expand"}
-          </button>
+          />
           <button
             data-tour-step="filter"
             onClick={() => setShowFilters((v) => !v)}
@@ -1113,6 +1383,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </span>
             )}
           </button>
+          {!foldToolbarControls && (
           <Tooltip content={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}>
             <button
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
@@ -1124,22 +1395,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                   : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
               }`}
             >
-              {cardLayout === "compact" ? (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="5" rx="1" />
-                  <rect x="3" y="10" width="18" height="5" rx="1" />
-                  <rect x="3" y="17" width="18" height="4" rx="1" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-              )}
+              {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
             </button>
           </Tooltip>
+          )}
+          {!foldToolbarControls && (
           <button
             onClick={() => setShowArchived((v) => !v)}
             className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
@@ -1148,15 +1408,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           >
             Archived
           </button>
+          )}
         </div>
 
         {/* Spacer */}
         <div className="flex-1" />
 
+        {!foldToolbarControls && (
+        <>
         {/* Divider 2 */}
         <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
 
-        {/* Zone 3: Utilities + status */}
+        {/* Zone 3: Utilities (direct at lg; folded into overflow at md/sm) */}
         <div className="flex items-center gap-1">
           <Tooltip content={drawerOpen ? "Close activity drawer (⌘\\)" : "Open activity drawer (⌘\\)"}>
             <button
@@ -1167,14 +1430,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 drawerOpen ? "text-info bg-info/10" : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
               }`}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                <circle cx="5" cy="7" r="1.5" fill="currentColor" stroke="none" />
-                <line x1="9" y1="7" x2="20" y2="7" />
-                <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                <line x1="9" y1="12" x2="20" y2="12" />
-                <circle cx="5" cy="17" r="1.5" fill="currentColor" stroke="none" />
-                <line x1="9" y1="17" x2="16" y2="17" />
-              </svg>
+              {ActivityDrawerIcon}
             </button>
           </Tooltip>
           <Tooltip content="Keyboard shortcuts">
@@ -1184,14 +1440,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               aria-label={showShortcuts ? "Close keyboard shortcuts" : "Keyboard shortcuts"}
               aria-pressed={showShortcuts}
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                <rect x="2" y="6" width="20" height="12" rx="2" />
-                <line x1="6" y1="10" x2="6" y2="10.01" />
-                <line x1="10" y1="10" x2="10" y2="10.01" />
-                <line x1="14" y1="10" x2="14" y2="10.01" />
-                <line x1="18" y1="10" x2="18" y2="10.01" />
-                <line x1="8" y1="14" x2="16" y2="14" />
-              </svg>
+              {ShortcutsIcon}
               {!shortcutsSeen && (
                 <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
               )}
@@ -1204,10 +1453,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               className="relative p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               aria-label="Export board"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                <path d="M12 3v12M8 11l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              {ExportIcon}
               {!exportSeen && (
                 <span className="absolute top-0 right-0 w-2 h-2 bg-primary-emphasis rounded-full pointer-events-none" aria-hidden="true" />
               )}
@@ -1221,22 +1467,33 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                 className="p-1.5 rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 aria-label="Board settings"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-                </svg>
+                {SettingsIcon}
               </button>
             </Tooltip>
           )}
-          <ConnectionStatus
-            status={socketStatus}
-            lastEventAt={socketLastEventAt}
-            reconnectAttempt={socketReconnectAttempt}
-            onRefresh={silentReload}
-            tourStep="live-indicator"
-            className="ml-1"
-          />
         </div>
+        </>
+        )}
+      </div>
+      </div>
+      {/* Pinned trailing cluster — overflow kebab + connection status.
+          Lives outside the scrollable region so `⋮` stays visible at `sm`
+          when the inner strip overflows horizontally. */}
+      <div className="flex items-center gap-1 shrink-0 h-full px-2 border-l border-line bg-surface">
+        <OverflowMenu
+          items={overflowItems}
+          showDot={!overflowSeen}
+          onDismissDot={markOverflowSeen}
+          externalOpen={overflowOpen}
+          onExternalOpenChange={setOverflowOpen}
+        />
+        <ConnectionStatus
+          status={socketStatus}
+          lastEventAt={socketLastEventAt}
+          reconnectAttempt={socketReconnectAttempt}
+          onRefresh={silentReload}
+          tourStep="live-indicator"
+        />
       </div>
       </nav>
 
@@ -1316,7 +1573,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
 
-      {/* Collapsed swimlanes strip — shows count and "Expand all lanes" button */}
+      {/* Collapsed swimlanes strip — shows count and "Expand all swimlanes" button */}
       {view === "board" && collapsedSwimlaneIds.size > 0 && (
         <div className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-1.5 flex items-center gap-3 text-sm text-info shrink-0">
           <svg className="w-3.5 h-3.5 text-info shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -1327,14 +1584,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <span>
             <span className="font-medium text-info">{collapsedSwimlaneIds.size}</span>
             {" "}
-            {collapsedSwimlaneIds.size === 1 ? "lane" : "lanes"} collapsed
+            {collapsedSwimlaneIds.size === 1 ? "swimlane" : "swimlanes"} collapsed
           </span>
           <div className="flex-1" />
           <button
             onClick={expandAllSwimlanes}
             className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
-            Expand all lanes
+            Expand all swimlanes
           </button>
         </div>
       )}
@@ -1647,14 +1904,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <KeyboardShortcutsOverlay
           onClose={() => setShowShortcuts(false)}
           onRestartTour={currentUser ? async () => {
-            try {
-              await resetTour();
-            } catch {
-              // Best-effort — proceed even if the API call fails so the tour restarts locally.
-            }
-            if (currentUser && onUserUpdated) {
-              onUserUpdated({ ...currentUser, has_completed_tour: false });
-            }
+            await replayTour();
             setShowShortcuts(false);
           } : undefined}
         />
