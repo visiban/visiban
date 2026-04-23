@@ -778,6 +778,21 @@ describe('BoardView', () => {
       const statusRegions = screen.getAllByRole('status')
       expect(statusRegions.length).toBeGreaterThanOrEqual(1)
     })
+
+    it('Row 2 is a <nav> landmark labeled "Board toolbar" with h-10', () => {
+      render(<BoardView {...defaultProps()} />)
+      const nav = screen.getByRole('navigation', { name: 'Board toolbar' })
+      expect(nav.tagName).toBe('NAV')
+      expect(nav.className).toMatch(/\bh-10\b/)
+      expect(nav.className).toMatch(/bg-surface/)
+    })
+
+    it('filter row exposes role="search" labeled "Card filters" when filters are open', async () => {
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByText('Filters'))
+      const search = screen.getByRole('search', { name: 'Card filters' })
+      expect(search).toBeInTheDocument()
+    })
   })
 
   describe('ViewToggle Beta badge', () => {

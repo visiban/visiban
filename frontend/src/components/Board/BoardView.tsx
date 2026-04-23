@@ -1044,8 +1044,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   return (
     <>
       {/* Primary toolbar row — 3 zones: view nav | board controls | utilities + status */}
-      <div className="overflow-x-auto shrink-0 bg-surface border-b border-line">
-      <div data-testid="board-toolbar" className="flex items-center pl-3 pr-4 py-1.5 gap-2 min-w-max">
+      <nav aria-label="Board toolbar" className="h-10 overflow-x-auto shrink-0 bg-surface border-b border-line">
+      <div data-testid="board-toolbar" className="flex items-center pl-3 pr-4 gap-2 min-w-max h-full">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
           <ViewToggle view={view} onChange={setView} />
@@ -1228,7 +1228,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           />
         </div>
       </div>
-      </div>
+      </nav>
 
       {/* Filter row — own row so it doesn't compress the toolbar */}
       {showFilters && (
@@ -1256,7 +1256,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               />
             </div>
           )}
-          <div className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
+          <div role="search" aria-label="Card filters" className="px-3 py-1.5 bg-surface border-b border-line shrink-0 flex items-center gap-2 flex-wrap">
             <SavedFiltersDropdown
               boardId={board.id}
               filters={filters}
