@@ -216,7 +216,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
             {filters.search === "" && !isSearching && !searchDisabled && (
               <kbd
                 aria-hidden="true"
-                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none inline-block bg-surface-hover text-fg-muted text-[10px] font-mono leading-none px-1 py-0.5 rounded border border-line-strong"
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none inline-block bg-surface-hover text-fg text-[10px] font-mono leading-none px-1 py-0.5 rounded border border-line-strong"
               >
                 /
               </kbd>
