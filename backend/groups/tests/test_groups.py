@@ -161,6 +161,9 @@ class GroupMembersTests(TestCase):
             {"role": "superuser"},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        data = r.json()
+        self.assertIn("detail", data, "error body must use 'detail' key, not 'role'")
+        self.assertIn("admin", data["detail"])
 
     def test_non_admin_cannot_list_members(self):
         outsider = User.objects.create_user(username="out", password="pass")

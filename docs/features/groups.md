@@ -60,8 +60,11 @@ Group admins can generate up to **5 active invite links** per group from the gro
 | **Name** | Optional label to identify the link's purpose |
 | **Role** | `admin`, `member`, `collaborator`, or `viewer` (the role granted on join) |
 | **Expiry** | 1 day, 7 days, 30 days, or Never |
+| **Single-use** | When enabled, the link is deactivated after the first person uses it |
 
-Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Each link can be revoked independently — existing members are not affected.
+> **Added in 1.1** — single-use invite links (#689)
+
+Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Single-use links display a status badge and consumed-at timestamp in the invite links list after they have been used. Each link can be revoked independently — existing members are not affected.
 
 Unauthenticated visitors who open an invite link are shown a full authentication interface: a **Create an account** button (primary), a **Sign in** option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.
 

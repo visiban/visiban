@@ -34,6 +34,8 @@ The star button (☆/★) appears in the **breadcrumb in the top navbar** when v
 
 Starred boards also surface in two more places so they stay one click away from anywhere in the app:
 
+> **Added in 1.1** — the Dashboard Favorite Boards section and command palette starred-boards ranking (#450)
+
 - **Dashboard — Favorite Boards section.** A dedicated section above *My Boards* lists every starred board (personal or grouped) in alphabetical order. The section is hidden entirely when no boards are starred, so the Dashboard stays uncluttered for users who haven't yet starred anything.
 - **Command palette default view.** Opening the palette (`⌘K` / `Ctrl+K`) with an empty query lists your starred boards first — alphabetically — followed by your recent visits. A ★ glyph next to the board name marks the starred rows.
 

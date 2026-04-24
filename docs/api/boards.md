@@ -61,7 +61,16 @@ List only boards the requesting user has starred.
 ### `POST /api/v1/boards/{id}/move-group/`
 Move board to a different group (or `null` for personal).
 
+**Minimum role:** Board owner, board admin, or site admin. The caller must also be a member of the target group.
+
 **Request** `{ "group_id": 5 }` or `{ "group_id": null }`
+
+**Errors**
+
+| Status | Body | Condition |
+|---|---|---|
+| `403 Forbidden` | `{"detail": "..."}` | Caller is not board owner/admin, or is not a member of the target group |
+| `404 Not Found` | `{"detail": "..."}` | Target group does not exist |
 
 ---
 
@@ -605,6 +614,32 @@ Update a swimlane. Requires board admin.
 
 ### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
+
+### `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/`
+Toggle the default collapsed state of a swimlane. Requires member role or above (collaborators and viewers are rejected).
+
+This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.
+
+**Minimum role:** member, admin, or site admin
+
+**Request**
+```json
+{ "is_collapsed": true }
+```
+
+**Response** — updated swimlane object (same shape as `GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/`)
+
+**Errors**
+
+| Status | Body | Condition |
+|---|---|---|
+| `400 Bad Request` | `{"is_collapsed": "This field must be a boolean."}` | `is_collapsed` was not a boolean |
+| `403 Forbidden` | `{"detail": "..."}` | Caller is a collaborator or viewer |
+
+A `swimlane.updated` WebSocket event is broadcast to all connected board clients on success.
+
+!!! note
+    The deprecated snake_case alias `set_collapsed` (with underscore) is retained for 1.x backward compatibility and emits the same response. Prefer the kebab-case form `set-collapsed`. The alias will be removed in 2.0.
 
 ### `POST /api/v1/boards/{id}/swimlanes/reorder/`
 Reorder swimlanes. Requires board admin.

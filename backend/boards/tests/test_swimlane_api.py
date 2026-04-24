@@ -7,6 +7,8 @@ Verifies:
 - The is_collapsed field is saved correctly.
 """
 
+from unittest.mock import patch
+
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -162,3 +164,16 @@ class SwimlaneSetCollapsedTests(TestCase):
         url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set_collapsed/"
         r = self.client.patch(url, {"is_collapsed": True}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+    @patch("boards.views.swimlanes.transaction.on_commit", side_effect=lambda fn: fn())
+    @patch("boards.broadcast.broadcast_board_event")
+    def test_set_collapsed_broadcasts_swimlane_updated(self, mock_broadcast, _on_commit):
+        """set-collapsed must emit a swimlane.updated broadcast (#892)."""
+        self.client.force_authenticate(self.admin)
+        url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set-collapsed/"
+        r = self.client.patch(url, {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        mock_broadcast.assert_called_once_with(
+            self.board.id, "swimlane.updated", mock_broadcast.call_args[0][2]
+        )
+        self.assertEqual(mock_broadcast.call_args[0][1], "swimlane.updated")

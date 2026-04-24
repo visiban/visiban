@@ -623,5 +623,23 @@ describe('GroupDetail', () => {
       const bravoBtn = screen.getByText('Bravo').closest('[data-board-id]') as HTMLElement
       expect(document.activeElement).toBe(bravoBtn)
     })
+
+    it('refetches the group on group.updated (#906)', async () => {
+      const updatedGroup: Group = { ...fakeGroup, owner: { ...fakeUser, id: 2, username: 'newowner', display_name: 'New Owner' } }
+      // First call: initial load; second call: triggered by group.updated event
+      mockGetGroup
+        .mockResolvedValueOnce(fakeGroup)
+        .mockResolvedValueOnce(updatedGroup)
+      await loadGroup()
+
+      act(() => {
+        capturedOnEvent?.({ event: 'group.updated', data: { id: 1, owner_id: 2 } } as BoardEvent)
+      })
+
+      // getGroup must be called a second time — once for initial load, once for the event
+      await waitFor(() => {
+        expect(mockGetGroup).toHaveBeenCalledTimes(2)
+      })
+    })
   })
 })

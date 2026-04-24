@@ -155,7 +155,7 @@ class AuthProvidersView(APIView):
             "google": bool(providers.get("google", {}).get("APP", {}).get("client_id")),
             "github": bool(providers.get("github", {}).get("APP", {}).get("client_id")),
             "gitlab": bool(providers.get("gitlab", {}).get("APP", {}).get("client_id")),
-            # Generic OIDC — present when OIDC_CLIENT_ID/OIDC_SECRET/OIDC_SERVER_URL are set.
+            # Generic OIDC — present when OIDC_CLIENT_ID/OIDC_CLIENT_SECRET/OIDC_SERVER_URL are set.
             # name comes from OIDC_PROVIDER_NAME (default "SSO") for the login button label.
             "oidc": bool(oidc_app.get("client_id")),
             "oidc_name": oidc_app.get("name", "SSO") if oidc_app.get("client_id") else None,

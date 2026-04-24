@@ -8,11 +8,12 @@ unchanged when the enterprise package is absent.
 
 Stability guarantee (1.0+): hook signatures, names, and the *list* type
 must not change in a minor/patch release. Enterprise code mutates these
-lists in place via ``.append(...)`` — rebinding the module attribute
-(``hooks.MOVEMENT_EXPORT_BACKENDS = [...]``) or converting to a tuple
-would silently drop enterprise registrations (#820). Any future change
-to the hook container type requires a major version bump coordinated
-with the enterprise repository.
+lists in place via ``.append(...)`` — rebinding any module attribute
+(e.g. ``hooks.MOVEMENT_EXPORT_BACKENDS = [...]`` or
+``hooks.ANALYTICS_EXTENSIONS = [...]``) or converting to a tuple would
+silently drop enterprise registrations (#820). This guarantee covers all
+lists in this module. Any future change to a hook container type requires
+a major version bump coordinated with the enterprise repository.
 """
 
 # Movement history export hook (#342 / enterprise delivery-report feature).
