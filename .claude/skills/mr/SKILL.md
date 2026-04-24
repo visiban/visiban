@@ -68,9 +68,17 @@ If pre-flight checks found issues (e.g. CHANGELOG not updated, uncommitted chang
 **Description must cover:**
 - **Summary** — bullet points of what changed and why (user-visible impact, not implementation detail)
 - **Test plan** — checklist of how to verify the change works; include both happy path and edge cases
-- **Closes #N** — if this MR resolves a GitLab issue
+- **Closes #N** — if this MR resolves a GitLab issue. **This must be a standalone line** with the bare keyword immediately before the issue reference — e.g. `Closes #450`, `Fixes #450`, or `Resolves #450`. Do **not** embed the reference in prose like "Closes the last scope of #450" or "Closes part of #450" — GitLab's auto-close regex only allows optional `issue`/`issues` between the keyword and the number, so prose variants silently fail and leave the issue open after merge. Put each `Closes #NNN` on its own line, one issue per line, typically at the end of the description.
 
 #### 5. Create the MR
+
+**Pre-submit check — verify closing keyword regex.** Before running `glab mr create`, scan the drafted description for issue references (`#NNN`). For every issue this MR resolves, confirm the body contains a line matching:
+
+```
+^(Closes|Fixes|Resolves|Closed|Fixed|Resolved|Close|Fix|Resolve|Closing|Fixing|Resolving)(:)?\s+(issues?\s+)?#NNN\b
+```
+
+If any referenced issue is mentioned only in prose (e.g. "Closes the last scope of #NNN", "Part of #NNN", "Addresses #NNN"), **stop and add a standalone `Closes #NNN` line** before proceeding. Do not submit the MR until every resolved issue has a matching standalone line. This is the #1 recurring MR mistake — GitLab silently accepts prose references and leaves the issue open after merge.
 
 Always use heredoc syntax — never inline `\n` literals:
 
