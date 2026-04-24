@@ -89,6 +89,14 @@ def _can_modify_others_content(board, role, user):
     membership = getattr(board, "_cached_membership", None)
     if membership is not None:
         return membership.is_moderator
+    # _prefetched_memberships is loaded by get_board_for_user() — scan it first
+    # before issuing a live query on every mutation request.
+    prefetched = getattr(board, "_prefetched_memberships", None)
+    if prefetched is not None:
+        for m in prefetched:
+            if m.user_id == user.id:
+                return m.is_moderator
+        return False
     try:
         membership = BoardMembership.objects.get(board=board, user=user)
         return membership.is_moderator

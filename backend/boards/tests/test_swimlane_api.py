@@ -84,6 +84,16 @@ class SwimlaneSetCollapsedTests(TestCase):
         r = self.client.patch(self._url(), {"is_collapsed": True}, format="json")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_collaborator_cannot_set_collapsed(self):
+        """Collaborators have read-only access to cards only; mutating a
+        board-structure field (is_collapsed is persisted on Swimlane) requires
+        at least MEMBER role per the allow-list enforced by set_collapsed."""
+        collab = User.objects.create_user(username="collapse_collab", password="pass")
+        _add_member(self.board, collab, BoardMembership.Role.COLLABORATOR)
+        self.client.force_authenticate(collab)
+        r = self.client.patch(self._url(), {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_non_member_gets_403(self):
         """A user who is not a board member must not access the action."""
         stranger = User.objects.create_user(username="collapse_stranger", password="pass")

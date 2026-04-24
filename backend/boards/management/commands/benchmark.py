@@ -111,7 +111,7 @@ class Command(BaseCommand):
 
     def _bench_full(self, factory, user, board):
         name = "GET /api/boards/{id}/full/"
-        budget = 15
+        budget = 20  # ~12 measured; matches BoardFullQueryCountTests.BUDGET in test_query_counts.py
 
         request = factory.get("/")
         request.user = user

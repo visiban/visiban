@@ -523,3 +523,50 @@ class MovementsEndpointQueryCountTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         actual_total = CardMovement.objects.filter(card__board=self.board).count()
         self.assertEqual(resp.data["count"], actual_total)
+
+
+class AnalyticsQueryCountTests(TestCase):
+    """GET /api/boards/{id}/analytics/ must not issue per-swimlane or per-card queries.
+
+    The analytics endpoint uses SQL-level annotations and a single scoped
+    movement prefetch, so query count must stay flat regardless of how many
+    swimlanes or cards are on the board.
+    """
+
+    BUDGET = 15  # ~7 measured; 15 gives headroom for middleware
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="an_u", password="x")
+        self.board, self.cols, self.lanes = _seed_board(
+            self.user, n_cols=3, n_lanes=3, cards_per_cell=2
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _get_analytics(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/analytics/")
+
+    def test_analytics_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_analytics()
+        self.assertEqual(r.status_code, 200)
+        self.assertLessEqual(
+            len(ctx),
+            self.BUDGET,
+            f"analytics/ issued {len(ctx)} queries, budget is {self.BUDGET}. "
+            "A per-swimlane or per-card query was introduced — fix the annotation.",
+        )
+
+    def test_analytics_query_count_does_not_grow_with_swimlanes(self):
+        """Adding more swimlanes must not change the query count."""
+        baseline = _query_count(self._get_analytics)
+
+        for i in range(5):
+            Swimlane.objects.create(board=self.board, name=f"Extra{i}", position=100 + i)
+
+        scaled = _query_count(self._get_analytics)
+        self.assertEqual(
+            baseline, scaled,
+            f"analytics/ query count grew from {baseline} to {scaled} when "
+            "swimlanes were added — per-swimlane N+1 regression detected.",
+        )

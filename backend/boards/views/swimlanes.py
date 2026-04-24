@@ -116,8 +116,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         not a real-time board state change that other clients need to react to.
         """
         board, role = self._board_and_role()
-        if role == BoardMembership.Role.VIEWER:
-            raise PermissionDenied("Viewers cannot modify board structure.")
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only members and admins can modify swimlane display state.")
         swimlane = get_object_or_404(Swimlane, pk=pk, board=board)
         is_collapsed = request.data.get("is_collapsed")
         if not isinstance(is_collapsed, bool):
