@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { listInviteLinks, createInviteLink, revokeInviteLink } from "../../api/groups";
 import type { GroupInviteLink } from "../../types";
 import SelectDropdown from "../Common/SelectDropdown";
@@ -78,6 +78,18 @@ export default function InviteLinkPanel({ groupId }: Props) {
   const [createError, setCreateError] = useState<string | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
 
+  // Clear the "Copied!" feedback timer on unmount so setCopiedId(null) never
+  // runs after teardown (#870).
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current !== null) {
+        clearTimeout(copiedTimerRef.current);
+        copiedTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const fetchLinks = useCallback(async () => {
     setLoading(true);
     try {
@@ -99,7 +111,13 @@ export default function InviteLinkPanel({ groupId }: Props) {
       navigator.clipboard.writeText(url);
     }
     setCopiedId(link.id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (copiedTimerRef.current !== null) {
+      clearTimeout(copiedTimerRef.current);
+    }
+    copiedTimerRef.current = setTimeout(() => {
+      setCopiedId(null);
+      copiedTimerRef.current = null;
+    }, 2000);
   };
 
   const handleDismissReveal = (linkId: number) => {

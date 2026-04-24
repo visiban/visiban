@@ -152,11 +152,28 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     }
   };
 
+  // Share-URL "Copied!" feedback timer — cleaned up on unmount (#870).
+  const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (shareCopiedTimerRef.current !== null) {
+        clearTimeout(shareCopiedTimerRef.current);
+        shareCopiedTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleCopyShareUrl = () => {
     if (!shareUrl) return;
     navigator.clipboard.writeText(shareUrl);
     setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
+    if (shareCopiedTimerRef.current !== null) {
+      clearTimeout(shareCopiedTimerRef.current);
+    }
+    shareCopiedTimerRef.current = setTimeout(() => {
+      setShareCopied(false);
+      shareCopiedTimerRef.current = null;
+    }, 2000);
   };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

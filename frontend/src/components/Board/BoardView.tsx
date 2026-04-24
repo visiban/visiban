@@ -456,10 +456,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [highlightedCardId, setHighlightedCardId] = useState<number | null>(null);
+  // Refs for the two card-lookup timers (fade + not-found banner). Cleaned up on
+  // unmount so setState never runs after teardown (#870).
+  const highlightedCardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // null = no message; non-null string = message to show in the not-found toast.
   const [cardNotFound, setCardNotFound] = useState<string | null>(null);
   const [archiveToast, setArchiveToast] = useState(false);
   const archiveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (highlightedCardTimerRef.current !== null) {
+        clearTimeout(highlightedCardTimerRef.current);
+        highlightedCardTimerRef.current = null;
+      }
+      if (cardNotFoundTimerRef.current !== null) {
+        clearTimeout(cardNotFoundTimerRef.current);
+        cardNotFoundTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // --- Focus mode ---
   // Parse ?focus= param; validate against board.swimlanes; null if absent or invalid (silent ignore).
@@ -536,7 +552,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (card) {
       setSelectedCard(card);
       setHighlightedCardId(cardId);
-      setTimeout(() => setHighlightedCardId(null), 1500);
+      if (highlightedCardTimerRef.current !== null) {
+        clearTimeout(highlightedCardTimerRef.current);
+      }
+      highlightedCardTimerRef.current = setTimeout(() => {
+        setHighlightedCardId(null);
+        highlightedCardTimerRef.current = null;
+      }, 1500);
       setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
     } else {
       setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
@@ -546,7 +568,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           ? "This card has been archived."
           : "Card not found — it may have been deleted.";
         setCardNotFound(msg);
-        setTimeout(() => setCardNotFound(null), 4000);
+        if (cardNotFoundTimerRef.current !== null) {
+          clearTimeout(cardNotFoundTimerRef.current);
+        }
+        cardNotFoundTimerRef.current = setTimeout(() => {
+          setCardNotFound(null);
+          cardNotFoundTimerRef.current = null;
+        }, 4000);
       });
     }
   }, [board.cards, board.id, searchParams, setSearchParams]);
