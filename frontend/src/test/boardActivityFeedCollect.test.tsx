@@ -159,6 +159,8 @@ function makeBoard(): BoardFull {
     current_user_role: 'admin',
     owner: fakeUser,
     capabilities: { movement_export: false },
+    share_token: null,
+    share_token_expires_at: null,
   }
 }
 

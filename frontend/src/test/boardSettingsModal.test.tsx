@@ -84,6 +84,7 @@ const fakeBoard: BoardFull = {
   owner: fakeUser,
   capabilities: { movement_export: false },
   share_token: null,
+  share_token_expires_at: null,
 }
 
 // ─── Modal basics ──────────────────────────────────────────────────────────
