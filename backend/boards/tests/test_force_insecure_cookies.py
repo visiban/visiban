@@ -25,6 +25,7 @@ _PROD_HTTPS_ENV = {
     "DJANGO_SECRET_KEY": "test-secret-key-not-change-me-in-production",
     "ALLOWED_HOSTS": "boards.example.com",
     "DATABASE_URL": "sqlite:///dev.db",
+    "DEFAULT_FROM_EMAIL": "noreply@visiban.test",
 }
 
 # Plain-HTTP variant — used when FORCE_INSECURE_COOKIES=true is valid.
