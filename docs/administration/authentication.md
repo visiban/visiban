@@ -63,8 +63,8 @@ Set all three of the following environment variables. The provider is only regis
 | `OIDC_SERVER_URL` | Yes | Issuer URL of your IdP — see note below |
 | `OIDC_PROVIDER_NAME` | No | Label shown on the login button (default: `SSO`) |
 
-!!! note "Deprecated alias"
-    `OIDC_SECRET` is a deprecated alias for `OIDC_CLIENT_SECRET`, kept for one release cycle. Rename it to `OIDC_CLIENT_SECRET` when you next update your environment. The alias will be removed in 1.1.
+!!! warning "Alias removed in 1.1"
+    `OIDC_SECRET` was a deprecated alias for `OIDC_CLIENT_SECRET` that was removed in 1.1. If you are upgrading from 1.0 and had `OIDC_SECRET` set, rename it to `OIDC_CLIENT_SECRET` — OIDC login will silently not activate if only the old name is present.
 
 **Example** (`docker-compose.yml` or `.env`):
 

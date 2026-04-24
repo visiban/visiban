@@ -179,6 +179,26 @@ class TestSummaryMetrics(AnalyticsHistorySetup):
         resp = c.get(self._summary_url())
         self.assertEqual(resp.data["extension_panels"], [])
 
+    def test_faulty_extension_panel_returns_200_with_empty_panels(self):
+        """A raising ANALYTICS_EXTENSIONS callable must not crash the summary endpoint (#904).
+
+        The per-callable try/except must catch the exception, log a warning, and
+        continue — the response must still be HTTP 200 with extension_panels: [].
+        """
+        from boards import hooks as _hooks
+
+        def _bad_panel(board, request):
+            raise RuntimeError("simulated extension failure")
+
+        _hooks.ANALYTICS_EXTENSIONS.append(_bad_panel)
+        try:
+            c = self._client_for(self.admin)
+            resp = c.get(self._summary_url())
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.data["extension_panels"], [])
+        finally:
+            _hooks.ANALYTICS_EXTENSIONS.remove(_bad_panel)
+
     def test_capabilities_movement_export_false_by_default(self):
         """capabilities.movement_export must be False in OSS (no MOVEMENT_EXPORT_BACKENDS)."""
         c = self._client_for(self.admin)

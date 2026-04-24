@@ -55,7 +55,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object |
-| `board.deleted` | Board was deleted | `{ "board_id": <int> }` |
+| `board.deleted` | Board was deleted | `{ "board_uid": <string>, "board_id": <int> }` |
 
 ### Column events
 
@@ -63,7 +63,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 |---|---|---|
 | `column.created` | New column created | Full `ColumnSerializer` object |
 | `column.updated` | Column renamed, recolored, or settings changed | Full `ColumnSerializer` object |
-| `column.deleted` | Column deleted | `{ "column_id": <int> }` |
+| `column.deleted` | Column deleted | `{ "column_uid": <string> }` |
 | `column.reordered` | Column order changed (since 1.1) | `{ "columns": [<ColumnSerializer>, ...] }` — all columns in new order |
 | `columns.reordered` | Deprecated plural alias for `column.reordered`; emitted alongside it until removed in 2.0 | Same as `column.reordered` |
 
@@ -73,7 +73,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 |---|---|---|
 | `swimlane.created` | New swimlane created | `SwimlaneSerializer` object (public fields only — `contact_email` and `notes` are omitted regardless of role) |
 | `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above) |
-| `swimlane.deleted` | Swimlane deleted | `{ "swimlane_id": <int> }` |
+| `swimlane.deleted` | Swimlane deleted | `{ "swimlane_uid": <string> }` |
 | `swimlane.reordered` | Swimlane order changed (since 1.1) | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
 | `swimlanes.reordered` | Deprecated plural alias for `swimlane.reordered`; emitted alongside it until removed in 2.0 | Same as `swimlane.reordered` |
 
@@ -86,7 +86,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 |---|---|---|
 | `label.created` | New label created | Full `LabelSerializer` object |
 | `label.updated` | Label renamed or recolored | Full `LabelSerializer` object |
-| `label.deleted` | Label deleted | `{ "label_id": <int> }` |
+| `label.deleted` | Label deleted | `{ "label_uid": <string> }` |
 
 ### Card events
 
@@ -94,7 +94,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 |---|---|---|
 | `card.created` | New card created | Full `CardSerializer` object |
 | `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed | Full `CardSerializer` object |
-| `card.deleted` | Card deleted | `{ "card_id": <int> }` |
+| `card.deleted` | Card deleted | `{ "card_uid": <string> }` |
 | `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
@@ -106,6 +106,14 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `member.added` | User added to board | Full `BoardMembershipSerializer` object |
 | `member.updated` | Member role or moderator flag changed | Full `BoardMembershipSerializer` object |
 | `member.removed` | User removed from board | `{ "user_id": <int> }` |
+
+### Keepalive
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `ping` | Server keepalive, sent every 30 seconds | `{}` |
+
+Clients must silently ignore `ping` events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Do not treat unknown event types as errors.
 
 ---
 
@@ -128,6 +136,8 @@ Authentication uses the same session-cookie mechanism as the board channel. The 
 | `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object |
 | `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object |
 | `board.deleted` | Board deleted, or moved out of this group | `{ "board_id": <int>, "board_uid": <string> }` |
+| `group.updated` | Group ownership transferred | `{ "id": <int>, "owner_id": <int> }` |
+| `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.
 

@@ -278,6 +278,7 @@ class TestHardWipEnforcement(TestCase):
         })
         self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
         data = resp.json()
+        self.assertEqual(data["detail"], "WIP limit enforced — move blocked.")
         self.assertEqual(data["code"], "wip_hard_blocked")
         self.assertEqual(data["column_name"], self.col_b.name)
         self.assertEqual(data["current_count"], 2)

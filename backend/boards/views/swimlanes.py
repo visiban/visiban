@@ -112,8 +112,8 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         changes the default view for every member — "manage board structure"
         is an admin/member privilege, not a read-only one.
 
-        No WebSocket event is broadcast — this is a per-board default preference,
-        not a real-time board state change that other clients need to react to.
+        Broadcasts a ``swimlane.updated`` event via ``transaction.on_commit``
+        so connected clients can reflect the new collapsed state in real time.
         """
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):

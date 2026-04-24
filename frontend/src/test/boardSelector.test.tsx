@@ -51,7 +51,7 @@ describe('BoardSelector', () => {
   })
 
   it('calls onSelect when board is clicked', async () => {
-    const board = { id: 1, name: 'Board A', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' }
+    const board = { id: 1, uid: 'board-a', name: 'Board A', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' }
     mockListBoards.mockResolvedValue([board])
     const onSelect = vi.fn()
     render(<BoardSelector user={fakeUser} onSelect={onSelect} />)
@@ -63,7 +63,7 @@ describe('BoardSelector', () => {
 
   it('shows delete button for owned boards', async () => {
     mockListBoards.mockResolvedValue([
-      { id: 1, name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 3, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
     ])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
     await screen.findByText('My Board')
@@ -72,7 +72,7 @@ describe('BoardSelector', () => {
 
   it('shows delete confirmation dialog', async () => {
     mockListBoards.mockResolvedValue([
-      { id: 1, name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 5, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
     ])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
     const user = userEvent.setup()
@@ -93,7 +93,7 @@ describe('BoardSelector', () => {
 
   it('shows board description when available', async () => {
     mockListBoards.mockResolvedValue([
-      { id: 1, name: 'Board A', description: 'A test board', owner: fakeUser, group: null, group_name: null, member_count: 1, created_at: '', updated_at: '' },
+      { id: 1, uid: 'board-a', name: 'Board A', description: 'A test board', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
     ])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
     expect(await screen.findByText('A test board')).toBeInTheDocument()

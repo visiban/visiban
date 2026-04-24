@@ -325,6 +325,8 @@ Click **Export** in the board toolbar to download the board data:
 - **JSON** (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.
 - **CSV** — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.
 
+> **Added in 1.1** — export permission threshold and audit history (#842, #843)
+
 By default, any board member can export. Admins can raise the threshold per board under **Board Settings → Data → Export permission** to restrict exports to collaborators, members, or admins only. Owners and site admins always bypass the threshold. When a user's role is below the threshold, the **Export** button is hidden and direct API calls return `403 export_restricted`. The export endpoints are:
 
 - `GET /api/v1/boards/{id}/export/` — CSV
@@ -396,9 +398,14 @@ Board admins can generate a public read-only link that lets anyone view the boar
 
 1. Open **Board Settings** and go to the **Sharing** tab.
 2. Toggle **Enable public share link** to the on position.
-3. A URL in the format `https://<host>/share/<token>` is displayed with a **Copy** button.
+3. Optionally set an **expiry** — choose 7 days, 30 days, 90 days, or no expiry. The default is no expiry.
+4. A URL in the format `https://<host>/share/<token>` is displayed with a **Copy** button.
 
 Share that URL with anyone — recipients do not need a Visiban account.
+
+> **Added in 1.1** — share link expiry options (#804)
+
+When a share link expires, visitors who follow the URL receive a `410 Gone` response and a "This link has expired" page. Toggling sharing back on after expiry generates a new token — the expired token cannot be restored.
 
 ### What the public view shows
 

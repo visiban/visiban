@@ -155,7 +155,7 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 ```
 
 !!! note
-    The default value of `EMAIL_VERIFICATION` is `optional`, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set `EMAIL_VERIFICATION=none` to disable verification emails entirely (no SMTP needed). `ACCOUNT_EMAIL_VERIFICATION` is a deprecated alias and will be removed in a future release.
+    The default value of `EMAIL_VERIFICATION` is `optional`, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set `EMAIL_VERIFICATION=none` to disable verification emails entirely (no SMTP needed). The old alias `ACCOUNT_EMAIL_VERIFICATION` was removed in 1.1 — only `EMAIL_VERIFICATION` is read.
 
 ---
 

@@ -190,7 +190,7 @@ When `enforce_wip_limits` or `enforce_weight_limits` is enabled on the board and
 When `enforce_wip_hard` is enabled on the board, the limit cannot be overridden by any role — all users receive `409 Conflict` with code `wip_hard_blocked`:
 
 ```json
-{ "code": "wip_hard_blocked", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }
+{ "detail": "WIP limit enforced — move blocked.", "code": "wip_hard_blocked", "column_name": "Doing", "current_count": 5, "wip_limit": 5 }
 ```
 
 When `enforce_wip_hard` is not enabled, board admins may override the limit by appending `?force=true` to the move URL:

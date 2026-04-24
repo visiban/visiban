@@ -1,6 +1,7 @@
 """BoardViewSet mixin for summary and analytics actions."""
 
 import datetime
+import logging
 import statistics
 
 from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Window
@@ -12,6 +13,8 @@ from rest_framework import status
 from ..models import CardMovement
 from .. import hooks
 from ._helpers import get_board_for_user
+
+_logger = logging.getLogger(__name__)
 
 
 class BoardAnalyticsMixin:
@@ -118,10 +121,12 @@ class BoardAnalyticsMixin:
                 "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
-        try:
-            extension_panels = [fn(board, request) for fn in hooks.ANALYTICS_EXTENSIONS]
-        except Exception:
-            extension_panels = []
+        extension_panels = []
+        for _fn in hooks.ANALYTICS_EXTENSIONS:
+            try:
+                extension_panels.append(_fn(board, request))
+            except Exception:
+                _logger.warning("ANALYTICS_EXTENSIONS callable %r raised an exception", _fn, exc_info=True)
         return Response({"swimlanes": result, "extension_panels": extension_panels})
 
     @action(detail=True, methods=["get"])
