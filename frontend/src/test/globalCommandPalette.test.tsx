@@ -11,11 +11,13 @@ import type { BoardFull } from "../types";
 // commandPalette.test.tsx.
 
 // Mock listBoards — the palette fetches boards on open regardless of mode.
+// Both boards are starred so the empty-query default view lists them (starred
+// boards are pinned to the top of the palette's default results).
 vi.mock("../api/boards", () => ({
   listBoards: vi.fn(() =>
     Promise.resolve([
-      { id: 1, name: "Q2 Roadmap", group_name: "Platform", uid: "b1" },
-      { id: 2, name: "Login & Onboarding", group_name: "Auth", uid: "b2" },
+      { id: 1, name: "Q2 Roadmap", group_name: "Platform", uid: "b1", is_starred: true },
+      { id: 2, name: "Login & Onboarding", group_name: "Auth", uid: "b2", is_starred: true },
     ])
   ),
   getBoardFull: vi.fn(() => Promise.reject(new Error("not used in these tests"))),

@@ -32,6 +32,11 @@ In the **collapsed sidebar rail**, the Recent section is represented by a clock 
 
 The star button (☆/★) appears in the **breadcrumb in the top navbar** when viewing a board or group — immediately after the board or group name. Click it to toggle the starred state. Starred boards and groups appear in the **Favorite Boards** and **Favorite Groups** sections at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.
 
+Starred boards also surface in two more places so they stay one click away from anywhere in the app:
+
+- **Dashboard — Favorite Boards section.** A dedicated section above *My Boards* lists every starred board (personal or grouped) in alphabetical order. The section is hidden entirely when no boards are starred, so the Dashboard stays uncluttered for users who haven't yet starred anything.
+- **Command palette default view.** Opening the palette (`⌘K` / `Ctrl+K`) with an empty query lists your starred boards first — alphabetically — followed by your recent visits. A ★ glyph next to the board name marks the starred rows.
+
 ## Collapse and expand
 
 A toggle button sits in the header of the sidebar. Clicking it switches between two states:

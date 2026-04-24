@@ -305,7 +305,8 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 ## Typography
 
 - Page headings: `text-xl font-semibold text-fg`
-- Section headings: `text-sm font-medium text-fg-tertiary uppercase tracking-wide`
+- Page-level section headings (Dashboard-style landmark regions like "My Boards", "Groups", "Favorite Boards"): `text-lg font-semibold text-fg`. These are top-level navigation regions on a full page, not sub-sections inside a card or panel. Pair each heading with an `id` and `aria-labelledby` on the enclosing `<section>` so the landmark has an accessible name.
+- Section headings (sub-sections inside a card, panel, or modal): `text-sm font-medium text-fg-tertiary uppercase tracking-wide`
 - Body: `text-sm text-fg-secondary`
 - Muted/secondary: `text-sm text-fg-muted`
 - Monospace (version strings, IDs): `font-mono text-xs text-fg-muted`

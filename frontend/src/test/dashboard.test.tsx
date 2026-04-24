@@ -184,6 +184,52 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Engineering')).toBeInTheDocument()
   })
 
+  describe('Favorite Boards section', () => {
+    it('hides the section entirely when no boards are starred', async () => {
+      mockListBoards.mockResolvedValue([
+        { id: 1, name: 'Sprint Board', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
+      ])
+      renderDashboard()
+      await screen.findByText('Sprint Board')
+      expect(screen.queryByText('Favorite Boards')).not.toBeInTheDocument()
+    })
+
+    it('renders starred boards above My Boards, alphabetically sorted', async () => {
+      mockListBoards.mockResolvedValue([
+        { id: 1, name: 'Zeta Plans', description: '', owner: fakeUser, group: null, group_name: null, is_starred: true, member_count: 1, created_at: '', updated_at: '' },
+        { id: 2, name: 'Alpha Roadmap', description: '', owner: fakeUser, group: null, group_name: null, is_starred: true, member_count: 1, created_at: '', updated_at: '' },
+        { id: 3, name: 'Unstarred Board', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
+      ])
+      renderDashboard()
+      expect(await screen.findByText('Favorite Boards')).toBeInTheDocument()
+      // Starred rows appear in alphabetical order above the My Boards heading.
+      const rendered = screen.getAllByText(/Zeta Plans|Alpha Roadmap|Unstarred Board|My Boards/).map((n) => n.textContent)
+      const alphaIdx = rendered.indexOf('Alpha Roadmap')
+      const zetaIdx = rendered.indexOf('Zeta Plans')
+      const myBoardsIdx = rendered.indexOf('My Boards')
+      expect(alphaIdx).toBeLessThan(zetaIdx)
+      expect(zetaIdx).toBeLessThan(myBoardsIdx)
+    })
+
+    it('includes starred boards that live inside groups (not just personal)', async () => {
+      mockListBoards.mockResolvedValue([
+        { id: 1, name: 'Team Planning', description: '', owner: fakeUser, group: 7, group_name: 'Eng', is_starred: true, member_count: 3, created_at: '', updated_at: '' },
+        { id: 2, name: 'Personal Draft', description: '', owner: fakeUser, group: null, group_name: null, is_starred: false, member_count: 1, created_at: '', updated_at: '' },
+      ])
+      renderDashboard()
+      // Starred group board appears under Favorite Boards heading.
+      expect(await screen.findByText('Favorite Boards')).toBeInTheDocument()
+      expect(screen.getByText('Team Planning')).toBeInTheDocument()
+      // Personal (unstarred) board still appears under My Boards.
+      expect(screen.getByText('Personal Draft')).toBeInTheDocument()
+      // Team Planning should NOT appear under My Boards (filtered by !b.group).
+      const personalRowHeading = screen.getByText('My Boards')
+      const mySection = personalRowHeading.closest('section')
+      expect(mySection).not.toBeNull()
+      expect(mySection!.textContent).not.toContain('Team Planning')
+    })
+  })
+
   describe('join group modal — token extraction', () => {
     // The "Join a group with an invite link" button is rendered by OnboardingEmptyState,
     // which is only shown when both boards and groups lists are empty (the default mock state).

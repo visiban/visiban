@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 import { listBoards } from "../../api/boards";
 import type { Board, Card, Column } from "../../types";
 
@@ -92,17 +93,25 @@ export default function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { recentBoards, pruneByIds } = useRecentBoardsPref();
 
-  // Fetch all boards once when opened
+  // Fetch all boards once when opened. The authoritative board list is also used
+  // to prune stale entries from the recent-boards localStorage cache (IDOR-safe:
+  // a revoked-access board must not leak via palette recents).
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setActiveIndex(0);
     setLoadingBoards(true);
     listBoards()
-      .then((b) => setBoards(b))
+      .then((b) => {
+        setBoards(b);
+        pruneByIds(new Set(b.map((x) => x.id)));
+      })
       .catch(() => setBoards([]))
       .finally(() => setLoadingBoards(false));
+  // pruneByIds is stable across renders via the hook's closure scope.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Focus the input on open
@@ -137,10 +146,30 @@ export default function CommandPalette({
       }
     }
 
-    // Boards — match name
-    const boardMatches = boards
-      .filter((b) => b.name.toLowerCase().includes(q))
-      .slice(0, 5);
+    // Boards — empty query surfaces starred (alpha) then recents (MRU, excluding
+    // already-starred and intersected with the accessible board set). Non-empty
+    // query filters by name with starred pinned to the top.
+    let boardMatches: Board[];
+    if (q === "") {
+      const starred = boards
+        .filter((b) => b.is_starred)
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const starredIds = new Set(starred.map((b) => b.id));
+      const recents = recentBoards
+        .map((r) => boards.find((b) => b.id === r.id))
+        .filter((b): b is Board => !!b && !starredIds.has(b.id));
+      boardMatches = [...starred, ...recents].slice(0, 5);
+    } else {
+      boardMatches = boards
+        .filter((b) => b.name.toLowerCase().includes(q))
+        .slice()
+        .sort((a, b) => {
+          const starDelta = Number(b.is_starred) - Number(a.is_starred);
+          return starDelta !== 0 ? starDelta : a.name.localeCompare(b.name);
+        })
+        .slice(0, 5);
+    }
     for (const board of boardMatches) {
       items.push({ kind: "board", key: `board-${board.id}`, board });
     }
@@ -254,6 +283,8 @@ export default function CommandPalette({
             <p className="px-3 py-2 text-xs text-fg-muted italic text-center">
               {!boardMode && boards.length === 0 && query.trim() === ""
                 ? "You don't have any boards yet."
+                : query.trim() === "" && boards.length > 0
+                ? (boardMode ? "Start typing to search boards and cards" : "Start typing to jump to a board")
                 : "No results"}
             </p>
           )}
@@ -302,6 +333,12 @@ export default function CommandPalette({
                       className={`w-1 h-4 rounded shrink-0 ${PRIORITY_COLOR[priorityLevel(item.card.priority)]}`}
                       aria-hidden="true"
                     />
+                  )}
+                  {item.kind === "board" && item.board?.is_starred && (
+                    <>
+                      <span className="sr-only">Favorite</span>
+                      <span className="text-warning text-xs shrink-0" aria-hidden="true">★</span>
+                    </>
                   )}
                   <span className={`text-sm truncate ${isActive ? "text-fg" : "text-fg-secondary"}`}>
                     {label}
