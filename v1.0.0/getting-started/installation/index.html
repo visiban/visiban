@@ -3011,7 +3011,7 @@
 <tr>
 <td><code>EMAIL_VERIFICATION</code></td>
 <td style="text-align: center;">No</td>
-<td>Email verification mode: <code>optional</code> (default — sends verification email but allows login without it), <code>none</code> (no verification required, works without SMTP), or <code>mandatory</code> (blocks login until email is verified). <code>ACCOUNT_EMAIL_VERIFICATION</code> is a deprecated alias for this setting and will be removed in a future release.</td>
+<td>Email verification mode: <code>optional</code> (default — sends verification email but allows login without it), <code>none</code> (no verification required, works without SMTP), or <code>mandatory</code> (blocks login until email is verified). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1 — use <code>EMAIL_VERIFICATION</code> only.</td>
 </tr>
 <tr>
 <td><code>SECURE_HSTS_SECONDS</code></td>
@@ -3031,7 +3031,7 @@
 <tr>
 <td><code>OIDC_CLIENT_SECRET</code></td>
 <td style="text-align: center;">No</td>
-<td>OIDC provider client secret. (<code>OIDC_SECRET</code> is a deprecated alias kept for one release cycle — rename it to <code>OIDC_CLIENT_SECRET</code> when you next update your environment.)</td>
+<td>OIDC provider client secret. The old alias <code>OIDC_SECRET</code> was removed in 1.1 — only <code>OIDC_CLIENT_SECRET</code> is read.</td>
 </tr>
 <tr>
 <td><code>OIDC_SERVER_URL</code></td>

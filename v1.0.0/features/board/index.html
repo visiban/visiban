@@ -3469,6 +3469,9 @@
 <li><strong>JSON</strong> (recommended) — full board structure including columns, swimlanes, labels, and cards with comments, checklists, assignee, movement history (History tab), and activity log. Use JSON for backups, migrations, and any situation where full card history must be preserved.</li>
 <li><strong>CSV</strong> — one row per card with columns for ID, title, description, column, swimlane, priority, assignee, labels, due date, weight, dates, and movement history. Cards are imported without movement history or activity log. Use CSV when you need the data in a spreadsheet.</li>
 </ul>
+<blockquote>
+<p><strong>Added in 1.1</strong> — export permission threshold and audit history (#842, #843)</p>
+</blockquote>
 <p>By default, any board member can export. Admins can raise the threshold per board under <strong>Board Settings → Data → Export permission</strong> to restrict exports to collaborators, members, or admins only. Owners and site admins always bypass the threshold. When a user's role is below the threshold, the <strong>Export</strong> button is hidden and direct API calls return <code>403 export_restricted</code>. The export endpoints are:</p>
 <ul>
 <li><code>GET /api/v1/boards/{id}/export/</code> — CSV</li>
@@ -3548,9 +3551,14 @@
 <ol>
 <li>Open <strong>Board Settings</strong> and go to the <strong>Sharing</strong> tab.</li>
 <li>Toggle <strong>Enable public share link</strong> to the on position.</li>
+<li>Optionally set an <strong>expiry</strong> — choose 7 days, 30 days, 90 days, or no expiry. The default is no expiry.</li>
 <li>A URL in the format <code>https://&lt;host&gt;/share/&lt;token&gt;</code> is displayed with a <strong>Copy</strong> button.</li>
 </ol>
 <p>Share that URL with anyone — recipients do not need a Visiban account.</p>
+<blockquote>
+<p><strong>Added in 1.1</strong> — share link expiry options (#804)</p>
+</blockquote>
+<p>When a share link expires, visitors who follow the URL receive a <code>410 Gone</code> response and a "This link has expired" page. Toggling sharing back on after expiry generates a new token — the expired token cannot be restored.</p>
 <h3 id="what-the-public-view-shows">What the public view shows<a class="headerlink" href="#what-the-public-view-shows" title="Permanent link">&para;</a></h3>
 <p>The public view renders the full board grid (columns, swimlane rows, and cards) in read-only mode. The following card metadata is visible:</p>
 <ul>

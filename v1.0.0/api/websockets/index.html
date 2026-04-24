@@ -1891,6 +1891,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#keepalive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keepalive
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2766,7 +2777,7 @@
 <tr>
 <td><code>board.deleted</code></td>
 <td>Board was deleted</td>
-<td><code>{ "board_id": &lt;int&gt; }</code></td>
+<td><code>{ "board_uid": &lt;string&gt;, "board_id": &lt;int&gt; }</code></td>
 </tr>
 </tbody>
 </table>
@@ -2793,7 +2804,7 @@
 <tr>
 <td><code>column.deleted</code></td>
 <td>Column deleted</td>
-<td><code>{ "column_id": &lt;int&gt; }</code></td>
+<td><code>{ "column_uid": &lt;string&gt; }</code></td>
 </tr>
 <tr>
 <td><code>column.reordered</code></td>
@@ -2830,7 +2841,7 @@
 <tr>
 <td><code>swimlane.deleted</code></td>
 <td>Swimlane deleted</td>
-<td><code>{ "swimlane_id": &lt;int&gt; }</code></td>
+<td><code>{ "swimlane_uid": &lt;string&gt; }</code></td>
 </tr>
 <tr>
 <td><code>swimlane.reordered</code></td>
@@ -2871,7 +2882,7 @@
 <tr>
 <td><code>label.deleted</code></td>
 <td>Label deleted</td>
-<td><code>{ "label_id": &lt;int&gt; }</code></td>
+<td><code>{ "label_uid": &lt;string&gt; }</code></td>
 </tr>
 </tbody>
 </table>
@@ -2898,7 +2909,7 @@
 <tr>
 <td><code>card.deleted</code></td>
 <td>Card deleted</td>
-<td><code>{ "card_id": &lt;int&gt; }</code></td>
+<td><code>{ "card_uid": &lt;string&gt; }</code></td>
 </tr>
 <tr>
 <td><code>card.moved</code></td>
@@ -2944,6 +2955,24 @@
 </tr>
 </tbody>
 </table>
+<h3 id="keepalive">Keepalive<a class="headerlink" href="#keepalive" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ping</code></td>
+<td>Server keepalive, sent every 30 seconds</td>
+<td><code>{}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Clients must silently ignore <code>ping</code> events. The keepalive prevents NATs and reverse proxies from dropping idle connections. Do not treat unknown event types as errors.</p>
 <hr />
 <h2 id="group-channel-since-11">Group channel (since 1.1)<a class="headerlink" href="#group-channel-since-11" title="Permanent link">&para;</a></h2>
 <p>Pushes board create/update/delete events for boards that currently live in the group, letting the group page keep its board list live without polling.</p>
@@ -2975,6 +3004,16 @@
 <td><code>board.deleted</code></td>
 <td>Board deleted, or moved out of this group</td>
 <td><code>{ "board_id": &lt;int&gt;, "board_uid": &lt;string&gt; }</code></td>
+</tr>
+<tr>
+<td><code>group.updated</code></td>
+<td>Group ownership transferred</td>
+<td><code>{ "id": &lt;int&gt;, "owner_id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>ping</code></td>
+<td>Server keepalive, sent every 30 seconds</td>
+<td><code>{}</code></td>
 </tr>
 </tbody>
 </table>

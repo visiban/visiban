@@ -3009,7 +3009,7 @@
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The default value of <code>EMAIL_VERIFICATION</code> is <code>optional</code>, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set <code>EMAIL_VERIFICATION=none</code> to disable verification emails entirely (no SMTP needed). <code>ACCOUNT_EMAIL_VERIFICATION</code> is a deprecated alias and will be removed in a future release.</p>
+<p>The default value of <code>EMAIL_VERIFICATION</code> is <code>optional</code>, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set <code>EMAIL_VERIFICATION=none</code> to disable verification emails entirely (no SMTP needed). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1 — only <code>EMAIL_VERIFICATION</code> is read.</p>
 </div>
 <hr />
 <h2 id="health-check-endpoints">Health check endpoints<a class="headerlink" href="#health-check-endpoints" title="Permanent link">&para;</a></h2>

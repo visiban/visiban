@@ -2746,9 +2746,9 @@
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">Deprecated alias</p>
-<p><code>OIDC_SECRET</code> is a deprecated alias for <code>OIDC_CLIENT_SECRET</code>, kept for one release cycle. Rename it to <code>OIDC_CLIENT_SECRET</code> when you next update your environment. The alias will be removed in 1.1.</p>
+<div class="admonition warning">
+<p class="admonition-title">Alias removed in 1.1</p>
+<p><code>OIDC_SECRET</code> was a deprecated alias for <code>OIDC_CLIENT_SECRET</code> that was removed in 1.1. If you are upgrading from 1.0 and had <code>OIDC_SECRET</code> set, rename it to <code>OIDC_CLIENT_SECRET</code> — OIDC login will silently not activate if only the old name is present.</p>
 </div>
 <p><strong>Example</strong> (<code>docker-compose.yml</code> or <code>.env</code>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>OIDC_CLIENT_ID=visiban

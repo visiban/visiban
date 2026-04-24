@@ -2770,9 +2770,16 @@
 <td><strong>Expiry</strong></td>
 <td>1 day, 7 days, 30 days, or Never</td>
 </tr>
+<tr>
+<td><strong>Single-use</strong></td>
+<td>When enabled, the link is deactivated after the first person uses it</td>
+</tr>
 </tbody>
 </table>
-<p>Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Each link can be revoked independently — existing members are not affected.</p>
+<blockquote>
+<p><strong>Added in 1.1</strong> — single-use invite links (#689)</p>
+</blockquote>
+<p>Anyone with the link joins with the role assigned to that link. Expired links show a visual indicator and cannot be used to join. Single-use links display a status badge and consumed-at timestamp in the invite links list after they have been used. Each link can be revoked independently — existing members are not affected.</p>
 <p>Unauthenticated visitors who open an invite link are shown a full authentication interface: a <strong>Create an account</strong> button (primary), a <strong>Sign in</strong> option, and social login buttons (Google / GitHub / GitLab) if those providers are configured. After authenticating, the invite is accepted automatically and the user is redirected to the group page with a confirmation banner.</p>
 <p>Authenticated users who open an invite link see a single <strong>Join &lt;group name&gt;</strong> button and are redirected to the group page immediately after joining. If the user is already a member they are silently redirected without re-joining.</p>
 <p>If the link is invalid or expired, a countdown timer is shown and the user is automatically redirected to the dashboard after 5 seconds — no manual action required.</p>
