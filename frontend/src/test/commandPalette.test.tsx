@@ -4,12 +4,13 @@ import { MemoryRouter } from "react-router-dom";
 import CommandPalette from "../components/Common/CommandPalette";
 import type { Card, Column } from "../types";
 
-// listBoards is called on every open
+// listBoards is called on every open. Both mock boards are starred so they
+// appear in the palette's empty-query default view (starred-first ranking).
 vi.mock("../api/boards", () => ({
   listBoards: vi.fn(() =>
     Promise.resolve([
-      { id: 1, name: "Q2 Roadmap", group_name: "Platform", uid: "b1" },
-      { id: 2, name: "Login & Onboarding", group_name: "Auth", uid: "b2" },
+      { id: 1, name: "Q2 Roadmap", group_name: "Platform", uid: "b1", is_starred: true },
+      { id: 2, name: "Login & Onboarding", group_name: "Auth", uid: "b2", is_starred: true },
     ])
   ),
 }));
@@ -154,5 +155,99 @@ describe("CommandPalette", () => {
     // Second item should now be active — verify via aria-selected
     const options = screen.getAllByRole("option");
     expect(options[1]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("renders a ★ glyph next to starred board rows", async () => {
+    renderPalette();
+    await waitFor(() => expect(screen.getByText("Q2 Roadmap")).toBeInTheDocument());
+    // Both mock boards are starred → both rows expose a visually-hidden
+    // "Favorite" label paired with an aria-hidden ★ glyph (so screen readers
+    // announce "Favorite <board>" without reading the Unicode character name).
+    const stars = screen.getAllByText("Favorite");
+    expect(stars.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("CommandPalette — starred-first ranking", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  it("pins starred boards above non-starred on empty query, alphabetically", async () => {
+    const { listBoards } = await import("../api/boards");
+    (listBoards as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, name: "Zeta Plans", group_name: null, uid: "b1", is_starred: true },
+      { id: 2, name: "Alpha Roadmap", group_name: null, uid: "b2", is_starred: true },
+      { id: 3, name: "Bravo Ideas", group_name: null, uid: "b3", is_starred: false },
+    ]);
+    render(
+      <MemoryRouter>
+        <CommandPalette {...defaultProps} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText("Alpha Roadmap")).toBeInTheDocument());
+    const boardLabels = screen.getAllByRole("option")
+      .filter((el) => el.id.startsWith("palette-item-board-"))
+      .map((el) => el.textContent ?? "");
+    // Starred first (alpha), then non-starred.
+    expect(boardLabels[0]).toContain("Alpha Roadmap");
+    expect(boardLabels[1]).toContain("Zeta Plans");
+    // Non-starred "Bravo Ideas" is NOT in the empty-query default view (no recents).
+    expect(boardLabels.some((l) => l.includes("Bravo Ideas"))).toBe(false);
+  });
+
+  it("ranks starred boards first under a non-empty query that matches multiple", async () => {
+    const { listBoards } = await import("../api/boards");
+    (listBoards as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, name: "Roadmap Alpha", group_name: null, uid: "b1", is_starred: false },
+      { id: 2, name: "Roadmap Beta", group_name: null, uid: "b2", is_starred: true },
+      { id: 3, name: "Roadmap Gamma", group_name: null, uid: "b3", is_starred: false },
+    ]);
+    render(
+      <MemoryRouter>
+        <CommandPalette {...defaultProps} />
+      </MemoryRouter>
+    );
+    // Wait for the fetch to resolve — "Roadmap Beta" is starred so it appears
+    // in the empty-query default view.
+    await waitFor(() => expect(screen.getByText("Roadmap Beta")).toBeInTheDocument());
+    fireEvent.change(screen.getByPlaceholderText(/jump to anything/i), { target: { value: "roadmap" } });
+    await waitFor(() => expect(screen.getByText("Roadmap Alpha")).toBeInTheDocument());
+    const boardLabels = screen.getAllByRole("option")
+      .filter((el) => el.id.startsWith("palette-item-board-"))
+      .map((el) => el.textContent ?? "");
+    // Starred "Roadmap Beta" floats to the top despite being last in server order;
+    // non-starred matches follow in alphabetical order.
+    expect(boardLabels[0]).toContain("Roadmap Beta");
+    expect(boardLabels[1]).toContain("Roadmap Alpha");
+    expect(boardLabels[2]).toContain("Roadmap Gamma");
+  });
+
+  it("surfaces recent boards on empty query after starred, excluding stale ids not in listBoards()", async () => {
+    // Pre-populate recents with one valid and one stale id (revoked access).
+    localStorage.setItem("user:prefs:recent-boards", JSON.stringify([
+      { id: 3, name: "Bravo Ideas" },
+      { id: 99, name: "Revoked Board" },
+    ]));
+    const { listBoards } = await import("../api/boards");
+    (listBoards as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      { id: 1, name: "Alpha Roadmap", group_name: null, uid: "b1", is_starred: true },
+      { id: 3, name: "Bravo Ideas", group_name: null, uid: "b3", is_starred: false },
+    ]);
+    render(
+      <MemoryRouter>
+        <CommandPalette {...defaultProps} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText("Alpha Roadmap")).toBeInTheDocument());
+    const boardLabels = screen.getAllByRole("option")
+      .filter((el) => el.id.startsWith("palette-item-board-"))
+      .map((el) => el.textContent ?? "");
+    // Starred first, recent second.
+    expect(boardLabels[0]).toContain("Alpha Roadmap");
+    expect(boardLabels[1]).toContain("Bravo Ideas");
+    // Stale recent with id=99 must NOT leak through (IDOR-safe).
+    expect(boardLabels.some((l) => l.includes("Revoked Board"))).toBe(false);
   });
 });

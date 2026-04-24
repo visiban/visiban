@@ -18,6 +18,8 @@ Single-letter shortcuts are suppressed whenever the focused element is an input,
 
 The command palette is the single cross-route entry point: type to find a card, jump to a board, or trigger an action. Placeholder copy adapts to the current surface — on a board it searches cards; on the Dashboard it jumps to a board; on Settings / Admin it lists navigation targets.
 
+When you open the palette with an empty query, the default board list starts with your starred boards (alphabetical) and is rounded out by your most recent visits, so a blank `⌘K` → `Enter` jumps straight into the workspace you care about most.
+
 ## Board view — switch the active sub-tab
 
 | Shortcut | Action |
