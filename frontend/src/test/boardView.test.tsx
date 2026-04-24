@@ -428,52 +428,27 @@ describe('BoardView', () => {
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
   })
 
-  describe('command palette wiring (#763, updated for #852)', () => {
-    // #852 — the Row 2 trigger button was removed; the single trigger now lives in
-    // Navbar Row 1 and dispatches a visiban:open-palette event. BoardView listens
-    // for the event and opens the board-scoped palette. ⌘K continues to work on
-    // board routes; the Row 2 Zone 3 button no longer exists.
+  describe('command palette wiring (#763 / #852 / #869)', () => {
+    // #869 — the palette itself is no longer owned by BoardView; it lives in
+    // GlobalCommandPalette at the BoardPage / authenticated-shell level so it
+    // is available on every sub-tab and every authenticated route. BoardView
+    // is now only responsible for: (a) NOT re-registering a ⌘K listener
+    // (duplicate would open twice), and (b) NOT rendering a Row 2 trigger
+    // button (single source of truth still lives in Navbar Row 1). The
+    // hoisted palette itself is exercised by globalCommandPalette.test.tsx.
 
     it('does NOT render a Row 2 "Open command palette" trigger button (#852 — single source of truth in Row 1)', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByLabelText('Open command palette')).not.toBeInTheDocument()
     })
 
-    it('visiban:open-palette window event opens the palette', () => {
+    it('does NOT render a palette inside BoardView itself (#869 — hoisted to shell)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
-      act(() => {
-        window.dispatchEvent(new CustomEvent('visiban:open-palette'))
-      })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('⌘K / Ctrl+K opens the command palette', () => {
-      render(<BoardView {...defaultProps()} />)
-      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+      // The palette is not in the DOM because it is owned by
+      // GlobalCommandPalette, which is not part of BoardView's render tree.
+      // Firing ⌘K here must not cause BoardView to render one either —
+      // otherwise the listener has been re-registered and will double-fire.
       fireEvent.keyDown(document, { key: 'k', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('⌘K shortcut fires even when focus is inside an input (MR promise)', () => {
-      render(<BoardView {...defaultProps()} />)
-      const synthInput = document.createElement('input')
-      document.body.appendChild(synthInput)
-      synthInput.focus()
-      fireEvent.keyDown(synthInput, { key: 'k', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-      document.body.removeChild(synthInput)
-    })
-
-    it('⌘K is also accepted as uppercase K (shift-locked keyboards)', () => {
-      render(<BoardView {...defaultProps()} />)
-      fireEvent.keyDown(document, { key: 'K', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('bare "k" (no modifier) does not open the palette', () => {
-      render(<BoardView {...defaultProps()} />)
-      fireEvent.keyDown(document, { key: 'k' })
       expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
     })
   })

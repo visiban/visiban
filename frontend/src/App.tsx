@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "./hooks/useEscapeStack";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import { BoardProvider, useBoardContext } from "./contexts/BoardContext";
 import { ThemeServerSync } from "./context/ThemeServerSync";
@@ -12,6 +12,7 @@ import AppSidebar from "./components/Layout/AppSidebar";
 import BoardView from "./components/Board/BoardView";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
+import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
@@ -159,15 +160,24 @@ function AuthenticatedRoutes({ user, onLogout, onUserUpdated, onStarToggled }: {
   onUserUpdated: (user: User) => void;
   onStarToggled: () => void;
 }) {
+  const { pathname } = useLocation();
+  // The shell-level palette covers every authenticated route EXCEPT board
+  // routes. Board routes mount their own palette inside BoardProvider so
+  // that instance can see board cards. Mutually exclusive by pathname so
+  // only one ⌘K keydown listener is ever active. (#869)
+  const showShellPalette = !pathname.startsWith("/boards/");
   return (
-    <Routes>
-      <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
-      <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
-      <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
-      <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
-      <Route path="/admin" element={<AdminPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      {showShellPalette && <GlobalCommandPalette />}
+      <Routes>
+        <Route path="/" element={<Dashboard user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+        <Route path="/groups/:id" element={<GroupDetail user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} />} />
+        <Route path="/boards/:id" element={<BoardProvider><BoardPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} onStarToggled={onStarToggled} /></BoardProvider>} />
+        <Route path="/settings" element={<SettingsPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+        <Route path="/admin" element={<AdminPage user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   );
 }
 
@@ -230,6 +240,11 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Board-scoped palette instance — mounts inside BoardProvider so it
+          sees board cards/columns. Sits ABOVE BoardView so the palette is
+          available on every sub-tab (Board/Summary/History/Analytics)
+          without regressing to the #869 ghost-dialog bug. */}
+      <GlobalCommandPalette />
       <Navbar
         user={user}
         onLogout={onLogout}

@@ -60,7 +60,6 @@ import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
-import CommandPalette from "../Common/CommandPalette";
 import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
@@ -243,6 +242,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // The non-null assertion keeps the existing contract without changing every
   // downstream reference from BoardFull to BoardFull | null.
   const board = boardOrNull!;
+
+  // Mirror the current board into a ref so cross-component event handlers
+  // (e.g. GlobalCommandPalette's open-card dispatch) can resolve a card by id
+  // without re-registering the listener on every cards-array identity change.
+  const boardRef = useRef(board);
+  boardRef.current = board;
 
   // Re-fetch board state when the user returns to a backgrounded tab.
   useBoardResync(silentReload);
@@ -627,7 +632,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (showExport && !canExport) setShowExport(false);
   }, [showExport, canExport]);
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
@@ -696,12 +700,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setDrawerOpen((v) => !v);
         return;
       }
-      // ⌘K / Ctrl+K — toggle command palette (fires even from input fields)
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
-        return;
-      }
+      // ⌘K handling lives in GlobalCommandPalette at the shell / board-page
+      // level so it fires on every sub-tab and every authenticated route.
+      // Do not re-register it here — the listener would fire twice. (#869)
       const tag = (e.target as HTMLElement).tagName;
       if (
         tag === "INPUT" ||
@@ -778,14 +779,42 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
   }, [currentUser, onUserUpdated]);
 
-  // Surface the command palette from the Row 1 global search trigger in Navbar
-  // (#852). Until #191 ships a richer global search, the Row 1 button opens this
-  // same board-scoped palette when a board is mounted.
+  // Board-scoped palette actions are dispatched by GlobalCommandPalette as
+  // window events so the palette owner does not need to reach into BoardView
+  // internals. Each handler corresponds to an action surfaced in the palette
+  // result list. (#869)
   useEffect(() => {
-    const open = () => setPaletteOpen(true);
-    window.addEventListener("visiban:open-palette", open);
-    return () => window.removeEventListener("visiban:open-palette", open);
-  }, []);
+    const openCard = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ cardId: number }>).detail;
+      if (!detail) return;
+      const card = boardRef.current?.cards.find((c) => c.id === detail.cardId);
+      if (card) { clearSelection(); setSelectedCard(card); }
+    };
+    const filterMyCards = () => {
+      if (!currentUser) return;
+      setFilters((prev) => ({ ...prev, assigneeIds: [currentUser.id] }));
+      setShowFilters(true);
+    };
+    const showHistory = () => setView("history");
+    const openSettings = () => setShowSettings(true);
+    window.addEventListener("visiban:open-card", openCard);
+    window.addEventListener("visiban:filter-my-cards", filterMyCards);
+    window.addEventListener("visiban:show-history", showHistory);
+    window.addEventListener("visiban:open-settings", openSettings);
+    return () => {
+      window.removeEventListener("visiban:open-card", openCard);
+      window.removeEventListener("visiban:filter-my-cards", filterMyCards);
+      window.removeEventListener("visiban:show-history", showHistory);
+      window.removeEventListener("visiban:open-settings", openSettings);
+    };
+    // The listener captures `setView` from its closure; even though the
+    // local `setView` identity changes per render, it always delegates to
+    // the stable setSearchParams, so a captured-from-prior-render copy is
+    // still correct. setFilters/setShowFilters/setShowSettings are stable
+    // useState setters. boardRef tracks the latest board state so card
+    // resolution works without re-registering on every cards-array change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, clearSelection]);
 
   useEscapeStack(() => {
     if (view === "analytics" || view === "history" || view === "summary") { setView("board"); return; }
@@ -1921,28 +1950,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
-      <CommandPalette
-        open={paletteOpen}
-        boardCards={board.cards}
-        columns={board.columns}
-        isAdmin={isAdmin}
-        onClose={() => setPaletteOpen(false)}
-        onOpenCard={(card) => { clearSelection(); setSelectedCard(card); }}
-        onAction={(id) => {
-          if (id === "my-cards") {
-            if (currentUser) {
-              setFilters({ ...filters, assigneeIds: [currentUser.id] });
-              setShowFilters(true);
-            }
-          } else if (id === "shortcuts") {
-            setShowShortcuts(true);
-          } else if (id === "history") {
-            setView("history");
-          } else if (id === "settings") {
-            setShowSettings(true);
-          }
-        }}
-      />
+      {/* CommandPalette is owned by GlobalCommandPalette at the BoardPage /
+          shell level. BoardView consumes its events via the window listener
+          registered above (visiban:open-card / filter-my-cards / show-history /
+          open-settings / open-shortcuts). See #869. */}
 
       {showExport && (
         <BoardExportModal

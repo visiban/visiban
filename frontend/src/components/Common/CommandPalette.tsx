@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
@@ -25,13 +25,16 @@ interface StaticAction {
   id: string;
   label: string;
   hint?: string;
+  /** When true the action is only surfaced on board routes — it acts on the
+   * currently-open board and has no meaning on Dashboard/Group/Settings/Admin. */
+  boardOnly?: boolean;
 }
 
 const STATIC_ACTIONS: StaticAction[] = [
-  { id: "my-cards", label: "Filter: assigned to me", hint: "M" },
+  { id: "my-cards", label: "Filter: assigned to me", hint: "M", boardOnly: true },
   { id: "shortcuts", label: "Show keyboard shortcuts", hint: "?" },
-  { id: "history", label: "Open full history" },
-  { id: "settings", label: "Open board settings" },
+  { id: "history", label: "Open full history", boardOnly: true },
+  { id: "settings", label: "Open board settings", boardOnly: true },
 ];
 
 type ResultKind = "card" | "board" | "action";
@@ -48,15 +51,40 @@ interface ResultItem {
 
 interface Props {
   open: boolean;
-  boardCards: Card[];
-  columns: Column[];
-  isAdmin: boolean;
+  /** Board-scope inputs. Omit on off-board surfaces (Dashboard, Group,
+   * Settings, Admin) to render the palette in "jump" mode: boards + global
+   * actions only. */
+  boardCards?: Card[];
+  columns?: Column[];
+  isAdmin?: boolean;
+  /** Adaptive placeholder text. Supplied by the shell-level owner per
+   * surface so the copy matches the scope the palette can actually cover. */
+  placeholder?: string;
   onClose: () => void;
-  onOpenCard: (card: Card) => void;
+  /** Required only when `boardCards` are supplied; off-board callers can omit. */
+  onOpenCard?: (card: Card) => void;
   onAction: (actionId: string) => void;
 }
 
-export default function CommandPalette({ open, boardCards, columns, isAdmin, onClose, onOpenCard, onAction }: Props) {
+export default function CommandPalette({
+  open,
+  boardCards,
+  columns,
+  isAdmin,
+  placeholder = "Jump to anything…",
+  onClose,
+  onOpenCard,
+  onAction,
+}: Props) {
+  const boardMode = Array.isArray(boardCards) && Array.isArray(columns);
+  const cardsForMode: Card[] = useMemo(
+    () => (boardMode ? (boardCards as Card[]) : []),
+    [boardMode, boardCards],
+  );
+  const columnsForMode: Column[] = useMemo(
+    () => (boardMode ? (columns as Column[]) : []),
+    [boardMode, columns],
+  );
   const [query, setQuery] = useState("");
   const [boards, setBoards] = useState<Board[]>([]);
   const [loadingBoards, setLoadingBoards] = useState(false);
@@ -86,28 +114,30 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
 
   const colMap = useCallback((): Map<number, string> => {
     const m = new Map<number, string>();
-    for (const c of columns) m.set(c.id, c.name);
+    for (const c of columnsForMode) m.set(c.id, c.name);
     return m;
-  }, [columns])();
+  }, [columnsForMode])();
 
   const results: ResultItem[] = (() => {
     const q = query.trim().toLowerCase();
     const items: ResultItem[] = [];
 
-    // Cards — match title
-    const cardMatches = boardCards
-      .filter((c) => c.archived_at === null && c.title.toLowerCase().includes(q))
-      .slice(0, 6);
-    for (const card of cardMatches) {
-      items.push({
-        kind: "card",
-        key: `card-${card.id}`,
-        card,
-        columnName: colMap.get(card.column) ?? "",
-      });
+    // Cards — only in board mode; match title
+    if (boardMode) {
+      const cardMatches = cardsForMode
+        .filter((c) => c.archived_at === null && c.title.toLowerCase().includes(q))
+        .slice(0, 6);
+      for (const card of cardMatches) {
+        items.push({
+          kind: "card",
+          key: `card-${card.id}`,
+          card,
+          columnName: colMap.get(card.column) ?? "",
+        });
+      }
     }
 
-    // Boards — match name (skip current board cards' board — not tracked here, show all)
+    // Boards — match name
     const boardMatches = boards
       .filter((b) => b.name.toLowerCase().includes(q))
       .slice(0, 5);
@@ -115,8 +145,9 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
       items.push({ kind: "board", key: `board-${board.id}`, board });
     }
 
-    // Actions — match label; filter settings to admins
+    // Actions — match label; filter settings to admins; drop board-only actions off-board.
     const actionMatches = STATIC_ACTIONS.filter((a) => {
+      if (a.boardOnly && !boardMode) return false;
       if (a.id === "settings" && !isAdmin) return false;
       return a.label.toLowerCase().includes(q);
     });
@@ -148,7 +179,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
   }, 60);
 
   const activate = useCallback((item: ResultItem, newTab = false) => {
-    if (item.kind === "card" && item.card) {
+    if (item.kind === "card" && item.card && onOpenCard) {
       onClose();
       onOpenCard(item.card);
     } else if (item.kind === "board" && item.board) {
@@ -201,7 +232,7 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
             value={query}
             onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
             onKeyDown={handleKeyDown}
-            placeholder="Jump to anything…"
+            placeholder={placeholder}
             className="bg-transparent flex-1 text-sm text-fg placeholder-fg-muted outline-none"
             aria-label="Command palette search"
             aria-autocomplete="list"
@@ -220,7 +251,11 @@ export default function CommandPalette({ open, boardCards, columns, isAdmin, onC
             <p className="px-3 py-2 text-xs text-fg-muted italic">Loading…</p>
           )}
           {!loadingBoards && results.length === 0 && (
-            <p className="px-3 py-2 text-xs text-fg-muted italic text-center">No results</p>
+            <p className="px-3 py-2 text-xs text-fg-muted italic text-center">
+              {!boardMode && boards.length === 0 && query.trim() === ""
+                ? "You don't have any boards yet."
+                : "No results"}
+            </p>
           )}
           {results.map((item, i) => {
             const showHeader = item.kind !== lastKind;
