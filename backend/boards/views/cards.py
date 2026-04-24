@@ -756,6 +756,7 @@ class CardViewSet(viewsets.ModelViewSet):
                     # the ?force param so the force path is never reachable.
                     return Response(
                         {
+                            "detail": "WIP limit enforced — move blocked.",
                             "code": "wip_hard_blocked",
                             "column_name": target_column.name,
                             "current_count": wip_count,

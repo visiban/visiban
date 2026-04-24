@@ -130,18 +130,18 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           type="button"
           onClick={() => { onClose(); onRequestDelete(column); }}
           disabled={cardCount > 0}
-          className="w-full px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+          className="w-full px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
         >
           Delete column
         </button>
       </div>
 
-      <div className="flex gap-2 mt-4 justify-end">
-        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
+      <div className="flex gap-3 mt-4 items-center justify-end">
+        <button onClick={onClose} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
         <button
           onClick={handleSave}
           disabled={!name.trim() || saving}
-          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           {saving ? "Saving…" : "Save"}
         </button>

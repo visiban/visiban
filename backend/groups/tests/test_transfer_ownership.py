@@ -116,19 +116,15 @@ class TransferOwnershipTests(TestCase):
         })
         self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
 
-    @patch("boards.broadcast.broadcast_board_event")
+    @patch("groups.broadcast.broadcast_group_event")
     @patch("groups.views.transaction.on_commit", side_effect=lambda fn: fn())
     def test_broadcast_fired_after_successful_transfer(self, _mock_on_commit, mock_broadcast):
-        """A group.updated broadcast must be emitted to all boards in the group (#694).
+        """A group.updated broadcast must be emitted on the group channel (#694).
 
         transaction.on_commit() is patched to fire immediately because TestCase wraps
         each test in a savepoint rather than a real transaction, so on_commit callbacks
         would never execute without the patch.
         """
-        from boards.models import Board, BoardMembership
-        board = Board.objects.create(name="B", owner=self.owner, group=self.group)
-        BoardMembership.objects.create(board=board, user=self.owner, role=BoardMembership.Role.ADMIN)
-
         self.client.force_authenticate(self.owner)
         r = self.client.post(self.url, {
             "new_owner_id": self.admin_member.id,
@@ -136,7 +132,7 @@ class TransferOwnershipTests(TestCase):
         })
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         mock_broadcast.assert_called_once_with(
-            board.id, "group.updated", {"id": self.group.id, "owner_id": self.admin_member.id}
+            self.group.id, "group.updated", {"id": self.group.id, "owner_id": self.admin_member.id}
         )
 
     @patch("boards.broadcast.broadcast_board_event")

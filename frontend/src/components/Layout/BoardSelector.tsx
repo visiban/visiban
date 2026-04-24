@@ -122,14 +122,14 @@ export default function BoardSelector({ user, onSelect }: Props) {
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
-                  className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5"
+                  className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
                   disabled={!canDelete}
-                  className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                  className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete
                 </button>

@@ -91,7 +91,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             Confirm
           </button>
@@ -217,7 +217,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
             <button
               type="submit"
               disabled={saving}
-              className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover disabled:opacity-40 text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
             >
               {saving ? "Creating…" : "Create user"}
             </button>
@@ -377,7 +377,7 @@ function InviteLinksTab() {
             </span>
             <button
               onClick={handleCopy}
-              className="shrink-0 px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="shrink-0 px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
@@ -565,7 +565,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
                         <button
                           type="button"
                           onClick={() => selectTransfer(board.id, member)}
-                          className="w-full text-left px-3 py-2 text-sm text-fg-secondary hover:bg-surface-hover transition focus:outline-none focus:bg-surface-hover"
+                          className="w-full text-left px-3 py-2 text-sm text-fg-secondary hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           {member.display_name || member.username}
                           <span className="text-fg-muted ml-1">@{member.username}</span>
@@ -596,7 +596,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
           <button
             onClick={handleConfirm}
             disabled={saving || !allAssigned}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>
@@ -707,10 +707,10 @@ function SettingsTab() {
             <label
               key={value}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
-                saving ? "opacity-50 pointer-events-none" : ""
+                saving ? "opacity-40 pointer-events-none" : ""
               } ${
                 settings?.registration_mode === value
-                  ? "border-primary-emphasis bg-info/10"
+                  ? "border-primary-emphasis bg-primary-emphasis/10"
                   : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >
@@ -899,7 +899,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
         <h2 className="text-fg text-lg font-semibold">Users</h2>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="px-3 py-1.5 text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           + Add User
         </button>

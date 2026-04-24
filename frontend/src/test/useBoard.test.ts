@@ -62,6 +62,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     current_user_role: 'admin',
     owner: { id: 1, username: 'admin', display_name: 'Admin User', avatar_url: '' },
     capabilities: { movement_export: false },
+    share_token: null,
+    share_token_expires_at: null,
     ...overrides,
   }
 }

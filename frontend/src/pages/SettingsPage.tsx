@@ -593,7 +593,7 @@ function AppearanceTab() {
               key={value}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors duration-150 cursor-pointer focus-within:ring-2 focus-within:ring-primary-emphasis ${
                 preference === value
-                  ? "border-primary-emphasis bg-info/10"
+                  ? "border-primary-emphasis bg-primary-emphasis/10"
                   : "border-line-strong hover:bg-surface-hover/40"
               }`}
             >

@@ -47,7 +47,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
-                await self.send(text_data=json.dumps({"event": "ping"}))
+                await self.send(text_data=json.dumps({"event": "ping", "data": {}}))
         except asyncio.CancelledError:
             raise
 

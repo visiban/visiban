@@ -125,6 +125,9 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         swimlane.is_collapsed = is_collapsed
         swimlane.save(update_fields=["is_collapsed"])
         serializer = self.get_serializer(swimlane)
+        swimlane_data = SwimlaneSerializer(swimlane).data
+        board_id = swimlane.board_id
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])

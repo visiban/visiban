@@ -171,13 +171,13 @@ export default function InviteLinkPanel({ groupId }: Props) {
   const atLimit = activeCount >= MAX_LINKS;
 
   return (
-    <div className="bg-surface border border-line rounded-xl p-4 flex flex-col gap-4">
+    <div className="bg-surface border border-line rounded-lg p-4 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-fg-secondary">Invite links</h3>
         {!atLimit && !showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
           >
             New link
           </button>
@@ -268,13 +268,13 @@ export default function InviteLinkPanel({ groupId }: Props) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleCopy(link)}
-                        className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        className="text-xs bg-button-primary text-on-primary px-3 py-1.5 rounded hover:bg-button-primary-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
                       >
                         {copiedId === link.id ? "Copied!" : "Copy"}
                       </button>
                       <button
                         onClick={() => handleDismissReveal(link.id)}
-                        className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 transition"
+                        className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
                         Done
                       </button>
@@ -373,21 +373,21 @@ export default function InviteLinkPanel({ groupId }: Props) {
             {createError && <span className="text-danger">{createError}</span>}
           </p>
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-3 items-center justify-end">
             <button
               onClick={() => {
                 setShowForm(false);
                 setCreateError(null);
                 setFormSingleUse(false);
               }}
-              className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 transition"
+              className="text-xs text-fg-tertiary hover:text-fg-secondary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              className="text-xs bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
             >
               {creating ? "Creating…" : "Create link"}
             </button>

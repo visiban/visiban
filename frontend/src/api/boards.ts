@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -131,10 +131,7 @@ export type ShareTtlDays = 7 | 30 | 90 | null;
 
 export const enableBoardSharing = (boardId: number, expiresInDays: ShareTtlDays = null) =>
   client
-    .post<{ share_token: string; share_url: string; share_token_expires_at: string | null }>(
-      `/api/v1/boards/${boardId}/share/`,
-      { expires_in_days: expiresInDays },
-    )
+    .post<ShareActionResponse>(`/api/v1/boards/${boardId}/share/`, { expires_in_days: expiresInDays })
     .then((r) => r.data);
 
 export const disableBoardSharing = (boardId: number) =>

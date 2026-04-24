@@ -86,10 +86,11 @@ Claude Code sessions on this repo run at roughly 110 M tokens per active day; th
 - All MR descriptions and git commit messages with multi-line bodies use heredoc syntax — never inline `\n` literals
 - **Every MR that resolves a tracked issue must include `Closes #NNN`** (or `Fixes #NNN` / `Resolves #NNN`) in the description body — one line per issue. Without these keywords GitLab will not auto-close the issue on merge.
 - **Changelog entries use fragment files** — create a file in `changelog.d/` named `<issue-or-slug>.<type>.md` (e.g. `434.fixed.md`) instead of editing `CHANGELOG.md` directly. Valid types: `added`, `changed`, `fixed`, `security`. The CI `changelog-check` job enforces this. Fragments are assembled into `CHANGELOG.md` automatically at release time by `scripts/assemble-changelog.sh`. **Never edit `CHANGELOG.md` directly on a feature branch.**
-- **Every new or modified feature must include test cases and documentation updates in the same MR** — do not ship a feature without both. This applies to frontend and backend changes equally:
+- **Tests and docs go in the same commit as the code change** — never defer to a follow-up commit or a separate MR. A code change without its test update is incomplete and will slip through review. This applies to frontend and backend equally:
   - Frontend tests: `frontend/src/test/`
   - Backend tests: `backend/boards/tests/` (or the relevant app's `tests/` directory)
   - Documentation: `docs/` and `README.md` where applicable
+- **Grep before renaming any symbol, field, or env var** — run `grep -r 'old_name' .` across the entire repo (including `.gitlab-ci.yml`, `docs/`, and all test files) before committing the rename. Missing a shadow copy in CI config or a test fixture is the most common failure class in batch commits.
 - Use **US English** in all code, comments, documentation, commit messages, MR descriptions, and UI copy — e.g. "color" not "colour", "center" not "centre", "canceled" not "cancelled", "authorization" not "authorisation"
 - When writing complex business logic (model methods, custom serializer behaviour, transaction sequences, permission checks), add a docstring or inline comment explaining **why** — not what the code does, but the intent or constraint behind it
 

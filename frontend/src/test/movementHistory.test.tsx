@@ -51,6 +51,7 @@ const mockBoard: BoardFull = {
   owner: { id: 10, username: 'admin', display_name: 'Admin User', avatar_url: '' },
   capabilities: { movement_export: false },
   share_token: null,
+  share_token_expires_at: null,
 }
 
 function makeMv(overrides: Partial<CardMovement> = {}): CardMovement {

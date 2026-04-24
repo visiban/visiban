@@ -98,6 +98,8 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer', is_starred: false, created_at: '', updated_at: '', current_user_role: 'admin',
     owner: { id: 1, username: 'jdoe', display_name: 'Jane Doe', avatar_url: '' },
     capabilities: { movement_export: false },
+    share_token: null,
+    share_token_expires_at: null,
     ...overrides,
   }
 }
