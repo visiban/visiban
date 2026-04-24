@@ -290,6 +290,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
   const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
+  // useCardLayoutPref's setter only accepts a direct value, so keyboard
+  // handlers (registered outside cardLayout's dep array) read the latest
+  // layout through this ref to avoid closing over a stale value.
+  const cardLayoutRef = useRef(cardLayout);
+  cardLayoutRef.current = cardLayout;
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
@@ -578,6 +583,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, []);
 
   const [filters, setFiltersState] = useState(initialFilters);
+  // setFilters accepts only a resolved value (it syncs to localStorage and
+  // URL params), so palette-event handlers registered with a narrow dep array
+  // read the latest filter state through this ref.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
   // Sync filter changes to both localStorage and URL params.
   const setFilters = useCallback((next: typeof filters) => {
@@ -755,7 +765,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // a low-frequency action where a richer chord is acceptable.
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
         e.preventDefault();
-        setCardLayout((prev) => (prev === "compact" ? "expanded" : "compact"));
+        setCardLayout(cardLayoutRef.current === "compact" ? "expanded" : "compact");
         return;
       }
       if (e.key === "b") {
@@ -873,7 +883,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     };
     const filterMyCards = () => {
       if (!currentUser) return;
-      setFilters((prev) => ({ ...prev, assigneeIds: [currentUser.id] }));
+      setFilters({ ...filtersRef.current, assigneeIds: [currentUser.id] });
       setShowFilters(true);
     };
     const showHistory = () => setView("history");
