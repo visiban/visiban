@@ -21,6 +21,8 @@ Columns are marked as done in the **Edit Column** modal ("Mark as done column" c
 
 Useful for a quick health check across all active pipelines.
 
+> **Added in 1.1**
+
 The summary response includes an `extension_panels` field (always an empty list in the OSS edition). Enterprise extensions can register additional panels here.
 
 **API:** `GET /api/v1/boards/{id}/summary/`

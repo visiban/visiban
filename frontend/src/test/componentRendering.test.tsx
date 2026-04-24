@@ -98,8 +98,9 @@ describe('CardItem', () => {
     const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
-    // urgent = #B91C1C (red-700, darker than high's red-500)
-    expect(root.style.borderColor.toLowerCase()).toContain('#b91c1c')
+    // urgent = #B91C1C (red-700) — jsdom normalizes hex to rgb(), so accept either form
+    const color = root.style.borderColor.toLowerCase()
+    expect(color === 'rgb(185, 28, 28)' || color.includes('#b91c1c')).toBe(true)
   })
 
   it('renders label pills when labels are provided', () => {

@@ -1,0 +1,4 @@
+- Onboarding tour documentation now reflects 1.1 release, covers all 8 tour steps, and documents the self-service tour reset path via PATCH /api/v1/auth/me/ (#908)
+- Analytics extension panel documentation now carries the correct "Added in 1.1" version callout for the ANALYTICS_EXTENSIONS hook (#910)
+- Admin users API docs corrected to match the actual OffsetCountPagination response shape (offset/page_size params, next/previous removed from envelope) (#911)
+- Cards API docs now document the 200-card cap on the board cards endpoint (#912)
