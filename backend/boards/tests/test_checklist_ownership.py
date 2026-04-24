@@ -60,10 +60,10 @@ class ChecklistCreatedByTests(TestCase):
         self.assertEqual(item.created_by, self.owner)
 
     @patch(PATCH_BROADCAST)
-    def test_created_by_id_in_response(self, _):
+    def test_created_by_id_not_in_response(self, _):
         r = self.client.post(self.url, {"text": "Do something"})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(r.json()["created_by_id"], self.owner.id)
+        self.assertNotIn("created_by_id", r.json())
 
 
 class ChecklistOwnershipGateTests(TestCase):

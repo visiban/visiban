@@ -1125,7 +1125,7 @@ class CardViewSet(viewsets.ModelViewSet):
             # Comments don't need a re-notification guard — each comment is a new event.
             mentioned_usernames = extract_mentions(comment.body)
             if mentioned_usernames:
-                eff_ids = _get_effective_member_ids(board)
+                eff_ids = self._board_context()["member_ids"]
                 member_users = User.objects.filter(
                     username__in=mentioned_usernames,
                     pk__in=eff_ids,

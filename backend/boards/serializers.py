@@ -124,8 +124,7 @@ class CardActivitySerializer(serializers.ModelSerializer):
 class CardChecklistSerializer(serializers.ModelSerializer):
     class Meta:
         model = CardChecklist
-        fields = ["id", "text", "is_checked", "position", "created_by_id"]
-        read_only_fields = ["created_by_id"]
+        fields = ["id", "text", "is_checked", "position"]
 
 
 def _card_queryset(qs, stale_cutoff=None):
@@ -428,7 +427,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         if not _expand_requested(self.context, "group") or obj.group_id is None:
             return None
         from groups.serializers import GroupBriefSerializer
-        return GroupBriefSerializer(obj.group).data
+        return GroupBriefSerializer(obj.group, context=self.context).data
 
     def to_representation(self, instance):
         """Pre-compute board-scoped caches before delegating to field serialization.
@@ -651,6 +650,22 @@ class BoardFullSerializer(serializers.ModelSerializer):
             return False
         return obj.favorites.filter(user=request.user).exists()
 
+    def _resolved_role(self, obj):
+        """Return the current user's role, reading from context or resolving live.
+
+        Both get_share_token and get_share_token_expires_at need the role to
+        gate admin-only fields. Centralising the resolution here avoids two
+        independent get_board_role() calls per /full/ response when role is
+        absent from context.
+        """
+        from .permissions import get_board_role
+        role = self.context.get("role")
+        if role is None:
+            request = self.context.get("request")
+            if request and request.user.is_authenticated:
+                role = get_board_role(request.user, obj)
+        return role
+
     def get_share_token(self, obj):
         """Return the share token only to board admins; return null for all other roles.
 
@@ -658,13 +673,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         let them share the board publicly without admin intent.
         """
         from .models import BoardMembership as BM
-        from .permissions import get_board_role, SITE_ADMIN
-        role = self.context.get("role")
-        if role is None:
-            request = self.context.get("request")
-            if request and request.user.is_authenticated:
-                role = get_board_role(request.user, obj)
-        if role in (BM.Role.ADMIN, SITE_ADMIN):
+        from .permissions import SITE_ADMIN
+        if self._resolved_role(obj) in (BM.Role.ADMIN, SITE_ADMIN):
             return str(obj.share_token) if obj.share_token else None
         return None
 
@@ -676,13 +686,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
         state.
         """
         from .models import BoardMembership as BM
-        from .permissions import get_board_role, SITE_ADMIN
-        role = self.context.get("role")
-        if role is None:
-            request = self.context.get("request")
-            if request and request.user.is_authenticated:
-                role = get_board_role(request.user, obj)
-        if role in (BM.Role.ADMIN, SITE_ADMIN):
+        from .permissions import SITE_ADMIN
+        if self._resolved_role(obj) in (BM.Role.ADMIN, SITE_ADMIN):
             return obj.share_token_expires_at.isoformat() if obj.share_token_expires_at else None
         return None
 

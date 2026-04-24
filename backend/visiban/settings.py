@@ -497,6 +497,15 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+# Only enforce a real sender address when using SMTP — console/locmem backends
+# are used in development and tests where delivery doesn't matter.
+_SMTP_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+if EMAIL_BACKEND == _SMTP_BACKEND and "example.com" in DEFAULT_FROM_EMAIL:
+    raise ImproperlyConfigured(
+        "DEFAULT_FROM_EMAIL is still set to the example.com placeholder. "
+        "Set the DEFAULT_FROM_EMAIL environment variable to your real sending address "
+        "so password-reset emails are deliverable in production."
+    )
 
 # Log auth failures (401/403) at WARNING so operators can detect brute-force
 # attempts and misconfigured clients. Previously these were suppressed, hiding

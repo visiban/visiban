@@ -307,17 +307,22 @@ class GroupViewSet(viewsets.ModelViewSet):
                     except _User.DoesNotExist:
                         return
 
+                    # Batch-fetch all candidate boards in one query rather than
+                    # one SELECT per board (O(n) → O(1) round-trips).
+                    board_map = {
+                        b.pk: b
+                        for b in _Board.objects.filter(pk__in=board_ids).select_related(
+                            "group",
+                            "group__parent",
+                            "group__parent__parent",
+                            "group__parent__parent__parent",
+                            "group__parent__parent__parent__parent",
+                            "group__parent__parent__parent__parent__parent",
+                        )
+                    }
                     for bid in board_ids:
-                        try:
-                            board_obj = _Board.objects.select_related(
-                                "group",
-                                "group__parent",
-                                "group__parent__parent",
-                                "group__parent__parent__parent",
-                                "group__parent__parent__parent__parent",
-                                "group__parent__parent__parent__parent__parent",
-                            ).get(pk=bid)
-                        except _Board.DoesNotExist:
+                        board_obj = board_map.get(bid)
+                        if board_obj is None:
                             continue
                         if _get_role(user_obj, board_obj) is None:
                             broadcast_board_event(bid, "member.removed", {"user_id": uid})
