@@ -107,6 +107,23 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
   const [defaultsSaved, setDefaultsSaved] = useState(false);
 
+  // Track transient-state timers so we can clear them on unmount (#870).
+  // `animateTimersRef` holds the multiple fade-out timers (one per recently-added
+  // board); `defaultsSavedTimerRef` holds the single "Defaults saved" flash timer.
+  const animateTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const defaultsSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const animateTimers = animateTimersRef.current;
+    return () => {
+      animateTimers.forEach((t) => clearTimeout(t));
+      animateTimers.clear();
+      if (defaultsSavedTimerRef.current !== null) {
+        clearTimeout(defaultsSavedTimerRef.current);
+        defaultsSavedTimerRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -137,7 +154,8 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       next.add(id);
       return next;
     });
-    setTimeout(() => {
+    const t = setTimeout(() => {
+      animateTimersRef.current.delete(t);
       setAnimateBoardIds((prev) => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
@@ -145,6 +163,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         return next;
       });
     }, 200);
+    animateTimersRef.current.add(t);
   }, []);
 
   // Capture focus before a list mutation so we can restore it afterwards (#753).
@@ -423,7 +442,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       const updated = await updateGroupBoardDefaults(groupId, { default_board_member_role: role });
       setGroup((prev) => prev ? { ...prev, default_board_member_role: updated.default_board_member_role } : prev);
       setDefaultsSaved(true);
-      setTimeout(() => setDefaultsSaved(false), 2000);
+      if (defaultsSavedTimerRef.current !== null) {
+        clearTimeout(defaultsSavedTimerRef.current);
+      }
+      defaultsSavedTimerRef.current = setTimeout(() => {
+        setDefaultsSaved(false);
+        defaultsSavedTimerRef.current = null;
+      }, 2000);
     } catch {
       setDefaultsError("Failed to save default member role.");
     } finally {

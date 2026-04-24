@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
@@ -632,6 +632,19 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
   const [resetting, setResetting] = useState(false);
   const [resetConfirmed, setResetConfirmed] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  const resetConfirmedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Clear any pending confirmation timer on unmount so setResetConfirmed(false)
+    // never runs after teardown — otherwise React logs an unhandled exception
+    // when CI is slow enough to outlast the 4s fade (issue #870).
+    return () => {
+      if (resetConfirmedTimerRef.current !== null) {
+        clearTimeout(resetConfirmedTimerRef.current);
+        resetConfirmedTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const toggleCloseOnEnter = async () => {
     const newVal = !(user.close_editor_on_enter ?? true);
@@ -655,7 +668,13 @@ function BehaviorTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: U
       await resetTour();
       onUserUpdated({ ...user, has_completed_tour: false });
       setResetConfirmed(true);
-      setTimeout(() => setResetConfirmed(false), 4000);
+      if (resetConfirmedTimerRef.current !== null) {
+        clearTimeout(resetConfirmedTimerRef.current);
+      }
+      resetConfirmedTimerRef.current = setTimeout(() => {
+        setResetConfirmed(false);
+        resetConfirmedTimerRef.current = null;
+      }, 4000);
     } catch {
       setResetError("Failed to reset tour. Please try again.");
     } finally {

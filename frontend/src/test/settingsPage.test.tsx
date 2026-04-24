@@ -534,4 +534,29 @@ describe('BehaviorTab — restart tour', () => {
       expect(screen.getByRole('button', { name: 'Restart onboarding tour' })).toBeInTheDocument(),
     )
   })
+
+  // Regression: #870 — unmounting while the 4s confirmation fade is pending
+  // used to leave the timer alive, firing setResetConfirmed(false) after teardown
+  // and failing the `frontend-test` CI job with "window is not defined".
+  it('clears the pending confirmation timer on unmount', async () => {
+    mockResetTour.mockResolvedValueOnce(undefined)
+    const user = userEvent.setup()
+    const { unmount } = render(
+      <MemoryRouter>
+        <SettingsPage user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>,
+    )
+    await user.click(screen.getByText('Behavior'))
+    await user.click(screen.getByRole('button', { name: 'Restart onboarding tour' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText('Tour will restart on your next visit to a board.'),
+      ).toBeInTheDocument(),
+    )
+
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
+    unmount()
+    expect(clearSpy).toHaveBeenCalled()
+    clearSpy.mockRestore()
+  })
 })
