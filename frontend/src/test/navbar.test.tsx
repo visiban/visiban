@@ -161,39 +161,63 @@ describe('Navbar', () => {
   })
 })
 
-describe('Navbar — global search entry (#852)', () => {
+describe('Navbar — global search entry (#852 / #869)', () => {
+  // #869 — the visible label and accessible name adapt per route via
+  // useNavbarSearchLabel so the copy matches what the palette can do on
+  // that surface. On the Dashboard / Group routes, the copy is "Jump to
+  // board". On the Settings / Admin routes, it's "Jump to…". On a board
+  // route, it's "Search cards". MemoryRouter defaults to "/" ⇒ dashboard.
+
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUnreadCount.mockResolvedValue(0)
   })
 
-  it('renders the Row 1 global search button with an accessible name', () => {
-    renderNavbar()
-    expect(screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })).toBeInTheDocument()
+  function renderNavbarAt(initialRoute: string) {
+    return render(
+      <MemoryRouter initialEntries={[initialRoute]}>
+        <Navbar user={fakeUser} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>
+    )
+  }
+
+  it('renders the Row 1 global search button on the Dashboard with the Jump-to-board label', () => {
+    renderNavbarAt('/')
+    expect(screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })).toBeInTheDocument()
   })
 
-  it('shows the visible "Search" label and ⌘K hint at lg+', () => {
-    renderNavbar()
-    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+  it('adapts the label to "Search cards" on a board route', () => {
+    renderNavbarAt('/boards/42')
+    expect(screen.getByRole('button', { name: /Search cards \(Cmd\+K\)/ })).toBeInTheDocument()
+  })
+
+  it('adapts the label to "Jump to…" on Settings (palette acts only as a nav surface there)', () => {
+    renderNavbarAt('/settings')
+    expect(screen.getByRole('button', { name: /Jump to \(Cmd\+K\)/ })).toBeInTheDocument()
+  })
+
+  it('shows the visible placeholder label and ⌘K hint at lg+', () => {
+    renderNavbarAt('/')
+    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
     // Both the visible label and the shortcut hint render in the DOM; they're
     // hidden below lg via `hidden lg:inline` so jsdom still sees them.
-    expect(btn).toHaveTextContent('Search')
+    expect(btn).toHaveTextContent('Jump to board')
     expect(btn).toHaveTextContent('⌘K')
   })
 
-  it('uses the responsive width classes — w-8 square below lg, w-40 at lg+', () => {
-    renderNavbar()
-    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+  it('uses the responsive width classes — w-8 square below lg, wider at lg+ to fit adaptive copy', () => {
+    renderNavbarAt('/')
+    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
     expect(btn.className).toMatch(/\bw-8\b/)
-    expect(btn.className).toMatch(/\blg:w-40\b/)
+    expect(btn.className).toMatch(/\blg:w-56\b/)
   })
 
   it('clicking the button dispatches visiban:open-palette', async () => {
     const listener = vi.fn()
     window.addEventListener('visiban:open-palette', listener)
     try {
-      renderNavbar()
-      await userEvent.setup().click(screen.getByRole('button', { name: /Search \(Cmd\+K\)/ }))
+      renderNavbarAt('/')
+      await userEvent.setup().click(screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ }))
       expect(listener).toHaveBeenCalledOnce()
     } finally {
       window.removeEventListener('visiban:open-palette', listener)
@@ -201,8 +225,8 @@ describe('Navbar — global search entry (#852)', () => {
   })
 
   it('renders to the left of the notification bell in Row 1', () => {
-    renderNavbar()
-    const btn = screen.getByRole('button', { name: /Search \(Cmd\+K\)/ })
+    renderNavbarAt('/')
+    const btn = screen.getByRole('button', { name: /Jump to board \(Cmd\+K\)/ })
     const bell = screen.getByTitle('Notifications')
     // Compare document position — search button precedes the bell.
     expect(btn.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

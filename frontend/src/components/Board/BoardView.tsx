@@ -60,7 +60,6 @@ import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
 import { filterCards } from "../../utils/filterCards";
-import CommandPalette from "../Common/CommandPalette";
 import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
@@ -101,45 +100,59 @@ function ViewToggle({
   view: "board" | "summary" | "history" | "analytics";
   onChange: (v: "board" | "summary" | "history" | "analytics") => void;
 }) {
-  const btn = (label: string, val: "board" | "summary" | "history" | "analytics", tourStep?: string) => (
-    <button
-      onClick={() => onChange(val)}
-      className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-        view === val
-          ? "bg-primary text-on-primary"
-          : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
-      }`}
-      {...(tourStep ? { "data-tour-step": tourStep } : {})}
-    >
-      {label}
-    </button>
-  );
-  return (
-    <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
-      {btn("Board", "board")}
-      {btn("Summary", "summary")}
-      {btn("History", "history", "history")}
+  // Bare-letter shortcut per view. Rendered in the tooltip and exposed via
+  // `aria-keyshortcuts` so screen readers can announce the binding. Keys are
+  // platform-agnostic (single printable character — same on Mac/Linux/Win).
+  const btn = (
+    label: string,
+    val: "board" | "summary" | "history" | "analytics",
+    shortcut: string,
+    tourStep?: string,
+  ) => (
+    <Tooltip content={`${label} (${shortcut.toUpperCase()})`}>
       <button
-        onClick={() => onChange("analytics")}
+        onClick={() => onChange(val)}
         className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-          view === "analytics"
+          view === val
             ? "bg-primary text-on-primary"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
+        aria-keyshortcuts={shortcut.toUpperCase()}
+        {...(tourStep ? { "data-tour-step": tourStep } : {})}
       >
-        <span className="flex items-center gap-1.5">
-          Analytics
-          <span
-            className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
-              view === "analytics"
-                ? "bg-warning/30 text-warning"
-                : "bg-warning/20 text-warning"
-            }`}
-          >
-            Beta
-          </span>
-        </span>
+        {label}
       </button>
+    </Tooltip>
+  );
+  return (
+    <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
+      {btn("Board", "board", "b")}
+      {btn("Summary", "summary", "s")}
+      {btn("History", "history", "h", "history")}
+      <Tooltip content="Analytics (A)">
+        <button
+          onClick={() => onChange("analytics")}
+          className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            view === "analytics"
+              ? "bg-primary text-on-primary"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+          }`}
+          aria-keyshortcuts="A"
+        >
+          <span className="flex items-center gap-1.5">
+            Analytics
+            <span
+              className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
+                view === "analytics"
+                  ? "bg-warning/30 text-warning"
+                  : "bg-warning/20 text-warning"
+              }`}
+            >
+              Beta
+            </span>
+          </span>
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -244,6 +257,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // downstream reference from BoardFull to BoardFull | null.
   const board = boardOrNull!;
 
+  // Mirror the current board into a ref so cross-component event handlers
+  // (e.g. GlobalCommandPalette's open-card dispatch) can resolve a card by id
+  // without re-registering the listener on every cards-array identity change.
+  const boardRef = useRef(board);
+  boardRef.current = board;
+
   // Re-fetch board state when the user returns to a backgrounded tab.
   useBoardResync(silentReload);
 
@@ -271,6 +290,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
   const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
+  // useCardLayoutPref's setter only accepts a direct value, so keyboard
+  // handlers (registered outside cardLayout's dep array) read the latest
+  // layout through this ref to avoid closing over a stale value.
+  const cardLayoutRef = useRef(cardLayout);
+  cardLayoutRef.current = cardLayout;
 
   // Wrap in useMemo so downstream memos don't re-run on every render due to new Set instances
   const hiddenColumnIds = useMemo(() => new Set(viewPrefs.hiddenColumnIds), [viewPrefs.hiddenColumnIds]);
@@ -282,6 +306,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const collapsedSwimlaneIds = useMemo(() => new Set(viewPrefs.collapsedSwimlaneIds), [viewPrefs.collapsedSwimlaneIds]);
   const allSwimlanesExpanded = board.swimlanes.every((s) => !collapsedSwimlaneIds.has(s.id));
   const allExpanded = allColumnsExpanded && allSwimlanesExpanded;
+  // Mirror `allExpanded` into a ref so the single-key `e` shortcut handler
+  // in the keydown effect below can read the current value without needing
+  // to re-register every time a column or swimlane collapses or expands.
+  const allExpandedRef = useRef(allExpanded);
+  allExpandedRef.current = allExpanded;
 
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
@@ -442,6 +471,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return board.swimlanes.some((s) => s.id === id) ? id : null;
   })();
   const focusedSwimlane = focusedSwimlaneId !== null ? board.swimlanes.find((s) => s.id === focusedSwimlaneId) ?? null : null;
+  // Mirror focusedSwimlaneId into a ref so the `e` shortcut can consult the
+  // current focus state without forcing the keydown listener to re-subscribe
+  // every time the URL changes.
+  const focusedSwimlaneIdRef = useRef(focusedSwimlaneId);
+  focusedSwimlaneIdRef.current = focusedSwimlaneId;
 
   // Snapshot of collapsed swimlane and column IDs at the moment focus is entered —
   // restored on exit. Stored in refs so they don't trigger re-renders.
@@ -549,6 +583,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   }, []);
 
   const [filters, setFiltersState] = useState(initialFilters);
+  // setFilters accepts only a resolved value (it syncs to localStorage and
+  // URL params), so palette-event handlers registered with a narrow dep array
+  // read the latest filter state through this ref.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
 
   // Sync filter changes to both localStorage and URL params.
   const setFilters = useCallback((next: typeof filters) => {
@@ -627,7 +666,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   useEffect(() => {
     if (showExport && !canExport) setShowExport(false);
   }, [showExport, canExport]);
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportSeen, markExportSeen] = useExportSeenPref();
   const [shortcutsSeen, markShortcutsSeen] = useShortcutsSeenPref();
   const [overflowSeen, markOverflowSeen] = useOverflowSeenPref();
@@ -696,12 +734,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setDrawerOpen((v) => !v);
         return;
       }
-      // ⌘K / Ctrl+K — toggle command palette (fires even from input fields)
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
-        e.preventDefault();
-        setPaletteOpen((v) => !v);
-        return;
-      }
+      // ⌘K handling lives in GlobalCommandPalette at the shell / board-page
+      // level so it fires on every sub-tab and every authenticated route.
+      // Do not re-register it here — the listener would fire twice. (#869)
       const tag = (e.target as HTMLElement).tagName;
       if (
         tag === "INPUT" ||
@@ -722,6 +757,57 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         if (!isAdmin) return;
         e.preventDefault();
         setShowSettings(true);
+        return;
+      }
+      // ⌘⇧L / Ctrl+Shift+L — toggle card layout (compact ↔ expanded). Uses
+      // two modifiers deliberately: the `L` unshifted is a plain letter and
+      // would clash with any future single-key shortcut, and card layout is
+      // a low-frequency action where a richer chord is acceptable.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        setCardLayout(cardLayoutRef.current === "compact" ? "expanded" : "compact");
+        return;
+      }
+      if (e.key === "b") {
+        // View tabs: `b` Board, `s` Summary, `h` History, `a` Analytics.
+        // Reuses setView's replace-history behavior so tab switching doesn't
+        // pollute the browser back-button stack.
+        e.preventDefault();
+        setView("board");
+        return;
+      } else if (e.key === "s") {
+        e.preventDefault();
+        setView("summary");
+        return;
+      } else if (e.key === "h") {
+        e.preventDefault();
+        setView("history");
+        return;
+      } else if (e.key === "a") {
+        e.preventDefault();
+        setView("analytics");
+        return;
+      } else if (e.key === "e") {
+        // `e` collapses/expands everything — mirrors the SplitButton primary
+        // (onCollapsePrimary) so there is a single source of "what does the
+        // default collapse action do right now?". Uses refs so the listener
+        // doesn't re-subscribe on every board or view-prefs identity change.
+        e.preventDefault();
+        const latestBoard = boardRef.current;
+        if (focusedSwimlaneIdRef.current !== null) exitFocus();
+        if (allExpandedRef.current) {
+          collapseAllColumns(latestBoard.columns.map((c) => c.id));
+          collapseAllSwimlanes(latestBoard.swimlanes.map((s) => s.id));
+        } else {
+          expandAllColumns();
+          expandAllSwimlanes();
+        }
+        return;
+      } else if (e.key === "y") {
+        // `y` toggles the archived cards panel. Avoids `a` because that's
+        // reserved for the Analytics view tab above.
+        e.preventDefault();
+        setShowArchived((v) => !v);
         return;
       }
       if (e.key === "f") {
@@ -753,6 +839,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
+    // View-switch, collapse-toggle, archived-toggle, and card-layout handlers
+    // all consume stable setState setters / useCallback-memoised board-pref
+    // functions, and read board + focus state through refs, so the listener
+    // never needs to re-subscribe when those inputs change. We pin only the
+    // deps that actually change the handler's decision surface.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toggleCollapsedSwimlane, canExport, markExportSeen, isAdmin]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
@@ -778,14 +870,42 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
   }, [currentUser, onUserUpdated]);
 
-  // Surface the command palette from the Row 1 global search trigger in Navbar
-  // (#852). Until #191 ships a richer global search, the Row 1 button opens this
-  // same board-scoped palette when a board is mounted.
+  // Board-scoped palette actions are dispatched by GlobalCommandPalette as
+  // window events so the palette owner does not need to reach into BoardView
+  // internals. Each handler corresponds to an action surfaced in the palette
+  // result list. (#869)
   useEffect(() => {
-    const open = () => setPaletteOpen(true);
-    window.addEventListener("visiban:open-palette", open);
-    return () => window.removeEventListener("visiban:open-palette", open);
-  }, []);
+    const openCard = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ cardId: number }>).detail;
+      if (!detail) return;
+      const card = boardRef.current?.cards.find((c) => c.id === detail.cardId);
+      if (card) { clearSelection(); setSelectedCard(card); }
+    };
+    const filterMyCards = () => {
+      if (!currentUser) return;
+      setFilters({ ...filtersRef.current, assigneeIds: [currentUser.id] });
+      setShowFilters(true);
+    };
+    const showHistory = () => setView("history");
+    const openSettings = () => setShowSettings(true);
+    window.addEventListener("visiban:open-card", openCard);
+    window.addEventListener("visiban:filter-my-cards", filterMyCards);
+    window.addEventListener("visiban:show-history", showHistory);
+    window.addEventListener("visiban:open-settings", openSettings);
+    return () => {
+      window.removeEventListener("visiban:open-card", openCard);
+      window.removeEventListener("visiban:filter-my-cards", filterMyCards);
+      window.removeEventListener("visiban:show-history", showHistory);
+      window.removeEventListener("visiban:open-settings", openSettings);
+    };
+    // The listener captures `setView` from its closure; even though the
+    // local `setView` identity changes per render, it always delegates to
+    // the stable setSearchParams, so a captured-from-prior-render copy is
+    // still correct. setFilters/setShowFilters/setShowSettings are stable
+    // useState setters. boardRef tracks the latest board state so card
+    // resolution works without re-registering on every cards-array change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, clearSelection]);
 
   useEscapeStack(() => {
     if (view === "analytics" || view === "history" || view === "summary") { setView("board"); return; }
@@ -1132,12 +1252,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         id: "layout",
         label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
         icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
+        shortcut: formatShortcut({ mod: true, shift: true, key: "L" }),
         onSelect: () => setCardLayout(cardLayout === "compact" ? "expanded" : "compact"),
       });
       items.push({
         id: "archived",
         label: showArchived ? "Hide archived cards" : "Show archived cards",
         icon: ArchivedIcon,
+        shortcut: "Y",
         onSelect: () => setShowArchived((v) => !v),
       });
       items.push({
@@ -1280,6 +1402,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Primary click on the Collapse split button performs the dominant action —
   // if anything is expanded, collapse all; otherwise, expand all. Preserves
   // the 1.0 single-button behavior so muscle memory is not disturbed.
+  // Rendered in the card-layout tooltip and in the overflow-menu label so the
+  // chord display stays consistent with the rest of the shortcut tooltips.
+  const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
+
   const onCollapsePrimary = () => {
     if (focusedSwimlaneId !== null) exitFocus();
     if (allExpanded) {
@@ -1333,7 +1459,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <SplitButton
             primaryLabel={allExpanded ? "Collapse" : "Expand"}
             primaryAriaLabel={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
-            primaryTitle={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
+            primaryTitle={allExpanded ? "Hide all swimlanes and columns (E)" : "Show all swimlanes and columns (E)"}
+            primaryAriaKeyshortcuts="E"
             menuAriaLabel="Collapse menu"
             onPrimary={onCollapsePrimary}
             renderMenu={({ close }) => {
@@ -1385,6 +1512,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showFilters || activeCount > 0}
               aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+              aria-keyshortcuts="F"
             >
               {showFilters ? "Hide filters" : "Filters"}
               {!showFilters && activeCount > 0 && (
@@ -1395,7 +1523,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </button>
           </Tooltip>
           {!foldToolbarControls && (
-          <Tooltip content={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}>
+          <Tooltip content={
+            cardLayout === "compact"
+              ? `Switch to expanded card layout (${layoutShortcutLabel})`
+              : `Switch to compact card layout (${layoutShortcutLabel})`
+          }>
             <button
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
               aria-pressed={cardLayout === "compact"}
@@ -1411,14 +1543,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </Tooltip>
           )}
           {!foldToolbarControls && (
-          <button
-            onClick={() => setShowArchived((v) => !v)}
-            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
-            aria-pressed={showArchived}
-            aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
-          >
-            Archived
-          </button>
+          <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              aria-pressed={showArchived}
+              aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
+              aria-keyshortcuts="Y"
+            >
+              Archived
+            </button>
+          </Tooltip>
           )}
         </div>
 
@@ -1921,28 +2056,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         />
       )}
 
-      <CommandPalette
-        open={paletteOpen}
-        boardCards={board.cards}
-        columns={board.columns}
-        isAdmin={isAdmin}
-        onClose={() => setPaletteOpen(false)}
-        onOpenCard={(card) => { clearSelection(); setSelectedCard(card); }}
-        onAction={(id) => {
-          if (id === "my-cards") {
-            if (currentUser) {
-              setFilters({ ...filters, assigneeIds: [currentUser.id] });
-              setShowFilters(true);
-            }
-          } else if (id === "shortcuts") {
-            setShowShortcuts(true);
-          } else if (id === "history") {
-            setView("history");
-          } else if (id === "settings") {
-            setShowSettings(true);
-          }
-        }}
-      />
+      {/* CommandPalette is owned by GlobalCommandPalette at the BoardPage /
+          shell level. BoardView consumes its events via the window listener
+          registered above (visiban:open-card / filter-my-cards / show-history /
+          open-settings / open-shortcuts). See #869. */}
 
       {showExport && (
         <BoardExportModal

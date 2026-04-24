@@ -1,38 +1,96 @@
 import ModalWrapper from "../shared/ModalWrapper";
+import { formatShortcut } from "../../utils/platform";
 
 interface Props {
   onClose: () => void;
   onRestartTour?: () => void;
 }
 
-const SHORTCUTS = [
-  { key: "f", description: "Toggle filter bar" },
-  { key: "c", description: "Collapse / expand hovered swimlane" },
-  { key: "/", description: "Open filters and focus search" },
-  { key: "Tab", description: "Move between filter chips; Delete or Backspace to remove" },
-  { key: "?", description: "Show this help" },
-  { key: ".", description: "Open the overflow menu" },
-  { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
-  { key: "Space + drag", description: "Pan the board" },
-];
+interface ShortcutRow {
+  key: string;
+  description: string;
+}
+
+interface ShortcutSection {
+  heading: string;
+  rows: ShortcutRow[];
+}
+
+// Grouped into four sections per the #868 audit: Navigation (cross-route
+// chords), Board view (view-tab bindings), Board actions (on-board tools),
+// and Help (everything else). Imperative-tone descriptions start with a verb
+// ("Search…", "Toggle…") so each row reads as a command, not a status line.
+function buildSections(): ShortcutSection[] {
+  return [
+    {
+      heading: "Navigation",
+      rows: [
+        { key: formatShortcut({ mod: true, key: "K" }), description: "Open command palette" },
+        { key: "/", description: "Focus the search box" },
+        { key: formatShortcut({ mod: true, key: "," }), description: "Open board settings" },
+      ],
+    },
+    {
+      heading: "Board view",
+      rows: [
+        { key: "B", description: "Switch to Board view" },
+        { key: "S", description: "Switch to Summary view" },
+        { key: "H", description: "Switch to History view" },
+        { key: "A", description: "Switch to Analytics view" },
+      ],
+    },
+    {
+      heading: "Board actions",
+      rows: [
+        { key: "F", description: "Toggle the filter bar" },
+        { key: "E", description: "Collapse or expand everything" },
+        { key: "C", description: "Collapse the hovered swimlane" },
+        { key: "Y", description: "Toggle the archived cards panel" },
+        { key: formatShortcut({ mod: true, shift: true, key: "L" }), description: "Switch card layout (compact / expanded)" },
+        { key: formatShortcut({ mod: true, key: "\\" }), description: "Toggle the activity drawer" },
+        { key: formatShortcut({ mod: true, shift: true, key: "E" }), description: "Export the board" },
+        { key: ".", description: "Open the overflow menu" },
+        { key: "Space + drag", description: "Pan the board" },
+        { key: "Tab", description: "Move between filter chips; Delete or Backspace to remove" },
+      ],
+    },
+    {
+      heading: "Help",
+      rows: [
+        { key: "?", description: "Show this help" },
+        { key: "Esc", description: "Close card or dialog; go back when nothing is open" },
+      ],
+    },
+  ];
+}
 
 export default function KeyboardShortcutsOverlay({ onClose, onRestartTour }: Props) {
+  const sections = buildSections();
   return (
-    <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-sm">
-      <table className="w-full text-sm">
-        <tbody className="divide-y divide-line">
-          {SHORTCUTS.map(({ key, description }) => (
-            <tr key={key}>
-              <td className="py-2 pr-4 w-12">
-                <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
-                  {key}
-                </kbd>
-              </td>
-              <td className="py-2 text-fg-secondary">{description}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <ModalWrapper open={true} onClose={onClose} title="Keyboard shortcuts" maxWidth="max-w-md">
+      <div className="flex flex-col gap-4">
+        {sections.map(({ heading, rows }) => (
+          <section key={heading}>
+            <h3 className="text-xs font-medium text-fg-tertiary uppercase tracking-wide mb-1.5">
+              {heading}
+            </h3>
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-line">
+                {rows.map(({ key, description }) => (
+                  <tr key={`${heading}-${key}`}>
+                    <td className="py-2 pr-4 w-24">
+                      <kbd className="inline-block bg-surface-hover text-fg text-xs font-mono px-1.5 py-0.5 rounded border border-line-strong">
+                        {key}
+                      </kbd>
+                    </td>
+                    <td className="py-2 text-fg-secondary">{description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))}
+      </div>
       {onRestartTour && (
         <>
           <div className="my-3">

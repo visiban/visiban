@@ -480,11 +480,35 @@ Use `SplitButton` whenever a toolbar action has a dominant single-click behavior
 
 ## Global search entry (Row 1)
 
-The `🔍 Search ⌘K` button in `Navbar.tsx` is the single visible entry point for the command palette. Do not render a second palette trigger button anywhere in the chrome — the Row 2 icon was removed in #852. Clicking the button dispatches a `visiban:open-palette` window event; `BoardView` listens for it and opens the existing board-scoped palette. Off-board routes have no listener yet (the slot is reserved for #191's richer global search).
+The `🔍` button in `Navbar.tsx` is the single visible entry point for the command palette. Do not render a second palette trigger button anywhere in the chrome — the Row 2 icon was removed in #852. Clicking the button dispatches a `visiban:open-palette` window event; `GlobalCommandPalette` (#869) listens for it and opens the palette with the right mode for the current surface.
 
-- Responsive width: icon-only square at sub-`lg` (`w-8 h-8 justify-center`), `w-40` at `lg+` with the word `Search` and the `⌘K` hint visible
-- Accessible name: `Search (Cmd+K)` — the magnifying-glass emoji is decorative (`aria-hidden`)
-- Never re-add a Row 2 palette trigger, and never wire a new component to open the palette directly — always dispatch `visiban:open-palette` so the single listener in `BoardView` stays the board-scoped bridge
+- **Visible copy adapts per surface** — driven by `useNavbarSearchLabel`. On board routes the label reads `Search cards`; on Dashboard/Group routes it reads `Jump to board`; on Settings/Admin it reads `Jump to…`. Do not hard-code the copy; always route through the hook so the trigger and the palette placeholder stay in sync.
+- Responsive width: icon-only square at sub-`lg` (`w-8 h-8 justify-center`), `w-56` at `lg+` to fit the widest adaptive label plus the `⌘K` hint
+- Accessible name: `{placeholder} (Cmd+K)` — the magnifying-glass emoji is decorative (`aria-hidden`)
+- Never re-add a Row 2 palette trigger, and never wire a new component to open the palette directly — always dispatch `visiban:open-palette` so the single listener in `GlobalCommandPalette` stays authoritative
+
+## Command palette ownership (#869)
+
+The command palette is owned by `GlobalCommandPalette` at two shell-level mount points:
+
+1. **Inside `BoardPage`** (inside `BoardProvider`) — mounts on every `/boards/*` route so the palette is available on every sub-tab (Board/Summary/History/Analytics) and has access to board cards via `useOptionalBoardContext()`.
+2. **Inside `AuthenticatedRoutes`** (above the route tree, only when pathname does NOT start with `/boards/`) — mounts on Dashboard, Group, Settings, and Admin so `⌘K` works everywhere.
+
+Mutual exclusion by pathname guarantees only one `⌘K` keydown listener is ever registered. Do not mount a third palette. Do not register a `keydown` listener for `⌘K` in any feature component — the `GlobalCommandPalette` owner is the single source.
+
+- **Action dispatch goes through `window` CustomEvents** — the palette fires `visiban:open-card`, `visiban:filter-my-cards`, `visiban:show-history`, `visiban:open-settings`, and the existing `visiban:open-shortcuts`. `BoardView` subscribes to the board-scoped subset. Do not reach into `BoardView` state from the palette directly — event-based delegation keeps the shell / board boundary clean.
+- **Off-board actions are filtered automatically** — actions marked `boardOnly` in `CommandPalette.STATIC_ACTIONS` are suppressed on Dashboard/Group/Settings/Admin so the palette doesn't offer operations that would target no board. `Show keyboard shortcuts` is route-agnostic and surfaces everywhere.
+- **Placeholder adapts per surface** — `GlobalCommandPalette` passes a `placeholder` prop per pathname. Board: `Search cards, boards, actions…`. Dashboard/Group: `Jump to board…`. Settings/Admin: `Jump to…`. Copy must match what the palette can actually do on that surface.
+
+## Keyboard shortcuts — noise budget and registry (#868)
+
+Shortcut wiring lives in two places: the board-scoped keydown listener in `BoardView` (for on-board bindings like `b`/`s`/`h`/`a`, `e`, `y`, `f`, `c`, `/`, `.`, `?`, `⌘,`, `⌘\\`, `⌘⇧E`, `⌘⇧L`) and the shell-level listener in `GlobalCommandPalette` (`⌘K`). Every bare-letter shortcut must respect `shouldIgnoreShortcut()` from `src/utils/keyboard.ts` so typing letters into inputs, textareas, and rich-text editors never triggers the board behavior.
+
+- **`aria-keyshortcuts` noise budget — single-key or single-modifier only.** Every toolbar affordance that responds to a bare-letter shortcut (B/S/H/A/E/F/Y) or a one-modifier chord (⌘K, ⌘\\, ⌘,) must carry the corresponding `aria-keyshortcuts` attribute so screen readers announce the binding. Do **not** expose two-modifier chords (⌘⇧L, ⌘⇧E) via `aria-keyshortcuts` — exposing every chord drowns assistive technology in noise and offers no navigation benefit. Surface richer chords in the shortcuts overlay and tooltip only.
+- **Platform-aware formatting — always route through `src/utils/platform.ts`.** `formatShortcut({ mod, shift, alt, key })` renders visible hints (⌘⇧L on Mac; Ctrl+Shift+L elsewhere). `formatAriaKeyshortcuts()` renders the ARIA 1.2 canonical form (`Meta+Shift+L` / `Control+Shift+L`). Never hard-code the Mac glyphs or the `Meta+` prefix at a call site.
+- **Tooltip hints — parenthesize the shortcut after the label.** Format `"${label} (${formatShortcut(...)})"`. The overflow menu's own `shortcut` slot already renders the hint inline; set it there instead of baking the hint into the item label.
+- **The shortcuts overlay is the canonical registry.** Every non-trivial binding must appear in `KeyboardShortcutsOverlay.tsx` grouped under one of the four sections (Navigation / Board view / Board actions / Help) and in `docs/features/keyboard-shortcuts.md`. Descriptions are imperative (`Switch to Board view`, not `Board view`) so each row reads as a command.
+- **Command palette surface-awareness — suppress actions that have no target.** When adding a new action to `CommandPalette.STATIC_ACTIONS` that requires a board (opens a card, toggles filters, switches view), set `boardOnly: true` so `GlobalCommandPalette` filters it out on Dashboard/Group/Settings/Admin. Route-agnostic actions (open shortcuts overlay, log out) must *not* carry the flag.
 
 ## Board search scope toggle
 

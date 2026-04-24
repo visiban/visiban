@@ -428,52 +428,27 @@ describe('BoardView', () => {
     expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
   })
 
-  describe('command palette wiring (#763, updated for #852)', () => {
-    // #852 — the Row 2 trigger button was removed; the single trigger now lives in
-    // Navbar Row 1 and dispatches a visiban:open-palette event. BoardView listens
-    // for the event and opens the board-scoped palette. ⌘K continues to work on
-    // board routes; the Row 2 Zone 3 button no longer exists.
+  describe('command palette wiring (#763 / #852 / #869)', () => {
+    // #869 — the palette itself is no longer owned by BoardView; it lives in
+    // GlobalCommandPalette at the BoardPage / authenticated-shell level so it
+    // is available on every sub-tab and every authenticated route. BoardView
+    // is now only responsible for: (a) NOT re-registering a ⌘K listener
+    // (duplicate would open twice), and (b) NOT rendering a Row 2 trigger
+    // button (single source of truth still lives in Navbar Row 1). The
+    // hoisted palette itself is exercised by globalCommandPalette.test.tsx.
 
     it('does NOT render a Row 2 "Open command palette" trigger button (#852 — single source of truth in Row 1)', () => {
       render(<BoardView {...defaultProps()} />)
       expect(screen.queryByLabelText('Open command palette')).not.toBeInTheDocument()
     })
 
-    it('visiban:open-palette window event opens the palette', () => {
+    it('does NOT render a palette inside BoardView itself (#869 — hoisted to shell)', () => {
       render(<BoardView {...defaultProps()} />)
-      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
-      act(() => {
-        window.dispatchEvent(new CustomEvent('visiban:open-palette'))
-      })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('⌘K / Ctrl+K opens the command palette', () => {
-      render(<BoardView {...defaultProps()} />)
-      expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
+      // The palette is not in the DOM because it is owned by
+      // GlobalCommandPalette, which is not part of BoardView's render tree.
+      // Firing ⌘K here must not cause BoardView to render one either —
+      // otherwise the listener has been re-registered and will double-fire.
       fireEvent.keyDown(document, { key: 'k', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('⌘K shortcut fires even when focus is inside an input (MR promise)', () => {
-      render(<BoardView {...defaultProps()} />)
-      const synthInput = document.createElement('input')
-      document.body.appendChild(synthInput)
-      synthInput.focus()
-      fireEvent.keyDown(synthInput, { key: 'k', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-      document.body.removeChild(synthInput)
-    })
-
-    it('⌘K is also accepted as uppercase K (shift-locked keyboards)', () => {
-      render(<BoardView {...defaultProps()} />)
-      fireEvent.keyDown(document, { key: 'K', metaKey: true })
-      expect(screen.getByLabelText('Command palette search')).toBeInTheDocument()
-    })
-
-    it('bare "k" (no modifier) does not open the palette', () => {
-      render(<BoardView {...defaultProps()} />)
-      fireEvent.keyDown(document, { key: 'k' })
       expect(screen.queryByLabelText('Command palette search')).not.toBeInTheDocument()
     })
   })
@@ -495,6 +470,82 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('shortcuts-overlay')).not.toBeInTheDocument()
       fireEvent.keyDown(document, { key: '?' })
       expect(screen.getByTestId('shortcuts-overlay')).toBeInTheDocument()
+    })
+  })
+
+  describe('#868 — keyboard shortcut coverage audit', () => {
+    it('B switches to the Board view', () => {
+      mockSearchParams = new URLSearchParams('view=summary')
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'b' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    })
+
+    it('S switches to the Summary view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 's' })
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    })
+
+    it('H switches to the History view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('movement-history-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'h' })
+      expect(screen.getByTestId('movement-history-view')).toBeInTheDocument()
+    })
+
+    it('A switches to the Analytics view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'a' })
+      expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    })
+
+    it('Y toggles the archived cards panel', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.getByTestId('archived-panel')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
+    })
+
+    it('view tabs expose platform-agnostic aria-keyshortcuts (B/S/H/A)', () => {
+      render(<BoardView {...defaultProps()} />)
+      // Every view-tab button is exposed with its single-key shortcut so
+      // screen readers announce the binding (per the noise-budget rule:
+      // single-key / single-modifier only → aria-keyshortcuts).
+      expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-keyshortcuts', 'B')
+      expect(screen.getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-keyshortcuts', 'S')
+      expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-keyshortcuts', 'H')
+      // Analytics button carries an inner Beta pill — match on accessible name starting with "Analytics".
+      expect(screen.getByRole('button', { name: /^Analytics/ })).toHaveAttribute('aria-keyshortcuts', 'A')
+    })
+
+    it('Archived toolbar button exposes aria-keyshortcuts="Y"', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
+    })
+
+    it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'F')
+    })
+
+    it('single-letter shortcuts are suppressed when focus is in an input', () => {
+      render(<BoardView {...defaultProps()} />)
+      const input = document.createElement('input')
+      document.body.appendChild(input)
+      input.focus()
+      // Firing `b` from inside an input must not switch the view; this
+      // prevents typing `b` in a search box from nuking the user's board view.
+      fireEvent.keyDown(input, { key: 'b' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(input, { key: 's' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      document.body.removeChild(input)
     })
   })
 

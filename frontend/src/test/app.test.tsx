@@ -9,9 +9,8 @@ vi.mock('../hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }))
 
-vi.mock('../contexts/BoardContext', () => ({
-  BoardProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useBoardContext: vi.fn().mockReturnValue({
+vi.mock('../contexts/BoardContext', () => {
+  const stubContext = {
     board: null, loading: true, error: null,
     moveCard: vi.fn(), forceMoveCard: vi.fn(), moveError: null, clearMoveError: vi.fn(),
     addCard: vi.fn(), removeCard: vi.fn(),
@@ -23,8 +22,16 @@ vi.mock('../contexts/BoardContext', () => ({
     reorderColumns: vi.fn(), reorderSwimlanes: vi.fn(),
     updateSwimlane: vi.fn(), removeSwimlane: vi.fn(),
     updateBoardSettings: vi.fn(), reload: vi.fn(),
-  }),
-}))
+  };
+  return {
+    BoardProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    useBoardContext: vi.fn().mockReturnValue(stubContext),
+    // #869 — GlobalCommandPalette consumes the non-throwing variant. Return
+    // null here (as if no provider is present) so off-board render paths
+    // don't accidentally become board-mode in tests.
+    useOptionalBoardContext: vi.fn().mockReturnValue(null),
+  };
+})
 
 vi.mock('../components/Auth/LoginPage', () => ({
   default: () => <div data-testid="login-page">Login</div>,

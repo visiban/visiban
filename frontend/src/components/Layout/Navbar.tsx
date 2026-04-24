@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import type { User, Notification } from "../../types";
 import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../api/notifications";
 import UserMenu from "./UserMenu";
-import { formatShortcut, isMacPlatform } from "../../utils/platform";
+import { formatShortcut } from "../../utils/platform";
+import { useNavbarSearchLabel } from "../../hooks/useNavbarSearchLabel";
 
 interface BreadcrumbItem {
   label: string;
@@ -26,6 +27,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const searchLabel = useNavbarSearchLabel();
 
   // Poll the unread count every 30 s. Real-time push via UserConsumer is
   // deferred to 1.1 — the polling interval is intentional until then.
@@ -152,20 +154,21 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           </nav>
         )}
         <div className="ml-auto flex items-center gap-3">
-          {/* Global search entry (#852). Reserves the Row 1 slot for #191; until
-              then, clicking dispatches visiban:open-palette for BoardView to catch.
-              Off-board routes: event has no listener; the slot is still visible
-              per #805 chrome contract. */}
+          {/* Global search entry (#852, #869). Dispatches visiban:open-palette
+              which GlobalCommandPalette at the shell / board-page level
+              listens for. Visible placeholder adapts per surface (see
+              useNavbarSearchLabel) so the copy matches what the palette can
+              actually do there. */}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent("visiban:open-palette"))}
-            aria-label={`Search (${isMacPlatform() ? "Cmd+K" : "Ctrl+K"})`}
-            title={`Search (${formatShortcut({ mod: true, key: "K" })})`}
-            className="flex items-center gap-2 px-2 py-1 text-xs text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis w-8 h-8 justify-center lg:w-40 lg:h-auto lg:justify-between shrink-0"
+            aria-label={searchLabel.ariaLabel}
+            title={searchLabel.ariaLabel}
+            className="flex items-center gap-2 px-2 py-1 text-xs text-fg-tertiary bg-surface border border-line-strong hover:border-line-emphasis rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis w-8 h-8 justify-center lg:w-56 lg:h-auto lg:justify-between shrink-0"
           >
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 min-w-0">
               <span aria-hidden="true">🔍</span>
-              <span className="hidden lg:inline">Search</span>
+              <span className="hidden lg:inline truncate">{searchLabel.placeholder}</span>
             </span>
             <span aria-hidden="true" className="hidden lg:inline text-fg-faint">{formatShortcut({ mod: true, key: "K" })}</span>
           </button>

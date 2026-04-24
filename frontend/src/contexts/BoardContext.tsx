@@ -66,3 +66,11 @@ export function useBoardContext(): BoardContextType {
   }
   return ctx;
 }
+
+// Non-throwing variant for shell-level consumers (e.g. GlobalCommandPalette)
+// that mount above the board route and need to behave differently off-board.
+// Returns null when no provider is present rather than raising.
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalBoardContext(): BoardContextType | null {
+  return useContext(BoardContext);
+}

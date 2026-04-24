@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { isMacPlatform, modKeyLabel, shiftKeyLabel, formatShortcut } from '../utils/platform'
+import { isMacPlatform, modKeyLabel, shiftKeyLabel, formatShortcut, formatAriaKeyshortcuts } from '../utils/platform'
 
 function setPlatform(value: string) {
   Object.defineProperty(navigator, 'platform', {
@@ -77,6 +77,28 @@ describe('platform helpers', () => {
   it('formatShortcut returns a bare key when no modifiers are set', () => {
     setPlatform('Linux x86_64')
     expect(formatShortcut({ key: 'Enter' })).toBe('Enter')
+  })
+
+  it('formatAriaKeyshortcuts emits the ARIA 1.2 canonical form on Mac', () => {
+    setPlatform('MacIntel')
+    // Bare letters uppercase; chord modifiers use the ARIA "Meta" spelling.
+    expect(formatAriaKeyshortcuts({ key: 'b' })).toBe('B')
+    expect(formatAriaKeyshortcuts({ mod: true, key: 'k' })).toBe('Meta+K')
+    expect(formatAriaKeyshortcuts({ mod: true, shift: true, key: 'l' })).toBe('Meta+Shift+L')
+  })
+
+  it('formatAriaKeyshortcuts emits the Control+ form off Mac', () => {
+    setPlatform('Win32')
+    expect(formatAriaKeyshortcuts({ mod: true, key: 'k' })).toBe('Control+K')
+    expect(formatAriaKeyshortcuts({ mod: true, shift: true, key: 'l' })).toBe('Control+Shift+L')
+  })
+
+  it('formatAriaKeyshortcuts leaves named keys un-uppercased', () => {
+    setPlatform('MacIntel')
+    // Named keys like Escape / Enter are canonicalised by the user agent, so
+    // we must not mangle them into ESCAPE or ENTER.
+    expect(formatAriaKeyshortcuts({ key: 'Escape' })).toBe('Escape')
+    expect(formatAriaKeyshortcuts({ key: 'Enter' })).toBe('Enter')
   })
 
   it('prefers userAgentData.platform when available', () => {
