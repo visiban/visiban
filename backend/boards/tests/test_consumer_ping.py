@@ -77,7 +77,7 @@ class BoardConsumerPingTests(TestCase):
 
             # Verify at least one ping was sent.
             consumer.send.assert_called_with(
-                text_data=json.dumps({"event": "ping"})
+                text_data=json.dumps({"event": "ping", "data": {}})
             )
 
         asyncio.run(run())
