@@ -118,7 +118,10 @@ class BoardAnalyticsMixin:
                 "avg_cycle_days": avg_cycle_by_swimlane.get(swimlane.id),
             })
 
-        extension_panels = [fn(board, request) for fn in hooks.ANALYTICS_EXTENSIONS]
+        try:
+            extension_panels = [fn(board, request) for fn in hooks.ANALYTICS_EXTENSIONS]
+        except Exception:
+            extension_panels = []
         return Response({"swimlanes": result, "extension_panels": extension_panels})
 
     @action(detail=True, methods=["get"])

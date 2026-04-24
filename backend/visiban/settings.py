@@ -56,13 +56,8 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 # both reference the same computed flag instead of calling env() twice.
 _OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
 # OIDC_CLIENT_SECRET is the canonical name (consistent with GOOGLE_CLIENT_SECRET,
-# GITHUB_CLIENT_SECRET, etc.).  OIDC_SECRET is a deprecated alias kept for one
-# release cycle to avoid breaking existing deployments; it will be removed in 1.1.
-_warn_deprecated_env_alias("OIDC_SECRET", "OIDC_CLIENT_SECRET")
-_OIDC_CLIENT_SECRET = (
-    env("OIDC_CLIENT_SECRET", default="")
-    or env("OIDC_SECRET", default="")
-)
+# GITHUB_CLIENT_SECRET, etc.).
+_OIDC_CLIENT_SECRET = env("OIDC_CLIENT_SECRET", default="")
 _OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
 # True when all three OIDC env vars are present. The provider app is only
 # registered in INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS when this is True
@@ -391,15 +386,7 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
-# ACCOUNT_EMAIL_VERIFICATION is kept as a deprecated alias for one release so that
-# existing installs do not break after upgrading. If both are set, EMAIL_VERIFICATION
-# takes precedence.
-_warn_deprecated_env_alias("ACCOUNT_EMAIL_VERIFICATION", "EMAIL_VERIFICATION")
-_email_verification_explicit = env("EMAIL_VERIFICATION", default="")
-ACCOUNT_EMAIL_VERIFICATION = (
-    _email_verification_explicit
-    or env("ACCOUNT_EMAIL_VERIFICATION", default="optional")
-)
+ACCOUNT_EMAIL_VERIFICATION = env("EMAIL_VERIFICATION", default="optional")
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")

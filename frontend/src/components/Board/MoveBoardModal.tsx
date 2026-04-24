@@ -78,14 +78,14 @@ export default function MoveBoardModal({ board, onMoved, onClose }: Props) {
       <div className="flex justify-end gap-3 mt-5">
         <button
           onClick={onClose}
-          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition"
+          className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Cancel
         </button>
         <button
           onClick={handleMove}
           disabled={!hasChanged || saving}
-          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover disabled:opacity-40 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
         >
           {saving ? "Moving…" : "Move"}
         </button>

@@ -326,8 +326,8 @@ export interface BoardFull {
   updated_at: string;
   current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
   capabilities: { movement_export: boolean };
-  share_token?: string | null;
-  share_token_expires_at?: string | null;
+  share_token: string | null;
+  share_token_expires_at: string | null;
 }
 
 export interface GroupLabel {
@@ -425,6 +425,13 @@ export interface GroupInviteLink {
   single_use: boolean;
   status: "pending" | "used" | "expired" | "revoked";
   used_at: string | null;
+}
+
+/** Returned by POST /boards/<id>/share/ when enabling a public share link. */
+export interface ShareActionResponse {
+  share_token: string;
+  share_url: string;
+  share_token_expires_at: string | null;
 }
 
 export interface SavedFilter {

@@ -90,7 +90,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
               File
             </label>
             <div
-              className="border border-dashed border-line-strong rounded-xl p-4 text-center cursor-pointer hover:border-line-emphasis transition"
+              className="border border-dashed border-line-strong rounded-lg p-4 text-center cursor-pointer hover:border-line-emphasis transition"
               onClick={() => fileRef.current?.click()}
             >
               <input
@@ -134,7 +134,7 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3">
+            <div className="bg-danger/10 border border-danger/30 rounded-lg px-4 py-3">
               <p className="text-danger text-sm">{error}</p>
             </div>
           )}

@@ -279,7 +279,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
                       <div className="border-t border-line pt-3 mt-1">
                         <label
                           className={[
-                            "w-full text-left rounded-xl p-3.5 border transition-colors duration-150 flex items-center gap-4 cursor-pointer",
+                            "w-full text-left rounded-lg p-3.5 border transition-colors duration-150 flex items-center gap-4 cursor-pointer",
                             "focus-within:ring-2 focus-within:ring-primary-emphasis",
                             isSelected
                               ? "border-primary-emphasis bg-primary-emphasis/10"
@@ -313,7 +313,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
 
           {/* Column preview strip — always rendered after load to prevent layout jump on template switch */}
           {!templatesLoading && (
-            <div className="bg-surface rounded-xl px-4 py-3">
+            <div className="bg-surface rounded-lg px-4 py-3">
               <p className="text-fg-muted text-xs mb-2 uppercase tracking-wide">Columns created</p>
               {selected && selected.columns_json.length > 0 ? (
                 <div className="flex gap-2 flex-wrap">
@@ -389,7 +389,7 @@ export default function CreateBoardModal({ onConfirm, onCancel, user }: Props) {
           <p className="text-xs h-4 flex-1"><span className="text-danger">{submitError}</span></p>
           <button
             onClick={onCancel}
-            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition"
+            className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Cancel
           </button>

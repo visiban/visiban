@@ -5,6 +5,7 @@ import { useGroupSocket } from "../hooks/useGroupSocket";
 import type { BoardEvent } from "../hooks/useBoardSocket";
 import ConnectionStatus from "../components/Common/ConnectionStatus";
 import Avatar from "../components/Common/Avatar";
+import { Toggle } from "../components/Common/Toggle";
 import {
   getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards,
   createGroupBoard, removeGroupMember, updateGroupMemberRole, deleteGroup,
@@ -199,8 +200,11 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       captureFocusedBoardId();
       setBoards((prev) => prev.filter((b) => b.id !== id));
       setSubgroupBoards((prev) => prev.filter((b) => b.id !== id));
+    } else if (evt.event === "group.updated") {
+      // Ownership transfer — refetch the group to get the updated owner object.
+      getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
     }
-  }, [captureFocusedBoardId, flagAnimate]);
+  }, [captureFocusedBoardId, flagAnimate, groupId]);
 
   // Events fired while the socket was disconnected are not replayed. Refetch
   // the boards list after a reconnect so the UI converges with server state.
@@ -487,7 +491,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     return (
       <div className="h-full bg-sunken flex flex-col items-center justify-center gap-3">
         <span className="text-fg-tertiary">{error ?? "Group not found"}</span>
-        <button onClick={() => navigate("/")} className="text-sm text-info hover:underline">
+        <button onClick={() => navigate("/")} className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-2 py-1 transition">
           Return to dashboard
         </button>
       </div>
@@ -725,14 +729,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                 {subgroups.length > 0 && (
                   <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
                     <span className="text-xs text-fg-muted">Show subgroup boards</span>
-                    <button
-                      role="switch"
-                      aria-checked={showSubgroupBoards}
-                      onClick={() => setShowSubgroupBoards((v) => !v)}
-                      className={`relative w-8 h-4 rounded-full transition-colors ${showSubgroupBoards ? "bg-primary" : "bg-surface-active"}`}
-                    >
-                      <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${showSubgroupBoards ? "translate-x-4" : ""}`} />
-                    </button>
+                    <Toggle checked={showSubgroupBoards} onChange={setShowSubgroupBoards} />
                   </label>
                 )}
               </div>
@@ -1006,21 +1003,21 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </section>
 
             {/* Danger zone */}
-            <section className="border border-danger/40 rounded-xl p-5">
+            <section className="border border-danger/40 rounded-lg p-5">
               <h2 className="text-danger font-semibold mb-1">Danger zone</h2>
               <p className="text-fg-muted text-sm mb-4">These actions are permanent and cannot be undone.</p>
               <div className="flex flex-wrap gap-3">
                 {group.owner.id === user.id && (
                   <button
                     onClick={() => { setTransferError(null); setShowTransferModal(true); }}
-                    className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition"
+                    className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                   >
                     Transfer ownership
                   </button>
                 )}
                 <button
                   onClick={() => setConfirmDeleteGroup(true)}
-                  className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition"
+                  className="text-sm text-danger border border-danger/40 hover:bg-danger/30 px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                 >
                   Delete group
                 </button>
@@ -1118,14 +1115,14 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
           <div className="flex gap-3 justify-end pt-1">
             <button
               onClick={() => { setShowTransferModal(false); setTransferConfirmation(""); setTransferNewOwnerId(""); setTransferError(null); }}
-              className="text-sm text-fg-tertiary hover:text-fg px-4 py-2 rounded transition"
+              className="text-sm text-fg-tertiary hover:text-fg px-4 py-2 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Cancel
             </button>
             <button
               onClick={handleTransferOwnership}
               disabled={transferring || transferNewOwnerId === "" || transferConfirmation !== group?.name}
-              className="text-sm text-fg bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+              className="text-sm text-on-danger bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
             >
               {transferring ? "Transferring…" : "Transfer ownership"}
             </button>
@@ -1143,7 +1140,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
           <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
-          <button onClick={handleDeleteGroup} className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
+          <button onClick={handleDeleteGroup} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>
     </div>

@@ -140,9 +140,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         )}
 
         {/* Groups */}
-        <section className="mb-10">
+        <section className="mb-10" aria-labelledby="groups-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-fg text-lg font-semibold">Groups</h2>
+            <h2 id="groups-heading" className="text-fg text-lg font-semibold">Groups</h2>
             <button
               onClick={() => setShowCreateGroup(true)}
               className="text-sm text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
@@ -177,9 +177,9 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         )}
 
         {/* Personal boards */}
-        <section>
+        <section aria-labelledby="my-boards-heading">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-fg text-lg font-semibold">My Boards</h2>
+            <h2 id="my-boards-heading" className="text-fg text-lg font-semibold">My Boards</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setImportingBoard(true)}
@@ -189,7 +189,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
               </button>
               <button
                 onClick={() => setCreatingBoard(true)}
-                className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
               >
                 + New board
               </button>

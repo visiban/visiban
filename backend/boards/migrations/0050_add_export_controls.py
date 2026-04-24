@@ -1,4 +1,10 @@
-"""Add per-board export threshold and export audit log (#842, #843)."""
+"""Add per-board export threshold and export audit log (#842, #843).
+
+Zero-downtime deploy: safe. AddField uses a column-level DEFAULT so PostgreSQL
+populates existing rows without a full table rewrite or exclusive lock. CreateModel
+is always lock-free. Run the migration before deploying the code that reads these
+columns — the old code ignores unknown columns, so the migration is forward-safe.
+"""
 from django.conf import settings
 from django.db import migrations, models
 

@@ -334,7 +334,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         membership = get_object_or_404(GroupMembership, group=group, user=target_user)
         role = request.data.get("role")
         if role not in GroupMembership.Role.values:
-            return Response({"role": f"Must be one of: {', '.join(GroupMembership.Role.values)}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"Must be one of: {', '.join(GroupMembership.Role.values)}"}, status=status.HTTP_400_BAD_REQUEST)
         membership.role = role
         membership.save()
         return Response(GroupMembershipSerializer(membership).data)
@@ -617,20 +617,9 @@ class GroupViewSet(viewsets.ModelViewSet):
                 group=group, user=request.user,
                 defaults={"role": GroupMembership.Role.ADMIN},
             )
-            # Capture board IDs while still inside the transaction so the
-            # on_commit callback does not need to re-query under a new connection.
-            board_ids = list(group.boards.values_list("id", flat=True))
-
-            def _broadcast_transfer(gid=group.pk, oid=int(new_owner_id), bids=board_ids):
-                # Per-board fan-out is intentional: each board has its own
-                # channel group, so the WebSocket layer requires one
-                # `broadcast_board_event` per board to reach connected clients.
-                # Ownership transfer is a low-frequency operation (#795); if a
-                # group regularly carries 100+ boards we should move this to a
-                # background task, but the synchronous loop is acceptable today.
-                from boards.broadcast import broadcast_board_event
-                for bid in bids:
-                    broadcast_board_event(bid, "group.updated", {"id": gid, "owner_id": oid})
+            def _broadcast_transfer(gid=group.pk, oid=int(new_owner_id)):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, "group.updated", {"id": gid, "owner_id": oid})
 
             transaction.on_commit(_broadcast_transfer)
 

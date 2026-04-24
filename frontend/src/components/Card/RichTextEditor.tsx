@@ -505,7 +505,7 @@ export default function RichTextEditor({
           onMouseDown with preventDefault keeps editor focus so we can read the
           final content via getMarkdown() before the blur event fires. */}
       {showActions && (
-        <div className="flex justify-end items-center gap-2 pt-1">
+        <div className="flex justify-end items-center gap-3 pt-1">
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
