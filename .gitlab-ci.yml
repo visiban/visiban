@@ -470,7 +470,7 @@ oidc-smoke:
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost,127.0.0.1"
     OIDC_CLIENT_ID: "visiban"
-    OIDC_SECRET: "test-oidc-secret"
+    OIDC_CLIENT_SECRET: "test-oidc-secret"
     OIDC_SERVER_URL: "http://keycloak:8080/realms/visiban-test"
     OIDC_PROVIDER_NAME: "Keycloak"
     # Point post-login redirect back to the liveness endpoint so the full
