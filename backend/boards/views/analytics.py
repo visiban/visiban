@@ -4,8 +4,6 @@ import datetime
 import logging
 import statistics
 
-_logger = logging.getLogger(__name__)
-
 from django.db.models import Count, Min, OuterRef, Prefetch, Q, Subquery, Window
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -15,6 +13,8 @@ from rest_framework import status
 from ..models import CardMovement
 from .. import hooks
 from ._helpers import get_board_for_user
+
+_logger = logging.getLogger(__name__)
 
 
 class BoardAnalyticsMixin:
