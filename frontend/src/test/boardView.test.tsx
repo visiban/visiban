@@ -473,6 +473,82 @@ describe('BoardView', () => {
     })
   })
 
+  describe('#868 — keyboard shortcut coverage audit', () => {
+    it('B switches to the Board view', () => {
+      mockSearchParams = new URLSearchParams('view=summary')
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'b' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+    })
+
+    it('S switches to the Summary view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 's' })
+      expect(screen.getByTestId('summary-view')).toBeInTheDocument()
+    })
+
+    it('H switches to the History view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('movement-history-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'h' })
+      expect(screen.getByTestId('movement-history-view')).toBeInTheDocument()
+    })
+
+    it('A switches to the Analytics view', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('analytics-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'a' })
+      expect(screen.getByTestId('analytics-view')).toBeInTheDocument()
+    })
+
+    it('Y toggles the archived cards panel', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.getByTestId('archived-panel')).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'y' })
+      expect(screen.queryByTestId('archived-panel')).not.toBeInTheDocument()
+    })
+
+    it('view tabs expose platform-agnostic aria-keyshortcuts (B/S/H/A)', () => {
+      render(<BoardView {...defaultProps()} />)
+      // Every view-tab button is exposed with its single-key shortcut so
+      // screen readers announce the binding (per the noise-budget rule:
+      // single-key / single-modifier only → aria-keyshortcuts).
+      expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-keyshortcuts', 'B')
+      expect(screen.getByRole('button', { name: 'Summary' })).toHaveAttribute('aria-keyshortcuts', 'S')
+      expect(screen.getByRole('button', { name: 'History' })).toHaveAttribute('aria-keyshortcuts', 'H')
+      // Analytics button carries an inner Beta pill — match on accessible name starting with "Analytics".
+      expect(screen.getByRole('button', { name: /^Analytics/ })).toHaveAttribute('aria-keyshortcuts', 'A')
+    })
+
+    it('Archived toolbar button exposes aria-keyshortcuts="Y"', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('button', { name: /Show archived cards/ })).toHaveAttribute('aria-keyshortcuts', 'Y')
+    })
+
+    it('Filters toolbar button exposes aria-keyshortcuts="F"', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'F')
+    })
+
+    it('single-letter shortcuts are suppressed when focus is in an input', () => {
+      render(<BoardView {...defaultProps()} />)
+      const input = document.createElement('input')
+      document.body.appendChild(input)
+      input.focus()
+      // Firing `b` from inside an input must not switch the view; this
+      // prevents typing `b` in a search box from nuking the user's board view.
+      fireEvent.keyDown(input, { key: 'b' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      fireEvent.keyDown(input, { key: 's' })
+      expect(screen.queryByTestId('summary-view')).not.toBeInTheDocument()
+      document.body.removeChild(input)
+    })
+  })
+
   describe('#852 — search scope URL param (?scope=board|all)', () => {
     it('hydrates scope="all" from ?scope=all on initial load and forwards to FilterBar', () => {
       mockSearchParams = new URLSearchParams('scope=all')

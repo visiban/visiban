@@ -205,8 +205,22 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
               aria-describedby={searchDisabled ? "filterbar-search-helper" : undefined}
               onChange={(e) => onChange({ ...filters, search: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Escape") { onChange({ ...filters, search: "" }); (e.target as HTMLInputElement).blur(); } }}
-              className="bg-surface border border-line rounded px-2 py-1 pr-7 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-keyshortcuts="/"
+              className="bg-surface border border-line rounded px-2 py-1 pr-12 text-sm text-fg-secondary placeholder-fg-muted w-36 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent disabled:opacity-40 disabled:cursor-not-allowed"
             />
+            {/* `/` chip — makes the shortcut discoverable without needing to
+                open the shortcuts overlay. Hidden while typing (filter has
+                content), while searching (spinner takes the slot), and while
+                the search is disabled (cross-board scope). Always pointer-
+                events-none so it can't eat clicks intended for the input. */}
+            {filters.search === "" && !isSearching && !searchDisabled && (
+              <kbd
+                aria-hidden="true"
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none inline-block bg-surface-hover text-fg-muted text-[10px] font-mono leading-none px-1 py-0.5 rounded border border-line-strong"
+              >
+                /
+              </kbd>
+            )}
             {isSearching && !searchDisabled && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             )}

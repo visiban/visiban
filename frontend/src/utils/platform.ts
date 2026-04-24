@@ -53,3 +53,25 @@ export function formatShortcut(parts: ShortcutParts): string {
   segs.push(parts.key);
   return segs.join("+");
 }
+
+/**
+ * Renders a shortcut as the `aria-keyshortcuts` attribute value expected by
+ * the ARIA 1.2 spec: space-separated chord with `Meta`/`Control` modifier
+ * names, e.g. `"Meta+Shift+L"` on Mac or `"Control+Shift+L"` elsewhere. The
+ * single-character key is uppercased because screen readers announce the
+ * canonical form.
+ *
+ * Per the #868 noise-budget rule, only chords with at most one modifier
+ * should be exposed via `aria-keyshortcuts`; richer chords (like ⌘⇧L) stay
+ * in the shortcuts overlay and tooltip only.
+ */
+export function formatAriaKeyshortcuts(parts: ShortcutParts): string {
+  const segs: string[] = [];
+  if (parts.mod) segs.push(isMacPlatform() ? "Meta" : "Control");
+  if (parts.shift) segs.push("Shift");
+  if (parts.alt) segs.push("Alt");
+  // Uppercase bare letter keys so "b" announces as "B"; leave named keys
+  // (Escape, Enter, Slash, etc.) untouched for the user agent to canonicalise.
+  segs.push(parts.key.length === 1 ? parts.key.toUpperCase() : parts.key);
+  return segs.join("+");
+}

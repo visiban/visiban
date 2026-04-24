@@ -500,6 +500,16 @@ Mutual exclusion by pathname guarantees only one `⌘K` keydown listener is ever
 - **Off-board actions are filtered automatically** — actions marked `boardOnly` in `CommandPalette.STATIC_ACTIONS` are suppressed on Dashboard/Group/Settings/Admin so the palette doesn't offer operations that would target no board. `Show keyboard shortcuts` is route-agnostic and surfaces everywhere.
 - **Placeholder adapts per surface** — `GlobalCommandPalette` passes a `placeholder` prop per pathname. Board: `Search cards, boards, actions…`. Dashboard/Group: `Jump to board…`. Settings/Admin: `Jump to…`. Copy must match what the palette can actually do on that surface.
 
+## Keyboard shortcuts — noise budget and registry (#868)
+
+Shortcut wiring lives in two places: the board-scoped keydown listener in `BoardView` (for on-board bindings like `b`/`s`/`h`/`a`, `e`, `y`, `f`, `c`, `/`, `.`, `?`, `⌘,`, `⌘\\`, `⌘⇧E`, `⌘⇧L`) and the shell-level listener in `GlobalCommandPalette` (`⌘K`). Every bare-letter shortcut must respect `shouldIgnoreShortcut()` from `src/utils/keyboard.ts` so typing letters into inputs, textareas, and rich-text editors never triggers the board behavior.
+
+- **`aria-keyshortcuts` noise budget — single-key or single-modifier only.** Every toolbar affordance that responds to a bare-letter shortcut (B/S/H/A/E/F/Y) or a one-modifier chord (⌘K, ⌘\\, ⌘,) must carry the corresponding `aria-keyshortcuts` attribute so screen readers announce the binding. Do **not** expose two-modifier chords (⌘⇧L, ⌘⇧E) via `aria-keyshortcuts` — exposing every chord drowns assistive technology in noise and offers no navigation benefit. Surface richer chords in the shortcuts overlay and tooltip only.
+- **Platform-aware formatting — always route through `src/utils/platform.ts`.** `formatShortcut({ mod, shift, alt, key })` renders visible hints (⌘⇧L on Mac; Ctrl+Shift+L elsewhere). `formatAriaKeyshortcuts()` renders the ARIA 1.2 canonical form (`Meta+Shift+L` / `Control+Shift+L`). Never hard-code the Mac glyphs or the `Meta+` prefix at a call site.
+- **Tooltip hints — parenthesize the shortcut after the label.** Format `"${label} (${formatShortcut(...)})"`. The overflow menu's own `shortcut` slot already renders the hint inline; set it there instead of baking the hint into the item label.
+- **The shortcuts overlay is the canonical registry.** Every non-trivial binding must appear in `KeyboardShortcutsOverlay.tsx` grouped under one of the four sections (Navigation / Board view / Board actions / Help) and in `docs/features/keyboard-shortcuts.md`. Descriptions are imperative (`Switch to Board view`, not `Board view`) so each row reads as a command.
+- **Command palette surface-awareness — suppress actions that have no target.** When adding a new action to `CommandPalette.STATIC_ACTIONS` that requires a board (opens a card, toggles filters, switches view), set `boardOnly: true` so `GlobalCommandPalette` filters it out on Dashboard/Group/Settings/Admin. Route-agnostic actions (open shortcuts overlay, log out) must *not* carry the flag.
+
 ## Board search scope toggle
 
 The filter bar's search input carries a `SingleSelectDropdown` scope toggle to its left when `onScopeChange` is provided by the parent. Scope is URL-persisted via `?scope=all` (absent ⇒ `board`) so the selection is link-shareable. Rules:

@@ -300,14 +300,17 @@ describe('BoardView — card layout toggle button', () => {
   it('tooltip text updates to "Switch to expanded card layout" after switching to compact', async () => {
     render(<BoardView />)
     await userEvent.setup().click(getToggleButton())
-    expect(getToggleButton().getAttribute('data-tooltip')).toBe('Switch to expanded card layout')
+    // The tooltip now carries the shortcut hint per the #868 audit. Match on
+    // the phrase plus the platform-agnostic shortcut-suffix pattern so the
+    // assertion survives both Mac (⌘⇧L) and non-Mac (Ctrl+Shift+L) runs.
+    expect(getToggleButton().getAttribute('data-tooltip')).toMatch(/^Switch to expanded card layout \(.*L\)$/)
   })
 
   it('tooltip text updates to "Switch to compact card layout" after switching back to expanded', async () => {
     localStorage.setItem(LAYOUT_KEY, 'compact')
     render(<BoardView />)
     await userEvent.setup().click(getToggleButton())
-    expect(getToggleButton().getAttribute('data-tooltip')).toBe('Switch to compact card layout')
+    expect(getToggleButton().getAttribute('data-tooltip')).toMatch(/^Switch to compact card layout \(.*L\)$/)
   })
 
   it('toggle button is accessible by its aria-label', () => {

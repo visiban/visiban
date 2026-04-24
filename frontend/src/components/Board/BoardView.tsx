@@ -100,45 +100,59 @@ function ViewToggle({
   view: "board" | "summary" | "history" | "analytics";
   onChange: (v: "board" | "summary" | "history" | "analytics") => void;
 }) {
-  const btn = (label: string, val: "board" | "summary" | "history" | "analytics", tourStep?: string) => (
-    <button
-      onClick={() => onChange(val)}
-      className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-        view === val
-          ? "bg-primary text-on-primary"
-          : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
-      }`}
-      {...(tourStep ? { "data-tour-step": tourStep } : {})}
-    >
-      {label}
-    </button>
-  );
-  return (
-    <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
-      {btn("Board", "board")}
-      {btn("Summary", "summary")}
-      {btn("History", "history", "history")}
+  // Bare-letter shortcut per view. Rendered in the tooltip and exposed via
+  // `aria-keyshortcuts` so screen readers can announce the binding. Keys are
+  // platform-agnostic (single printable character — same on Mac/Linux/Win).
+  const btn = (
+    label: string,
+    val: "board" | "summary" | "history" | "analytics",
+    shortcut: string,
+    tourStep?: string,
+  ) => (
+    <Tooltip content={`${label} (${shortcut.toUpperCase()})`}>
       <button
-        onClick={() => onChange("analytics")}
+        onClick={() => onChange(val)}
         className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-          view === "analytics"
+          view === val
             ? "bg-primary text-on-primary"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
+        aria-keyshortcuts={shortcut.toUpperCase()}
+        {...(tourStep ? { "data-tour-step": tourStep } : {})}
       >
-        <span className="flex items-center gap-1.5">
-          Analytics
-          <span
-            className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
-              view === "analytics"
-                ? "bg-warning/30 text-warning"
-                : "bg-warning/20 text-warning"
-            }`}
-          >
-            Beta
-          </span>
-        </span>
+        {label}
       </button>
+    </Tooltip>
+  );
+  return (
+    <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
+      {btn("Board", "board", "b")}
+      {btn("Summary", "summary", "s")}
+      {btn("History", "history", "h", "history")}
+      <Tooltip content="Analytics (A)">
+        <button
+          onClick={() => onChange("analytics")}
+          className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            view === "analytics"
+              ? "bg-primary text-on-primary"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+          }`}
+          aria-keyshortcuts="A"
+        >
+          <span className="flex items-center gap-1.5">
+            Analytics
+            <span
+              className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
+                view === "analytics"
+                  ? "bg-warning/30 text-warning"
+                  : "bg-warning/20 text-warning"
+              }`}
+            >
+              Beta
+            </span>
+          </span>
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -287,6 +301,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const collapsedSwimlaneIds = useMemo(() => new Set(viewPrefs.collapsedSwimlaneIds), [viewPrefs.collapsedSwimlaneIds]);
   const allSwimlanesExpanded = board.swimlanes.every((s) => !collapsedSwimlaneIds.has(s.id));
   const allExpanded = allColumnsExpanded && allSwimlanesExpanded;
+  // Mirror `allExpanded` into a ref so the single-key `e` shortcut handler
+  // in the keydown effect below can read the current value without needing
+  // to re-register every time a column or swimlane collapses or expands.
+  const allExpandedRef = useRef(allExpanded);
+  allExpandedRef.current = allExpanded;
 
 
   const handleSocketEvent = useCallback((event: BoardEvent) => {
@@ -447,6 +466,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return board.swimlanes.some((s) => s.id === id) ? id : null;
   })();
   const focusedSwimlane = focusedSwimlaneId !== null ? board.swimlanes.find((s) => s.id === focusedSwimlaneId) ?? null : null;
+  // Mirror focusedSwimlaneId into a ref so the `e` shortcut can consult the
+  // current focus state without forcing the keydown listener to re-subscribe
+  // every time the URL changes.
+  const focusedSwimlaneIdRef = useRef(focusedSwimlaneId);
+  focusedSwimlaneIdRef.current = focusedSwimlaneId;
 
   // Snapshot of collapsed swimlane and column IDs at the moment focus is entered —
   // restored on exit. Stored in refs so they don't trigger re-renders.
@@ -725,6 +749,57 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setShowSettings(true);
         return;
       }
+      // ⌘⇧L / Ctrl+Shift+L — toggle card layout (compact ↔ expanded). Uses
+      // two modifiers deliberately: the `L` unshifted is a plain letter and
+      // would clash with any future single-key shortcut, and card layout is
+      // a low-frequency action where a richer chord is acceptable.
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "l" || e.key === "L")) {
+        e.preventDefault();
+        setCardLayout((prev) => (prev === "compact" ? "expanded" : "compact"));
+        return;
+      }
+      if (e.key === "b") {
+        // View tabs: `b` Board, `s` Summary, `h` History, `a` Analytics.
+        // Reuses setView's replace-history behavior so tab switching doesn't
+        // pollute the browser back-button stack.
+        e.preventDefault();
+        setView("board");
+        return;
+      } else if (e.key === "s") {
+        e.preventDefault();
+        setView("summary");
+        return;
+      } else if (e.key === "h") {
+        e.preventDefault();
+        setView("history");
+        return;
+      } else if (e.key === "a") {
+        e.preventDefault();
+        setView("analytics");
+        return;
+      } else if (e.key === "e") {
+        // `e` collapses/expands everything — mirrors the SplitButton primary
+        // (onCollapsePrimary) so there is a single source of "what does the
+        // default collapse action do right now?". Uses refs so the listener
+        // doesn't re-subscribe on every board or view-prefs identity change.
+        e.preventDefault();
+        const latestBoard = boardRef.current;
+        if (focusedSwimlaneIdRef.current !== null) exitFocus();
+        if (allExpandedRef.current) {
+          collapseAllColumns(latestBoard.columns.map((c) => c.id));
+          collapseAllSwimlanes(latestBoard.swimlanes.map((s) => s.id));
+        } else {
+          expandAllColumns();
+          expandAllSwimlanes();
+        }
+        return;
+      } else if (e.key === "y") {
+        // `y` toggles the archived cards panel. Avoids `a` because that's
+        // reserved for the Analytics view tab above.
+        e.preventDefault();
+        setShowArchived((v) => !v);
+        return;
+      }
       if (e.key === "f") {
         e.preventDefault();
         setShowFilters((v) => {
@@ -754,6 +829,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
+    // View-switch, collapse-toggle, archived-toggle, and card-layout handlers
+    // all consume stable setState setters / useCallback-memoised board-pref
+    // functions, and read board + focus state through refs, so the listener
+    // never needs to re-subscribe when those inputs change. We pin only the
+    // deps that actually change the handler's decision surface.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toggleCollapsedSwimlane, canExport, markExportSeen, isAdmin]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
@@ -1161,12 +1242,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         id: "layout",
         label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
         icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
+        shortcut: formatShortcut({ mod: true, shift: true, key: "L" }),
         onSelect: () => setCardLayout(cardLayout === "compact" ? "expanded" : "compact"),
       });
       items.push({
         id: "archived",
         label: showArchived ? "Hide archived cards" : "Show archived cards",
         icon: ArchivedIcon,
+        shortcut: "Y",
         onSelect: () => setShowArchived((v) => !v),
       });
       items.push({
@@ -1309,6 +1392,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Primary click on the Collapse split button performs the dominant action —
   // if anything is expanded, collapse all; otherwise, expand all. Preserves
   // the 1.0 single-button behavior so muscle memory is not disturbed.
+  // Rendered in the card-layout tooltip and in the overflow-menu label so the
+  // chord display stays consistent with the rest of the shortcut tooltips.
+  const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
+
   const onCollapsePrimary = () => {
     if (focusedSwimlaneId !== null) exitFocus();
     if (allExpanded) {
@@ -1362,7 +1449,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <SplitButton
             primaryLabel={allExpanded ? "Collapse" : "Expand"}
             primaryAriaLabel={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
-            primaryTitle={allExpanded ? "Hide all swimlanes and columns" : "Show all swimlanes and columns"}
+            primaryTitle={allExpanded ? "Hide all swimlanes and columns (E)" : "Show all swimlanes and columns (E)"}
+            primaryAriaKeyshortcuts="E"
             menuAriaLabel="Collapse menu"
             onPrimary={onCollapsePrimary}
             renderMenu={({ close }) => {
@@ -1414,6 +1502,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
               aria-pressed={showFilters || activeCount > 0}
               aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
+              aria-keyshortcuts="F"
             >
               {showFilters ? "Hide filters" : "Filters"}
               {!showFilters && activeCount > 0 && (
@@ -1424,7 +1513,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             </button>
           </Tooltip>
           {!foldToolbarControls && (
-          <Tooltip content={cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"}>
+          <Tooltip content={
+            cardLayout === "compact"
+              ? `Switch to expanded card layout (${layoutShortcutLabel})`
+              : `Switch to compact card layout (${layoutShortcutLabel})`
+          }>
             <button
               onClick={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
               aria-pressed={cardLayout === "compact"}
@@ -1440,14 +1533,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           </Tooltip>
           )}
           {!foldToolbarControls && (
-          <button
-            onClick={() => setShowArchived((v) => !v)}
-            className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
-            aria-pressed={showArchived}
-            aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
-          >
-            Archived
-          </button>
+          <Tooltip content={showArchived ? "Hide archived cards (Y)" : "Show archived cards (Y)"}>
+            <button
+              onClick={() => setShowArchived((v) => !v)}
+              className={`text-xs px-2 py-1 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${showArchived ? "text-warning bg-warning/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"}`}
+              aria-pressed={showArchived}
+              aria-label={showArchived ? "Hide archived cards" : "Show archived cards"}
+              aria-keyshortcuts="Y"
+            >
+              Archived
+            </button>
+          </Tooltip>
           )}
         </div>
 

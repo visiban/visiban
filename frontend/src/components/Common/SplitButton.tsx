@@ -14,6 +14,8 @@ export interface SplitButtonProps {
   menuAriaLabel?: string;
   /** Optional title attribute for the primary segment only. */
   primaryTitle?: string;
+  /** Optional `aria-keyshortcuts` announcement for the primary segment. */
+  primaryAriaKeyshortcuts?: string;
   /** Menu content — rendered inside the panel when open. Receives close(). */
   renderMenu: (args: { close: () => void }) => ReactNode;
   /** Optional per-half disable. */
@@ -42,6 +44,7 @@ export default function SplitButton({
   primaryAriaLabel,
   menuAriaLabel,
   primaryTitle,
+  primaryAriaKeyshortcuts,
   renderMenu,
   primaryDisabled = false,
   menuDisabled = false,
@@ -74,8 +77,6 @@ export default function SplitButton({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-    // `close` is stable for the scope of this effect's deps (all setters are stable)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const openMenu = () => {
@@ -123,6 +124,7 @@ export default function SplitButton({
         }}
         disabled={primaryDisabled}
         aria-label={primaryAriaLabel ?? primaryLabel}
+        aria-keyshortcuts={primaryAriaKeyshortcuts}
         title={primaryTitle}
         data-tour-step={tourStep}
         className="text-xs font-medium text-fg-secondary hover:text-fg hover:bg-surface-hover px-2 py-1 rounded-l transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
