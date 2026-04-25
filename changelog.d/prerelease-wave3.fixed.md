@@ -1,2 +1,0 @@
-- Django minimum version raised to 5.2.13, resolving four moderate CVEs covering header spoofing, memory exhaustion, and admin permission bypasses (#899)
-- Analytics extension hooks are now invoked individually so a single faulty hook logs a warning and is skipped rather than aborting the entire extension chain (#904)

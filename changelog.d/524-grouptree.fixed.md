@@ -1,1 +1,0 @@
-Group tree sidebar rows are now rendered as `<div role="button">` elements to avoid an invalid button-in-button nesting when the expand chevron is a `<button>` child, resolving a browser warning and screen-reader inconsistency (#524).

@@ -1,1 +1,0 @@
-The `board.deleted` WebSocket event now includes a `board_uid` field in its payload, making it consistent with all other delete events (`card.archived`, `column.deleted`, `swimlane.deleted`); the existing `board_id` field is retained for backward compatibility with pre-1.1 clients. (#696)

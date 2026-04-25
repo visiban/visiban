@@ -1,1 +1,0 @@
-- Collaborators and viewers can now export a board to JSON or CSV using a new "Export board" button in the board header — board export no longer requires admin access to board settings

@@ -1,8 +1,0 @@
-- Removing a user from a group now fetches all affected board contexts in a single query instead of one query per board, eliminating an O(n) database stall on large groups
-- Membership role checks during card/comment mutations now reuse the prefetched membership cache instead of issuing a redundant live query per request
-- Comment @mention resolution reuses the board context already loaded for the request rather than re-querying effective member IDs
-- Board full-serializer now shares the group ancestor map cache with nested group serializers, removing duplicate ancestry lookups on board load
-- Share-token serializer now resolves the caller's board role once and reuses it across both token fields instead of calling the role helper twice
-- Raw user primary keys are no longer included in checklist item responses; items now surface only the display-name context object as intended
-- Swimlane collapse/expand is now restricted to board members, admins, and site admins; collaborators (viewer-level) can no longer mutate board structure
-- Production startup now raises a configuration error when the default from-address still contains `example.com`, preventing silent password-reset delivery failures

@@ -1,2 +1,0 @@
-- The board toolbar (tabs and action icons) now scrolls horizontally on narrow mobile viewports instead of compressing controls off-screen
-- The card detail panel no longer overflows the right edge of the screen on mobile; it fills the full viewport width on screens narrower than 640px and returns to its fixed width on larger screens

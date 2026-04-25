@@ -1,1 +1,0 @@
-Fix a stale `waitFor` in the AppSidebar test suite that caused the Recent-boards assertion to race against data load; test now waits on the spinner's accessible name instead of a literal string that no longer exists.
