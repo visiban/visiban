@@ -1,2 +1,0 @@
-- JSON import errors no longer echo raw exception messages to the client, preventing internal detail leakage; the full exception is logged server-side only (#528)
-- HSTS subdomain coverage is now enabled in production to prevent protocol-downgrade cookie theft on subdomains (#697)
