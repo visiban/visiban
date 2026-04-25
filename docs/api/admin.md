@@ -43,15 +43,15 @@ Paginated list of all accounts on the instance. Site admin only.
 | Param | Description |
 |---|---|
 | `search` | Filter by username, display name, or email (partial, case-insensitive) |
-| `page` | Page number (default: 1) |
-| `page_size` | Results per page (default: 50, max: 200) |
+| `offset` | Zero-based row offset (default: `0`) |
+| `page_size` | Results per page (default: `50`, max: `200`) |
 
-**Response**
+**Response** — `{count, offset, page_size, results}` envelope (same shape as all paginated endpoints):
 ```json
 {
   "count": 142,
-  "next": "/api/v1/admin/users/?page=2",
-  "previous": null,
+  "offset": 0,
+  "page_size": 50,
   "results": [
     {
       "id": 1,

@@ -1,15 +1,19 @@
 # Onboarding Tour
 
-> **Added in 1.0**
+> **Added in 1.1**
 
-When a new user opens a board for the first time, Visiban displays a 4-step guided tour that introduces the core concepts:
+When a new user opens a board for the first time, Visiban displays an 8-step guided tour that introduces the core concepts:
 
 | Step | Target | What it explains |
 |------|--------|------------------|
-| 1 | Swimlane label | Swimlanes represent clients or workstreams |
-| 2 | Card | Dragging cards between columns tracks progress |
-| 3 | History button | Every card movement is recorded as an audit trail |
-| 4 | Filter button | The filter bar narrows the board by assignee, label, priority, or due date |
+| 1 | View tabs (Board / Summary / History / Analytics) | Four lenses on the same data; History traces every card movement |
+| 2 | Swimlane label | Swimlanes represent clients or workstreams |
+| 3 | Swimlane collapse chevron | Collapse a lane to focus; press C while hovering to use the keyboard |
+| 4 | Card | Drag cards between columns to update status |
+| 5 | History tab | Every card movement is recorded as an audit trail |
+| 6 | Filter button | Narrow the board by assignee, label, priority, or due date; press F to toggle |
+| 7 | Live indicator | Real-time connection status — changes from teammates appear instantly |
+| 8 | *(full-screen)* | Space + drag to pan across a wide board |
 
 ## Behavior
 
@@ -21,20 +25,27 @@ When a new user opens a board for the first time, Visiban displays a 4-step guid
 
 ## Resetting the tour
 
-Site admins can reset a user's tour flag from the admin panel:
+**Self-service (any user):** patch your own profile to re-show the tour on your next board visit:
+
+```
+PATCH /api/v1/auth/me/
+{ "has_completed_tour": false }
+```
+
+**Admin reset (site admins only):** reset any user's tour flag from the admin panel:
 
 1. Go to `/admin` → **Users** tab.
 2. Find the user and open their detail view.
 3. Click **Reset onboarding tour**.
 
-The user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.
-
-You can also reset the flag via the API:
+You can also reset it via the Admin API:
 
 ```
 PATCH /api/v1/admin/users/{id}/
 { "has_completed_tour": false }
 ```
+
+In all cases the user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.
 
 ## API
 
