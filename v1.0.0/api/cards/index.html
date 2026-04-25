@@ -2916,6 +2916,7 @@
 <p>List all cards on the board. Pagination is disabled — all cards are returned in a single response.</p>
 <blockquote>
 <p><strong>Response shape:</strong> This endpoint returns a bare JSON array (<code>[ {...}, {...} ]</code>), not the standard <code>{count, offset, page_size, results}</code> pagination envelope used by other list endpoints. The endpoint is intentionally unpaginated because the board UI bulk-loads cards via <code>GET /api/v1/boards/{board_id}/full/</code>. Generic API clients that assume a pagination envelope must special-case this endpoint.</p>
+<p><strong>200-card cap:</strong> The response is capped at 200 cards. Boards with more than 200 active cards will receive only the first 200 results with no indication that records were truncated. Use <code>GET /api/v1/boards/{board_id}/full/</code> (which has no cap) for boards at this scale.</p>
 </blockquote>
 <p><strong>Query parameters</strong></p>
 <table>

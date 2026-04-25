@@ -2556,9 +2556,9 @@
 
 <h1 id="onboarding-tour">Onboarding Tour<a class="headerlink" href="#onboarding-tour" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>Added in 1.0</strong></p>
+<p><strong>Added in 1.1</strong></p>
 </blockquote>
-<p>When a new user opens a board for the first time, Visiban displays a 4-step guided tour that introduces the core concepts:</p>
+<p>When a new user opens a board for the first time, Visiban displays an 8-step guided tour that introduces the core concepts:</p>
 <table>
 <thead>
 <tr>
@@ -2570,23 +2570,43 @@
 <tbody>
 <tr>
 <td>1</td>
+<td>View tabs (Board / Summary / History / Analytics)</td>
+<td>Four lenses on the same data; History traces every card movement</td>
+</tr>
+<tr>
+<td>2</td>
 <td>Swimlane label</td>
 <td>Swimlanes represent clients or workstreams</td>
 </tr>
 <tr>
-<td>2</td>
-<td>Card</td>
-<td>Dragging cards between columns tracks progress</td>
-</tr>
-<tr>
 <td>3</td>
-<td>History button</td>
-<td>Every card movement is recorded as an audit trail</td>
+<td>Swimlane collapse chevron</td>
+<td>Collapse a lane to focus; press C while hovering to use the keyboard</td>
 </tr>
 <tr>
 <td>4</td>
+<td>Card</td>
+<td>Drag cards between columns to update status</td>
+</tr>
+<tr>
+<td>5</td>
+<td>History tab</td>
+<td>Every card movement is recorded as an audit trail</td>
+</tr>
+<tr>
+<td>6</td>
 <td>Filter button</td>
-<td>The filter bar narrows the board by assignee, label, priority, or due date</td>
+<td>Narrow the board by assignee, label, priority, or due date; press F to toggle</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Live indicator</td>
+<td>Real-time connection status — changes from teammates appear instantly</td>
+</tr>
+<tr>
+<td>8</td>
+<td><em>(full-screen)</em></td>
+<td>Space + drag to pan across a wide board</td>
 </tr>
 </tbody>
 </table>
@@ -2599,17 +2619,21 @@
 <li>Any dismissal (skip, complete, or Escape) sends a <code>PATCH /api/v1/auth/me/</code> request setting <code>has_completed_tour: true</code> so the tour never appears again.</li>
 </ul>
 <h2 id="resetting-the-tour">Resetting the tour<a class="headerlink" href="#resetting-the-tour" title="Permanent link">&para;</a></h2>
-<p>Site admins can reset a user's tour flag from the admin panel:</p>
+<p><strong>Self-service (any user):</strong> patch your own profile to re-show the tour on your next board visit:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PATCH /api/v1/auth/me/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>{ &quot;has_completed_tour&quot;: false }
+</code></pre></div>
+<p><strong>Admin reset (site admins only):</strong> reset any user's tour flag from the admin panel:</p>
 <ol>
 <li>Go to <code>/admin</code> → <strong>Users</strong> tab.</li>
 <li>Find the user and open their detail view.</li>
 <li>Click <strong>Reset onboarding tour</strong>.</li>
 </ol>
-<p>The user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.</p>
-<p>You can also reset the flag via the API:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PATCH /api/v1/admin/users/{id}/
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>{ &quot;has_completed_tour&quot;: false }
+<p>You can also reset it via the Admin API:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>PATCH /api/v1/admin/users/{id}/
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>{ &quot;has_completed_tour&quot;: false }
 </code></pre></div>
+<p>In all cases the user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.</p>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
 <p>The tour state is stored as a boolean field on the User model:</p>
 <ul>
