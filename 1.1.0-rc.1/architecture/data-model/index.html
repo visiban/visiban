@@ -1,0 +1,2876 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swimlane pipeline board — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/1.1.0-rc.1/architecture/data-model/">
+      
+      
+        <link rel="prev" href="../overview/">
+      
+      
+        <link rel="next" href="../deployment/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Data Model - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#data-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Data Model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#core-entities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core entities
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entity-details" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entity details
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entity details">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#user" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#board" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#column" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Column
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cardmovement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CardMovement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#boardtemplate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BoardTemplate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#savedfilter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SavedFilter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invitelink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        InviteLink
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-design-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key design decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="data-model">Data Model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h1>
+<h2 id="core-entities">Core entities<a class="headerlink" href="#core-entities" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>User
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> ├── is_site_admin (bool — grants access to the admin panel)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> ├── can_access_all_content (bool — read/write access to all boards and groups, independent of is_site_admin)
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a> ├── must_change_password (bool)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a> ├── must_change_username (bool — set when a CI collision renames the account)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a> ├── close_editor_on_enter (bool — submit new-card input on Enter; default true)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a> ├── default_board → Board (nullable — post-login redirect target)
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a> ├── timezone (str)
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a> ├── date_format (str)
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a> ├── time_format (str)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a> ├── number_locale (str)
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a> ├── notif_card_assigned (bool, default true — notify when a card is assigned to this user)
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a> ├── notif_mentioned (bool, default true — notify on @mention in card description)
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a> ├── notif_due_soon (bool, default false — notify when a card&#39;s due date is approaching)
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a> ├── notif_card_moved (bool, default false — notify when a card is moved)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a> ├── notif_comment_added (bool, default false — notify when a comment is added to an assigned card)
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a> ├── notif_board_invite (bool, default true — notify when added to a board)
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a> └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>Group
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a> ├── owner → User
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a> ├── parent → Group (nullable — null = top-level)
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a> ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a> ├── GroupInviteLink  (name, token, role, expires_at)
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a> └── GroupFavorite → User  (unique per user+group)
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>Board
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a> ├── uid  (16-char hex, unique, read-only)
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a> ├── owner → User
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a> ├── group → Group (nullable — null = personal board)
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a> ├── enforce_wip_limits (bool — block moves into over-limit columns; default true)
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a> ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a> ├── enforce_weight_limits (bool — block moves that exceed column weight budget; default true)
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a> ├── description (text, optional — board description; blank = no description)
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a> ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a> ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a> ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a> ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a> ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a> ├── BoardFavorite → User  (unique per user+board)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a> ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a> ├── Swimlane  (uid, position, color, is_collapsed)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a> └── Label  (uid, name, color)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>Card
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a> ├── uid  (16-char hex, unique, read-only)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a> ├── board → Board
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a> ├── column → Column
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a> ├── swimlane → Swimlane
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a> ├── title (str, max 500 chars)
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a> ├── description (text, optional)
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a> ├── priority (str — low | medium | high | urgent; default medium)
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a> ├── due_date (date, nullable)
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a> ├── weight (int, default 1 — used for column weight budget enforcement)
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a> ├── position (int — sort order within the cell)
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a> ├── created_by (→ User, nullable — set to null if the creator account is deleted)
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a> ├── version (int, default 1 — optimistic concurrency control; incremented on every mutation; clients send the version they have; 409 returned if the card has been modified in the meantime)
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a> ├── assignee → User (nullable)
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a> ├── labels → Label (M2M)
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a> ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a> ├── mentioned_user_ids (JSON — dedup guard for @mention notifications)
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a> ├── CardMovement  (from/to column + swimlane FKs + UIDs + names, moved_by, moved_at, movement_type)
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a> ├── CardComment  (author, body)
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a> ├── CardActivity  (event_type, from_value, to_value, actor)
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a> ├── CardChecklist  (text, is_checked, position)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a> └── CardAttachment  (file, filename, size, uploaded_by)
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>BoardTemplate
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a> ├── id (UUID)
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a> ├── name (str)
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a> ├── slug (str, unique)
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a> ├── description (str)
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a> ├── icon (str)
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a> ├── lane_label (str — e.g. &quot;Account&quot;, &quot;Project&quot;)
+<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a> ├── lane_placeholder (str — placeholder for the first-swimlane name input)
+<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a> ├── columns_json (JSON — ordered list of column dicts)
+<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a> ├── sort_order (int)
+<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a> └── is_active (bool)
+<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>
+<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>SavedFilter
+<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── user → User
+<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── board → Board
+<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a> ├── name (str)
+<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a> ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate)
+<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a> └── unique_together: (user, board, name)
+<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>
+<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a>Notification
+<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a> ├── recipient → User
+<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a> ├── actor → User (nullable — the user who triggered the notification)
+<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a> ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite)
+<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a> ├── verb (str — human-readable summary)
+<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a> ├── card → Card (nullable)
+<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a> ├── board → Board (nullable)
+<a id="__codelineno-0-94" name="__codelineno-0-94" href="#__codelineno-0-94"></a> └── read (bool)
+<a id="__codelineno-0-95" name="__codelineno-0-95" href="#__codelineno-0-95"></a>
+<a id="__codelineno-0-96" name="__codelineno-0-96" href="#__codelineno-0-96"></a>InviteLink  (accounts app — site-level registration invites)
+<a id="__codelineno-0-97" name="__codelineno-0-97" href="#__codelineno-0-97"></a> ├── token_hash (str, unique — SHA-256 hash; raw token shown once at creation)
+<a id="__codelineno-0-98" name="__codelineno-0-98" href="#__codelineno-0-98"></a> ├── prefix (str — first 8 chars of raw token, safe for display)
+<a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a> ├── created_by → User (nullable)
+<a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a> ├── expires_at (datetime, nullable — null = never expires)
+<a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a> ├── single_use (bool)
+<a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a> ├── used_at (datetime, nullable)
+<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a> ├── revoked_at (datetime, nullable)
+<a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a> └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
+</code></pre></div>
+<h2 id="entity-details">Entity details<a class="headerlink" href="#entity-details" title="Permanent link">&para;</a></h2>
+<h3 id="user">User<a class="headerlink" href="#user" title="Permanent link">&para;</a></h3>
+<p>The <code>is_site_admin</code> flag grants access to the Visiban admin panel (user management, site settings). It does <strong>not</strong> grant access to boards or groups. The separate <code>can_access_all_content</code> flag grants read/write access to every board and group on the instance regardless of membership. The two flags are independent and can be combined.</p>
+<p><code>default_board</code> is a foreign key to <code>Board</code> with <code>on_delete=SET_NULL</code>. After login, the frontend redirects to this board if set. The frontend verifies access before redirecting to prevent an IDOR leak via a stale FK.</p>
+<p><code>close_editor_on_enter</code> controls whether pressing Enter in the new-card inline editor submits and closes the editor (default true). Shift+Enter always inserts a newline regardless of this setting.</p>
+<p>The <code>notif_*</code> boolean fields store per-user notification preferences. Each flag maps to one <code>action_type</code> on the <code>Notification</code> model. Defaults follow the principle of least surprise: events directly targeting the user (<code>card_assigned</code>, <code>mentioned</code>, <code>board_invite</code>) are on by default; ambient events (<code>due_soon</code>, <code>card_moved</code>, <code>comment_added</code>) are off by default to avoid noise. Users can change preferences from their profile settings page.</p>
+<p><code>has_completed_tour</code> is set to true the first time the onboarding tour completes. The frontend reads this field on login and skips the tour for returning users.</p>
+<h3 id="board">Board<a class="headerlink" href="#board" title="Permanent link">&para;</a></h3>
+<p><code>enforce_wip_limits</code> (default true) blocks card moves into a column that is at or over its WIP limit with a 409 response. Board admins can override with <code>?force=true</code>. When <code>enforce_wip_hard</code> is also true, the limit becomes a hard stop for all roles including admins — no override is possible.</p>
+<p><code>enforce_weight_limits</code> (default true) blocks card moves into a column that would exceed its weight budget. Like WIP limits, board admins can override unless hard mode is active.</p>
+<p><code>stale_warning_pct</code> (default 50, range 0--100) controls the yellow warning band in the analytics heatmap. At this percentage of <code>staleness_threshold_days</code> the heatmap cell turns yellow; at 100% it turns red.</p>
+<p><code>allowed_priorities</code> is a JSON list. When non-empty, it restricts which priority values are available for cards on this board. An empty list means all priorities (<code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code>) are allowed.</p>
+<p><code>share_token</code> is a UUID generated when a board admin enables public sharing. When set, the board is accessible at <code>/share/:token</code> as a read-only view with no login required. Setting the token to null disables sharing immediately.</p>
+<h3 id="column">Column<a class="headerlink" href="#column" title="Permanent link">&para;</a></h3>
+<p><code>is_done</code> marks a column as a terminal/completion column (e.g. "Done", "Closed Won"). Columns marked as done are excluded from analytics dwell-time calculations — a card's clock stops when it enters a done column. Multiple done columns per board are supported.</p>
+<h3 id="card">Card<a class="headerlink" href="#card" title="Permanent link">&para;</a></h3>
+<p><code>archived_at</code> is a nullable datetime used for soft-delete. When set, the card is hidden from the board view and drag-and-drop but can be restored from the Archived panel. Analytics uses <code>archived_at</code> as the terminal timestamp so dwell time reflects only the active period. Archived cards are excluded from WIP and weight counts.</p>
+<p><code>mentioned_user_ids</code> is a JSON list of user PKs. It serves as a re-notification guard for <code>@mention</code> references in the card description — when the description is edited, only newly mentioned users receive a notification. This prevents duplicate notifications when an existing mention is left in place.</p>
+<h3 id="cardmovement">CardMovement<a class="headerlink" href="#cardmovement" title="Permanent link">&para;</a></h3>
+<p><code>movement_type</code> distinguishes regular workflow moves from system events:</p>
+<ul>
+<li><code>move</code> — a user moved the card between columns or swimlanes</li>
+<li><code>archived</code> — the card was archived</li>
+<li><code>unarchived</code> — the card was restored from the archive</li>
+</ul>
+<p>History consumers can filter out system events to focus on workflow transitions.</p>
+<h3 id="boardtemplate">BoardTemplate<a class="headerlink" href="#boardtemplate" title="Permanent link">&para;</a></h3>
+<p>Templates are pre-configured board layouts seeded via a data migration. They are not user-editable. When a user creates a board and selects a template, the template's columns are created and the user is prompted to name the first swimlane using the template's <code>lane_label</code> and <code>lane_placeholder</code>.</p>
+<h3 id="savedfilter">SavedFilter<a class="headerlink" href="#savedfilter" title="Permanent link">&para;</a></h3>
+<p>Saved filters are private to the owning user — there is no sharing across board members. Each filter stores the full frontend <code>FilterState</code> object as JSON. The schema is intentionally unvalidated at the model layer; the frontend validates on load.</p>
+<h3 id="notification">Notification<a class="headerlink" href="#notification" title="Permanent link">&para;</a></h3>
+<p>Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The <code>verb</code> field stores a human-readable summary. The <code>actor</code> and <code>action_type</code> fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.</p>
+<p>The <code>board_invite</code> action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the <code>card</code> FK is null for this action type.</p>
+<h3 id="invitelink">InviteLink<a class="headerlink" href="#invitelink" title="Permanent link">&para;</a></h3>
+<p>Site-level registration invite links live in the accounts app and are distinct from <code>GroupInviteLink</code> (which controls group membership). The raw token value is generated once and never stored — only a SHA-256 hash is persisted. The raw value is returned exactly once at creation.</p>
+<p>Single-use links are consumed atomically via <code>select_for_update()</code> at registration time to prevent race-condition double-use. A soft cap of 50 active links per instance prevents token flood from a compromised admin account.</p>
+<h2 id="key-design-decisions">Key design decisions<a class="headerlink" href="#key-design-decisions" title="Permanent link">&para;</a></h2>
+<p><strong>CardMovement is append-only.</strong> Every time a card changes column or swimlane a new <code>CardMovement</code> row is created. Records are never updated or deleted, providing a full audit trail.</p>
+<p><strong>BoardMembership is explicit per board.</strong> A user can have different roles on different boards. Group membership is inherited automatically (see <a href="../../features/rbac/inheritance/">Group Inheritance</a>) but can be overridden by an explicit <code>BoardMembership</code> row.</p>
+<p><strong>Column positions use a two-pass update.</strong> To avoid <code>unique_together(board, position)</code> conflicts when reordering, columns are first shifted to high temporary positions, then assigned final positions.</p>
+<p><strong>Card positions are per-cell.</strong> Position is scoped to <code>(board, column, swimlane)</code>. When a card moves cells, siblings in both source and target cells are renumbered.</p>
+<p><strong>UIDs are stable external identifiers.</strong> Boards, columns, swimlanes, labels, and cards each carry a <code>uid</code> field — a 16-character random hex string assigned at creation and never changed or reused. UIDs survive renames and are preserved in <code>CardMovement</code> records even after the referenced column or swimlane is deleted. They are intended as the canonical key for integrations and webhooks that need to reference Visiban objects durably. See <a href="../../features/stable-uids/">Stable UIDs</a>.</p>
+<p><strong>Soft-delete via <code>archived_at</code>.</strong> Cards are never hard-deleted from the board view. Archiving sets <code>archived_at</code> and hides the card; restoring clears it. Both operations create a <code>CardMovement</code> record with the appropriate <code>movement_type</code> so the archive/restore event appears in the card's history.</p>
+<p><strong>Denormalized names and UIDs on CardMovement.</strong> The <code>from_column_name</code>, <code>to_column_name</code>, <code>from_swimlane_name</code>, <code>to_swimlane_name</code> fields (and their <code>*_uid</code> counterparts) are written at move time. This preserves human-readable and machine-readable history even after the referenced column or swimlane is deleted (<code>on_delete=SET_NULL</code> on the FK).</p>
+<p><strong>InviteLink is hash-only.</strong> Both <code>InviteLink</code> (site-level) and <code>PersonalAccessToken</code> store only a SHA-256 hash of the raw token. The raw value is returned exactly once at creation and never persisted, following the same pattern as GitHub PATs.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
