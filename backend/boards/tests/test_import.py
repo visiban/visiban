@@ -1,7 +1,7 @@
 import io
 import json
 
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase
 from django.test.utils import override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -461,6 +461,20 @@ class BoardImportCSVTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("missing required headers", resp.data["detail"])
 
+    def test_csv_import_invalid_due_date_returns_400(self):
+        """A row with a non-parseable Due Date string should return 400."""
+        csv_content = (
+            "Title,Column,Swimlane,Due Date\n"
+            "Fix login,To Do,General,not-a-date\n"
+        )
+        resp = self.client.post(
+            "/api/v1/boards/import/",
+            {"file": self._make_csv_file(csv_content)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Due Date", resp.data["detail"])
+
     def test_csv_missing_required_field_in_row_returns_400(self):
         csv_content = (
             "Card ID,Title,Description,Column,Swimlane,Priority,Assignee,Labels,Due Date,Weight,Created At,Created By,Last Moved At,Movement Count,Movement History\n"
@@ -638,8 +652,8 @@ class BoardImportEdgeCaseTests(TestCase):
         self.assertEqual(Board.objects.filter(name="Exported Board").count(), 0)
 
 
-class BoardImportDuplicateLabelTests(TransactionTestCase):
-    """TransactionTestCase needed because IntegrityError breaks TestCase savepoints."""
+class BoardImportDuplicateNameTests(TestCase):
+    """Duplicate column/swimlane/label names must be rejected with a clean 400."""
 
     def setUp(self):
         self.client = APIClient()
@@ -652,31 +666,63 @@ class BoardImportDuplicateLabelTests(TransactionTestCase):
         f.name = filename
         return f
 
-    def test_json_import_with_duplicate_label_names_rolls_back(self):
-        """Duplicate label names trigger an IntegrityError inside transaction.atomic().
-
-        The atomic block ensures the entire import is rolled back, so no board
-        is created. The unhandled IntegrityError surfaces as a server error.
-        """
-        data = {
-            "name": "Dup Labels Board",
+    def _base(self):
+        return {
+            "name": "Dup Board",
             "description": "",
             "columns": [{"name": "To Do", "position": 0}],
             "swimlanes": [{"name": "General", "position": 0}],
-            "labels": [
-                {"name": "Bug", "color": "#EF4444"},
-                {"name": "Bug", "color": "#FF0000"},
-            ],
+            "labels": [],
             "cards": [],
         }
-        with self.assertRaises(Exception):
-            self.client.post(
-                "/api/v1/boards/import/",
-                {"file": self._make_json_file(data)},
-                format="multipart",
-            )
-        # The atomic block ensures no board was created
-        self.assertEqual(Board.objects.filter(name="Dup Labels Board").count(), 0)
+
+    def test_duplicate_label_names_returns_400(self):
+        data = self._base()
+        data["labels"] = [
+            {"name": "Bug", "color": "#EF4444"},
+            {"name": "Bug", "color": "#FF0000"},
+        ]
+        resp = self.client.post(
+            "/api/v1/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Duplicate label names", resp.data["detail"])
+        self.assertIn("Bug", resp.data["detail"])
+        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
+
+    def test_duplicate_column_names_returns_400(self):
+        data = self._base()
+        data["columns"] = [
+            {"name": "To Do", "position": 0},
+            {"name": "To Do", "position": 1},
+        ]
+        resp = self.client.post(
+            "/api/v1/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Duplicate column names", resp.data["detail"])
+        self.assertIn("To Do", resp.data["detail"])
+        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
+
+    def test_duplicate_swimlane_names_returns_400(self):
+        data = self._base()
+        data["swimlanes"] = [
+            {"name": "General", "position": 0},
+            {"name": "General", "position": 1},
+        ]
+        resp = self.client.post(
+            "/api/v1/boards/import/",
+            {"file": self._make_json_file(data)},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Duplicate swimlane names", resp.data["detail"])
+        self.assertIn("General", resp.data["detail"])
+        self.assertEqual(Board.objects.filter(name="Dup Board").count(), 0)
 
 
 class BoardImportCSVRoundtripTests(TestCase):
@@ -937,31 +983,31 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
         card = Card.objects.get(board_id=board_id, title="Bad Priority Card")
         self.assertEqual(card.priority, "medium")
 
-    def test_card_with_unknown_column_is_skipped(self):
-        """A card referencing a column name that doesn't exist is silently skipped."""
+    def test_card_with_unknown_column_returns_400(self):
+        """A card referencing a column name not in the payload's columns list returns 400."""
         data = self._base_payload()
         data["cards"] = [
             {"title": "Good Card", "column": "Backlog", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 0},
             {"title": "Bad Card", "column": "NonExistentColumn", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 1},
         ]
         resp = self._post(data)
-        self.assertEqual(resp.status_code, 201)
-        board_id = resp.data["id"]
-        self.assertTrue(Card.objects.filter(board_id=board_id, title="Good Card").exists())
-        self.assertFalse(Card.objects.filter(board_id=board_id, title="Bad Card").exists())
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("undefined column", resp.data["detail"])
+        self.assertIn("NonExistentColumn", resp.data["detail"])
+        self.assertFalse(Board.objects.filter(name="Edge Case Board").exists())
 
-    def test_card_with_unknown_swimlane_is_skipped(self):
-        """A card referencing a swimlane name that doesn't exist is silently skipped."""
+    def test_card_with_unknown_swimlane_returns_400(self):
+        """A card referencing a swimlane name not in the payload's swimlanes list returns 400."""
         data = self._base_payload()
         data["cards"] = [
             {"title": "Valid Card", "column": "Backlog", "swimlane": "Lane", "priority": "low", "weight": 1, "position": 0},
             {"title": "Orphan Card", "column": "Backlog", "swimlane": "GhostLane", "priority": "low", "weight": 1, "position": 1},
         ]
         resp = self._post(data)
-        self.assertEqual(resp.status_code, 201)
-        board_id = resp.data["id"]
-        self.assertTrue(Card.objects.filter(board_id=board_id, title="Valid Card").exists())
-        self.assertFalse(Card.objects.filter(board_id=board_id, title="Orphan Card").exists())
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("undefined swimlane", resp.data["detail"])
+        self.assertIn("GhostLane", resp.data["detail"])
+        self.assertFalse(Board.objects.filter(name="Edge Case Board").exists())
 
     def test_movement_with_invalid_type_falls_back_to_move(self):
         """A movement with an unrecognised movement_type is imported as 'move'."""
@@ -991,6 +1037,83 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
         mv = CardMovement.objects.filter(card=card).first()
         self.assertIsNotNone(mv)
         self.assertEqual(mv.movement_type, "move")
+
+    def test_invalid_due_date_returns_400(self):
+        """A card with a non-parseable due_date string returns 400."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "Bad Date Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": 1,
+            "position": 0,
+            "due_date": "next-monday",
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("due_date", resp.data["detail"])
+
+    def test_negative_weight_returns_400(self):
+        """A card with a negative weight returns 400."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "Neg Weight Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": -5,
+            "position": 0,
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("weight", resp.data["detail"])
+
+    def test_string_weight_returns_400(self):
+        """A card with a non-integer weight returns 400."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "String Weight Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": "heavy",
+            "position": 0,
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("weight", resp.data["detail"])
+
+    def test_negative_position_returns_400(self):
+        """A card with a negative position returns 400."""
+        data = self._base_payload()
+        data["cards"] = [{
+            "title": "Neg Pos Card",
+            "column": "Backlog",
+            "swimlane": "Lane",
+            "priority": "low",
+            "weight": 1,
+            "position": -1,
+        }]
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("position", resp.data["detail"])
+
+    def test_negative_wip_limit_returns_400(self):
+        """A column with a negative wip_limit returns 400."""
+        data = self._base_payload()
+        data["columns"][0]["wip_limit"] = -3
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("wip_limit", resp.data["detail"])
+
+    def test_negative_weight_limit_returns_400(self):
+        """A column with a negative weight_limit returns 400."""
+        data = self._base_payload()
+        data["columns"][0]["weight_limit"] = -1
+        resp = self._post(data)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("weight_limit", resp.data["detail"])
 
     def test_movement_with_unresolved_column_preserves_name_and_empty_uid(self):
         """When a movement references a column not in the board, the name string
