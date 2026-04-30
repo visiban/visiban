@@ -241,7 +241,7 @@ class BoardImportExportMixin:
         # Validate all timestamp strings before touching the database.  A malformed
         # timestamp inside the atomic block would produce an unhandled 500; catching it
         # here returns a clean 400 and avoids a partial rollback.
-        from django.utils.dateparse import parse_datetime as _parse_dt
+        from django.utils.dateparse import parse_datetime as _parse_dt, parse_date as _parse_date
         for _ci, _card in enumerate(data.get("cards", [])):
             for _field in ("archived_at",):
                 _v = _card.get(_field)
@@ -250,6 +250,24 @@ class BoardImportExportMixin:
                         {"detail": f"Card at index {_ci}: invalid timestamp for '{_field}': {_v!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+            _due = _card.get("due_date")
+            if _due and _parse_date(str(_due)) is None:
+                return Response(
+                    {"detail": f"Card at index {_ci}: invalid due_date: {_due!r}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _weight = _card.get("weight")
+            if _weight is not None and (isinstance(_weight, bool) or not isinstance(_weight, int) or _weight < 0):
+                return Response(
+                    {"detail": f"Card at index {_ci}: weight must be a non-negative integer"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            _pos = _card.get("position")
+            if _pos is not None and (isinstance(_pos, bool) or not isinstance(_pos, int) or _pos < 0):
+                return Response(
+                    {"detail": f"Card at index {_ci}: position must be a non-negative integer"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             for _ji, _comment in enumerate(_card.get("comments", [])):
                 _v = _comment.get("created_at")
                 if _v and _parse_dt(str(_v)) is None:
@@ -271,6 +289,51 @@ class BoardImportExportMixin:
                         {"detail": f"Card at index {_ci}, activity at index {_ji}: invalid 'created_at': {_v!r}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        # Column numeric fields: wip_limit and weight_limit must be non-negative
+        # integers when present; a non-integer would cause a DB type error inside
+        # bulk_create with no clean 400 path.
+        for _ci, _col in enumerate(data.get("columns", [])):
+            for _fname, _fval in (("wip_limit", _col.get("wip_limit")), ("weight_limit", _col.get("weight_limit"))):
+                if _fval is not None and (isinstance(_fval, bool) or not isinstance(_fval, int) or _fval < 0):
+                    return Response(
+                        {"detail": f"Column at index {_ci}: {_fname} must be a non-negative integer"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+        # Duplicate names in columns, swimlanes, and labels each carry a
+        # (board, name) unique constraint; a duplicate would raise an IntegrityError
+        # inside bulk_create with no clean 400 path.
+        for _list_name, _items in (
+            ("column", data.get("columns", [])),
+            ("swimlane", data.get("swimlanes", [])),
+            ("label", data.get("labels", [])),
+        ):
+            _names = [_i.get("name", "") for _i in _items]
+            if len(_names) != len(set(_names)):
+                _dupes = sorted({n for n in _names if _names.count(n) > 1})
+                return Response(
+                    {"detail": f"Duplicate {_list_name} names: {', '.join(_dupes)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Cards reference columns and swimlanes by name.  A mismatch between a
+        # card's column/swimlane and the top-level definitions is a structural error
+        # in the file; silent skipping would produce a 201 with fewer cards than
+        # the payload declared.
+        _valid_col_names = {_c.get("name", "") for _c in data.get("columns", [])}
+        _valid_sw_names = {_s.get("name", "") for _s in data.get("swimlanes", [])}
+        for _ci, _card in enumerate(data.get("cards", [])):
+            if _card.get("column") not in _valid_col_names:
+                return Response(
+                    {"detail": f"Card at index {_ci} references undefined column: {_card.get('column')!r}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if _card.get("swimlane") not in _valid_sw_names:
+                return Response(
+                    {"detail": f"Card at index {_ci} references undefined swimlane: {_card.get('swimlane')!r}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         board_name = request.data.get("name") or data["name"]
         group = self._resolve_import_group(request)
@@ -689,7 +752,11 @@ class BoardImportExportMixin:
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate each row has required fields
+        # Validate each row has required fields and a parseable Due Date when present.
+        # The date check mirrors the JSON path's pre-transaction due_date guard: a
+        # malformed value would reach DateField inside bulk_create and produce an
+        # unhandled DB type error instead of a clean 400.
+        from django.utils.dateparse import parse_date as _parse_date_csv
         for i, row in enumerate(rows):
             for field in ("Title", "Column", "Swimlane"):
                 if not row.get(field, "").strip():
@@ -697,6 +764,12 @@ class BoardImportExportMixin:
                         {"detail": f"Row {i + 2} is missing required field: {field}"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+            _due = row.get("Due Date", "").strip()
+            if _due and _parse_date_csv(_due) is None:
+                return Response(
+                    {"detail": f"Row {i + 2}: invalid Due Date: {_due!r}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Count unique columns and swimlanes from the CSV rows so we can enforce
         # the same per-import ceilings as the JSON import path.
