@@ -82,6 +82,54 @@ describe('BoardSelector', () => {
     expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument()
   })
 
+  it('delete dialog has role=dialog, aria-modal, and aria-labelledby pointing at heading', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    const heading = screen.getByRole('heading', { name: 'Delete board?' })
+    expect(dialog).toHaveAttribute('aria-labelledby', heading.id)
+  })
+
+  it('Escape key closes delete dialog', async () => {
+    mockListBoards.mockResolvedValue([
+      { id: 1, uid: 'my-board', name: 'My Board', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+    ])
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('My Board')
+    await user.click(screen.getByTitle('Delete board'))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('shows error state when board load fails', async () => {
+    mockListBoards.mockRejectedValue(new Error('network error'))
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    expect(await screen.findByText('Failed to load boards.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('retry button reloads boards after error', async () => {
+    mockListBoards
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValue([
+        { id: 1, uid: 'board-a', name: 'Board A', description: '', owner: fakeUser, group: null, group_name: null, member_count: 1, card_count: 0, staleness_threshold_days: 14, stale_warning_pct: 50, allowed_priorities: [], enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'member' as const, is_starred: false, created_at: '', updated_at: '' },
+      ])
+    render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
+    const user = userEvent.setup()
+    await screen.findByText('Failed to load boards.')
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Board A')).toBeInTheDocument()
+    expect(screen.queryByText('Failed to load boards.')).not.toBeInTheDocument()
+  })
+
   it('opens create modal when + New board is clicked', async () => {
     mockListBoards.mockResolvedValue([])
     render(<BoardSelector user={fakeUser} onSelect={vi.fn()} />)
