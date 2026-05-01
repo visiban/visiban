@@ -102,7 +102,7 @@ function FullScreenStep({
       <div className="bg-surface border border-line rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-fg-tertiary">Step {step + 1} of {STEPS.length}</span>
-          <button onClick={skip} className="text-xs text-fg-tertiary hover:text-fg transition">Skip tour</button>
+          <button onClick={skip} className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Skip tour</button>
         </div>
         <div className="w-full h-28 bg-canvas rounded-lg flex items-center justify-center border border-line">
           <span className="text-4xl select-none" aria-hidden="true">✋</span>
@@ -259,7 +259,7 @@ export default function OnboardingTour({ onComplete }: Props) {
           </span>
           <button
             onClick={finish}
-            className="text-xs text-fg-tertiary hover:text-fg transition"
+            className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           >
             Skip tour
           </button>
