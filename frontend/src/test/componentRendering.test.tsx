@@ -532,7 +532,7 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    const header = container.querySelector('.border-b-red-500\\/50')
+    const header = container.querySelector('.border-b-danger-emphasis\\/50')
     expect(header).toBeInTheDocument()
   })
 
@@ -549,7 +549,7 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(container.querySelector('.border-b-red-500\\/50')).not.toBeInTheDocument()
+    expect(container.querySelector('.border-b-danger-emphasis\\/50')).not.toBeInTheDocument()
   })
 
   it('renders collapsed state with vertical column name', () => {

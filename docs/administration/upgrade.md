@@ -248,6 +248,50 @@ After rolling back, restart the backend container with the previous image versio
 
     Existing deployments that used the default unauthenticated Redis will continue to work after setting this variable — Redis data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of Redis data is required.
 
+!!! note "Migration window — GIN trigram indexes (`boards/0030`)"
+    Migration `boards/0030` creates full-text GIN indexes on the `cards` table using `CREATE INDEX` (not `CREATE INDEX CONCURRENTLY`). On PostgreSQL, a standard index build holds an `AccessShareLock` on the table for the duration of the build, blocking writes to `cards`.
+
+    For most self-hosted deployments the index build completes in seconds and is not noticeable. For installations with **millions of cards**, this may cause a brief write outage on board operations during the migration window.
+
+    **If you have a large `cards` table and need zero-downtime index creation**, pre-create the indexes manually before running `migrate`:
+
+    ```sql
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS boards_card_title_trgm
+      ON boards_card USING gin (title gin_trgm_ops);
+    CREATE INDEX CONCURRENTLY IF NOT EXISTS boards_card_description_trgm
+      ON boards_card USING gin (description gin_trgm_ops);
+    ```
+
+    Then run `python manage.py migrate` as normal — the migration's `CREATE INDEX IF NOT EXISTS` will detect the indexes exist and skip creation.
+
+!!! note "Migration window — column name deduplication (`boards/0043`)"
+    Migration `boards/0043` adds a unique constraint on `(board, name)` for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").
+
+    For deployments with a very large number of boards and columns, this deduplication loop may take several seconds. The subsequent `ADD CONSTRAINT` then issues a brief table lock to build the unique index.
+
+    **If you have many thousands of columns**, you can run the deduplication ahead of the migration window by executing it as a one-off management command before upgrading:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml run --rm backend \
+      python manage.py shell -c "
+    from boards.models import Column
+    from django.db.models import Count
+    for board_id in Column.objects.values_list('board_id', flat=True).distinct():
+        seen = {}
+        for col in Column.objects.filter(board_id=board_id).order_by('position'):
+            base = col.name
+            if base in seen:
+                seen[base] += 1
+                col.name = f'{base} ({seen[base]})'
+                col.save(update_fields=['name'])
+            else:
+                seen[base] = 1
+    print('Done')
+    "
+    ```
+
+    After this runs, `boards/0043` will find no duplicates and the constraint add will complete quickly.
+
 ### Upgrading to 1.0.0
 
 !!! warning "Required pre-deploy step for any instance that ran a pre-1.0 beta"

@@ -131,9 +131,12 @@ class TransferOwnershipTests(TestCase):
             "confirmation": self.group.name,
         })
         self.assertEqual(r.status_code, status.HTTP_200_OK)
-        mock_broadcast.assert_called_once_with(
-            self.group.id, "group.updated", {"id": self.group.id, "owner_id": self.admin_member.id}
-        )
+        mock_broadcast.assert_called_once()
+        gid_arg, event_arg, data_arg = mock_broadcast.call_args.args
+        self.assertEqual(gid_arg, self.group.id)
+        self.assertEqual(event_arg, "group.updated")
+        self.assertEqual(data_arg["id"], self.group.id)
+        self.assertEqual(data_arg["owner"]["id"], self.admin_member.id)
 
     @patch("boards.broadcast.broadcast_board_event")
     def test_no_broadcast_on_failed_transfer(self, mock_broadcast):

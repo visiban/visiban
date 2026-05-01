@@ -1,6 +1,6 @@
 /**
  * Tests for BoardView's handleSocketEvent — verifying that each new broadcast
- * event type (label.*, member.*, columns.reordered, swimlanes.reordered) is
+ * event type (label.*, member.*, column.reordered, swimlane.reordered) is
  * routed to the correct prop callback.
  *
  * useBoardSocket is mocked to capture the onEvent callback so individual tests
@@ -305,7 +305,7 @@ describe('BoardView socket event routing — new event types', () => {
     expect(ctx.removeMember).toHaveBeenCalledWith(1)
   })
 
-  it('columns.reordered routes to applyColumnOrder with column list', async () => {
+  it('column.reordered routes to applyColumnOrder with column list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -314,25 +314,11 @@ describe('BoardView socket event routing — new event types', () => {
       { id: 11, uid: 'col002', name: 'Done', position: 0, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
       { id: 10, uid: 'col001', name: 'To Do', position: 1, color: '#3B82F6', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
     ]
-    act(() => { getOnEvent.dispatch({ event: 'columns.reordered', data: { columns } }) })
-    expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
-  })
-
-  it('column.reordered (singular, since 1.1) routes to applyColumnOrder with column list', async () => {
-    // #807 — backend emits both plural (legacy) and singular (canonical) names during the
-    // deprecation window; the client must accept either.
-    const ctx = makeContext()
-    mockBoardContextValue = ctx
-    render(<BoardView />)
-    await act(async () => {})
-    const columns: Column[] = [
-      { id: 11, uid: 'col002', name: 'Done', position: 0, color: '#10B981', wip_limit: null, weight_limit: null, allow_card_creation: true, is_done: false },
-    ]
     act(() => { getOnEvent.dispatch({ event: 'column.reordered', data: { columns } }) })
     expect(ctx.applyColumnOrder).toHaveBeenCalledWith(columns)
   })
 
-  it('swimlanes.reordered routes to applySwimlaneOrder with swimlane list', async () => {
+  it('swimlane.reordered routes to applySwimlaneOrder with swimlane list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -340,12 +326,11 @@ describe('BoardView socket event routing — new event types', () => {
     const swimlanes: Swimlane[] = [
       { id: 20, uid: 'lane001', name: 'Customer A', contact_email: '', notes: '', position: 0, color: '#6B7280', is_collapsed: false, created_at: '' },
     ]
-    act(() => { getOnEvent.dispatch({ event: 'swimlanes.reordered', data: { swimlanes } }) })
+    act(() => { getOnEvent.dispatch({ event: 'swimlane.reordered', data: { swimlanes } }) })
     expect(ctx.applySwimlaneOrder).toHaveBeenCalledWith(swimlanes)
   })
 
-  it('swimlane.reordered (singular, since 1.1) routes to applySwimlaneOrder with swimlane list', async () => {
-    // #807 — see column.reordered test above for the dual-emission rationale.
+  it('swimlane.reordered (second session) routes to applySwimlaneOrder with swimlane list', async () => {
     const ctx = makeContext()
     mockBoardContextValue = ctx
     render(<BoardView />)
@@ -413,7 +398,7 @@ describe('BoardView socket event routing — new event types', () => {
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { board_id: 1, user_id: fakeUser.id, is_starred: true } }) })
+    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { uid: 'board-uid-1', user_id: fakeUser.id, is_starred: true } }) })
     expect(ctx.mergeBoardState).toHaveBeenCalledWith({ is_starred: true })
   })
 
@@ -422,7 +407,7 @@ describe('BoardView socket event routing — new event types', () => {
     mockBoardContextValue = ctx
     render(<BoardView currentUser={fakeUser} />)
     await act(async () => {})
-    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { board_id: 1, user_id: 999, is_starred: true } }) })
+    act(() => { getOnEvent.dispatch({ event: 'board.star_changed', data: { uid: 'board-uid-1', user_id: 999, is_starred: true } }) })
     expect(ctx.mergeBoardState).not.toHaveBeenCalled()
   })
 })
