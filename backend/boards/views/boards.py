@@ -242,14 +242,20 @@ class BoardViewSet(
             # without a full refetch. Clients filter on user_id === me (#814).
             board_uid = board.uid
             board_id = board.pk
+            group_id = board.group_id
             user_id = request.user.id
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id,
-                    "board.star_changed",
-                    {"uid": board_uid, "user_id": user_id, "is_starred": is_starred},
-                )
-            )
+            star_payload = {"uid": board_uid, "user_id": user_id, "is_starred": is_starred}
+
+            def _broadcast_star() -> None:
+                _broadcast.broadcast_board_event(board_id, "board.star_changed", star_payload)
+                if group_id is not None:
+                    # Also fan out to the group channel so the GroupDetail page
+                    # updates the star indicator in real time without a refetch
+                    # (#952).  Same per-user filter applies — clients ignore
+                    # events whose user_id does not match their own.
+                    _broadcast_group_event(group_id, "board.star_changed", star_payload)
+
+            transaction.on_commit(_broadcast_star)
         return Response(self.get_serializer(board).data)
 
     @action(detail=True, methods=["post", "delete"], url_path="share")

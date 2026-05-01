@@ -641,5 +641,49 @@ describe('GroupDetail', () => {
         expect(mockGetGroup).toHaveBeenCalledTimes(2)
       })
     })
+
+    it('patches is_starred on board.star_changed for the current user (#952)', async () => {
+      const boardWithUid = { ...existingBoard, uid: 'board-uid-1', is_starred: false }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([boardWithUid])
+      renderGroupDetail()
+      await screen.findByText('Sprint Board')
+
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.star_changed',
+          data: { uid: 'board-uid-1', user_id: fakeUser.id, is_starred: true },
+        } as BoardEvent)
+      })
+
+      // No refetch — the boards list is patched in place. Star state mutation
+      // is not directly visible in this rendering, but the event handler must
+      // accept the payload without throwing and without triggering getGroup.
+      expect(mockGetGroup).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores board.star_changed for a different user (#952)', async () => {
+      const boardWithUid = { ...existingBoard, uid: 'board-uid-1', is_starred: false }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([boardWithUid])
+      renderGroupDetail()
+      await screen.findByText('Sprint Board')
+
+      // Star event for a different user must not affect local state and must
+      // not throw.  Star is per-user; the group channel broadcasts to all
+      // group members, so each client filters on user_id === me.
+      act(() => {
+        capturedOnEvent?.({
+          event: 'board.star_changed',
+          data: { uid: 'board-uid-1', user_id: 999, is_starred: true },
+        } as BoardEvent)
+      })
+
+      expect(mockGetGroup).toHaveBeenCalledTimes(1)
+    })
   })
 })

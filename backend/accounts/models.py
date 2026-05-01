@@ -287,3 +287,41 @@ class InviteLink(models.Model):
     @property
     def is_valid(self):
         return self.status == "pending"
+
+
+class InviteLinkRedemption(models.Model):
+    """Per-email record of a multi-use invite link redemption (#925).
+
+    A multi-use invite link (``InviteLink.single_use=False``) can otherwise be
+    redeemed multiple times by the same email — defeating the "one invite per
+    person" expectation when the link leaks.  Storing a SHA-256 hash of the
+    normalised email (lowercase + strip; no Gmail dot/plus collapsing — that
+    would silently break legitimate aliasing) and enforcing a unique constraint
+    on ``(invite_link, email_hash)`` blocks repeat redemptions while keeping
+    audit data hash-only for privacy.
+
+    Hash-only storage is irreversible: operators investigating "who redeemed
+    this link" see only hashes.  This is intentional; the trade-off is that
+    debugging requires the original email to recompute the hash.
+
+    Single-use links do not need this table — the existing ``used_at`` flag
+    already gates re-use.
+    """
+
+    invite_link = models.ForeignKey(
+        InviteLink,
+        on_delete=models.CASCADE,
+        related_name="redemptions",
+    )
+    email_hash = models.CharField(max_length=64)
+    redeemed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "invite_link_redemptions"
+        unique_together = [("invite_link", "email_hash")]
+        indexes = [
+            models.Index(
+                fields=["invite_link", "redeemed_at"],
+                name="invite_redm_invite__idx",
+            ),
+        ]

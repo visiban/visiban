@@ -32,7 +32,9 @@ class BoardAnalyticsMixin:
         completion columns. avg_cycle_days measures the time from a card's first
         movement to its first entry into a done column.
         """
-        board, _ = get_board_for_user(pk, request.user)
+        # ``slim=True`` skips favorites/labels/memberships prefetches that this
+        # aggregate endpoint never reads (#928).
+        board, _ = get_board_for_user(pk, request.user, slim=True)
         now = timezone.now()
         cutoff_7d = now - datetime.timedelta(days=7)
         cutoff_30d = now - datetime.timedelta(days=30)
@@ -150,7 +152,9 @@ class BoardAnalyticsMixin:
         median heuristic — changed to an absolute threshold in this fix).
         ``board_medians`` is retained in the response for backward compatibility.
         """
-        board, _ = get_board_for_user(pk, request.user)
+        # ``slim=True`` skips favorites/labels/memberships prefetches that this
+        # aggregate endpoint never reads (#928).
+        board, _ = get_board_for_user(pk, request.user, slim=True)
         try:
             days = int(request.query_params.get("days", 30))
         except (ValueError, TypeError):

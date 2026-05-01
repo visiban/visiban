@@ -10,6 +10,7 @@ from django.http import HttpResponseRedirect
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from dj_rest_auth.registration.views import RegisterView
+from dj_rest_auth.views import LoginView as DjRestAuthLoginView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
@@ -83,6 +84,34 @@ class ThrottledPasswordResetConfirmView(DjRestAuthPasswordResetConfirmView):
     """dj-rest-auth PasswordResetConfirmView with a project-specific rate limit applied."""
 
     throttle_classes = [PasswordResetConfirmThrottle]
+
+
+class LoginRateThrottle(SimpleRateThrottle):
+    """Defense-in-depth rate limit for the login endpoint, keyed on IP (#924).
+
+    The allauth ``ACCOUNT_RATE_LIMITS`` setting is the primary gate — it locks
+    failed logins to 5 per 5 minutes per IP.  Without an additional cap an
+    attacker rotating across many usernames could still issue up to the global
+    DRF anonymous ceiling (currently 300/hour) before being throttled.
+
+    This scope applies the same per-IP limit whether the request is anonymous
+    or carries a stale session cookie, so it cannot be bypassed by toggling
+    auth state mid-attack.
+    """
+
+    scope = "login"
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": self.get_ident(request),
+        }
+
+
+class ThrottledLoginView(DjRestAuthLoginView):
+    """dj-rest-auth LoginView with a project-specific rate limit applied (#924)."""
+
+    throttle_classes = [LoginRateThrottle]
 
 
 class VerifyEmailThrottle(AnonRateThrottle):
@@ -438,12 +467,28 @@ class InviteRegisterView(RegisterView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Capture the email here — the registration body is the source of truth
+        # for what allauth will save.  Used for the per-email redemption check
+        # on multi-use invite links (#925).
+        signup_email = (request.data.get("email") or "").strip()
+
         # Token is valid — proceed with registration then consume.
         # Both happen in the same transaction so a failed registration leaves
         # the token unconsumed.
         response = super().create(request, *args, **kwargs)
         if response.status_code in (200, 201):
-            consume_invite_token(link)
+            try:
+                consume_invite_token(link, email=signup_email)
+            except InviteTokenError as exc:
+                if exc.code == "invite_already_redeemed":
+                    # The @transaction.atomic on this view rolls back the user
+                    # creation when we return — so a 409 here does not leave a
+                    # stale account behind.
+                    return Response(
+                        {"invite_token": [exc.detail]},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                raise
 
         return response
 

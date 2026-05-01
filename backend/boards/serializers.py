@@ -31,6 +31,36 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
         model = BoardMembership
         fields = ["id", "user", "role", "is_moderator", "joined_at"]
 
+    def to_representation(self, instance):
+        """Strip ``is_moderator`` from the response when the requesting user is
+        not an admin or site_admin (#920).
+
+        Moderator status is an internal trust tier — admins promote a member to
+        moderator so they can edit/delete other members' content.  Exposing the
+        flag to viewers and members reveals organisational signal that should
+        not be visible at those roles.  Admin reads (members panel, member POST
+        response) keep the field; the broadcast surface keeps it for backward
+        compatibility because broadcasts have no per-subscriber filter — the
+        exposure there is treated as a documented limitation rather than a
+        contract change in 1.1.
+
+        The serializer reads the role from ``context["role"]`` (set by the
+        view) or falls back to ``get_board_role`` when a request and board are
+        available in context.  In contexts where the role cannot be resolved
+        (e.g. broadcast payloads built without a request) the field is kept —
+        callers that want it stripped must thread the role through context.
+        """
+        data = super().to_representation(instance)
+        from .permissions import get_board_role, SITE_ADMIN
+        role = self.context.get("role")
+        request = self.context.get("request")
+        board = self.context.get("board")
+        if role is None and request and board and request.user.is_authenticated:
+            role = get_board_role(request.user, board)
+        if role is not None and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            data.pop("is_moderator", None)
+        return data
+
 
 class BoardExportLogSerializer(serializers.ModelSerializer):
     """Read-only payload for the export-history endpoint (#842)."""
@@ -127,6 +157,43 @@ class CardChecklistSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "is_checked", "position"]
 
 
+def _annotate_is_stale(qs, stale_cutoff):
+    """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
+
+    A card is stale when its most recent movement predates the cutoff, or —
+    for never-moved cards — when it was created before the cutoff.  Computing
+    the boolean once via a single subquery avoids a per-card ``timezone.now()``
+    branch in the serializer (#669).
+
+    Used by both the authenticated ``_card_queryset`` and the public share-link
+    queryset (#926) so all read paths share the same stale logic.
+    """
+    from .models import CardMovement as _CM
+    _last_moved_sq = _db_models.Subquery(
+        _CM.objects.filter(card=_db_models.OuterRef("pk"))
+        .order_by("-moved_at")
+        .values("moved_at")[:1]
+    )
+    return qs.annotate(
+        _last_moved_at_for_stale=_last_moved_sq,
+        _is_stale_annotated=_db_models.Case(
+            # Card has at least one movement and it predates the cutoff.
+            _db_models.When(
+                _last_moved_at_for_stale__lt=stale_cutoff,
+                then=_db_models.Value(True),
+            ),
+            # Never-moved card: fall back to created_at.
+            _db_models.When(
+                _last_moved_at_for_stale__isnull=True,
+                created_at__lt=stale_cutoff,
+                then=_db_models.Value(True),
+            ),
+            default=_db_models.Value(False),
+            output_field=_db_models.BooleanField(),
+        )
+    )
+
+
 def _card_queryset(qs, stale_cutoff=None):
     """Apply the standard prefetch chain required by CardSerializer.
 
@@ -162,35 +229,7 @@ def _card_queryset(qs, stale_cutoff=None):
         )
     )
     if stale_cutoff is not None:
-        # Annotate is_stale at the queryset level so get_is_stale() reads a
-        # pre-computed boolean instead of calling timezone.now() per card (#669).
-        # A card is stale when its most recent movement predates the cutoff, or —
-        # for never-moved cards — when it was created before the cutoff.
-        # The subquery mirrors the logic in get_is_stale(): newest movement or
-        # created_at is used as the "last activity" timestamp.
-        _last_moved_sq = _db_models.Subquery(
-            _CM.objects.filter(card=_db_models.OuterRef("pk"))
-            .order_by("-moved_at")
-            .values("moved_at")[:1]
-        )
-        qs = qs.annotate(
-            _last_moved_at_for_stale=_last_moved_sq,
-            _is_stale_annotated=_db_models.Case(
-                # Card has at least one movement and it predates the cutoff.
-                _db_models.When(
-                    _last_moved_at_for_stale__lt=stale_cutoff,
-                    then=_db_models.Value(True),
-                ),
-                # Never-moved card: fall back to created_at.
-                _db_models.When(
-                    _last_moved_at_for_stale__isnull=True,
-                    created_at__lt=stale_cutoff,
-                    then=_db_models.Value(True),
-                ),
-                default=_db_models.Value(False),
-                output_field=_db_models.BooleanField(),
-            )
-        )
+        qs = _annotate_is_stale(qs, stale_cutoff)
     return qs
 
 
@@ -441,10 +480,12 @@ class BoardFullSerializer(serializers.ModelSerializer):
         caching on the board instance avoids a redundant GroupMembership query
         the second time either field accesses the ancestor chain (#695).
 
-        The cached value is stored on the board instance under
-        ``_cached_group_member_ids`` so that _get_effective_member_ids() can
-        pick it up in utils.py via a hasattr guard without requiring a context
-        argument to be threaded through the call stack.
+        Caches the full GroupMembership rows (with ``select_related("user")``)
+        on ``_cached_group_memberships`` so that ``get_members()`` can iterate
+        them directly without issuing a second query for the same group_id
+        filter (#927).  The user-id set required by ``_get_effective_member_ids``
+        is derived from the same list and stored on
+        ``_cached_group_member_ids`` to preserve the existing utils.py contract.
         """
         if instance.group_id and not hasattr(instance, "_cached_group_member_ids"):
             from groups.models import GroupMembership as _GM, Group as _Group
@@ -464,12 +505,14 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 node = node.parent
                 depth += 1
             if ancestor_ids:
-                instance._cached_group_member_ids = set(
-                    _GM.objects.filter(group_id__in=ancestor_ids)
-                    .values_list("user_id", flat=True)
+                instance._cached_group_memberships = list(
+                    _GM.objects.filter(group_id__in=ancestor_ids).select_related("user")
                 )
             else:
-                instance._cached_group_member_ids = set()
+                instance._cached_group_memberships = []
+            instance._cached_group_member_ids = {
+                gm.user_id for gm in instance._cached_group_memberships
+            }
         return super().to_representation(instance)
 
     def get_swimlanes(self, obj):
@@ -590,12 +633,20 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 node = node.parent
                 depth += 1
             if ancestor_ids:
-                from groups.models import GroupMembership
-                for gm in (
-                    GroupMembership.objects
-                    .filter(group_id__in=ancestor_ids)
-                    .select_related("user")
-                ):
+                # Reuse the GroupMembership list pre-fetched by to_representation()
+                # rather than re-issuing the same filter+select_related query (#927).
+                # The cold-cache fallback (no _cached_group_memberships attribute)
+                # only kicks in for callers that bypass to_representation() — e.g.
+                # tests or non-standard call paths.
+                cached_gms = getattr(obj, "_cached_group_memberships", None)
+                if cached_gms is None:
+                    from groups.models import GroupMembership
+                    cached_gms = list(
+                        GroupMembership.objects
+                        .filter(group_id__in=ancestor_ids)
+                        .select_related("user")
+                    )
+                for gm in cached_gms:
                     if gm.user_id not in seen:
                         seen[gm.user_id] = {"id": None, "user": gm.user, "role": gm.role, "is_moderator": False, "joined_at": gm.joined_at}
 
@@ -621,17 +672,28 @@ class BoardFullSerializer(serializers.ModelSerializer):
             if u.pk not in seen:
                 seen[u.pk] = {"id": None, "user": u, "role": "site_admin", "is_moderator": False, "joined_at": obj.created_at}
 
+        # Hide is_moderator from non-admin viewers (#920).  Resolve the
+        # requesting user's role once here rather than in the per-row loop.
+        from .permissions import get_board_role, SITE_ADMIN
+        viewer_role = self.context.get("role")
+        request = self.context.get("request")
+        if viewer_role is None and request and request.user.is_authenticated:
+            viewer_role = get_board_role(request.user, obj)
+        is_admin_viewer = viewer_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
         result = []
         for entry in seen.values():
             # Use BoardUserSerializer so private per-user fields (notification prefs,
             # UI prefs, can_access_all_content) are not exposed to other board members.
-            result.append({
+            row = {
                 "id": entry["id"],
                 "user": BoardUserSerializer(entry["user"], context=self.context).data,
                 "role": entry["role"],
-                "is_moderator": entry["is_moderator"],
                 "joined_at": entry["joined_at"],
-            })
+            }
+            if is_admin_viewer:
+                row["is_moderator"] = entry["is_moderator"]
+            result.append(row)
         return result
 
     def get_current_user_role(self, obj):
@@ -848,7 +910,13 @@ class PublicCardSerializer(serializers.ModelSerializer):
         return movements[0].moved_at if movements else None
 
     def get_is_stale(self, obj):
-        # obj.board is available via select_related("board") in get_cards().
+        # Read the SQL-level annotation when PublicBoardSerializer.get_cards()
+        # passes stale_cutoff (#926) — avoids a per-card timezone.now() branch.
+        if hasattr(obj, "_is_stale_annotated"):
+            return obj._is_stale_annotated
+        # Fallback for cold-cache callers that did not annotate (e.g. tests
+        # that build a public card queryset by hand).  obj.board is available
+        # via select_related("board") in the public get_cards() prefetch.
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
         movements = obj.movements.all()
@@ -889,4 +957,9 @@ class PublicBoardSerializer(serializers.ModelSerializer):
                 Prefetch("movements", queryset=CardMovement.objects.order_by("-moved_at")),
             )
         )
+        # Annotate is_stale at the SQL level so PublicCardSerializer.get_is_stale()
+        # reads a pre-computed boolean rather than calling timezone.now() per
+        # card (#926, mirrors CardSerializer at line 524).
+        stale_cutoff = timezone.now() - datetime.timedelta(days=obj.staleness_threshold_days)
+        qs = _annotate_is_stale(qs, stale_cutoff)
         return PublicCardSerializer(qs, many=True).data

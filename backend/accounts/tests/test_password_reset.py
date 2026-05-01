@@ -201,3 +201,41 @@ class PasswordResetThrottleStructureTests(TestCase):
         key = throttle.get_cache_key(request, MagicMock())
         self.assertIsNotNone(key)
         self.assertIn("203.0.113.5", key)
+
+
+class LoginThrottleStructureTests(TestCase):
+    """#924 — verify the login throttle subclass and URL precedence so a
+    future urls.py edit cannot silently drop the rate limit."""
+
+    def test_login_throttle_is_simple_rate_throttle(self):
+        from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+        from accounts.views import LoginRateThrottle
+        # SimpleRateThrottle (keyed on IP unconditionally) — not AnonRateThrottle
+        # which skips authenticated requests and would let an attacker bypass
+        # the limit by toggling auth state mid-attack.
+        self.assertTrue(issubclass(LoginRateThrottle, SimpleRateThrottle))
+        self.assertFalse(issubclass(LoginRateThrottle, AnonRateThrottle))
+
+    def test_login_throttle_key_is_ip_based(self):
+        from accounts.views import LoginRateThrottle
+        throttle = LoginRateThrottle()
+        request = MagicMock()
+        request.META = {"REMOTE_ADDR": "198.51.100.7"}
+        key = throttle.get_cache_key(request, MagicMock())
+        self.assertIsNotNone(key)
+        self.assertIn("198.51.100.7", key)
+
+    def test_login_view_subclass_carries_throttle_class(self):
+        from accounts.views import LoginRateThrottle, ThrottledLoginView
+        self.assertIn(LoginRateThrottle, ThrottledLoginView.throttle_classes)
+
+    def test_login_url_resolves_to_throttled_view(self):
+        """``/api/v1/auth/login/`` must resolve to ThrottledLoginView, not the
+        default dj-rest-auth LoginView.  A future urls.py reordering that
+        broke the precedence would silently re-introduce the missing-scope
+        gap reported in #924."""
+        from django.urls import resolve
+        from accounts.views import ThrottledLoginView
+        match = resolve("/api/v1/auth/login/")
+        view_cls = getattr(match.func, "view_class", None) or getattr(match.func, "cls", None)
+        self.assertIs(view_cls, ThrottledLoginView)

@@ -2,10 +2,11 @@
 
 import hashlib
 
+from django.db import IntegrityError
 from django.db.models import F
 from django.utils import timezone
 
-from .models import InviteLink
+from .models import InviteLink, InviteLinkRedemption
 
 
 class InviteTokenError(Exception):
@@ -15,6 +16,24 @@ class InviteTokenError(Exception):
         self.code = code
         self.detail = detail
         super().__init__(detail)
+
+
+def _normalize_email_for_dedup(email: str) -> str:
+    """Canonical normalisation used everywhere a redemption is checked or
+    written.  The unique constraint on InviteLinkRedemption depends on this
+    being identical across call sites — inconsistent normalisation silently
+    defeats the dedup (#925).
+
+    Only lowercase + strip.  Gmail's dot/plus collapsing is intentionally not
+    applied: ``alice+work@example.com`` and ``alice@example.com`` are different
+    legitimate addresses and collapsing them would falsely reject one of them.
+    """
+    return (email or "").strip().lower()
+
+
+def _email_hash_for_dedup(email: str) -> str:
+    """SHA-256 of the normalised email; used as the InviteLinkRedemption key."""
+    return hashlib.sha256(_normalize_email_for_dedup(email).encode()).hexdigest()
 
 
 def validate_invite_token(raw_token: str) -> InviteLink:
@@ -50,7 +69,7 @@ def validate_invite_token(raw_token: str) -> InviteLink:
     return link
 
 
-def consume_invite_token(link: InviteLink) -> None:
+def consume_invite_token(link: InviteLink, email: str | None = None) -> None:
     """Record consumption of an invite token.
 
     Always increments ``use_count`` for audit visibility — including multi-use
@@ -61,7 +80,29 @@ def consume_invite_token(link: InviteLink) -> None:
     Uses ``F()`` expressions so the increment is atomic at the database level
     even when the caller does not hold a row lock — the OAuth ``save_user``
     path (RegistrationAdapter) is one such caller.
+
+    When ``email`` is provided AND the link is multi-use, a row is also written
+    to ``InviteLinkRedemption`` so the same email cannot redeem the same link
+    twice (#925).  A duplicate redemption raises
+    ``InviteTokenError("invite_already_redeemed", ...)`` — the caller's atomic
+    block must roll back any in-flight user creation.  Single-use links are
+    already gated by ``used_at`` and do not write a redemption row.
     """
+    if email and not link.single_use:
+        try:
+            InviteLinkRedemption.objects.create(
+                invite_link=link,
+                email_hash=_email_hash_for_dedup(email),
+            )
+        except IntegrityError:
+            # The unique constraint on (invite_link, email_hash) caught a
+            # repeat redemption — could be a sequential reuse or a concurrent
+            # race.  Surface as a clean InviteTokenError so the caller can
+            # convert to 409 and the surrounding atomic block rolls back.
+            raise InviteTokenError(
+                "invite_already_redeemed",
+                "This invite link has already been redeemed with that email address.",
+            )
     InviteLink.objects.filter(pk=link.pk).update(use_count=F("use_count") + 1)
     if link.single_use:
         InviteLink.objects.filter(pk=link.pk).update(used_at=timezone.now())

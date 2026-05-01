@@ -136,6 +136,7 @@ Authentication uses the same session-cookie mechanism as the board channel. The 
 | `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object |
 | `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object |
 | `board.deleted` | Board deleted, or moved out of this group | `{ "board_id": <int>, "board_uid": <string> }` |
+| `board.star_changed` (since 1.1) | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state; clients filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
 | `group.updated` | Group ownership transferred | `{ "id": <int>, "owner_id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 

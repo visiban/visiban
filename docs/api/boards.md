@@ -488,6 +488,8 @@ Add or update a board member. Requires board admin.
 | `role` | | Role to assign (default: `"member"`). Valid: `admin`, `member`, `collaborator`, `viewer` |
 | `is_moderator` | | Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for `member` and `admin` roles — setting `true` on a collaborator or viewer returns `400 Bad Request`. Automatically cleared when demoting to collaborator or viewer. |
 
+**Visibility of `is_moderator` in board responses (since 1.1):** the `is_moderator` field is included in the `members` array of `GET /api/v1/boards/{id}/full/` only for `admin` and `site_admin` requesters. Lower-role members (`member`, `collaborator`, `viewer`) receive each member entry without the field. Mutation responses on this endpoint and `member.added` / `member.updated` WebSocket payloads continue to carry the field for backward compatibility.
+
 ### `DELETE /api/v1/boards/{id}/members/{user_id}/`
 Remove a member. Requires board admin. Cannot remove a site admin.
 

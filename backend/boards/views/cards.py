@@ -1,6 +1,7 @@
 """CardViewSet — CRUD endpoints for cards on a board, including move, archive, comments, etc."""
 
 import datetime
+import logging
 import os
 from urllib.parse import urlencode
 
@@ -32,6 +33,8 @@ from ..serializers import (
     _card_queryset,
 )
 from ._helpers import get_board_for_user, _can_modify_others_content, _refetched_card_data
+
+logger = logging.getLogger(__name__)
 
 # Broadcast event names — extracted to avoid string duplication.
 _EVT_CARD_UPDATED = "card.updated"
@@ -506,8 +509,14 @@ class CardViewSet(viewsets.ModelViewSet):
             offset = max(0, int(request.query_params.get("offset", 0)))
         except (ValueError, TypeError):
             offset = 0
-        total = qs.count()
-        page_qs = qs[offset: offset + self._ARCHIVED_PAGE_SIZE]
+        # Annotate `_total` via window function so the page fetch returns the
+        # total count alongside each row — saves a second `COUNT(*)` round-trip
+        # on boards with long archived history.  Matches the pattern in
+        # analytics.py:movements (#929).
+        page_qs = list(
+            qs.annotate(_total=Window(Count("id")))[offset: offset + self._ARCHIVED_PAGE_SIZE]
+        )
+        total = page_qs[0]._total if page_qs else 0
         # Pre-compute shared context values so CardSerializer does not call
         # _get_effective_member_ids() once per card instance (O(n) queries).
         member_ids = _get_effective_member_ids(board)
@@ -1217,6 +1226,18 @@ class CardViewSet(viewsets.ModelViewSet):
         # never touches the filesystem or object store.
         mime_error = _validate_upload_mime(file)
         if mime_error:
+            # Log every rejection so an active probe (many failures from one user
+            # or one IP) can be distinguished from benign user errors during an
+            # incident review.  The filename is intentionally omitted — it can
+            # contain PII supplied by the uploader (#923).
+            logger.warning(
+                "Attachment upload rejected: declared_type=%s board=%s card=%s user=%s reason=%s",
+                getattr(file, "content_type", None),
+                board.id,
+                card.id,
+                request.user.id,
+                mime_error,
+            )
             return Response({"detail": mime_error}, status=status.HTTP_400_BAD_REQUEST)
 
         # Wrap create + broadcast in an atomic block so that on_commit only fires
