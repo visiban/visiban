@@ -97,7 +97,7 @@ Visiban surfaces two types of alerts in the notification bell:
 - **@mentions** — you're notified when someone mentions you in a card description
 - **Staleness** — cards that haven't moved in N days (configurable per board) appear with an amber indicator and trigger a daily digest
 
-Stale cards get an ⏱ badge on the board so they're impossible to miss at a glance.
+Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.
 
 → [Notifications](notifications.md)
 
@@ -191,7 +191,7 @@ Settings are accessed from the avatar menu in the top-right navbar.
 | Number format | US (1,234.56) · European (1.234,56) · French (1 234,56) · Indian (1,23,456) |
 | Timezone | Any IANA timezone; defaults to browser-detected on first save |
 
-**Appearance** — theme switcher: System (follows OS preference) or Dark. Applied immediately and persisted in `localStorage`.
+**Appearance** — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and persisted in `localStorage`.
 
 **Notifications** — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).
 
@@ -260,7 +260,7 @@ Within the card detail History tab, the **Show full history** toggle now persist
 ## Analytics heatmap — absolute threshold coloring
 
 
-The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Stale card settings**.
+The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — `staleness_threshold_days` and `stale_warning_pct` — are configurable per board in **Board Settings → Card aging settings**.
 
 → [Analytics](analytics.md#color-coding)
 
@@ -269,7 +269,7 @@ The analytics heatmap colors cells using absolute board-level thresholds instead
 ## Onboarding tour
 
 
-First-time users see a four-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.
+First-time users see an 8-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.
 
 → [Onboarding Tour](../getting-started/onboarding-tour.md)
 
@@ -304,10 +304,10 @@ The **moderator** entitlement lets a board admin delegate content-moderation rig
 
 ---
 
-## Export restricted to members and above
+## Board export and per-board threshold
 
 
-CSV and JSON board export is now restricted to members and admins. Collaborators and viewers receive `403 Forbidden` when they request the export endpoints. This aligns the export permission with the level of access required to have meaningful use of the full data set.
+By default any board member (including Collaborators and Viewers) can export the full CSV or JSON dump. Board admins can restrict exports to a higher minimum role via the `export_min_role` board setting. A per-board export history log records every successful export and is visible to board admins.
 
 → [Board & Cards — Export](board.md#export-import)
 

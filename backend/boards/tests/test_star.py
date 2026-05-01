@@ -113,4 +113,6 @@ class BoardStarTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 self.client.delete(f"/api/v1/boards/{self.board.id}/star/")
         star_call = next(c for c in mock_broadcast.call_args_list if c.args[1] == "board.star_changed")
-        self.assertFalse(star_call.args[2]["is_starred"])
+        payload = star_call.args[2]
+        self.assertFalse(payload["is_starred"])
+        self.assertEqual(payload["uid"], str(self.board.uid))

@@ -207,8 +207,8 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 | `post_card_created/moved/closed/updated` signals | Enterprise webhooks (enterprise #39), automation (enterprise #8) | Not yet implemented |
 | `VISIBAN_WEBHOOK_BACKEND` setting | Enterprise webhooks | Not yet implemented |
 | `VISIBAN_AUTOMATION_BACKEND` setting | Enterprise automation (enterprise #8) | Not yet implemented |
-| `movement_history_export` hook | Enterprise delivery report export (#342 enterprise) | Not yet implemented |
-| `ANALYTICS_EXTENSIONS` registration | Enterprise advanced analytics (#341 enterprise) | Not yet implemented |
+| `MOVEMENT_EXPORT_BACKENDS` list (`boards/hooks.py`) | Enterprise delivery report export (#342 enterprise) | ✅ Implemented — `boards/hooks.py` |
+| `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise advanced analytics (#341 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `post_notification_created` signal | Enterprise channel delivery (enterprise #34) | Not yet implemented |
 | `BaseSnapshotStorage` / `SNAPSHOT_STORAGE_BACKEND` | Enterprise S3 snapshots (enterprise #37) | Not yet implemented |
 | `post_reminder_due` signal | Enterprise reminder delivery (enterprise #35) | Not yet implemented |

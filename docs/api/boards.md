@@ -49,11 +49,17 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/v1/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
+**`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing the group's `id`, `name`, `uid`, and `ancestors` chain. Without this parameter `group_detail` is `null`.
+
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
 
+**Permissions:** requires authentication and board access (any role). Broadcasts `board.star_changed` to all board WebSocket subscribers.
+
 ### `DELETE /api/v1/boards/{id}/star/`
-Unstar a board.
+Unstar a board. Broadcasts `board.star_changed` to all board WebSocket subscribers.
+
+**Permissions:** requires authentication and board access (any role).
 
 ### `GET /api/v1/boards/?starred=true`
 List only boards the requesting user has starred.
@@ -351,7 +357,15 @@ Delete a saved filter preset. Only the owning user can delete their own filters 
 ## Export & Import
 
 ### `GET /api/v1/boards/{id}/export/`
-Export the board as CSV. Returns a downloadable `text/csv` file. Requires board membership — non-members receive `403 Forbidden` with body `{"detail": "Board export requires board membership."}`. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
+Export the board. Append `?format=json` for a JSON dump; omit for CSV (the default).
+
+**Query parameters**
+
+| Parameter | Values | Default | Description |
+|---|---|---|---|
+| `format` | `json` | _(omit for CSV)_ | Response format. Omit or set to anything other than `json` for CSV. |
+
+Requires board membership — non-members receive `403 Forbidden` with body `{"detail": "Board export requires board membership."}`. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
 
@@ -364,6 +378,7 @@ Export the board as JSON. Returns `application/json`. Same permission rules as t
 
 ```json
 {
+  "schema_version": 2,
   "name": "Sales Pipeline",
   "description": "",
   "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true }],
@@ -424,7 +439,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 ### `POST /api/v1/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
 
-**Permission:** authenticated user. When `group_id` is set, the caller must be an admin of that group (direct or inherited); a non-admin receives `403 Forbidden`.
+**Permission:** authenticated user. When `group_id` is set, the caller must be a member of that group; a non-member receives `403 Forbidden`.
 
 **Request** (`multipart/form-data`)
 
@@ -456,7 +471,7 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
 |---|---|---|
 | `400 Bad Request` | `{"detail": "..."}` | File is missing, empty, exceeds the upload size limit, is not valid JSON/CSV, or references columns/swimlanes that fail validation. |
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
-| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not an admin of that group. |
+| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group. |
 
 ---
 
@@ -616,11 +631,11 @@ Update a swimlane. Requires board admin.
 Delete a swimlane. Requires board admin.
 
 ### `PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/`
-Toggle the default collapsed state of a swimlane. Requires member role or above (collaborators and viewers are rejected).
+Toggle the default collapsed state of a swimlane. Requires admin or site admin role — members, collaborators, and viewers are rejected.
 
 This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.
 
-**Minimum role:** member, admin, or site admin
+**Minimum role:** admin or site admin
 
 **Request**
 ```json
@@ -634,7 +649,7 @@ This sets the board-wide default for all users — it is a board structure prefe
 | Status | Body | Condition |
 |---|---|---|
 | `400 Bad Request` | `{"is_collapsed": "This field must be a boolean."}` | `is_collapsed` was not a boolean |
-| `403 Forbidden` | `{"detail": "..."}` | Caller is a collaborator or viewer |
+| `403 Forbidden` | `{"detail": "..."}` | Caller is a member, collaborator, or viewer |
 
 A `swimlane.updated` WebSocket event is broadcast to all connected board clients on success.
 

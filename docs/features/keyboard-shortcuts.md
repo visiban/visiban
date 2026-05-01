@@ -1,5 +1,7 @@
 # Keyboard shortcuts
 
+> **Added in 1.1**
+
 Visiban ships with a keyboard-first control scheme so power users can drive the board without moving their hands from the home row. Shortcuts are platform-aware: on macOS they render as glyphs (⌘, ⇧, ⌥) and on Linux / Windows they render as named chords (`Ctrl`, `Shift`, `Alt`).
 
 You can open the shortcuts overlay from any board at any time by pressing `?`, or from the avatar menu → **Keyboard shortcuts**.

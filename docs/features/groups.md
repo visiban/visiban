@@ -114,6 +114,22 @@ After transfer, the previous owner becomes a regular admin — they are not remo
 
 The star button (☆/★) in the group detail page header lets you mark frequently-visited groups as favorites. Starred groups appear in a **Favorite Groups** section at the top of the sidebar for quick access. The star updates optimistically and rolls back on failure.
 
+## Live board list
+
+> **Added in 1.1**
+
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group appear and disappear in real time without a page refresh.
+
+The group page subscribes to a per-group WebSocket channel (`ws/groups/<group_id>/`) that emits the following events:
+
+| Event | Description |
+|---|---|
+| `board.created` | A new board was created in this group |
+| `board.updated` | A board was renamed or its settings changed |
+| `board.deleted` | A board was deleted or moved out of this group |
+
+A **Live / Reconnecting… / Failed** connection status indicator in the group page header mirrors the board-view indicator — it reflects the same five states and uses the same `ConnectionStatus` component. The "Refresh board" button in the popover re-fetches the board list from the API.
+
 ## Dashboard
 
 The primary way to navigate between groups and boards is the persistent collapsible left sidebar, which shows the full group/board hierarchy. The sidebar remembers each item's collapsed or expanded state across sessions.

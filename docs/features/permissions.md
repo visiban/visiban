@@ -60,8 +60,8 @@ Visiban uses four board-level roles to control what each member can do on a boar
 !!! note "Viewer boundary enforced since 1.0"
     Prior to the 1.0 release, the Viewer role was not fully enforced at the API level — Viewers could post comments, upload attachments, and modify checklist items. This was corrected in [#248](https://gitlab.com/visiban/visiban/-/issues/248): all write operations now return `403 Forbidden` for Viewers.
 
-!!! note "Board export is available to every board member"
-    Any role with read access to a board can export its full CSV or JSON dump — including Viewers and Collaborators. A role that can read every card via the paginated API can already reconstruct the board, so a separate role gate on bulk export would be inconsistent. This policy was re-affirmed in [#800](https://gitlab.com/visiban/visiban/-/issues/800). A per-board `export_min_role` override is planned in [#807](https://gitlab.com/visiban/visiban/-/issues/807) so administrators can lock down sensitive boards without changing the global default, and an audit log of every export is planned in [#806](https://gitlab.com/visiban/visiban/-/issues/806).
+!!! note "Board export default and per-board threshold"
+    By default, any board member (including Viewers and Collaborators) can export the full CSV or JSON dump. A role that can read every card via the paginated API can already reconstruct the board, so an unrestricted default is consistent. This policy was re-affirmed in [#800](https://gitlab.com/visiban/visiban/-/issues/800). Board admins can restrict exports to a higher minimum role using the `export_min_role` board setting (added in 1.1, [#807](https://gitlab.com/visiban/visiban/-/issues/807)) — set it to `member`, `collaborator`, or any other level; Owners and site admins always bypass the threshold. Every successful export is recorded in the board's export history (added in 1.1, [#806](https://gitlab.com/visiban/visiban/-/issues/806)) and is visible to board admins under **Board Settings → Export History**.
 
 ## How to set roles
 

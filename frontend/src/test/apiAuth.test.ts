@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, verifyEmail } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, verifyEmail, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -175,5 +175,57 @@ describe('admin invite link API', () => {
     mockPost.mockResolvedValue({ data: { id: 5, is_active: false } })
     await deactivateAdminUser(5)
     expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/users/5/deactivate/', { transfers: [] })
+  })
+})
+
+describe('me/ patch helpers', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('completeTour PATCHes has_completed_tour true and returns user', async () => {
+    const user = { id: 1, has_completed_tour: true }
+    mockPatch.mockResolvedValue({ data: user })
+    const result = await completeTour()
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/auth/me/', { has_completed_tour: true })
+    expect(result).toEqual(user)
+  })
+
+  it('resetTour PATCHes has_completed_tour false and returns undefined', async () => {
+    mockPatch.mockResolvedValue({ data: { has_completed_tour: false } })
+    const result = await resetTour()
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/auth/me/', { has_completed_tour: false })
+    expect(result).toBeUndefined()
+  })
+
+  it('updateDefaultBoard PATCHes default_board_id with a numeric id', async () => {
+    const user = { id: 1, default_board_id: 42 }
+    mockPatch.mockResolvedValue({ data: user })
+    const result = await updateDefaultBoard(42)
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/auth/me/', { default_board_id: 42 })
+    expect(result).toEqual(user)
+  })
+
+  it('updateDefaultBoard PATCHes default_board_id with null to clear', async () => {
+    const user = { id: 1, default_board_id: null }
+    mockPatch.mockResolvedValue({ data: user })
+    await updateDefaultBoard(null)
+    expect(mockPatch).toHaveBeenCalledWith('/api/v1/auth/me/', { default_board_id: null })
+  })
+})
+
+describe('searchUsers', () => {
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('calls GET /api/v1/users/ with encoded search param', async () => {
+    const users = [{ id: 1, username: 'alice' }]
+    mockGet.mockResolvedValue({ data: users })
+    const result = await searchUsers('alice')
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/users/?search=alice')
+    expect(result).toEqual(users)
+  })
+
+  it('URL-encodes the query string', async () => {
+    mockGet.mockResolvedValue({ data: [] })
+    await searchUsers('first last')
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/users/?search=first%20last')
   })
 })

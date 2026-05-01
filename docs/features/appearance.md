@@ -1,8 +1,10 @@
 # Appearance
 
+> **Added in 1.1**
+
 Visiban supports a per-user appearance preference with three options:
 
-| Option | Behaviour |
+| Option | Behavior |
 |---|---|
 | **System** (default) | Follows your operating system's light/dark preference, and updates live when you change it at the OS level. |
 | **Dark** | Always use the dark palette, regardless of OS preference. |
@@ -51,7 +53,7 @@ Administrators who wish to hide the Light option — for example, on an install-
 
 Two related enhancements are tracked on the roadmap but are not part of the initial light-theme release:
 
-- **User-picked accent colours** — choose a custom accent colour used for primary actions and active states, independent of light/dark.
+- **User-picked accent colors** — choose a custom accent color used for primary actions and active states, independent of light/dark.
 - **Admin-configured install-wide palettes** — instance administrators will be able to brand Visiban with a custom palette that applies to all users.
 
 Both are scheduled as independent features; see the project issue tracker for timing.

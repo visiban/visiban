@@ -9,6 +9,14 @@ When creating a new board, you can select from a set of pre-built templates in t
 
 Templates are applied once at creation time — after the board is created you can rename, reorder, add, or remove columns freely.
 
+### Inline board rename
+
+> **Added in 1.1**
+
+Board admins can rename a board without opening the settings modal: click the board name in the top-left breadcrumb to enter an inline edit field. Press **Enter** to confirm, **Escape** to cancel. Non-admins see the board name as plain text and cannot click to edit it.
+
+**API:** `PATCH /api/v1/boards/{id}/` with `{ "name": "New name" }`
+
 ## Board layout
 
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
@@ -156,6 +164,14 @@ Each card belongs to exactly one column and one swimlane. Cards have:
 | Attachments | Files up to 10 MB (configurable via `MAX_UPLOAD_SIZE`) |
 | Comments | Threaded, visible to all board members; type `@` to mention a member; timestamps show relative time ("5m ago", "3h ago") for recent comments and full date + time for older ones |
 
+### Card peek
+
+> **Added in 1.1**
+
+Hovering over a card for 600 ms opens a read-only **peek popover** showing the card's description (rendered as markdown), checklist progress (`done / total`), and the last-activity timestamp. The popover closes as soon as the pointer leaves the card or any movement begins. No interaction is possible inside the popover — click the card to open the full detail panel.
+
+The 600 ms delay means casual scrolling and rapid drag-and-drop do not trigger the popover unintentionally.
+
 ## Drag and drop
 
 Cards are dragged between cells using @dnd-kit. Updates are **optimistic** — the UI moves the card immediately and rolls back if the API call fails.
@@ -246,9 +262,25 @@ An active filter count badge appears on the Filters button when filters are in u
 
 When all filters are active and no cards match, a **"No cards match"** banner appears across the board area so it is clear the board has cards but none satisfy the current criteria.
 
+#### URL-serialized filter state
+
+> **Added in 1.1**
+
+Active filters are serialized into the page URL as query parameters so filter combinations can be bookmarked and shared:
+
+| Parameter | Filter |
+|---|---|
+| `?f_search=` | Search term |
+| `?f_assignees=` | Comma-separated user IDs |
+| `?f_labels=` | Comma-separated label IDs |
+| `?f_priorities=` | Comma-separated priority values (e.g. `high,urgent`) |
+| `?f_due=` | Due-date filter value (`overdue`, `today`, `this_week`, `none`) |
+
+The filter state is restored from the URL on page load and persists across reloads. Share the URL with any board member to hand off a pre-filtered view.
+
 ### Saved filters
 
-> **Added in 1.0**
+> **Added in 1.0** · **Tab pills added in 1.1**
 
 You can save the current filter combination under a name and restore it later in one click. Saved filters are stored server-side, so they persist across devices and browsers.
 
@@ -260,7 +292,7 @@ You can save the current filter combination under a name and restore it later in
 
 **Loading a saved filter:**
 
-Open the **Saved** dropdown and click any previously saved filter. The filter bar updates immediately.
+Saved filters appear as one-click **tab pills** above the filter bar (added in 1.1). Click any pill to apply that filter preset immediately — no dropdown required. The active pill is highlighted. Open the **Saved** dropdown to manage presets (save, rename, delete).
 
 **Deleting a saved filter:**
 
