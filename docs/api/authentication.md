@@ -577,4 +577,6 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | `401 Unauthorized` | Missing or invalid token | Check the `Authorization` header format: `Token <key>`. For PATs, ensure the full `vbn_...` value is used. |
 | `403 Forbidden` | Valid token but insufficient role | Check the user's role on the board/group |
 | `403 Forbidden` (CSRF) | Session auth without CSRF token | Include `X-CSRFToken` header, or switch to token auth |
+| `403 Forbidden` (`must_change_password`) | Admin set a forced password-change flag on this account | Call `POST /api/v1/auth/change-password/` to clear the flag; all other endpoints are blocked until then |
+| `403 Forbidden` (`must_change_username`) | Account's auto-generated username collided during migration | Call `POST /api/v1/auth/choose-username/` — the response body includes `"code": "must_change_username"` as a machine-readable signal |
 | `404 Not Found` (PAT delete) | Token ID not found or belongs to another user | Verify the token ID from `GET /api/v1/auth/tokens/` |

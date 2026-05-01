@@ -68,7 +68,7 @@ The time a card spends in a column is the gap between two consecutive `CardMovem
 
 ## Stale card detection
 
-If a card's most recent `CardMovement` is older than the board's `staleness_threshold_days` (default: 7 days), the card is considered stale and an amber ⏱ badge appears on the board. See [Notifications](notifications.md).
+If a card's most recent `CardMovement` is older than the board's `staleness_threshold_days` (default: 7 days), the card is considered stale and an amber tint overlay with reduced opacity appears on the card in the board view. See [Notifications](notifications.md).
 
 ## API access
 

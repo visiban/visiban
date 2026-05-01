@@ -15,9 +15,11 @@ The top-right corner of the board toolbar shows the connection state:
 
 - 🟢 **Live** — WebSocket connected; dot pulses with a green animation
 - 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; dot pulses amber
-- ⚫ **Offline** — connection permanently failed (authentication error or repeated failures); dot is grey and static — reload the page to reconnect
+- 🟡 **Stale** — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging
+- 🟡 **Connecting…** — initial connection attempt in progress
+- 🔴 **Failed** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
 
-The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Offline**.
+The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Failed**.
 
 ## Event types
 
@@ -27,6 +29,7 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 |---|---|
 | `board.updated` | Board settings changed, share token toggled, or board moved between groups |
 | `board.deleted` | Board deleted |
+| `board.star_changed` | Board starred or unstarred by any member (added in 1.1) |
 
 ### Member events
 
@@ -128,8 +131,10 @@ For most events, `data` is the full serialized object. Deletion and archive-remo
 ```
 
 ```json
-{ "event": "board.deleted", "data": { "board_id": 7 } }
+{ "event": "board.deleted", "data": { "board_uid": "bd_1a2b3c4d5e6f7890", "board_id": 7 } }
 ```
+
+`board_uid` was added in 1.1 (#696). `board_id` is retained for backward compatibility.
 
 ```json
 { "event": "member.removed", "data": { "user_id": 42 } }

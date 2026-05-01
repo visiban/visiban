@@ -77,7 +77,7 @@ Each board has a `staleness_threshold_days` setting (default: **7 days**). A car
 
 ### Stale card indicator
 
-Cards that are stale show an amber left border and a ⏱ badge in the board view.
+Cards that are stale show an amber tint overlay with reduced opacity in the board view.
 
 ### Running the stale check
 

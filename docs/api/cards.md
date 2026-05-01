@@ -47,6 +47,8 @@ Get a single card. The response includes a `uid` field — a stable 16-character
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
 
+> **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
+
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`
 
 > **Do not PATCH `column` or `swimlane` directly.** These fields are present in the serializer response but patching them bypasses WIP/weight enforcement, skips `CardMovement` record creation, and skips position reordering — corrupting board state silently. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`.
@@ -56,12 +58,16 @@ Update card fields. Requires member or above.
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/`
 Delete a card. Requires member or above.
 
+> **Ownership gate:** Members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
+
 ---
 
 ## Archive
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/archive/`
 Soft-delete a card. Sets `archived_at` to the current timestamp. The card is removed from the active board view and excluded from WIP/weight counts. **Minimum role: Member.**
+
+> **Ownership gate:** Members may only archive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 If the card is already archived this is a no-op — `200 OK` is returned with the current card state.
 
@@ -71,6 +77,8 @@ Broadcasts `card.archived` to all board WebSocket subscribers.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
+
+> **Ownership gate:** Members may only unarchive cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
 **Response** — full card object with `archived_at: null`.
 
@@ -120,6 +128,8 @@ Check whether a card exists and whether it is archived. Used by the deep-link ha
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/move/`
 Move a card to a new column/swimlane/position. Creates a `CardMovement` record if column or swimlane changes. Requires member or above.
+
+> **Ownership gate:** Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card that is assigned to a different user and that the member did not create requires the `is_moderator` entitlement or Admin role. In that case, non-moderator members receive `403 Forbidden` with body `{"code": "permission_denied", "detail": "Moving a card assigned to another member requires Moderator or Admin access — ask a board admin."}`.
 
 **Request**
 ```json
@@ -329,7 +339,7 @@ Add a comment. **Minimum role: Collaborator.**
 **Request** `{ "body": "Looking into this now." }`
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/comments/{comment_id}/`
-Delete a comment. **Minimum role: Collaborator.** Collaborators and members may only delete their own comments. Admins and members/collaborators with the `is_moderator` entitlement may delete any comment.
+Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete their own comments. Members with the `is_moderator` entitlement (or admin role) may delete any comment. Collaborators cannot delete others' comments regardless of `is_moderator`.
 
 ---
 
@@ -373,7 +383,7 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 ```
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
-Delete an attachment. **Minimum role: Collaborator.** Collaborators and members may only delete their own attachments. Members/collaborators with the `is_moderator` entitlement may delete any attachment.
+Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`.
 
 ---
 
