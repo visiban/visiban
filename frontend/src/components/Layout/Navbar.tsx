@@ -176,6 +176,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           {/* Notification bell */}
           <div ref={bellRef} className="relative">
             <button
+              type="button"
               onClick={openBell}
               className="relative text-fg-secondary hover:text-fg transition p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               title="Notifications"
@@ -190,7 +191,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               )}
             </button>
             {showBell && (
-              <div className="absolute right-0 top-8 w-80 bg-surface rounded-lg shadow-xl border border-line z-50">
+              <div className="absolute right-0 top-8 w-80 bg-surface rounded-lg shadow-xl border border-line-strong z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-line">
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   <button

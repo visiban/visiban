@@ -346,9 +346,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Use state-only eviction — the delete already happened on the server;
       // calling onColumnDeleted would fire a redundant DELETE API request.
       evictColumn((d as { column_uid: string }).column_uid);
-    } else if (event.event === "columns.reordered" || event.event === "column.reordered") {
-      // Backend emits both plural (legacy 1.0) and singular (canonical from 1.1) names
-      // during the deprecation window; the plural form will be removed in 2.0.
+    } else if (event.event === "column.reordered") {
       onColumnOrderApplied((d as { columns: Column[] }).columns);
     } else if (event.event === "swimlane.created") {
       onSwimlaneAdded(d as unknown as Swimlane);
@@ -358,9 +356,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // Use state-only eviction — the delete already happened on the server;
       // calling onSwimlaneDeleted would fire a redundant DELETE API request.
       evictSwimlane((d as { swimlane_uid: string }).swimlane_uid);
-    } else if (event.event === "swimlanes.reordered" || event.event === "swimlane.reordered") {
-      // Backend emits both plural (legacy 1.0) and singular (canonical from 1.1) names
-      // during the deprecation window; the plural form will be removed in 2.0.
+    } else if (event.event === "swimlane.reordered") {
       onSwimlaneOrderApplied((d as { swimlanes: Swimlane[] }).swimlanes);
     } else if (event.event === "label.created") {
       onLabelAdded(d as unknown as Label);

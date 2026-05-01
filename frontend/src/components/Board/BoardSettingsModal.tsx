@@ -503,7 +503,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       {suggestions.length > 0 && dropdownAnchor && (
                         <div
                           style={{ position: "fixed", top: dropdownAnchor.top, left: dropdownAnchor.left, width: dropdownAnchor.width }}
-                          className="bg-surface border border-line-strong rounded-xl shadow-xl z-[60] overflow-hidden"
+                          className="bg-surface border border-line-strong rounded-lg shadow-xl z-[60] overflow-hidden"
                         >
                           {suggestions.map((u) => (
                             <button
@@ -558,8 +558,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       </div>
                     )}
 
-                    {inviteError && <p className="text-xs text-danger">{inviteError}</p>}
-                    {inviteSuccess && <p className="text-xs text-success">{inviteSuccess}</p>}
+                    <p className="text-xs h-4">
+                      <span className={inviteError ? "text-danger" : inviteSuccess ? "text-success" : ""}>{inviteError ?? inviteSuccess ?? ""}</span>
+                    </p>
 
                     <button
                       onClick={handleInviteSubmit}
@@ -984,7 +985,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                 type="checkbox"
                                 checked={!isHidden}
                                 onChange={() => onToggleHiddenColumn(col.id)}
-                                className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                                className="w-4 h-4 rounded accent-primary shrink-0"
                               />
                             </label>
                           );
@@ -1015,7 +1016,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                                 type="checkbox"
                                 checked={!isHidden}
                                 onChange={() => onToggleHiddenSwimlane(lane.id)}
-                                className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                                className="w-4 h-4 rounded accent-primary shrink-0"
                               />
                             </label>
                           );
@@ -1050,7 +1051,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                               type="checkbox"
                               checked={!hidden}
                               onChange={(e) => onSetCardFieldPref(field, !e.target.checked)}
-                              className="w-4 h-4 rounded accent-blue-500 shrink-0"
+                              className="w-4 h-4 rounded accent-primary shrink-0"
                             />
                           </label>
                         );

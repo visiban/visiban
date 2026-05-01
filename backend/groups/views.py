@@ -617,9 +617,11 @@ class GroupViewSet(viewsets.ModelViewSet):
                 group=group, user=request.user,
                 defaults={"role": GroupMembership.Role.ADMIN},
             )
-            def _broadcast_transfer(gid=group.pk, oid=int(new_owner_id)):
+            group_data = GroupSerializer(group, context={"request": request}).data
+
+            def _broadcast_transfer(gid=group.pk, data=group_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "group.updated", {"id": gid, "owner_id": oid})
+                broadcast_group_event(gid, "group.updated", data)
 
             transaction.on_commit(_broadcast_transfer)
 

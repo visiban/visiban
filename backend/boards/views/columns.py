@@ -100,12 +100,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
             Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
             cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
             board_id = board.id
-            # Emit both plural (legacy 1.0) and singular (canonical from 1.1) event names.
-            # The plural form is deprecated and will be removed in 2.0. See issue #807.
             def _broadcast_column_reorder() -> None:
-                payload = {"columns": list(cols_data)}
-                _broadcast.broadcast_board_event(board_id, "columns.reordered", payload)
-                _broadcast.broadcast_board_event(board_id, "column.reordered", payload)
+                _broadcast.broadcast_board_event(board_id, "column.reordered", {"columns": list(cols_data)})
 
             transaction.on_commit(_broadcast_column_reorder)
         return Response(cols_data)

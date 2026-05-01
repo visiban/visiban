@@ -240,13 +240,14 @@ class BoardViewSet(
             # Star is per-user state, but a user may have multiple tabs open on
             # the same board; broadcast so other sessions of the same user sync
             # without a full refetch. Clients filter on user_id === me (#814).
+            board_uid = board.uid
             board_id = board.pk
             user_id = request.user.id
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(
                     board_id,
                     "board.star_changed",
-                    {"board_id": board_id, "user_id": user_id, "is_starred": is_starred},
+                    {"uid": board_uid, "user_id": user_id, "is_starred": is_starred},
                 )
             )
         return Response(self.get_serializer(board).data)
@@ -463,11 +464,12 @@ class BoardViewSet(
         # without receiving the state_json contents (which are that user's personal
         # configuration and should not be pushed to all co-members on the board).
         # The creating user receives the full payload via the HTTP response below.
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(
-                board_id, "saved_filter.created", {"filter_id": filter_id, "user_id": user_id}
+        with transaction.atomic():
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(
+                    board_id, "saved_filter.created", {"filter_id": filter_id, "user_id": user_id}
+                )
             )
-        )
         return Response(serialized, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path=r"saved-filters/(?P<filter_pk>[0-9]+)")
@@ -485,12 +487,13 @@ class BoardViewSet(
         board_id = board.id
         filter_id = saved.id
         user_id = request.user.id
-        saved.delete()
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(
-                board_id, "saved_filter.deleted", {"filter_id": filter_id, "user_id": user_id}
+        with transaction.atomic():
+            saved.delete()
+            transaction.on_commit(
+                lambda: _broadcast.broadcast_board_event(
+                    board_id, "saved_filter.deleted", {"filter_id": filter_id, "user_id": user_id}
+                )
             )
-        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])

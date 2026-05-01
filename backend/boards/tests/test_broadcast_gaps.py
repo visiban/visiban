@@ -279,7 +279,7 @@ class MembershipBroadcastTests(BroadcastGapsMixin, TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Reorder → columns.reordered / swimlanes.reordered
+# Reorder → column.reordered / swimlane.reordered
 # ---------------------------------------------------------------------------
 
 class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
@@ -289,7 +289,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
         self.col2 = Column.objects.create(board=self.board, name="In Progress", position=1)
         self.swim2 = Swimlane.objects.create(board=self.board, name="Beta Corp", position=1)
 
-    def test_column_reorder_broadcasts_columns_reordered_after_commit(self):
+    def test_column_reorder_broadcasts_column_reordered_after_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
@@ -298,9 +298,8 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
-            # Since 1.1 both the legacy plural and new singular names are emitted; see issue #807.
-            self.assertIn("columns.reordered", event_types)
             self.assertIn("column.reordered", event_types)
+            self.assertNotIn("columns.reordered", event_types)
 
     def test_column_reorder_broadcast_not_called_before_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
@@ -311,7 +310,7 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 )
                 mock_broadcast.assert_not_called()
 
-    def test_swimlane_reorder_broadcasts_swimlanes_reordered_after_commit(self):
+    def test_swimlane_reorder_broadcasts_swimlane_reordered_after_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self.client.post(
@@ -320,9 +319,8 @@ class ReorderBroadcastTests(BroadcastGapsMixin, TestCase):
                 )
             self.assertEqual(resp.status_code, status.HTTP_200_OK)
             event_types = [c[0][1] for c in mock_broadcast.call_args_list]
-            # Since 1.1 both the legacy plural and new singular names are emitted; see issue #807.
-            self.assertIn("swimlanes.reordered", event_types)
             self.assertIn("swimlane.reordered", event_types)
+            self.assertNotIn("swimlanes.reordered", event_types)
 
     def test_swimlane_reorder_broadcast_not_called_before_commit(self):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:

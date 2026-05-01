@@ -103,6 +103,7 @@ class BoardStarTests(TestCase):
         self.assertIn("board.star_changed", event_types)
         star_call = next(c for c in mock_broadcast.call_args_list if c.args[1] == "board.star_changed")
         payload = star_call.args[2]
+        self.assertEqual(payload["uid"], str(self.board.uid))
         self.assertEqual(payload["user_id"], self.user.id)
         self.assertTrue(payload["is_starred"])
 
