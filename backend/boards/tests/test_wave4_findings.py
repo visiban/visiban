@@ -72,7 +72,8 @@ class JsonImportTopLevelTypeValidationTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def _import(self, payload_dict):
-        import io, json
+        import io
+        import json
         f = io.BytesIO(json.dumps(payload_dict).encode("utf-8"))
         f.name = "board.json"
         return self.client.post(
