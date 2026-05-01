@@ -2544,6 +2544,8 @@
       
         
       
+        
+      
     
     
     
@@ -2781,6 +2783,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -3325,10 +3355,13 @@
 <p>Delete board. Requires board owner or site admin.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
 <p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
+<p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing the group's <code>id</code>, <code>name</code>, <code>uid</code>, and <code>ancestors</code> chain. Without this parameter <code>group_detail</code> is <code>null</code>.</p>
 <h3 id="post-apiv1boardsidstar"><code>POST /api/v1/boards/{id}/star/</code><a class="headerlink" href="#post-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
 <p>Star (favorite) a board. Returns <code>200 OK</code> with the updated board object (whether or not the board was already starred).</p>
+<p><strong>Permissions:</strong> requires authentication and board access (any role). Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>
 <h3 id="delete-apiv1boardsidstar"><code>DELETE /api/v1/boards/{id}/star/</code><a class="headerlink" href="#delete-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
-<p>Unstar a board.</p>
+<p>Unstar a board. Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>
+<p><strong>Permissions:</strong> requires authentication and board access (any role).</p>
 <h3 id="get-apiv1boardsstarredtrue"><code>GET /api/v1/boards/?starred=true</code><a class="headerlink" href="#get-apiv1boardsstarredtrue" title="Permanent link">&para;</a></h3>
 <p>List only boards the requesting user has starred.</p>
 <h3 id="post-apiv1boardsidmove-group"><code>POST /api/v1/boards/{id}/move-group/</code><a class="headerlink" href="#post-apiv1boardsidmove-group" title="Permanent link">&para;</a></h3>
@@ -3918,37 +3951,58 @@
 <hr />
 <h2 id="export-import">Export &amp; Import<a class="headerlink" href="#export-import" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsidexport"><code>GET /api/v1/boards/{id}/export/</code><a class="headerlink" href="#get-apiv1boardsidexport" title="Permanent link">&para;</a></h3>
-<p>Export the board as CSV. Returns a downloadable <code>text/csv</code> file. Requires board membership — non-members receive <code>403 Forbidden</code> with body <code>{"detail": "Board export requires board membership."}</code>. If the caller is a member but their role is below the board's <code>export_min_role</code> threshold, returns <code>403 Forbidden</code> with body <code>{"detail": "...", "code": "export_restricted", "min_role": "&lt;threshold&gt;"}</code>. Owners and site admins always bypass the threshold.</p>
+<p>Export the board. Append <code>?format=json</code> for a JSON dump; omit for CSV (the default).</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Values</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code></td>
+<td><code>json</code></td>
+<td><em>(omit for CSV)</em></td>
+<td>Response format. Omit or set to anything other than <code>json</code> for CSV.</td>
+</tr>
+</tbody>
+</table>
+<p>Requires board membership — non-members receive <code>403 Forbidden</code> with body <code>{"detail": "Board export requires board membership."}</code>. If the caller is a member but their role is below the board's <code>export_min_role</code> threshold, returns <code>403 Forbidden</code> with body <code>{"detail": "...", "code": "export_restricted", "min_role": "&lt;threshold&gt;"}</code>. Owners and site admins always bypass the threshold.</p>
 <p><strong>CSV columns:</strong> <code>Card ID</code>, <code>Title</code>, <code>Description</code>, <code>Column</code>, <code>Swimlane</code>, <code>Priority</code>, <code>Assignee</code>, <code>Labels</code>, <code>Due Date</code>, <code>Weight</code>, <code>Created At</code>, <code>Created By</code>, <code>Last Moved At</code>, <code>Movement Count</code>, <code>Movement History</code></p>
 <p><code>Movement History</code> is a semicolon-separated list of pipe-delimited records: <code>&lt;timestamp&gt;|&lt;from_column&gt;|&lt;to_column&gt;|&lt;moved_by&gt;</code>.</p>
 <h3 id="get-apiv1boardsidexportformatjson"><code>GET /api/v1/boards/{id}/export/?format=json</code><a class="headerlink" href="#get-apiv1boardsidexportformatjson" title="Permanent link">&para;</a></h3>
 <p>Export the board as JSON. Returns <code>application/json</code>. Same permission rules as the CSV variant: requires board membership and meeting the <code>export_min_role</code> threshold. Owners and site admins always bypass.</p>
 <p><strong>Response shape:</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#64748B&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;wip_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;weight_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;allow_card_creation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#3B82F6&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;contact_email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#EF4444&quot;</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">&quot;cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">&quot;column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">&quot;swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">&quot;assignee&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Bug&quot;</span><span class="p">],</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nt">&quot;due_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-01&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-01T10:00:00Z&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="nt">&quot;created_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">      </span><span class="nt">&quot;comments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bob&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;On it.&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-02T09:00:00Z&quot;</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">      </span><span class="nt">&quot;checklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Write tests&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;is_checked&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="p">}</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#64748B&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;wip_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;weight_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;allow_card_creation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#3B82F6&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;contact_email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#EF4444&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">&quot;cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">&quot;column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">&quot;swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">&quot;assignee&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Bug&quot;</span><span class="p">],</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">&quot;due_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-01&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-01T10:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">      </span><span class="nt">&quot;created_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">      </span><span class="nt">&quot;comments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bob&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;On it.&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-02T09:00:00Z&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">      </span><span class="nt">&quot;checklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Write tests&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;is_checked&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="get-apiv1boardsidexport-history"><code>GET /api/v1/boards/{id}/export-history/</code><a class="headerlink" href="#get-apiv1boardsidexport-history" title="Permanent link">&para;</a></h3>
 <p>Return recent successful board exports for audit purposes (#842). Requires board <code>admin</code> or <code>site_admin</code> role — other roles (including board owners who are not also admins) receive <code>403 Forbidden</code> with body <code>{"detail": "Export history is restricted to board admins."}</code>. Failed exports (permission denied, rate limited) are not logged.</p>
@@ -4001,7 +4055,7 @@
 </table>
 <h3 id="post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code><a class="headerlink" href="#post-apiv1boardsimport" title="Permanent link">&para;</a></h3>
 <p>Import a board from a Visiban JSON or CSV export file. Accepts <code>multipart/form-data</code> with a <code>file</code> field, an optional <code>name</code> field to override the board name, and an optional <code>group_id</code> field to place the imported board into a group. Creates a new board atomically.</p>
-<p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be an admin of that group (direct or inherited); a non-admin receives <code>403 Forbidden</code>.</p>
+<p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group; a non-member receives <code>403 Forbidden</code>.</p>
 <p><strong>Request</strong> (<code>multipart/form-data</code>)</p>
 <table>
 <thead>
@@ -4064,7 +4118,7 @@
 <tr>
 <td><code>403 Forbidden</code></td>
 <td><code>{"detail": "..."}</code></td>
-<td><code>group_id</code> was supplied but the caller is not an admin of that group.</td>
+<td><code>group_id</code> was supplied but the caller is not a member of that group.</td>
 </tr>
 </tbody>
 </table>
@@ -4279,9 +4333,9 @@
 <h3 id="delete-apiv1boardsidswimlanesswimlane_id"><code>DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#delete-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Delete a swimlane. Requires board admin.</p>
 <h3 id="patch-apiv1boardsidswimlanesswimlane_idset-collapsed"><code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/</code><a class="headerlink" href="#patch-apiv1boardsidswimlanesswimlane_idset-collapsed" title="Permanent link">&para;</a></h3>
-<p>Toggle the default collapsed state of a swimlane. Requires member role or above (collaborators and viewers are rejected).</p>
+<p>Toggle the default collapsed state of a swimlane. Requires admin or site admin role — members, collaborators, and viewers are rejected.</p>
 <p>This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.</p>
-<p><strong>Minimum role:</strong> member, admin, or site admin</p>
+<p><strong>Minimum role:</strong> admin or site admin</p>
 <p><strong>Request</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;is_collapsed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
@@ -4304,7 +4358,7 @@
 <tr>
 <td><code>403 Forbidden</code></td>
 <td><code>{"detail": "..."}</code></td>
-<td>Caller is a collaborator or viewer</td>
+<td>Caller is a member, collaborator, or viewer</td>
 </tr>
 </tbody>
 </table>

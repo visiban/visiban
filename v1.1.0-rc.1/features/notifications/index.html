@@ -2036,6 +2036,8 @@
       
         
       
+        
+      
     
     
     
@@ -2273,6 +2275,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -2768,7 +2798,7 @@
 <h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>
 <p>Each board has a <code>staleness_threshold_days</code> setting (default: <strong>7 days</strong>). A card is stale when its last <code>CardMovement</code> record is older than this threshold (or when a card has never been moved and was created more than that many days ago).</p>
 <h3 id="stale-card-indicator">Stale card indicator<a class="headerlink" href="#stale-card-indicator" title="Permanent link">&para;</a></h3>
-<p>Cards that are stale show an amber left border and a ⏱ badge in the board view.</p>
+<p>Cards that are stale show an amber tint overlay with reduced opacity in the board view.</p>
 <h3 id="running-the-stale-check">Running the stale check<a class="headerlink" href="#running-the-stale-check" title="Permanent link">&para;</a></h3>
 <p>The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards

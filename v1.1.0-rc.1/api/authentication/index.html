@@ -2269,6 +2269,8 @@
       
         
       
+        
+      
     
     
     
@@ -2506,6 +2508,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -3663,6 +3693,16 @@ can detect the condition and call this endpoint programmatically.</p>
 <td><code>403 Forbidden</code> (CSRF)</td>
 <td>Session auth without CSRF token</td>
 <td>Include <code>X-CSRFToken</code> header, or switch to token auth</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code> (<code>must_change_password</code>)</td>
+<td>Admin set a forced password-change flag on this account</td>
+<td>Call <code>POST /api/v1/auth/change-password/</code> to clear the flag; all other endpoints are blocked until then</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code> (<code>must_change_username</code>)</td>
+<td>Account's auto-generated username collided during migration</td>
+<td>Call <code>POST /api/v1/auth/choose-username/</code> — the response body includes <code>"code": "must_change_username"</code> as a machine-readable signal</td>
 </tr>
 <tr>
 <td><code>404 Not Found</code> (PAT delete)</td>

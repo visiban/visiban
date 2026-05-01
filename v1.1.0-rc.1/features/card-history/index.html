@@ -1998,6 +1998,8 @@
       
         
       
+        
+      
     
     
     
@@ -2235,6 +2237,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -2736,7 +2766,7 @@
 <h2 id="how-dwell-time-is-calculated">How dwell time is calculated<a class="headerlink" href="#how-dwell-time-is-calculated" title="Permanent link">&para;</a></h2>
 <p>The time a card spends in a column is the gap between two consecutive <code>CardMovement</code> records. The Analytics view uses these gaps to compute median dwell time per stage and flag outliers. See <a href="../analytics/">Analytics</a>.</p>
 <h2 id="stale-card-detection">Stale card detection<a class="headerlink" href="#stale-card-detection" title="Permanent link">&para;</a></h2>
-<p>If a card's most recent <code>CardMovement</code> is older than the board's <code>staleness_threshold_days</code> (default: 7 days), the card is considered stale and an amber ⏱ badge appears on the board. See <a href="../notifications/">Notifications</a>.</p>
+<p>If a card's most recent <code>CardMovement</code> is older than the board's <code>staleness_threshold_days</code> (default: 7 days), the card is considered stale and an amber tint overlay with reduced opacity appears on the card in the board view. See <a href="../notifications/">Notifications</a>.</p>
 <h2 id="api-access">API access<a class="headerlink" href="#api-access" title="Permanent link">&para;</a></h2>
 <p>Movement history and the activity log are accessible via the API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>GET /api/v1/boards/{board_id}/cards/{card_id}/movements/

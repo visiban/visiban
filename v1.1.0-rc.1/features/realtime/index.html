@@ -2103,6 +2103,8 @@
       
         
       
+        
+      
     
     
     
@@ -2340,6 +2342,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -2765,9 +2795,11 @@
 <ul>
 <li>🟢 <strong>Live</strong> — WebSocket connected; dot pulses with a green animation</li>
 <li>🟡 <strong>Reconnecting…</strong> — connection dropped; client is retrying automatically; dot pulses amber</li>
-<li>⚫ <strong>Offline</strong> — connection permanently failed (authentication error or repeated failures); dot is grey and static — reload the page to reconnect</li>
+<li>🟡 <strong>Stale</strong> — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging</li>
+<li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress</li>
+<li>🔴 <strong>Failed</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
-<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Offline</strong>.</p>
+<p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Failed</strong>.</p>
 <h2 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h2>
 <h3 id="board-events">Board events<a class="headerlink" href="#board-events" title="Permanent link">&para;</a></h3>
 <table>
@@ -2785,6 +2817,10 @@
 <tr>
 <td><code>board.deleted</code></td>
 <td>Board deleted</td>
+</tr>
+<tr>
+<td><code>board.star_changed</code></td>
+<td>Board starred or unstarred by any member (added in 1.1)</td>
 </tr>
 </tbody>
 </table>
@@ -2972,8 +3008,9 @@
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label.deleted&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;label_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;board.deleted&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;board_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;board.deleted&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;board_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bd_1a2b3c4d5e6f7890&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;board_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
+<p><code>board_uid</code> was added in 1.1 (#696). <code>board_id</code> is retained for backward compatibility.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;event&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;member.removed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;user_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <h3 id="reorder-payloads">Reorder payloads<a class="headerlink" href="#reorder-payloads" title="Permanent link">&para;</a></h3>

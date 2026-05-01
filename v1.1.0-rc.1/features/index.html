@@ -1829,6 +1829,8 @@
       
         
       
+        
+      
     
     
     
@@ -2066,6 +2068,34 @@
     
   
     Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
   
 
     
@@ -2558,7 +2588,7 @@
 <li><strong>@mentions</strong> — you're notified when someone mentions you in a card description</li>
 <li><strong>Staleness</strong> — cards that haven't moved in N days (configurable per board) appear with an amber indicator and trigger a daily digest</li>
 </ul>
-<p>Stale cards get an ⏱ badge on the board so they're impossible to miss at a glance.</p>
+<p>Stale cards show an amber tint overlay with reduced opacity on the board so they're impossible to miss at a glance.</p>
 <p>→ <a href="notifications/">Notifications</a></p>
 <hr />
 <h2 id="real-time-collaboration">Real-time collaboration<a class="headerlink" href="#real-time-collaboration" title="Permanent link">&para;</a></h2>
@@ -2654,7 +2684,7 @@
 </tr>
 </tbody>
 </table>
-<p><strong>Appearance</strong> — theme switcher: System (follows OS preference) or Dark. Applied immediately and persisted in <code>localStorage</code>.</p>
+<p><strong>Appearance</strong> — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and persisted in <code>localStorage</code>.</p>
 <p><strong>Notifications</strong> — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).</p>
 <p><strong>Behavior</strong> — card editor preferences:</p>
 <table>
@@ -2702,11 +2732,11 @@
 <p>→ <a href="board/">Board &amp; Cards</a> · <a href="card-history/">Card History</a></p>
 <hr />
 <h2 id="analytics-heatmap-absolute-threshold-coloring">Analytics heatmap — absolute threshold coloring<a class="headerlink" href="#analytics-heatmap-absolute-threshold-coloring" title="Permanent link">&para;</a></h2>
-<p>The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> — are configurable per board in <strong>Board Settings → Stale card settings</strong>.</p>
+<p>The analytics heatmap colors cells using absolute board-level thresholds instead of relative (median-based) heuristics. Green means well under threshold, yellow means within the warning band, and red means at or above the stale threshold. Both values — <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> — are configurable per board in <strong>Board Settings → Card aging settings</strong>.</p>
 <p>→ <a href="analytics/#color-coding">Analytics</a></p>
 <hr />
 <h2 id="onboarding-tour">Onboarding tour<a class="headerlink" href="#onboarding-tour" title="Permanent link">&para;</a></h2>
-<p>First-time users see a four-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.</p>
+<p>First-time users see an 8-step contextual tooltip walkthrough when they open a board for the first time. The tour introduces swimlanes, card movement, the audit trail, and the filter bar. Completing or skipping the tour sets a persistent server-side flag — the tour never reappears. Site admins can reset the flag for any user from the admin panel.</p>
 <p>→ <a href="../getting-started/onboarding-tour/">Onboarding Tour</a></p>
 <hr />
 <h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
@@ -2722,8 +2752,8 @@
 <p>The <strong>moderator</strong> entitlement lets a board admin delegate content-moderation rights to a specific member without granting them full admin access.</p>
 <p>→ <a href="permissions/#moderator-entitlement">Board Permissions</a></p>
 <hr />
-<h2 id="export-restricted-to-members-and-above">Export restricted to members and above<a class="headerlink" href="#export-restricted-to-members-and-above" title="Permanent link">&para;</a></h2>
-<p>CSV and JSON board export is now restricted to members and admins. Collaborators and viewers receive <code>403 Forbidden</code> when they request the export endpoints. This aligns the export permission with the level of access required to have meaningful use of the full data set.</p>
+<h2 id="board-export-and-per-board-threshold">Board export and per-board threshold<a class="headerlink" href="#board-export-and-per-board-threshold" title="Permanent link">&para;</a></h2>
+<p>By default any board member (including Collaborators and Viewers) can export the full CSV or JSON dump. Board admins can restrict exports to a higher minimum role via the <code>export_min_role</code> board setting. A per-board export history log records every successful export and is visible to board admins.</p>
 <p>→ <a href="board/#export-import">Board &amp; Cards — Export</a></p>
 <hr />
 <h2 id="invite-link-improvements">Invite link improvements<a class="headerlink" href="#invite-link-improvements" title="Permanent link">&para;</a></h2>
