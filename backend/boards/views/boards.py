@@ -455,7 +455,15 @@ class BoardViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response(SavedFilterSerializer(saved).data, status=status.HTTP_201_CREATED)
+        serialized = SavedFilterSerializer(saved).data
+        board_id = board.id
+        user_id = request.user.id
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(
+                board_id, "saved_filter.created", {"filter": serialized, "user_id": user_id}
+            )
+        )
+        return Response(serialized, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path=r"saved-filters/(?P<filter_pk>[0-9]+)")
     def saved_filter_delete(self, request, pk=None, filter_pk=None):
@@ -469,7 +477,15 @@ class BoardViewSet(
             saved = SavedFilter.objects.get(pk=filter_pk, user=request.user, board=board)
         except SavedFilter.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+        board_id = board.id
+        filter_id = saved.id
+        user_id = request.user.id
         saved.delete()
+        transaction.on_commit(
+            lambda: _broadcast.broadcast_board_event(
+                board_id, "saved_filter.deleted", {"filter_id": filter_id, "user_id": user_id}
+            )
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])

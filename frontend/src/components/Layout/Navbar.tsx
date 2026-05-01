@@ -133,7 +133,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   ) : item.href ? (
                     <Link
                       to={item.href}
-                      className="text-sm text-fg-tertiary hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
+                      className="text-sm text-fg-tertiary hover:text-fg focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded transition max-w-[12rem] truncate"
                       title={item.label}
                     >
                       {item.label}
@@ -177,7 +177,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
           <div ref={bellRef} className="relative">
             <button
               onClick={openBell}
-              className="relative text-fg-secondary hover:text-fg transition p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
+              className="relative text-fg-secondary hover:text-fg transition p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               title="Notifications"
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -195,7 +195,7 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-info hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
+                    className="text-xs text-info hover:text-info focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                   >
                     Mark all read
                   </button>

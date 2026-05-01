@@ -112,9 +112,9 @@ function ViewToggle({
     <Tooltip content={`${label} (${shortcut.toUpperCase()})`}>
       <button
         onClick={() => onChange(val)}
-        className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           view === val
-            ? "bg-primary text-on-primary"
+            ? "bg-primary text-on-primary font-medium"
             : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
         aria-keyshortcuts={shortcut.toUpperCase()}
@@ -132,9 +132,9 @@ function ViewToggle({
       <Tooltip content="Analytics (A)">
         <button
           onClick={() => onChange("analytics")}
-          className={`text-xs px-2.5 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+          className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             view === "analytics"
-              ? "bg-primary text-on-primary"
+              ? "bg-primary text-on-primary font-medium"
               : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
           }`}
           aria-keyshortcuts="A"
@@ -313,6 +313,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   allExpandedRef.current = allExpanded;
 
 
+  const {
+    savedFilters,
+    loading: savedFiltersLoading,
+    saveFilter,
+    removeFilter,
+    hydrateFilter,
+    onSavedFilterAdded,
+    onSavedFilterEvicted,
+  } = useSavedFilters(board.id);
+
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (event.event === "card.created") {
@@ -387,8 +397,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (currentUser && payload.user_id === currentUser.id) {
         mergeBoardState({ is_starred: !!payload.is_starred });
       }
+    } else if (event.event === "saved_filter.created") {
+      // Saved filters are private to the owning user — apply only to the
+      // current user's other sessions so we don't pollute other members' lists.
+      const payload = d as { filter: import("../../types").SavedFilter; user_id: number };
+      if (currentUser && payload.user_id === currentUser.id) {
+        onSavedFilterAdded(payload.filter);
+      }
+    } else if (event.event === "saved_filter.deleted") {
+      const payload = d as { filter_id: number; user_id: number };
+      if (currentUser && payload.user_id === currentUser.id) {
+        onSavedFilterEvicted(payload.filter_id);
+      }
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, onSavedFilterAdded, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -666,13 +688,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }, { replace: true });
   }, [setSearchParams]);
 
-  const {
-    savedFilters,
-    loading: savedFiltersLoading,
-    saveFilter,
-    removeFilter,
-    hydrateFilter,
-  } = useSavedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const filterBarFirstRef = useRef<HTMLButtonElement>(null);
   // Tracks which saved filter preset is currently active. Cleared to null whenever the
