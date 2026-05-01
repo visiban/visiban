@@ -313,6 +313,16 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   allExpandedRef.current = allExpanded;
 
 
+  const {
+    savedFilters,
+    loading: savedFiltersLoading,
+    saveFilter,
+    removeFilter,
+    hydrateFilter,
+    onSavedFilterAdded,
+    onSavedFilterEvicted,
+  } = useSavedFilters(board.id);
+
   const handleSocketEvent = useCallback((event: BoardEvent) => {
     const d = event.data;
     if (event.event === "card.created") {
@@ -678,15 +688,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }, { replace: true });
   }, [setSearchParams]);
 
-  const {
-    savedFilters,
-    loading: savedFiltersLoading,
-    saveFilter,
-    removeFilter,
-    hydrateFilter,
-    onSavedFilterAdded,
-    onSavedFilterEvicted,
-  } = useSavedFilters(board.id);
   const [showFilters, setShowFilters] = useState(false);
   const filterBarFirstRef = useRef<HTMLButtonElement>(null);
   // Tracks which saved filter preset is currently active. Cleared to null whenever the

@@ -138,7 +138,7 @@ describe('UserMenu', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: /Account menu for Jane Doe/ }))
     const item = await screen.findByRole('menuitem', { name: /Keyboard shortcuts/ })
-    expect(item).toBeDisabled()
+    expect(item).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('the Help & docs item opens docs.visiban.com in a new tab', async () => {
