@@ -2997,13 +2997,49 @@
 </code></pre></div>
 <p>Existing deployments that used the default unauthenticated Redis will continue to work after setting this variable — Redis data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of Redis data is required.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Migration window — GIN trigram indexes (<code>boards/0030</code>)</p>
+<p>Migration <code>boards/0030</code> creates full-text GIN indexes on the <code>cards</code> table using <code>CREATE INDEX</code> (not <code>CREATE INDEX CONCURRENTLY</code>). On PostgreSQL, a standard index build holds an <code>AccessShareLock</code> on the table for the duration of the build, blocking writes to <code>cards</code>.</p>
+<p>For most self-hosted deployments the index build completes in seconds and is not noticeable. For installations with <strong>millions of cards</strong>, this may cause a brief write outage on board operations during the migration window.</p>
+<p><strong>If you have a large <code>cards</code> table and need zero-downtime index creation</strong>, pre-create the indexes manually before running <code>migrate</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+</code></pre></div>
+<p>Then run <code>python manage.py migrate</code> as normal — the migration's <code>CREATE INDEX IF NOT EXISTS</code> will detect the indexes exist and skip creation.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Migration window — column name deduplication (<code>boards/0043</code>)</p>
+<p>Migration <code>boards/0043</code> adds a unique constraint on <code>(board, name)</code> for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").</p>
+<p>For deployments with a very large number of boards and columns, this deduplication loop may take several seconds. The subsequent <code>ADD CONSTRAINT</code> then issues a brief table lock to build the unique index.</p>
+<p><strong>If you have many thousands of columns</strong>, you can run the deduplication ahead of the migration window by executing it as a one-off management command before upgrading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="s2">from boards.models import Column</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="s2">from django.db.models import Count</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="s2">for board_id in Column.objects.values_list(&#39;board_id&#39;, flat=True).distinct():</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="s2">    seen = {}</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by(&#39;position&#39;):</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="s2">        base = col.name</span>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="s2">        if base in seen:</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="s2">            seen[base] += 1</span>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="s2">            col.name = f&#39;{base} ({seen[base]})&#39;</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a><span class="s2">            col.save(update_fields=[&#39;name&#39;])</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="s2">        else:</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="s2">            seen[base] = 1</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="s2">print(&#39;Done&#39;)</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="s2">&quot;</span>
+</code></pre></div>
+<p>After this runs, <code>boards/0043</code> will find no duplicates and the constraint add will complete quickly.</p>
+</div>
 <h3 id="upgrading-to-100">Upgrading to 1.0.0<a class="headerlink" href="#upgrading-to-100" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">Required pre-deploy step for any instance that ran a pre-1.0 beta</p>
 <p>If your database was created from any pre-1.0 release (including any release candidate), you <strong>must</strong> run the following SQL against your database <strong>before</strong> running <code>manage.py migrate</code> or starting the 1.0 backend container:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;groups&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;0003_placeholder&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;groups&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;0003_placeholder&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
 </code></pre></div>
 <p><strong>Why:</strong> Migration <code>groups/0003_placeholder</code> was added to the 1.0 release to fill a gap in the <code>groups</code> migration sequence. Because <code>groups/0004</code> was already applied in pre-1.0 releases, Django's startup check (<code>InconsistentMigrationHistory</code>) will prevent <code>manage.py migrate</code> from running if <code>0003</code> is not already marked applied. The SQL above registers it as applied so Django accepts the history as consistent. The migration itself is a no-op — it contains no schema changes.</p>
 <p>Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.</p>
@@ -3034,8 +3070,8 @@
 <hr />
 <h2 id="checking-migration-status">Checking migration status<a class="headerlink" href="#checking-migration-status" title="Permanent link">&para;</a></h2>
 <p>At any time you can inspect which migrations have been applied:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
 </code></pre></div>
 <p><code>[X]</code> means applied. <code>[ ]</code> means pending. A pending migration after a deployment indicates the migration step was skipped or failed silently — run <code>migrate</code> manually and check the output for errors before serving traffic.</p>
 
