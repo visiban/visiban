@@ -395,6 +395,9 @@ class BoardSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
+        # Footgun: this live EXISTS query fires when BoardSerializer is used with a bare
+        # Board.objects.get() that carries neither annotation. Always fetch boards through
+        # BoardViewSet.get_queryset() or get_board_for_user() to avoid the extra query.
         return obj.favorites.filter(user=request.user).exists()
 
 
@@ -549,6 +552,10 @@ class BoardFullSerializer(serializers.ModelSerializer):
         seen = {}
         memberships = getattr(obj, "_prefetched_memberships", None)
         if memberships is None:
+            # Footgun: cold-path fallback fires a live select_related query for every
+            # member. BoardFullSerializer requires a board fetched via get_board_for_user()
+            # so that _prefetched_memberships is populated. A bare Board.objects.get()
+            # caller will silently take this path and issue an extra query.
             memberships = list(obj.memberships.select_related("user").all())
         for m in memberships:
             seen[m.user_id] = {"id": m.id, "user": m.user, "role": m.role, "is_moderator": m.is_moderator, "joined_at": m.joined_at}

@@ -457,10 +457,15 @@ class BoardViewSet(
 
         serialized = SavedFilterSerializer(saved).data
         board_id = board.id
+        filter_id = saved.id
         user_id = request.user.id
+        # Broadcast only the filter ID so other members know a new filter exists
+        # without receiving the state_json contents (which are that user's personal
+        # configuration and should not be pushed to all co-members on the board).
+        # The creating user receives the full payload via the HTTP response below.
         transaction.on_commit(
             lambda: _broadcast.broadcast_board_event(
-                board_id, "saved_filter.created", {"filter": serialized, "user_id": user_id}
+                board_id, "saved_filter.created", {"filter_id": filter_id, "user_id": user_id}
             )
         )
         return Response(serialized, status=status.HTTP_201_CREATED)
