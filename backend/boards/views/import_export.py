@@ -86,6 +86,17 @@ class BoardImportThrottle(UserRateThrottle):
 
     scope = "board_import"
 
+
+class BoardExportThrottle(UserRateThrottle):
+    """Limit authenticated users to 20 board exports per hour.
+
+    A single export for a large board can return tens of MB and involves
+    multiple prefetch queries. Without a cap, a board member could hammer
+    the endpoint programmatically and create disproportionate DB load.
+    """
+
+    scope = "board_export"
+
 def _sanitize_csv_field(value: str) -> str:
     """Strip leading characters that spreadsheet applications interpret as formula prefixes.
 
@@ -958,7 +969,7 @@ class BoardImportExportMixin:
             transaction.on_commit(_broadcast_created)
         return Response(board_data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["get"])
+    @action(detail=True, methods=["get"], throttle_classes=[BoardExportThrottle])
     def export(self, request, pk=None):
         """Export board data as CSV or JSON. Requires member or admin access."""
         board, role = get_board_for_user(pk, request.user)

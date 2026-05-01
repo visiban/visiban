@@ -278,6 +278,8 @@ REST_FRAMEWORK = {
         "choose_username": "9999/hour" if DEBUG else "10/min",
         # Board import: each import can create up to 500 cards; cap prevents DB flooding.
         "board_import": "9999/hour" if DEBUG else "10/hour",
+        # Board export: responses can be tens of MB; cap prevents programmatic hammering.
+        "board_export": "9999/hour" if DEBUG else "20/hour",
         # Email verification: HMAC keys are not brute-forceable; scope exists for
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",

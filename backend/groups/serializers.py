@@ -93,6 +93,9 @@ class GroupSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
+        # Footgun: live query fires when _is_starred annotation is absent (i.e. the group
+        # was not fetched through GroupViewSet.get_queryset()). Always use get_queryset()
+        # to ensure the annotation is present and avoid a per-group EXISTS query.
         return GroupFavorite.objects.filter(user=request.user, group=obj).exists()
 
     def validate_allowed_priorities(self, value):

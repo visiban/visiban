@@ -62,24 +62,21 @@ class SwimlaneSetCollapsedTests(TestCase):
         self.swimlane.refresh_from_db()
         self.assertFalse(self.swimlane.is_collapsed)
 
-    def test_member_can_set_collapsed(self):
-        """Non-admin board members must be allowed to use set_collapsed."""
+    def test_member_cannot_set_collapsed(self):
+        """Board members below admin must not mutate is_collapsed.
+
+        is_collapsed is a persisted board-structure field that changes the
+        default view for every board member — managing board structure is an
+        admin-only privilege per the RBAC role matrix.
+        """
         member = User.objects.create_user(username="collapse_member", password="pass")
         _add_member(self.board, member, BoardMembership.Role.MEMBER)
         self.client.force_authenticate(member)
         r = self.client.patch(self._url(), {"is_collapsed": True}, format="json")
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.swimlane.refresh_from_db()
-        self.assertTrue(self.swimlane.is_collapsed)
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_viewer_cannot_set_collapsed(self):
-        """Viewers are read-only and must not mutate board structure (#790).
-
-        is_collapsed is persisted on the Swimlane model and affects the
-        default view for every board member, so it is a board-structure
-        write and requires at least member role — aligned with the rest of
-        the permission matrix for write actions.
-        """
+        """Viewers are read-only and must not mutate board structure."""
         viewer = User.objects.create_user(username="collapse_viewer", password="pass")
         _add_member(self.board, viewer, BoardMembership.Role.VIEWER)
         self.client.force_authenticate(viewer)
@@ -87,9 +84,7 @@ class SwimlaneSetCollapsedTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_collaborator_cannot_set_collapsed(self):
-        """Collaborators have read-only access to cards only; mutating a
-        board-structure field (is_collapsed is persisted on Swimlane) requires
-        at least MEMBER role per the allow-list enforced by set_collapsed."""
+        """Collaborators are below admin and must not mutate board structure."""
         collab = User.objects.create_user(username="collapse_collab", password="pass")
         _add_member(self.board, collab, BoardMembership.Role.COLLABORATOR)
         self.client.force_authenticate(collab)

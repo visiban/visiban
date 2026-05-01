@@ -103,21 +103,18 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         return self._set_collapsed_impl(request, pk)
 
     def _set_collapsed_impl(self, request, pk):
-        """Allow non-viewer board members to set the default is_collapsed state on a swimlane.
+        """Set the default is_collapsed state on a swimlane (admin-only).
 
-        This action is intentionally open below the admin gate used by the
-        regular update path because ``is_collapsed`` is a low-risk view
-        preference that board members can set as the default for all users.
-        Viewers are excluded because the value is persisted on the model and
-        changes the default view for every member — "manage board structure"
-        is an admin/member privilege, not a read-only one.
+        ``is_collapsed`` is persisted on the model and changes the default
+        board view for every member, so it is classified as board-structure
+        management — an admin privilege per the RBAC role matrix.
 
         Broadcasts a ``swimlane.updated`` event via ``transaction.on_commit``
         so connected clients can reflect the new collapsed state in real time.
         """
         board, role = self._board_and_role()
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied("Only members and admins can modify swimlane display state.")
+        if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied("Only board admins can modify swimlane display state.")
         swimlane = get_object_or_404(Swimlane, pk=pk, board=board)
         is_collapsed = request.data.get("is_collapsed")
         if not isinstance(is_collapsed, bool):

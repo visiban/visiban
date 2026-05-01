@@ -101,17 +101,19 @@ export function useSavedFilters(boardId: number) {
     };
   }, []);
 
-  const onSavedFilterAdded = useCallback((filter: SavedFilter) => {
-    setSavedFilters((prev) =>
-      prev.some((f) => f.id === filter.id)
-        ? prev
-        : [...prev, filter].sort((a, b) => a.name.localeCompare(b.name)),
-    );
-  }, []);
+  // Refetch the full filter list from the server. Used by the socket handler for
+  // saved_filter.created — the broadcast no longer includes the full filter payload
+  // (it was trimmed to {filter_id, user_id} to avoid broadcasting state_json to all
+  // board members), so other sessions must refetch rather than inject directly.
+  const refreshFilters = useCallback(() => {
+    listSavedFilters(boardId)
+      .then((filters) => setSavedFilters(filters))
+      .catch(() => {/* best-effort refresh; ignore error */});
+  }, [boardId]);
 
   const onSavedFilterEvicted = useCallback((filterId: number) => {
     setSavedFilters((prev) => prev.filter((f) => f.id !== filterId));
   }, []);
 
-  return { savedFilters, loading, error, saveFilter, removeFilter, hydrateFilter, onSavedFilterAdded, onSavedFilterEvicted };
+  return { savedFilters, loading, error, saveFilter, removeFilter, hydrateFilter, refreshFilters, onSavedFilterEvicted };
 }
