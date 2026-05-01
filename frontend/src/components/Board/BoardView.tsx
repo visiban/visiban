@@ -319,7 +319,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     saveFilter,
     removeFilter,
     hydrateFilter,
-    onSavedFilterAdded,
+    refreshFilters,
     onSavedFilterEvicted,
   } = useSavedFilters(board.id);
 
@@ -398,11 +398,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         mergeBoardState({ is_starred: !!payload.is_starred });
       }
     } else if (event.event === "saved_filter.created") {
-      // Saved filters are private to the owning user — apply only to the
-      // current user's other sessions so we don't pollute other members' lists.
-      const payload = d as { filter: import("../../types").SavedFilter; user_id: number };
+      // Broadcast payload is {filter_id, user_id} only — the full state_json is not
+      // broadcast to all board members. Refetch the filter list for the owning user's
+      // other sessions; other members' lists are unaffected.
+      const payload = d as { filter_id: number; user_id: number };
       if (currentUser && payload.user_id === currentUser.id) {
-        onSavedFilterAdded(payload.filter);
+        refreshFilters();
       }
     } else if (event.event === "saved_filter.deleted") {
       const payload = d as { filter_id: number; user_id: number };
@@ -410,7 +411,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         onSavedFilterEvicted(payload.filter_id);
       }
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, onSavedFilterAdded, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
