@@ -633,7 +633,7 @@ describe('GroupDetail', () => {
       await loadGroup()
 
       act(() => {
-        capturedOnEvent?.({ event: 'group.updated', data: { id: 1, name: fakeGroup.name, uid: fakeGroup.uid, owner: { id: 2, username: 'newowner', display_name: 'New Owner', avatar_url: null } } } as BoardEvent)
+        capturedOnEvent?.({ event: 'group.updated', data: { id: 1, name: fakeGroup.name, owner: { id: 2, username: 'newowner', display_name: 'New Owner', avatar_url: null } } } as BoardEvent)
       })
 
       // getGroup must be called a second time — once for initial load, once for the event
