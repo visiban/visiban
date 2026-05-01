@@ -101,5 +101,17 @@ export function useSavedFilters(boardId: number) {
     };
   }, []);
 
-  return { savedFilters, loading, error, saveFilter, removeFilter, hydrateFilter };
+  const onSavedFilterAdded = useCallback((filter: SavedFilter) => {
+    setSavedFilters((prev) =>
+      prev.some((f) => f.id === filter.id)
+        ? prev
+        : [...prev, filter].sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  }, []);
+
+  const onSavedFilterEvicted = useCallback((filterId: number) => {
+    setSavedFilters((prev) => prev.filter((f) => f.id !== filterId));
+  }, []);
+
+  return { savedFilters, loading, error, saveFilter, removeFilter, hydrateFilter, onSavedFilterAdded, onSavedFilterEvicted };
 }

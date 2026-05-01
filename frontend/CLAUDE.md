@@ -34,7 +34,7 @@ Three variants — use no others:
 | Icon-only | `hover:bg-surface-hover` with icon content |
 
 - Consistent sizing: `px-3 py-1.5 text-sm rounded` for most buttons
-- Focus state: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (use `focus:ring-danger-emphasis` for danger buttons)
+- Focus state: `focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (use `focus:ring-danger-emphasis` for danger buttons) — always use `focus:` not `focus-visible:` for consistency
 - Danger variant (destructive actions): `bg-danger-bg hover:bg-danger-bg-hover text-on-danger`
 - Disabled state: `disabled:opacity-40 disabled:cursor-not-allowed` — never `disabled:opacity-50`
 - Primary and danger buttons always include `font-medium`

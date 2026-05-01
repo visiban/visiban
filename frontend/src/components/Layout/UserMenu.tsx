@@ -79,7 +79,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account menu for ${displayName}`}
-        className="flex items-center gap-1 rounded-full p-0.5 transition hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+        className="flex items-center gap-1 rounded-full p-0.5 transition hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
       >
         <Avatar user={user} size="trigger" />
         <svg aria-hidden="true" viewBox="0 0 12 12" className="w-3 h-3 text-fg-tertiary">
@@ -124,11 +124,11 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
             type="button"
             role="menuitem"
             tabIndex={-1}
-            disabled={!onBoardPage}
-            onClick={handleOpenShortcuts}
+            aria-disabled={!onBoardPage}
+            onClick={!onBoardPage ? undefined : handleOpenShortcuts}
             onKeyDown={(e) => onItemKeyDown(e, 1)}
             title={onBoardPage ? undefined : "Keyboard shortcuts are available while viewing a board"}
-            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:bg-surface-hover focus:text-fg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-fg-secondary"
+            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary transition focus:outline-none focus:bg-surface-hover focus:text-fg ${!onBoardPage ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-hover hover:text-fg"}`}
           >
             <span aria-hidden="true" className="w-4 text-center flex-shrink-0">⌨</span>
             <span className="flex-1 truncate">Keyboard shortcuts</span>
