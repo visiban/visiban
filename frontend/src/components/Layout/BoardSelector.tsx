@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { listBoards, createBoard, deleteBoard } from "../../api/boards";
 import type { Board, User } from "../../types";
 import CreateBoardModal from "../Board/CreateBoardModal";
@@ -11,13 +11,22 @@ interface Props {
 export default function BoardSelector({ user, onSelect }: Props) {
   const [boards, setBoards] = useState<Board[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const dialogTitleId = useId();
 
-  useEffect(() => {
-    listBoards().then(setBoards).finally(() => setLoading(false));
+  const loadBoards = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    listBoards()
+      .then(setBoards)
+      .catch(() => setError("Failed to load boards."))
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadBoards(); }, [loadBoards]);
 
   const handleDelete = async (boardId: number) => {
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
@@ -38,6 +47,11 @@ export default function BoardSelector({ user, onSelect }: Props) {
     onSelect(board);
   };
 
+  const closeDeleteDialog = () => {
+    setConfirmDeleteId(null);
+    setDeleteConfirmInput("");
+  };
+
   return (
     <div className="min-h-screen bg-sunken flex items-center justify-center">
       <div className="w-full max-w-md">
@@ -45,6 +59,16 @@ export default function BoardSelector({ user, onSelect }: Props) {
 
         {loading ? (
           <p className="text-fg-tertiary text-center">Loading…</p>
+        ) : error ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-danger mb-3">{error}</p>
+            <button
+              onClick={loadBoards}
+              className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              Try again
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-2 mb-4">
             {boards.map((b) => (
@@ -96,9 +120,17 @@ export default function BoardSelector({ user, onSelect }: Props) {
         const nameMatches = deleteConfirmInput === board?.name;
         const canDelete = !hasCards || nameMatches;
         return (
-          <div className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50">
-            <div className="bg-surface rounded-xl p-6 w-full max-w-sm shadow-xl">
-              <h3 className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
+          <div
+            className="fixed inset-0 bg-backdrop/60 flex items-center justify-center z-50"
+            onKeyDown={(e) => { if (e.key === "Escape") closeDeleteDialog(); }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={dialogTitleId}
+              className="bg-surface border border-line rounded-lg p-6 w-full max-w-sm shadow-xl"
+            >
+              <h3 id={dialogTitleId} className="text-fg font-semibold text-lg mb-2">Delete board?</h3>
               <p className="text-fg-tertiary text-sm mb-1">
                 <span className="text-fg font-medium">{board?.name}</span> and all its columns, swimlanes, cards, and history will be permanently deleted.
               </p>
@@ -115,13 +147,13 @@ export default function BoardSelector({ user, onSelect }: Props) {
                     placeholder={`Type "${board?.name}" to confirm`}
                     className="w-full bg-surface border border-line text-fg-secondary text-sm rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted"
                     autoFocus
-                    onKeyDown={(e) => { if (e.key === "Escape") { setConfirmDeleteId(null); setDeleteConfirmInput(""); } }}
                   />
                 </div>
               )}
               <div className="flex gap-3 justify-end">
                 <button
-                  onClick={() => { setConfirmDeleteId(null); setDeleteConfirmInput(""); }}
+                  onClick={closeDeleteDialog}
+                  autoFocus={!hasCards}
                   className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >
                   Cancel
