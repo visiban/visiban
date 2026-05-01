@@ -3214,6 +3214,11 @@
 <td>Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour</td>
 </tr>
 <tr>
+<td>Login (<code>/api/v1/auth/login/</code>) (1.1+)</td>
+<td>20 / hour per IP</td>
+<td>Defense-in-depth on top of the allauth gate (5 failed attempts / 5 min per IP). Stops an attacker rotating across many usernames within the global anon ceiling</td>
+</tr>
+<tr>
 <td>User search (<code>/api/v1/users/search/</code>)</td>
 <td>30 / minute</td>
 <td>Tighter limit to prevent username enumeration</td>

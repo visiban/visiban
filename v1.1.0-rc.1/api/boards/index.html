@@ -4153,6 +4153,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Visibility of <code>is_moderator</code> in board responses (since 1.1):</strong> the <code>is_moderator</code> field is included in the <code>members</code> array of <code>GET /api/v1/boards/{id}/full/</code> only for <code>admin</code> and <code>site_admin</code> requesters. Lower-role members (<code>member</code>, <code>collaborator</code>, <code>viewer</code>) receive each member entry without the field. Mutation responses on this endpoint and <code>member.added</code> / <code>member.updated</code> WebSocket payloads continue to carry the field for backward compatibility.</p>
 <h3 id="delete-apiv1boardsidmembersuser_id"><code>DELETE /api/v1/boards/{id}/members/{user_id}/</code><a class="headerlink" href="#delete-apiv1boardsidmembersuser_id" title="Permanent link">&para;</a></h3>
 <p>Remove a member. Requires board admin. Cannot remove a site admin.</p>
 <hr />

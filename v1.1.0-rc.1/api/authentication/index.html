@@ -3666,6 +3666,10 @@ can detect the condition and call this endpoint programmatically.</p>
 <td><code>403 Forbidden</code></td>
 <td>Registration is <code>"closed"</code> — no new accounts can be created</td>
 </tr>
+<tr>
+<td><code>409 Conflict</code> (<code>invite_already_redeemed</code>, 1.1+)</td>
+<td>The same email previously redeemed this multi-use invite link</td>
+</tr>
 </tbody>
 </table>
 <hr />

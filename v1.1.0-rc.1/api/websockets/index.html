@@ -3036,6 +3036,11 @@
 <td><code>{ "board_id": &lt;int&gt;, "board_uid": &lt;string&gt; }</code></td>
 </tr>
 <tr>
+<td><code>board.star_changed</code> (since 1.1)</td>
+<td>A board in this group was starred or unstarred — fires alongside the board-channel <code>board.star_changed</code>. Star is per-user state; clients filter on <code>user_id === me</code> and ignore events for other users</td>
+<td><code>{ "uid": &lt;string&gt;, "user_id": &lt;int&gt;, "is_starred": &lt;bool&gt; }</code></td>
+</tr>
+<tr>
 <td><code>group.updated</code></td>
 <td>Group ownership transferred</td>
 <td><code>{ "id": &lt;int&gt;, "owner_id": &lt;int&gt; }</code></td>
