@@ -150,6 +150,84 @@ class GroupDetailExpansionTests(TestCase):
             "select_related('group__parent') is missing.",
         )
 
+    def test_list_expand_group_ancestors_populated_for_deeply_nested_group(self):
+        """ancestors must be correct for boards in groups nested more than one level deep.
+
+        This is the regression test for #919: without the ancestor map injected
+        by get_serializer_context(), GroupBriefSerializer.get_ancestors() falls
+        back to walking parent pointers per board, issuing one FK query per
+        ancestor level per board beyond depth-1.
+        """
+        grandparent = Group.objects.create(name="Root Org", owner=self.owner)
+        GroupMembership.objects.create(
+            group=grandparent, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+        deep_parent = Group.objects.create(name="Dept", owner=self.owner, parent=grandparent)
+        GroupMembership.objects.create(
+            group=deep_parent, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+        deep_group = Group.objects.create(name="Team", owner=self.owner, parent=deep_parent)
+        GroupMembership.objects.create(
+            group=deep_group, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+        deep_board = Board.objects.create(name="Deep Board", owner=self.owner, group=deep_group)
+        BoardMembership.objects.create(
+            board=deep_board, user=self.owner, role=BoardMembership.Role.ADMIN
+        )
+
+        r = self.client.get("/api/v1/boards/?expand=group")
+        self.assertEqual(r.status_code, 200)
+        payload = next(b for b in r.data["results"] if b["id"] == deep_board.id)
+        detail = payload["group_detail"]
+        self.assertIsNotNone(detail)
+        self.assertEqual(detail["name"], "Team")
+        # ancestors must include Root Org and Dept (root-first order)
+        ancestor_names = [a["name"] for a in detail["ancestors"]]
+        self.assertEqual(ancestor_names, ["Root Org", "Dept"])
+
+    def test_list_expand_group_no_n_plus_one_for_deeply_nested_groups(self):
+        """Query count must not grow when boards are in deeply nested groups (#919)."""
+        grandparent = Group.objects.create(name="GrandParent", owner=self.owner)
+        GroupMembership.objects.create(
+            group=grandparent, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+        deep_group = Group.objects.create(name="Deep", owner=self.owner, parent=grandparent)
+        GroupMembership.objects.create(
+            group=deep_group, user=self.owner, role=GroupMembership.Role.ADMIN
+        )
+
+        deep_board = Board.objects.create(name="Deep1", owner=self.owner, group=deep_group)
+        BoardMembership.objects.create(
+            board=deep_board, user=self.owner, role=BoardMembership.Role.ADMIN
+        )
+
+        with CaptureQueriesContext(connection) as ctx_small:
+            r = self.client.get("/api/v1/boards/?expand=group")
+            self.assertEqual(r.status_code, 200)
+            _ = r.data["results"]
+
+        baseline = len(ctx_small.captured_queries)
+
+        # Add 5 more boards in the same deeply nested group — query count must not grow.
+        for i in range(5):
+            extra = Board.objects.create(
+                name=f"Deep Extra {i}", owner=self.owner, group=deep_group
+            )
+            BoardMembership.objects.create(
+                board=extra, user=self.owner, role=BoardMembership.Role.ADMIN
+            )
+
+        with CaptureQueriesContext(connection) as ctx_big:
+            r = self.client.get("/api/v1/boards/?expand=group")
+            self.assertEqual(r.status_code, 200)
+            _ = r.data["results"]
+
+        self.assertEqual(
+            len(ctx_big.captured_queries),
+            baseline,
+            "?expand=group added queries for deeply nested groups — ancestor map is not being injected (#919).",
+        )
+
     def test_group_detail_brief_does_not_leak_owner_or_counts(self):
         """GroupBriefSerializer is deliberately minimal — no owner / counts / labels.
 
