@@ -8,6 +8,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from boards.management.commands.seed_demo_data import SEED_ANCHOR_DATE
 from accounts.models import User
 from boards.models import (
     Board,
@@ -93,8 +94,7 @@ class SeedDueDateTests(TestCase):
     def test_at_least_one_overdue_card(self):
         _seed()
         board = Board.objects.get(name=BOARD_NAME)
-        today = timezone.now().date()
-        overdue = board.cards.filter(due_date__lt=today).count()
+        overdue = board.cards.filter(due_date__lt=SEED_ANCHOR_DATE).count()
         self.assertGreater(overdue, 0, "Expected at least one overdue card")
 
     def test_at_least_one_card_with_no_due_date(self):
@@ -106,8 +106,7 @@ class SeedDueDateTests(TestCase):
     def test_at_least_one_future_due_date(self):
         _seed()
         board = Board.objects.get(name=BOARD_NAME)
-        today = timezone.now().date()
-        future = board.cards.filter(due_date__gt=today).count()
+        future = board.cards.filter(due_date__gt=SEED_ANCHOR_DATE).count()
         self.assertGreater(future, 0, "Expected at least one card with a future due date")
 
 

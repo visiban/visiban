@@ -42,6 +42,39 @@ class BoardViewSet(
 
     serializer_class = BoardSerializer
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        # When ?expand=group is requested on a list response, build a one-query
+        # ancestor map so GroupBriefSerializer.get_ancestors() can resolve every
+        # ancestor without walking parent pointers per board (#919).
+        if self.action == "list":
+            expand = self.request.query_params.get("expand", "")
+            if "group" in {p.strip() for p in expand.split(",") if p.strip()}:
+                from groups.models import Group as _Group
+                group_ids = set(
+                    self.get_queryset()
+                    .exclude(group_id=None)
+                    .values_list("group_id", flat=True)
+                )
+                if group_ids:
+                    # Include the direct groups AND all their ancestors so the
+                    # walker in GroupBriefSerializer.get_ancestors() can traverse
+                    # the full chain without issuing per-level FK queries.
+                    groups = _Group.objects.filter(pk__in=group_ids).select_related(
+                        *["__".join(["parent"] * d) for d in range(1, 7)]
+                    )
+                    ancestor_map: dict = {}
+                    for g in groups:
+                        node = g
+                        while node is not None:
+                            ancestor_map[node.pk] = {
+                                "name": node.name,
+                                "parent_id": node.parent_id,
+                            }
+                            node = node.parent  # pre-loaded via select_related
+                    context["group_ancestor_map"] = ancestor_map
+        return context
+
     def get_queryset(self):
         user = self.request.user
         if user.can_access_all_content:
@@ -61,12 +94,15 @@ class BoardViewSet(
         # get_board_for_user(); BoardSerializer (used by list/retrieve) never
         # reads card fields so prefetching cards__labels / cards__assignee
         # here only loaded data that was immediately discarded.
-        # When ?expand=group is requested, pull the group's parent in the same
-        # JOIN so GroupBriefSerializer.parent_name does not fire one extra query
-        # per board in the list response (#817).
+        # When ?expand=group is requested, pre-load the full 6-level ancestor
+        # chain so GroupBriefSerializer.get_ancestors() can walk parent pointers
+        # without issuing one FK query per ancestor level per board (#819).
         expand = self.request.query_params.get("expand", "")
         expand_group = "group" in {p.strip() for p in expand.split(",") if p.strip()}
-        group_related = "group__parent" if expand_group else "group"
+        if expand_group:
+            group_related = "__".join(["group"] + ["parent"] * 6)
+        else:
+            group_related = "group"
         return qs.select_related("owner", group_related).annotate(
             _member_count=Count("memberships", distinct=True),
             _card_count=Count("cards", filter=Q(cards__archived_at__isnull=True), distinct=True),
