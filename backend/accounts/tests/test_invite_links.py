@@ -556,6 +556,89 @@ class InviteRegisterInviteOnlyTests(TestCase):
         r = self._register("futureexp@example.com", invite_token=raw)
         self.assertIn(r.status_code, [status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT])
 
+    # --- multi-use: per-email dedup (#925) ---
+
+    def test_multi_use_token_rejects_repeat_redemption_from_same_email(self):
+        """The same email cannot redeem a multi-use invite link twice (#925)."""
+        from accounts.models import InviteLinkRedemption
+
+        _, raw = self._make_link(single_use=False)
+        # First redemption succeeds; allauth blocks a second user with the same
+        # email anyway (ACCOUNT_UNIQUE_EMAIL=True), so the regression path is
+        # exercised by attempting the same redemption from a fresh registration
+        # bypass: after the first user is created, manually simulate a second
+        # call to consume_invite_token with the same email and confirm the
+        # InviteTokenError fires.
+        from accounts.invite_utils import (
+            InviteTokenError,
+            consume_invite_token,
+            validate_invite_token,
+        )
+        from django.db import transaction
+
+        r1 = self._register("dedup@example.com", invite_token=raw)
+        self.assertIn(r1.status_code, [status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT])
+        self.assertEqual(
+            InviteLinkRedemption.objects.count(), 1,
+            "First multi-use redemption must write a redemption row",
+        )
+
+        with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="dedup@example.com")
+        self.assertEqual(ctx.exception.code, "invite_already_redeemed")
+
+    def test_multi_use_token_dedup_is_case_insensitive(self):
+        """Email dedup must canonicalise (lowercase + strip) so case variants
+        of the same address are treated as one (#925)."""
+        from accounts.invite_utils import (
+            InviteTokenError,
+            consume_invite_token,
+            validate_invite_token,
+        )
+        from django.db import transaction
+
+        _, raw = self._make_link(single_use=False)
+        with transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="Mixed@Example.COM")
+
+        with self.assertRaises(InviteTokenError) as ctx, transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="  mixed@example.com  ")
+        self.assertEqual(ctx.exception.code, "invite_already_redeemed")
+
+    def test_multi_use_token_allows_distinct_emails(self):
+        """Different emails must each be allowed to redeem the same link
+        once — dedup is per (link, email_hash), not per link (#925)."""
+        from accounts.invite_utils import consume_invite_token, validate_invite_token
+        from django.db import transaction
+
+        _, raw = self._make_link(single_use=False)
+        with transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="alice@example.com")
+        with transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="bob@example.com")
+
+        from accounts.models import InviteLinkRedemption
+        self.assertEqual(InviteLinkRedemption.objects.count(), 2)
+
+    def test_single_use_link_does_not_write_redemption_row(self):
+        """Single-use links remain gated by used_at; no redemption row is
+        written so the InviteLinkRedemption table only tracks multi-use
+        redemptions (#925)."""
+        from accounts.invite_utils import consume_invite_token, validate_invite_token
+        from accounts.models import InviteLinkRedemption
+        from django.db import transaction
+
+        _, raw = self._make_link(single_use=True)
+        with transaction.atomic():
+            link = validate_invite_token(raw)
+            consume_invite_token(link, email="single@example.com")
+        self.assertEqual(InviteLinkRedemption.objects.count(), 0)
+
 
 # ---------------------------------------------------------------------------
 # InviteRegisterView — race condition (single-use token, concurrent requests)

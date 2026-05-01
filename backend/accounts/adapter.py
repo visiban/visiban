@@ -131,16 +131,30 @@ class SocialRegistrationAdapter(DefaultSocialAccountAdapter):
             if raw_token:
                 try:
                     link = validate_invite_token(raw_token)
-                    consume_invite_token(link)
-                except InviteTokenError:
-                    # Token was valid in is_open_for_signup but became invalid
-                    # between then and now (race condition with another consumer).
-                    # The user was already created — log the anomaly but don't
-                    # roll back, as the user passed the gate check.
+                    # Pass the OAuth-provided email so multi-use invite redemption
+                    # is rejected when the same address attempts to redeem the
+                    # link twice (#925).
+                    consume_invite_token(link, email=user.email)
+                except InviteTokenError as exc:
+                    # Two cases reach this branch:
+                    #
+                    # 1. Token race — the token became invalid between
+                    #    is_open_for_signup and save_user.  The user already
+                    #    passed the gate check, so we accept the signup and log
+                    #    the anomaly (existing behaviour pre-#925).
+                    # 2. Repeat-redemption (#925) — the unique constraint on
+                    #    InviteLinkRedemption rejected a second redemption from
+                    #    the same email.  The OAuth flow is not wrapped in a
+                    #    rollback boundary the adapter controls, so the user is
+                    #    already saved.  We log and continue; the link's
+                    #    use_count is not incremented and no redemption row is
+                    #    written, so the dedup remains correct for future
+                    #    attempts.  This is best-effort enforcement on OAuth;
+                    #    REST registration provides strict enforcement.
                     logger.warning(
-                        "Invite token consumed between signup check and save_user "
-                        "(possible race condition). User %s was created without "
-                        "consuming a token.",
+                        "Invite token not consumed in save_user (code=%s, user=%s). "
+                        "The user was created but the token was not marked used.",
+                        exc.code,
                         user.pk,
                     )
 

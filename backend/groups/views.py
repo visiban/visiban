@@ -625,6 +625,14 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             transaction.on_commit(_broadcast_transfer)
 
+        # Note (#952): the board channel intentionally does not receive an
+        # ownership-transferred event.  Board UI surfaces (header, settings,
+        # toolbar) do not show group ownership; only GroupDetail does, and it
+        # already refetches on the existing group-channel ``group.updated``
+        # event.  Adding a board-channel fanout would create permanent
+        # contract surface (events cannot be removed without a major bump)
+        # for no client benefit.
+
         return Response(GroupSerializer(group, context={"request": request}).data)
 
     # ------------------------------------------------------------------

@@ -20,7 +20,7 @@ from ..utils import _get_effective_member_ids, _get_assignable_member_ids
 logger = logging.getLogger(__name__)
 
 
-def get_board_for_user(board_id, user):
+def get_board_for_user(board_id, user, *, slim=False):
     """Return (board, role) for board_id if user has access; raise 404 or 403 otherwise.
 
     Loads the board with select_related for owner and the group ancestor chain
@@ -33,12 +33,20 @@ def get_board_for_user(board_id, user):
     Prefetches memberships with their users (to_attr="_prefetched_memberships") so
     BoardFullSerializer.get_members() reads from cache rather than issuing a live
     select_related query on every /full/ request.
+
+    When ``slim=True`` the favorites, labels, and memberships prefetches are
+    skipped (#928).  Use this for read-only aggregate endpoints (e.g. summary,
+    analytics) that only need the board PK + RBAC role and never touch
+    favorites/labels/members on the board instance.  The group ancestor
+    select_related is retained because ``get_board_role`` still walks the
+    chain to resolve inherited memberships.
     """
-    board = get_object_or_404(
-        Board.objects.select_related(
-            "owner",
-            "group__parent__parent__parent__parent__parent__parent",
-        ).prefetch_related(
+    queryset = Board.objects.select_related(
+        "owner",
+        "group__parent__parent__parent__parent__parent__parent",
+    )
+    if not slim:
+        queryset = queryset.prefetch_related(
             Prefetch(
                 "favorites",
                 queryset=BoardFavorite.objects.filter(user=user),
@@ -55,9 +63,8 @@ def get_board_for_user(board_id, user):
                 queryset=BoardMembership.objects.select_related("user"),
                 to_attr="_prefetched_memberships",
             ),
-        ),
-        pk=board_id,
-    )
+        )
+    board = get_object_or_404(queryset, pk=board_id)
     role = get_board_role(user, board)
     if role is None:
         logger.warning(

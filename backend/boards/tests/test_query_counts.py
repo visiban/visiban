@@ -570,3 +570,42 @@ class AnalyticsQueryCountTests(TestCase):
             f"analytics/ query count grew from {baseline} to {scaled} when "
             "swimlanes were added — per-swimlane N+1 regression detected.",
         )
+
+    def test_analytics_query_count_does_not_grow_with_cards(self):
+        """Adding more cards must not change the query count (#930).
+
+        Mirrors ``test_analytics_query_count_does_not_grow_with_swimlanes`` on
+        the card axis so a future regression — e.g. an unguarded
+        ``SerializerMethodField`` iterating over movements per card — is
+        caught here rather than only in production.  The endpoint relies on
+        SQL-level aggregates over cards, so adding rows must not introduce
+        any per-row queries.
+        """
+        baseline = _query_count(self._get_analytics)
+
+        # Add 20 extra cards spread across existing (column, swimlane) cells
+        # so the new rows participate in the same aggregations as the seed
+        # cards.  Each gets a movement so the velocity / dwell calculations
+        # must process them.
+        col = self.cols[0]
+        lane = self.lanes[0]
+        for i in range(20):
+            card = Card.objects.create(
+                board=self.board, column=col, swimlane=lane,
+                title=f"ExtraCard{i}", created_by=self.user, position=100 + i,
+            )
+            CardMovement.objects.create(
+                card=card,
+                to_column=col, to_column_name=col.name, to_column_uid=col.uid,
+                to_swimlane=lane, to_swimlane_name=lane.name, to_swimlane_uid=lane.uid,
+                from_column=None, from_column_name="", from_column_uid="",
+                from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
+                moved_by=self.user,
+            )
+
+        scaled = _query_count(self._get_analytics)
+        self.assertEqual(
+            baseline, scaled,
+            f"analytics/ query count grew from {baseline} to {scaled} when "
+            "cards were added — per-card N+1 regression detected.",
+        )

@@ -203,8 +203,20 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
       getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
+    } else if (evt.event === "board.star_changed") {
+      // Star is per-user state (#952); ignore events for other users so a
+      // colleague starring a board on the same group page does not flip our
+      // star indicator.  The boards list is patched in place to avoid a
+      // refetch on every star toggle.
+      const payload = data as { uid?: string; user_id?: number; is_starred?: boolean };
+      if (typeof payload.user_id === "number" && payload.user_id === user.id && typeof payload.uid === "string") {
+        const targetUid = payload.uid;
+        const nextStarred = !!payload.is_starred;
+        setBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
+        setSubgroupBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
+      }
     }
-  }, [captureFocusedBoardId, flagAnimate, groupId]);
+  }, [captureFocusedBoardId, flagAnimate, groupId, user.id]);
 
   // Events fired while the socket was disconnected are not replayed. Refetch
   // the boards list after a reconnect so the UI converges with server state.

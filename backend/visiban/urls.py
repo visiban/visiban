@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from accounts.views import InviteRegisterView, ThrottledPasswordResetView, ThrottledPasswordResetConfirmView, EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.views import InviteRegisterView, ThrottledLoginView, ThrottledPasswordResetView, ThrottledPasswordResetConfirmView, EmailConfirmRedirectView, VerifyEmailThrottle
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
 
@@ -37,6 +37,11 @@ urlpatterns = [
     # method signatures do not need to declare a 'version' parameter.
     # request.version is set to "v1" (the DEFAULT_VERSION) by URLPathVersioning.
     # Requests to any other /api/vN/ prefix are caught by the 406 catch-all below.
+    # Override the default LoginView with our rate-limited subclass — applies
+    # a per-IP ceiling on top of the allauth ACCOUNT_RATE_LIMITS gate (#924).
+    # Registered before dj_rest_auth.urls so Django's URL resolver picks this
+    # throttled subclass instead of the default LoginView.
+    path("api/v1/auth/login/", ThrottledLoginView.as_view()),
     # Override the default PasswordResetView with our rate-limited subclass to
     # prevent the reset flow from being used for bulk email sends.
     path("api/v1/auth/password/reset/", ThrottledPasswordResetView.as_view()),

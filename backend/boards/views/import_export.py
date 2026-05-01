@@ -190,6 +190,18 @@ class BoardImportExportMixin:
         if not isinstance(data, dict):
             return Response({"detail": "Invalid JSON: expected an object at the top level."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Reject malformed payloads where collection keys are present but not lists.
+        # Without this guard a string or integer value triggers TypeError/AttributeError
+        # downstream (e.g. iterating a string yields per-character "card" dicts that
+        # then fail .get() with AttributeError) and may surface a stack trace to the
+        # client in non-production error formatting (#921).
+        for _key in ("cards", "columns", "swimlanes", "labels"):
+            if _key in data and not isinstance(data[_key], list):
+                return Response(
+                    {"detail": f"Invalid JSON: '{_key}' must be a list."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Schema version guard — warn on missing (pre-versioning files) or future versions.
         # The current importer understands schema_version 1 and 2.  Files without the field
         # are treated as version 0 (pre-1.0 exports) and imported on a best-effort basis.

@@ -567,6 +567,7 @@ When `registration_mode` is `"invite_only"`, an additional `invite_token` field 
 | `400 Bad Request` | The invite link has already been used (single-use links) |
 | `400 Bad Request` | Email already registered, passwords do not match, or password too short |
 | `403 Forbidden` | Registration is `"closed"` — no new accounts can be created |
+| `409 Conflict` (`invite_already_redeemed`, 1.1+) | The same email previously redeemed this multi-use invite link | Use a different invite link or contact the link's creator |
 
 ---
 
