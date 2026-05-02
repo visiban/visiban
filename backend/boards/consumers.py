@@ -2,13 +2,20 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import Board
-from .permissions import get_board_role
+from .models import Board, BoardMembership
+from .permissions import get_board_role, SITE_ADMIN
 
 # How often (in seconds) the server sends a keepalive ping to each client.
 # NATs and reverse proxies commonly drop idle WebSocket connections after
 # 60–120 s of silence; 30 s keeps connections alive through most of them.
 PING_INTERVAL = 30
+
+# Roles that may receive `is_moderator` on member.* broadcast payloads.
+# All other roles get the field stripped at the consumer (#978) — the
+# REST surface already strips it via BoardMembershipSerializer.to_representation
+# (#920), but broadcasts are fan-out without per-subscriber filtering and the
+# serializer cannot know the recipient's role at send time.
+_ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
 
 class BoardConsumer(AsyncWebsocketConsumer):
@@ -16,15 +23,18 @@ class BoardConsumer(AsyncWebsocketConsumer):
         self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
         self.room = f"board_{self.board_id}"
         self._ping_task = None
+        self._role = None
         user = self.scope["user"]
 
         if not user.is_authenticated:
             await self.close(code=4001)
             return
 
-        if not await self._has_access(user, self.board_id):
+        role = await self._resolve_role(user, self.board_id)
+        if role is None:
             await self.close(code=4003)
             return
+        self._role = role
 
         await self.channel_layer.group_add(self.room, self.channel_name)
         await self.accept()
@@ -66,12 +76,24 @@ class BoardConsumer(AsyncWebsocketConsumer):
         ):
             await self.close()
             return
+        # Strip `is_moderator` from member.added/member.updated payloads when
+        # the subscriber is below admin role (#978).  REST responses already
+        # strip the field via BoardMembershipSerializer.to_representation
+        # (#920); the broadcast surface needs the same gate here because it
+        # has no per-subscriber filter at the serializer layer.
+        if (
+            payload.get("event") in ("member.added", "member.updated")
+            and self._role not in _ROLES_WITH_MODERATOR_VISIBILITY
+        ):
+            data = payload.get("data") or {}
+            if "is_moderator" in data:
+                payload = {**payload, "data": {k: v for k, v in data.items() if k != "is_moderator"}}
         await self.send(text_data=json.dumps(payload))
 
     @database_sync_to_async
-    def _has_access(self, user, board_id):
+    def _resolve_role(self, user, board_id):
         try:
             board = Board.objects.get(pk=board_id)
         except Board.DoesNotExist:
-            return False
-        return get_board_role(user, board) is not None
+            return None
+        return get_board_role(user, board)

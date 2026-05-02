@@ -266,7 +266,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
         {activeCount > 0 && (
           <button
             onClick={() => onChange(EMPTY_FILTER)}
-            className="text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 shrink-0 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
+            className="text-xs text-fg-tertiary hover:text-fg hover:bg-surface-hover border border-line hover:border-line-emphasis rounded px-2 py-0.5 shrink-0 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
           >
             Clear all
           </button>

@@ -160,6 +160,30 @@ class SwimlaneSetCollapsedTests(TestCase):
         r = self.client.patch(url, {"is_collapsed": True}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    def test_snake_case_alias_emits_deprecation_headers(self):
+        """The deprecated snake_case route must carry RFC 8594 Deprecation
+        and a successor-version Link pointing at the kebab-case path (#986).
+        """
+        self.client.force_authenticate(self.admin)
+        snake_url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set_collapsed/"
+        r = self.client.patch(snake_url, {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r["Deprecation"], "true")
+        link = r["Link"]
+        # Successor link must point at the kebab-case route, not back at the snake form.
+        self.assertIn("set-collapsed", link)
+        self.assertNotIn("set_collapsed", link)
+        self.assertIn('rel="successor-version"', link)
+
+    def test_kebab_case_route_does_not_emit_deprecation_headers(self):
+        """The canonical kebab-case route must NOT carry Deprecation headers (#986)."""
+        self.client.force_authenticate(self.admin)
+        kebab_url = f"/api/v1/boards/{self.board.id}/swimlanes/{self.swimlane.id}/set-collapsed/"
+        r = self.client.patch(kebab_url, {"is_collapsed": True}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertNotIn("Deprecation", r)
+        self.assertNotIn("Link", r)
+
     @patch("boards.views.swimlanes.transaction.on_commit", side_effect=lambda fn: fn())
     @patch("boards.broadcast.broadcast_board_event")
     def test_set_collapsed_broadcasts_swimlane_updated(self, mock_broadcast, _on_commit):

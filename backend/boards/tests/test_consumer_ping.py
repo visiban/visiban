@@ -38,7 +38,7 @@ class BoardConsumerPingTests(TestCase):
 
         async def run():
             # Patch _has_access to return True so connect() succeeds.
-            with patch.object(consumer, "_has_access", return_value=True):
+            with patch.object(consumer, "_resolve_role", return_value="admin"):
                 await consumer.connect()
 
             # The ping task is now running. Advance the event loop past one
@@ -87,7 +87,7 @@ class BoardConsumerPingTests(TestCase):
         consumer = self._make_consumer()
 
         async def run():
-            with patch.object(consumer, "_has_access", return_value=True):
+            with patch.object(consumer, "_resolve_role", return_value="admin"):
                 await consumer.connect()
 
             assert consumer._ping_task is not None
@@ -113,11 +113,11 @@ class BoardConsumerPingTests(TestCase):
         asyncio.run(run())
 
     def test_connect_access_denied_closes_with_4003(self):
-        """connect() should close with code 4003 when _has_access returns False."""
+        """connect() should close with code 4003 when _resolve_role returns None."""
         consumer = self._make_consumer()
 
         async def run():
-            with patch.object(consumer, "_has_access", return_value=False):
+            with patch.object(consumer, "_resolve_role", return_value=None):
                 await consumer.connect()
             consumer.close.assert_called_once_with(code=4003)
             assert consumer._ping_task is None
@@ -128,6 +128,7 @@ class BoardConsumerPingTests(TestCase):
         """board_event() should forward the payload as JSON text."""
         consumer = self._make_consumer()
         consumer.scope["user"].id = 42
+        consumer._role = "admin"
 
         payload = {"event": "card.moved", "data": {"card_id": 7}}
 
@@ -143,6 +144,7 @@ class BoardConsumerPingTests(TestCase):
         """board_event() should close the socket when the current user is removed."""
         consumer = self._make_consumer()
         consumer.scope["user"].id = 99
+        consumer._role = "viewer"
 
         payload = {"event": "member.removed", "data": {"user_id": 99}}
 
@@ -157,6 +159,7 @@ class BoardConsumerPingTests(TestCase):
         """board_event() should NOT close when a *different* user is removed."""
         consumer = self._make_consumer()
         consumer.scope["user"].id = 1
+        consumer._role = "viewer"
 
         payload = {"event": "member.removed", "data": {"user_id": 2}}
 
@@ -167,8 +170,8 @@ class BoardConsumerPingTests(TestCase):
 
         asyncio.run(run())
 
-    def test_has_access_board_not_found_returns_false(self):
-        """_has_access() should return False when the board does not exist."""
+    def test_resolve_role_board_not_found_returns_none(self):
+        """_resolve_role() should return None when the board does not exist."""
         from unittest.mock import MagicMock
         from boards.consumers import BoardConsumer
 
@@ -177,7 +180,103 @@ class BoardConsumerPingTests(TestCase):
 
         async def run():
             # Use a board_id that cannot exist (negative PK).
-            result = await consumer._has_access(user, -1)
-            assert result is False
+            result = await consumer._resolve_role(user, -1)
+            assert result is None
+
+        asyncio.run(run())
+
+    def test_board_event_strips_is_moderator_for_viewer(self):
+        """is_moderator must be stripped from member.added payloads when subscriber is below admin (#978)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "viewer"
+
+        payload = {
+            "event": "member.added",
+            "data": {"id": 9, "user": {"id": 7}, "role": "member", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            sent = consumer.send.call_args.kwargs["text_data"]
+            decoded = json.loads(sent)
+            assert "is_moderator" not in decoded["data"]
+            # Other fields preserved unchanged.
+            assert decoded["data"]["role"] == "member"
+            assert decoded["event"] == "member.added"
+
+        asyncio.run(run())
+
+    def test_board_event_strips_is_moderator_for_member(self):
+        """member-role subscribers must not see is_moderator in member.updated either (#978)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "member"
+
+        payload = {
+            "event": "member.updated",
+            "data": {"id": 9, "user": {"id": 7}, "role": "member", "is_moderator": False},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert "is_moderator" not in decoded["data"]
+
+        asyncio.run(run())
+
+    def test_board_event_keeps_is_moderator_for_admin(self):
+        """admin-role subscribers must still receive is_moderator (#978)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "admin"
+
+        payload = {
+            "event": "member.added",
+            "data": {"id": 9, "user": {"id": 7}, "role": "member", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert decoded["data"]["is_moderator"] is True
+
+        asyncio.run(run())
+
+    def test_board_event_keeps_is_moderator_for_site_admin(self):
+        """site_admin subscribers must still receive is_moderator (#978)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "site_admin"
+
+        payload = {
+            "event": "member.updated",
+            "data": {"id": 9, "user": {"id": 7}, "role": "admin", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert decoded["data"]["is_moderator"] is True
+
+        asyncio.run(run())
+
+    def test_board_event_does_not_filter_non_member_events(self):
+        """is_moderator filter must only apply to member.added / member.updated (#978)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "viewer"
+
+        # A card.updated event with an `is_moderator` field somewhere in its
+        # data must not be touched — the filter is event-typed.
+        payload = {
+            "event": "card.updated",
+            "data": {"id": 1, "is_moderator": True},  # contrived, but must pass through
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert decoded["data"]["is_moderator"] is True
 
         asyncio.run(run())

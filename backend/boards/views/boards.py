@@ -212,10 +212,10 @@ class BoardViewSet(
         )
         with transaction.atomic():
             board.delete()
-            # board_uid is the stable identifier for this event; board_id is kept
-            # for backward compatibility with pre-1.1 clients and must not be
-            # removed until a major-version bump.
-            payload = {"board_uid": board_uid, "board_id": board_id}
+            # board_uid is the stable identifier for terminal events (#979).
+            # All deletion events (card/column/swimlane/label/saved_filter)
+            # carry only the *_uid; board.deleted matches that contract.
+            payload = {"board_uid": board_uid}
             def _broadcast_deleted(bid=board_id, gid=group_id, pl=payload):
                 _broadcast.broadcast_board_event(bid, "board.deleted", pl)
                 if gid is not None:

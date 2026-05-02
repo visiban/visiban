@@ -179,13 +179,14 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               type="button"
               onClick={openBell}
               className="relative text-fg-secondary hover:text-fg transition p-1 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
-              title="Notifications"
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+              title={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
             >
-              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path d="M10 2a6 6 0 00-6 6v3l-1.293 1.293A1 1 0 003 14h14a1 1 0 00.707-1.707L16 11V8a6 6 0 00-6-6zM8 17a2 2 0 004 0H8z" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-danger-emphasis text-on-danger text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                <span aria-hidden="true" className="absolute -top-1 -right-1 bg-danger-emphasis text-on-danger text-xs font-bold rounded-full min-w-[18px] h-[18px] px-0.5 flex items-center justify-center">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}

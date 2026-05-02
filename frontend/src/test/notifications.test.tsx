@@ -93,7 +93,7 @@ describe('Notification dropdown', () => {
     renderNavbar()
 
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
     await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
 
     await user.click(screen.getByText('Alice moved card "Setup CI" to Done'))
@@ -120,7 +120,7 @@ describe('Notification dropdown', () => {
     renderNavbar()
 
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
     await waitFor(() => screen.getByText('You were added to Sprint 1'))
 
     await user.click(screen.getByText('You were added to Sprint 1'))
@@ -172,7 +172,7 @@ describe('Notification dropdown', () => {
     })
 
     // Open the dropdown
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
 
     // Both notifications should appear
     await waitFor(() => {
@@ -208,7 +208,7 @@ describe('Notification dropdown', () => {
     })
 
     // Open dropdown
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
 
     await waitFor(() => {
       expect(screen.getByText('Mark all read')).toBeInTheDocument()
@@ -247,7 +247,7 @@ describe('Notification dropdown', () => {
     renderNavbar()
 
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
     await waitFor(() => screen.getByText('You were added to Sprint 1'))
 
     expect(screen.getByText('View board →')).toBeInTheDocument()
@@ -261,7 +261,7 @@ describe('Notification dropdown', () => {
     renderNavbar()
 
     await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
     await waitFor(() => screen.getByText('Alice moved card "Setup CI" to Done'))
 
     expect(screen.queryByText('View board →')).not.toBeInTheDocument()
@@ -279,7 +279,7 @@ describe('Notification dropdown', () => {
     })
 
     // Open dropdown
-    await user.click(screen.getByTitle('Notifications'))
+    await user.click(screen.getByTitle(/Notifications/))
 
     await waitFor(() => {
       expect(screen.getByText('No notifications')).toBeInTheDocument()

@@ -905,7 +905,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             </span>
                           </div>
                           <div className="text-xs text-fg-muted">
-                            {entry.role_at_export} — {entry.export_format.toUpperCase()} · {entry.row_count} card{entry.row_count === 1 ? "" : "s"}
+                            {entry.actor_role_label} — {entry.export_format.toUpperCase()} · {entry.row_count} card{entry.row_count === 1 ? "" : "s"}
                           </div>
                         </li>
                       ))}
