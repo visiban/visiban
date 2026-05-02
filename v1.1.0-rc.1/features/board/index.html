@@ -3176,7 +3176,7 @@
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
 </ul>
-<p>Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone or by clicking the <strong>Delete column</strong> button at the bottom of the column settings modal.</p>
+<p>Columns can be reordered by dragging the column header left or right. Admins manage columns through the <strong><code>⋮</code> kebab</strong> that appears on each column header on hover or keyboard focus — it opens a menu with <strong>Rename</strong>, <strong>Edit settings…</strong>, and <strong>Delete column</strong>. Renaming is also reachable by double-clicking the column name. The kebab is the keyboard-accessible path; mouse users can additionally drag a column onto the trash zone (see <em>Column trash zone</em> below) for the same delete confirmation.</p>
 <h3 id="adding-columns-and-swimlanes">Adding columns and swimlanes<a class="headerlink" href="#adding-columns-and-swimlanes" title="Permanent link">&para;</a></h3>
 <p>The 16 px separators between columns and between swimlane rows are interactive insertion handles:</p>
 <ul>
@@ -3186,7 +3186,10 @@
 <p>Both handle types highlight in blue when hovered and the "+" affordance is visible across the full extent of the separator — column highlight extends through every row separator, and row highlight extends across the full board width.</p>
 <p>The far-left separator (between the swimlane label column and the first board column) follows the same design and resizes the swimlane label sidebar on drag.</p>
 <h3 id="column-trash-zone">Column trash zone<a class="headerlink" href="#column-trash-zone" title="Permanent link">&para;</a></h3>
-<p>When dragging a column, a red <strong>Delete</strong> drop target appears at the right edge of the board. Drop the column on it to delete it. A confirmation dialog shows the number of cards that will be lost before proceeding.</p>
+<blockquote>
+<p><strong>Changed in 1.1</strong> — the trash zone is now opt-in, gated behind ⌥ (Alt). Reorder is the default; deletion is a deliberate gesture. The new column kebab menu (<code>⋮</code>) is the discoverable, keyboard-accessible alternative.</p>
+</blockquote>
+<p>When dragging a column, the drag overlay shows a small <strong>Hold ⌥ to delete</strong> hint. Holding ⌥ (Alt) reveals a red <strong>Delete</strong> drop target at the right edge of the board, and the hint flips to <strong>Drop on trash to delete</strong>. Releasing ⌥ hides the trash zone again. Dropping a column on the trash zone opens the same confirmation dialog reachable from the column kebab <code>Delete column</code> action — for columns that contain cards, you must type the column name to confirm; empty columns can be deleted with a single click.</p>
 <h3 id="hard-wip-enforcement">Hard WIP enforcement<a class="headerlink" href="#hard-wip-enforcement" title="Permanent link">&para;</a></h3>
 <blockquote>
 <p><strong>Added in 1.0</strong></p>
