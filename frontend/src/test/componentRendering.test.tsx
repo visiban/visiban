@@ -401,7 +401,7 @@ describe('ColumnHeader', () => {
     expect(screen.getByText('In Progress')).toBeInTheDocument()
   })
 
-  it('shows the card count', () => {
+  it('shows card count in calm state with N cards label (no WIP prefix)', () => {
     const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })]
     render(
       <ColumnHeader
@@ -415,30 +415,14 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.getByTitle('Cards in column / WIP limit')).toHaveTextContent('2')
+    expect(screen.getByTitle('Cards in column')).toHaveTextContent('2 cards')
+    expect(screen.queryByText(/^WIP\b/)).not.toBeInTheDocument()
   })
 
-  it('shows card count / WIP limit when wip_limit is set', () => {
-    const cards = [makeCard()]
+  it('uses singular "1 card" when exactly one card', () => {
     render(
       <ColumnHeader
         column={makeColumn({ wip_limit: 5 })}
-        cards={cards}
-        boardId={1}
-        isAdmin={false}
-        onColumnUpdated={noop}
-        onRequestDelete={noop}
-        collapsed={false}
-        onToggleCollapse={noop}
-      />,
-    )
-    expect(screen.getByText('1/5')).toBeInTheDocument()
-  })
-
-  it('hides WIP row when wip_limit is null', () => {
-    render(
-      <ColumnHeader
-        column={makeColumn({ wip_limit: null })}
         cards={[makeCard()]}
         boardId={1}
         isAdmin={false}
@@ -448,14 +432,15 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.queryByTitle('Cards in column / WIP limit')).not.toBeInTheDocument()
+    expect(screen.getByText('1 card')).toBeInTheDocument()
   })
 
-  it('hides Weight row when total card weight is zero', () => {
+  it('shows "Over WIP · count/limit" with warning glyph when over WIP', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
     render(
       <ColumnHeader
-        column={makeColumn()}
-        cards={[makeCard({ weight: 0 })]}
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
@@ -464,14 +449,36 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.queryByTitle('Total card weight / weight budget')).not.toBeInTheDocument()
+    const row = screen.getByTitle('Over WIP limit')
+    expect(row).toHaveTextContent('Over WIP · 3/2')
+    expect(row.textContent).toContain('⚠')
   })
 
-  it('shows Weight row when total card weight is non-zero', () => {
+  it('shows hard-block ⛔ glyph when hardWipEnforced and over WIP', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
     render(
       <ColumnHeader
-        column={makeColumn({ weight_limit: 10 })}
-        cards={[makeCard({ weight: 3 }), makeCard({ id: 2, weight: 2 })]}
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+        hardWipEnforced
+      />,
+    )
+    const row = screen.getByTitle('WIP hard limit — no override possible')
+    expect(row.textContent).toContain('⛔')
+    expect(row.textContent).not.toContain('⚠')
+  })
+
+  it('hides stats row when wip_limit is null and column is empty', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: null })}
+        cards={[]}
         boardId={1}
         isAdmin={false}
         onColumnUpdated={noop}
@@ -480,8 +487,57 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(screen.getByTitle('Total card weight / weight budget')).toBeInTheDocument()
-    expect(screen.getByText('5/10')).toBeInTheDocument()
+    expect(screen.queryByTitle('Cards in column')).not.toBeInTheDocument()
+  })
+
+  it('shows card count even when wip_limit is null but column has cards', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: null })}
+        cards={[makeCard(), makeCard({ id: 2 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByText('2 cards')).toBeInTheDocument()
+  })
+
+  it('shows "Weight count/limit" when over weight but not over WIP', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ weight_limit: 10, wip_limit: 5 })}
+        cards={[makeCard({ weight: 7 }), makeCard({ id: 2, weight: 7 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const row = screen.getByTitle('Over weight budget')
+    expect(row).toHaveTextContent('Weight 14/10')
+  })
+
+  it('surfaces WIP only (not weight) when both are over — worst-offender priority', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ weight_limit: 10, wip_limit: 1 })}
+        cards={[makeCard({ weight: 7 }), makeCard({ id: 2, weight: 7 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Over WIP limit')).toBeInTheDocument()
+    expect(screen.queryByTitle('Over weight budget')).not.toBeInTheDocument()
   })
 
   it('double-clicking the header opens EditColumnModal for admin', async () => {
@@ -518,7 +574,7 @@ describe('ColumnHeader', () => {
     expect(screen.queryByTestId('edit-column-modal')).not.toBeInTheDocument()
   })
 
-  it('adds red bottom border to header when WIP limit is exceeded', () => {
+  it('adds red top accent strip to header when WIP limit is exceeded', () => {
     const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
     const { container } = render(
       <ColumnHeader
@@ -532,11 +588,29 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    const header = container.querySelector('.border-b-danger-emphasis\\/50')
+    const header = container.querySelector('.border-t-danger-emphasis')
     expect(header).toBeInTheDocument()
+    expect(container.querySelector('.border-t-2')).toBeInTheDocument()
   })
 
-  it('does not add red bottom border when WIP limit is not exceeded', () => {
+  it('adds amber top accent strip to header when over weight (not over WIP)', () => {
+    const { container } = render(
+      <ColumnHeader
+        column={makeColumn({ weight_limit: 5, wip_limit: 10 })}
+        cards={[makeCard({ weight: 4 }), makeCard({ id: 2, weight: 4 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(container.querySelector('.border-t-warning-emphasis')).toBeInTheDocument()
+    expect(container.querySelector('.border-t-danger-emphasis')).not.toBeInTheDocument()
+  })
+
+  it('does not add a top accent strip when calm', () => {
     const { container } = render(
       <ColumnHeader
         column={makeColumn({ wip_limit: 5 })}
@@ -549,7 +623,8 @@ describe('ColumnHeader', () => {
         onToggleCollapse={noop}
       />,
     )
-    expect(container.querySelector('.border-b-danger-emphasis\\/50')).not.toBeInTheDocument()
+    expect(container.querySelector('.border-t-danger-emphasis')).not.toBeInTheDocument()
+    expect(container.querySelector('.border-t-warning-emphasis')).not.toBeInTheDocument()
   })
 
   it('renders collapsed state with vertical column name', () => {
@@ -657,6 +732,23 @@ describe('ColumnHeader', () => {
       />,
     )
     expect(screen.queryByText('⚠')).not.toBeInTheDocument()
+  })
+
+  it('collapsed over-weight (not over WIP): shows amber glyph and weight title', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Review', weight_limit: 5, wip_limit: 10 })}
+        cards={[makeCard({ weight: 4 }), makeCard({ id: 2, weight: 4 })]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={true}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Expand "Review" · Over weight limit (8/5)')).toBeInTheDocument()
+    expect(screen.getByText('⚠')).toBeInTheDocument()
   })
 
   it('collapsed wip_limit=0: no warning glyph (0 treated as no limit)', () => {

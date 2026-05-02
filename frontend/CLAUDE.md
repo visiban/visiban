@@ -128,13 +128,15 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 ## Column headers
 
 - Background: `bg-surface` — one level above the cell canvas
-- Layout: left nav arrow · colored dot · name (truncated) · right nav arrow, then WIP + Weight stats row below
+- Layout: left nav arrow · colored dot · name (truncated) · right nav arrow, then a single stat row below
 - Column name: `text-sm font-medium text-fg truncate`
-- WIP / Weight stats: `text-xs text-fg-muted` — format `WIP {count}/∞` and `Weight {count}/∞`
-- **Over-limit states use text color + `font-semibold` only — no filled background:**
-  - WIP over-limit: `text-danger font-semibold`
-  - Weight over-limit: `text-warning font-semibold`
-  - Never use a filled `bg-danger/…` background for over-limit stats — it competes with the column header surface color
+- **Stat row — single line, worst-offender wins.** A column header renders exactly one stat line, never two stacked lines. The decision tree (priority order: WIP > Weight > calm):
+  - **Over WIP** → `⚠ Over WIP · {count}/{limit}` (or `⛔` glyph when `hardWipEnforced`), `text-danger font-medium`, `title="Over WIP limit"`
+  - **Over Weight** (and not over WIP) → `Weight {weight}/{limit}`, `text-warning font-medium`, `title="Over weight budget"`
+  - **Calm** → `{count} cards` (`1 card` for a single card), `text-fg-muted`, `title="Cards in column"`
+- **Drop the `WIP` / `Weight` label words in calm states.** The limit phrasing only earns its place when a column is actually over — otherwise the count alone reads faster on a scan.
+- **Top accent strip — peripherally scannable cue for over-limit state.** When over WIP, render `border-t-2 border-t-danger-emphasis` on the header surface; when over weight (and not over WIP), `border-t-2 border-t-warning-emphasis`. The strip is the *only* over-limit chrome; the existing rule "text color + `font-semibold` only, no filled background" still holds for the stat text. Never use a filled `bg-danger/…` background for over-limit stats — it competes with the column header surface color.
+- The collapsed (40px-wide) header mirrors the same top accent strip and shows a `⚠` glyph in red (over WIP) or amber (over weight, not over WIP). Title includes the over-limit reason for screen readers.
 - Column color dot: `w-2.5 h-2.5 rounded-full flex-shrink-0` in the column's assigned color
 - Nav arrows (`◄` / `►`): `text-fg-faint hover:text-fg-secondary text-xs transition`
 - Column name truncates with ellipsis — never wraps
@@ -304,6 +306,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 ## Typography
 
+- **Minimum text size for informational content is `text-xs` (12px).** Never use `text-[10px]` or smaller arbitrary pixel sizes for stats, labels, status text, or any text the user is meant to read. Sub-12px arbitrary sizes are reserved for decorative single-glyph indicators where the meaning is carried by an adjacent label or `title` attribute (e.g. the rotated column abbreviation in a collapsed column header).
 - Page headings: `text-xl font-semibold text-fg`
 - Page-level section headings (Dashboard-style landmark regions like "My Boards", "Groups", "Favorite Boards"): `text-lg font-semibold text-fg`. These are top-level navigation regions on a full page, not sub-sections inside a card or panel. Pair each heading with an `id` and `aria-labelledby` on the enclosing `<section>` so the landmark has an accessible name.
 - Section headings (sub-sections inside a card, panel, or modal): `text-sm font-medium text-fg-tertiary uppercase tracking-wide`
