@@ -1135,6 +1135,131 @@ describe('BoardView', () => {
       expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
     })
 
+    it('auto-expands the kebab menu once on first sub-`lg` visit (#971)', async () => {
+      // Sub-`lg` viewport: useIsLargeViewport reads matches=false.
+      const mq = {
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      const matchMedia = vi.fn(() => mq) as unknown as typeof window.matchMedia
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: matchMedia,
+      })
+      localStorage.removeItem('user:prefs:overflow-seen')
+      vi.useFakeTimers()
+      try {
+        render(<BoardView {...defaultProps()} />)
+        // Menu is closed at first paint — the auto-expand is delayed so the
+        // page can settle.
+        expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(600)
+        })
+        expect(screen.getByRole('menu', { name: 'More board actions' })).toBeInTheDocument()
+        expect(localStorage.getItem('user:prefs:overflow-seen')).toBe('true')
+      } finally {
+        vi.useRealTimers()
+        Object.defineProperty(window, 'matchMedia', {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        })
+      }
+    })
+
+    it('does NOT auto-expand at `lg` viewport — controls are visible directly (#971)', async () => {
+      // Default test environment has matchMedia=undefined → useIsLargeViewport
+      // returns true → controls are not folded → no auto-expand.
+      localStorage.removeItem('user:prefs:overflow-seen')
+      vi.useFakeTimers()
+      try {
+        render(<BoardView {...defaultProps()} />)
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000)
+        })
+        expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
+        expect(localStorage.getItem('user:prefs:overflow-seen')).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('. shortcut within the auto-expand window cancels the pending auto-expand (#971)', async () => {
+      // Race covered: Jordan presses `.` in the 600 ms window. The menu opens
+      // via the shortcut, Jordan dismisses it, and the pending timer must
+      // NOT re-open the menu uninvited.
+      const mq = {
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      const matchMedia = vi.fn(() => mq) as unknown as typeof window.matchMedia
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: matchMedia,
+      })
+      localStorage.removeItem('user:prefs:overflow-seen')
+      vi.useFakeTimers()
+      try {
+        render(<BoardView {...defaultProps()} />)
+        // Press `.` at 200 ms — well inside the 600 ms auto-expand window.
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(200)
+        })
+        fireEvent.keyDown(document, { key: '.' })
+        expect(screen.getByRole('menu', { name: 'More board actions' })).toBeInTheDocument()
+        // Dismiss via Escape, then advance past the auto-expand deadline.
+        fireEvent.keyDown(document, { key: 'Escape' })
+        expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(600)
+        })
+        // Auto-expand timer must NOT have re-opened the menu.
+        expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+        Object.defineProperty(window, 'matchMedia', {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        })
+      }
+    })
+
+    it('does NOT auto-expand for users who have already seen the kebab (#971)', async () => {
+      const mq = {
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }
+      const matchMedia = vi.fn(() => mq) as unknown as typeof window.matchMedia
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: matchMedia,
+      })
+      localStorage.setItem('user:prefs:overflow-seen', 'true')
+      vi.useFakeTimers()
+      try {
+        render(<BoardView {...defaultProps()} />)
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000)
+        })
+        expect(screen.queryByRole('menu', { name: 'More board actions' })).not.toBeInTheDocument()
+      } finally {
+        vi.useRealTimers()
+        Object.defineProperty(window, 'matchMedia', {
+          configurable: true,
+          writable: true,
+          value: undefined,
+        })
+      }
+    })
+
     it('first-encounter dot is dismissed on intentional click, not on . shortcut', () => {
       // Start with no prior seen pref — dot should render
       localStorage.removeItem('user:prefs:overflow-seen')

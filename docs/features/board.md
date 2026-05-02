@@ -256,7 +256,7 @@ The board toolbar (Row 2) groups controls into three zones plus a pinned trailin
 
 The **Collapse** button is a split control: clicking the main segment collapses or expands everything at once (preserving one-click muscle memory), while clicking the chevron opens a menu with granular options to hide or show only swimlanes, only columns, or everything.
 
-The overflow kebab (`⋮`) contains Export, Keyboard shortcuts, and Replay onboarding tour. On viewports below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into the overflow menu as well — the toolbar degrades gracefully without hiding functionality.
+The overflow kebab (`⋮`) contains Export, Keyboard shortcuts, and Replay onboarding tour. On viewports below 1024 px, the Layout toggle, Archived, Activity drawer, and Settings fold into the overflow menu as well — the toolbar degrades gracefully without hiding functionality. The first time you visit a board at this viewport size, the kebab menu auto-expands once so the folded controls are visible; from then on a small first-encounter dot reminds you that more actions live in the menu, and is dismissed the first time you click the kebab.
 
 On viewports below 768 px (phones and narrow tablets), Zone 2 becomes a horizontally-scrolling strip while the trailing cluster stays pinned to the right edge so the overflow kebab is always reachable.
 

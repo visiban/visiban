@@ -749,6 +749,28 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // horizontal-scroll behavior is carried by the scroll container's
   // `overflow-x-auto`, so no separate md/sm branch is needed here.
   const foldToolbarControls = !isLargeViewport;
+  // #971 — at sub-`lg` viewports the secondary controls fold into the kebab,
+  // and the static first-encounter dot was too passive for occasional users
+  // (Sam): they assumed the features were gone. Once per browser the menu
+  // auto-expands ~600ms after first encountering a folded layout, then the
+  // dot is cleared. Cancelled if the user opens the menu themselves first
+  // (the cleanup fires when overflowSeen flips true mid-delay).
+  const overflowAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (overflowAutoExpandedRef.current) return;
+    if (!foldToolbarControls) return;
+    if (overflowSeen) return;
+    const timer = window.setTimeout(() => {
+      // Re-check the ref at fire time: the `.` keyboard shortcut may have
+      // opened the menu in the meantime without changing `overflowSeen`,
+      // and we don't want to spuriously re-open after Jordan dismisses it.
+      if (overflowAutoExpandedRef.current) return;
+      overflowAutoExpandedRef.current = true;
+      markOverflowSeen();
+      setOverflowOpen(true);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [foldToolbarControls, overflowSeen, markOverflowSeen]);
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
   // Name-typed confirmation input for column delete (#965). Only required when the
   // column has cards — empty columns keep the simple Cancel/Delete flow. Reset on
@@ -907,8 +929,11 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setShowShortcuts((v) => !v);
       } else if (e.key === ".") {
         // Bare `.` — open the overflow menu. Guarded by the input-tag check
-        // above so a period typed into a text field does not fire.
+        // above so a period typed into a text field does not fire. Mark the
+        // auto-expand as already-fired so the pending #971 timer doesn't
+        // re-open the menu after Jordan dismisses it.
         e.preventDefault();
+        overflowAutoExpandedRef.current = true;
         setOverflowOpen((v) => !v);
       }
     };
