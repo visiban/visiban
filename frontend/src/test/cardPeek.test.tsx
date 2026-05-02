@@ -163,4 +163,40 @@ describe('Card peek popover', () => {
 
     expect(screen.getByRole('tooltip')).toHaveTextContent('Click to open ↗')
   })
+
+  // ---- #961: peek surfaces metrics hidden from card face at lower densities ----
+
+  it('peek shows weight + attachments on a single muted line when present (last-moved is in the footer, not duplicated here)', async () => {
+    const card = makeCard({ weight: 5, attachment_count: 3, last_moved_at: '2026-04-30T12:00:00Z' })
+    const { container } = render(<CardItem card={card} density="comfortable" />)
+    fireEvent.mouseEnter(getCardEl(container))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('Weight 5')
+    expect(tooltip).toHaveTextContent('3 attachments')
+    // Single line — verify "·" separator is used (discipline check)
+    expect(tooltip.textContent).toMatch(/Weight 5 · 3 attachments/)
+    // last_moved_at is intentionally NOT in the metrics line — the footer already
+    // shows "Last activity 2d ago" so listing it twice is noise.
+    expect(tooltip.textContent).not.toMatch(/Moved 2d ago/)
+  })
+
+  it('peek metrics line uses singular "1 attachment" for a single attachment', async () => {
+    const card = makeCard({ weight: 1, attachment_count: 1, last_moved_at: null })
+    const { container } = render(<CardItem card={card} density="comfortable" />)
+    fireEvent.mouseEnter(getCardEl(container))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).toHaveTextContent('1 attachment')
+    expect(tooltip).not.toHaveTextContent('1 attachments')
+  })
+
+  it('peek omits the metrics line entirely when no metric applies', async () => {
+    const card = makeCard({ weight: 1, attachment_count: 0, last_moved_at: null })
+    const { container } = render(<CardItem card={card} />)
+    fireEvent.mouseEnter(getCardEl(container))
+    await act(async () => { vi.advanceTimersByTime(600) })
+    const tooltip = screen.getByRole('tooltip')
+    expect(tooltip).not.toHaveTextContent(/Weight \d|attachment/)
+  })
 })

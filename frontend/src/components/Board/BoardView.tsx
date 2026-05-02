@@ -288,7 +288,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
   const validColumnIds = useMemo(() => new Set(board.columns.map((c) => c.id)), [board.columns]);
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
-  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
+  const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
   // useCardLayoutPref's setter only accepts a direct value, so keyboard
   // handlers (registered outside cardLayout's dep array) read the latest
@@ -1982,11 +1982,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onFocus={enterFocus}
                       onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}
-                      hideLabels={viewPrefs.hideLabels}
-                      hideDueDate={viewPrefs.hideDueDate}
-                      hideAssignee={viewPrefs.hideAssignee}
-                      hidePriority={viewPrefs.hidePriority}
-                      hideLastMoved={viewPrefs.hideLastMoved}
+                      density={board.card_density}
                       userTimezone={userTimezone}
                       userDateFormat={userDateFormat}
                       compact={cardLayout === "compact"}
@@ -2041,7 +2037,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>{/* end flex-row wrapper */}
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
+          {activeCard && <CardItem card={activeCard} overlay density={board.card_density} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2 min-w-0">
@@ -2123,7 +2119,6 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           viewPrefs={viewPrefs}
           onToggleHiddenColumn={toggleHiddenColumn}
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
-          onSetCardFieldPref={setCardFieldPref}
           onBoardDeleted={onBoardDeleted}
           onUpdateBoardSettings={onUpdateBoardSettings}
         />

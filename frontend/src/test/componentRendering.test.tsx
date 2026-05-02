@@ -90,12 +90,12 @@ function makeColumn(overrides: Partial<Column> = {}): Column {
 
 describe('CardItem', () => {
   it('renders the card title', () => {
-    render(<CardItem card={makeCard({ title: 'Fix login bug' })} />)
+    render(<CardItem density="dense" card={makeCard({ title: 'Fix login bug' })} />)
     expect(screen.getByText('Fix login bug')).toBeInTheDocument()
   })
 
   it('applies a full border color matching the priority', () => {
-    const { container } = render(<CardItem card={makeCard({ priority: 'urgent' })} />)
+    const { container } = render(<CardItem density="dense" card={makeCard({ priority: 'urgent' })} />)
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     // urgent = #B91C1C (red-700) — jsdom normalizes hex to rgb(), so accept either form
@@ -107,7 +107,7 @@ describe('CardItem', () => {
     const card = makeCard({
       labels: [{ id: 1, uid: 'lbluid000001', name: 'Bug', color: '#EF4444' }],
     })
-    render(<CardItem card={card} />)
+    render(<CardItem density="dense" card={card} />)
     expect(screen.getByText('Bug')).toBeInTheDocument()
   })
 
@@ -120,19 +120,19 @@ describe('CardItem', () => {
         display_name: 'Jane Doe',
       },
     })
-    render(<CardItem card={card} />)
+    render(<CardItem density="dense" card={card} />)
     expect(screen.getByTitle('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('JD')).toBeInTheDocument()
   })
 
   it('shows checklist progress when checklist items exist', () => {
     const card = makeCard({ checklist_total: 5, checklist_done: 3 })
-    render(<CardItem card={card} />)
+    render(<CardItem density="dense" card={card} />)
     expect(screen.getByTitle('3/5 checklist items')).toBeInTheDocument()
   })
 
   it('applies highlight ring classes when highlighted prop is true', () => {
-    const { container } = render(<CardItem card={makeCard()} highlighted />)
+    const { container } = render(<CardItem density="dense" card={makeCard()} highlighted />)
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-2')
@@ -141,7 +141,7 @@ describe('CardItem', () => {
   })
 
   it('does not apply highlight ring classes when highlighted is false', () => {
-    const { container } = render(<CardItem card={makeCard()} highlighted={false} />)
+    const { container } = render(<CardItem density="dense" card={makeCard()} highlighted={false} />)
     const root = container.firstChild as HTMLElement
     expect(root.className).not.toContain('animate-pulse')
   })
@@ -153,7 +153,7 @@ describe('CardItem', () => {
     futureDate.setDate(futureDate.getDate() + 3)
     // Format as local YYYY-MM-DD to match how the component interprets dates
     const iso = `${futureDate.getFullYear()}-${String(futureDate.getMonth() + 1).padStart(2, '0')}-${String(futureDate.getDate()).padStart(2, '0')}`
-    render(<CardItem card={makeCard({ due_date: iso })} />)
+    render(<CardItem density="dense" card={makeCard({ due_date: iso })} />)
     // Should show "3d" label — test that the due date indicator renders
     expect(screen.getByTitle(`Due ${iso}`)).toBeInTheDocument()
   })
@@ -163,52 +163,52 @@ describe('CardItem', () => {
     const pastDate = new Date()
     pastDate.setDate(pastDate.getDate() - 5)
     const iso = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-${String(pastDate.getDate()).padStart(2, '0')}`
-    render(<CardItem card={makeCard({ due_date: iso })} />)
+    render(<CardItem density="dense" card={makeCard({ due_date: iso })} />)
     // The overdue span has text-danger class
     const dueBadge = screen.getByTitle(`Due ${iso}`)
     expect(dueBadge.className).toContain('text-danger')
   })
 
   it('shows attachment count when attachment_count > 0', () => {
-    render(<CardItem card={makeCard({ attachment_count: 3 })} />)
+    render(<CardItem density="dense" card={makeCard({ attachment_count: 3 })} />)
     expect(screen.getByTitle('3 attachment(s)')).toBeInTheDocument()
   })
 
   it('shows weight value when weight > 1', () => {
-    render(<CardItem card={makeCard({ weight: 5 })} />)
+    render(<CardItem density="dense" card={makeCard({ weight: 5 })} />)
     expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
   })
 
   it('does not show weight when weight === 1 (backend default / unset state)', () => {
-    render(<CardItem card={makeCard({ weight: 1 })} />)
+    render(<CardItem density="dense" card={makeCard({ weight: 1 })} />)
     expect(screen.queryByTitle('Weight: 1')).not.toBeInTheDocument()
   })
 
   it('does not show weight when weight === 0', () => {
-    render(<CardItem card={makeCard({ weight: 0 })} />)
+    render(<CardItem density="dense" card={makeCard({ weight: 0 })} />)
     expect(screen.queryByTitle('Weight: 0')).not.toBeInTheDocument()
   })
 
   it('does not apply amber ring class when is_stale is true (removed in favor of overlay)', () => {
-    const { container } = render(<CardItem card={makeCard({ is_stale: true })} />)
+    const { container } = render(<CardItem density="dense" card={makeCard({ is_stale: true })} />)
     const root = container.firstChild as HTMLElement
     expect(root.className).not.toContain('ring-warning-emphasis')
   })
 
   it('does not render clock emoji when is_stale is true (removed in favor of overlay)', () => {
-    render(<CardItem card={makeCard({ is_stale: true })} />)
+    render(<CardItem density="dense" card={makeCard({ is_stale: true })} />)
     expect(screen.queryByTitle('Stale — no movement recently')).not.toBeInTheDocument()
   })
 
   it('shows recently moved dot when last_moved_at is within 24 hours', () => {
     const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    render(<CardItem card={makeCard({ last_moved_at: recentlyMoved })} />)
+    render(<CardItem density="dense" card={makeCard({ last_moved_at: recentlyMoved })} />)
     expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
   })
 
   it('shows recently moved dot even when is_stale is true (stale no longer suppresses the dot)', () => {
     const recentlyMoved = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    render(<CardItem card={makeCard({ last_moved_at: recentlyMoved, is_stale: true })} />)
+    render(<CardItem density="dense" card={makeCard({ last_moved_at: recentlyMoved, is_stale: true })} />)
     // Recently moved dot is now shown regardless of is_stale
     expect(screen.getByTitle('Recently moved')).toBeInTheDocument()
   })
@@ -264,7 +264,7 @@ describe('CardItem', () => {
       labels: [], checklist_total: 0, attachment_count: 0, due_date: null,
       assignee: null, weight: 1, is_stale: false, last_moved_at: null,
     })
-    const { container } = render(<CardItem card={card} />)
+    const { container } = render(<CardItem density="dense" card={card} />)
     // Should render title without crashing
     expect(screen.getByText('Test Card')).toBeInTheDocument()
     // No metadata section should render (no labels, checklist, etc.)
@@ -272,9 +272,9 @@ describe('CardItem', () => {
   })
 
   it('renders selection checkbox when onSelect is provided and selected', () => {
-    render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
+    render(<CardItem density="dense" card={makeCard()} onSelect={vi.fn()} selected={true} />)
     // selected card should have blue ring
-    const { container } = render(<CardItem card={makeCard()} onSelect={vi.fn()} selected={true} />)
+    const { container } = render(<CardItem density="dense" card={makeCard()} onSelect={vi.fn()} selected={true} />)
     // CardItem now returns a relative wrapper div; the card root is its first child
     const root = (container.firstChild as HTMLElement).firstElementChild as HTMLElement
     expect(root.className).toContain('ring-primary-soft')
@@ -284,7 +284,7 @@ describe('CardItem', () => {
     const now = new Date()
     // Format as local YYYY-MM-DD (same interpretation as formatDueDate)
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    render(<CardItem card={makeCard({ due_date: today })} />)
+    render(<CardItem density="dense" card={makeCard({ due_date: today })} />)
     // Component shows "Today" for local today — verify the due date element renders
     expect(screen.getByTitle(`Due ${today}`)).toBeInTheDocument()
   })
@@ -298,34 +298,34 @@ describe('CardItem', () => {
         { id: 4, uid: 'lbluid000004', name: 'Test', color: '#F59E0B' },
       ],
     })
-    render(<CardItem card={card} />)
+    render(<CardItem density="dense" card={card} />)
     expect(screen.getByText('+1')).toBeInTheDocument()
   })
 
   it('shows priority badge for medium and above', () => {
-    render(<CardItem card={makeCard({ priority: 'high' })} />)
+    render(<CardItem density="dense" card={makeCard({ priority: 'high' })} />)
     expect(screen.getByTitle('Priority: high')).toBeInTheDocument()
   })
 
   it('does not show priority badge for low priority', () => {
-    render(<CardItem card={makeCard({ priority: 'low', labels: [], checklist_total: 0, attachment_count: 0, due_date: null, assignee: null, weight: 1, is_stale: false, last_moved_at: null })} />)
+    render(<CardItem density="dense" card={makeCard({ priority: 'low', labels: [], checklist_total: 0, attachment_count: 0, due_date: null, assignee: null, weight: 1, is_stale: false, last_moved_at: null })} />)
     expect(screen.queryByTitle(/Priority:/)).not.toBeInTheDocument()
   })
 
   it('truncates long label names to 7 chars + ellipsis', () => {
     const card = makeCard({ labels: [{ id: 1, uid: 'lbluid000001', name: 'VeryLongLabelName', color: '#EF4444' }] })
-    render(<CardItem card={card} />)
+    render(<CardItem density="dense" card={card} />)
     expect(screen.getByTitle('VeryLongLabelName')).toHaveTextContent('VeryLon…')
   })
 
   it('uses slate color tokens (not gray)', () => {
-    const { container } = render(<CardItem card={makeCard()} />)
+    const { container } = render(<CardItem density="dense" card={makeCard()} />)
     const html = container.innerHTML
     expect(html).not.toMatch(/bg-gray-|text-gray-|border-gray-/)
   })
 
   it('shows description indicator icon when card has a description', () => {
-    const { container } = render(<CardItem card={makeCard({ description: '**bold** and _italic_' })} />)
+    const { container } = render(<CardItem density="dense" card={makeCard({ description: '**bold** and _italic_' })} />)
     // Description text must not appear on the card (shown in card detail only)
     expect(screen.queryByText(/bold/)).not.toBeInTheDocument()
     // A description indicator SVG must be present
@@ -334,7 +334,7 @@ describe('CardItem', () => {
   })
 
   it('does not show description indicator when card has no description', () => {
-    const { container } = render(<CardItem card={makeCard({ description: '' })} />)
+    const { container } = render(<CardItem density="dense" card={makeCard({ description: '' })} />)
     const svg = container.querySelector('svg[aria-label="Has description"]')
     expect(svg).not.toBeInTheDocument()
   })

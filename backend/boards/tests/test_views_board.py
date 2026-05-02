@@ -340,3 +340,74 @@ class AllowedPrioritiesValidationTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+
+class CardDensityValidationTests(TestCase):
+    """#961: per-board card_density choice validation and round-trip."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="density_owner", password="pass")
+        self.board, _, _ = _make_board(self.owner, name="DensityBoard")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def test_new_board_defaults_to_comfortable(self):
+        # New boards land on the design intent regardless of what the
+        # 0051 backfill did to existing rows. Confirms the model default
+        # survives factory creation.
+        self.assertEqual(self.board.card_density, "comfortable")
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_set_standard(self, _):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": "standard"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "standard")
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_set_standard_via_compact_alias_returns_400(self, _):
+        # The legacy ``compact`` value (proposed pre-ship in the design bundle)
+        # is rejected post-rename. Documents the breaking change so anyone with
+        # a half-typed integration sees it.
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": "compact"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("card_density", str(r.data))
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_set_dense(self, _):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": "dense"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "dense")
+
+    def test_invalid_density_rejected(self):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": "extra-spacious"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("card_density", str(r.data))
+
+    def test_card_density_in_serializer_output(self):
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("card_density", r.data)
+        self.assertEqual(r.data["card_density"], "comfortable")
+
+    def test_card_density_in_full_endpoint(self):
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("card_density", r.data)

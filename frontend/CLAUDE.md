@@ -184,6 +184,25 @@ The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visibl
 - **Never render two creation affordances on the same cell.** Empty cells have the cell-as-button only; populated cells have the bottom button only. The two states are mutually exclusive.
 - Board stats corner cell (top-left, where header row meets swimlane column): stacked `text-xs text-fg-muted` lines for col/lane/card counts
 
+## Card density (#961)
+
+Each board has an admin-controlled `card_density` setting that drives how much metadata renders on the card face. The three tiers are:
+
+| Tier | Default for | Card face shows |
+|---|---|---|
+| `comfortable` | New boards (1.1+) | One urgency badge, one primary label + `+N`, checklist progress, assignee. *Weight, attachments, last-moved, extra labels, priority badge, description indicator → moved to the hover peek.* |
+| `standard` | (admin opt-in) | Adds a second label (2 + `+N`), due date when not folded into the urgency badge, weight pill (`>1`), attachment count. Still suppresses the priority badge (the colored card border carries priority) and last-moved text. **Named `standard` not `compact`** to avoid colliding with the per-user *Card layout: Compact / Expanded* toolbar pref. |
+| `dense` | Existing boards migrated from 1.0 | Today's pre-1.1 layout — every metadata field on the card face. **Does not render the new urgency badge** (the per-field cues already cover the same signals). |
+
+- The new urgency badge is a worst-offender classification: **overdue > due-soon (≤72h) > stale (server `is_stale`) > recent (<24h since last move)**. Implemented in `frontend/src/utils/cardUrgency.ts` (`classifyCardUrgency()`); pure function, server-anchored staleness, deterministic for tests via the optional `now` argument.
+- The badge tone follows the design tokens (`text-danger` / `text-warning` / `text-info`) — no filled background, no second-tier border. *Stale* uses the full `text-warning` amber, not a softer `text-fg-secondary` — VoC feedback was that the soft tone read as too quiet next to a calm card.
+- **Date-based urgency badges carry the formatted date inline** rather than the generic word: an overdue card reads `⚑ 2d late`, a due-soon card reads `⏱ Tomorrow`. The standalone due-date pill is suppressed at lower densities so the date is never duplicated, and never lost.
+- At Comfortable density the standalone due-date pill is suppressed entirely (urgency badge is the single date signal; non-urgent dates move to the peek). At Standard the standalone pill is restored for cards outside the urgency window. At Dense the urgency badge is not rendered at all — the existing per-field cues stay.
+- `density` is a *required* prop on `CardItem`'s public TypeScript shape but defaults to `"comfortable"` so any caller that forgets to pass it (e.g. drag overlay constructed without a board context) degrades gracefully.
+- The hover peek (`CardPeekPopover`) renders the hidden metrics as a single muted line — `Weight 5 · 3 attachments · Moved 2d ago`. **Never stack them into multiple rows** — that recreates the wall-of-icons we just removed from the card face.
+- Per-user per-field hide toggles (the prior `hideLabels` / `hideDueDate` / `hideAssignee` / `hidePriority` / `hideLastMoved` checkboxes in Board Settings → Display) are removed in 1.1. Density is the single knob; legacy localStorage values for those keys are silently ignored.
+- The Board Settings *Display* tab gives admins a radio group (Comfortable / Standard / Dense) with a one-line description of each tier. Non-admins see a read-only line stating the current density.
+
 ## Cards
 
 - Container: `bg-surface rounded-lg border p-2.5 cursor-grab`
