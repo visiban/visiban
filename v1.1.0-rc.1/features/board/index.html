@@ -938,6 +938,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Board layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-card-to-a-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a card to a cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3087,6 +3104,11 @@
 <li>WIP limit exceeded → header turns red; when enforcement is enabled, moves into a full column are blocked</li>
 <li>Weight limit exceeded → header turns orange; when enforcement is enabled, moves that would exceed the budget are blocked</li>
 </ul>
+<h3 id="adding-a-card-to-a-cell">Adding a card to a cell<a class="headerlink" href="#adding-a-card-to-a-cell" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Changed in 1.1</strong> — empty cells now read as a discoverable click target instead of hiding the <strong>+ Add card</strong> affordance in the bottom-left corner.</p>
+</blockquote>
+<p>An empty cell shows a dashed inset border with <strong>+ Add card</strong> centered. Clicking anywhere in the cell — or pressing <strong>Tab</strong> to focus it and then <strong>Enter</strong> or <strong>Space</strong> — opens the inline new-card input. The dashed treatment disappears the moment a card lives in the cell; populated cells keep the dense info-rich layout, with the <strong>+ Add card</strong> button anchored at the bottom for additional cards. Double-click and right-click on a cell continue to work for power users. Card creation is gated by the column's <em>Allow card creation</em> setting and your board role (Members and above).</p>
 <h2 id="swimlanes">Swimlanes<a class="headerlink" href="#swimlanes" title="Permanent link">&para;</a></h2>
 <p>Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), making it easy to identify swimlanes at a glance even when the board is dense.</p>
 <p>The swimlane label sidebar is resizable: drag its right edge to set the width (minimum ~56 px, maximum 400 px). Width is persisted per-board in localStorage.</p>
