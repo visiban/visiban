@@ -144,12 +144,68 @@ describe('BoardCell', () => {
     expect(container.firstChild as HTMLElement).not.toHaveClass('border-dashed')
   })
 
-  it('+ Add card button has an accessible name reachable by role', () => {
+  it('empty cell exposes the cell itself as the add-card button with a column+swimlane accessible name (#962)', () => {
     render(<BoardCell {...defaultProps()} />)
-    // The button must be discoverable by its accessible name so screen reader
-    // users know what the action does without visual context
-    const addBtn = screen.getByRole('button', { name: '+ Add card' })
-    expect(addBtn).toBeInTheDocument()
-    expect(addBtn).not.toBeDisabled()
+    // Empty cells are the keyboard-reachable creation surface — the cell wrapper
+    // carries role="button" with a column-and-swimlane-scoped accessible name so
+    // screen readers know which slot the action targets.
+    const cellAsButton = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    expect(cellAsButton).toBeInTheDocument()
+    expect(cellAsButton).toHaveAttribute('tabindex', '0')
+  })
+
+  it('empty cell does not render a separate inner + Add card button (avoids double tab-stop)', () => {
+    render(<BoardCell {...defaultProps()} />)
+    // The visible "+ Add card" overlay is decorative (aria-hidden) — the cell
+    // itself is the only Tab stop for the create action.
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+  })
+
+  it('Enter on a focused empty cell opens the new-card input (#962)', async () => {
+    render(<BoardCell {...defaultProps()} />)
+    const cell = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    cell.focus()
+    await userEvent.setup().keyboard('{Enter}')
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('Space on a focused empty cell opens the new-card input (#962)', async () => {
+    render(<BoardCell {...defaultProps()} />)
+    const cell = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    cell.focus()
+    await userEvent.setup().keyboard(' ')
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('clicking anywhere on an empty addable cell opens the new-card input (#962)', async () => {
+    render(<BoardCell {...defaultProps()} />)
+    const cell = screen.getByRole('button', { name: 'Add card to To Do in Customer A' })
+    await userEvent.setup().click(cell)
+    expect(screen.getByPlaceholderText('Card title…')).toBeInTheDocument()
+  })
+
+  it('non-addable empty cell is not a focusable button (canEdit false)', () => {
+    const props = defaultProps()
+    props.canEdit = false
+    render(<BoardCell {...props} />)
+    expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
+  })
+
+  it('non-addable empty cell is not a focusable button (allow_card_creation false)', () => {
+    const props = defaultProps()
+    props.column = { ...column, allow_card_creation: false }
+    render(<BoardCell {...props} />)
+    expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
+  })
+
+  it('populated cell still uses the bottom + Add card button as the affordance', () => {
+    const props = defaultProps()
+    props.cards = [makeCard({ id: 1 })]
+    render(<BoardCell {...props} />)
+    // Populated cells keep the dense info-rich layout — the cell wrapper is no
+    // longer a button, the bottom-aligned button is the only create affordance.
+    expect(screen.queryByRole('button', { name: /Add card to/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '+ Add card' })).toBeInTheDocument()
   })
 })
