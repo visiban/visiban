@@ -32,6 +32,15 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
   const overWip = column.wip_limit !== null && column.wip_limit > 0 && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
+  // Top accent strip — peripherally scannable cue for over-limit state. Worst-offender
+  // takes precedence (WIP > weight); calm state has no strip.
+  const accentClass = overWip
+    ? "border-t-2 border-t-danger-emphasis"
+    : overWeight
+    ? "border-t-2 border-t-warning-emphasis"
+    : "";
+  const cardCountLabel = cardCount === 1 ? "1 card" : `${cardCount} cards`;
+  const showStatsRow = column.wip_limit !== null || totalWeight > 0 || cardCount > 0;
 
   const startRenaming = () => {
     setDraft(column.name);
@@ -70,13 +79,19 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={style}
-        className="w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-line bg-surface cursor-pointer hover:bg-surface-hover transition overflow-hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis"
+        className={`w-10 shrink-0 flex flex-col items-center py-3 gap-2 border-r border-line bg-surface cursor-pointer hover:bg-surface-hover transition overflow-hidden focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis ${accentClass}`}
         data-no-pan
         tabIndex={0}
         role="button"
         onClick={onToggleCollapse}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
-        title={overWip ? `Expand "${column.name}" · Over WIP limit (${cardCount}/${column.wip_limit})` : `Expand "${column.name}"`}
+        title={
+          overWip
+            ? `Expand "${column.name}" · Over WIP limit (${cardCount}/${column.wip_limit})`
+            : overWeight
+            ? `Expand "${column.name}" · Over weight limit (${totalWeight}/${column.weight_limit})`
+            : `Expand "${column.name}"`
+        }
       >
         {/* Color dot is the drag handle — same pattern as expanded header */}
         <span
@@ -88,13 +103,17 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         />
         <span
           className={`text-xs font-medium px-1 py-0.5 rounded-full ${
-            overWip ? "text-danger font-semibold" : "bg-surface-hover text-fg-tertiary"
+            overWip
+              ? "text-danger font-semibold"
+              : overWeight
+              ? "text-warning font-semibold"
+              : "bg-surface-hover text-fg-tertiary"
           }`}
         >
           {cardCount}
         </span>
-        {overWip && (
-          <span aria-hidden="true" className="text-[10px] text-danger leading-none">⚠</span>
+        {(overWip || overWeight) && (
+          <span aria-hidden="true" className={`text-[10px] leading-none ${overWip ? "text-danger" : "text-warning"}`}>⚠</span>
         )}
         <span
           className="text-[11px] font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"
@@ -115,7 +134,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
       <div
         ref={setNodeRef}
         style={{ ...style, width: width ?? 220 }}
-        className={`relative shrink-0 px-3 py-2 bg-surface border-r border-line group/col transition ${overWip ? "border-b-2 border-b-danger-emphasis/50" : ""}`}
+        className={`relative shrink-0 px-3 py-2 bg-surface border-r border-line group/col transition ${accentClass}`}
         data-no-pan
         onDoubleClick={isAdmin ? () => setEditing(true) : undefined}
       >
@@ -170,32 +189,40 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           </button>
         </div>
 
-        {/* Rows 2–3: WIP and Weight stats — only shown when meaningful */}
-        {(column.wip_limit !== null || totalWeight > 0) && (
-          <div className="flex flex-col gap-0.5 mt-1.5 pl-[26px]">
-            {column.wip_limit !== null && (
+        {/* Stat row — surface only the worst-offender (WIP > weight); calm state shows
+            just the card count. Drops the "WIP" / "Weight" label words when nothing is
+            in trouble (per #963 — the limit phrasing only earns its place when a column
+            is actually over). */}
+        {showStatsRow && (
+          // pl-[26px] aligns under the column name: 16px collapse-button column + 10px dot+gap
+          <div className="mt-1.5 pl-[26px]">
+            {overWip ? (
               <span
-                className={`text-[10px] font-medium ${overWip ? "text-danger" : "text-fg-muted"}`}
-                title={hardWipEnforced ? "WIP hard limit — no override possible" : "Cards in column / WIP limit"}
+                className="text-xs font-medium text-danger"
+                title={hardWipEnforced ? "WIP hard limit — no override possible" : "Over WIP limit"}
               >
-                {hardWipEnforced && (
-                  <span className={overWip ? "text-danger" : "text-fg-muted"}>⛔ </span>
-                )}
-                WIP{" "}
-                <span className={`font-semibold ${overWip ? "text-danger" : "text-fg-secondary"}`}>
+                <span aria-hidden="true">{hardWipEnforced ? "⛔ " : "⚠ "}</span>
+                Over WIP ·{" "}
+                <span className="font-semibold">
                   {cardCount}/{column.wip_limit}
                 </span>
               </span>
-            )}
-            {totalWeight > 0 && (
+            ) : overWeight ? (
               <span
-                className={`text-[10px] font-medium ${overWeight ? "text-warning" : "text-fg-muted"}`}
-                title="Total card weight / weight budget"
+                className="text-xs font-medium text-warning"
+                title="Over weight budget"
               >
                 Weight{" "}
-                <span className={`font-semibold ${overWeight ? "text-warning" : "text-fg-secondary"}`}>
-                  {totalWeight}{column.weight_limit !== null ? `/${column.weight_limit}` : ""}
+                <span className="font-semibold">
+                  {totalWeight}/{column.weight_limit}
                 </span>
+              </span>
+            ) : (
+              <span
+                className="text-xs font-medium text-fg-muted"
+                title="Cards in column"
+              >
+                {cardCountLabel}
               </span>
             )}
           </div>
