@@ -163,12 +163,11 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {!collapsed && (
+            {!collapsed && isAdmin && (
               <button
-                onClick={() => { if (isAdmin) setEditing(true); }}
-                className={`transition text-xs focus-visible:outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded ${isAdmin ? "text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
-                title={isAdmin ? "Edit swimlane" : "You need admin access to change board settings"}
-                disabled={!isAdmin}
+                onClick={() => setEditing(true)}
+                className="transition text-xs text-fg-tertiary hover:text-fg opacity-30 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                title="Edit swimlane"
               >
                 ✎
               </button>

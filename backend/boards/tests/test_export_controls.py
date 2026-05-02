@@ -292,5 +292,5 @@ class ExportHistoryEndpointTests(TestCase):
         entry = entries[0]
         self.assertEqual(
             set(entry.keys()),
-            {"id", "actor", "role_at_export", "export_format", "row_count", "created_at"},
+            {"id", "actor", "actor_role_label", "export_format", "row_count", "created_at"},
         )

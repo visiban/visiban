@@ -39,16 +39,19 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
         moderator so they can edit/delete other members' content.  Exposing the
         flag to viewers and members reveals organisational signal that should
         not be visible at those roles.  Admin reads (members panel, member POST
-        response) keep the field; the broadcast surface keeps it for backward
-        compatibility because broadcasts have no per-subscriber filter — the
-        exposure there is treated as a documented limitation rather than a
-        contract change in 1.1.
+        response) keep the field.
+
+        The broadcast surface (``member.added`` / ``member.updated`` events)
+        does not filter at the serializer layer because it has no
+        per-subscriber context; instead ``BoardConsumer.board_event`` strips
+        the field per-recipient based on the connection's resolved role
+        (#978).
 
         The serializer reads the role from ``context["role"]`` (set by the
         view) or falls back to ``get_board_role`` when a request and board are
         available in context.  In contexts where the role cannot be resolved
         (e.g. broadcast payloads built without a request) the field is kept —
-        callers that want it stripped must thread the role through context.
+        the consumer-layer filter is the second line of defense.
         """
         data = super().to_representation(instance)
         from .permissions import get_board_role, SITE_ADMIN
@@ -63,13 +66,22 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 
 
 class BoardExportLogSerializer(serializers.ModelSerializer):
-    """Read-only payload for the export-history endpoint (#842)."""
+    """Read-only payload for the export-history endpoint (#842).
+
+    Exposes the audit row's frozen role string as ``actor_role_label`` rather
+    than the model column name ``role_at_export`` (#980).  The audit field
+    accepts a 6-value union (viewer | collaborator | member | admin | owner |
+    site_admin); ``Board.export_min_role`` accepts only 4.  Surfacing the audit
+    string under a distinct API name prevents callers from conflating the two
+    enums.
+    """
 
     actor = BoardUserSerializer(read_only=True)
+    actor_role_label = serializers.CharField(source="role_at_export", read_only=True)
 
     class Meta:
         model = BoardExportLog
-        fields = ["id", "actor", "role_at_export", "export_format", "row_count", "created_at"]
+        fields = ["id", "actor", "actor_role_label", "export_format", "row_count", "created_at"]
         read_only_fields = fields
 
 

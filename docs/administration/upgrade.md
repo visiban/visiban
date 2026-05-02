@@ -264,6 +264,23 @@ After rolling back, restart the backend container with the previous image versio
 
     Then run `python manage.py migrate` as normal — the migration's `CREATE INDEX IF NOT EXISTS` will detect the indexes exist and skip creation.
 
+!!! warning "Pre-1.0 installs upgrading directly to 1.1 — `groups/0003_placeholder`"
+    If your database was created from any pre-1.0 release **and you are upgrading directly to 1.1.x without first running 1.0.x**, you must apply the same `groups/0003_placeholder` reconciliation step described under [Upgrading to 1.0.0](#upgrading-to-100) below before running `manage.py migrate`. Without it, Django's `InconsistentMigrationHistory` check aborts the upgrade and the schema is not advanced.
+
+    Equivalent management-command form (run inside the backend container):
+
+    ```bash
+    docker compose -f docker-compose.prod.yml run --rm backend \
+      python manage.py migrate groups 0003_placeholder --fake
+    ```
+
+    Instances that already ran 1.0.x are unaffected — the reconciliation row is already present in `django_migrations`.
+
+!!! warning "Irreversible migration — `boards/0050` (BoardExportLog audit table)"
+    Migration `boards/0050` creates the `BoardExportLog` table that records who ran a board export, the format, the row count, and the role the actor held at export time. The table is permanent audit storage and the migration has **no safe reverse** — rolling it back drops the table and destroys the audit history.
+
+    Take a database backup before applying `boards/0050` if you need a rollback path. After the migration applies, the only way to retain audit rows is to restore from that backup; reverting the migration cannot recover them.
+
 !!! note "Migration window — column name deduplication (`boards/0043`)"
     Migration `boards/0043` adds a unique constraint on `(board, name)` for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").
 

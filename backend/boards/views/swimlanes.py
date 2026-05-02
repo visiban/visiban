@@ -99,8 +99,18 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         Retained to preserve the 1.0 URL contract. The canonical kebab-case
         path is ``set-collapsed``; the snake_case form will be removed in 2.0
         after one full minor-release deprecation window.
+
+        Emits ``Deprecation: true`` plus a ``Link`` header pointing at the
+        canonical kebab-case route (RFC 8594 / RFC 8288, #986) so operators
+        and proxies can audit deprecated traffic before the 2.0 removal.
         """
-        return self._set_collapsed_impl(request, pk)
+        response = self._set_collapsed_impl(request, pk)
+        response["Deprecation"] = "true"
+        # Replace exactly the route segment so we don't accidentally rewrite
+        # any future path component that happens to contain "set_collapsed".
+        canonical_path = request.path.replace("/set_collapsed/", "/set-collapsed/", 1)
+        response["Link"] = f'<{request.build_absolute_uri(canonical_path)}>; rel="successor-version"'
+        return response
 
     def _set_collapsed_impl(self, request, pk):
         """Set the default is_collapsed state on a swimlane (admin-only).

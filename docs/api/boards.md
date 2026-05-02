@@ -420,7 +420,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
     {
       "id": 42,
       "actor": { "id": 1, "username": "alice", "display_name": "Alice", "avatar_url": "" },
-      "role_at_export": "member",
+      "actor_role_label": "member",
       "export_format": "csv",
       "row_count": 128,
       "created_at": "2026-04-22T14:31:02Z"
@@ -432,7 +432,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 | Field | Description |
 |---|---|
 | `actor` | The user who performed the export, or `null` if the user has since been deleted. |
-| `role_at_export` | Role the actor held at the moment of export. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"`, `"owner"`, `"site_admin"` — captured at write time, not recomputed on read. |
+| `actor_role_label` | Role the actor held at the moment of export. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"`, `"owner"`, `"site_admin"` — captured at write time, not recomputed on read. Distinct from `Board.export_min_role`, which only accepts the lower four values. |
 | `export_format` | `"csv"` or `"json"`. |
 | `row_count` | Number of cards included in the export. |
 | `created_at` | ISO 8601 timestamp. |

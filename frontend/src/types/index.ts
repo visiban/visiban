@@ -306,7 +306,13 @@ export type CardDensity = "comfortable" | "standard" | "dense";
 export interface BoardExportLogEntry {
   id: number;
   actor: BoardUser | null;
-  role_at_export: "viewer" | "collaborator" | "member" | "admin" | "owner" | "site_admin";
+  /**
+   * Frozen audit string capturing the actor's role at export time. Includes
+   * "owner" and "site_admin" — values that `Board.export_min_role` does not
+   * accept — so the field is named distinctly from `export_min_role` to keep
+   * the two enums from being conflated (#980).
+   */
+  actor_role_label: "viewer" | "collaborator" | "member" | "admin" | "owner" | "site_admin";
   export_format: string;
   row_count: number;
   created_at: string;
