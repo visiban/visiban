@@ -3332,6 +3332,11 @@
 <td>Minimum role required to export this board. One of <code>"viewer"</code>, <code>"collaborator"</code>, <code>"member"</code>, <code>"admin"</code> (default: <code>"viewer"</code>). Owners and site admins always bypass. Admin-only when writing; sending any other value (including <code>"site_admin"</code> or <code>"owner"</code>) returns <code>400 Bad Request</code>. Added in 1.1 (#843).</td>
 </tr>
 <tr>
+<td><code>card_density</code></td>
+<td>string</td>
+<td>Per-board card layout density. One of <code>"comfortable"</code>, <code>"standard"</code>, <code>"dense"</code> (default: <code>"comfortable"</code> for new boards; existing boards on upgrade are migrated to <code>"dense"</code> to preserve their pre-1.1 visual). Drives how much metadata renders on the card face — see the <a href="../../features/board/#card-density">Card density</a> feature doc. Admin-only when writing; sending any other value returns <code>400 Bad Request</code>. Added in 1.1 (#961).</td>
+</tr>
+<tr>
 <td><code>stale_warning_pct</code></td>
 <td>integer</td>
 <td>Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap</td>
@@ -3350,7 +3355,7 @@
 </table>
 <h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Update board fields. Both <code>PUT</code> and <code>PATCH</code> are accepted — all fields are optional in either case. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>. Board admins may also set <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, and <code>export_min_role</code>; non-admins sending these fields receive <code>403 Forbidden</code>.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>. Board admins may also set <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, and <code>card_density</code>; non-admins sending these fields receive <code>403 Forbidden</code>.</p>
 <h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
 <p>Delete board. Requires board owner or site admin.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>

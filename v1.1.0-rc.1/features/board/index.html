@@ -1059,6 +1059,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#card-density" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Card density
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#card-peek" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3229,7 +3240,41 @@
 <p>Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.</p>
 </div>
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
-<p>Cards are displayed as compact tiles with a full colored border indicating priority. Cards communicate their full status at a glance — a filled priority badge (medium and above) in a color matching the border, assignee avatar, label pills showing truncated names (up to 7 characters), checklist progress, and due date are visible directly on the card face. Overdue due dates are shown in red. If a cell contains 2 or more cards, a faint card count badge appears in its top-right corner.</p>
+<p>Cards are displayed as compact tiles with a full colored border indicating priority. <strong>How much metadata appears on each card depends on the board's <em>Card density</em> setting</strong> (Comfortable / Standard / Dense — see <a href="#card-density">Card density</a> below). At every density the colored border carries priority, the assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.</p>
+<h3 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.1</strong> — replaces the previous per-user <em>hide field</em> toggles (Labels / Due date / Assignee / Priority badge / Last moved).</p>
+</blockquote>
+<p>A board admin chooses one of three layouts in <strong>Board Settings → Display → Card density</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Best for</th>
+<th>What appears on the card face</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Comfortable</strong> <em>(default for new boards)</em></td>
+<td>Sam-style occasional users; teams who want a clean glanceable board</td>
+<td>One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + <code>+N</code> overflow pill, checklist progress, assignee avatar</td>
+</tr>
+<tr>
+<td><strong>Standard</strong></td>
+<td>Mid-density boards — extra signal without the full wall</td>
+<td>Adds a second label, due date (when not folded into the urgency badge), weight pill (when <code>&gt;1</code>), attachment count</td>
+</tr>
+<tr>
+<td><strong>Dense</strong> <em>(default for boards upgraded from 1.0)</em></td>
+<td>Power users who use every field every day</td>
+<td>Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>urgency badge</strong> at Comfortable / Standard picks the most urgent of: Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date — <code>⚑ 2d late</code> for overdue, <code>⏱ Tomorrow</code> for due-soon — so the date is never lost when the standalone date pill is suppressed. Dense intentionally keeps the per-field cues — the badge is a <em>replacement</em> at lower densities, not an addition.</p>
+<p>Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the <strong>card peek</strong> (hover for 600 ms) as a single muted line — <code>Weight 5 · 3 attachments</code>. The full detail panel always shows everything.</p>
+<p>Existing boards upgraded from 1.0 are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.</p>
 <p>Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.</p>
 <p>Click a card to open its <strong>detail panel</strong> on the right side. The panel contains all editable fields plus two tabs:</p>
 <ul>
