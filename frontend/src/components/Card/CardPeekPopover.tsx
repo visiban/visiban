@@ -68,7 +68,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         </p>
         {card.priority !== "low" && (
           <span
-            className="px-1.5 py-0.5 text-[10px] rounded font-semibold shrink-0 capitalize"
+            className="px-1.5 py-0.5 text-xs rounded font-semibold shrink-0 capitalize"
             style={{ backgroundColor: priorityColor, color: "#fff" }}
           >
             {card.priority}
@@ -109,8 +109,24 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
         </div>
       )}
 
+      {/* Activity & metrics — surfaces fields hidden from the card face at
+          comfortable / compact density (#961). Single muted line by design;
+          do not stack into multiple rows or the peek becomes the wall-of-icons
+          we just removed. ``last_moved_at`` is intentionally omitted here —
+          the footer below already shows "Last activity Xd ago", so listing
+          it twice in a 288px panel is just noise. */}
+      {(() => {
+        const parts: string[] = [];
+        if (card.weight > 1) parts.push(`Weight ${card.weight}`);
+        if (card.attachment_count > 0) parts.push(`${card.attachment_count} attachment${card.attachment_count === 1 ? "" : "s"}`);
+        if (parts.length === 0) return null;
+        return (
+          <p className="mt-3 text-xs text-fg-muted">{parts.join(" · ")}</p>
+        );
+      })()}
+
       {/* Footer */}
-      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-[11px] text-fg-muted">
+      <div className="mt-3 pt-2 border-t border-line flex items-center justify-between text-xs text-fg-muted">
         <span>
           {lastActivityText
             ? lastActivityUser

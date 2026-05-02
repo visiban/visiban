@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, Column, Swimlane } from "../../types";
+import type { Card, CardDensity, Column, Swimlane } from "../../types";
 import { updateSwimlane } from "../../api/boards";
 import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
@@ -45,11 +45,7 @@ interface Props {
   onSepHoverChange?: (idx: number | null) => void;
   minHeight?: number;
   setSwimlaneHeight?: (h: number) => void;
-  hideLabels?: boolean;
-  hideDueDate?: boolean;
-  hideAssignee?: boolean;
-  hidePriority?: boolean;
-  hideLastMoved?: boolean;
+  density?: CardDensity;
   userTimezone?: string;
   userDateFormat?: string;
   compact?: boolean;
@@ -57,7 +53,7 @@ interface Props {
   stale_warning_pct?: number;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -346,11 +342,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 onToggleCardSelection={onToggleCardSelection}
                 onCardClick={onCardClick}
                 onCardAdded={onCardAdded}
-                hideLabels={hideLabels}
-                hideDueDate={hideDueDate}
-                hideAssignee={hideAssignee}
-                hidePriority={hidePriority}
-                hideLastMoved={hideLastMoved}
+                density={density}
                 userTimezone={userTimezone}
                 userDateFormat={userDateFormat}
                 compact={compact}

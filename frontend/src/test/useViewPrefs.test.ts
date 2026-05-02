@@ -24,20 +24,36 @@ describe('useViewPrefs', () => {
     expect(prefs.hiddenSwimlaneIds).toEqual([])
     expect(prefs.collapsedColumnIds).toEqual([])
     expect(prefs.swimlaneColumnWidth).toBe(220)
-    expect(prefs.hideLabels).toBe(false)
-    expect(prefs.hideDueDate).toBe(false)
-    expect(prefs.hideAssignee).toBe(false)
-    expect(prefs.hidePriority).toBe(false)
   })
 
   it('loads persisted prefs from localStorage', () => {
     localStorage.setItem(storageKey(), JSON.stringify({
       hiddenColumnIds: [5, 7],
-      hideLabels: true,
     }))
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
     expect(result.current.prefs.hiddenColumnIds).toEqual([5, 7])
-    expect(result.current.prefs.hideLabels).toBe(true)
+  })
+
+  it('silently ignores legacy hideLabels/hideDueDate/hideAssignee/hidePriority/hideLastMoved keys (#961)', () => {
+    // The 1.0 per-user per-field hide toggles are removed in 1.1 in favour of
+    // the per-board ``card_density`` setting. Old localStorage payloads must
+    // not crash the hook — they simply decay.
+    localStorage.setItem(storageKey(), JSON.stringify({
+      hiddenColumnIds: [1],
+      hideLabels: true,
+      hideDueDate: true,
+      hideAssignee: true,
+      hidePriority: true,
+      hideLastMoved: true,
+    }))
+    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
+    const prefs = result.current.prefs as Record<string, unknown>
+    expect(prefs.hiddenColumnIds).toEqual([1])
+    expect(prefs.hideLabels).toBeUndefined()
+    expect(prefs.hideDueDate).toBeUndefined()
+    expect(prefs.hideAssignee).toBeUndefined()
+    expect(prefs.hidePriority).toBeUndefined()
+    expect(prefs.hideLastMoved).toBeUndefined()
   })
 
   it('persists prefs to localStorage on update', () => {
@@ -122,14 +138,6 @@ describe('useViewPrefs', () => {
     expect(result.current.prefs.swimlaneHeights[1]).toBe(800)
     act(() => { result.current.setSwimlaneHeight(1, 200) })
     expect(result.current.prefs.swimlaneHeights[1]).toBe(200)
-  })
-
-  it('setCardFieldPref toggles boolean card fields', () => {
-    const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    act(() => { result.current.setCardFieldPref('hideLabels', true) })
-    expect(result.current.prefs.hideLabels).toBe(true)
-    act(() => { result.current.setCardFieldPref('hideDueDate', true) })
-    expect(result.current.prefs.hideDueDate).toBe(true)
   })
 
   it('uses board-scoped storage key (different boards are isolated)', () => {

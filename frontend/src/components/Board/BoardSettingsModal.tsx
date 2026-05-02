@@ -33,7 +33,6 @@ interface Props {
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
-  onSetCardFieldPref?: (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved", value: boolean) => void;
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
 }
 
@@ -66,7 +65,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onSetCardFieldPref, onUpdateBoardSettings }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -957,10 +956,59 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {/* ── Display tab ── */}
           {tab === "display" && (
             <div className="flex flex-col gap-5">
-              {viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && onSetCardFieldPref && (
+              {/* Card density (#961) — per-board admin setting that drives the
+                  card metadata layout. Replaces the prior per-user per-field
+                  hide toggles (Labels / Due date / Assignee / Priority badge /
+                  Last moved). New boards default to ``comfortable``; existing
+                  boards were migrated to ``dense`` so they keep their pre-1.1
+                  visual until an admin chooses otherwise. */}
+              <section aria-labelledby="card-density-heading">
+                <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
+                {isAdmin && onUpdateBoardSettings ? (
+                  <fieldset className="flex flex-col gap-2 transition-colors duration-150">
+                    <legend className="sr-only">Card density</legend>
+                    {([
+                      { value: "comfortable", label: "Comfortable", description: "One urgency badge, one primary label, assignee. Best for new boards." },
+                      { value: "compact",     label: "Compact",     description: "Adds due date, weight, and attachment counts on the card face." },
+                      { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no peek required." },
+                    ] as const).map(({ value, label, description }) => {
+                      const checked = board.card_density === value;
+                      return (
+                        <label
+                          key={value}
+                          className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
+                            checked
+                              ? "border-primary-emphasis bg-primary-emphasis/10"
+                              : "border-line-strong hover:bg-surface-hover/40"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="card-density"
+                            value={value}
+                            checked={checked}
+                            onChange={() => onUpdateBoardSettings({ card_density: value })}
+                            className="sr-only"
+                          />
+                          <span className="flex-1">
+                            <span className="block text-sm text-fg font-medium">{label}</span>
+                            <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
+                ) : (
+                  <p className="text-sm text-fg-secondary">
+                    This board is set to <span className="font-medium text-fg capitalize">{board.card_density}</span>. Only board admins can change this setting.
+                  </p>
+                )}
+              </section>
+
+              {viewPrefs && onToggleHiddenColumn && onToggleHiddenSwimlane && (
                 <>
                   <p className="text-xs text-fg-muted">
-                    These preferences are personal and stored in your browser. They do not affect what other users see.
+                    The settings below are personal and stored in your browser. They do not affect what other users see.
                   </p>
 
                   {/* Columns */}
@@ -1025,39 +1073,6 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </section>
                   )}
 
-                  {/* Card fields */}
-                  <section>
-                    <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card fields</h3>
-                    <div className="flex flex-col gap-0">
-                      {(
-                        [
-                          { field: "hideLabels",    label: "Labels" },
-                          { field: "hideDueDate",   label: "Due date" },
-                          { field: "hideAssignee",  label: "Assignee" },
-                          { field: "hidePriority",  label: "Priority badge" },
-                          { field: "hideLastMoved", label: "Last moved" },
-                        ] as { field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved"; label: string }[]
-                      ).map(({ field, label }) => {
-                        const hidden = viewPrefs[field];
-                        return (
-                          <label
-                            key={field}
-                            className="flex items-center justify-between py-2 border-b border-line/60 last:border-0 cursor-pointer"
-                          >
-                            <span className={`text-sm ${hidden ? "text-fg-muted line-through" : "text-fg"}`}>
-                              {label}
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={!hidden}
-                              onChange={(e) => onSetCardFieldPref(field, !e.target.checked)}
-                              className="w-4 h-4 rounded accent-primary shrink-0"
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </section>
                 </>
               )}
 

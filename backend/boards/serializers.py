@@ -369,7 +369,7 @@ class BoardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "created_at", "updated_at", "is_starred"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     def get_group_detail(self, obj):
@@ -399,6 +399,17 @@ class BoardSerializer(serializers.ModelSerializer):
         if value not in allowed:
             raise serializers.ValidationError(
                 f"export_min_role must be one of: {sorted(allowed)}."
+            )
+        return value
+
+    def validate_card_density(self, value):
+        # #961: gate the choice set at the serializer so the DB column stays a
+        # plain CharField that will accept future tiers (e.g. ``relaxed``)
+        # without a schema migration.
+        allowed = {"comfortable", "compact", "dense"}
+        if value not in allowed:
+            raise serializers.ValidationError(
+                f"card_density must be one of: {sorted(allowed)}."
             )
         return value
 
@@ -460,7 +471,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         fields = [
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
             "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
-            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
 

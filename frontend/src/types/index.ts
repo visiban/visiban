@@ -284,12 +284,20 @@ export interface Board {
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   export_min_role: BoardExportMinRole;
+  card_density: CardDensity;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
+
+/**
+ * Per-board card layout density (#961). Drives how much metadata renders on
+ * the card face. New boards default to ``comfortable``; existing boards were
+ * migrated to ``dense`` so they keep their pre-1.1 visual.
+ */
+export type CardDensity = "comfortable" | "compact" | "dense";
 
 export interface BoardExportLogEntry {
   id: number;
@@ -321,6 +329,7 @@ export interface BoardFull {
   enforce_wip_hard: boolean;
   enforce_weight_limits: boolean;
   export_min_role: BoardExportMinRole;
+  card_density: CardDensity;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
