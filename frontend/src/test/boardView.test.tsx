@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import BoardView from '../components/Board/BoardView'
 import type { BoardFull, User } from '../types'
 import type { BoardContextType } from '../contexts/BoardContext'
-import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
+import type { CollisionDetection, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import * as dndCore from '@dnd-kit/core'
 
 // Controllable search params — initial params can be set before render; the stateful mock
@@ -14,12 +14,14 @@ let mockSearchParams = new URLSearchParams()
 // Spy on setSearchParams calls so tests can assert the arguments passed (e.g. replace:true).
 const mockSetSearchParams = vi.fn()
 
-// Capture DndContext props (onDragEnd, collisionDetection) so tests can invoke them directly.
+// Capture DndContext props (onDragStart, onDragEnd, collisionDetection) so tests can invoke them directly.
+let capturedOnDragStart: ((e: DragStartEvent) => void) | undefined
 let capturedOnDragEnd: ((e: DragEndEvent) => void) | undefined
 let capturedCollisionDetection: ((args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection>) | undefined
 
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children, onDragEnd, collisionDetection }: { children: React.ReactNode; onDragEnd?: (e: DragEndEvent) => void; collisionDetection?: (args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection> }) => {
+  DndContext: ({ children, onDragStart, onDragEnd, collisionDetection }: { children: React.ReactNode; onDragStart?: (e: DragStartEvent) => void; onDragEnd?: (e: DragEndEvent) => void; collisionDetection?: (args: Parameters<CollisionDetection>[0]) => ReturnType<CollisionDetection> }) => {
+    capturedOnDragStart = onDragStart
     capturedOnDragEnd = onDragEnd
     capturedCollisionDetection = collisionDetection
     return <div>{children}</div>
@@ -1203,6 +1205,95 @@ describe('BoardView', () => {
       render(<BoardView {...defaultProps()} />)
       fireEvent.keyDown(document, { key: ',', metaKey: true })
       expect(screen.queryByTestId('settings-modal')).not.toBeInTheDocument()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // #965 — drag-to-trash safety
+  // ---------------------------------------------------------------------------
+
+  describe('drag-to-trash safety (#965)', () => {
+    it('does not render the column trash zone before a column drag starts', () => {
+      render(<BoardView {...defaultProps()} />)
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    })
+
+    it('hides the trash zone during a column drag when ⌥ is not held', () => {
+      render(<BoardView {...defaultProps()} />)
+      act(() => {
+        capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+      })
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+      // Discoverability hint nudges the user toward the gated gesture.
+      expect(screen.getByText('Hold ⌥ to delete')).toBeInTheDocument()
+    })
+
+    it('reveals the trash zone when ⌥ is pressed mid-drag and hides it again on release', () => {
+      render(<BoardView {...defaultProps()} />)
+      act(() => {
+        capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+      })
+      act(() => {
+        fireEvent.keyDown(document, { key: 'Alt', altKey: true })
+      })
+      expect(screen.getByText('Delete')).toBeInTheDocument()
+      expect(screen.getByText('Drop on trash to delete')).toBeInTheDocument()
+      act(() => {
+        fireEvent.keyUp(document, { key: 'Alt', altKey: false })
+      })
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument()
+    })
+
+    it('requires typing the column name to confirm deletion when the column has cards', async () => {
+      const board = makeBoard({
+        cards: [
+          {
+            id: 200, uid: 'card00000001', title: 'Existing card', description: '', priority: null,
+            column: 10, swimlane: 20, position: 0, weight: 0, due_date: null, last_moved_at: null,
+            archived_at: null, last_columns: [], assignees: [], labels: [], checklist: [], comments: [],
+            attachments: [], created_at: '', updated_at: '', created_by: null,
+            ...({} as Record<string, never>),
+          } as unknown as BoardFull['cards'][number],
+        ],
+      })
+      mockBoardContextValue = defaultContext({ board })
+      render(<BoardView {...defaultProps()} />)
+      // Trigger the same code path as drag-to-trash drop / kebab Delete: route the
+      // first column into the confirmation modal via the drag-end handler.
+      act(() => {
+        capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+      })
+      act(() => {
+        capturedOnDragEnd!({
+          active: { id: 'col:10' },
+          over: { id: 'trash:column' },
+        } as unknown as DragEndEvent)
+      })
+      const modal = await screen.findByText('Delete column?')
+      expect(modal).toBeInTheDocument()
+      const deleteBtn = screen.getByRole('button', { name: 'Delete' })
+      expect(deleteBtn).toBeDisabled()
+      const input = screen.getByLabelText(/Type .* to confirm deletion/i)
+      fireEvent.change(input, { target: { value: 'wrong' } })
+      expect(deleteBtn).toBeDisabled()
+      fireEvent.change(input, { target: { value: 'To Do' } })
+      expect(deleteBtn).toBeEnabled()
+    })
+
+    it('allows direct delete (no name typing) when the column is empty', () => {
+      render(<BoardView {...defaultProps()} />)
+      act(() => {
+        capturedOnDragStart!({ active: { id: 'col:10' } } as unknown as DragStartEvent)
+      })
+      act(() => {
+        capturedOnDragEnd!({
+          active: { id: 'col:10' },
+          over: { id: 'trash:column' },
+        } as unknown as DragEndEvent)
+      })
+      expect(screen.getByText('Delete column?')).toBeInTheDocument()
+      expect(screen.queryByLabelText(/Type .* to confirm deletion/i)).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
     })
   })
 })

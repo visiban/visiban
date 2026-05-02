@@ -20,17 +20,25 @@ export interface OverflowItem {
   disabledReason?: string;
   /** Render an engraved separator before this item. */
   separatorBefore?: boolean;
+  /** Render the item with destructive (red) styling — for delete-type actions. */
+  danger?: boolean;
 }
 
 interface OverflowMenuProps {
   items: OverflowItem[];
-  /** Show the first-encounter dot on the kebab. */
-  showDot: boolean;
+  /** Show the first-encounter dot on the kebab. Defaults to false (no dot). */
+  showDot?: boolean;
   /** Fires on intentional click of the kebab — never on external open. */
-  onDismissDot: () => void;
+  onDismissDot?: () => void;
   /** Optional controlled open state (for the `.` keyboard shortcut). */
   externalOpen?: boolean;
   onExternalOpenChange?: (open: boolean) => void;
+  /**
+   * Accessible name for both the trigger button and the menu panel.
+   * Defaults to "More board actions" so the Row 2 board-toolbar usage
+   * stays unchanged. Per-column kebabs pass "Column actions".
+   */
+  ariaLabel?: string;
 }
 
 /**
@@ -42,10 +50,11 @@ interface OverflowMenuProps {
  */
 export default function OverflowMenu({
   items,
-  showDot,
+  showDot = false,
   onDismissDot,
   externalOpen,
   onExternalOpenChange,
+  ariaLabel = "More board actions",
 }: OverflowMenuProps) {
   const isControlled = externalOpen !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -107,14 +116,14 @@ export default function OverflowMenu({
     const next = !open;
     // Dismiss the first-encounter dot only on intentional kebab click, never
     // on the `.` shortcut path (that path never calls this handler).
-    if (showDot) onDismissDot();
+    if (showDot) onDismissDot?.();
     setOpen(next);
   };
 
   const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
     if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
-      if (showDot) onDismissDot();
+      if (showDot) onDismissDot?.();
       setOpen(true);
     }
   };
@@ -164,7 +173,7 @@ export default function OverflowMenu({
       ref={panelRef}
       role="menu"
       id={menuId}
-      aria-label="More board actions"
+      aria-label={ariaLabel}
       style={{ position: "fixed", top: anchor.top, right: anchor.right }}
       className="z-50 bg-surface border border-line-strong rounded-lg shadow-lg py-1 min-w-[240px] max-h-[70vh] overflow-y-auto"
     >
@@ -195,7 +204,11 @@ export default function OverflowMenu({
               setOpen(false);
             }}
             onKeyDown={(e) => handleItemKeyDown(e, i)}
-            className="w-full flex items-center gap-3 px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed ${
+              item.danger
+                ? "text-danger hover:bg-danger-bg/20 focus:bg-danger-bg/20"
+                : "text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover"
+            }`}
           >
             {item.icon !== undefined && (
               <span
@@ -231,7 +244,7 @@ export default function OverflowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
-        aria-label="More board actions"
+        aria-label={ariaLabel}
         className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open
             ? "text-info bg-info/10"
