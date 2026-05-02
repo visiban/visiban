@@ -201,7 +201,7 @@ Each board has an admin-controlled `card_density` setting that drives how much m
 - `density` is a *required* prop on `CardItem`'s public TypeScript shape but defaults to `"comfortable"` so any caller that forgets to pass it (e.g. drag overlay constructed without a board context) degrades gracefully.
 - The hover peek (`CardPeekPopover`) renders the hidden metrics as a single muted line — `Weight 5 · 3 attachments · Moved 2d ago`. **Never stack them into multiple rows** — that recreates the wall-of-icons we just removed from the card face.
 - Per-user per-field hide toggles (the prior `hideLabels` / `hideDueDate` / `hideAssignee` / `hidePriority` / `hideLastMoved` checkboxes in Board Settings → Display) are removed in 1.1. Density is the single knob; legacy localStorage values for those keys are silently ignored.
-- The Board Settings *Display* tab gives admins a radio group (Comfortable / Compact / Dense) with a one-line description of each tier. Non-admins see a read-only line stating the current density.
+- The Board Settings *Display* tab gives admins a radio group (Comfortable / Standard / Dense) with a one-line description of each tier. Non-admins see a read-only line stating the current density.
 
 ## Cards
 

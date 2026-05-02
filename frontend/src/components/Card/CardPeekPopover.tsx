@@ -110,7 +110,7 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
       )}
 
       {/* Activity & metrics — surfaces fields hidden from the card face at
-          comfortable / compact density (#961). Single muted line by design;
+          comfortable / standard density (#961). Single muted line by design;
           do not stack into multiple rows or the peek becomes the wall-of-icons
           we just removed. ``last_moved_at`` is intentionally omitted here —
           the footer below already shows "Last activity Xd ago", so listing

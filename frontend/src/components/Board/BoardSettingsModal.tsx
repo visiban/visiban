@@ -968,9 +968,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   <fieldset className="flex flex-col gap-2 transition-colors duration-150">
                     <legend className="sr-only">Card density</legend>
                     {([
-                      { value: "comfortable", label: "Comfortable", description: "One urgency badge, one primary label, assignee. Best for new boards." },
-                      { value: "standard",    label: "Standard",    description: "Adds due date, weight, and attachment counts on the card face." },
-                      { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no peek required." },
+                      { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
+                      { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
+                      { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
                     ] as const).map(({ value, label, description }) => {
                       const checked = board.card_density === value;
                       return (

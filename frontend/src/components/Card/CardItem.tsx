@@ -21,7 +21,7 @@ interface Props {
   /**
    * Per-board card layout density (#961). Drives how much metadata renders on
    * the card face. ``comfortable`` (default) shows one urgency badge + one
-   * primary label + assignee. ``compact`` adds due date, weight, attachments.
+   * primary label + assignee. ``standard`` adds due date, weight, attachments.
    * ``dense`` shows everything (today's pre-1.1 layout). Default is
    * ``comfortable`` so any caller that forgets to pass the prop (e.g. drag
    * overlay constructed without a board) degrades gracefully.
@@ -197,7 +197,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const priorityColor = PRIORITY_COLORS[card.priority] ?? "#6B7280";
 
   // Worst-offender urgency badge (#961). Drives a single high-signal cue at
-  // comfortable / compact density instead of stacking due-date + recently-
+  // comfortable / standard density instead of stacking due-date + recently-
   // moved-dot + last-moved-text. Dense intentionally keeps the pre-1.1
   // multi-cue layout — the urgency badge is a *replacement* for those cues at
   // lower densities, not an addition on top of them.
@@ -342,7 +342,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   </span>
                 )}
 
-                {/* Label pills — density-capped: comfortable=1, compact=2, dense=3.
+                {/* Label pills — density-capped: comfortable=1, standard=2, dense=3.
                     Exception to the "filled pill" rule: labels use user-assigned colors
                     that may be light or low-contrast against white text. Tint + colored
                     border keeps the label readable across any hue. See frontend/CLAUDE.md. */}
@@ -375,7 +375,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   </span>
                 )}
 
-                {/* Attachments — compact + dense only; comfortable folds into peek */}
+                {/* Attachments — standard + dense only; comfortable folds into peek */}
                 {showAttachments && card.attachment_count > 0 && (
                   <span className="text-xs text-fg-tertiary shrink-0" title={`${card.attachment_count} attachment(s)`}>
                     📎{card.attachment_count}
@@ -394,7 +394,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   </span>
                 )}
 
-                {/* Weight — compact + dense, only when > 1 */}
+                {/* Weight — standard + dense, only when > 1 */}
                 {showWeight && card.weight > 1 && (
                   <span className="text-xs text-fg-secondary font-medium shrink-0" title={`Weight: ${card.weight}`}>
                     {card.weight}
