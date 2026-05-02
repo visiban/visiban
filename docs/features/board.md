@@ -103,7 +103,7 @@ Columns represent pipeline stages. Each column has:
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 
-Columns can be reordered by dragging the column header left or right. Admins can rename a column inline by clicking its name (Enter to confirm, Escape to cancel), open the full edit modal via the ✎ icon or by double-clicking the column header, and delete a column by dragging it to the column trash zone or by clicking the **Delete column** button at the bottom of the column settings modal.
+Columns can be reordered by dragging the column header left or right. Admins manage columns through the **`⋮` kebab** that appears on each column header on hover or keyboard focus — it opens a menu with **Rename**, **Edit settings…**, and **Delete column**. Renaming is also reachable by double-clicking the column name. The kebab is the keyboard-accessible path; mouse users can additionally drag a column onto the trash zone (see *Column trash zone* below) for the same delete confirmation.
 
 ### Adding columns and swimlanes
 
@@ -118,7 +118,9 @@ The far-left separator (between the swimlane label column and the first board co
 
 ### Column trash zone
 
-When dragging a column, a red **Delete** drop target appears at the right edge of the board. Drop the column on it to delete it. A confirmation dialog shows the number of cards that will be lost before proceeding.
+> **Changed in 1.1** — the trash zone is now opt-in, gated behind ⌥ (Alt). Reorder is the default; deletion is a deliberate gesture. The new column kebab menu (`⋮`) is the discoverable, keyboard-accessible alternative.
+
+When dragging a column, the drag overlay shows a small **Hold ⌥ to delete** hint. Holding ⌥ (Alt) reveals a red **Delete** drop target at the right edge of the board, and the hint flips to **Drop on trash to delete**. Releasing ⌥ hides the trash zone again. Dropping a column on the trash zone opens the same confirmation dialog reachable from the column kebab `Delete column` action — for columns that contain cards, you must type the column name to confirm; empty columns can be deleted with a single click.
 
 ### Hard WIP enforcement
 
