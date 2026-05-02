@@ -25,6 +25,12 @@ The board is a CSS grid with columns on the x-axis and swimlane rows on the y-ax
 - WIP limit exceeded → header turns red; when enforcement is enabled, moves into a full column are blocked
 - Weight limit exceeded → header turns orange; when enforcement is enabled, moves that would exceed the budget are blocked
 
+### Adding a card to a cell
+
+> **Changed in 1.1** — empty cells now read as a discoverable click target instead of hiding the **+ Add card** affordance in the bottom-left corner.
+
+An empty cell shows a dashed inset border with **+ Add card** centered. Clicking anywhere in the cell — or pressing **Tab** to focus it and then **Enter** or **Space** — opens the inline new-card input. The dashed treatment disappears the moment a card lives in the cell; populated cells keep the dense info-rich layout, with the **+ Add card** button anchored at the bottom for additional cards. Double-click and right-click on a cell continue to work for power users. Card creation is gated by the column's *Allow card creation* setting and your board role (Members and above).
+
 ## Swimlanes
 
 Swimlanes represent entities moving through your pipeline (customers, projects, epics). Each swimlane's label panel has a 4 px color stripe on its left edge (matching the swimlane's assigned color), making it easy to identify swimlanes at a glance even when the board is dense.

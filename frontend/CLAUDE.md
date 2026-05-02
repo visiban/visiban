@@ -173,7 +173,15 @@ The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visibl
 
 - Background: `bg-canvas` — darkest level, creates depth contrast with cards and headers
 - Grid lines: `border border-line-subtle` — subtle, not prominent
-- `+ Add card` affordance: `text-xs text-fg-faint hover:text-fg-tertiary cursor-pointer mt-1` — always visible at the bottom of each cell, not hidden until hover
+- **Empty addable cells (#962)** — when a cell has no cards, the user can create cards in it (`column.allow_card_creation && canEdit`), and is not currently editing, the cell wrapper itself is the keyboard-reachable creation surface. Spec:
+  - `role="button"`, `tabIndex={0}`, `aria-label="Add card to {column.name} in {swimlane.name}"` so screen readers announce *which* slot the action targets
+  - `cursor-pointer hover:bg-surface-hover/30` on the cell so hover gives a soft wash; `focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis` for keyboard focus
+  - Dashed inset border (`border border-dashed border-line/50`) is the visual frame
+  - The visible **`+ Add card`** label is a centered, `pointer-events-none`, `aria-hidden="true"` overlay (`absolute inset-0 flex items-center justify-center text-xs text-fg-muted`) that brightens on cell hover/focus via `group-hover/cell:text-fg group-focus/cell:text-fg`
+  - Click anywhere in the cell — or Enter / Space when focused — opens the new-card input. Double-click and right-click continue to work as before
+  - During an active card drag, hide the centered overlay so the existing drop-target indicator owns the visual frame
+- **Populated cells** keep the dense info-rich layout. The `+ Add card` affordance is the bottom-aligned button (`w-full text-left text-xs text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50 mt-1`) and the cell wrapper is *not* `role="button"` — power users can Tab from the last card directly into the bottom button without the cell intercepting Enter.
+- **Never render two creation affordances on the same cell.** Empty cells have the cell-as-button only; populated cells have the bottom button only. The two states are mutually exclusive.
 - Board stats corner cell (top-left, where header row meets swimlane column): stacked `text-xs text-fg-muted` lines for col/lane/card counts
 
 ## Cards
