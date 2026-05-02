@@ -296,8 +296,12 @@ export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
  * Per-board card layout density (#961). Drives how much metadata renders on
  * the card face. New boards default to ``comfortable``; existing boards were
  * migrated to ``dense`` so they keep their pre-1.1 visual.
+ *
+ * The middle tier is named ``standard`` rather than ``compact`` to avoid
+ * colliding with the per-user *Card layout: Compact / Expanded* toolbar pref
+ * (which controls 2-col single-line grid layout, not metadata density).
  */
-export type CardDensity = "comfortable" | "compact" | "dense";
+export type CardDensity = "comfortable" | "standard" | "dense";
 
 export interface BoardExportLogEntry {
   id: number;

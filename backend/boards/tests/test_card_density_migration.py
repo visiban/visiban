@@ -46,13 +46,13 @@ class CardDensityBackfillTests(TestCase):
         self.assertEqual(b.card_density, "dense")
 
     def test_backfill_leaves_explicitly_set_rows_alone(self):
-        # If a board was deliberately set to ``compact`` (e.g. a fresh install
+        # If a board was deliberately set to ``standard`` (e.g. a fresh install
         # configured by the admin between AddField and the data step, or a
         # post-migration override), the backfill must not stomp on that choice.
-        b = self._make_board("DeliberateCompact", density="compact")
+        b = self._make_board("DeliberateStandard", density="standard")
         _migration.backfill_existing_to_dense(apps, connection.schema_editor())
         b.refresh_from_db()
-        self.assertEqual(b.card_density, "compact")
+        self.assertEqual(b.card_density, "standard")
 
         b2 = self._make_board("DeliberateDense", density="dense")
         _migration.backfill_existing_to_dense(apps, connection.schema_editor())

@@ -86,15 +86,18 @@ function arePropsEqual(prev: Props, next: Props): boolean {
 const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50 }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
-  //   compact     → adds due date (when not in urgency), weight (>1), attachments, second label
+  //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
   //   dense       → everything (today's pre-1.1 layout: 3 labels, last-moved text/dot, priority badge, description indicator)
+  // The middle tier is named ``standard`` rather than ``compact`` to avoid
+  // colliding with the per-user *Card layout: Compact / Expanded* toolbar pref.
   const showDescriptionIndicator = density === "dense";
+  const showDueDatePill = density !== "comfortable";
   const showAttachments = density !== "comfortable";
   const showWeight = density !== "comfortable";
   const showLastMovedText = density === "dense";
   const showRecentlyMovedDot = density === "dense";
   const showPriorityBadge = density === "dense";
-  const labelLimit = density === "dense" ? 3 : density === "compact" ? 2 : 1;
+  const labelLimit = density === "dense" ? 3 : density === "standard" ? 2 : 1;
   // useDraggable must be called unconditionally (hook rules). When readOnly,
   // we do not attach its ref or event listeners so the card is non-draggable.
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
@@ -215,7 +218,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     card.labels.length > 0 ||
     card.checklist_total > 0 ||
     (showAttachments && card.attachment_count > 0) ||
-    (dueInfo && !dueAlreadyInUrgency) ||
+    (showDueDatePill && dueInfo && !dueAlreadyInUrgency) ||
     card.assignee ||
     (showWeight && card.weight > 1) ||
     (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
@@ -311,7 +314,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 {/* Worst-offender urgency badge (#961). Replaces the stacked
                     overdue / due-soon / stale / moved-recently signals at lower
                     densities. Tint matches the design system's danger / warning /
-                    info tones — no filled background. */}
+                    info tones — no filled background. For date-based kinds the
+                    badge carries the formatted date (e.g. ``⚑ 2d late``,
+                    ``⏱ Tomorrow``) instead of the generic ``Overdue`` label,
+                    so the date isn't lost when the standalone date pill is
+                    suppressed. */}
                 {urgency && (
                   <span
                     className={`text-xs font-semibold shrink-0 ${
@@ -319,18 +326,19 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                         ? "text-danger"
                         : urgency.tone === "warning"
                         ? "text-warning"
-                        : urgency.tone === "warning-soft"
-                        ? "text-fg-secondary"
                         : "text-info"
                     }`}
                     title={
                       urgency.kind === "overdue" || urgency.kind === "due-soon"
-                        ? `${urgency.label} · Due ${card.due_date}`
+                        ? `Due ${card.due_date}`
                         : urgency.label
                     }
                   >
-                    {urgency.kind === "overdue" ? "⚑ " : urgency.kind === "due-soon" ? "⏱ " : ""}
-                    {urgency.label}
+                    {urgency.kind === "overdue" && dueInfo
+                      ? `⚑ ${dueInfo.label}`
+                      : urgency.kind === "due-soon" && dueInfo
+                      ? `⏱ ${dueInfo.label}`
+                      : urgency.label}
                   </span>
                 )}
 
@@ -374,8 +382,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   </span>
                 )}
 
-                {/* Due date — only when not already carried by the urgency badge */}
-                {dueInfo && !dueAlreadyInUrgency && (
+                {/* Due date — only at Standard / Dense, and only when not
+                    already carried by the urgency badge. At Comfortable the
+                    urgency badge is the single date signal. */}
+                {showDueDatePill && dueInfo && !dueAlreadyInUrgency && (
                   <span
                     className={`text-xs font-medium shrink-0 ${dueInfo.overdue ? "text-danger" : "text-fg-tertiary"}`}
                     title={`Due ${card.due_date}`}

@@ -969,7 +969,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <legend className="sr-only">Card density</legend>
                     {([
                       { value: "comfortable", label: "Comfortable", description: "One urgency badge, one primary label, assignee. Best for new boards." },
-                      { value: "compact",     label: "Compact",     description: "Adds due date, weight, and attachment counts on the card face." },
+                      { value: "standard",    label: "Standard",    description: "Adds due date, weight, and attachment counts on the card face." },
                       { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no peek required." },
                     ] as const).map(({ value, label, description }) => {
                       const checked = board.card_density === value;

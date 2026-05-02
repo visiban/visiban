@@ -18,13 +18,19 @@
 
 export type CardUrgencyKind = "overdue" | "due-soon" | "stale" | "recent";
 
-export type CardUrgencyTone = "danger" | "warning" | "warning-soft" | "info";
+export type CardUrgencyTone = "danger" | "warning" | "info";
 
 export interface CardUrgency {
   kind: CardUrgencyKind;
-  /** Human-readable label rendered on the badge. */
+  /**
+   * Default human-readable label. Date-based kinds (overdue / due-soon) are
+   * rendered with the formatted ``dueInfo.label`` at the call site so the
+   * badge carries the actual date — e.g. ``⚑ 2d late`` rather than
+   * ``⚑ Overdue``. This default is used for ``stale`` and ``recent`` and as
+   * a fallback when ``dueInfo`` is not yet computed.
+   */
   label: string;
-  /** Maps to the design-token-aware text/border tone. */
+  /** Maps to the design-token-aware text tone. */
   tone: CardUrgencyTone;
 }
 
@@ -54,8 +60,11 @@ export function classifyCardUrgency(card: ClassifyInput, now: number = Date.now(
 
   // ``is_stale`` is the server's verdict — trust it. We never recompute the
   // 7-day-style threshold client-side; that's the board admin's setting.
+  // Tone is full ``warning`` (amber) per the VoC panel — Maya and Jordan both
+  // flagged ``warning-soft`` (text-fg-secondary) as too quiet to scan at a
+  // glance next to a calm card.
   if (card.is_stale) {
-    return { kind: "stale", label: "Stale", tone: "warning-soft" };
+    return { kind: "stale", label: "Stale", tone: "warning" };
   }
 
   // Recently-moved is the calmest cue — useful as a "this just changed"

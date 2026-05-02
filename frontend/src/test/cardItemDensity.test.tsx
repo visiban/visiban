@@ -77,19 +77,41 @@ describe('CardItem — card_density (#961)', () => {
       expect(screen.queryByTitle('Priority: high')).not.toBeInTheDocument()
     })
 
-    it('renders the urgency badge "Overdue" when card is past its due date', () => {
-      render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" />)
-      expect(screen.getByText(/Overdue/)).toBeInTheDocument()
+    it('renders the urgency badge with the formatted relative date for overdue cards', () => {
+      // The badge label is the formatted date (e.g. "5d late"), not the
+      // generic word "Overdue", so the date isn't lost when the standalone
+      // date pill is suppressed at lower densities.
+      const { container } = render(<CardItem card={makeCard({ due_date: FIVE_DAYS_AGO })} density="comfortable" />)
+      const badge = container.querySelector('.text-danger')
+      expect(badge?.textContent).toMatch(/^⚑/)
+      expect(badge?.textContent).not.toBe('⚑ Overdue')
+      expect(badge?.textContent).toMatch(/late|d ago|^⚑\s\S/)
     })
 
-    it('renders the urgency badge "Due soon" within 72h of due_date', () => {
-      render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" />)
-      expect(screen.getByText(/Due soon/)).toBeInTheDocument()
+    it('renders the urgency badge with the formatted date for due-soon cards', () => {
+      const { container } = render(<CardItem card={makeCard({ due_date: TWO_DAYS_FROM_NOW })} density="comfortable" />)
+      const badge = container.querySelector('.text-warning')
+      expect(badge?.textContent).toMatch(/^⏱/)
+      // Should not be the generic "Due soon" — must include date label
+      expect(badge?.textContent).not.toBe('⏱ Due soon')
     })
 
-    it('renders the urgency badge "Stale" when is_stale=true and no due-date pressure', () => {
-      render(<CardItem card={makeCard({ is_stale: true })} density="comfortable" />)
-      expect(screen.getByText('Stale')).toBeInTheDocument()
+    it('renders the urgency badge "Stale" with full warning tone (text-warning, not text-fg-secondary)', () => {
+      const { container } = render(<CardItem card={makeCard({ is_stale: true })} density="comfortable" />)
+      const badge = screen.getByText('Stale')
+      expect(badge).toBeInTheDocument()
+      // Stale tone bumped from warning-soft → warning per VoC panel feedback —
+      // text-fg-secondary read as too quiet next to a calm card.
+      expect(container.querySelector('.text-warning')).toBeInTheDocument()
+      expect(container.querySelector('.text-fg-secondary')).not.toBe(badge)
+    })
+
+    it('does not render the standalone due-date pill at comfortable when urgency is null', () => {
+      // A card due 2 weeks out has no urgency → at Comfortable the date moves
+      // entirely off the card face into the peek (matches design intent).
+      const FAR_FUTURE = new Date(TODAY.getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+      render(<CardItem card={makeCard({ due_date: FAR_FUTURE })} density="comfortable" />)
+      expect(screen.queryByTitle(`Due ${FAR_FUTURE}`)).not.toBeInTheDocument()
     })
 
     it('keeps the assignee avatar and checklist on the face', () => {
@@ -101,9 +123,9 @@ describe('CardItem — card_density (#961)', () => {
 
   // ---- compact: middle ground ----
 
-  describe('density="compact"', () => {
+  describe('density="standard" (the middle tier — formerly named "compact")', () => {
     it('renders up to two labels + overflow pill', () => {
-      render(<CardItem card={makeCard()} density="compact" />)
+      render(<CardItem card={makeCard()} density="standard" />)
       expect(screen.getByText('backend')).toBeInTheDocument()
       expect(screen.getByText('security')).toBeInTheDocument()
       expect(screen.queryByText('q2-goal')).not.toBeInTheDocument()
@@ -111,21 +133,28 @@ describe('CardItem — card_density (#961)', () => {
     })
 
     it('shows attachment count and weight pill on the face', () => {
-      render(<CardItem card={makeCard()} density="compact" />)
+      render(<CardItem card={makeCard()} density="standard" />)
       expect(screen.getByText(/📎3/)).toBeInTheDocument()
       expect(screen.getByTitle('Weight: 5')).toBeInTheDocument()
     })
 
     it('still suppresses the priority badge — colored border owns priority', () => {
-      render(<CardItem card={makeCard({ priority: 'high' })} density="compact" />)
+      render(<CardItem card={makeCard({ priority: 'high' })} density="standard" />)
       expect(screen.queryByTitle('Priority: high')).not.toBeInTheDocument()
     })
 
     it('still hides the recently-moved dot when urgency=recent fires', () => {
       const { container } = render(
-        <CardItem card={makeCard({ last_moved_at: TWELVE_HOURS_AGO })} density="compact" />,
+        <CardItem card={makeCard({ last_moved_at: TWELVE_HOURS_AGO })} density="standard" />,
       )
       expect(container.querySelector('[title="Recently moved"]')).not.toBeInTheDocument()
+    })
+
+    it('shows standalone due-date pill at standard density when due_date is far out (no urgency)', () => {
+      const FAR_FUTURE = new Date(TODAY.getTime() + 14 * 86_400_000).toISOString().slice(0, 10)
+      render(<CardItem card={makeCard({ due_date: FAR_FUTURE })} density="standard" />)
+      // urgency is null (>72h, not overdue), so the standalone date pill renders
+      expect(screen.getByTitle(`Due ${FAR_FUTURE}`)).toBeInTheDocument()
     })
   })
 

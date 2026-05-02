@@ -157,12 +157,12 @@ A board admin chooses one of three layouts in **Board Settings → Display → C
 | Tier | Best for | What appears on the card face |
 |---|---|---|
 | **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + `+N` overflow pill, checklist progress, assignee avatar |
-| **Compact** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count |
+| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count |
 | **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge |
 
-The **urgency badge** at Comfortable / Compact picks the most urgent of: Overdue (past due_date) → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. Dense intentionally keeps the per-field cues — the badge is a *replacement* at lower densities, not an addition.
+The **urgency badge** at Comfortable / Standard picks the most urgent of: Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date — `⚑ 2d late` for overdue, `⏱ Tomorrow` for due-soon — so the date is never lost when the standalone date pill is suppressed. Dense intentionally keeps the per-field cues — the badge is a *replacement* at lower densities, not an addition.
 
-Fields hidden from the card face at Comfortable / Compact (weight, attachment count, last-moved time) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments · Moved 2d ago`. The full detail panel always shows everything.
+Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
 Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.
 

@@ -595,7 +595,7 @@ describe('BoardSettingsModal — Card density radio', () => {
   it('admin sees three density radios with the current selection checked', () => {
     render(
       <BoardSettingsModal
-        board={{ ...fakeBoard, card_density: 'compact' }}
+        board={{ ...fakeBoard, card_density: 'standard' }}
         isAdmin={true}
         onClose={vi.fn()}
         initialTab="display"
@@ -603,10 +603,10 @@ describe('BoardSettingsModal — Card density radio', () => {
       />,
     )
     const comfortable = screen.getByRole('radio', { name: /Comfortable/i })
-    const compact = screen.getByRole('radio', { name: /Compact/i })
+    const standard = screen.getByRole('radio', { name: /Standard/i })
     const dense = screen.getByRole('radio', { name: /^Dense/i })
     expect(comfortable).not.toBeChecked()
-    expect(compact).toBeChecked()
+    expect(standard).toBeChecked()
     expect(dense).not.toBeChecked()
   })
 

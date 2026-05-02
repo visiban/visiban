@@ -358,15 +358,28 @@ class CardDensityValidationTests(TestCase):
         self.assertEqual(self.board.card_density, "comfortable")
 
     @patch(PATCH_BROADCAST)
-    def test_admin_can_set_compact(self, _):
+    def test_admin_can_set_standard(self, _):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": "standard"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "standard")
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_set_standard_via_compact_alias_returns_400(self, _):
+        # The legacy ``compact`` value (proposed pre-ship in the design bundle)
+        # is rejected post-rename. Documents the breaking change so anyone with
+        # a half-typed integration sees it.
         r = self.client.patch(
             f"/api/v1/boards/{self.board.id}/",
             {"card_density": "compact"},
             format="json",
         )
-        self.assertEqual(r.status_code, status.HTTP_200_OK)
-        self.board.refresh_from_db()
-        self.assertEqual(self.board.card_density, "compact")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("card_density", str(r.data))
 
     @patch(PATCH_BROADCAST)
     def test_admin_can_set_dense(self, _):

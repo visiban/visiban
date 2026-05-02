@@ -42,7 +42,10 @@ describe('classifyCardUrgency (#961)', () => {
       { due_date: null, is_stale: true, last_moved_at: null },
       NOW,
     )
-    expect(result).toEqual({ kind: 'stale', label: 'Stale', tone: 'warning-soft' })
+    // Tone is full ``warning`` (amber) — the prior ``warning-soft`` mapping
+    // to text-fg-secondary read as too quiet against calm cards (VoC panel
+    // feedback from Maya + Jordan).
+    expect(result).toEqual({ kind: 'stale', label: 'Stale', tone: 'warning' })
   })
 
   it('due-soon beats stale (worst-offender priority)', () => {

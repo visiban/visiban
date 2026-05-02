@@ -405,8 +405,10 @@ class BoardSerializer(serializers.ModelSerializer):
     def validate_card_density(self, value):
         # #961: gate the choice set at the serializer so the DB column stays a
         # plain CharField that will accept future tiers (e.g. ``relaxed``)
-        # without a schema migration.
-        allowed = {"comfortable", "compact", "dense"}
+        # without a schema migration. Middle tier is named ``standard`` rather
+        # than ``compact`` to avoid colliding with the per-user "Card layout:
+        # Compact / Expanded" toolbar pref.
+        allowed = {"comfortable", "standard", "dense"}
         if value not in allowed:
             raise serializers.ValidationError(
                 f"card_density must be one of: {sorted(allowed)}."
