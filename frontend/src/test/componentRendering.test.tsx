@@ -557,6 +557,126 @@ describe('ColumnHeader', () => {
     expect(screen.getByTestId('edit-column-modal')).toBeInTheDocument()
   })
 
+  // ---- Column kebab menu (#965) ----
+
+  it('renders the column kebab trigger for admins with a column-scoped accessible name', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Actions for column "Doing"' }),
+    ).toBeInTheDocument()
+  })
+
+  it('does not render the kebab trigger button for non-admins', () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Actions for column "Doing"' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('opens the kebab menu and exposes Rename, Edit settings, Delete column items', async () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    await userEvent.setup().click(
+      screen.getByRole('button', { name: 'Actions for column "Doing"' }),
+    )
+    const menu = screen.getByRole('menu', { name: 'Actions for column "Doing"' })
+    expect(menu).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Edit settings…' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Delete column' })).toBeInTheDocument()
+  })
+
+  it('kebab → Rename switches the column name into an inline editor', async () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Actions for column "Doing"' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Rename' }))
+    expect(screen.getByDisplayValue('Doing')).toBeInTheDocument()
+  })
+
+  it('kebab → Edit settings opens EditColumnModal', async () => {
+    render(
+      <ColumnHeader
+        column={makeColumn({ name: 'Doing' })}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Actions for column "Doing"' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Edit settings…' }))
+    expect(screen.getByTestId('edit-column-modal')).toBeInTheDocument()
+  })
+
+  it('kebab → Delete column calls onRequestDelete with the column', async () => {
+    const onRequestDelete = vi.fn()
+    const column = makeColumn({ name: 'Doing' })
+    render(
+      <ColumnHeader
+        column={column}
+        cards={[]}
+        boardId={1}
+        isAdmin={true}
+        onColumnUpdated={noop}
+        onRequestDelete={onRequestDelete}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Actions for column "Doing"' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Delete column' }))
+    expect(onRequestDelete).toHaveBeenCalledWith(column)
+  })
+
   it('double-clicking the header does nothing for non-admin', async () => {
     render(
       <ColumnHeader

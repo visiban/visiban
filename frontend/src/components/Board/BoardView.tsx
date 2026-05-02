@@ -470,6 +470,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
+  // Alt-gating for the column trash zone (#965). The destructive drop target
+  // only appears while a column drag is in progress *and* the user holds ⌥
+  // (Alt). Reorder and delete should not look like the same gesture.
+  const [altHeldDuringColumnDrag, setAltHeldDuringColumnDrag] = useState(false);
   const [activeSwimlane, setActiveSwimlane] = useState<Swimlane | null>(null);
   const [dndAnnouncement, setDndAnnouncement] = useState("");
   const dndHoverThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -495,6 +499,33 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
     };
   }, []);
+
+  // Alt key tracking during a column drag (#965). The listeners only register
+  // while a column drag is in progress, keeping the global key handler footprint
+  // empty at rest. `keydown` fires repeatedly while held — we still toggle once
+  // and let `keyup` flip back. Drop on `blur` to handle Cmd-Tab away mid-drag.
+  useEffect(() => {
+    if (!activeColumn) {
+      if (altHeldDuringColumnDrag) setAltHeldDuringColumnDrag(false);
+      return;
+    }
+    const onDown = (e: KeyboardEvent) => {
+      if (e.altKey) setAltHeldDuringColumnDrag(true);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (!e.altKey) setAltHeldDuringColumnDrag(false);
+    };
+    const onBlur = () => setAltHeldDuringColumnDrag(false);
+    document.addEventListener("keydown", onDown);
+    document.addEventListener("keyup", onUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      document.removeEventListener("keydown", onDown);
+      document.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", onBlur);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeColumn]);
 
   // --- Focus mode ---
   // Parse ?focus= param; validate against board.swimlanes; null if absent or invalid (silent ignore).
@@ -719,6 +750,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // `overflow-x-auto`, so no separate md/sm branch is needed here.
   const foldToolbarControls = !isLargeViewport;
   const [confirmDeleteColumn, setConfirmDeleteColumn] = useState<Column | null>(null);
+  // Name-typed confirmation input for column delete (#965). Only required when the
+  // column has cards — empty columns keep the simple Cancel/Delete flow. Reset on
+  // every open/close of the dialog.
+  const [deleteColumnInput, setDeleteColumnInput] = useState("");
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
   // and users can bookmark/share a specific sub-view URL.
@@ -1876,7 +1911,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               ))}
             </SortableContext>
 
-            {activeColumn && <ColumnTrashZone />}
+            {activeColumn && altHeldDuringColumnDrag && <ColumnTrashZone />}
           </div>
 
           {/* Empty state: no columns */}
@@ -2008,11 +2043,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <DragOverlay>
           {activeCard && <CardItem card={activeCard} overlay userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
           {activeColumn && (
-            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
-              <div className="flex items-center gap-2">
+            <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
+              <div className="flex items-center gap-2 min-w-0">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeColumn.color }} />
-                <span className="font-semibold text-fg-secondary text-sm">{activeColumn.name}</span>
+                <span className="font-semibold text-fg-secondary text-sm truncate" title={activeColumn.name}>{activeColumn.name}</span>
               </div>
+              {/* Discoverability hint for the ⌥-gated trash zone (#965). The hint
+                  flips colour when Alt is held so the user knows the gesture is
+                  armed. Reorder is the default; deletion is a deliberate opt-in. */}
+              {altHeldDuringColumnDrag ? (
+                <div className="text-xs text-danger mt-1.5" aria-live="polite">Drop on trash to delete</div>
+              ) : (
+                <div className="text-xs text-fg-muted mt-1.5">Hold ⌥ to delete</div>
+              )}
             </div>
           )}
           {activeSwimlane && (
@@ -2129,10 +2172,20 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
 
       {confirmDeleteColumn && (() => {
         const cardCount = board.cards.filter((c) => c.column === confirmDeleteColumn.id).length;
+        // Name-typed confirmation is required when the column has cards (#965).
+        // Empty columns keep the simple Cancel/Delete flow because there's nothing
+        // destructive to mistype against. Pattern mirrors the board-deletion
+        // danger-zone in BoardSettingsModal.
+        const requireType = cardCount > 0;
+        const canConfirm = !requireType || deleteColumnInput === confirmDeleteColumn.name;
+        const closeDialog = () => {
+          setConfirmDeleteColumn(null);
+          setDeleteColumnInput("");
+        };
         return (
           <ModalWrapper
             open
-            onClose={() => setConfirmDeleteColumn(null)}
+            onClose={closeDialog}
             title="Delete column?"
             maxWidth="max-w-sm"
           >
@@ -2145,12 +2198,35 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               </p>
             )}
             <p className="text-danger text-sm mb-1">
-              Any archived cards in this column will also be permanently deleted.
+              If the column contains any archived cards, they will also be permanently deleted.
             </p>
             <p className="text-fg-muted text-sm mb-5">This cannot be undone.</p>
+            {requireType && (
+              <div className="mb-5">
+                <label htmlFor="delete-column-confirm-input" className="block text-xs text-fg-muted mb-1">
+                  Type <span className="text-fg-secondary font-mono">{confirmDeleteColumn.name}</span> to confirm deletion.
+                </label>
+                <input
+                  id="delete-column-confirm-input"
+                  type="text"
+                  autoFocus
+                  value={deleteColumnInput}
+                  onChange={(e) => setDeleteColumnInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canConfirm) {
+                      e.preventDefault();
+                      onColumnDeleted(confirmDeleteColumn.id);
+                      closeDialog();
+                    }
+                  }}
+                  placeholder={confirmDeleteColumn.name}
+                  className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-danger-emphasis focus:border-transparent placeholder-fg-muted"
+                />
+              </div>
+            )}
             <div className="flex items-center justify-end gap-3">
               <button
-                onClick={() => setConfirmDeleteColumn(null)}
+                onClick={closeDialog}
                 className="text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
               >
                 Cancel
@@ -2158,9 +2234,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               <button
                 onClick={() => {
                   onColumnDeleted(confirmDeleteColumn.id);
-                  setConfirmDeleteColumn(null);
+                  closeDialog();
                 }}
-                className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                disabled={!canConfirm}
+                className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Delete
               </button>

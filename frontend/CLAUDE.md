@@ -125,6 +125,34 @@ The sub-nav bar directly below the main navbar contains view tabs, actions, and 
 - **Connection status**: use the `ConnectionStatus` component (see § Connection status indicator below) — single canonical component for the sub-nav live indicator and for the group detail header
 - **Settings link**: `text-fg-tertiary hover:text-fg text-sm`
 
+## Column kebab menu (#965)
+
+Each column header carries a `⋮` overflow kebab as the discoverable surface for column-scoped actions. The kebab is the *only* keyboard-reachable path to column rename, settings, and delete — no separate `✎` icon button.
+
+- **Trigger:** `OverflowMenu` instance with `ariaLabel={\`Actions for column "${column.name}"\`}` so screen readers announce *which* column is being acted on. The trigger uses the standard kebab styling and is wrapped in `opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition` so it is hidden at rest, revealed on column hover, and stays visible when keyboard focus enters the menu (per the hover-reveal-controls rule).
+- **Items, in order:**
+  1. `Rename` — sets the column name into an inline editor (the same editor reachable by double-clicking the name)
+  2. `Edit settings…` — opens `EditColumnModal` (color, WIP/weight limits, allow card creation, is_done)
+  3. `Delete column` — danger-styled (`OverflowItem.danger: true`), preceded by an engraved separator. Routes to the confirmation dialog.
+- **Non-admins see no kebab affordance** — the control is hidden entirely from the DOM, per the *Conditional admin-only elements* rule. Do not render a greyed-out `⋮` glyph, a disabled trigger, or a tooltip explaining missing permission; affordances Sam (occasional, non-admin) cannot use should not look like affordances at all.
+- **Double-click on the column name** continues to open `EditColumnModal` as a power-user shortcut; the kebab is the discoverable path.
+
+## Column delete confirmation (#965)
+
+Deleting a column is permanent and removes every card in it (active and archived). The confirmation dialog applies a tiered safety pattern:
+
+- **Empty column** — a plain `Cancel` / `Delete` modal is sufficient. There is nothing destructive to mistype against; adding name-typed friction here is noise.
+- **Column with cards** — the dialog renders the same name-typed danger-zone pattern used for board deletion in `BoardSettingsModal`: an input with the column name in `font-mono`, a `text-xs text-fg-muted` instruction line above it, and a `Delete` button that stays disabled until the typed value matches the column name exactly. Pressing Enter inside the input commits when the value matches. Closing the dialog (Cancel, Esc, or backdrop click) resets the input.
+- The confirmation copy explicitly says how many active cards and that archived cards in the column will also be deleted. *This cannot be undone.* is the closing line.
+
+## Column drag-to-trash gating (#965)
+
+The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visible by default during a column drag. Reorder is the common case; deletion is a deliberate, modifier-gated gesture.
+
+- The trash zone renders only when `activeColumn !== null && altHeldDuringColumnDrag === true`. The Alt-tracking `keydown` / `keyup` / `blur` listeners register only while a column drag is active so the global-keyboard footprint is empty at rest.
+- The drag overlay shows a small hint below the dragged column name: `Hold ⌥ to delete` (`text-xs text-fg-muted`) flips to `Drop on trash to delete` (`text-xs text-danger`, `aria-live="polite"`) the moment Alt is held. The hint is the discoverability cue for the gated gesture.
+- Dropping on the trash zone routes to the same name-typed confirmation dialog as the kebab `Delete column` path — there is one canonical column-delete dialog, never two.
+
 ## Column headers
 
 - Background: `bg-surface` — one level above the cell canvas

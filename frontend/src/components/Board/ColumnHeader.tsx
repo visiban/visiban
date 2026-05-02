@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "../../types";
 import EditColumnModal from "./EditColumnModal";
 import { updateColumn } from "../../api/boards";
+import OverflowMenu, { type OverflowItem } from "../Layout/OverflowMenu";
 
 interface Props {
   column: Column;
@@ -59,6 +60,25 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     setRenaming(false);
     setDraft("");
   };
+
+  // Kebab items are memoized so the OverflowMenu's items-driven effects don't
+  // re-fire on every parent render. `column.name` is captured for the delete
+  // accessible label so screen readers announce *which* column is being acted on.
+  const kebabItems = useMemo<OverflowItem[]>(
+    () => [
+      { id: "rename", label: "Rename", onSelect: startRenaming },
+      { id: "edit", label: "Edit settings…", onSelect: () => setEditing(true) },
+      {
+        id: "delete",
+        label: "Delete column",
+        danger: true,
+        separatorBefore: true,
+        onSelect: () => onRequestDelete(column),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [column.id, column.name, onRequestDelete],
+  );
 
   // Hidden by view prefs — render a narrow stub matching hidden cell width
   if (hidden) {
@@ -127,8 +147,6 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
     );
   }
 
-  const nonAdminTitle = "You need admin access to change board settings";
-
   return (
     <>
       <div
@@ -177,16 +195,19 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
               {column.name}
             </span>
           )}
-          {/* Edit icon — opens full modal */}
-          <button
-            type="button"
-            className={`ml-auto transition text-xs shrink-0 focus:outline-none focus:opacity-100 focus:ring-2 focus:ring-primary-emphasis rounded ${isAdmin ? "text-fg-faint group-hover/col:text-fg-tertiary hover:text-fg" : "text-fg-faint opacity-50 cursor-not-allowed"}`}
-            title={isAdmin ? "Edit column settings" : nonAdminTitle}
-            onClick={isAdmin ? (e) => { e.stopPropagation(); setEditing(true); } : undefined}
-            disabled={!isAdmin}
-          >
-            ✎
-          </button>
+          {/* Column overflow kebab — discoverable surface for Rename, Edit settings,
+              and Delete. Replaces the prior `✎` icon button (per #965): the kebab is
+              the keyboard-reachable, name-typed-confirm path, while column drag-to-
+              trash now requires holding ⌥. Non-admins get no affordance at all per
+              the conditional-admin-only-elements rule — never a greyed-out control. */}
+          {isAdmin && (
+            <div
+              className="ml-auto opacity-0 group-hover/col:opacity-100 focus-within:opacity-100 transition"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <OverflowMenu items={kebabItems} ariaLabel={`Actions for column "${column.name}"`} />
+            </div>
+          )}
         </div>
 
         {/* Stat row — surface only the worst-offender (WIP > weight); calm state shows
