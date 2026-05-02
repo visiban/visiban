@@ -146,7 +146,25 @@ Hard enforcement is **off by default**. Enable it in **Board Settings → Rules 
 
 ## Cards
 
-Cards are displayed as compact tiles with a full colored border indicating priority. Cards communicate their full status at a glance — a filled priority badge (medium and above) in a color matching the border, assignee avatar, label pills showing truncated names (up to 7 characters), checklist progress, and due date are visible directly on the card face. Overdue due dates are shown in red. If a cell contains 2 or more cards, a faint card count badge appears in its top-right corner.
+Cards are displayed as compact tiles with a full colored border indicating priority. **How much metadata appears on each card depends on the board's *Card density* setting** (Comfortable / Standard / Dense — see [Card density](#card-density) below). At every density the colored border carries priority, the assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.
+
+### Card density
+
+> **Added in 1.1** — replaces the previous per-user *hide field* toggles (Labels / Due date / Assignee / Priority badge / Last moved).
+
+A board admin chooses one of three layouts in **Board Settings → Display → Card density**:
+
+| Tier | Best for | What appears on the card face |
+|---|---|---|
+| **Comfortable** *(default for new boards)* | Sam-style occasional users; teams who want a clean glanceable board | One worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label + `+N` overflow pill, checklist progress, assignee avatar |
+| **Standard** | Mid-density boards — extra signal without the full wall | Adds a second label, due date (when not folded into the urgency badge), weight pill (when `>1`), attachment count |
+| **Dense** *(default for boards upgraded from 1.0)* | Power users who use every field every day | Today's pre-1.1 layout — all labels (up to 3 + overflow), description indicator, checklist, attachments, due date, weight, last-moved text, recently-moved dot, priority badge |
+
+The **urgency badge** at Comfortable / Standard picks the most urgent of: Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date — `⚑ 2d late` for overdue, `⏱ Tomorrow` for due-soon — so the date is never lost when the standalone date pill is suppressed. Dense intentionally keeps the per-field cues — the badge is a *replacement* at lower densities, not an addition.
+
+Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
+
+Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.
 
 Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 

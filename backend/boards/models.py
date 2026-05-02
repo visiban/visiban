@@ -111,6 +111,21 @@ class Board(models.Model):
             "schema migration."
         ),
     )
+    card_density = models.CharField(
+        max_length=20,
+        default="comfortable",
+        help_text=(
+            "Per-board card layout density (#961). Drives how much metadata "
+            "renders on the card face: ``comfortable`` shows one urgency badge "
+            "and one primary label, ``standard`` adds due date and weight, "
+            "``dense`` shows everything (today's pre-1.1 layout). New boards "
+            "default to ``comfortable`` so first-time users get the cleaner "
+            "scan; existing boards are migrated to ``dense`` to preserve their "
+            "current visual. The middle tier is named ``standard`` rather than "
+            "``compact`` to avoid colliding with the per-user *Card layout: "
+            "Compact / Expanded* toolbar pref. Validated at the serializer layer."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

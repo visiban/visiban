@@ -77,6 +77,7 @@ const fakeBoard: BoardFull = {
   stale_warning_pct: 50,
   allowed_priorities: [],
   enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer',
+  card_density: 'comfortable',
   is_starred: false,
   created_at: '',
   updated_at: '',
@@ -581,6 +582,62 @@ describe('BoardSettingsModal — initialTab prop', () => {
     )
     expect(screen.getByText('Admin User')).toBeInTheDocument()
     expect(screen.getByText('Bob Smith')).toBeInTheDocument()
+  })
+})
+
+// ─── Display tab → Card density radio (#961) ───────────────────────────────
+
+describe('BoardSettingsModal — Card density radio', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('admin sees three density radios with the current selection checked', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'standard' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+    const comfortable = screen.getByRole('radio', { name: /Comfortable/i })
+    const standard = screen.getByRole('radio', { name: /Standard/i })
+    const dense = screen.getByRole('radio', { name: /^Dense/i })
+    expect(comfortable).not.toBeChecked()
+    expect(standard).toBeChecked()
+    expect(dense).not.toBeChecked()
+  })
+
+  it('clicking a density radio fires onUpdateBoardSettings({ card_density: ... })', async () => {
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={onUpdate}
+      />,
+    )
+    await user.click(screen.getByRole('radio', { name: /^Dense/i }))
+    expect(onUpdate).toHaveBeenCalledWith({ card_density: 'dense' })
+  })
+
+  it('non-admin sees a read-only line stating the current density', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'dense', current_user_role: 'viewer' }}
+        isAdmin={false}
+        onClose={vi.fn()}
+        initialTab="display"
+      />,
+    )
+    expect(screen.queryByRole('radio', { name: /Comfortable/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/Only board admins can change this setting/i)).toBeInTheDocument()
+    expect(screen.getByText(/dense/i)).toBeInTheDocument()
   })
 })
 

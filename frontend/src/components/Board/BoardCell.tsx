@@ -1,7 +1,7 @@
 import { useState, memo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
-import type { Card, Column, Swimlane } from "../../types";
+import type { Card, CardDensity, Column, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
 
@@ -18,11 +18,7 @@ interface Props {
   onToggleCardSelection: (cardId: number) => void;
   onCardClick: (card: Card) => void;
   onCardAdded: (card: Card) => void;
-  hideLabels?: boolean;
-  hideDueDate?: boolean;
-  hideAssignee?: boolean;
-  hidePriority?: boolean;
-  hideLastMoved?: boolean;
+  density?: CardDensity;
   userTimezone?: string;
   userDateFormat?: string;
   width?: number;
@@ -31,7 +27,7 @@ interface Props {
   stale_warning_pct?: number;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, hideLabels, hideDueDate, hideAssignee, hidePriority, hideLastMoved, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -101,11 +97,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               selected={selectedCardIds.has(card.id)}
               highlighted={highlightedCardId === card.id}
               onSelect={canEdit ? () => onToggleCardSelection(card.id) : undefined}
-              hideLabels={hideLabels}
-              hideDueDate={hideDueDate}
-              hideAssignee={hideAssignee}
-              hidePriority={hidePriority}
-              hideLastMoved={hideLastMoved}
+              density={density}
               userTimezone={userTimezone}
               userDateFormat={userDateFormat}
               compact={compact}

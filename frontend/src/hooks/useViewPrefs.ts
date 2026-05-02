@@ -10,11 +10,6 @@ export interface ViewPrefs {
   swimlaneColumnWidth: number;
   columnWidths: Record<number, number>;
   swimlaneHeights: Record<number, number>;
-  hideLabels: boolean;
-  hideDueDate: boolean;
-  hideAssignee: boolean;
-  hidePriority: boolean;
-  hideLastMoved: boolean;
 }
 
 const DEFAULT_PREFS: ViewPrefs = {
@@ -25,11 +20,6 @@ const DEFAULT_PREFS: ViewPrefs = {
   swimlaneColumnWidth: 220,
   columnWidths: {},
   swimlaneHeights: {},
-  hideLabels: false,
-  hideDueDate: false,
-  hideAssignee: false,
-  hidePriority: false,
-  hideLastMoved: false,
 };
 
 function storageKey(boardId: number): string {
@@ -40,6 +30,10 @@ function load(boardId: number): ViewPrefs {
   try {
     const raw = localStorage.getItem(storageKey(boardId));
     if (!raw) return DEFAULT_PREFS;
+    // hideLabels / hideDueDate / hideAssignee / hidePriority / hideLastMoved
+    // were per-user per-board prefs in 1.0; #961 replaces them with the
+    // per-board admin-controlled ``card_density`` setting on the Board model.
+    // Old keys in localStorage are silently ignored (decay).
     const parsed = JSON.parse(raw) as Partial<ViewPrefs> & { expandedColumnIds?: number[] };
     return {
       hiddenColumnIds: Array.isArray(parsed.hiddenColumnIds) ? parsed.hiddenColumnIds : [],
@@ -49,11 +43,6 @@ function load(boardId: number): ViewPrefs {
       swimlaneColumnWidth: typeof parsed.swimlaneColumnWidth === "number" ? parsed.swimlaneColumnWidth : 220,
       columnWidths: (typeof parsed.columnWidths === "object" && parsed.columnWidths !== null && !Array.isArray(parsed.columnWidths)) ? parsed.columnWidths as Record<number, number> : {},
       swimlaneHeights: (typeof parsed.swimlaneHeights === "object" && parsed.swimlaneHeights !== null && !Array.isArray(parsed.swimlaneHeights)) ? parsed.swimlaneHeights as Record<number, number> : {},
-      hideLabels: typeof parsed.hideLabels === "boolean" ? parsed.hideLabels : false,
-      hideDueDate: typeof parsed.hideDueDate === "boolean" ? parsed.hideDueDate : false,
-      hideAssignee: typeof parsed.hideAssignee === "boolean" ? parsed.hideAssignee : false,
-      hidePriority: typeof parsed.hidePriority === "boolean" ? parsed.hidePriority : false,
-      hideLastMoved: typeof parsed.hideLastMoved === "boolean" ? parsed.hideLastMoved : false,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -210,12 +199,5 @@ export function useViewPrefs(
     [setPrefs],
   );
 
-  const setCardFieldPref = useCallback(
-    (field: "hideLabels" | "hideDueDate" | "hideAssignee" | "hidePriority" | "hideLastMoved", value: boolean) => {
-      setPrefs((prev) => ({ ...prev, [field]: value }));
-    },
-    [setPrefs],
-  );
-
-  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight, setCardFieldPref };
+  return { prefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight };
 }

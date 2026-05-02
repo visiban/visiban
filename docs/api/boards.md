@@ -34,6 +34,7 @@ Get board summary. Response includes:
 | `enforce_wip_hard` | boolean | When `true`, WIP limits cannot be overridden by any role — all users are blocked (default: `false`) |
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |
 | `export_min_role` | string | Minimum role required to export this board. One of `"viewer"`, `"collaborator"`, `"member"`, `"admin"` (default: `"viewer"`). Owners and site admins always bypass. Admin-only when writing; sending any other value (including `"site_admin"` or `"owner"`) returns `400 Bad Request`. Added in 1.1 (#843). |
+| `card_density` | string | Per-board card layout density. One of `"comfortable"`, `"standard"`, `"dense"` (default: `"comfortable"` for new boards; existing boards on upgrade are migrated to `"dense"` to preserve their pre-1.1 visual). Drives how much metadata renders on the card face — see the [Card density](../features/board.md#card-density) feature doc. Admin-only when writing; sending any other value returns `400 Bad Request`. Added in 1.1 (#961). |
 | `stale_warning_pct` | integer | Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap |
 | `is_starred` | boolean | Whether the requesting user has starred this board |
 | `created_at`, `updated_at` | string | ISO 8601 timestamps |
@@ -41,7 +42,7 @@ Get board summary. Response includes:
 ### `PUT /api/v1/boards/{id}/` / `PATCH /api/v1/boards/{id}/`
 Update board fields. Both `PUT` and `PATCH` are accepted — all fields are optional in either case. Requires board admin.
 
-**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, and `export_min_role`; non-admins sending these fields receive `403 Forbidden`.
+**Writable fields:** `name`, `description`, `staleness_threshold_days`, `stale_warning_pct`, `allowed_priorities`. Board admins may also set `enforce_wip_limits`, `enforce_weight_limits`, `enforce_wip_hard`, `export_min_role`, and `card_density`; non-admins sending these fields receive `403 Forbidden`.
 
 ### `DELETE /api/v1/boards/{id}/`
 Delete board. Requires board owner or site admin.
