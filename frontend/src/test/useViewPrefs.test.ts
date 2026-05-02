@@ -47,7 +47,7 @@ describe('useViewPrefs', () => {
       hideLastMoved: true,
     }))
     const { result } = renderHook(() => useViewPrefs(BOARD_ID))
-    const prefs = result.current.prefs as Record<string, unknown>
+    const prefs = result.current.prefs as unknown as Record<string, unknown>
     expect(prefs.hiddenColumnIds).toEqual([1])
     expect(prefs.hideLabels).toBeUndefined()
     expect(prefs.hideDueDate).toBeUndefined()

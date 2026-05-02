@@ -43,7 +43,7 @@ const mockBoard: BoardFull = {
   allowed_priorities: [],
   enforce_wip_limits: true,
   enforce_wip_hard: false,
-  enforce_weight_limits: true, export_min_role: 'viewer',
+  enforce_weight_limits: true, export_min_role: 'viewer', card_density: 'comfortable',
   is_starred: false,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
