@@ -245,6 +245,7 @@ export default function OverflowMenu({
         aria-expanded={open}
         aria-controls={menuId}
         aria-label={ariaLabel}
+        title={ariaLabel}
         className={`relative p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           open
             ? "text-info bg-info/10"
