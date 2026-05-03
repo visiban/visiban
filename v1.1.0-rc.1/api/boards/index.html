@@ -1483,6 +1483,8 @@
       
         
       
+        
+      
     
     
     
@@ -2489,6 +2491,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../openapi/" class="md-nav__link">
         
   
@@ -3257,6 +3287,11 @@
 <td><code>swimlane_name</code></td>
 <td></td>
 <td>Name for the first swimlane (default: <code>"General"</code>)</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td></td>
+<td>Integer group ID — assigns the board to this group at creation time. The caller must be a group member.</td>
 </tr>
 </tbody>
 </table>
@@ -4060,7 +4095,7 @@
 </table>
 <h3 id="post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code><a class="headerlink" href="#post-apiv1boardsimport" title="Permanent link">&para;</a></h3>
 <p>Import a board from a Visiban JSON or CSV export file. Accepts <code>multipart/form-data</code> with a <code>file</code> field, an optional <code>name</code> field to override the board name, and an optional <code>group_id</code> field to place the imported board into a group. Creates a new board atomically.</p>
-<p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group; a non-member receives <code>403 Forbidden</code>.</p>
+<p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group (any role — viewer and above); a non-member receives <code>403 Forbidden</code>.</p>
 <p><strong>Request</strong> (<code>multipart/form-data</code>)</p>
 <table>
 <thead>
@@ -4084,7 +4119,7 @@
 <tr>
 <td><code>group_id</code></td>
 <td></td>
-<td>Place the imported board into this group. Requires group admin (see Permission above).</td>
+<td>Place the imported board into this group. Requires group membership (any role).</td>
 </tr>
 </tbody>
 </table>
@@ -4188,8 +4223,9 @@
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;share_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;share_token_expires_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">}</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;share_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">&quot;share_token_expires_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board admin.</p>
 <hr />

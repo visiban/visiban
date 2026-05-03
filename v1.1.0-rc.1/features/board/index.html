@@ -2076,6 +2076,8 @@
       
         
       
+        
+      
     
     
     
@@ -2341,6 +2343,34 @@
     
   
     Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
   
 
     
@@ -3723,7 +3753,7 @@
 <h2 id="board-member-management">Board member management<a class="headerlink" href="#board-member-management" title="Permanent link">&para;</a></h2>
 <p>Admins can manage board members directly from the board toolbar via the <strong>Members</strong> button. This allows assigning all four roles (admin, member, collaborator, viewer) independently of group membership. Press <strong>Escape</strong> or click <strong>×</strong> to close the dialog. See <a href="../rbac/roles/">Roles &amp; Permissions</a> for what each role can do.</p>
 <h2 id="real-time-indicator">Real-time indicator<a class="headerlink" href="#real-time-indicator" title="Permanent link">&para;</a></h2>
-<p>The toolbar shows a pulsing green <strong>Live</strong> dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See <a href="../realtime/">Real-time Updates</a>.</p>
+<p>The board toolbar shows a <strong>ConnectionStatus</strong> indicator in the top-right area. When the WebSocket connection is healthy the indicator is quiet — a small dot with the word "Live" (visible at wider viewports). When the connection is degraded or lost it becomes prominent: an amber pill for reconnecting or stale states, a red pill for a failed connection. Board state updates automatically when other users move cards or make changes. See <a href="../realtime/">Real-time Updates</a>.</p>
 <h2 id="activity-drawer">Activity drawer<a class="headerlink" href="#activity-drawer" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.1</strong></p>

@@ -1225,6 +1225,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#group-real-time-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Group real-time events
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#requirements" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1763,6 +1774,8 @@
       
         
       
+        
+      
     
     
     
@@ -2028,6 +2041,34 @@
     
   
     Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
   
 
     
@@ -2791,12 +2832,12 @@
 <li>The frontend applies the event to local state, keeping all open tabs in sync without a page refresh</li>
 </ol>
 <h2 id="connection-status">Connection status<a class="headerlink" href="#connection-status" title="Permanent link">&para;</a></h2>
-<p>The top-right corner of the board toolbar shows the connection state:</p>
+<p>The top-right corner of the board toolbar shows the connection state via the <strong>ConnectionStatus</strong> component. When healthy the indicator is intentionally quiet; it becomes prominent only when there is a problem:</p>
 <ul>
-<li>🟢 <strong>Live</strong> — WebSocket connected; dot pulses with a green animation</li>
-<li>🟡 <strong>Reconnecting…</strong> — connection dropped; client is retrying automatically; dot pulses amber</li>
+<li>🟢 <strong>Live</strong> — WebSocket connected; bare dot with the word "Live" (label visible at wide viewports only — quiet by design)</li>
+<li>🟡 <strong>Reconnecting…</strong> — connection dropped; client is retrying automatically; amber pill with label always shown</li>
 <li>🟡 <strong>Stale</strong> — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging</li>
-<li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress</li>
+<li>🟡 <strong>Connecting…</strong> — initial connection attempt in progress; amber pill</li>
 <li>🔴 <strong>Failed</strong> — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect</li>
 </ul>
 <p>The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code <code>4001</code> (unauthenticated) or <code>4003</code> (unauthorized), no retry is attempted — the indicator switches directly to <strong>Failed</strong>.</p>
@@ -3035,6 +3076,38 @@
 <a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>movement</code> is <code>null</code> if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).</p>
+<h2 id="group-real-time-events">Group real-time events<a class="headerlink" href="#group-real-time-events" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.1</strong></p>
+</blockquote>
+<p>In addition to the per-board channel, Visiban exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).</p>
+<p><strong>Connection URL:</strong> <code>ws://{host}/ws/groups/{group_id}/</code></p>
+<p><strong>Authentication:</strong> same as the board channel — session cookie required. Unauthenticated connections are closed with code <code>4001</code>; connections from users without group membership are closed with code <code>4003</code>. No retry is attempted for either code.</p>
+<p><strong>Events emitted on this channel:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>board.created</code></td>
+<td>A new board is created inside this group</td>
+</tr>
+<tr>
+<td><code>board.updated</code></td>
+<td>A board in this group has its name, settings, or group changed</td>
+</tr>
+<tr>
+<td><code>board.deleted</code></td>
+<td>A board in this group is deleted</td>
+</tr>
+</tbody>
+</table>
+<p>Each event payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. <code>board.deleted</code> includes <code>{"board_uid": "...", "board_id": N}</code> to allow clients to remove the board from their local list without a re-fetch. <code>board.created</code> and <code>board.updated</code> include the full board summary object.</p>
+<p>The group channel does not emit card-level events — those remain on the per-board channel.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
 <p>Real-time updates require a Redis instance. Visiban uses two separate Redis connections:</p>
 <table>

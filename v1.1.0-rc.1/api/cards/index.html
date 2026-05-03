@@ -1483,6 +1483,8 @@
       
         
       
+        
+      
     
     
     
@@ -2187,6 +2189,34 @@
     
   
     Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
   
 
     
@@ -3412,7 +3442,7 @@
 <hr />
 <h2 id="attachments">Attachments<a class="headerlink" href="#attachments" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardsboard_idcardsidattachments"><code>GET /api/v1/boards/{board_id}/cards/{id}/attachments/</code><a class="headerlink" href="#get-apiv1boardsboard_idcardsidattachments" title="Permanent link">&para;</a></h3>
-<p>List attachments. Response fields per attachment: <code>id</code>, <code>filename</code>, <code>size</code> (bytes), <code>url</code> (relative URL), <code>uploaded_by</code> (user object), <code>uploaded_at</code>.</p>
+<p>List attachments. Response fields per attachment: <code>id</code>, <code>filename</code>, <code>size</code> (bytes), <code>url</code> (absolute URL — scheme + host + path, built from the request), <code>uploaded_by</code> (user object), <code>uploaded_at</code>.</p>
 <p>To download an attachment file, fetch its <code>url</code> URL with the same <code>Authorization</code> header used for API requests — attachments are served via the authenticated <code>/media/&lt;path&gt;</code> route. Unauthenticated requests and requests from users without board membership return <code>403 Forbidden</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>curl<span class="w"> </span>-O<span class="w"> </span>-J<span class="w"> </span>http://localhost:8000/media/attachments/abc123.pdf<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b&quot;</span>

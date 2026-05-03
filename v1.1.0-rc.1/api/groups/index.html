@@ -1483,6 +1483,8 @@
       
         
       
+        
+      
     
     
     
@@ -2254,6 +2256,34 @@
     
   
     Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
   
 
     
@@ -3144,6 +3174,48 @@
 <h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1groupsidmembers"><code>GET /api/v1/groups/{id}/members/</code><a class="headerlink" href="#get-apiv1groupsidmembers" title="Permanent link">&para;</a></h3>
 <p>List group members. Requires group membership.</p>
+<p><strong>Response</strong> — array of member objects:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer / null</td>
+<td>Membership record ID. <code>null</code> for inherited members (access via ancestor group), for the group owner who has no explicit direct membership record, and for site admins. Callers must not assume this field is always an integer.</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>object</td>
+<td><code>{ "id", "username", "display_name", "avatar_url" }</code></td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>Effective role on this group: <code>admin</code>, <code>member</code>, <code>collaborator</code>, or <code>viewer</code></td>
+</tr>
+<tr>
+<td><code>joined_at</code></td>
+<td>string / null</td>
+<td>ISO 8601 timestamp of when the membership was created; <code>null</code> for inherited members</td>
+</tr>
+<tr>
+<td><code>is_inherited</code></td>
+<td>boolean</td>
+<td><code>true</code> when the member's access comes from a parent (ancestor) group rather than a direct membership on this group</td>
+</tr>
+<tr>
+<td><code>inherited_from</code></td>
+<td>string / null</td>
+<td>Display name of the ancestor group that grants access, when <code>is_inherited</code> is <code>true</code>; <code>null</code> otherwise</td>
+</tr>
+</tbody>
+</table>
 <h3 id="patch-apiv1groupsidmembersuser_id"><code>PATCH /api/v1/groups/{id}/members/{user_id}/</code><a class="headerlink" href="#patch-apiv1groupsidmembersuser_id" title="Permanent link">&para;</a></h3>
 <p>Change a member's role. Requires group admin. Cannot modify a site admin.</p>
 <p><strong>Request</strong> <code>{ "role": "admin" }</code></p>
