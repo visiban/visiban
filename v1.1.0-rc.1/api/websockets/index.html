@@ -2800,6 +2800,11 @@
 </thead>
 <tbody>
 <tr>
+<td><code>board.created</code></td>
+<td>New board created (only emitted to subscribers already connected to the board channel)</td>
+<td>Full <code>BoardSerializer</code> object</td>
+</tr>
+<tr>
 <td><code>board.updated</code></td>
 <td>Board name, description, or settings changed</td>
 <td>Full <code>BoardSerializer</code> object</td>
@@ -2856,11 +2861,6 @@
 <td>Column order changed (since 1.1)</td>
 <td><code>{ "columns": [&lt;ColumnSerializer&gt;, ...] }</code> — all columns in new order</td>
 </tr>
-<tr>
-<td><code>columns.reordered</code></td>
-<td>Deprecated plural alias for <code>column.reordered</code>; emitted alongside it until removed in 2.0</td>
-<td>Same as <code>column.reordered</code></td>
-</tr>
 </tbody>
 </table>
 <h3 id="swimlane-events">Swimlane events<a class="headerlink" href="#swimlane-events" title="Permanent link">&para;</a></h3>
@@ -2892,11 +2892,6 @@
 <td><code>swimlane.reordered</code></td>
 <td>Swimlane order changed (since 1.1)</td>
 <td><code>{ "swimlanes": [&lt;SwimlaneSerializer&gt;, ...] }</code> — all swimlanes in new order</td>
-</tr>
-<tr>
-<td><code>swimlanes.reordered</code></td>
-<td>Deprecated plural alias for <code>swimlane.reordered</code>; emitted alongside it until removed in 2.0</td>
-<td>Same as <code>swimlane.reordered</code></td>
 </tr>
 </tbody>
 </table>
@@ -3137,7 +3132,7 @@
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="c1">// update card in local state</span>
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
 <a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">&quot;card.deleted&quot;</span><span class="o">:</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_id</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_uid</span>
 <a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
 <a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">&quot;card.moved&quot;</span><span class="o">:</span>
 <a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">      </span><span class="c1">// update card position and record movement</span>
