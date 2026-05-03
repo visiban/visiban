@@ -257,6 +257,35 @@ describe('Notification dropdown', () => {
     expect(screen.getByText('View board →')).toBeInTheDocument()
   })
 
+  it('renders system-generated notifications with null actor (#1007)', async () => {
+    // Stale-card alerts are emitted by the management command with no actor
+    // — the API returns actor: null and the dropdown must render the verb
+    // without erroring on the missing user.
+    const user = userEvent.setup({ delay: null })
+    const staleNotification: Notification = {
+      id: 5,
+      verb: '"Old card" has not moved in 14 days',
+      actor: null,
+      card_id: 12,
+      card_title: 'Old card',
+      board_id: 1,
+      board_name: 'Sprint 1',
+      action_type: 'stale',
+      read: false,
+      created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    }
+    mockedGetUnreadCount.mockResolvedValue(1)
+    mockedListNotifications.mockResolvedValue([staleNotification])
+
+    renderNavbar()
+
+    await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument())
+    await user.click(screen.getByTitle(/Notifications/))
+    await waitFor(() => screen.getByText('"Old card" has not moved in 14 days'))
+    // No throw means actor: null was rendered safely.
+    expect(screen.getByText('"Old card" has not moved in 14 days')).toBeInTheDocument()
+  })
+
   it('does not render "View board" affordance for card-scoped notifications', async () => {
     const user = userEvent.setup({ delay: null })
     mockedGetUnreadCount.mockResolvedValue(1)

@@ -128,13 +128,56 @@ Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
 **Response (create only)** — the raw `token` is returned once and never again:
 ```json
-{ "id": 1, "token": "abc123raw", "prefix": "abc123ra", "name": "Team link", "role": "member", "is_active": true, "is_expired": false, "expires_at": "2026-04-07T00:00:00Z", "created_at": "2026-03-31T00:00:00Z" }
+{
+  "id": 1,
+  "token": "abc123raw",
+  "prefix": "abc123ra",
+  "name": "Team link",
+  "role": "member",
+  "is_active": true,
+  "is_expired": false,
+  "expires_at": "2026-04-07T00:00:00Z",
+  "created_at": "2026-03-31T00:00:00Z",
+  "created_by_username": "alice",
+  "single_use": false,
+  "used_at": null,
+  "status": "pending"
+}
 ```
 
 **List response** — `token` is absent; `prefix` (first 8 chars) is shown for identification:
 ```json
-{ "id": 1, "prefix": "abc123ra", "name": "Team link", "role": "member", "is_active": true, "is_expired": false, "expires_at": "2026-04-07T00:00:00Z", "created_at": "2026-03-31T00:00:00Z" }
+{
+  "id": 1,
+  "prefix": "abc123ra",
+  "name": "Team link",
+  "role": "member",
+  "is_active": true,
+  "is_expired": false,
+  "expires_at": "2026-04-07T00:00:00Z",
+  "created_at": "2026-03-31T00:00:00Z",
+  "created_by_username": "alice",
+  "single_use": false,
+  "used_at": null,
+  "status": "pending"
+}
 ```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Invite link ID |
+| `token` | string | Raw token — present **only** in the create response. The full token can never be retrieved later; admins identify links by `prefix`. |
+| `prefix` | string | First 8 characters of the token, shown in the admin UI for audit. |
+| `name` | string | Admin-assigned label for the link (e.g. "Engineering Slack"). |
+| `role` | string | Role granted on redemption: `admin` / `member` / `collaborator` / `viewer`. |
+| `is_active` | boolean | `true` until revoked. A consumed single-use link still shows `is_active: true` but cannot be redeemed again — see `status`. |
+| `is_expired` | boolean | `true` once `expires_at` has passed. |
+| `expires_at` | string / null | ISO 8601 expiry; `null` means never expires. |
+| `created_at` | string | ISO 8601 timestamp. |
+| `created_by_username` | string / null | Username of the admin who created the link (#1008). `null` if the creator's account has since been anonymized. |
+| `single_use` | boolean | `true` if the link is consumed by the first redemption (cannot be reused). |
+| `used_at` | string / null | ISO 8601 timestamp of consumption (single-use links only); `null` for multi-use or unredeemed. |
+| `status` | string | Computed status: `pending` (active and unredeemed), `used` (single-use and consumed), `expired` (past `expires_at`), or `revoked` (admin disabled). |
 
 ### `DELETE /api/v1/groups/{id}/invite-links/{link_id}/`
 Revoke a single invite link. Requires group admin.

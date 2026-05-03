@@ -17,12 +17,20 @@ Each notification preference can be toggled individually via `PATCH /api/v1/auth
 ### `GET /api/v1/notifications/`
 List the 50 most recent **unread** notifications for the current user. Requires authentication.
 
+Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from `unread-count` below) — see #987.
+
 **Response**
 ```json
 [
   {
     "id": 1,
     "verb": "alice assigned you to \"Fix login bug\"",
+    "actor": {
+      "id": 7,
+      "username": "alice",
+      "display_name": "Alice",
+      "avatar_url": ""
+    },
     "action_type": "assigned",
     "card_id": 42,
     "card_title": "Fix login bug",
@@ -38,6 +46,7 @@ List the 50 most recent **unread** notifications for the current user. Requires 
 |---|---|---|
 | `id` | integer | Notification ID — used with `mark-read` |
 | `verb` | string | Human-readable description of the event |
+| `actor` | object / null | User who triggered the notification (slim shape: `id`, `username`, `display_name`, `avatar_url`). `null` for system-generated notifications (e.g. stale-card alerts). Added in 1.1 (#1007). |
 | `card_id` | integer / null | ID of the related card (null if the card has been deleted) |
 | `card_title` | string / null | Card title at notification time (null if card deleted) |
 | `board_id` | integer / null | ID of the related board |

@@ -55,7 +55,10 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object |
-| `board.deleted` | Board was deleted | `{ "board_uid": <string>, "board_id": <int> }` |
+| `board.deleted` | Board was deleted | `{ "board_uid": <string> }` |
+| `board.star_changed` | Board starred or unstarred. Per-user state; clients should filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
+| `saved_filter.created` | Saved filter created (the private `state_json` is intentionally not broadcast — only the creating user receives the full filter via the REST response) | `{ "filter_id": <int>, "user_id": <int> }` |
+| `saved_filter.deleted` | Saved filter deleted | `{ "filter_id": <int>, "user_id": <int> }` |
 
 ### Column events
 
@@ -107,6 +110,9 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `member.updated` | Member role or moderator flag changed | Full `BoardMembershipSerializer` object |
 | `member.removed` | User removed from board | `{ "user_id": <int> }` |
 
+!!! note "`is_moderator` is filtered per-recipient"
+    On `member.added` and `member.updated`, the `is_moderator` field is stripped from the broadcast payload for non-`admin` / non-`site_admin` subscribers (consistent with the REST response filtering, #978). Only admin-role and site-admin connections receive the field — viewer- and member-role clients do not.
+
 ### Keepalive
 
 | Event | Trigger | `data` shape |
@@ -135,9 +141,17 @@ Authentication uses the same session-cookie mechanism as the board channel. The 
 |---|---|---|
 | `board.created` | Board created in this group, imported into it, or moved into it from elsewhere | Full `BoardSerializer` object |
 | `board.updated` | Board in this group renamed or otherwise edited | Full `BoardSerializer` object |
-| `board.deleted` | Board deleted, or moved out of this group | `{ "board_id": <int>, "board_uid": <string> }` |
-| `board.star_changed` (since 1.1) | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state; clients filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
-| `group.updated` | Group ownership transferred | `{ "id": <int>, "owner_id": <int> }` |
+| `board.deleted` | Board deleted, or moved out of this group | `{ "board_uid": <string> }` on outright delete; `{ "board_uid": <string>, "board_id": <int> }` on move-out (the legacy integer is retained on move-out only because clients keyed by `board_id` need to find the row to remove). Treat `board_id` as optional. |
+| `board.star_changed` | A board in this group was starred or unstarred — fires alongside the board-channel `board.star_changed`. Star is per-user state; clients filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
+| `group.created` | Subgroup created under this group, or this group itself created (fired on both the new group's channel and the parent's channel) | Full `GroupSerializer` object |
+| `group.updated` | Group renamed, board defaults changed, or ownership transferred | Full `GroupSerializer` object |
+| `group.deleted` | Group deleted | `{ "id": <int> }` |
+| `group.star_changed` | This group was starred or unstarred. Per-user state; clients should filter on `user_id === me` | `{ "id": <int>, "user_id": <int>, "is_starred": <bool> }` |
+| `group.label.created` | Group shared label created | Full `GroupLabelSerializer` object |
+| `group.label.updated` | Group shared label renamed or recolored | Full `GroupLabelSerializer` object |
+| `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
+| `membership.added` | User joined this group via an invite link | Full `GroupMembershipSerializer` object |
+| `membership.updated` | Group membership role changed | Full `GroupMembershipSerializer` object |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.
