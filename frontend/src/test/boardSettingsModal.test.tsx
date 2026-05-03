@@ -20,7 +20,7 @@ vi.mock('../api/auth', () => ({
   searchUsers: vi.fn(),
 }))
 
-import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing } from '../api/boards'
+import { setBoardMember, removeBoardMember, exportBoardCsv, exportBoardJson, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from '../api/boards'
 import { searchUsers } from '../api/auth'
 
 const mockSetBoardMember = setBoardMember as ReturnType<typeof vi.fn>
@@ -31,6 +31,7 @@ const mockPatchBoard = patchBoard as ReturnType<typeof vi.fn>
 const mockSearchUsers = searchUsers as ReturnType<typeof vi.fn>
 const mockEnableBoardSharing = enableBoardSharing as ReturnType<typeof vi.fn>
 const mockDisableBoardSharing = disableBoardSharing as ReturnType<typeof vi.fn>
+const mockGetBoardExportHistory = getBoardExportHistory as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -844,6 +845,7 @@ describe('BoardSettingsModal — Export permission (#843)', () => {
 describe('BoardSettingsModal — Export history (#842)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetBoardExportHistory.mockResolvedValue({ results: [], count: 0, next: null, previous: null })
   })
 
   it('admin sees Export history section on the Data tab', async () => {
@@ -854,5 +856,58 @@ describe('BoardSettingsModal — Export history (#842)', () => {
   it('non-admin does not see Export history section', () => {
     render(<BoardSettingsModal board={fakeBoard} isAdmin={false} onClose={vi.fn()} initialTab="data" />)
     expect(screen.queryByText('Export history')).toBeNull()
+  })
+
+  it('renders export history entries with actor_role_label and format (#1014)', async () => {
+    mockGetBoardExportHistory.mockResolvedValue({
+      results: [
+        {
+          id: 7,
+          actor: { id: 9, username: 'alice', display_name: 'Alice', avatar_url: '' },
+          actor_role_label: 'member',
+          export_format: 'csv',
+          row_count: 12,
+          created_at: '2026-04-22T14:31:02Z',
+        },
+      ],
+      count: 1, next: null, previous: null,
+    })
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
+    // Match the full body line so we hit only the history entry, not the
+    // generic "Export CSV" button elsewhere on the tab.
+    await waitFor(() =>
+      expect(screen.getByText(/member — CSV · 12 cards/)).toBeInTheDocument()
+    )
+    // Display name (rendered via userDisplayName) is what surfaces in the row.
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+  })
+
+  it('renders "(deactivated user)" when actor is null (#1014)', async () => {
+    mockGetBoardExportHistory.mockResolvedValue({
+      results: [
+        {
+          id: 8,
+          actor: null,
+          actor_role_label: 'admin',
+          export_format: 'json',
+          row_count: 1,
+          created_at: '2026-04-22T15:00:00Z',
+        },
+      ],
+      count: 1, next: null, previous: null,
+    })
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('(deactivated user)')).toBeInTheDocument())
+    // Singular form for row_count of 1.
+    expect(screen.getByText(/1 card$/)).toBeInTheDocument()
+  })
+
+  it('renders an error message when getBoardExportHistory rejects (#1014)', async () => {
+    mockGetBoardExportHistory.mockRejectedValue(new Error('Network down'))
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} initialTab="data" />)
+    await waitFor(() => expect(screen.getByText('Export history')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Could not load export history/i)).toBeInTheDocument())
   })
 })

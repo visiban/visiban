@@ -155,6 +155,22 @@ Every board, column, swimlane, label, and card carries a stable 16-character hex
 
 ---
 
+## Command palette
+
+> **Added in 1.1**
+
+Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behaviour adapts to the current surface:
+
+- **Board** — searches cards on the current board by title, plus board-scoped actions (open card history, toggle filters, switch view).
+- **Dashboard / Group** — jumps to a board across the user's full board set; starred boards lead the unfiltered list (alphabetical), then recent visits.
+- **Settings / Admin** — jumps to settings sub-tabs and admin pages.
+
+The palette is the single discoverable surface for cross-board search until the dedicated cross-board search feature ships in a future release. The 🔍 button in the top chrome dispatches the same window event that opens the palette, so users can reach it by clicking as well as by keyboard.
+
+→ [Keyboard shortcuts](keyboard-shortcuts.md)
+
+---
+
 ## Navigation
 
 The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated **Favorite Boards** and **Favorite Groups** sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via `localStorage`.

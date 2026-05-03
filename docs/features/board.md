@@ -22,8 +22,8 @@ Board admins can rename a board without opening the settings modal: click the bo
 The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as `cell:{column_id}:{swimlane_id}`.
 
 - Column headers are sticky on horizontal scroll
-- WIP limit exceeded → header turns red; when enforcement is enabled, moves into a full column are blocked
-- Weight limit exceeded → header turns orange; when enforcement is enabled, moves that would exceed the budget are blocked
+- Over-limit columns gain a 2 px top accent strip — red for over-WIP, amber for over-weight — visible across the room. The single stat line beneath the column name flips to the over-limit message (e.g. `⚠ Over WIP · 6/5`); when calm, only `N cards` is shown. *Changed in 1.1 (#963).*
+- When enforcement is enabled, moves into a full column are blocked (`409` error); board admins can override with `?force=true` (soft) or are denied entirely under hard mode
 
 ### Adding a card to a cell
 
@@ -104,8 +104,8 @@ Clicking a column header collapses it to a narrow vertical strip. When collapsed
 Columns represent pipeline stages. Each column has:
 
 - **Name** and **color**
-- **WIP limit** — maximum number of active cards allowed. When a limit is set, the header shows `WIP N/M`; when exceeded the count turns red. If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode.
-- **Weight limit** — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
+- **WIP limit** — maximum number of active cards allowed. The column header carries a single calm `N cards` stat line when within budget; when the limit is exceeded the line flips to `⚠ Over WIP · count/limit` and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has **Enforce WIP limits** enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged. See [Hard WIP enforcement](#hard-wip-enforcement) for a stricter mode.
+- **Weight limit** — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows `Weight weight/limit` and the header gains a 2 px amber top accent strip. If the board has **Enforce weight limits** enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a `409` error — board admins can override with `?force=true`. Enforcement is **on by default** for newly created boards; existing boards are unchanged.
 - **Allow card creation** — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected
 - **Done column** — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")
 
