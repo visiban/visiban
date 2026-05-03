@@ -657,9 +657,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 CardActivity.objects.bulk_create(activities)
 
             board_id = card.board_id
-            card_data = serializer.data
+            card_data = self._refetch_card_data(card)
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
-        return Response(serializer.data)
+        return Response(card_data)
 
     @action(detail=True, methods=["post"])
     @transaction.atomic
