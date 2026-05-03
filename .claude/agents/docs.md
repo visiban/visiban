@@ -98,6 +98,15 @@ The page will not appear in the sidebar or search until it is in the nav.
   grep -r "old_name" docs/
   ```
 
+### 6.1 Behaviour-drift sweep
+
+When a feature's *behaviour* changes (not just a field rename), the narrative description in the feature doc is the most likely place for stale prose to survive — code reviews catch field renames; they rarely flag "this paragraph still describes the old behaviour." Before marking a doc change complete:
+
+- For every changed user-visible behaviour in the diff, grep `docs/features/` for the old wording and confirm every match has been updated. Examples of behaviour-drift phrases that have survived prior reviews: "header turns red", "shows `WIP N/M`", "click to expand", "double-click to edit". Anything that describes a visual or interaction state may be wrong after a UX change.
+- For every new user-visible feature, confirm it has *at least one section* in `docs/features/index.md` (the feature index is the discoverability surface — a feature with no entry there is invisible to readers who don't know what to search for).
+- For every new schema migration that operators will see during upgrade (`backend/*/migrations/`), confirm `docs/administration/upgrade.md` mentions it under the relevant version section. Even safe migrations (additive nullable columns) deserve a one-line note so operators have a complete picture.
+- Hard-flag any doc page that still references a feature name, env var, or enum value that grep can no longer find in the current source — that is a guaranteed reader confusion.
+
 ### 7. Verify the build
 
 ```bash

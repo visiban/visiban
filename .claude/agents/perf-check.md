@@ -19,10 +19,14 @@ For every queryset in the changed code, check:
 - Does it call a related object inside a loop or serializer without `select_related` / `prefetch_related`?
 - Does a serializer field access a reverse relation (e.g. `card.labels.all()`, `board.columns.all()`) without a prefetch?
 - Does a `SerializerMethodField` hit the database per-object?
+- Does any code path call **`.count()`** on a relation that the calling view already prefetched? `.count()` always issues a fresh `COUNT(*)` query and ignores the prefetch cache. The right pattern is `len(obj.relation.all())` when the relation is prefetched. Grep for `\.count\(\)` and `\.exists\(\)` on touched files and verify each call site is acting on a non-prefetched relation.
+- Does any code path call **`.order_by()`** on a relation that the calling view prefetched? `.order_by()` on a prefetched reverse relation **always** issues a fresh ORDER BY query — the prefetch is bypassed because the order may differ from the prefetch's order. The right pattern is to either (a) declare `Meta.ordering` on the related model and call `.all()`, or (b) prefetch with a `Prefetch(... queryset=Model.objects.order_by(...))` so the cached rows arrive pre-ordered.
+- Does a `SerializerMethodField` use the annotation-fallback pattern (`getattr(obj, '_count', None)` with a live `.count()` fallback)? If yes, every code path that constructs the serializer must thread the annotation through `get_queryset()` — otherwise the bare-instance call (e.g. after `.create()` returning the freshly-saved row, or in an action that re-fetches the object directly) silently triggers the live fallback. Flag any new call site that builds the serializer from a bare instance and skips the annotated `get_queryset()` path.
 
 Flag each as:
 - 🔴 **N+1 confirmed** — a loop or serializer accesses a relation without prefetch; will issue one query per row
 - 🟡 **Likely N+1** — relation access inside a method field or nested serializer; verify with query count
+- 🟡 **Prefetch bypass** — `.count()` / `.order_by()` on a prefetched relation, or a method-field annotation fallback that fires from a non-annotated bare instance
 
 ### 2. Check existing prefetch coverage
 
