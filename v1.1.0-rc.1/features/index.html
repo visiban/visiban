@@ -2641,6 +2641,19 @@
 <p>Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.</p>
 <p>→ <a href="stable-uids/">Stable UIDs</a></p>
 <hr />
+<h2 id="command-palette">Command palette<a class="headerlink" href="#command-palette" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.1</strong></p>
+</blockquote>
+<p>Press <kbd>⌘K</kbd> (or <kbd>Ctrl+K</kbd>) from any authenticated page to open the global command palette. Behaviour adapts to the current surface:</p>
+<ul>
+<li><strong>Board</strong> — searches cards on the current board by title, plus board-scoped actions (open card history, toggle filters, switch view).</li>
+<li><strong>Dashboard / Group</strong> — jumps to a board across the user's full board set; starred boards lead the unfiltered list (alphabetical), then recent visits.</li>
+<li><strong>Settings / Admin</strong> — jumps to settings sub-tabs and admin pages.</li>
+</ul>
+<p>The palette is the single discoverable surface for cross-board search until the dedicated cross-board search feature ships in a future release. The 🔍 button in the top chrome dispatches the same window event that opens the palette, so users can reach it by clicking as well as by keyboard.</p>
+<p>→ <a href="keyboard-shortcuts/">Keyboard shortcuts</a></p>
+<hr />
 <h2 id="navigation">Navigation<a class="headerlink" href="#navigation" title="Permanent link">&para;</a></h2>
 <p>The application sidebar gives you persistent access to your full group and board hierarchy from any page. Starred boards and groups appear at the top of the sidebar in dedicated <strong>Favorite Boards</strong> and <strong>Favorite Groups</strong> sections. The sidebar collapses to a 48 px icon rail (with hover tooltips), expands back to 220 px, and remembers both states across reloads via <code>localStorage</code>.</p>
 <p>Site admins see a <strong>Site Admin</strong> link in the sidebar that opens the administration panel directly. The link is hidden for all other users.</p>

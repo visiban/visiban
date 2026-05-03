@@ -2807,7 +2807,22 @@
 <tr>
 <td><code>board.deleted</code></td>
 <td>Board was deleted</td>
-<td><code>{ "board_uid": &lt;string&gt;, "board_id": &lt;int&gt; }</code></td>
+<td><code>{ "board_uid": &lt;string&gt; }</code></td>
+</tr>
+<tr>
+<td><code>board.star_changed</code></td>
+<td>Board starred or unstarred. Per-user state; clients should filter on <code>user_id === me</code> and ignore events for other users</td>
+<td><code>{ "uid": &lt;string&gt;, "user_id": &lt;int&gt;, "is_starred": &lt;bool&gt; }</code></td>
+</tr>
+<tr>
+<td><code>saved_filter.created</code></td>
+<td>Saved filter created (the private <code>state_json</code> is intentionally not broadcast — only the creating user receives the full filter via the REST response)</td>
+<td><code>{ "filter_id": &lt;int&gt;, "user_id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>saved_filter.deleted</code></td>
+<td>Saved filter deleted</td>
+<td><code>{ "filter_id": &lt;int&gt;, "user_id": &lt;int&gt; }</code></td>
 </tr>
 </tbody>
 </table>
@@ -2985,6 +3000,10 @@
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title"><code>is_moderator</code> is filtered per-recipient</p>
+<p>On <code>member.added</code> and <code>member.updated</code>, the <code>is_moderator</code> field is stripped from the broadcast payload for non-<code>admin</code> / non-<code>site_admin</code> subscribers (consistent with the REST response filtering, #978). Only admin-role and site-admin connections receive the field — viewer- and member-role clients do not.</p>
+</div>
 <h3 id="keepalive">Keepalive<a class="headerlink" href="#keepalive" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3033,17 +3052,57 @@
 <tr>
 <td><code>board.deleted</code></td>
 <td>Board deleted, or moved out of this group</td>
-<td><code>{ "board_id": &lt;int&gt;, "board_uid": &lt;string&gt; }</code></td>
+<td><code>{ "board_uid": &lt;string&gt; }</code> on outright delete; <code>{ "board_uid": &lt;string&gt;, "board_id": &lt;int&gt; }</code> on move-out (the legacy integer is retained on move-out only because clients keyed by <code>board_id</code> need to find the row to remove). Treat <code>board_id</code> as optional.</td>
 </tr>
 <tr>
-<td><code>board.star_changed</code> (since 1.1)</td>
+<td><code>board.star_changed</code></td>
 <td>A board in this group was starred or unstarred — fires alongside the board-channel <code>board.star_changed</code>. Star is per-user state; clients filter on <code>user_id === me</code> and ignore events for other users</td>
 <td><code>{ "uid": &lt;string&gt;, "user_id": &lt;int&gt;, "is_starred": &lt;bool&gt; }</code></td>
 </tr>
 <tr>
+<td><code>group.created</code></td>
+<td>Subgroup created under this group, or this group itself created (fired on both the new group's channel and the parent's channel)</td>
+<td>Full <code>GroupSerializer</code> object</td>
+</tr>
+<tr>
 <td><code>group.updated</code></td>
-<td>Group ownership transferred</td>
-<td><code>{ "id": &lt;int&gt;, "owner_id": &lt;int&gt; }</code></td>
+<td>Group renamed, board defaults changed, or ownership transferred</td>
+<td>Full <code>GroupSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>group.deleted</code></td>
+<td>Group deleted</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>group.star_changed</code></td>
+<td>This group was starred or unstarred. Per-user state; clients should filter on <code>user_id === me</code></td>
+<td><code>{ "id": &lt;int&gt;, "user_id": &lt;int&gt;, "is_starred": &lt;bool&gt; }</code></td>
+</tr>
+<tr>
+<td><code>group.label.created</code></td>
+<td>Group shared label created</td>
+<td>Full <code>GroupLabelSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>group.label.updated</code></td>
+<td>Group shared label renamed or recolored</td>
+<td>Full <code>GroupLabelSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>group.label.deleted</code></td>
+<td>Group shared label deleted</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>membership.added</code></td>
+<td>User joined this group via an invite link</td>
+<td>Full <code>GroupMembershipSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>membership.updated</code></td>
+<td>Group membership role changed</td>
+<td>Full <code>GroupMembershipSerializer</code> object</td>
 </tr>
 <tr>
 <td><code>ping</code></td>

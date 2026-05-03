@@ -3112,8 +3112,8 @@
 <p>The board is a CSS grid with columns on the x-axis and swimlane rows on the y-axis. Each cell is a droppable zone identified as <code>cell:{column_id}:{swimlane_id}</code>.</p>
 <ul>
 <li>Column headers are sticky on horizontal scroll</li>
-<li>WIP limit exceeded → header turns red; when enforcement is enabled, moves into a full column are blocked</li>
-<li>Weight limit exceeded → header turns orange; when enforcement is enabled, moves that would exceed the budget are blocked</li>
+<li>Over-limit columns gain a 2 px top accent strip — red for over-WIP, amber for over-weight — visible across the room. The single stat line beneath the column name flips to the over-limit message (e.g. <code>⚠ Over WIP · 6/5</code>); when calm, only <code>N cards</code> is shown. <em>Changed in 1.1 (#963).</em></li>
+<li>When enforcement is enabled, moves into a full column are blocked (<code>409</code> error); board admins can override with <code>?force=true</code> (soft) or are denied entirely under hard mode</li>
 </ul>
 <h3 id="adding-a-card-to-a-cell">Adding a card to a cell<a class="headerlink" href="#adding-a-card-to-a-cell" title="Permanent link">&para;</a></h3>
 <blockquote>
@@ -3204,8 +3204,8 @@
 <p>Columns represent pipeline stages. Each column has:</p>
 <ul>
 <li><strong>Name</strong> and <strong>color</strong></li>
-<li><strong>WIP limit</strong> — maximum number of active cards allowed. When a limit is set, the header shows <code>WIP N/M</code>; when exceeded the count turns red. If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode.</li>
-<li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. The weight row is only shown when the column's total weight is non-zero; it turns orange when the limit is exceeded. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
+<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header carries a single calm <code>N cards</code> stat line when within budget; when the limit is exceeded the line flips to <code>⚠ Over WIP · count/limit</code> and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode.</li>
+<li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows <code>Weight weight/limit</code> and the header gains a 2 px amber top accent strip. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
 </ul>
