@@ -154,14 +154,19 @@ class GroupDetailSerializer(GroupSerializer):
 class GroupInviteLinkSerializer(serializers.ModelSerializer):
     is_expired = serializers.BooleanField(read_only=True)
     status = serializers.CharField(read_only=True)
+    # Audit field (#1008) — matches AdminInviteLink.created_by_username so
+    # group admins can see who created an invite link, parity with the
+    # admin-level invite UI.  Use a CharField with source so we don't have
+    # to nest a User serializer for one string.
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True, default=None)
 
     class Meta:
         model = GroupInviteLink
         fields = [
-            "id", "prefix", "is_active", "created_at", "name", "role",
+            "id", "prefix", "is_active", "created_at", "created_by_username", "name", "role",
             "expires_at", "is_expired", "single_use", "used_at", "status",
         ]
-        read_only_fields = ["id", "prefix", "is_active", "created_at", "is_expired", "single_use", "used_at", "status"]
+        read_only_fields = ["id", "prefix", "is_active", "created_at", "created_by_username", "is_expired", "single_use", "used_at", "status"]
 
 
 class GroupInviteLinkCreateSerializer(serializers.Serializer):

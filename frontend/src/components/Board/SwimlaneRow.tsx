@@ -153,7 +153,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               />
             ) : (
               <p
-                className={`text-sm text-fg-secondary truncate ${isAdmin ? "cursor-text hover:text-info" : ""}`}
+                className={`text-sm text-fg-secondary truncate ${isAdmin ? "cursor-text hover:text-fg" : ""}`}
                 title={isAdmin ? "Click to rename" : swimlane.name}
                 onClick={isAdmin ? (e) => { e.stopPropagation(); startRenaming(); } : undefined}
               >
@@ -261,7 +261,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               <div className={`w-px self-stretch transition-colors ${sepHighlighted ? "bg-info/50" : "bg-surface-active/70"}`} />
               {isAdmin && onInsertColumn && sepHighlighted && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-info text-[10px] font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
+                  <span className="text-info text-xs font-bold leading-none bg-sunken px-0.5 rounded-sm">+</span>
                 </div>
               )}
             </div>

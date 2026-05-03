@@ -112,7 +112,7 @@ export default function CheckboxDropdown<T extends string | number>({
                     type="checkbox"
                     checked={selected.includes(opt.value)}
                     onChange={() => toggle(opt.value)}
-                    className="rounded accent-blue-600"
+                    className="rounded accent-primary"
                   />
                   {opt.color && (
                     <span

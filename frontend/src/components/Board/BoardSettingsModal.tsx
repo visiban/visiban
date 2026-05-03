@@ -46,7 +46,7 @@ interface StagedInvite {
 function RoleTooltip() {
   return (
     <RoleInfoTooltip label="Role descriptions">
-      <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-2">Role permissions</p>
+      <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">Role permissions</p>
       {ROLES.map((r) => (
         <Fragment key={r.value}>
           <div className={`py-1 ${r.value !== 'viewer' && r.value !== 'member' ? 'border-b border-line' : ''}`}>
@@ -336,7 +336,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px ${
+                className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
               >
@@ -352,7 +352,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
           {/* ── Members tab ── */}
           {tab === "members" && (
             <div className="flex flex-col gap-0">
-              <div className="flex items-center justify-between text-[10px] font-semibold text-fg-muted uppercase tracking-wide pb-2 mb-1 border-b border-line">
+              <div className="flex items-center justify-between text-xs font-semibold text-fg-muted uppercase tracking-wide pb-2 mb-1 border-b border-line">
                 <span>Member</span>
                 <div className="flex items-center gap-1.5">
                   <span>Role</span>
@@ -466,13 +466,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         <button
                           onClick={() => handleRemoveConfirm(m.user.id)}
                           disabled={isDisabled}
-                          className="text-danger hover:text-danger font-medium transition disabled:opacity-40"
+                          className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setPendingRemove(null)}
-                          className="text-fg-tertiary hover:text-fg transition"
+                          className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           Cancel
                         </button>
@@ -488,7 +488,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {isAdmin && (
                 <div className="border-t border-line pt-4 mt-2">
-                  <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-3">Add member</p>
+                  <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-3">Add member</p>
                   <div className="flex flex-col gap-4">
                     <div className="relative">
                       <input
@@ -524,7 +524,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
                     {staged.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-fg-muted uppercase tracking-wide mb-2">To be added</p>
+                        <p className="text-xs font-semibold text-fg-muted uppercase tracking-wide mb-2">To be added</p>
                         <div className="flex flex-col gap-0">
                           {staged.map((s) => (
                             <div key={s.user.id} className="flex items-center justify-between gap-2 py-2.5 border-b border-line/60 last:border-0">
@@ -627,13 +627,13 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                             onUpdateBoardSettings({ enforce_wip_hard: true });
                             setPendingHardWip(false);
                           }}
-                          className="text-danger hover:text-danger font-medium transition"
+                          className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setPendingHardWip(false)}
-                          className="text-fg-tertiary hover:text-fg transition"
+                          className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           Cancel
                         </button>
@@ -772,7 +772,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   <>
                     <div className="flex items-center gap-2">
                       <div
-                        className="flex-1 text-[11px] bg-sunken border border-line rounded px-2 py-1.5 text-fg-tertiary truncate"
+                        className="flex-1 text-xs bg-sunken border border-line rounded px-2 py-1.5 text-fg-tertiary truncate"
                         title={shareUrl}
                       >
                         {shareUrl}

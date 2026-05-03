@@ -325,7 +325,10 @@ class BoardViewSet(
                 board.share_token = None
                 board.share_token_expires_at = None
                 board.save(update_fields=["share_token", "share_token_expires_at"])
-                response_data = {"share_token": None, "share_token_expires_at": None}
+                # share_url is included as null on DELETE so the response
+                # shape matches POST and the TS ShareActionResponse interface
+                # does not need a discriminated union (#1005).
+                response_data = {"share_token": None, "share_url": None, "share_token_expires_at": None}
 
             # Notify connected clients so the Sharing tab updates without a reload.
             # Re-fetch through get_queryset() so the broadcast payload includes
