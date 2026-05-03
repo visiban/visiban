@@ -730,3 +730,64 @@ class NotificationListQueryCountTests(TestCase):
             f"notifications/ query count grew from {baseline} to {scaled} as the "
             "notification count grew — regression vs O(unique boards) target.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Notification unread-count endpoint scale test (#1015)
+# ---------------------------------------------------------------------------
+
+
+class NotificationUnreadCountQueryCountTests(TestCase):
+    """GET /api/notifications/unread-count/ must not issue per-board queries (#1015)."""
+
+    BUDGET = 10
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_notif_uc", password="x")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        col = Column.objects.create(board=self.board, name="C", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane, title="C", created_by=self.user, position=0,
+        )
+
+    def _get_unread_count(self):
+        return self.client.get("/api/v1/notifications/unread-count/")
+
+    def _make_notifications(self, n):
+        Notification.objects.bulk_create([
+            Notification(
+                recipient=self.user,
+                actor=self.user,
+                action_type=Notification.ActionType.CARD_MOVED,
+                verb=f"moved card {i}",
+                card=self.card,
+                board=self.board,
+                read=False,
+            )
+            for i in range(n)
+        ])
+
+    def test_unread_count_within_query_budget(self):
+        self._make_notifications(10)
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_unread_count()
+        self.assertEqual(r.status_code, 200)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"notifications/unread-count/ used {len(ctx)} queries — budget is {self.BUDGET}.",
+        )
+
+    def test_unread_count_query_count_constant_across_notification_count(self):
+        """Adding unread notifications must not grow the unread-count query count (#1015)."""
+        self._make_notifications(5)
+        baseline = _query_count(self._get_unread_count)
+        self._make_notifications(20)
+        scaled = _query_count(self._get_unread_count)
+        self.assertEqual(
+            baseline, scaled,
+            f"notifications/unread-count/ query count grew from {baseline} to {scaled} — "
+            "regression vs constant target (#1015).",
+        )

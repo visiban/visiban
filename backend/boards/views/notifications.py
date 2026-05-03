@@ -84,10 +84,21 @@ class NotificationListView(APIView):
         qs = (
             Notification.objects
             .filter(recipient=request.user, read=False)
-            # ``actor`` was added to the serializer in #1007 — pre-load it
-            # here to avoid one lazy FK query per notification when the
-            # dropdown renders the avatar chip.
-            .select_related("card", "board", "actor")
+            # Pre-load the full group ancestor chain so _filter_to_accessible_boards
+            # can call get_board_role() without issuing per-level FK queries (#1015).
+            # Without this, each distinct grouped board triggers up to 6 lazy queries
+            # when walking the ancestor chain inside get_board_role().
+            .select_related(
+                "card",
+                "board",
+                "board__group",
+                "board__group__parent",
+                "board__group__parent__parent",
+                "board__group__parent__parent__parent",
+                "board__group__parent__parent__parent__parent",
+                "board__group__parent__parent__parent__parent__parent",
+                "actor",
+            )
             [:50]
         )
         notifications = _filter_to_accessible_boards(list(qs), request.user)
@@ -125,6 +136,15 @@ class NotificationUnreadCountView(APIView):
         # Filter to currently-accessible boards so the count stays in sync
         # with the list endpoint (#987) — otherwise the bell would show a
         # number the user can never reach by opening the dropdown.
-        qs = Notification.objects.filter(recipient=request.user, read=False).select_related("board")
+        # Pre-load the full group ancestor chain — same reasoning as NotificationListView (#1015).
+        qs = Notification.objects.filter(recipient=request.user, read=False).select_related(
+            "board",
+            "board__group",
+            "board__group__parent",
+            "board__group__parent__parent",
+            "board__group__parent__parent__parent",
+            "board__group__parent__parent__parent__parent",
+            "board__group__parent__parent__parent__parent__parent",
+        )
         count = len(_filter_to_accessible_boards(list(qs), request.user))
         return Response({"count": count})
