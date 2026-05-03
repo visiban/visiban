@@ -257,7 +257,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "move"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Move to...
           </button>
@@ -292,7 +292,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "assign"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Assign to...
           </button>
@@ -335,7 +335,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={dropdown === "priority"}
-            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+            className="text-xs px-2.5 py-1.5 rounded hover:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
           >
             Priority...
           </button>
@@ -367,7 +367,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={handleArchive}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+          className="text-xs px-2.5 py-1.5 rounded text-warning hover:bg-warning/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Archive
         </button>
@@ -376,7 +376,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => setConfirmDelete(true)}
           disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis"
+          className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           Delete
         </button>
@@ -387,7 +387,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
         <button
           onClick={() => { setPartialError(null); onClearSelection(); }}
           disabled={busy}
-          className="text-fg-tertiary hover:text-fg transition p-1 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis rounded"
+          className="text-fg-tertiary hover:text-fg transition p-1 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
           title="Deselect all (Esc)"
         >
           <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">

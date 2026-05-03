@@ -54,6 +54,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 | Event | Trigger | `data` shape |
 |---|---|---|
+| `board.created` | New board created (only emitted to subscribers already connected to the board channel) | Full `BoardSerializer` object |
 | `board.updated` | Board name, description, or settings changed | Full `BoardSerializer` object |
 | `board.deleted` | Board was deleted | `{ "board_uid": <string> }` |
 | `board.star_changed` | Board starred or unstarred. Per-user state; clients should filter on `user_id === me` and ignore events for other users | `{ "uid": <string>, "user_id": <int>, "is_starred": <bool> }` |
@@ -68,7 +69,6 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `column.updated` | Column renamed, recolored, or settings changed | Full `ColumnSerializer` object |
 | `column.deleted` | Column deleted | `{ "column_uid": <string> }` |
 | `column.reordered` | Column order changed (since 1.1) | `{ "columns": [<ColumnSerializer>, ...] }` — all columns in new order |
-| `columns.reordered` | Deprecated plural alias for `column.reordered`; emitted alongside it until removed in 2.0 | Same as `column.reordered` |
 
 ### Swimlane events
 
@@ -78,7 +78,6 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `swimlane.updated` | Swimlane updated | `SwimlaneSerializer` object (same field rules as above) |
 | `swimlane.deleted` | Swimlane deleted | `{ "swimlane_uid": <string> }` |
 | `swimlane.reordered` | Swimlane order changed (since 1.1) | `{ "swimlanes": [<SwimlaneSerializer>, ...] }` — all swimlanes in new order |
-| `swimlanes.reordered` | Deprecated plural alias for `swimlane.reordered`; emitted alongside it until removed in 2.0 | Same as `swimlane.reordered` |
 
 !!! note
     `contact_email` and `notes` are intentionally omitted from WebSocket swimlane payloads to prevent viewer-role clients from receiving PII that the REST API would withhold. Admins who need these fields should re-fetch the swimlane via REST after receiving an update event.
@@ -188,7 +187,7 @@ ws.onmessage = (event) => {
       // update card in local state
       break;
     case "card.deleted":
-      // remove card from local state by data.card_id
+      // remove card from local state by data.card_uid
       break;
     case "card.moved":
       // update card position and record movement

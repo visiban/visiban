@@ -230,7 +230,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
     <button
       onClick={handleStarToggle}
       disabled={starLoading}
-      className={`text-sm transition ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
+      className={`text-sm transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
       title={isStarred ? "Unstar board" : "Star board"}
       aria-label={isStarred ? "Unstar board" : "Star board"}
     >

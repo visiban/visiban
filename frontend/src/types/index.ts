@@ -434,6 +434,7 @@ export interface AdminUser {
   must_change_password: boolean;
   date_joined: string;
   owned_boards: OwnedBoardSummary[];
+  has_completed_tour?: boolean;
 }
 
 export interface AdminInviteLink {

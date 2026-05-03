@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { completeTour } from "../../api/auth";
 
 interface TourStep {
@@ -97,9 +98,17 @@ function FullScreenStep({
   skip: () => void;
   finish: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, true);
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" data-testid="onboarding-tour">
-      <div className="bg-surface border border-line rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={currentStep.title}
+      className="fixed inset-0 z-50 bg-backdrop/60 flex items-center justify-center p-4"
+      data-testid="onboarding-tour"
+    >
+      <div ref={panelRef} className="bg-surface border border-line rounded-lg shadow-xl w-full max-w-sm p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-fg-tertiary">Step {step + 1} of {STEPS.length}</span>
           <button onClick={skip} className="text-xs text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Skip tour</button>
@@ -128,6 +137,8 @@ export default function OnboardingTour({ onComplete }: Props) {
   const [step, setStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const completingRef = useRef(false);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(tooltipRef, !STEPS[step]?.fullScreen);
 
   const finish = useCallback(async () => {
     // Guard against double-fire (Escape + click racing)
@@ -249,6 +260,10 @@ export default function OnboardingTour({ onComplete }: Props) {
 
       {/* Tooltip */}
       <div
+        ref={tooltipRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={currentStep.title}
         className="absolute bg-surface border border-line rounded-lg shadow-xl p-4 z-50"
         style={{ top: pos.top, left: pos.left, width: 320 }}
         data-testid="tour-tooltip"
