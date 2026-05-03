@@ -124,7 +124,7 @@ describe('AccessTokensTab', () => {
     await switchToAccessTokensTab()
     await waitFor(() => expect(screen.getByTestId('create-token-form')).toBeInTheDocument())
 
-    await userEvent.type(screen.getByTestId('token-name-input'), 'CI pipeline')
+    await userEvent.type(screen.getByTestId('token-name-input'), 'CI pipeline', { delay: null })
     await userEvent.click(screen.getByTestId('create-token-button'))
 
     await waitFor(() => {
@@ -145,7 +145,7 @@ describe('AccessTokensTab', () => {
     await switchToAccessTokensTab()
     await waitFor(() => expect(screen.getByTestId('create-token-form')).toBeInTheDocument())
 
-    await userEvent.type(screen.getByTestId('token-name-input'), 'CI pipeline')
+    await userEvent.type(screen.getByTestId('token-name-input'), 'CI pipeline', { delay: null })
     await userEvent.click(screen.getByTestId('create-token-button'))
     await waitFor(() => expect(screen.getByTestId('new-token-reveal')).toBeInTheDocument())
 
@@ -159,7 +159,7 @@ describe('AccessTokensTab', () => {
     await switchToAccessTokensTab()
     await waitFor(() => expect(screen.getByTestId('create-token-form')).toBeInTheDocument())
 
-    await userEvent.type(screen.getByTestId('token-name-input'), 'bad')
+    await userEvent.type(screen.getByTestId('token-name-input'), 'bad', { delay: null })
     await userEvent.click(screen.getByTestId('create-token-button'))
 
     await waitFor(() => {
