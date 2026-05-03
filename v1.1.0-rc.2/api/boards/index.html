@@ -1,0 +1,4587 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swimlane pipeline board — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0-rc.2/api/boards/">
+      
+      
+        <link rel="prev" href="../authentication/">
+      
+      
+        <link rel="next" href="../cards/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Boards - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#boards-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Boards
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Boards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Boards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1boardsid-patch-apiv1boardsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/boards/{id}/ / PATCH /api/v1/boards/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidfull" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/full/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidstar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/star/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidstar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/star/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsstarredtrue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/?starred=true
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidmove-group" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/move-group/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#templates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Templates
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Templates">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardstemplates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/templates/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidsummary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/summary/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidanalytics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/analytics/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidmovements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/movements/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#saved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saved Filters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Saved Filters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidsaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/saved-filters/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidsaved-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/saved-filters/
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="POST /api/v1/boards/{id}/saved-filters/">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#state_json-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        state_json shape
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidsaved-filtersfilter_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export &amp; Import
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Export &amp; Import">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidexport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/export/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidexportformatjson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/export/?format=json
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidexport-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/export-history/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsimport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/import/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#members" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Members
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Members">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidmembers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/members/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidmembersuser_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/members/{user_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#board-sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board sharing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Board sharing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidshare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/share/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidshare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/share/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Columns
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Columns">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidcolumns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/columns/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidcolumnscol_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/columns/{col_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidcolumns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/columns/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1boardsidcolumnscol_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/boards/{id}/columns/{col_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidcolumnscol_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/columns/{col_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidcolumnsreorder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/columns/reorder/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#swimlanes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlanes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Swimlanes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidswimlanes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/swimlanes/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidswimlanesswimlane_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidswimlanes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/swimlanes/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1boardsidswimlanesswimlane_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidswimlanesswimlane_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apiv1boardsidswimlanesswimlane_idset-collapsed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidswimlanesreorder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/swimlanes/reorder/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Labels
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Labels">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidlabels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/labels/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidlabelslabel_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/labels/{label_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidlabels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/labels/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1boardsidlabelslabel_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/boards/{id}/labels/{label_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidlabelslabel_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/labels/{label_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-share-endpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public share endpoint
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Public share endpoint">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apisharetoken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/share/{token}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="boards-api">Boards API<a class="headerlink" href="#boards-api" title="Permanent link">&para;</a></h1>
+<h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1boards"><code>GET /api/v1/boards/</code><a class="headerlink" href="#get-apiv1boards" title="Permanent link">&para;</a></h3>
+<p>List all boards accessible to the current user.</p>
+<h3 id="post-apiv1boards"><code>POST /api/v1/boards/</code><a class="headerlink" href="#post-apiv1boards" title="Permanent link">&para;</a></h3>
+<p>Create a board.</p>
+<p><strong>Request</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>✓</td>
+<td>Board name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td></td>
+<td>Board description (default: <code>""</code>)</td>
+</tr>
+<tr>
+<td><code>template</code></td>
+<td></td>
+<td>Template slug to use for column layout (default: <code>"simple_kanban"</code>). See <code>GET /api/v1/boards/templates/</code> for available slugs.</td>
+</tr>
+<tr>
+<td><code>swimlane_name</code></td>
+<td></td>
+<td>Name for the first swimlane (default: <code>"General"</code>)</td>
+</tr>
+<tr>
+<td><code>group</code></td>
+<td></td>
+<td>Integer group ID — assigns the board to this group at creation time. The caller must be a group member.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-apiv1boardsid"><code>GET /api/v1/boards/{id}/</code><a class="headerlink" href="#get-apiv1boardsid" title="Permanent link">&para;</a></h3>
+<p>Get board summary. Response includes:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>, <code>uid</code></td>
+<td>integer, string</td>
+<td>Database ID and stable 16-char hex UID</td>
+</tr>
+<tr>
+<td><code>name</code>, <code>description</code></td>
+<td>string</td>
+<td>Board name and description</td>
+</tr>
+<tr>
+<td><code>owner</code></td>
+<td>object</td>
+<td>Owner user object</td>
+</tr>
+<tr>
+<td><code>group</code>, <code>group_name</code></td>
+<td>integer / null, string / null</td>
+<td>Group ID and name (null for personal boards)</td>
+</tr>
+<tr>
+<td><code>member_count</code></td>
+<td>integer</td>
+<td>Number of direct board members</td>
+</tr>
+<tr>
+<td><code>card_count</code></td>
+<td>integer</td>
+<td>Number of active (non-archived) cards</td>
+</tr>
+<tr>
+<td><code>staleness_threshold_days</code></td>
+<td>integer</td>
+<td>Days without movement before a card is considered stale (default: 7)</td>
+</tr>
+<tr>
+<td><code>allowed_priorities</code></td>
+<td>array / null</td>
+<td>Permitted priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all priorities are allowed</td>
+</tr>
+<tr>
+<td><code>enforce_wip_limits</code></td>
+<td>boolean</td>
+<td>When <code>true</code>, card moves that would exceed a column's WIP limit return <code>409 Conflict</code> (default: <code>true</code> for new boards)</td>
+</tr>
+<tr>
+<td><code>enforce_wip_hard</code></td>
+<td>boolean</td>
+<td>When <code>true</code>, WIP limits cannot be overridden by any role — all users are blocked (default: <code>false</code>)</td>
+</tr>
+<tr>
+<td><code>enforce_weight_limits</code></td>
+<td>boolean</td>
+<td>When <code>true</code>, card moves that would exceed a column's weight limit return <code>409 Conflict</code> (default: <code>true</code> for new boards)</td>
+</tr>
+<tr>
+<td><code>export_min_role</code></td>
+<td>string</td>
+<td>Minimum role required to export this board. One of <code>"viewer"</code>, <code>"collaborator"</code>, <code>"member"</code>, <code>"admin"</code> (default: <code>"viewer"</code>). Owners and site admins always bypass. Admin-only when writing; sending any other value (including <code>"site_admin"</code> or <code>"owner"</code>) returns <code>400 Bad Request</code>. Added in 1.1 (#843).</td>
+</tr>
+<tr>
+<td><code>card_density</code></td>
+<td>string</td>
+<td>Per-board card layout density. One of <code>"comfortable"</code>, <code>"standard"</code>, <code>"dense"</code> (default: <code>"comfortable"</code> for new boards; existing boards on upgrade are migrated to <code>"dense"</code> to preserve their pre-1.1 visual). Drives how much metadata renders on the card face — see the <a href="../../features/board/#card-density">Card density</a> feature doc. Admin-only when writing; sending any other value returns <code>400 Bad Request</code>. Added in 1.1 (#961).</td>
+</tr>
+<tr>
+<td><code>stale_warning_pct</code></td>
+<td>integer</td>
+<td>Warning percentage (0--100) controlling the yellow/green boundary in the analytics heatmap</td>
+</tr>
+<tr>
+<td><code>is_starred</code></td>
+<td>boolean</td>
+<td>Whether the requesting user has starred this board</td>
+</tr>
+<tr>
+<td><code>created_at</code>, <code>updated_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamps</td>
+</tr>
+</tbody>
+</table>
+<h3 id="put-apiv1boardsid-patch-apiv1boardsid"><code>PUT /api/v1/boards/{id}/</code> / <code>PATCH /api/v1/boards/{id}/</code><a class="headerlink" href="#put-apiv1boardsid-patch-apiv1boardsid" title="Permanent link">&para;</a></h3>
+<p>Update board fields. Both <code>PUT</code> and <code>PATCH</code> are accepted — all fields are optional in either case. Requires board admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>description</code>, <code>staleness_threshold_days</code>, <code>stale_warning_pct</code>, <code>allowed_priorities</code>. Board admins may also set <code>enforce_wip_limits</code>, <code>enforce_weight_limits</code>, <code>enforce_wip_hard</code>, <code>export_min_role</code>, and <code>card_density</code>; non-admins sending these fields receive <code>403 Forbidden</code>.</p>
+<h3 id="delete-apiv1boardsid"><code>DELETE /api/v1/boards/{id}/</code><a class="headerlink" href="#delete-apiv1boardsid" title="Permanent link">&para;</a></h3>
+<p>Delete board. Requires board owner or site admin.</p>
+<h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
+<p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
+<p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing the group's <code>id</code>, <code>name</code>, <code>uid</code>, and <code>ancestors</code> chain. Without this parameter <code>group_detail</code> is <code>null</code>.</p>
+<h3 id="post-apiv1boardsidstar"><code>POST /api/v1/boards/{id}/star/</code><a class="headerlink" href="#post-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
+<p>Star (favorite) a board. Returns <code>200 OK</code> with the updated board object (whether or not the board was already starred).</p>
+<p><strong>Permissions:</strong> requires authentication and board access (any role). Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>
+<h3 id="delete-apiv1boardsidstar"><code>DELETE /api/v1/boards/{id}/star/</code><a class="headerlink" href="#delete-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
+<p>Unstar a board. Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>
+<p><strong>Permissions:</strong> requires authentication and board access (any role).</p>
+<h3 id="get-apiv1boardsstarredtrue"><code>GET /api/v1/boards/?starred=true</code><a class="headerlink" href="#get-apiv1boardsstarredtrue" title="Permanent link">&para;</a></h3>
+<p>List only boards the requesting user has starred.</p>
+<h3 id="post-apiv1boardsidmove-group"><code>POST /api/v1/boards/{id}/move-group/</code><a class="headerlink" href="#post-apiv1boardsidmove-group" title="Permanent link">&para;</a></h3>
+<p>Move board to a different group (or <code>null</code> for personal).</p>
+<p><strong>Minimum role:</strong> Board owner, board admin, or site admin. The caller must also be a member of the target group.</p>
+<p><strong>Request</strong> <code>{ "group_id": 5 }</code> or <code>{ "group_id": null }</code></p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Caller is not board owner/admin, or is not a member of the target group</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Target group does not exist</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="templates">Templates<a class="headerlink" href="#templates" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1boardstemplates"><code>GET /api/v1/boards/templates/</code><a class="headerlink" href="#get-apiv1boardstemplates" title="Permanent link">&para;</a></h3>
+<p>List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">&quot;slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sales-pipeline&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Track deals through your sales stages.&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">&quot;icon&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;💼&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">&quot;lane_label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Account&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">&quot;lane_placeholder&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;columns_json&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;[\&quot;Prospect\&quot;, \&quot;Qualified\&quot;, \&quot;Proposal\&quot;, \&quot;Negotiation\&quot;, \&quot;Closed Won\&quot;]&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">&quot;sort_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="err">...</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">]</span>
+</code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slug</code></td>
+<td>Stable identifier (used by integrations)</td>
+</tr>
+<tr>
+<td><code>lane_label</code></td>
+<td>Label for the "first swimlane" step in board creation (e.g. "Account", "Project")</td>
+</tr>
+<tr>
+<td><code>lane_placeholder</code></td>
+<td>Placeholder text shown in the swimlane name input</td>
+</tr>
+<tr>
+<td><code>columns_json</code></td>
+<td>JSON array of column names that will be created</td>
+</tr>
+</tbody>
+</table>
+<p>Available templates: <strong>Sales Pipeline</strong>, <strong>Customer Support</strong>, <strong>Customer Success</strong>, <strong>Simple Kanban</strong>, <strong>Product Roadmap</strong>, <strong>Project Delivery</strong>, <strong>Content Production</strong>, <strong>Hiring &amp; Recruiting</strong>, <strong>Legal &amp; Compliance</strong>, <strong>Infrastructure &amp; DevOps</strong>, <strong>Blank Board</strong>.</p>
+<h3 id="get-apiv1boardsidsummary"><code>GET /api/v1/boards/{id}/summary/</code><a class="headerlink" href="#get-apiv1boardsidsummary" title="Permanent link">&para;</a></h3>
+<p>Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.</p>
+<p><strong>Response shape:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#3B82F6&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">&quot;total_cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">&quot;active_cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">&quot;done_30d&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">&quot;avg_cycle_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">6.5</span><span class="p">,</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">&quot;stage_distribution&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;Done&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">&quot;velocity_7d&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">      </span><span class="nt">&quot;velocity_30d&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">  </span><span class="nt">&quot;extension_panels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>, <code>name</code>, <code>color</code></td>
+<td>—</td>
+<td>Swimlane identifier, name, and color</td>
+</tr>
+<tr>
+<td><code>total_cards</code></td>
+<td>integer</td>
+<td>Total active (non-archived) cards in this swimlane</td>
+</tr>
+<tr>
+<td><code>active_cards</code></td>
+<td>integer</td>
+<td>Cards in this swimlane that are not in a done column</td>
+</tr>
+<tr>
+<td><code>done_30d</code></td>
+<td>integer</td>
+<td>Cards completed in the last 30 days (cards moved into any column with <code>is_done: true</code>)</td>
+</tr>
+<tr>
+<td><code>avg_cycle_days</code></td>
+<td>float|null</td>
+<td>Average number of days from a card's first movement to its done-column entry; <code>null</code> if no completed cards</td>
+</tr>
+<tr>
+<td><code>stage_distribution</code></td>
+<td>object</td>
+<td>Card count per column for this swimlane (all columns, including zero counts)</td>
+</tr>
+<tr>
+<td><code>velocity_7d</code></td>
+<td>integer</td>
+<td>Cards moved into any column with <code>is_done: true</code> in the last 7 days</td>
+</tr>
+<tr>
+<td><code>velocity_30d</code></td>
+<td>integer</td>
+<td>Cards moved into any column with <code>is_done: true</code> in the last 30 days</td>
+</tr>
+<tr>
+<td><code>extension_panels</code></td>
+<td>array</td>
+<td>Always <code>[]</code> in OSS — reserved slot for enterprise analytics panel extensions</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-apiv1boardsidanalytics"><code>GET /api/v1/boards/{id}/analytics/</code><a class="headerlink" href="#get-apiv1boardsidanalytics" title="Permanent link">&para;</a></h3>
+<p>Time-in-stage heatmap derived from <code>CardMovement</code> records.</p>
+<p><strong>Query parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Constraint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>days</code></td>
+<td>integer</td>
+<td><code>30</code></td>
+<td>Must be a positive integer (<code>≥ 1</code>, <code>≤ 365</code>). Returns <code>400</code> if non-integer, <code>≤ 0</code>, or <code>&gt; 365</code>.</td>
+</tr>
+<tr>
+<td><code>stalled_days</code></td>
+<td>integer</td>
+<td>board's <code>staleness_threshold_days</code></td>
+<td>When provided, overrides the board setting for stalled-card detection in this request only. Must be a positive integer (<code>≥ 1</code>, <code>≤ 90</code>). Returns <code>400</code> if non-integer, <code>≤ 0</code>, or <code>&gt; 90</code>. Omit to use the board's configured threshold.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response shape:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;In Progress&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;Done&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;done_columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Done&quot;</span><span class="p">],</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;board_medians&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">5.5</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;stalled_threshold_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;staleness_threshold_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">&quot;stale_warning_pct&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">75</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">&quot;avg_days_per_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">8.0</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">      </span><span class="nt">&quot;is_outlier&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">      </span><span class="nt">&quot;age_avg_days_per_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">9.3</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">      </span><span class="nt">&quot;age_is_outlier&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">      </span><span class="nt">&quot;throughput_avg_days_per_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">7.5</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">      </span><span class="nt">&quot;throughput_card_count_per_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">      </span><span class="nt">&quot;throughput_is_outlier&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;Backlog&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;In Progress&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">      </span><span class="nt">&quot;deal_velocity_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">12.3</span><span class="p">,</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">      </span><span class="nt">&quot;stalled_cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;3a9f1c2d7e4b8a05&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;days_since_move&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">      </span><span class="p">]</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Response fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>days</code></td>
+<td>integer</td>
+<td>The window used for the query, mirrored from the <code>days</code> query parameter.</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>list[str]</td>
+<td>All column names on the board in position order, including done columns. Preserved for backward compatibility — consumers that need only active columns should subtract <code>done_columns</code>.</td>
+</tr>
+<tr>
+<td><code>done_columns</code></td>
+<td>list[str]</td>
+<td>Column names where <code>is_done=True</code>. These columns are excluded from the dwell-time heatmap. The <code>avg_days_per_column</code>, <code>is_outlier</code>, and <code>board_medians</code> dicts contain keys only for active (non-done) columns.</td>
+</tr>
+<tr>
+<td><code>board_medians</code></td>
+<td>object</td>
+<td>Median dwell time in days per active column, keyed by column name. Done columns are omitted. Preserved for backward compatibility — prefer <code>age_avg_days_per_column</code> for current-dwell snapshots.</td>
+</tr>
+<tr>
+<td><code>stalled_threshold_days</code></td>
+<td>integer</td>
+<td>Effective threshold used for stalled-card detection in this response. Equals <code>staleness_threshold_days</code> when <code>stalled_days</code> is not provided, or the supplied <code>stalled_days</code> value otherwise.</td>
+</tr>
+<tr>
+<td><code>staleness_threshold_days</code></td>
+<td>integer</td>
+<td>The board's configured staleness threshold in days. Used for heatmap outlier coloring (<code>is_outlier</code>, <code>age_is_outlier</code>, <code>throughput_is_outlier</code>). Always reflects the board setting regardless of any <code>stalled_days</code> override.</td>
+</tr>
+<tr>
+<td><code>stale_warning_pct</code></td>
+<td>integer</td>
+<td>The board's warning percentage (0–100). Controls the yellow/green boundary in the heatmap.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].avg_days_per_column</code></td>
+<td>object</td>
+<td><strong>Deprecated.</strong> Period-filtered average dwell time per active column (clamped entry). Kept for backward compatibility — prefer <code>throughput_avg_days_per_column</code> instead.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].is_outlier</code></td>
+<td>object</td>
+<td>Whether <code>avg_days_per_column</code> for each active column meets or exceeds <code>staleness_threshold_days</code>. Done columns are omitted.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].age_avg_days_per_column</code></td>
+<td>object</td>
+<td>Snapshot of current dwell time for cards <strong>presently sitting</strong> in each active column (i.e. how long each currently-dwelling card has been in its column, averaged per column). Cards in done columns are excluded. <code>null</code> when the column has no currently-dwelling cards.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].age_is_outlier</code></td>
+<td>object</td>
+<td>Whether <code>age_avg_days_per_column</code> for each active column meets or exceeds <code>staleness_threshold_days</code>.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].throughput_avg_days_per_column</code></td>
+<td>object</td>
+<td>Average dwell time for cards that <strong>exited</strong> each active column during the period window. Cards still dwelling (not yet moved out) are excluded. <code>null</code> when no cards exited during the window.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].throughput_card_count_per_column</code></td>
+<td>object</td>
+<td>Number of cards that exited each active column during the period window. <code>0</code> means no cards exited.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].throughput_is_outlier</code></td>
+<td>object</td>
+<td>Whether <code>throughput_avg_days_per_column</code> for each active column meets or exceeds <code>staleness_threshold_days</code>.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].deal_velocity_days</code></td>
+<td>number or null</td>
+<td>Average days between a card's first and last movement within the period for this swimlane. <code>null</code> when there is no velocity data.</td>
+</tr>
+<tr>
+<td><code>swimlanes[].stalled_cards</code></td>
+<td>array</td>
+<td>Cards that have not moved for longer than <code>stalled_threshold_days</code>. Each entry is <code>{ "id", "uid", "title", "days_since_move" }</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>A cell is flagged as an outlier (<code>is_outlier: true</code>) when its per-swimlane average meets or exceeds the board's <code>staleness_threshold_days</code>. Heatmap color-coding uses <code>staleness_threshold_days</code> and <code>stale_warning_pct</code> to determine green, yellow, and red thresholds (see <a href="../../features/analytics/#color-coding">Analytics — Color-coding</a>). Done columns are excluded from dwell-time calculations entirely — cards that have moved into a done column are considered complete and do not accumulate further dwell time in the heatmap. Archived cards contribute their dwell time up to the archive timestamp; active cards accumulate dwell time until they move again. Cards are excluded from stalled detection once archived.</p>
+<p>CSV export (<code>Export CSV</code> button) is available to any board member whose role meets the board's <code>export_min_role</code> threshold. Owners and site admins always bypass.</p>
+<hr />
+<h3 id="get-apiv1boardsidmovements"><code>GET /api/v1/boards/{id}/movements/</code><a class="headerlink" href="#get-apiv1boardsidmovements" title="Permanent link">&para;</a></h3>
+<p>Board-level movement history for all cards on the board, sorted newest first. Requires any board membership (viewer and above).</p>
+<p><strong>Permissions:</strong> any board member (<code>viewer</code> and above).</p>
+<p><strong>Pagination:</strong> fixed page size of 50 results. Use <code>offset</code> to page through results.</p>
+<p><strong>Query parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>swimlane_id</code></td>
+<td>integer</td>
+<td>Filter by the card's current swimlane</td>
+</tr>
+<tr>
+<td><code>to_column_id</code></td>
+<td>integer</td>
+<td>Filter by destination column</td>
+</tr>
+<tr>
+<td><code>moved_by_id</code></td>
+<td>integer</td>
+<td>Filter by the user who performed the move</td>
+</tr>
+<tr>
+<td><code>moved_after</code></td>
+<td>ISO date</td>
+<td>Include movements on or after this date (e.g. <code>2026-01-01</code>)</td>
+</tr>
+<tr>
+<td><code>moved_before</code></td>
+<td>ISO date</td>
+<td>Include movements on or before this date</td>
+</tr>
+<tr>
+<td><code>exclude_type</code></td>
+<td>comma-separated string</td>
+<td>Exclude movement types (e.g. <code>archived,unarchived</code> hides system events)</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>integer</td>
+<td>Pagination offset (default: <code>0</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>When neither <code>moved_after</code> nor <code>moved_before</code> is specified, the full movement history is returned (no default date cutoff). Results are always paginated to <code>page_size: 50</code> so the absence of a date window does not cause runaway queries.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">142</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;page_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1089</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">&quot;card_title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">&quot;card_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4e5f60001&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">&quot;from_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">      </span><span class="nt">&quot;from_column_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;In Progress&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">      </span><span class="nt">&quot;from_column_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;c0l0abc123456701&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">&quot;to_column&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">      </span><span class="nt">&quot;to_column_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Done&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">      </span><span class="nt">&quot;to_column_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;c0l0abc123456702&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">      </span><span class="nt">&quot;from_swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">      </span><span class="nt">&quot;from_swimlane_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">      </span><span class="nt">&quot;from_swimlane_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sw1mabcdef123401&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">      </span><span class="nt">&quot;to_swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">      </span><span class="nt">&quot;to_swimlane_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">      </span><span class="nt">&quot;to_swimlane_uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sw1mabcdef123401&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">      </span><span class="nt">&quot;moved_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice Smith&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">      </span><span class="nt">&quot;moved_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-25T14:30:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">      </span><span class="nt">&quot;movement_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;move&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">      </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="p">}</span>
+</code></pre></div></p>
+<p>Each result object fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Movement record ID</td>
+</tr>
+<tr>
+<td><code>card_title</code></td>
+<td>string</td>
+<td>Card title at time of retrieval</td>
+</tr>
+<tr>
+<td><code>card_uid</code></td>
+<td>string</td>
+<td>Card stable 16-char hex UID</td>
+</tr>
+<tr>
+<td><code>from_column</code>, <code>to_column</code></td>
+<td>integer / null</td>
+<td>Column FK IDs (may be <code>null</code> if column was deleted)</td>
+</tr>
+<tr>
+<td><code>from_column_name</code>, <code>to_column_name</code></td>
+<td>string</td>
+<td>Denormalized column names (preserved after deletion)</td>
+</tr>
+<tr>
+<td><code>from_column_uid</code>, <code>to_column_uid</code></td>
+<td>string</td>
+<td>Denormalized column UIDs</td>
+</tr>
+<tr>
+<td><code>from_swimlane</code>, <code>to_swimlane</code></td>
+<td>integer / null</td>
+<td>Swimlane FK IDs (may be <code>null</code> if swimlane was deleted)</td>
+</tr>
+<tr>
+<td><code>from_swimlane_name</code>, <code>to_swimlane_name</code></td>
+<td>string</td>
+<td>Denormalized swimlane names</td>
+</tr>
+<tr>
+<td><code>from_swimlane_uid</code>, <code>to_swimlane_uid</code></td>
+<td>string</td>
+<td>Denormalized swimlane UIDs</td>
+</tr>
+<tr>
+<td><code>moved_by</code></td>
+<td>object</td>
+<td>User who performed the move — <code>{ id, username, display_name, avatar_url }</code></td>
+</tr>
+<tr>
+<td><code>moved_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp</td>
+</tr>
+<tr>
+<td><code>movement_type</code></td>
+<td>string</td>
+<td>One of <code>move</code>, <code>archived</code>, <code>unarchived</code></td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>string</td>
+<td>Optional notes recorded at move time</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board member; <code>404 Not Found</code> if the board does not exist.</p>
+<hr />
+<h2 id="saved-filters">Saved Filters<a class="headerlink" href="#saved-filters" title="Permanent link">&para;</a></h2>
+<p>Saved filters are user-scoped filter presets on a board. Any board member (including viewers) can save and restore their own filter presets. Filters are private — users cannot see or modify other users' presets.</p>
+<h3 id="get-apiv1boardsidsaved-filters"><code>GET /api/v1/boards/{id}/saved-filters/</code><a class="headerlink" href="#get-apiv1boardsidsaved-filters" title="Permanent link">&para;</a></h3>
+<p>List all saved filters belonging to the requesting user on this board.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">[</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;My urgent cards&quot;</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">&quot;state_json&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;priorities&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;urgent&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">],</span><span class="w"> </span><span class="nt">&quot;assigneeIds&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">&quot;state_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-20T10:00:00Z&quot;</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">]</span>
+</code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Filter preset ID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>User-defined name (unique per user per board, max 100 characters)</td>
+</tr>
+<tr>
+<td><code>state_json</code></td>
+<td>object</td>
+<td>Filter state — see <a href="#state_json-shape">shape</a> below</td>
+</tr>
+<tr>
+<td><code>state_version</code></td>
+<td>integer</td>
+<td>Schema version of <code>state_json</code> (currently <code>1</code>; rows predating v1.1 backfill to <code>1</code>)</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1boardsidsaved-filters"><code>POST /api/v1/boards/{id}/saved-filters/</code><a class="headerlink" href="#post-apiv1boardsidsaved-filters" title="Permanent link">&para;</a></h3>
+<p>Create a new saved filter preset.</p>
+<p><strong>Request</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>✓</td>
+<td>Filter name (max 100 characters, unique per user per board)</td>
+</tr>
+<tr>
+<td><code>state_json</code></td>
+<td>✓</td>
+<td>Filter state object — see <a href="#state_json-shape">shape</a> below</td>
+</tr>
+<tr>
+<td><code>state_version</code></td>
+<td></td>
+<td>Schema version the client is writing (positive integer; defaults to <code>1</code>). Clients should send <code>1</code>; the server accepts higher values unchanged so a mixed-version deploy does not lose the user's save</td>
+</tr>
+</tbody>
+</table>
+<h4 id="state_json-shape"><code>state_json</code> shape<a class="headerlink" href="#state_json-shape" title="Permanent link">&para;</a></h4>
+<p>Top-level keys are validated server-side. Unknown keys are rejected; each known key is type-checked but its values are not semantically validated (the frontend remains responsible for confirming, e.g., that an <code>assigneeId</code> corresponds to a real user):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>search</code></td>
+<td>string</td>
+<td>Free-text search term</td>
+</tr>
+<tr>
+<td><code>assigneeIds</code></td>
+<td>integer[]</td>
+<td>User IDs to include</td>
+</tr>
+<tr>
+<td><code>labelIds</code></td>
+<td>integer[]</td>
+<td>Label IDs to include</td>
+</tr>
+<tr>
+<td><code>priorities</code></td>
+<td>string[]</td>
+<td>Subset of <code>low</code>, <code>medium</code>, <code>high</code>, <code>urgent</code></td>
+</tr>
+<tr>
+<td><code>dueDate</code></td>
+<td>string | null</td>
+<td>One of <code>overdue</code>, <code>today</code>, <code>this_week</code>, <code>none</code>, or <code>null</code> for "no filter"</td>
+</tr>
+</tbody>
+</table>
+<p>All keys are optional. The total serialized size of <code>state_json</code> must not exceed 64 KB.</p>
+<p><strong>Errors:</strong> <code>400 Bad Request</code> if name is empty, exceeds 100 characters, a filter with the same name already exists for this user on this board, <code>state_json</code> contains unknown keys or wrong-typed values, or <code>state_version</code> is not a positive integer.</p>
+<h3 id="delete-apiv1boardsidsaved-filtersfilter_id"><code>DELETE /api/v1/boards/{id}/saved-filters/{filter_id}/</code><a class="headerlink" href="#delete-apiv1boardsidsaved-filtersfilter_id" title="Permanent link">&para;</a></h3>
+<p>Delete a saved filter preset. Only the owning user can delete their own filters — attempting to delete another user's filter returns <code>404 Not Found</code>.</p>
+<hr />
+<h2 id="export-import">Export &amp; Import<a class="headerlink" href="#export-import" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1boardsidexport"><code>GET /api/v1/boards/{id}/export/</code><a class="headerlink" href="#get-apiv1boardsidexport" title="Permanent link">&para;</a></h3>
+<p>Export the board. Append <code>?format=json</code> for a JSON dump; omit for CSV (the default).</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Values</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code></td>
+<td><code>json</code></td>
+<td><em>(omit for CSV)</em></td>
+<td>Response format. Omit or set to anything other than <code>json</code> for CSV.</td>
+</tr>
+</tbody>
+</table>
+<p>Requires board membership — non-members receive <code>403 Forbidden</code> with body <code>{"detail": "Board export requires board membership."}</code>. If the caller is a member but their role is below the board's <code>export_min_role</code> threshold, returns <code>403 Forbidden</code> with body <code>{"detail": "...", "code": "export_restricted", "min_role": "&lt;threshold&gt;"}</code>. Owners and site admins always bypass the threshold.</p>
+<p><strong>CSV columns:</strong> <code>Card ID</code>, <code>Title</code>, <code>Description</code>, <code>Column</code>, <code>Swimlane</code>, <code>Priority</code>, <code>Assignee</code>, <code>Labels</code>, <code>Due Date</code>, <code>Weight</code>, <code>Created At</code>, <code>Created By</code>, <code>Last Moved At</code>, <code>Movement Count</code>, <code>Movement History</code></p>
+<p><code>Movement History</code> is a semicolon-separated list of pipe-delimited records: <code>&lt;timestamp&gt;|&lt;from_column&gt;|&lt;to_column&gt;|&lt;moved_by&gt;</code>.</p>
+<h3 id="get-apiv1boardsidexportformatjson"><code>GET /api/v1/boards/{id}/export/?format=json</code><a class="headerlink" href="#get-apiv1boardsidexportformatjson" title="Permanent link">&para;</a></h3>
+<p>Export the board as JSON. Returns <code>application/json</code>. Same permission rules as the CSV variant: requires board membership and meeting the <code>export_min_role</code> threshold. Owners and site admins always bypass.</p>
+<p><strong>Response shape:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#64748B&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;wip_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;weight_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;allow_card_creation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#3B82F6&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;contact_email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#EF4444&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">&quot;cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">&quot;column&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">&quot;swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">&quot;assignee&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Bug&quot;</span><span class="p">],</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">&quot;due_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-01&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-01T10:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">      </span><span class="nt">&quot;created_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">      </span><span class="nt">&quot;comments&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;author&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bob&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;body&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;On it.&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-02T09:00:00Z&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">      </span><span class="nt">&quot;checklist&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;text&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Write tests&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;is_checked&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="get-apiv1boardsidexport-history"><code>GET /api/v1/boards/{id}/export-history/</code><a class="headerlink" href="#get-apiv1boardsidexport-history" title="Permanent link">&para;</a></h3>
+<p>Return recent successful board exports for audit purposes (#842). Requires board <code>admin</code> or <code>site_admin</code> role — other roles (including board owners who are not also admins) receive <code>403 Forbidden</code> with body <code>{"detail": "Export history is restricted to board admins."}</code>. Failed exports (permission denied, rate limited) are not logged.</p>
+<p><strong>Response</strong> (paginated — standard DRF envelope with <code>count</code>, <code>next</code>, <code>previous</code>, <code>results</code>; ordered newest-first)</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;next&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;previous&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">&quot;results&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">&quot;actor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="nt">&quot;actor_role_label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;member&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">      </span><span class="nt">&quot;export_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv&quot;</span><span class="p">,</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">      </span><span class="nt">&quot;row_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">      </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-22T14:31:02Z&quot;</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>actor</code></td>
+<td>The user who performed the export, or <code>null</code> if the user has since been deleted.</td>
+</tr>
+<tr>
+<td><code>actor_role_label</code></td>
+<td>Role the actor held at the moment of export. One of <code>"viewer"</code>, <code>"collaborator"</code>, <code>"member"</code>, <code>"admin"</code>, <code>"owner"</code>, <code>"site_admin"</code> — captured at write time, not recomputed on read. Distinct from <code>Board.export_min_role</code>, which only accepts the lower four values.</td>
+</tr>
+<tr>
+<td><code>export_format</code></td>
+<td><code>"csv"</code> or <code>"json"</code>.</td>
+</tr>
+<tr>
+<td><code>row_count</code></td>
+<td>Number of cards included in the export.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>ISO 8601 timestamp.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code><a class="headerlink" href="#post-apiv1boardsimport" title="Permanent link">&para;</a></h3>
+<p>Import a board from a Visiban JSON or CSV export file. Accepts <code>multipart/form-data</code> with a <code>file</code> field, an optional <code>name</code> field to override the board name, and an optional <code>group_id</code> field to place the imported board into a group. Creates a new board atomically.</p>
+<p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group (any role — viewer and above); a non-member receives <code>403 Forbidden</code>.</p>
+<p><strong>Request</strong> (<code>multipart/form-data</code>)</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file</code></td>
+<td>✓</td>
+<td>The JSON or CSV export file. Format is detected from the file contents.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td></td>
+<td>Override the imported board name.</td>
+</tr>
+<tr>
+<td><code>group_id</code></td>
+<td></td>
+<td>Place the imported board into this group. Requires group membership (any role).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response</strong> <code>201 Created</code></p>
+<p>Returns the newly created board object, using the same shape as <code>GET /api/v1/boards/{id}/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bd_1a2b3c4d5e6f7890&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Imported Board&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;owner&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;group&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-21T14:02:11Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">&quot;updated_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-21T14:02:11Z&quot;</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">}</span>
+</code></pre></div>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>File is missing, empty, exceeds the upload size limit, is not valid JSON/CSV, or references columns/swimlanes that fail validation.</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td><code>{"detail": "Authentication credentials were not provided."}</code></td>
+<td>Caller is not authenticated.</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td><code>group_id</code> was supplied but the caller is not a member of that group.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="members">Members<a class="headerlink" href="#members" title="Permanent link">&para;</a></h2>
+<h3 id="post-apiv1boardsidmembers"><code>POST /api/v1/boards/{id}/members/</code><a class="headerlink" href="#post-apiv1boardsidmembers" title="Permanent link">&para;</a></h3>
+<p>Add or update a board member. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "user_id": 42, "role": "member", "is_moderator": true }</code></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>user_id</code></td>
+<td>✓</td>
+<td>ID of the user to add or update</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td></td>
+<td>Role to assign (default: <code>"member"</code>). Valid: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></td>
+</tr>
+<tr>
+<td><code>is_moderator</code></td>
+<td></td>
+<td>Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for <code>member</code> and <code>admin</code> roles — setting <code>true</code> on a collaborator or viewer returns <code>400 Bad Request</code>. Automatically cleared when demoting to collaborator or viewer.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Visibility of <code>is_moderator</code> in board responses (since 1.1):</strong> the <code>is_moderator</code> field is included in the <code>members</code> array of <code>GET /api/v1/boards/{id}/full/</code> only for <code>admin</code> and <code>site_admin</code> requesters. Lower-role members (<code>member</code>, <code>collaborator</code>, <code>viewer</code>) receive each member entry without the field. Mutation responses on this endpoint and <code>member.added</code> / <code>member.updated</code> WebSocket payloads continue to carry the field for backward compatibility.</p>
+<h3 id="delete-apiv1boardsidmembersuser_id"><code>DELETE /api/v1/boards/{id}/members/{user_id}/</code><a class="headerlink" href="#delete-apiv1boardsidmembersuser_id" title="Permanent link">&para;</a></h3>
+<p>Remove a member. Requires board admin. Cannot remove a site admin.</p>
+<hr />
+<h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
+<h3 id="post-apiv1boardsidshare"><code>POST /api/v1/boards/{id}/share/</code><a class="headerlink" href="#post-apiv1boardsidshare" title="Permanent link">&para;</a></h3>
+<p>Generate (or regenerate) a public share token for the board. Requires board admin.</p>
+<p>If a token already exists, calling this endpoint immediately invalidates the previous one and returns a new UUID. Any existing share links stop working as soon as the new token is issued.</p>
+<p><strong>Permissions:</strong> board <code>admin</code> or <code>site_admin</code> only.</p>
+<p><strong>Request (optional)</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;expires_in_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><code>expires_in_days</code> is optional. Allowed values: <code>7</code>, <code>30</code>, <code>90</code>, or <code>null</code> (the default — never expires). Any other integer returns <code>400 Bad Request</code>. New in 1.1 (#804).</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;share_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">&quot;share_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-instance.example.com/api/share/3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">&quot;share_token_expires_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-28T17:30:00+00:00&quot;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><code>share_token_expires_at</code> is <code>null</code> when no TTL was requested.</p>
+<p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board admin. <code>400 Bad Request</code> if <code>expires_in_days</code> is not one of the allowed values.</p>
+<h3 id="delete-apiv1boardsidshare"><code>DELETE /api/v1/boards/{id}/share/</code><a class="headerlink" href="#delete-apiv1boardsidshare" title="Permanent link">&para;</a></h3>
+<p>Revoke the public share token for the board. Requires board admin. All existing share links immediately return <code>404 Not Found</code> after revocation. Both the token and any TTL are cleared.</p>
+<p><strong>Permissions:</strong> board <code>admin</code> or <code>site_admin</code> only.</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;share_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">&quot;share_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">&quot;share_token_expires_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors:</strong> <code>403 Forbidden</code> if the caller is not a board admin.</p>
+<hr />
+<h2 id="columns">Columns<a class="headerlink" href="#columns" title="Permanent link">&para;</a></h2>
+<p>Column objects include a <code>uid</code> field — a stable 16-character hex identifier that does not change when the column is renamed or reordered. The <code>uid</code> is read-only; any <code>uid</code> value sent in a request body is ignored.</p>
+<h3 id="get-apiv1boardsidcolumns"><code>GET /api/v1/boards/{id}/columns/</code><a class="headerlink" href="#get-apiv1boardsidcolumns" title="Permanent link">&para;</a></h3>
+<p>List all columns on the board in position order. Available to all board members.</p>
+<h3 id="get-apiv1boardsidcolumnscol_id"><code>GET /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#get-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
+<p>Get a single column. Available to all board members.</p>
+<h3 id="post-apiv1boardsidcolumns"><code>POST /api/v1/boards/{id}/columns/</code><a class="headerlink" href="#post-apiv1boardsidcolumns" title="Permanent link">&para;</a></h3>
+<p>Create a column. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "name": "Review", "color": "#8B5CF6", "wip_limit": 3, "weight_limit": null, "allow_card_creation": false, "is_done": false }</code></p>
+<p>Column objects returned by all endpoints include the following fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>, <code>uid</code></td>
+<td>integer, string</td>
+<td>Database ID and stable 16-char hex UID (read-only)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Column name</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>integer</td>
+<td>Display order (0-based)</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>Hex color code</td>
+</tr>
+<tr>
+<td><code>wip_limit</code></td>
+<td>integer / null</td>
+<td>Maximum number of cards; <code>null</code> means unlimited</td>
+</tr>
+<tr>
+<td><code>weight_limit</code></td>
+<td>integer / null</td>
+<td>Maximum total card weight; <code>null</code> means unlimited</td>
+</tr>
+<tr>
+<td><code>allow_card_creation</code></td>
+<td>boolean</td>
+<td>When <code>false</code>, new cards cannot be created directly in this column</td>
+</tr>
+<tr>
+<td><code>is_done</code></td>
+<td>boolean</td>
+<td>When <code>true</code>, marks this column as a "done" stage used for cycle-time and throughput metrics. Default: <code>false</code>.</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>When <code>allow_card_creation</code> is <code>false</code>, posting a new card to that column returns <code>400 Bad Request</code> with <code>{"column": "Card creation is not allowed in this column."}</code>.</p>
+<p>WIP and weight limits are enforced when <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board. A card move to an over-limit column returns <code>409 Conflict</code> — see the move endpoint in the <a href="../cards/">Cards API</a> for the full error schema and the <code>?force=true</code> admin override. When enforcement is disabled, limits are displayed but not enforced.</p>
+</blockquote>
+<h3 id="put-apiv1boardsidcolumnscol_id"><code>PUT /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#put-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
+<p>Update a column. Requires board admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>wip_limit</code> (integer or <code>null</code>), <code>weight_limit</code> (integer or <code>null</code>), <code>allow_card_creation</code> (boolean), <code>is_done</code> (boolean)</p>
+<h3 id="delete-apiv1boardsidcolumnscol_id"><code>DELETE /api/v1/boards/{id}/columns/{col_id}/</code><a class="headerlink" href="#delete-apiv1boardsidcolumnscol_id" title="Permanent link">&para;</a></h3>
+<p>Delete a column. Requires board admin.</p>
+<h3 id="post-apiv1boardsidcolumnsreorder"><code>POST /api/v1/boards/{id}/columns/reorder/</code><a class="headerlink" href="#post-apiv1boardsidcolumnsreorder" title="Permanent link">&para;</a></h3>
+<p>Reorder columns. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "order": [3, 1, 4, 2] }</code> — list of column IDs in new order.</p>
+<hr />
+<h2 id="swimlanes">Swimlanes<a class="headerlink" href="#swimlanes" title="Permanent link">&para;</a></h2>
+<p>Swimlane objects include a <code>uid</code> field — stable across renames, read-only.</p>
+<p><strong>Role-gated fields:</strong> <code>contact_email</code> and <code>notes</code> are only included in responses for <code>admin</code> and <code>site_admin</code> role members. <code>member</code>, <code>collaborator</code>, and <code>viewer</code> roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, <code>GET /api/v1/boards/{id}/full/</code>, and WebSocket broadcast events.</p>
+<h3 id="get-apiv1boardsidswimlanes"><code>GET /api/v1/boards/{id}/swimlanes/</code><a class="headerlink" href="#get-apiv1boardsidswimlanes" title="Permanent link">&para;</a></h3>
+<p>List all swimlanes on the board in position order. Available to all board members. <code>admin</code> and <code>site_admin</code> roles see <code>contact_email</code> and <code>notes</code>; all other roles receive swimlane objects without those fields.</p>
+<h3 id="get-apiv1boardsidswimlanesswimlane_id"><code>GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#get-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
+<p>Get a single swimlane. Same role-gated field rules as the list endpoint.</p>
+<h3 id="post-apiv1boardsidswimlanes"><code>POST /api/v1/boards/{id}/swimlanes/</code><a class="headerlink" href="#post-apiv1boardsidswimlanes" title="Permanent link">&para;</a></h3>
+<p>Create a swimlane. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "name": "Acme Corp", "contact_email": "", "color": "#3B82F6" }</code></p>
+<blockquote>
+<p>Swimlane names are unique per board. Creating a swimlane with a name that already exists on the same board returns <code>400 Bad Request</code>.</p>
+</blockquote>
+<p>Swimlane response objects include the following fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code>, <code>uid</code></td>
+<td>integer, string</td>
+<td>Database ID and stable 16-char hex UID (read-only)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Swimlane name</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>integer</td>
+<td>Display order (0-based)</td>
+</tr>
+<tr>
+<td><code>color</code></td>
+<td>string</td>
+<td>Hex color code</td>
+</tr>
+<tr>
+<td><code>is_collapsed</code></td>
+<td>boolean</td>
+<td>Whether the swimlane row is collapsed in the board view</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp of swimlane creation</td>
+</tr>
+<tr>
+<td><code>contact_email</code></td>
+<td>string</td>
+<td>Admin-only — contact email for this swimlane (empty string if unset)</td>
+</tr>
+<tr>
+<td><code>notes</code></td>
+<td>string</td>
+<td>Admin-only — internal notes (empty string if unset)</td>
+</tr>
+</tbody>
+</table>
+<p><code>contact_email</code> and <code>notes</code> are only returned to <code>admin</code> and <code>site_admin</code> role members (see role-gated fields note above).</p>
+<h3 id="put-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
+<p>Update a swimlane. Requires board admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code></p>
+<h3 id="delete-apiv1boardsidswimlanesswimlane_id"><code>DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#delete-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
+<p>Delete a swimlane. Requires board admin.</p>
+<h3 id="patch-apiv1boardsidswimlanesswimlane_idset-collapsed"><code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/</code><a class="headerlink" href="#patch-apiv1boardsidswimlanesswimlane_idset-collapsed" title="Permanent link">&para;</a></h3>
+<p>Toggle the default collapsed state of a swimlane. Requires admin or site admin role — members, collaborators, and viewers are rejected.</p>
+<p>This sets the board-wide default for all users — it is a board structure preference, not a per-user setting.</p>
+<p><strong>Minimum role:</strong> admin or site admin</p>
+<p><strong>Request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;is_collapsed&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response</strong> — updated swimlane object (same shape as <code>GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code>)</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"is_collapsed": "This field must be a boolean."}</code></td>
+<td><code>is_collapsed</code> was not a boolean</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Caller is a member, collaborator, or viewer</td>
+</tr>
+</tbody>
+</table>
+<p>A <code>swimlane.updated</code> WebSocket event is broadcast to all connected board clients on success.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The deprecated snake_case alias <code>set_collapsed</code> (with underscore) is retained for 1.x backward compatibility and emits the same response. Prefer the kebab-case form <code>set-collapsed</code>. The alias will be removed in 2.0.</p>
+</div>
+<h3 id="post-apiv1boardsidswimlanesreorder"><code>POST /api/v1/boards/{id}/swimlanes/reorder/</code><a class="headerlink" href="#post-apiv1boardsidswimlanesreorder" title="Permanent link">&para;</a></h3>
+<p>Reorder swimlanes. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "order": [2, 1, 3] }</code></p>
+<hr />
+<h2 id="labels">Labels<a class="headerlink" href="#labels" title="Permanent link">&para;</a></h2>
+<p>Label objects include a <code>uid</code> field — stable across renames, read-only.</p>
+<h3 id="get-apiv1boardsidlabels"><code>GET /api/v1/boards/{id}/labels/</code><a class="headerlink" href="#get-apiv1boardsidlabels" title="Permanent link">&para;</a></h3>
+<p>List board labels. Available to all board members.</p>
+<h3 id="get-apiv1boardsidlabelslabel_id"><code>GET /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#get-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<p>Get a single label. Available to all board members.</p>
+<h3 id="post-apiv1boardsidlabels"><code>POST /api/v1/boards/{id}/labels/</code><a class="headerlink" href="#post-apiv1boardsidlabels" title="Permanent link">&para;</a></h3>
+<p>Create a label. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "name": "Bug", "color": "#EF4444" }</code></p>
+<h3 id="put-apiv1boardsidlabelslabel_id"><code>PUT /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#put-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<p>Update a label. Requires board admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code></p>
+<h3 id="delete-apiv1boardsidlabelslabel_id"><code>DELETE /api/v1/boards/{id}/labels/{label_id}/</code><a class="headerlink" href="#delete-apiv1boardsidlabelslabel_id" title="Permanent link">&para;</a></h3>
+<p>Delete a label. Requires board admin.</p>
+<hr />
+<h2 id="public-share-endpoint">Public share endpoint<a class="headerlink" href="#public-share-endpoint" title="Permanent link">&para;</a></h2>
+<h3 id="get-apisharetoken"><code>GET /api/share/{token}/</code><a class="headerlink" href="#get-apisharetoken" title="Permanent link">&para;</a></h3>
+<p>Returns a read-only board payload identified by its UUID share token. No authentication is required.</p>
+<p><strong>Authentication:</strong> none required (public endpoint).</p>
+<p><strong>Rate limiting:</strong> 120 requests/hour per IP. Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
+<p><strong>Errors:</strong>
+- <code>404 Not Found</code> if the token is invalid, has been revoked, or does not exist.
+- <code>410 Gone</code> if the token's TTL has elapsed (admin set an expiry at enable time and that timestamp has passed). The token is <em>not</em> auto-rotated — an admin must disable and re-enable sharing to get a fresh link. Body: <code>{"detail": "This share link has expired."}</code>. Added in 1.1 (#804).</p>
+<p><strong>Response</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4e5f60001&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">      </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;c0l0abc123456701&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Backlog&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">      </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#64748B&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">      </span><span class="nt">&quot;wip_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">      </span><span class="nt">&quot;weight_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">      </span><span class="nt">&quot;allow_card_creation&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">      </span><span class="nt">&quot;is_done&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sw1mabcdef123401&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Acme Corp&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#3B82F6&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a><span class="w">  </span><span class="nt">&quot;cards&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a><span class="w">      </span><span class="nt">&quot;uid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;crd0abc123456701&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="w">      </span><span class="nt">&quot;column&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="w">      </span><span class="nt">&quot;swimlane&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix login bug&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a><span class="w">      </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;high&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a><span class="w">      </span><span class="nt">&quot;assignee&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#EF4444&quot;</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-12-29" name="__codelineno-12-29" href="#__codelineno-12-29"></a><span class="w">      </span><span class="nt">&quot;due_date&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-04-01&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-30" name="__codelineno-12-30" href="#__codelineno-12-30"></a><span class="w">      </span><span class="nt">&quot;weight&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-12-31" name="__codelineno-12-31" href="#__codelineno-12-31"></a><span class="w">      </span><span class="nt">&quot;position&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-12-32" name="__codelineno-12-32" href="#__codelineno-12-32"></a><span class="w">      </span><span class="nt">&quot;last_moved_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-03-25T14:30:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-12-33" name="__codelineno-12-33" href="#__codelineno-12-33"></a><span class="w">      </span><span class="nt">&quot;checklist_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-12-34" name="__codelineno-12-34" href="#__codelineno-12-34"></a><span class="w">      </span><span class="nt">&quot;checklist_done&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-12-35" name="__codelineno-12-35" href="#__codelineno-12-35"></a><span class="w">      </span><span class="nt">&quot;is_stale&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<a id="__codelineno-12-36" name="__codelineno-12-36" href="#__codelineno-12-36"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-12-37" name="__codelineno-12-37" href="#__codelineno-12-37"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-12-38" name="__codelineno-12-38" href="#__codelineno-12-38"></a><span class="w">  </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-39" name="__codelineno-12-39" href="#__codelineno-12-39"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;#EF4444&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-12-40" name="__codelineno-12-40" href="#__codelineno-12-40"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-12-41" name="__codelineno-12-41" href="#__codelineno-12-41"></a><span class="p">}</span>
+</code></pre></div></p>
+<p>Response fields:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>uid</code></td>
+<td>string</td>
+<td>Board stable 16-char hex UID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Board name</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>array</td>
+<td>Column objects; includes <code>is_done</code> flag (see Columns section)</td>
+</tr>
+<tr>
+<td><code>swimlanes</code></td>
+<td>array</td>
+<td>Swimlane objects; <code>contact_email</code> and <code>notes</code> are never included</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td>array</td>
+<td>Active (non-archived) card objects</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td>array</td>
+<td>Label objects</td>
+</tr>
+</tbody>
+</table>
+<p>Card objects in the public payload use <code>uid</code> as the identifier (not <code>id</code>) and do not include a database <code>id</code>. The <code>assignee</code> field contains <code>display_name</code> only; email, username, and avatar are omitted. Comments and checklist item text are not included; only <code>checklist_total</code> and <code>checklist_done</code> counts are present. The <code>is_stale</code> field is <code>true</code> when the card has not moved within the board's <code>staleness_threshold_days</code> window.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
