@@ -17,6 +17,7 @@ const mockNotifications: Notification[] = [
   {
     id: 1,
     verb: 'Alice moved card "Setup CI" to Done',
+    actor: { id: 7, username: 'alice', display_name: 'Alice', avatar_url: '' },
     card_id: 10,
     card_title: 'Setup CI',
     board_id: 1,
@@ -28,6 +29,7 @@ const mockNotifications: Notification[] = [
   {
     id: 2,
     verb: 'Bob commented on "Fix login"',
+    actor: { id: 8, username: 'bob', display_name: 'Bob', avatar_url: '' },
     card_id: 11,
     card_title: 'Fix login',
     board_id: 1,
@@ -106,6 +108,7 @@ describe('Notification dropdown', () => {
     const boardOnlyNotification: Notification = {
       id: 3,
       verb: 'You were added to Sprint 1',
+      actor: { id: 9, username: 'inviter', display_name: 'Inviter', avatar_url: '' },
       card_id: null,
       card_title: null,
       board_id: 1,
@@ -233,6 +236,7 @@ describe('Notification dropdown', () => {
     const boardInviteNotification: Notification = {
       id: 4,
       verb: 'You were added to Sprint 1',
+      actor: { id: 10, username: 'admin', display_name: 'Admin', avatar_url: '' },
       card_id: null,
       card_title: null,
       board_id: 1,
