@@ -227,25 +227,5 @@ fi
 echo "Closing open milestone issues for '${MILESTONE_TITLE}'..."
 "$(dirname "$0")/close-milestone-issues.sh" "$MILESTONE_TITLE" || true
 
-# Deploy docs with mike
-echo "Deploying docs..."
-pip install --quiet -r docs/requirements.txt
-git fetch origin gh-pages --depth=1 && git branch gh-pages origin/gh-pages 2>/dev/null || true
-if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-  # Stable release: publish under the MAJOR.MINOR alias (e.g. "1.0") and
-  # update "latest" to point here. Set the site default to the MAJOR.MINOR
-  # alias so the canonical URL stays stable when the next minor ships.
-  MINOR=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
-  mike deploy --push --update-aliases "$TAG" "${MINOR}" latest
-  mike set-default --push "${MINOR}"
-  echo "docs.visiban.com updated — $TAG published as '${MINOR}' and 'latest'"
-else
-  # Pre-release (RC, beta, alpha): publish under "next" and move "latest"
-  # forward so early adopters get the newest content. The stable MAJOR.MINOR
-  # alias is NOT updated — users pinned to e.g. "1.0" see no change.
-  mike deploy --push --update-aliases "$TAG" next latest
-  echo "docs.visiban.com updated — $TAG published as 'next' and 'latest' (stable alias unchanged)"
-fi
-
 echo ""
-echo "Done. Release $TAG is live."
+echo "Done. Release $TAG is live. The CI tag pipeline will deploy docs.visiban.com."
