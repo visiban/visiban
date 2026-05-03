@@ -14,9 +14,11 @@ You are ensuring the API documentation in `docs/api/` is up to date with code ch
 ```
 docs/api/
 ├── authentication.md   — login, logout, token refresh, OAuth
-├── boards.md           — boards CRUD, full board fetch, members
-├── cards.md            — cards CRUD, move, activities, movements, comments, checklists
-├── groups.md           — groups CRUD, membership, subgroups
+├── boards.md           — boards CRUD, full board fetch, members, share, export, export-history
+├── cards.md            — cards CRUD, move, activities, movements, comments, checklists, attachments
+├── groups.md           — groups CRUD, membership, subgroups, invite-links, board-defaults
+├── notifications.md    — notification list, mark-read, unread-count
+├── websockets.md       — WS event reference (board channel, group channel, payload shapes)
 └── health.md           — liveness, readiness probes
 ```
 
@@ -28,10 +30,14 @@ Given the endpoint, serializer, or model change in the current diff or argument 
 
 Map each code change to its doc file:
 - New/modified viewset action → the relevant `docs/api/*.md` file
-- New/modified serializer field → update request/response examples
+- New/modified serializer field → update request/response examples **and the field table** (a field example without a table entry is incomplete)
 - New/modified model field exposed via API → update field tables
 - New/modified permission rule → update the "Permissions" note for that endpoint
+- New/modified throttle scope or rate-limit class → document the limit value and the 429 behavior
+- New/modified response header (e.g. `Deprecation`, `Sunset`, `Link` for deprecated routes) → document each header on the affected endpoint
+- New/modified `broadcast_*_event()` call site or new event type → update `websockets.md` with the trigger row, payload shape, and the channel it goes to. **Every** new or renamed `broadcast_board_event(...)`, `broadcast_group_event(...)` is a docs change. Verify the documented payload shape matches what the code actually emits — terminal events use `*_uid` only; renames must remove the old shape.
 - Removed endpoint or field → remove from docs (do not leave stale entries)
+- Renamed serializer field via `source=` → update every example and table entry across `docs/api/`. The DB column name does not need to change in docs (docs document the API, not the schema), but the public field name must update everywhere.
 
 ### 2. Check each affected endpoint doc for completeness
 
@@ -49,6 +55,15 @@ Every documented endpoint must have:
 - Use realistic placeholder values (not `"string"` or `0`)
 - If a field was renamed, find and update every example that references the old name
 - Format: fenced code block with `json` syntax highlighting
+- For paired POST/DELETE actions on the same endpoint (e.g. share enable/disable), document **both** response shapes. A nullable field on DELETE that the POST response carried (e.g. `share_url: null`) must appear in the DELETE example so the TS interface stays consistent — silent shape divergence between methods is a contract bug.
+
+### 3.1 Doc-vs-code drift sweep
+
+For every changed serializer or broadcast call site, **read the current code and the current doc side-by-side** before editing. The most common drift class is "the doc still describes the pre-change shape because the code change preceded the doc change." Specifically check:
+
+- `Meta.fields` list in the serializer vs. the field table and the example JSON in the doc — every code field must appear in both, and every doc-field must exist in code
+- The argument list of every `broadcast_*_event(...)` call in the touched view vs. the `data` shape column in `docs/api/websockets.md`
+- Every consumer-layer filter (e.g. `BoardConsumer.board_event` stripping `is_moderator` for non-admin recipients) must be reflected as a `!!! note` on the relevant event entry, not silently omitted
 
 ### 4. Check the enterprise callout
 

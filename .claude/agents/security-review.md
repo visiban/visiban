@@ -77,7 +77,9 @@ Work through each category. For categories with no findings from the scans, stat
 
 - **Board membership propagation** — `get_board_role()` vs direct `BoardMembership.objects.get()`
 - **Serializer field exposure** — write-only fields, `source=` leaks, viewer-visible internal data
-- **WebSocket / broadcast events** — non-member data exposure, `transaction.on_commit()` deferral
+- **WebSocket / broadcast events** — non-member data exposure, `transaction.on_commit()` deferral, ORM instances held in on_commit closures (closure must capture plain dicts and integer IDs, not ORM rows)
+- **Per-recipient broadcast filtering** — when a serializer's `to_representation` strips a field for a subset of roles (e.g. `is_moderator` for non-admin viewers, swimlane PII for non-admins, saved-filter `state_json`), the broadcast surface that uses that serializer needs an equivalent gate at the consumer layer (`BoardConsumer.board_event` / `GroupConsumer.group_event`). A REST-stripped field shipped intact via WebSocket is the same leak as exposing it on REST.
+- **Post-revocation data retention** — when a write removes a user's access to a resource (e.g. `BoardMembership.delete`, group membership delete, role demotion), audit every endpoint that surfaces the resource's *historical* content to that user (notifications, activity feeds, mention digests, search results, recent-views lists). If access is revoked but historical board/card/group names are still served, that is an information-retention leak and should be flagged. The fix is either to filter at read time or purge on the revocation event.
 - **Frontend** — `dangerouslySetInnerHTML`, raw `fetch()`, content sanitization
 
 #### Output
