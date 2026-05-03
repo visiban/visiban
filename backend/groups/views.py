@@ -80,6 +80,15 @@ def _require_group_member(user, group):
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
 
+    # Explicitly enumerate the global default permission chain (#989) so that
+    # any future @action(permission_classes=[...]) override is visibly diffed
+    # against the baseline rather than silently dropping the pending-change
+    # gates that the global default supplies.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
     serializer_class = GroupSerializer
 
     def get_serializer_class(self):
@@ -617,7 +626,14 @@ class GroupViewSet(viewsets.ModelViewSet):
                 group=group, user=request.user,
                 defaults={"role": GroupMembership.Role.ADMIN},
             )
-            group_data = GroupSerializer(group, context={"request": request}).data
+            # Re-fetch through ``get_queryset`` so the ``_member_count``,
+            # ``_board_count``, ``_subgroup_count`` and ``_is_starred``
+            # annotations are populated.  Without the annotations the
+            # GroupSerializer method fields fall through to four live count
+            # subqueries each, doubled across the broadcast and response
+            # serializations — eight avoidable queries per request (#993).
+            annotated = self.get_queryset().get(pk=group.pk)
+            group_data = GroupSerializer(annotated, context={"request": request}).data
 
             def _broadcast_transfer(gid=group.pk, data=group_data):
                 from .broadcast import broadcast_group_event
@@ -633,7 +649,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         # contract surface (events cannot be removed without a major bump)
         # for no client benefit.
 
-        return Response(GroupSerializer(group, context={"request": request}).data)
+        return Response(group_data)
 
     # ------------------------------------------------------------------
     # Invite links
@@ -748,7 +764,10 @@ class GroupViewSet(viewsets.ModelViewSet):
         serializer = GroupSerializer(group, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(GroupSerializer(group).data)
+        # Re-fetch through ``get_queryset`` so the count annotations are
+        # populated — same pattern as ``transfer_ownership`` (#993).
+        annotated = self.get_queryset().get(pk=group.pk)
+        return Response(GroupSerializer(annotated, context={"request": request}).data)
 
     # ------------------------------------------------------------------
     # Favorites (star / unstar)

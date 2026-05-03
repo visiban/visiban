@@ -8,11 +8,16 @@ from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User
 from groups.broadcast import broadcast_group_event as _broadcast_group_event
 from groups.models import Group, GroupMembership, get_accessible_group_ids
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 from .. import broadcast as _broadcast
 from ..models import (
@@ -40,6 +45,16 @@ class BoardViewSet(
 ):
     """CRUD endpoints for boards, scoped to boards the requesting user has access to."""
 
+    # Explicitly enumerate the global default permission chain (#989) so that
+    # any future @action(permission_classes=[...]) override is visibly diffed
+    # against the documented baseline rather than silently dropping the
+    # MustNotHavePendingPasswordChange / MustNotHavePendingUsernameChange
+    # gates that the global default supplies.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
     serializer_class = BoardSerializer
 
     def get_serializer_context(self):
@@ -548,7 +563,14 @@ class BoardViewSet(
             # Assign user directly so BoardMembershipSerializer does not issue a
             # separate query to load the FK — target_user is already in scope.
             membership.user = target_user
-            membership_data = BoardMembershipSerializer(membership).data
+            # Thread the resolved role and board into the serializer context
+            # so to_representation does not re-issue ``get_board_role`` to
+            # decide whether to strip ``is_moderator`` (#992) — the action
+            # already resolved the role at the top of the function.
+            membership_data = BoardMembershipSerializer(
+                membership,
+                context={"role": role, "board": board, "request": request},
+            ).data
             board_id = board.id
             ws_event = "member.added" if created else "member.updated"
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))

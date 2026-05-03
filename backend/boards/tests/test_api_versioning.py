@@ -24,20 +24,17 @@ class ApiVersioningTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_unsupported_version_returns_406(self):
-        """#679 — /api/v2/boards/ is not in ALLOWED_VERSIONS, so the catch-all
-        UnsupportedVersionView returns 406.
+        """#679 — authenticated /api/v2/boards/ returns HTTP 406 (unsupported version)."""
+        r = self.client.get("/api/v2/boards/")
+        self.assertEqual(r.status_code, status.HTTP_406_NOT_ACCEPTABLE)
 
-        UnsupportedVersionView.dispatch() returns a DRF Response directly without
-        going through APIView.finalize_response(), so the accepted_renderer is never
-        set.  We call the view via APIRequestFactory to bypass the rendering layer
-        and inspect the status code directly — the same status code that a real HTTP
-        client receives.
+    def test_unsupported_version_unauthenticated_returns_401(self):
+        """#990 — unauthenticated callers must not learn the version-negotiation
+        message; they get 401 like every other authenticated endpoint.
         """
-        factory = APIRequestFactory()
-        request = factory.get("/api/v2/boards/")
-        view = UnsupportedVersionView.as_view()
-        response = view(request)
-        self.assertEqual(response.status_code, status.HTTP_406_NOT_ACCEPTABLE)
+        anon = APIClient()
+        r = anon.get("/api/v2/boards/")
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_v1_boards_returns_pagination_envelope(self):
         """#680 — /api/v1/boards/ wraps results in the OffsetCountPagination envelope."""

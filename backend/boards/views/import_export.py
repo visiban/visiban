@@ -1048,8 +1048,18 @@ class BoardImportExportMixin:
         row_count = len(cards)
 
         if export_format == "json":
-            columns = board.columns.order_by("position")
-            swimlanes = board.swimlanes.order_by("position")
+            # Prefetch columns and swimlanes onto the export-bound board in a
+            # single trip so ``.all()`` reads from the prefetch cache instead
+            # of issuing one ORDER BY query each (#994).  ``Meta.ordering``
+            # on both models guarantees position order without an explicit
+            # ``.order_by()`` (which would defeat the prefetch).  Done at the
+            # call site rather than in ``get_board_for_user`` so non-export
+            # consumers (cards list, full board) do not pay for prefetches
+            # they never read.
+            from django.db.models import prefetch_related_objects
+            prefetch_related_objects([board], "columns", "swimlanes")
+            columns = board.columns.all()
+            swimlanes = board.swimlanes.all()
             labels = board.labels.all()
 
             cards_data = []

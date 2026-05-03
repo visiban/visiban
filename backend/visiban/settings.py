@@ -272,8 +272,13 @@ REST_FRAMEWORK = {
         "password_reset": "9999/hour" if DEBUG else "5/hour",
         # Password reset confirm: prevents automated token-stuffing against the confirm endpoint.
         "password_reset_confirm": "9999/hour" if DEBUG else "10/hour",
-        # Public board share-link reads: generous but bounded to limit scraping.
+        # Public board share-link reads: generous per-IP cap to limit scraping.
         "share_link": "120/hour",
+        # Per-token cap (#988): bounds brute-force enumeration of share tokens
+        # regardless of source IP (CGNAT, residential proxy pool).  UUID
+        # entropy already makes brute force impractical; this is defense in
+        # depth to bound abusive traffic against a single discovered token.
+        "share_link_token": "240/hour",
         # Choose-username: prevents username enumeration via "already taken" probing.
         "choose_username": "9999/hour" if DEBUG else "10/min",
         # Board import: each import can create up to 500 cards; cap prevents DB flooding.

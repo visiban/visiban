@@ -27,7 +27,6 @@ from boards.models import (
     Board, BoardMembership, Column, Swimlane, Label,
     Card, CardMovement, CardAttachment, CardChecklist,
 )
-from boards.serializers import BoardFullSerializer
 
 User = get_user_model()
 
@@ -113,12 +112,26 @@ class Command(BaseCommand):
         name = "GET /api/boards/{id}/full/"
         budget = 20  # ~12 measured; matches BoardFullQueryCountTests.BUDGET in test_query_counts.py
 
-        request = factory.get("/")
-        request.user = user
+        # Drive the endpoint through APIClient instead of constructing a raw
+        # WSGIRequest and calling the serializer directly (#996).  The
+        # serializer reads ``request.query_params`` via ``_expand_requested``,
+        # which only exists on DRF's ``Request`` wrapper — calling it with a
+        # bare WSGIRequest crashes with AttributeError before any query runs.
+        from rest_framework.test import APIClient
+        client = APIClient()
+        client.force_authenticate(user=user)
 
         reset_queries()
-        BoardFullSerializer(board, context={"request": request}).data
+        response = client.get(f"/api/v1/boards/{board.pk}/full/")
         count = len(connection.queries)
+
+        if response.status_code != 200:
+            self.stderr.write(
+                self.style.ERROR(
+                    f"  full/ returned HTTP {response.status_code} — "
+                    "query count may be inaccurate."
+                )
+            )
 
         self._dump_queries(name, count, budget)
         return name, count, budget

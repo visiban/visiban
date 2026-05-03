@@ -609,3 +609,124 @@ class AnalyticsQueryCountTests(TestCase):
             f"analytics/ query count grew from {baseline} to {scaled} when "
             "cards were added — per-card N+1 regression detected.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Archived cards endpoint scale test (#997)
+# ---------------------------------------------------------------------------
+from boards.models import Notification  # noqa: E402  -- below the fixtures intentionally
+
+
+class ArchivedCardsQueryCountTests(TestCase):
+    """GET /api/boards/{id}/cards/archived/ must not issue per-card queries."""
+
+    BUDGET = 14  # Mirrors CardListQueryCountTests.BUDGET plus headroom for the archived flag.
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_arch", password="x")
+        self.board, self.cols, self.lanes = _seed_board(self.user, n_cols=3, n_lanes=3, cards_per_cell=1)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        # Archive every seeded card so the endpoint has rows to return.
+        from django.utils import timezone
+        Card.objects.filter(board=self.board).update(archived_at=timezone.now())
+
+    def _get_archived(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/cards/archived/")
+
+    def test_archived_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_archived()
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(r.data["results"]) if isinstance(r.data, dict) else len(r.data), 0)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"cards/archived/ used {len(ctx)} queries — budget is {self.BUDGET}. "
+            "An N+1 was introduced; fix the prefetch.",
+        )
+
+    def test_archived_query_count_constant_across_card_count(self):
+        """Adding more archived cards must not increase the query count."""
+        baseline = _query_count(self._get_archived)
+
+        # Double the archived card count.
+        from django.utils import timezone
+        col = self.cols[0]
+        lane = self.lanes[0]
+        for i in range(20):
+            card = Card.objects.create(
+                board=self.board, column=col, swimlane=lane,
+                title=f"ExtraArch{i}", created_by=self.user, position=100 + i,
+                archived_at=timezone.now(),
+            )
+            card.labels.add(Label.objects.filter(board=self.board).first())
+
+        scaled = _query_count(self._get_archived)
+        self.assertEqual(
+            baseline, scaled,
+            f"cards/archived/ query count grew from {baseline} to {scaled} when "
+            "cards were added — per-card N+1 regression detected.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Notification list endpoint scale test (#997)
+# ---------------------------------------------------------------------------
+
+
+class NotificationListQueryCountTests(TestCase):
+    """GET /api/v1/notifications/ must scale O(unique boards), not O(notifications)."""
+
+    BUDGET = 12
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_notif", password="x")
+        self.board = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        # Seed a card so notifications can reference it.
+        col = Column.objects.create(board=self.board, name="C", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane, title="C", created_by=self.user, position=0,
+        )
+
+    def _get_notifications(self):
+        return self.client.get("/api/v1/notifications/")
+
+    def _make_notifications(self, n):
+        Notification.objects.bulk_create([
+            Notification(
+                recipient=self.user,
+                actor=self.user,
+                action_type=Notification.ActionType.CARD_MOVED,
+                verb=f"moved card {i}",
+                card=self.card,
+                board=self.board,
+                read=False,
+            )
+            for i in range(n)
+        ])
+
+    def test_notifications_within_query_budget(self):
+        self._make_notifications(10)
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_notifications()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data), 10)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"notifications/ used {len(ctx)} queries — budget is {self.BUDGET}.",
+        )
+
+    def test_notifications_query_count_constant_across_count(self):
+        """Adding notifications for the same board must not grow the query count."""
+        self._make_notifications(5)
+        baseline = _query_count(self._get_notifications)
+        self._make_notifications(20)
+        scaled = _query_count(self._get_notifications)
+        self.assertEqual(
+            baseline, scaled,
+            f"notifications/ query count grew from {baseline} to {scaled} as the "
+            "notification count grew — regression vs O(unique boards) target.",
+        )

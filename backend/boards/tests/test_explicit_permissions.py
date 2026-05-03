@@ -43,3 +43,38 @@ class ExplicitPermissionClassesTests(TestCase):
     def test_serve_media_requires_auth(self):
         r = self.client.get("/media/attachments/test.txt")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_board_viewset_declares_explicit_permission_classes(self):
+        """BoardViewSet must enumerate the global default permission chain
+        explicitly so future @action overrides can't silently drop the
+        pending-change gates (#989).
+        """
+        from boards.views.boards import BoardViewSet
+        from rest_framework.permissions import IsAuthenticated
+        from visiban.permissions import (
+            MustNotHavePendingPasswordChange,
+            MustNotHavePendingUsernameChange,
+        )
+        self.assertIn(IsAuthenticated, BoardViewSet.permission_classes)
+        self.assertIn(MustNotHavePendingPasswordChange, BoardViewSet.permission_classes)
+        self.assertIn(MustNotHavePendingUsernameChange, BoardViewSet.permission_classes)
+
+    def test_group_viewset_declares_explicit_permission_classes(self):
+        """GroupViewSet must enumerate the global default permission chain
+        explicitly so future @action overrides can't silently drop the
+        pending-change gates (#989).
+        """
+        from groups.views import GroupViewSet
+        from rest_framework.permissions import IsAuthenticated
+        from visiban.permissions import (
+            MustNotHavePendingPasswordChange,
+            MustNotHavePendingUsernameChange,
+        )
+        self.assertIn(IsAuthenticated, GroupViewSet.permission_classes)
+        self.assertIn(MustNotHavePendingPasswordChange, GroupViewSet.permission_classes)
+        self.assertIn(MustNotHavePendingUsernameChange, GroupViewSet.permission_classes)
+
+    def test_unsupported_version_requires_auth(self):
+        """/api/vN/ for N != 1 returned 406 unauthenticated; #990 gates it on auth."""
+        r = self.client.get("/api/v2/anything/")
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)

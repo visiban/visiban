@@ -28,6 +28,32 @@ class ShareLinkThrottle(SimpleRateThrottle):
         }
 
 
+class ShareLinkTokenThrottle(SimpleRateThrottle):
+    """Per-token rate limit for share-link reads (#988).
+
+    Defense in depth on top of ``ShareLinkThrottle`` (per-IP).  UUID share
+    tokens already provide 122 bits of entropy so brute-force enumeration is
+    impractical; this throttle bounds the volume of legitimate-looking reads
+    against any *single* token regardless of source IP, which is what
+    catches CGNAT/proxy-pool abuse that would otherwise bypass the per-IP
+    limit.
+
+    Keyed on the token segment from the URL (passed via ``view.kwargs``).
+    The throttle silently no-ops when no token is in scope.
+    """
+
+    scope = "share_link_token"
+
+    def get_cache_key(self, request, view):
+        token = (view.kwargs or {}).get("token")
+        if not token:
+            return None
+        return self.cache_format % {
+            "scope": self.scope,
+            "ident": token,
+        }
+
+
 class ShareBoardView(APIView):
     """GET /api/share/<token>/ — public read-only board view, no authentication required.
 
@@ -41,7 +67,7 @@ class ShareBoardView(APIView):
 
     permission_classes = []
     authentication_classes = []
-    throttle_classes = [ShareLinkThrottle]
+    throttle_classes = [ShareLinkThrottle, ShareLinkTokenThrottle]
 
     def get(self, request, token):
         import uuid as _uuid

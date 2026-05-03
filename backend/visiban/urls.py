@@ -10,14 +10,32 @@ from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoard
 
 
 class UnsupportedVersionView(APIView):
-    """Return 406 for any /api/vN/ prefix that is not v1."""
-    permission_classes = []
+    """Return 406 for any /api/vN/ prefix that is not v1.
 
-    def dispatch(self, request, *args, **kwargs):
+    Authenticated callers only (#990) — no board data is served, but gating
+    on auth keeps the unauthenticated surface as small as possible and makes
+    version probing visible in the same audit logs as the rest of the API.
+
+    Use a per-method handler rather than overriding ``dispatch`` so DRF's
+    normal authentication / permission / renderer pipeline runs against
+    every request — overriding ``dispatch`` would bypass the auth check
+    that ``permission_classes`` is supposed to enforce.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _unsupported(self, request, *args, **kwargs):
         return Response(
             {"detail": "Unsupported API version. Use /api/v1/."},
             status=406,
         )
+
+    get = _unsupported
+    post = _unsupported
+    put = _unsupported
+    patch = _unsupported
+    delete = _unsupported
+    head = _unsupported
+    options = _unsupported
 
 
 urlpatterns = [
