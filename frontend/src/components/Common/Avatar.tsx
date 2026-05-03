@@ -31,7 +31,7 @@ type AvatarUser = Pick<User, "avatar_url" | "display_name" | "username"> &
   Partial<Pick<User, "first_name" | "last_name">>;
 
 const SIZE_CLASSES = {
-  xs: "w-5 h-5 text-[10px]",
+  xs: "w-5 h-5 text-xs",
   sm: "w-6 h-6 text-xs",
   trigger: "w-7 h-7 text-xs",
   md: "w-8 h-8 text-sm",

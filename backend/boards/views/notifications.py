@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.serializers import BoardUserSerializer
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -19,16 +20,23 @@ class NotificationSerializer(serializers.ModelSerializer):
     card_title and board_name are sourced from select_related relations rather
     than nested serializers so this stays a single flat response object — the
     frontend notification dropdown has no need for full Card or Board objects.
+
+    ``actor`` is exposed as a slim ``BoardUser`` object (#1007) so clients can
+    render avatars and group notifications by author without re-parsing the
+    human-readable ``verb`` string. The slim shape carries
+    ``id, username, display_name, avatar_url`` only — no email or other PII.
     """
 
     card_title = serializers.CharField(source="card.title", default=None, read_only=True)
     board_name = serializers.CharField(source="board.name", default=None, read_only=True)
+    actor = BoardUserSerializer(read_only=True)
 
     class Meta:
         model = Notification
         fields = [
             "id",
             "verb",
+            "actor",
             "card_id",
             "card_title",
             "board_id",
@@ -73,7 +81,15 @@ class NotificationListView(APIView):
     ]
 
     def get(self, request):
-        qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
+        qs = (
+            Notification.objects
+            .filter(recipient=request.user, read=False)
+            # ``actor`` was added to the serializer in #1007 — pre-load it
+            # here to avoid one lazy FK query per notification when the
+            # dropdown renders the avatar chip.
+            .select_related("card", "board", "actor")
+            [:50]
+        )
         notifications = _filter_to_accessible_boards(list(qs), request.user)
         return Response(NotificationSerializer(notifications, many=True).data)
 

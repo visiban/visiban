@@ -440,22 +440,6 @@ class CardViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only restore cards you created.")
         if card.archived_at is not None:
             board_id = card.board_id
-            # Capture the board object now (not via card.board inside the lambda)
-            # so the closure holds a plain reference rather than a deferred FK
-            # accessor that may re-query or reference a stale object at call time.
-            _board = board
-
-            # Capture board_id (an integer) rather than closing over card.board
-            # (an ORM instance) — consistent with every other broadcast site and
-            # avoids a stale-instance dependency after the atomic block exits.
-            card_pk = card.pk
-
-            def card_data_fn():
-                return CardSerializer(
-                    _card_queryset(Card.objects.filter(pk=card_pk)).get(),
-                    context={"request": request, "board": _board},
-                ).data
-
             with transaction.atomic():
                 card.archived_at = None
                 card.save(update_fields=["archived_at"])
@@ -480,7 +464,18 @@ class CardViewSet(viewsets.ModelViewSet):
                     moved_by=request.user,
                     movement_type=CardMovement.MovementType.UNARCHIVED,
                 )
-                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data_fn()))
+                # Serialize INSIDE the atomic block so ``card_data`` is a plain
+                # dict captured before the lambda is registered (#999).
+                # The closure now matches the pattern used by every other
+                # broadcast site — integer ``board_id`` and pre-built dict
+                # only, no ORM instance carried into ``transaction.on_commit``.
+                card_data = CardSerializer(
+                    _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+                    context={"request": request, "board": board},
+                ).data
+                transaction.on_commit(
+                    lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data)
+                )
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             # Use the board already fetched by _board_and_role() — avoids a

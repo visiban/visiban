@@ -213,9 +213,9 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
                       className="w-full text-left px-3 py-2.5 border-b border-line hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset"
                     >
                       <p className="text-xs text-fg leading-snug">{n.verb}</p>
-                      <p className="text-[10px] text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
+                      <p className="text-xs text-fg-tertiary mt-0.5">{relativeTime(n.created_at)}</p>
                       {n.board_id && !n.card_id && (
-                        <p className="text-[10px] text-info mt-0.5">View board →</p>
+                        <p className="text-xs text-info mt-0.5">View board →</p>
                       )}
                     </button>
                   ))}

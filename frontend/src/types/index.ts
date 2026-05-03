@@ -96,7 +96,7 @@ export function userDisplayName(user: Pick<User, "display_name" | "username"> & 
 export interface BoardMembership {
   id: number | null;
   user: BoardUser;
-  role: "admin" | "member" | "collaborator" | "viewer" | "site_admin";
+  role: BoardOrSiteRole;
   is_moderator: boolean;
   joined_at: string;
 }
@@ -180,6 +180,12 @@ export interface Card {
 export interface Notification {
   id: number;
   verb: string;
+  /**
+   * The user whose action triggered this notification (#1007). Null when the
+   * notification has no human author (system-generated stale-card alerts).
+   * Slim user shape — id, username, display_name, avatar_url only.
+   */
+  actor: BoardUser | null;
   card_id: number | null;
   card_title: string | null;
   board_id: number | null;
@@ -293,6 +299,23 @@ export interface Board {
 export type BoardExportMinRole = "viewer" | "collaborator" | "member" | "admin";
 
 /**
+ * Canonical role aliases (#1006). Use these everywhere a "role" field is
+ * declared so the union stays in lockstep across `Board`, `BoardMembership`,
+ * `BoardFull.current_user_role`, and `Group.default_board_member_role`.
+ *
+ * - `BoardRole` — the four board-membership roles. Used for fields that can
+ *   never be `site_admin` (e.g. `Group.default_board_member_role`).
+ * - `BoardOrSiteRole` — adds `site_admin` for read paths where the
+ *   requesting user might be a site admin without an explicit membership.
+ *
+ * `BoardExportLogEntry.actor_role_label` intentionally extends this union with
+ * `owner` (frozen audit history); kept inline because that field is the only
+ * place `owner` appears as a string value.
+ */
+export type BoardRole = "viewer" | "collaborator" | "member" | "admin";
+export type BoardOrSiteRole = BoardRole | "site_admin";
+
+/**
  * Per-board card layout density (#961). Drives how much metadata renders on
  * the card face. New boards default to ``comfortable``; existing boards were
  * migrated to ``dense`` so they keep their pre-1.1 visual.
@@ -343,7 +366,7 @@ export interface BoardFull {
   is_starred: boolean;
   created_at: string;
   updated_at: string;
-  current_user_role: "site_admin" | "admin" | "member" | "collaborator" | "viewer" | null;
+  current_user_role: BoardOrSiteRole | null;
   capabilities: { movement_export: boolean; [key: string]: boolean };
   share_token: string | null;
   share_token_expires_at: string | null;
@@ -366,7 +389,7 @@ export interface Group {
   board_count: number;
   subgroup_count: number;
   created_at: string;
-  default_board_member_role: "admin" | "member" | "collaborator" | "viewer";
+  default_board_member_role: BoardRole;
   allowed_priorities: Priority[];
   shared_labels: GroupLabel[];
   is_starred: boolean;
@@ -377,7 +400,7 @@ export interface Group {
 export interface GroupMembership {
   id: number | null;
   user: BoardUser;
-  role: "admin" | "member" | "collaborator" | "viewer" | "site_admin";
+  role: BoardOrSiteRole;
   joined_at: string;
   is_inherited: boolean;
   inherited_from: string | null;
@@ -436,21 +459,29 @@ export interface GroupInviteLink {
   /** Full raw token — only present in the creation response. */
   token?: string;
   name: string;
-  role: "admin" | "member" | "collaborator" | "viewer";
+  role: BoardRole;
   expires_at: string | null;
   is_active: boolean;
   is_expired: boolean;
   created_at: string;
+  /** Username of the admin who created the link (#1008). Null when the
+   * creator was deactivated and their User row was anonymized. */
+  created_by_username: string | null;
   single_use: boolean;
   status: "pending" | "used" | "expired" | "revoked";
   used_at: string | null;
   created_by_username: string | null;
 }
 
-/** Returned by POST /boards/<id>/share/ when enabling a public share link. */
+/** Returned by POST and DELETE on /boards/<id>/share/.
+ *
+ * On enable (POST), all three fields carry values. On disable (DELETE),
+ * every field is null — the response is shaped identically (#1005) so the
+ * caller does not need a discriminated union to read the result.
+ */
 export interface ShareActionResponse {
-  share_token: string;
-  share_url: string;
+  share_token: string | null;
+  share_url: string | null;
   share_token_expires_at: string | null;
 }
 

@@ -142,7 +142,7 @@ function ViewToggle({
           <span className="flex items-center gap-1.5">
             Analytics
             <span
-              className={`px-1 py-0 text-[10px] font-medium rounded leading-4 ${
+              className={`px-1 py-0 text-xs font-medium rounded leading-4 ${
                 view === "analytics"
                   ? "bg-warning/30 text-warning"
                   : "bg-warning/20 text-warning"
@@ -1616,7 +1616,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
             >
               {showFilters ? "Hide filters" : "Filters"}
               {!showFilters && activeCount > 0 && (
-                <span className="ml-1.5 bg-info/20 text-info rounded-full px-1.5 py-0.5 font-medium">
+                <span className="ml-1.5 bg-primary-emphasis/20 text-info rounded-full px-1.5 py-0.5 font-medium">
                   {activeCount}
                 </span>
               )}
@@ -1808,14 +1808,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>
       )}
       {cardNotFound !== null && (
-        <div className="mx-4 mt-2 px-4 py-2 bg-warning/50 border border-warning/60 rounded-lg text-warning text-sm">
+        <div className="mx-4 mt-2 px-4 py-2 bg-warning/10 border border-warning/30 rounded-lg text-warning text-sm">
           {cardNotFound}
         </div>
       )}
       {archiveToast && (
         <div className="flex items-center justify-between gap-3 mx-4 mt-2 px-4 py-2 bg-surface-hover/80 border border-line-strong rounded-lg text-fg text-sm">
-          <span>Card archived — view in <button onClick={() => { setShowArchived(true); setArchiveToast(false); }} className="text-info hover:underline">Archived panel</button></span>
-          <button onClick={() => setArchiveToast(false)} className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0">×</button>
+          <span>Card archived — view in <button onClick={() => { setShowArchived(true); setArchiveToast(false); }} className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Archived panel</button></span>
+          <button
+            onClick={() => setArchiveToast(false)}
+            aria-label="Dismiss notification"
+            className="text-fg-tertiary hover:text-fg transition text-lg leading-none shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >×</button>
         </div>
       )}
 
@@ -1884,13 +1888,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="flex sticky top-0 z-20 border-b border-line bg-surface">
             {/* Corner — sticky to the left; shows board density at a glance */}
             <div className="shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2" style={{ width: swimlaneColWidth }}>
-              <span className="text-[10px] text-fg-muted font-medium tabular-nums">
+              <span className="text-xs text-fg-muted font-medium tabular-nums">
                 {board.columns.length} col{board.columns.length !== 1 ? "s" : ""}
               </span>
-              <span className="text-[10px] text-fg-muted font-medium tabular-nums">
+              <span className="text-xs text-fg-muted font-medium tabular-nums">
                 {board.swimlanes.length} lane{board.swimlanes.length !== 1 ? "s" : ""}
               </span>
-              <span className="text-[10px] text-fg-faint tabular-nums">
+              <span className="text-xs text-fg-faint tabular-nums">
                 {board.cards.length} card{board.cards.length !== 1 ? "s" : ""}
               </span>
             </div>

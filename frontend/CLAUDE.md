@@ -406,6 +406,14 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 - The full value must remain in the clipboard on copy — only the display is truncated
 - Add a `title` attribute (or tooltip on hover) showing the full URL
 
+## Focus ring consistency
+
+The permitted focus-ring form is `focus:ring-2 focus:ring-primary-emphasis` (or `focus:ring-danger-emphasis` for destructive actions, `focus:ring-warning-emphasis` for amber confirms). `focus-visible:` is **not permitted** on standalone buttons, dropdown triggers, or tab controls — Firefox and desktop Safari treat `:focus-visible` as more restrictive than `:focus` and skip the ring on pointer-driven focus, leaving keyboard users with no indicator after a click+keyboard-handoff sequence.
+
+`focus-visible:` is permitted only on elements that receive programmatic focus from drag-and-drop libraries (e.g. `CardItem` while a drag is mid-flight) where suppressing the ring during pointer drag is intentional.
+
+**Gate for any PR that touches interactive elements:** run `grep -r "focus-visible:ring" frontend/src/`. If any new instances appear outside the documented DnD exception, switch them to `focus:`. Issues #933, #949, and #983 all closed the same regression — keep this rule visible so it does not recur.
+
 ## Hover-reveal controls
 
 When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`), it **must** also include `focus:opacity-100` and a focus ring so keyboard users can reach and activate it. Without `focus:opacity-100`, the button is unreachable by keyboard. This applies to all hover-reveal controls (comment delete, swimlane edit, RTE pencil icon, etc.).

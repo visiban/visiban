@@ -140,26 +140,79 @@ class GroupViewSet(viewsets.ModelViewSet):
             _ancestor_related = ["__".join(["parent"] * d) for d in range(1, 7)]
             parent = Group.objects.select_related(*_ancestor_related).get(pk=parent.pk)
             _require_group_admin(self.request.user, parent)
-        group = serializer.save(owner=self.request.user)
-        GroupMembership.objects.create(
-            group=group, user=self.request.user, role=GroupMembership.Role.ADMIN
-        )
+        with transaction.atomic():
+            group = serializer.save(owner=self.request.user)
+            GroupMembership.objects.create(
+                group=group, user=self.request.user, role=GroupMembership.Role.ADMIN
+            )
+            # Broadcast group.created so sidebar trees refresh in real time
+            # for other admins watching the parent group (#998).
+            # Re-fetch with annotations so the payload exposes the same
+            # _member_count / _board_count / _subgroup_count / _is_starred
+            # fields as every other group payload.
+            annotated = self.get_queryset().get(pk=group.pk)
+            group_data = GroupSerializer(annotated, context={"request": self.request}).data
+            parent_id = group.parent_id
+
+            def _broadcast_created(gid=group.pk, pid=parent_id, data=group_data):
+                from .broadcast import broadcast_group_event
+                # Fanout: the new group's own channel (so anyone subscribed
+                # by id refreshes), and the parent's channel (so the parent's
+                # subgroup list updates).
+                broadcast_group_event(gid, "group.created", data)
+                if pid is not None:
+                    broadcast_group_event(pid, "group.created", data)
+
+            transaction.on_commit(_broadcast_created)
 
     def update(self, request, *args, **kwargs):
         # Only group admins may rename or re-parent a group.
         # The default ModelViewSet inherits no admin guard here — add it explicitly.
-        _require_group_admin(request.user, self.get_object())
-        return super().update(request, *args, **kwargs)
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        return self._update_with_broadcast(request, group, partial=False, args=args, kwargs=kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        _require_group_admin(request.user, self.get_object())
-        return super().partial_update(request, *args, **kwargs)
+        group = self.get_object()
+        _require_group_admin(request.user, group)
+        return self._update_with_broadcast(request, group, partial=True, args=args, kwargs=kwargs)
+
+    def _update_with_broadcast(self, request, group, *, partial, args, kwargs):
+        """Run the default DRF update path then broadcast group.updated (#998).
+
+        Re-fetches through ``get_queryset`` so the broadcast payload includes
+        the count annotations and resolves any rename / re-parent change.
+        """
+        with transaction.atomic():
+            response = super().partial_update(request, *args, **kwargs) if partial else super().update(request, *args, **kwargs)
+            annotated = self.get_queryset().get(pk=group.pk)
+            group_data = GroupSerializer(annotated, context={"request": request}).data
+
+            def _broadcast_updated(gid=group.pk, data=group_data):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, "group.updated", data)
+
+            transaction.on_commit(_broadcast_updated)
+        return response
 
     def destroy(self, request, *args, **kwargs):
         group = self.get_object()
         if group.owner != request.user and not getattr(request.user, "can_access_all_content", False):
             return Response(status=status.HTTP_403_FORBIDDEN)
-        group.delete()
+        gid = group.pk
+        parent_id = group.parent_id
+        with transaction.atomic():
+            group.delete()
+            payload = {"id": gid}
+
+            def _broadcast_deleted(g=gid, pid=parent_id, pl=payload):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(g, "group.deleted", pl)
+                if pid is not None:
+                    # Sidebar tree under the parent needs to refresh too.
+                    broadcast_group_event(pid, "group.deleted", pl)
+
+            transaction.on_commit(_broadcast_deleted)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------
@@ -344,9 +397,20 @@ class GroupViewSet(viewsets.ModelViewSet):
         role = request.data.get("role")
         if role not in GroupMembership.Role.values:
             return Response({"detail": f"Must be one of: {', '.join(GroupMembership.Role.values)}"}, status=status.HTTP_400_BAD_REQUEST)
-        membership.role = role
-        membership.save()
-        return Response(GroupMembershipSerializer(membership).data)
+        with transaction.atomic():
+            membership.role = role
+            membership.save()
+            # Pre-build the payload before registering the on_commit callback
+            # so the closure carries plain data, not an ORM instance (#998).
+            membership_data = GroupMembershipSerializer(membership).data
+            group_id = group.pk
+
+            def _broadcast_membership_updated(gid=group_id, data=membership_data):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, "membership.updated", data)
+
+            transaction.on_commit(_broadcast_membership_updated)
+        return Response(membership_data)
 
     # ------------------------------------------------------------------
     # Subgroups
@@ -664,7 +728,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             # Include consumed single-use links so admins can audit past usage.
             links = GroupInviteLink.objects.filter(
                 Q(group=group) & (Q(is_active=True) | Q(used_at__isnull=False))
-            ).order_by("created_at")
+            ).select_related("created_by").order_by("created_at")
             return Response(GroupInviteLinkSerializer(links, many=True).data)
 
         # POST — create a new invite link (max 5 active per group)
@@ -732,8 +796,17 @@ class GroupViewSet(viewsets.ModelViewSet):
         _require_group_admin(request.user, group)
         serializer = GroupLabelSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        label = serializer.save(group=group)
-        return Response(GroupLabelSerializer(label).data, status=status.HTTP_201_CREATED)
+        with transaction.atomic():
+            label = serializer.save(group=group)
+            label_data = GroupLabelSerializer(label).data
+            gid = group.pk
+
+            def _broadcast_label_created(g=gid, data=label_data):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(g, "group.label.created", data)
+
+            transaction.on_commit(_broadcast_label_created)
+        return Response(label_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"labels/(?P<label_id>[^/.]+)")
     def update_group_label(self, request, pk=None, label_id=None):
@@ -743,14 +816,33 @@ class GroupViewSet(viewsets.ModelViewSet):
         label = get_object_or_404(GroupLabel, pk=label_id, group=group)
 
         if request.method == "DELETE":
-            label.delete()
+            lid = label.pk
+            gid = group.pk
+            with transaction.atomic():
+                label.delete()
+                payload = {"id": lid}
+
+                def _broadcast_label_deleted(g=gid, pl=payload):
+                    from .broadcast import broadcast_group_event
+                    broadcast_group_event(g, "group.label.deleted", pl)
+
+                transaction.on_commit(_broadcast_label_deleted)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         # PATCH — update name/color
         serializer = GroupLabelSerializer(label, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(GroupLabelSerializer(label).data)
+        with transaction.atomic():
+            serializer.save()
+            label_data = GroupLabelSerializer(label).data
+            gid = group.pk
+
+            def _broadcast_label_updated(g=gid, data=label_data):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(g, "group.label.updated", data)
+
+            transaction.on_commit(_broadcast_label_updated)
+        return Response(label_data)
 
     @action(detail=True, methods=["patch"], url_path="board-defaults")
     def board_defaults(self, request, pk=None):
@@ -763,11 +855,19 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         serializer = GroupSerializer(group, data=data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        # Re-fetch through ``get_queryset`` so the count annotations are
-        # populated — same pattern as ``transfer_ownership`` (#993).
-        annotated = self.get_queryset().get(pk=group.pk)
-        return Response(GroupSerializer(annotated, context={"request": request}).data)
+        with transaction.atomic():
+            serializer.save()
+            # Re-fetch through ``get_queryset`` so the count annotations are
+            # populated — same pattern as ``transfer_ownership`` (#993).
+            annotated = self.get_queryset().get(pk=group.pk)
+            group_data = GroupSerializer(annotated, context={"request": request}).data
+
+            def _broadcast_defaults(gid=group.pk, gd=group_data):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, "group.updated", gd)
+
+            transaction.on_commit(_broadcast_defaults)
+        return Response(group_data)
 
     # ------------------------------------------------------------------
     # Favorites (star / unstar)
@@ -780,10 +880,23 @@ class GroupViewSet(viewsets.ModelViewSet):
         # allowing a star/unstar — get_object() only checks visibility (accessible
         # group ids), but starring is a member-level action.
         _require_group_member(request.user, group)
+        # Mirror the board.star_changed contract (#945) so multiple browser
+        # tabs of the same user stay in sync on the GroupDetail star state (#998).
+        gid = group.pk
+        uid = request.user.id
+
+        def _broadcast_star(g=gid, u=uid, starred=False):
+            from .broadcast import broadcast_group_event
+            broadcast_group_event(g, "group.star_changed", {"id": g, "user_id": u, "is_starred": starred})
+
         if request.method == "DELETE":
-            GroupFavorite.objects.filter(user=request.user, group=group).delete()
+            with transaction.atomic():
+                GroupFavorite.objects.filter(user=request.user, group=group).delete()
+                transaction.on_commit(lambda: _broadcast_star(starred=False))
             return Response(status=status.HTTP_204_NO_CONTENT)
-        _, created = GroupFavorite.objects.get_or_create(user=request.user, group=group)
+        with transaction.atomic():
+            _, created = GroupFavorite.objects.get_or_create(user=request.user, group=group)
+            transaction.on_commit(lambda: _broadcast_star(starred=True))
         return Response({"starred": True}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
@@ -925,6 +1038,20 @@ class JoinGroupView(APIView):
             if link.single_use:
                 link.used_at = timezone.now()
                 link.save(update_fields=["used_at"])
+
+            # Broadcast membership.added on the group channel so other admin
+            # sessions on GroupDetail see the new member appear in real time
+            # (#998).  Only emit on a fresh join — re-redemption of an
+            # already-active membership does not change observable state.
+            if created:
+                membership_data = GroupMembershipSerializer(membership).data
+                joined_gid = link.group_id
+
+                def _broadcast_member_added(gid=joined_gid, data=membership_data):
+                    from .broadcast import broadcast_group_event
+                    broadcast_group_event(gid, "membership.added", data)
+
+                transaction.on_commit(_broadcast_member_added)
 
         logger.info(
             "Invite token redeemed. token=%s group_id=%s user_id=%s new_member=%s ip=%s outcome=success",
