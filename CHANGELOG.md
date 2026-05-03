@@ -10,6 +10,102 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.1.0-rc.2] — 2026-05-03
+
+---
+
+
+### Added
+- Added a "Focus ring consistency" section to `frontend/CLAUDE.md` documenting the `focus:` vs `focus-visible:` rule and the gate to grep before any interactive-element PR.
+- `/api/v1/notifications/` now returns each notification with a slim `actor` user object (id, username, display_name, avatar_url) so clients can render avatars and group notifications by author without re-parsing the human-readable verb.
+- `GroupInviteLinkSerializer` now exposes `created_by_username` so group admins can audit who created an invite link, matching the existing `AdminInviteLink.created_by_username` field.
+- Added a WebSocket URL extension point to `visiban/asgi.py` mirroring the HTTP URL hook in `visiban/urls.py`. The enterprise package can register additional consumers by exposing `enterprise.routing.enterprise_websocket_urlpatterns`; OSS deployments are unaffected.
+- Added a Command palette section to `docs/features/index.md` documenting the ⌘K behaviour across board, dashboard, group, settings, and admin surfaces.
+- Added the `actor` field to all `Notification` mock fixtures, plus a stale-card (null actor) test case. `BoardSettingsModal` export-history rendering now has component-level coverage for entries with a known actor, the `(deactivated user)` fallback, and the failed-fetch error message.
+- Add `CARD_MUTATION_HOOKS` extension point to `boards/hooks.py`; wire call sites in `CardViewSet` (create, update, move, delete, archive, restore) so enterprise audit-log integrations have a stable OSS hook.
+- Added 1.1 upgrade-guide note covering pre-1.0 → 1.1 direct upgrades that need the `groups/0003_placeholder` reconciliation step before `migrate`, and an explicit irreversibility warning for `boards/0050` (`BoardExportLog` audit table — rollback drops audit rows).
+- Added query-count scale tests for `GET /api/v1/boards/{id}/cards/archived/` and `GET /api/v1/notifications/` to catch future N+1 regressions on those endpoints.
+
+### Changed
+- Added `BoardRole` and `BoardOrSiteRole` type aliases in `frontend/src/types/index.ts` and replaced inline literal unions across `Board.role`, `BoardFull.current_user_role`, `Group.default_board_member_role`, `BoardMembership.role`, and `GroupInviteLink.role` so the four-role and five-role variants stay in lockstep.
+- Synced `docs/api/websockets.md` to the current event surface — `board.deleted` payload, `group.updated` shape, the missing `board.star_changed` board-channel entry, and the eight group-channel events introduced by the 1.1 group-broadcast work.
+- Updated `docs/api/notifications.md` (added the `actor` field) and `docs/api/groups.md` (added `created_by_username`, `single_use`, `used_at`, `status` to invite-link example and table) to match the 1.1 serializer shape.
+- Updated `docs/features/board.md` to describe the 1.1 column over-limit visual (2 px top accent strip + single calm stat line) instead of the pre-1.1 `WIP N/M` red-text behaviour.
+- Cards now scan to the *one thing* you're looking for: a new per-board **Card density** setting (Comfortable / Standard / Dense) replaces the previous wall of icons. New boards land on **Comfortable** — one worst-offender urgency badge (Overdue · Due soon · Stale · Just moved), one primary label, checklist, assignee — with weight, attachments, and last-moved time moved to the hover peek. Existing boards keep their pre-1.1 visual via the **Dense** tier; admins flip in Board Settings → Display. New endpoint field `card_density` on the Board API.
+- The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed. Density is now the single layout knob; localStorage values for the old keys are silently ignored.
+- Empty board cells now read as a discoverable click target — a dashed inset border with **+ Add card** centered, hover wash, and keyboard activation: Tab into an empty cell and press Enter (or Space) to open the new-card input. The dashed treatment disappears the moment a card lives there, so populated cells keep the dense info-rich layout.
+- Column headers now show a 2px top accent strip (red for over WIP, amber for over weight) so over-limit columns scan from the corner of the eye, and surface only the worst-offender stat line — calm columns simply read "N cards" without the redundant "WIP" / "Weight" label words.
+- Column drag-to-trash is now opt-in: the destructive drop zone only appears when the user holds **⌥ (Alt)** during a column drag, and a `⌥ to delete` hint surfaces on the drag overlay so the gated gesture stays discoverable. A new column kebab menu (`⋮`) on every column header gives keyboard users a first-class path to Rename, Edit settings, and Delete; deleting a column with cards now requires typing the column name to confirm, matching the board-deletion pattern.
+- On laptop-sized viewports below 1024 px — where Layout, Archived, Activity drawer, and Settings fold into the `⋮` overflow kebab — the kebab menu now auto-expands once on the first visit so occasional users discover the folded controls without having to read documentation. The static first-encounter dot remains as a quieter reminder for subsequent visits and is dismissed the first time the kebab is clicked.
+- `board.deleted` WebSocket payload no longer carries the legacy `board_id` field; clients should key on `board_uid` like every other deletion event. The change ships before 1.1 tag so no released client depended on the old shape.
+- Renamed the `BoardExportLog` audit-row API field from `role_at_export` to `actor_role_label`. The DB column name is unchanged. The new name disambiguates the 6-value audit string (which includes `owner` and `site_admin`) from `Board.export_min_role`'s 4-value setting enum.
+- The deprecated snake_case `PATCH /set_collapsed/` swimlane route now responds with `Deprecation: true` and a `Link: <kebab-url>; rel="successor-version"` header (RFC 8594 / RFC 8288). The canonical kebab-case `set-collapsed` route is unchanged.
+- `notify_on_card_moved` resolves the mover username via a targeted `User.objects.only("username")` lookup using `instance.moved_by_id`, eliminating one lazy FK query per card-move notification path. Finishes the perf-fix scope of !... that originally landed under issue #938.
+- Members POST/PATCH endpoint threads the resolved role and board into `BoardMembershipSerializer` context so `to_representation` does not re-issue `get_board_role` to decide whether to strip `is_moderator`.
+- Group `transfer_ownership` and `board_defaults` actions re-fetch the group through `get_queryset()` before serializing, so `_member_count` / `_board_count` / `_subgroup_count` / `_is_starred` annotations are populated and the serializer method fields don't fall through to live count subqueries (8 avoidable queries per transfer, 4 per board-defaults patch).
+- Board JSON export prefetches `columns` and `swimlanes` once before iterating, removing two redundant ORDER BY queries per export. The `Meta.ordering` declarations on both models supply position order without a query-bypassing `.order_by()`.
+- Checklist add endpoint computes the next position via `len(card.checklist_items.all())` instead of `.count()`, reading from the prefetch cache the action already paid for instead of issuing an extra `COUNT(*)`.
+- Group write paths now broadcast on the group channel: `update_member` PATCH, group create/update/destroy, `board_defaults`, group label CRUD, star/unstar, and `JoinGroupView.post` (new-member arrival). GroupDetail and sidebar trees stay live without requiring a manual refresh.
+- `card.unarchived` broadcast now serializes inside the atomic block and registers the on_commit lambda with a plain dict, matching every other broadcast site in the codebase. The previous closure carried an ORM `Board` instance that ran serializer logic post-commit.
+
+### Fixed
+- Replaced sub-12px text sizes with the design-system minimum (`text-xs`) in the navbar notification dropdown, board settings modal section headers and share URL, board view corner stats and Analytics "Beta" badge, filter bar `/` shortcut hint, swimlane column-insert affordance, and the `xs` Avatar variant.
+- Added focus rings to `BoardSettingsModal` tab buttons and the inline confirm/cancel buttons in the member-removal and hard-WIP confirmation rows.
+- Token-drift sweep: filter active-count badge uses `bg-primary-emphasis/20` (the canonical filter-active token), the "card not found" banner uses the standard amber tint (`bg-warning/10` + `border-warning/30`), the swimlane name hover uses `hover:text-fg` instead of the active-state-only `text-info`, and `CheckboxDropdown` uses `accent-primary` instead of the raw `accent-blue-600`.
+- Archive-toast "View archived" link and dismiss button now carry the standard focus ring and `rounded`. The dismiss button also gained `aria-label="Dismiss notification"` so screen readers announce its purpose.
+- `DELETE /api/v1/boards/<pk>/share/` now returns `{share_token: null, share_url: null, share_token_expires_at: null}` so the response shape matches the POST response. The TS `ShareActionResponse` interface is updated to nullable everywhere.
+- Fix N+1 in notification endpoints: pre-load group ancestor chain so `_filter_to_accessible_boards` does not issue per-level FK queries on every page load.
+- Fix card update action serializing from a partially-prefetched in-memory instance; now uses `_refetch_card_data` consistent with all other mutation actions, eliminating 3 extra queries per PATCH.
+- Fix 8 accessibility and design-system blockers in 1.1 UI: OnboardingTour backdrop token and dialog semantics, missing focus rings on star/cancel buttons, BoardView sub-view nav landmark, ShareBoardPage sub-12px text, and focus-visible regression in BulkActionToolbar.
+- Add missing `has_completed_tour` field to `AdminUser` TypeScript interface to match `AdminUserSerializer` response.
+- Bump `SPECTACULAR_SETTINGS["VERSION"]` to `1.1.0` so the OpenAPI schema correctly advertises the 1.1 release.
+- Fix WebSocket documentation: remove phantom plural reorder event aliases, add `board.created` to the board-channel event table, and correct `_id` key references to `_uid` throughout `realtime.md` and `websockets.md`.
+- Correct `.env.example` comments for `ACCOUNT_EMAIL_VERIFICATION` and `OIDC_SECRET` to reflect that both aliases were removed in 1.1.
+- Fix board import permission docs (any group member may import, not admin-only) and board create `group` field documentation.
+- Fix `DELETE /api/v1/boards/{id}/share/` response example to include `share_url: null`.
+- Document `GET /api/v1/version/` endpoint in `docs/api/version.md` and add it to the nav.
+- Fix attachment `url` field description — the API returns an absolute URL, not a relative URL.
+- Document group members endpoint `is_inherited`, `inherited_from` fields and nullable `id` in `docs/api/groups.md`.
+- Fix real-time docs: replace stale pulsing-dot `LiveIndicator` description with accurate `ConnectionStatus` component description.
+- Document group WebSocket channel (`ws/groups/<id>/`) in `docs/features/realtime.md`.
+- Fix checklist delete permission matrix — collaborators can only delete items they created (enforced since 1.1).
+- Fix stale "Board Settings → Card fields" reference in feature docs — replaced by Card density setting.
+- Board selector now shows an error message with a "Try again" retry button when the board list fails to load (#914). The delete-board dialog now has correct ARIA semantics (`role="dialog"`, `aria-modal`, `aria-labelledby`) and closes on Escape (#915).
+- Board import now validates `due_date`, `weight`, `position`, `wip_limit`, and `weight_limit` fields before entering the database transaction, returning a descriptive 400 instead of an unhandled 500 on malformed values (#916). Duplicate column, swimlane, or label names in the import payload are rejected with a 400 before reaching `bulk_create` (#917). Cards that reference a column or swimlane name not defined in the payload are now rejected with a 400 rather than being silently dropped, preventing hidden data loss on import (#918).
+- `GET /api/boards/?expand=group` no longer triggers extra database queries for boards nested more than one group level deep; ancestor data is now loaded in a single query regardless of nesting depth (#919)
+- Wave 4 pre-release audit fixes for 1.1: hide `is_moderator` from non-admin viewers in the board members payload (#920); reject malformed JSON imports where `cards`/`columns`/`swimlanes`/`labels` are not lists (#921); log a warning on attachment MIME rejections so probes can be distinguished from user errors during incident review (#923); add a dedicated `login` throttle scope (20/hour, IP-keyed) on top of the allauth gate (#924); per-email dedup on multi-use invite link redemption via the new `InviteLinkRedemption` table (#925); annotate `is_stale` at the SQL level on the public share-link card payload (#926); cache the full `GroupMembership` list on `BoardFullSerializer` so `get_members()` no longer issues a duplicate query (#927); add a `slim=True` mode to `get_board_for_user()` and use it for the summary and analytics endpoints (#928); merge the archived-cards count into the page query via a `Window(Count("id"))` annotation (#929); add a query-count regression test on the card axis for the analytics endpoint (#930); fan out `board.star_changed` to the group channel so GroupDetail updates without a refetch (#952).
+- Sidebar navigation links, chevron toggles, and group-name buttons now show a visible keyboard focus ring, making keyboard navigation accessible (#931)
+- "Skip tour" buttons in the onboarding tour now show a visible keyboard focus ring (#932)
+- Keyboard focus rings are now consistent across the Navbar, UserMenu, and ConnectionStatus components; all interactive elements use the `focus:ring-2` style as required by the design system (#933)
+- The "Keyboard shortcuts" item in the user menu now works correctly with keyboard-only navigation; roving focus no longer skips or traps on this item (#934)
+- The active view tab (Board, Summary, History, Analytics) now displays with the correct weight and size as specified by the design system (#935)
+- The ConnectionStatus badge correctly shows rounded corners in all degraded states (connecting, reconnecting, stale, and failed) (#936)
+- Creating or deleting a saved filter preset now immediately updates the filter list in any other open tabs without requiring a page reload (#937)
+- Fixed 4–5 extra database queries fired per card move by the `notify_on_card_moved` signal; the handler now re-fetches the card with `select_related` and uses the denormalized `to_column_name` field instead of lazy FK traversals (#938)
+- Tightened the `set-collapsed` swimlane action to admin-only; the Member role could previously persist a board-structure field that changes the default view for all board members (#939)
+- Added rate limiting (20/hour) to the board export endpoint to prevent programmatic hammering of a high-cost endpoint (#942)
+- Scoped the `saved_filter.created` WebSocket broadcast to `{filter_id, user_id}` only; the previous payload included the full `state_json` contents, which were broadcast to all board members unnecessarily (#943)
+- Added guard comments to `BoardSerializer`, `BoardFullSerializer`, and `GroupSerializer` fallback paths that issue live queries when called without the expected queryset annotations (#940, #941)
+- Drop deprecated plural reorder event names (`columns.reordered`, `swimlanes.reordered`); only the canonical singular forms (`column.reordered`, `swimlane.reordered`) are now emitted (#944)
+- Fix `board.star_changed` WebSocket payload to use `uid` instead of integer `board_id` for consistency with all other board events (#945)
+- Normalize `group.updated` WebSocket payload to full `GroupSerializer` shape on ownership transfer (#946)
+- Fix raw Tailwind color `border-b-red-500/50` on over-WIP column border; now uses semantic `border-b-danger-emphasis/50` token (#947)
+- Wrap `saved_filter` POST/DELETE and swimlane collapse mutations in `transaction.atomic()` so `on_commit` broadcasts are correctly deferred (#948)
+- Design system compliance sweep: replace `focus-visible:` with `focus:` on ColumnHeader, SelectDropdown, Toggle, FilterBar; replace `bg-white` on Toggle thumb with semantic `bg-fg`; fix `rounded-xl` → `rounded-lg` on invite suggestion dropdown; fix invite status message layout shift; replace `accent-blue-500` with `accent-primary` on Display tab checkboxes; add `type="button"` to notification bell; fix notification panel border to `border-line-strong` (#949)
+- Widen `BoardFull.capabilities` TypeScript interface to allow unknown boolean capability flags without compile errors (#953)
+- Wave 3 pre-release audit fixes for 1.1: bump vitest minimum to 3.2.0 to close CVE-2025-24964 floor (#954); add missing unit tests for auth API helpers, useNavbarSearchLabel, useShortcutsSeenPref, CollapsedFlyout, and RoleInfoTooltip (#955); correct API permission docs for board import, swimlane set-collapsed, and card ownership/moderator gates (#956); document undocumented 1.1 features — inline board rename, card peek, URL filter state, groups live board list, board.star_changed WS event, 5-state ConnectionStatus, board.deleted board_uid, expand=group, schema_version 2 (#957); update extension points table to mark MOVEMENT_EXPORT_BACKENDS and ANALYTICS_EXTENSIONS as implemented (#958); document must_change_password and must_change_username 403 codes in authentication API common errors (#959); fix stale test fixtures for group.updated event shape and star broadcast uid assertion (#960).
+- Notification button in the navbar now exposes the unread count via `aria-label` and renders the count badge at the design-system minimum text size, so screen-reader users discover unread notifications and the badge stays legible.
+- Swimlane edit affordance is now hidden from non-admins entirely instead of rendered as a disabled button, removing a dead keyboard-focusable element.
+- Restored the focus ring on `SingleSelectDropdown`, `CheckboxDropdown`, and the FilterBar "Clear all" button — they were using `focus-visible:` which renders no indicator in Firefox and Safari for pointer-driven focus.
+- `manage.py benchmark` `_bench_full` no longer crashes with `AttributeError: 'WSGIRequest' object has no attribute 'query_params'`. The benchmark drives the endpoint through `APIClient` instead of constructing a raw `WSGIRequest` and invoking the serializer directly.
+- Fix double-deploy race and missing MAJOR.MINOR alias for docs.visiban.com on release tags — CI `docs-deploy` job is now the sole owner of mike deploys; `release.sh` no longer calls mike directly.
+
+### Security
+- Strip `is_moderator` from `member.added` / `member.updated` WebSocket broadcasts when the subscriber is below admin role. The REST surface already filtered the field per #920; the broadcast surface now matches at the consumer layer.
+- Notification list and unread-count endpoints filter out entries referencing boards the recipient no longer has access to. Previously, leaving a board kept stale notifications visible — including the board name and card title — until the user marked them read.
+- Added a per-token rate limit on the public board share endpoint (`240/hour` in production) on top of the existing per-IP cap, bounding abusive traffic against any single token regardless of source IP.
+- `BoardViewSet` and `GroupViewSet` now declare `permission_classes` explicitly instead of relying on the global default chain by inheritance, so future per-action overrides cannot silently drop the `MustNotHavePendingPasswordChange` / `MustNotHavePendingUsernameChange` gates.
+- `UnsupportedVersionView` (the catch-all that returns 406 for `/api/vN/` where N != 1) now requires authentication. Previously the view bypassed DRF's permission flow by overriding `dispatch`; refactored to use proper handlers so authentication is enforced consistently.
 ## [1.1.0-rc.1] — 2026-04-24
 
 ---

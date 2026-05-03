@@ -1,7 +1,7 @@
 # Visiban
 
 !!! warning "Release candidate"
-    **1.1.0-rc.1** is the current stable release candidate for the upcoming 1.1 release. Help test it and [report issues](https://gitlab.com/visiban/visiban/-/issues) before the stable release. See the [installation guide](getting-started/installation.md) to get started.
+    **1.1.0-rc.2** is the current stable release candidate for the upcoming 1.1 release. Help test it and [report issues](https://gitlab.com/visiban/visiban/-/issues) before the stable release. See the [installation guide](getting-started/installation.md) to get started.
 
 A self-hosted Kanban board with swimlane rows and automatic card movement tracking. A lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer or project, with a full audit trail of every card movement between stages.
 
