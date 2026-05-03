@@ -45,7 +45,7 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
               return (
                 <span
                   key={label.id}
-                  className="text-[9px] font-semibold px-1 py-0.5 rounded leading-none shrink-0"
+                  className="text-xs font-semibold px-1 py-0.5 rounded leading-none shrink-0"
                   style={{ backgroundColor: label.color + "22", color: label.color, border: `1px solid ${label.color}44` }}
                   title={label.name}
                 >
@@ -55,7 +55,7 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
             })}
             {card.checklist_total > 0 && (
               <span
-                className={`text-[10px] font-medium shrink-0 ${
+                className={`text-xs font-medium shrink-0 ${
                   card.checklist_done === card.checklist_total ? "text-success" : "text-fg-tertiary"
                 }`}
               >
@@ -63,17 +63,17 @@ function StaticCardItem({ card, labels }: StaticCardItemProps) {
               </span>
             )}
             {card.due_date && (
-              <span className="text-[10px] text-fg-tertiary shrink-0">
+              <span className="text-xs text-fg-tertiary shrink-0">
                 {card.due_date}
               </span>
             )}
             {card.weight > 1 && (
-              <span className="text-[10px] text-fg-secondary font-medium shrink-0" title={`Weight: ${card.weight}`}>
+              <span className="text-xs text-fg-secondary font-medium shrink-0" title={`Weight: ${card.weight}`}>
                 {card.weight}
               </span>
             )}
             {card.assignee && (
-              <span className="text-[10px] text-fg-tertiary shrink-0 truncate max-w-[5rem]" title={card.assignee.display_name}>
+              <span className="text-xs text-fg-tertiary shrink-0 truncate max-w-[5rem]" title={card.assignee.display_name}>
                 {card.assignee.display_name}
               </span>
             )}

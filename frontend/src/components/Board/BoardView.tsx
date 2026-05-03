@@ -1440,9 +1440,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "summary") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} />
-        </div>
+        </nav>
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
         </SectionErrorBoundary>
@@ -1453,9 +1453,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "history") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} />
-        </div>
+        </nav>
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
         </SectionErrorBoundary>
@@ -1466,9 +1466,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   if (view === "analytics") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border-b border-line shrink-0">
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
           <ViewToggle view={view} onChange={setView} />
-        </div>
+        </nav>
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
             boardId={board.id}

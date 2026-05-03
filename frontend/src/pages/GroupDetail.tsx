@@ -640,7 +640,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             <button
               onClick={handleStarToggle}
               disabled={starLoading}
-              className={`text-lg transition ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
+              className={`text-lg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
               title={isStarred ? "Unstar group" : "Star group"}
               aria-label={isStarred ? "Unstar group" : "Star group"}
             >

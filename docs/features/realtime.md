@@ -58,10 +58,10 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `card.archived` | Card archived via the Archive action |
 | `card.unarchived` | Card restored from the archived panel |
 
-`card.archived` payload — contains only the card ID (not the full card object):
+`card.archived` payload — contains only the card UID (not the full card object):
 
 ```json
-{ "event": "card.archived", "data": { "card_id": 101 } }
+{ "event": "card.archived", "data": { "card_uid": "3a9f1c2d7e4b8a05" } }
 ```
 
 `card.unarchived` payload — contains the full serialized card so the frontend can restore it to the board without an additional API call:
@@ -78,7 +78,6 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `column.updated` | Column renamed, recolored, or limits changed |
 | `column.deleted` | Column deleted |
 | `column.reordered` | Columns reordered by an admin (since 1.1) |
-| `columns.reordered` | Deprecated plural alias for `column.reordered`; removed in 2.0 |
 
 ### Swimlane events
 
@@ -88,7 +87,6 @@ The client reconnects automatically after 3 seconds if the connection drops. If 
 | `swimlane.updated` | Swimlane renamed, recolored, or collapsed state changed |
 | `swimlane.deleted` | Swimlane deleted |
 | `swimlane.reordered` | Swimlanes reordered by an admin (since 1.1) |
-| `swimlanes.reordered` | Deprecated plural alias for `swimlane.reordered`; removed in 2.0 |
 
 ### Label events
 
@@ -115,19 +113,19 @@ Every WebSocket message has this envelope:
 For most events, `data` is the full serialized object. Deletion and archive-removal events include only the ID:
 
 ```json
-{ "event": "card.deleted", "data": { "card_id": 101 } }
+{ "event": "card.deleted", "data": { "card_uid": "3a9f1c2d7e4b8a05" } }
 ```
 
 ```json
-{ "event": "column.deleted", "data": { "column_id": 5 } }
+{ "event": "column.deleted", "data": { "column_uid": "c1d2e3f4a5b67890" } }
 ```
 
 ```json
-{ "event": "swimlane.deleted", "data": { "swimlane_id": 3 } }
+{ "event": "swimlane.deleted", "data": { "swimlane_uid": "s9f8e7d6c5b4a321" } }
 ```
 
 ```json
-{ "event": "label.deleted", "data": { "label_id": 12 } }
+{ "event": "label.deleted", "data": { "label_uid": "l1a2b3c4d5e6f780" } }
 ```
 
 ```json
