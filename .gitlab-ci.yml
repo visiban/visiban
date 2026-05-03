@@ -1275,8 +1275,9 @@ docs-deploy:
         exit 0
       fi
       if echo "$VERSION" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-        mike deploy --push --update-aliases "$VERSION" latest
-        mike set-default --push latest
+        MINOR=$(echo "$VERSION" | grep -oE '^v?[0-9]+\.[0-9]+')
+        mike deploy --push --update-aliases "$VERSION" "${MINOR}" latest
+        mike set-default --push "${MINOR}"
       else
         mike deploy --push --update-aliases "$VERSION" next
       fi
