@@ -247,7 +247,7 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 Two new fields are visible directly on the card face without opening the detail panel:
 
 - **Weight** — shown in the card metadata row when the card's weight is above 1, letting you scan column budgets at a glance.
-- **Last moved** — a relative label (e.g. "moved yesterday", "moved 3 days ago") appears on cards not moved within the last 24 hours. Cards moved within 24 hours continue to show the existing blue-dot indicator. The label can be hidden per-board via **Board Settings → Card fields → Last moved**.
+- **Last moved** — a relative label (e.g. "moved yesterday", "moved 3 days ago") appears on cards not moved within the last 24 hours. Cards moved within 24 hours continue to show the existing blue-dot indicator. Card metadata visibility is controlled by the **Card density** setting in **Board Settings → Display**.
 
 → [Board & Cards — Cards](board.md#cards)
 

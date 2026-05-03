@@ -118,7 +118,7 @@ def run_smoke_test(
     if r.status_code not in (301, 302):
         raise AssertionError(
             f"Expected a redirect from the OIDC login endpoint; got {r.status_code}.\n"
-            "Is OIDC configured? (OIDC_CLIENT_ID, OIDC_SECRET, OIDC_SERVER_URL)\n"
+            "Is OIDC configured? (OIDC_CLIENT_ID, OIDC_CLIENT_SECRET, OIDC_SERVER_URL)\n"
             f"Response body (first 300 chars): {r.text[:300]}"
         )
     idp_auth_url = r.headers["Location"]

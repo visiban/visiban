@@ -94,6 +94,7 @@ nav:
     - Admin: api/admin.md
     - WebSockets: api/websockets.md
     - Health Checks: api/health.md
+    - Version: api/version.md
     - OpenAPI Spec: api/openapi.md
   - Architecture:
     - architecture/index.md

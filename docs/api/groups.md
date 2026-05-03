@@ -60,6 +60,17 @@ Delete a group. Requires group owner or site admin.
 ### `GET /api/v1/groups/{id}/members/`
 List group members. Requires group membership.
 
+**Response** — array of member objects:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer / null | Membership record ID. `null` for inherited members (access via ancestor group), for the group owner who has no explicit direct membership record, and for site admins. Callers must not assume this field is always an integer. |
+| `user` | object | `{ "id", "username", "display_name", "avatar_url" }` |
+| `role` | string | Effective role on this group: `admin`, `member`, `collaborator`, or `viewer` |
+| `joined_at` | string / null | ISO 8601 timestamp of when the membership was created; `null` for inherited members |
+| `is_inherited` | boolean | `true` when the member's access comes from a parent (ancestor) group rather than a direct membership on this group |
+| `inherited_from` | string / null | Display name of the ancestor group that grants access, when `is_inherited` is `true`; `null` otherwise |
+
 ### `PATCH /api/v1/groups/{id}/members/{user_id}/`
 Change a member's role. Requires group admin. Cannot modify a site admin.
 

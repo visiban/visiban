@@ -34,7 +34,7 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Delete attachments | ✓ | Own† | Own | — |
 | Add checklist items | ✓ | ✓ | ✓ | — |
 | Check / uncheck checklist items | ✓ | ✓ | ✓ | — |
-| Delete checklist items | ✓ | ✓ | ✓ | — |
+| Delete checklist items | ✓ | ✓ | Own‡ | — |
 | **Board structure** | | | | |
 | Create / edit / delete columns | ✓ | — | — | — |
 | Reorder columns | ✓ | — | — | — |
@@ -49,6 +49,8 @@ Visiban uses four board-level roles to control what each member can do on a boar
 | Delete board | ✓ (owner only) | — | — | — |
 
 **Own†** Members can only perform this action on content they created (cards they own, comments/attachments they uploaded). Members with the **moderator** entitlement — and admins — can perform it on any content.
+
+**Own‡** Collaborators can only delete checklist items they created. Admins and members (with moderator entitlement) may delete any item. Added in 1.1.
 
 **Mod†** This action requires the **moderator** entitlement or Admin role. Plain members who did not create the card cannot perform it, even on cards assigned to them. See [Moderator entitlement](#moderator-entitlement) below.
 

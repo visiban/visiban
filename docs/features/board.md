@@ -431,7 +431,7 @@ Admins can manage board members directly from the board toolbar via the **Member
 
 ## Real-time indicator
 
-The toolbar shows a pulsing green **Live** dot in the top-right area when the WebSocket connection is active. The dot is static and grey when disconnected. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
+The board toolbar shows a **ConnectionStatus** indicator in the top-right area. When the WebSocket connection is healthy the indicator is quiet — a small dot with the word "Live" (visible at wider viewports). When the connection is degraded or lost it becomes prominent: an amber pill for reconnecting or stale states, a red pill for a failed connection. Board state updates automatically when other users move cards or make changes. See [Real-time Updates](realtime.md).
 
 ## Activity drawer
 

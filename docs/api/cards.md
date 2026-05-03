@@ -346,7 +346,7 @@ Delete a comment. **Minimum role: Collaborator.** Collaborators may only delete 
 ## Attachments
 
 ### `GET /api/v1/boards/{board_id}/cards/{id}/attachments/`
-List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (relative URL), `uploaded_by` (user object), `uploaded_at`.
+List attachments. Response fields per attachment: `id`, `filename`, `size` (bytes), `url` (absolute URL — scheme + host + path, built from the request), `uploaded_by` (user object), `uploaded_at`.
 
 To download an attachment file, fetch its `url` URL with the same `Authorization` header used for API requests — attachments are served via the authenticated `/media/<path>` route. Unauthenticated requests and requests from users without board membership return `403 Forbidden`.
 
