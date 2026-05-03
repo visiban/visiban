@@ -19,6 +19,7 @@ from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
 
 from .. import broadcast as _broadcast
+from .. import hooks
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids, notify_new_mentions
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
@@ -318,6 +319,9 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = self._refetch_card_data(card)
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.created", card_data))
+            if hooks.CARD_MUTATION_HOOKS:
+                _h_cid, _h_bid, _h_aid = card.id, board.id, self.request.user.id
+                transaction.on_commit(lambda: [h("card.created", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
             if card.description:
                 # Notify any @mentioned board members in the initial description.
                 # Captured in local vars to avoid closure mutation after the lambda is registered.
@@ -336,9 +340,13 @@ class CardViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("You can only delete cards you created.")
         board_id = instance.board_id
         card_uid = instance.uid
+        card_id = instance.pk
         with transaction.atomic():
             instance.delete()
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_uid": card_uid}))
+            if hooks.CARD_MUTATION_HOOKS:
+                _h_cid, _h_bid, _h_aid = card_id, board_id, self.request.user.id
+                transaction.on_commit(lambda: [h("card.deleted", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
 
     @action(detail=True, methods=["get"], url_path="status")
     def card_status(self, request, board_pk=None, pk=None):
@@ -410,6 +418,9 @@ class CardViewSet(viewsets.ModelViewSet):
                     movement_type=CardMovement.MovementType.ARCHIVED,
                 )
                 transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_uid": card_uid}))
+                if hooks.CARD_MUTATION_HOOKS:
+                    _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
+                    transaction.on_commit(lambda: [h("card.archived", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             # Use the board already fetched by _board_and_role() — avoids a
@@ -476,6 +487,9 @@ class CardViewSet(viewsets.ModelViewSet):
                 transaction.on_commit(
                     lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data)
                 )
+                if hooks.CARD_MUTATION_HOOKS:
+                    _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
+                    transaction.on_commit(lambda: [h("card.restored", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             # Use the board already fetched by _board_and_role() — avoids a
@@ -659,6 +673,9 @@ class CardViewSet(viewsets.ModelViewSet):
             board_id = card.board_id
             card_data = self._refetch_card_data(card)
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
+            if hooks.CARD_MUTATION_HOOKS:
+                _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
+                transaction.on_commit(lambda: [h("card.updated", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(card_data)
 
     @action(detail=True, methods=["post"])
@@ -892,6 +909,9 @@ class CardViewSet(viewsets.ModelViewSet):
         # movement history without re-polling /movements/.
         broadcast_data = dict(response_data)
         transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.moved", broadcast_data))
+        if hooks.CARD_MUTATION_HOOKS:
+            _h_cid, _h_bid, _h_aid = card.id, board.id, request.user.id
+            transaction.on_commit(lambda: [h("card.moved", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(response_data)
 
     @action(detail=True, methods=["get"])

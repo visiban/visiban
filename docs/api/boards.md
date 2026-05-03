@@ -16,6 +16,7 @@ Create a board.
 | `description` | | Board description (default: `""`) |
 | `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. |
 | `swimlane_name` | | Name for the first swimlane (default: `"General"`) |
+| `group` | | Integer group ID — assigns the board to this group at creation time. The caller must be a group member. |
 
 ### `GET /api/v1/boards/{id}/`
 Get board summary. Response includes:
@@ -440,7 +441,7 @@ Return recent successful board exports for audit purposes (#842). Requires board
 ### `POST /api/v1/boards/import/`
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
 
-**Permission:** authenticated user. When `group_id` is set, the caller must be a member of that group; a non-member receives `403 Forbidden`.
+**Permission:** authenticated user. When `group_id` is set, the caller must be a member of that group (any role — viewer and above); a non-member receives `403 Forbidden`.
 
 **Request** (`multipart/form-data`)
 
@@ -448,7 +449,7 @@ Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-d
 |---|---|---|
 | `file` | ✓ | The JSON or CSV export file. Format is detected from the file contents. |
 | `name` | | Override the imported board name. |
-| `group_id` | | Place the imported board into this group. Requires group admin (see Permission above). |
+| `group_id` | | Place the imported board into this group. Requires group membership (any role). |
 
 **Response** `201 Created`
 
@@ -536,6 +537,7 @@ Revoke the public share token for the board. Requires board admin. All existing 
 ```json
 {
   "share_token": null,
+  "share_url": null,
   "share_token_expires_at": null
 }
 ```

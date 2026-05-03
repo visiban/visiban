@@ -11,12 +11,12 @@ Visiban uses WebSockets (Django Channels + Redis) to push board changes to all c
 
 ## Connection status
 
-The top-right corner of the board toolbar shows the connection state:
+The top-right corner of the board toolbar shows the connection state via the **ConnectionStatus** component. When healthy the indicator is intentionally quiet; it becomes prominent only when there is a problem:
 
-- 🟢 **Live** — WebSocket connected; dot pulses with a green animation
-- 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; dot pulses amber
+- 🟢 **Live** — WebSocket connected; bare dot with the word "Live" (label visible at wide viewports only — quiet by design)
+- 🟡 **Reconnecting…** — connection dropped; client is retrying automatically; amber pill with label always shown
 - 🟡 **Stale** — connected but no event has arrived in over 60 seconds; amber pill indicates the feed may be lagging
-- 🟡 **Connecting…** — initial connection attempt in progress
+- 🟡 **Connecting…** — initial connection attempt in progress; amber pill
 - 🔴 **Failed** — connection permanently failed (authentication error or repeated failures); red pill — reload the page to reconnect
 
 The client reconnects automatically after 3 seconds if the connection drops. If the server closes the connection with code `4001` (unauthenticated) or `4003` (unauthorized), no retry is attempted — the indicator switches directly to **Failed**.
@@ -177,6 +177,28 @@ The `card.moved` event includes both the updated card and the movement record �
 ```
 
 `movement` is `null` if only the position changed within the same column/swimlane cell (pure reorder — no column or swimlane change occurred).
+
+## Group real-time events
+
+> **Added in 1.1**
+
+In addition to the per-board channel, Visiban exposes a per-group WebSocket channel for clients that display the group detail page (board list, member list, live board creation).
+
+**Connection URL:** `ws://{host}/ws/groups/{group_id}/`
+
+**Authentication:** same as the board channel — session cookie required. Unauthenticated connections are closed with code `4001`; connections from users without group membership are closed with code `4003`. No retry is attempted for either code.
+
+**Events emitted on this channel:**
+
+| Event | Trigger |
+|---|---|
+| `board.created` | A new board is created inside this group |
+| `board.updated` | A board in this group has its name, settings, or group changed |
+| `board.deleted` | A board in this group is deleted |
+
+Each event payload follows the standard `{"event": "...", "data": {...}}` envelope. `board.deleted` includes `{"board_uid": "...", "board_id": N}` to allow clients to remove the board from their local list without a re-fetch. `board.created` and `board.updated` include the full board summary object.
+
+The group channel does not emit card-level events — those remain on the per-board channel.
 
 ## Requirements
 
