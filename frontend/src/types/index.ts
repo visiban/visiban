@@ -470,7 +470,6 @@ export interface GroupInviteLink {
   single_use: boolean;
   status: "pending" | "used" | "expired" | "revoked";
   used_at: string | null;
-  created_by_username: string | null;
 }
 
 /** Returned by POST and DELETE on /boards/<id>/share/.
