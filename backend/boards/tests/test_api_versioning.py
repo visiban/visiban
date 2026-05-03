@@ -8,11 +8,10 @@ Covers:
 
 from django.test import TestCase
 from rest_framework import status
-from rest_framework.test import APIClient, APIRequestFactory
+from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership
-from visiban.urls import UnsupportedVersionView
 
 
 class ApiVersioningTests(TestCase):
