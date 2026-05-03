@@ -1313,7 +1313,10 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_PERM_DENIED)
         serializer = CardChecklistSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        position = card.checklist_items.count()
+        # Read from the prefetch cache populated by the get_object_or_404
+        # call above (#995).  ``.count()`` always issues a fresh COUNT(*)
+        # and would defeat the prefetch that was the entire point of the fetch.
+        position = len(card.checklist_items.all())
         with transaction.atomic():
             item = serializer.save(card=card, position=position, created_by=request.user)
             CardActivity.objects.create(

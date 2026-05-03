@@ -10,6 +10,7 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from ..models import Notification
+from ..permissions import get_board_role
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -39,6 +40,29 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+def _filter_to_accessible_boards(notifications, user):
+    """Filter out notifications whose ``board`` the user no longer has access to (#987).
+
+    Notifications retain ``card_title`` / ``board_name`` for boards the user
+    was a member of when the notification was created.  If the user is later
+    removed from the board (and from any group that grants inherited access),
+    those fields would continue to surface board content the user has lost
+    access to.  This helper resolves the current role for each unique board
+    referenced in the list and drops notifications where access has been
+    revoked.
+
+    Per-request cost is one ``get_board_role`` call per *distinct* board in
+    the notification list — bounded by the [:50] cap on the calling queryset
+    and typically only a handful of distinct boards.
+    """
+    unique_boards = {n.board_id: n.board for n in notifications if n.board_id is not None}
+    accessible_ids = {
+        board_id for board_id, board in unique_boards.items()
+        if get_board_role(user, board) is not None
+    }
+    return [n for n in notifications if n.board_id is None or n.board_id in accessible_ids]
+
+
 class NotificationListView(APIView):
     """GET /api/notifications/ — last 50 notifications for current user"""
 
@@ -50,7 +74,8 @@ class NotificationListView(APIView):
 
     def get(self, request):
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related("card", "board")[:50]
-        return Response(NotificationSerializer(qs, many=True).data)
+        notifications = _filter_to_accessible_boards(list(qs), request.user)
+        return Response(NotificationSerializer(notifications, many=True).data)
 
 
 class NotificationMarkReadView(APIView):
@@ -81,5 +106,9 @@ class NotificationUnreadCountView(APIView):
     ]
 
     def get(self, request):
-        count = Notification.objects.filter(recipient=request.user, read=False).count()
+        # Filter to currently-accessible boards so the count stays in sync
+        # with the list endpoint (#987) — otherwise the bell would show a
+        # number the user can never reach by opening the dropdown.
+        qs = Notification.objects.filter(recipient=request.user, read=False).select_related("board")
+        count = len(_filter_to_accessible_boards(list(qs), request.user))
         return Response({"count": count})

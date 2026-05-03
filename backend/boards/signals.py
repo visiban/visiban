@@ -1,6 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+from accounts.models import User
 from .models import CardMovement, Card, Notification
 
 
@@ -25,10 +26,21 @@ def notify_on_card_moved(sender, instance, created, **kwargs):
         return
     # Use the denormalized to_column_name (migration 0016) — avoids a FK query.
     to_col = instance.to_column_name or "a new stage"
-    mover = instance.moved_by.username if instance.moved_by else "Someone"
+    # Resolve the mover username via a targeted PK fetch (#991).  The raw
+    # ``CardMovement`` instance delivered by ``post_save`` does not pre-load
+    # ``moved_by``; ``instance.moved_by.username`` would issue an extra lazy FK
+    # query on every notification path.  Fetch the bare username column so the
+    # query is as cheap as possible and the FK relation stays unused.
+    if instance.moved_by_id:
+        try:
+            mover = User.objects.only("username").get(pk=instance.moved_by_id).username
+        except User.DoesNotExist:
+            mover = "Someone"
+    else:
+        mover = "Someone"
     Notification.objects.create(
         recipient=card.assignee,
-        actor=instance.moved_by,
+        actor_id=instance.moved_by_id,
         action_type=Notification.ActionType.CARD_MOVED,
         verb=f"{mover} moved \"{card.title}\" to {to_col}",
         card=card,

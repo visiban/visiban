@@ -177,6 +177,80 @@ class NotificationListViewTests(TestCase):
         self.assertEqual(len(resp.data), 0)
 
 
+class NotificationAccessAfterRemovalTests(TestCase):
+    """Notifications referencing a board the user has lost access to must
+    not surface card_title / board_name on subsequent reads (#987).
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        # ``viewer`` was the recipient when the notification was created;
+        # ``other`` keeps owning the board so the board itself remains.
+        self.viewer = User.objects.create_user(username="ex_viewer", password="pass")
+        self.other = User.objects.create_user(username="board_owner", password="pass")
+        self.board, self.col, _, self.swim = make_board(self.other)
+        # Add the viewer as a member so a notification is legitimately created
+        # while they have access.
+        BoardMembership.objects.create(board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Pre-removal Card", created_by=self.other, position=0,
+        )
+        self.notification = Notification.objects.create(
+            recipient=self.viewer,
+            verb="You were assigned to Pre-removal Card",
+            board=self.board,
+            card=self.card,
+            action_type=Notification.ActionType.ASSIGNED,
+            read=False,
+        )
+
+    def test_notification_visible_while_member(self):
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.get("/api/v1/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["board_name"], "Test Board")
+        self.assertEqual(resp.data[0]["card_title"], "Pre-removal Card")
+
+    def test_notification_filtered_after_removal(self):
+        BoardMembership.objects.filter(board=self.board, user=self.viewer).delete()
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.get("/api/v1/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            len(resp.data), 0,
+            "Notification for a board the user no longer has access to must "
+            "be filtered from the list response (#987).",
+        )
+
+    def test_unread_count_filtered_after_removal(self):
+        BoardMembership.objects.filter(board=self.board, user=self.viewer).delete()
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.get("/api/v1/notifications/unread-count/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data["count"], 0,
+            "unread-count must match the list endpoint after access loss (#987).",
+        )
+
+    def test_global_notification_without_board_passes_through(self):
+        """Notifications with no board attached (e.g. account-level) are not affected."""
+        Notification.objects.create(
+            recipient=self.viewer,
+            verb="account verified",
+            action_type=Notification.ActionType.STALE,
+            read=False,
+            # board left null
+        )
+        BoardMembership.objects.filter(board=self.board, user=self.viewer).delete()
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.get("/api/v1/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]["verb"], "account verified")
+
+
 class CardAssignmentNotificationTests(TestCase):
     def setUp(self):
         self.client = APIClient()

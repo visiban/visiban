@@ -268,3 +268,46 @@ class ShareTokenInBoardFullTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("share_token", r.data)
         self.assertIsNone(r.data["share_token"])
+
+
+class ShareLinkTokenThrottleTests(TestCase):
+    """ShareLinkTokenThrottle is keyed on the URL token segment (#988)."""
+
+    def test_get_cache_key_uses_url_token(self):
+        from boards.views.share import ShareLinkTokenThrottle
+
+        throttle = ShareLinkTokenThrottle()
+        # Distinct tokens must produce distinct cache keys so rate limits
+        # do not collide across share links.
+        view_a = type("V", (), {"kwargs": {"token": "aaa"}})()
+        view_b = type("V", (), {"kwargs": {"token": "bbb"}})()
+        request = type("R", (), {})()
+
+        key_a = throttle.get_cache_key(request, view_a)
+        key_b = throttle.get_cache_key(request, view_b)
+
+        self.assertIsNotNone(key_a)
+        self.assertIsNotNone(key_b)
+        self.assertNotEqual(key_a, key_b)
+        self.assertIn("aaa", key_a)
+        self.assertIn("bbb", key_b)
+        self.assertIn("share_link_token", key_a)
+
+    def test_get_cache_key_returns_none_when_no_token(self):
+        """A view without a token in kwargs (defensive guard) must return None
+        so the throttle silently no-ops rather than rate-limiting on an empty key.
+        """
+        from boards.views.share import ShareLinkTokenThrottle
+
+        throttle = ShareLinkTokenThrottle()
+        view = type("V", (), {"kwargs": {}})()
+        request = type("R", (), {})()
+        self.assertIsNone(throttle.get_cache_key(request, view))
+
+    def test_share_view_registers_both_throttles(self):
+        from boards.views.share import ShareBoardView, ShareLinkThrottle, ShareLinkTokenThrottle
+
+        # Both the per-IP and per-token throttles must apply so the per-token
+        # bound holds when an attacker rotates source IPs.
+        self.assertIn(ShareLinkThrottle, ShareBoardView.throttle_classes)
+        self.assertIn(ShareLinkTokenThrottle, ShareBoardView.throttle_classes)
