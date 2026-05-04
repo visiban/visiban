@@ -218,7 +218,7 @@ describe('FilterBar — dropdown ARIA attributes', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
     // "Assignee" is rendered as a CheckboxDropdown
     const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
-    expect(trigger).toHaveAttribute('aria-haspopup', 'true')
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
