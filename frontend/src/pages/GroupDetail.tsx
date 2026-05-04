@@ -215,6 +215,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         setBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
         setSubgroupBoards((prev) => prev.map((b) => (b.uid === targetUid ? { ...b, is_starred: nextStarred } : b)));
       }
+    } else if (evt.event === "group.star_changed") {
+      // Mirror board.star_changed pattern — only apply the event for the current user.
+      const payload = data as { id?: number; user_id?: number; is_starred?: boolean };
+      if (typeof payload.user_id === "number" && payload.user_id === user.id && payload.id === groupId) {
+        setIsStarred(!!payload.is_starred);
+      }
     }
   }, [captureFocusedBoardId, flagAnimate, groupId, user.id]);
 

@@ -164,9 +164,11 @@ class CardActivitySerializer(serializers.ModelSerializer):
 
 
 class CardChecklistSerializer(serializers.ModelSerializer):
+    created_by = BoardUserSerializer(read_only=True)
+
     class Meta:
         model = CardChecklist
-        fields = ["id", "text", "is_checked", "position"]
+        fields = ["id", "text", "is_checked", "position", "created_by"]
 
 
 def _annotate_is_stale(qs, stale_cutoff):
@@ -231,7 +233,7 @@ def _card_queryset(qs, stale_cutoff=None):
         .prefetch_related(
             "labels",
             "attachments",
-            "checklist_items",
+            Prefetch("checklist_items", queryset=CardChecklist.objects.select_related("created_by")),
             Prefetch(
                 "movements",
                 queryset=_CM.objects.select_related(
