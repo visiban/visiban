@@ -77,6 +77,7 @@ function ColumnTrashZone() {
   return (
     <div
       ref={setNodeRef}
+      aria-label="Drop here to delete column"
       className={`w-20 shrink-0 flex items-center justify-center px-2 border-l transition-colors ${
         isOver
           ? "bg-danger/50 border-danger/60"
@@ -1803,7 +1804,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </>
       )}
       {filteredCardIds !== null && filteredCardIds.size === 0 && (
-        <div className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
+        <div role="status" className="mx-4 mt-2 px-4 py-2 bg-surface border border-line rounded-lg text-fg-tertiary text-sm">
           No cards match the active filters.
         </div>
       )}

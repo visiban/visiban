@@ -133,7 +133,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
           {cardCount}
         </span>
         {(overWip || overWeight) && (
-          <span aria-hidden="true" className={`text-[10px] leading-none ${overWip ? "text-danger" : "text-warning"}`}>⚠</span>
+          <span aria-hidden="true" className={`text-xs leading-none ${overWip ? "text-danger" : "text-warning"}`}>⚠</span>
         )}
         <span
           className="text-[11px] font-bold text-fg-tertiary tracking-widest flex-1 flex items-center"

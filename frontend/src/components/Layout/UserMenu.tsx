@@ -113,7 +113,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
             tabIndex={-1}
             onClick={() => onOpenChange(false)}
             onKeyDown={(e) => onItemKeyDown(e, 0)}
-            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:bg-surface-hover focus:text-fg"
+            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:bg-surface-hover focus:text-fg"
           >
             <span aria-hidden="true" className="w-4 text-center flex-shrink-0">⚙</span>
             <span className="flex-1 truncate">Profile &amp; preferences</span>
@@ -128,7 +128,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
             onClick={!onBoardPage ? undefined : handleOpenShortcuts}
             onKeyDown={(e) => onItemKeyDown(e, 1)}
             title={onBoardPage ? undefined : "Keyboard shortcuts are available while viewing a board"}
-            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary transition focus:outline-none focus:bg-surface-hover focus:text-fg ${!onBoardPage ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-hover hover:text-fg"}`}
+            className={`w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:bg-surface-hover focus:text-fg ${!onBoardPage ? "opacity-40 cursor-not-allowed" : "hover:bg-surface-hover hover:text-fg"}`}
           >
             <span aria-hidden="true" className="w-4 text-center flex-shrink-0">⌨</span>
             <span className="flex-1 truncate">Keyboard shortcuts</span>
@@ -143,7 +143,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
             tabIndex={-1}
             onClick={() => onOpenChange(false)}
             onKeyDown={(e) => onItemKeyDown(e, 2)}
-            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:bg-surface-hover focus:text-fg"
+            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:bg-surface-hover focus:text-fg"
           >
             <span aria-hidden="true" className="w-4 text-center flex-shrink-0">❓</span>
             <span className="flex-1 truncate">Help &amp; docs</span>

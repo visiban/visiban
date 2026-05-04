@@ -368,15 +368,15 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <div className="flex items-center gap-0.5 mt-1 px-1 min-w-0">
               <button
                 onClick={onClose}
-                className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
+                className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
                 title={swimlane?.name}
               >
                 {swimlane?.name}
               </button>
-              <span className="text-[11px] text-fg-faint mx-1 shrink-0">›</span>
+              <span className="text-xs text-fg-faint mx-1 shrink-0">›</span>
               <button
                 onClick={onClose}
-                className="text-[11px] text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
+                className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded truncate max-w-[10rem]"
                 title={column?.name}
               >
                 {column?.name}
@@ -426,7 +426,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0"
+            className="w-7 h-7 flex items-center justify-center rounded text-fg-tertiary hover:text-fg hover:bg-surface-hover transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             title="Close"
           >×</button>
         </div>
@@ -455,7 +455,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Description */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Description</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Description</p>
                 <RichTextEditor
                   value={localCard.description ?? ""}
                   onSave={(md) => {
@@ -476,7 +476,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               {/* Assignee + Due date */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Assignee</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Assignee</p>
                   <SelectDropdown
                     value={String(localCard.assignee?.id ?? "")}
                     onChange={(v) => {
@@ -498,7 +498,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   />
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Due date</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Due date</p>
                   {/* The native <input type="date"> always displays in the browser's locale
                       format (e.g. mm/dd/yyyy on en-US) regardless of user settings.
                       When a date is already set, overlay an invisible native input over a
@@ -542,7 +542,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         </div>
                         <button
                           onClick={() => { setLocalCard((c) => ({ ...c, due_date: null })); save({ due_date: null }).catch(() => {}); }}
-                          className="text-fg-faint hover:text-danger transition text-xs shrink-0"
+                          className="text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           title="Clear due date"
                         >
                           ✕
@@ -584,7 +584,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Priority */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Priority</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Priority</p>
                 <div className="flex gap-1.5">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <button
@@ -605,7 +605,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Labels */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Labels</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Labels</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allLabels.map((label) => {
                     const active = localCard.labels.some((l) => l.id === label.id);
@@ -649,12 +649,12 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           ))}
                         </div>
                         {!newLabelName.trim() && (
-                          <span className="text-[10px] text-fg-muted">type a name first</span>
+                          <span className="text-xs text-fg-muted">type a name first</span>
                         )}
                         <button onClick={() => { setAddingLabel(false); setLabelError(null); }} className="text-xs text-fg-muted hover:text-fg-secondary transition">✕</button>
                       </div>
                       {labelError && (
-                        <p className="text-[10px] text-danger mt-0.5">{labelError}</p>
+                        <p className="text-xs text-danger mt-0.5">{labelError}</p>
                       )}
                     </div>
                   ) : canManageLabels ? (
@@ -670,7 +670,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Weight */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Weight</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-1.5">Weight</p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
@@ -703,7 +703,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   className="flex items-center justify-between w-full mb-2 group/cl"
                   onClick={() => setChecklistOpen((o) => !o)}
                 >
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                     Checklist
                     {checklist.length > 0 && (
                       <span className="ml-1.5 normal-case font-normal text-fg-muted">{checklist.filter((i) => i.is_checked).length}/{checklist.length}</span>
@@ -735,10 +735,10 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <span className={`text-sm flex-1 ${item.is_checked ? "line-through text-fg-faint" : "text-fg-secondary"}`}>
                             {item.text}
                           </span>
-                          {canComment && (
+                          {(canEdit || (role === "collaborator" && currentUser != null && item.created_by?.id === currentUser.id)) && (
                             <button
                               onClick={() => handleDeleteChecklistItem(item.id)}
-                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded"
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                               title="Remove item"
                             >
                               ✕
@@ -760,7 +760,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     />
                     <button
                       onClick={() => { setBulkText(""); setShowBulkAdd(true); }}
-                      className="text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition"
+                      className="text-sm text-info hover:text-info font-medium px-2 whitespace-nowrap transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     >
                       Bulk
                     </button>
@@ -770,7 +770,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 {showBulkAdd && (
                   <div className="fixed inset-0 z-[60] flex items-center justify-center">
                     <div className="absolute inset-0 bg-backdrop/40" onClick={() => setShowBulkAdd(false)} />
-                    <div className="relative bg-surface rounded-xl shadow-2xl w-80 p-5 flex flex-col gap-4">
+                    <div className="relative bg-surface border border-line rounded-lg shadow-xl w-80 p-5 flex flex-col gap-4">
                       <h3 className="text-sm font-semibold text-fg">Add checklist items</h3>
                       <p className="text-xs text-fg-muted -mt-2">One item per line</p>
                       <textarea
@@ -800,7 +800,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     className="flex items-center gap-1.5 group/att"
                     onClick={() => setAttachmentsOpen((o) => !o)}
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
                       Attachments{attachments.length > 0 && <span className="ml-1.5 normal-case font-normal text-fg-muted">({attachments.length})</span>}
                     </p>
                     <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/att:text-fg-tertiary transition-transform ${attachmentsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
@@ -850,7 +850,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         {canDeleteAttachment(a) && (
                           <button
                             onClick={() => handleDeleteAttachment(a.id)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded"
+                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                             title="Delete"
                           >✕</button>
                         )}
@@ -865,7 +865,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
 
               {/* Comments */}
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-muted mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted mb-3">
                   Comments {comments.length > 0 && <span className="normal-case font-normal text-fg-muted">({comments.length})</span>}
                 </p>
                 <div className="flex flex-col gap-3 mb-3">
@@ -877,20 +877,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-fg-secondary">{authorName}</span>
-                            <span className="text-[10px] text-fg-muted" title={formatDateTimeUser(c.created_at, currentUser)}>{formatCommentTime(c.created_at, currentUser)}</span>
+                            <span className="text-xs text-fg-muted" title={formatDateTimeUser(c.created_at, currentUser)}>{formatCommentTime(c.created_at, currentUser)}</span>
                             {canDeleteComment(c) && (
                               confirmDeleteCommentId === c.id ? (
                                 <div className="ml-auto flex items-center gap-1">
-                                  <span className="text-[10px] text-danger">Delete?</span>
+                                  <span className="text-xs text-danger">Delete?</span>
                                   <button
                                     onClick={() => handleDeleteComment(c.id)}
-                                    className="text-[10px] text-danger hover:text-danger font-medium focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1"
+                                    className="text-xs text-danger hover:text-danger font-medium focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
                                   >
                                     Yes
                                   </button>
                                   <button
                                     onClick={() => setConfirmDeleteCommentId(null)}
-                                    className="text-[10px] text-fg-muted hover:text-fg-secondary focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1"
+                                    className="text-xs text-fg-muted hover:text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1"
                                   >
                                     No
                                   </button>

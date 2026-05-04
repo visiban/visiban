@@ -61,7 +61,7 @@ export default function CheckboxDropdown<T extends string | number>({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
         className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
