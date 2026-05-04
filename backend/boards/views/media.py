@@ -16,10 +16,11 @@ from ..permissions import get_board_role
 class ServeMediaView(APIView):
     """Serve uploaded attachment files with authentication and board-membership checks.
 
-    In production, Django authenticates the request and confirms board membership,
-    then delegates the actual file transfer to Nginx via X-Accel-Redirect (zero
-    Python I/O overhead). In development (DEBUG=True), Django serves the file
-    directly so the stack works without Nginx.
+    Django authenticates the request and confirms board membership, then either
+    delegates the actual file transfer to Nginx via X-Accel-Redirect (zero Python
+    I/O overhead — used when ``USE_X_ACCEL_REDIRECT`` is true) or streams the
+    bytes directly via FileResponse (used in development and on the Helm chart,
+    where the Nginx pod does not mount the media PVC).
 
     This replaces the unauthenticated /media/ Nginx proxy — see nginx/app.conf.template.
     Any request that reaches this view but cannot be matched to a known attachment
@@ -79,16 +80,17 @@ class ServeMediaView(APIView):
             safe_name = safe_name.translate({ord("\r"): None, ord("\n"): None, ord("\x00"): None}) or "attachment"
             disposition = f'attachment; filename="{safe_name}"'
 
-        if django_settings.DEBUG:
-            # Development: serve the file directly through Django. Not used in
-            # production where Nginx handles the transfer via X-Accel-Redirect.
+        if not getattr(django_settings, "USE_X_ACCEL_REDIRECT", not django_settings.DEBUG):
+            # Stream the file body through Django when X-Accel-Redirect is
+            # disabled — used in development and on Helm deployments where the
+            # frontend Nginx pod does not mount the media PVC.
             from django.http import FileResponse, Http404
             import os
             # Defense-in-depth: the CardAttachment lookup above already binds
             # `path` to a DB row so an attacker cannot request arbitrary files,
             # but resolve and verify the path is contained within MEDIA_ROOT
             # before opening so a future regression in upload sanitization
-            # cannot escalate into a read primitive on the dev server.
+            # cannot escalate into a read primitive.
             media_root = os.path.realpath(django_settings.MEDIA_ROOT)
             resolved = os.path.realpath(os.path.join(media_root, path))
             if os.path.commonpath([media_root, resolved]) != media_root:

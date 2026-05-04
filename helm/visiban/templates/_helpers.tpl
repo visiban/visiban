@@ -93,3 +93,53 @@ Database URL — built from postgresql subchart or externalDatabase values.
 {{- printf "postgres://%s:%s@%s:%d/%s" .Values.externalDatabase.username .Values.externalDatabase.password .Values.externalDatabase.host (.Values.externalDatabase.port | int) .Values.externalDatabase.database }}
 {{- end }}
 {{- end }}
+
+{{/*
+Name of the bootstrap Secret consumed by the pre-upgrade migrate Job. Carries
+the same data as the runtime Secret but is rendered via a hook so it lands
+before the migrate Job runs — a regular Secret resource is reconciled only
+after the hook completes, so a SECRET_KEY rotation in the same upgrade would
+otherwise leave the migrate Job reading the previous value.
+*/}}
+{{- define "visiban.bootstrapSecretName" -}}
+{{- if .Values.secret.existingSecret -}}
+{{- .Values.secret.existingSecret -}}
+{{- else -}}
+{{- printf "%s-bootstrap" (include "visiban.fullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Name of the Secret containing the SMTP password — the operator-supplied one
+when backend.email.existingSecret is set, otherwise the chart-managed Secret.
+*/}}
+{{- define "visiban.emailSecretName" -}}
+{{- if .Values.backend.email.existingSecret -}}
+{{- .Values.backend.email.existingSecret -}}
+{{- else -}}
+{{- include "visiban.secretName" . -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Shared key/value body for the runtime Secret and the bootstrap hook Secret.
+Both must contain identical data so the migrate Job and the backend Deployment
+read the same credentials in any single upgrade.
+*/}}
+{{- define "visiban.secretData" -}}
+django-secret-key: {{ .Values.secret.djangoSecretKey | quote }}
+database-url: {{ include "visiban.databaseUrl" . | quote }}
+google-client-id: {{ .Values.backend.oauth.google.clientId | quote }}
+google-client-secret: {{ .Values.backend.oauth.google.clientSecret | quote }}
+github-client-id: {{ .Values.backend.oauth.github.clientId | quote }}
+github-client-secret: {{ .Values.backend.oauth.github.clientSecret | quote }}
+gitlab-client-id: {{ .Values.backend.oauth.gitlab.clientId | quote }}
+gitlab-client-secret: {{ .Values.backend.oauth.gitlab.clientSecret | quote }}
+{{- if .Values.backend.oauth.oidc.serverUrl }}
+oidc-client-id: {{ .Values.backend.oauth.oidc.clientId | quote }}
+oidc-client-secret: {{ .Values.backend.oauth.oidc.clientSecret | quote }}
+{{- end }}
+{{- if and (eq .Values.backend.email.backend "smtp") (not .Values.backend.email.existingSecret) }}
+{{ .Values.backend.email.passwordKey | default "email-password" }}: {{ .Values.backend.email.password | quote }}
+{{- end }}
+{{- end }}

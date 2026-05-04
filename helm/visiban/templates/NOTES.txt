@@ -14,21 +14,23 @@ Visiban has been deployed!
 3. Run database migrations (handled automatically by a pre-install/pre-upgrade
    Job on every release — see `kubectl get jobs -l app.kubernetes.io/component=migrate`).
 
-4. Django admin — access via port-forward to the backend service:
-  kubectl port-forward svc/{{ include "visiban.fullname" . }}-backend 8000:8000
-  # Then open http://localhost:8000/admin/
+4. Django admin — by default restricted to loopback only. Either:
+   - Port-forward: kubectl port-forward svc/{{ include "visiban.fullname" . }}-backend 8000:8000
+   - Or set backend.settings.adminAllowedIPs to a comma-separated CIDR list.
 
 {{- if .Values.backend.mediaPersistence.enabled }}
 
 5. Media uploads are stored on a {{ .Values.backend.mediaPersistence.size }} PVC
-   ({{ include "visiban.fullname" . }}-media). Both the backend and frontend pods
-   mount this volume. If they run on different nodes, use a ReadWriteMany (RWX)
-   storage class or a pod affinity rule to co-locate them.
+   ({{ include "visiban.fullname" . }}-media). Only the backend pod mounts this
+   volume; attachment downloads are streamed through Django, so a ReadWriteOnce
+   storage class is fine for a single-replica backend. For HA (backendReplicaCount > 1)
+   use a ReadWriteMany (RWX) storage class.
 {{- end }}
 
 IMPORTANT: Change the default secret values before going to production:
   --set secret.djangoSecretKey=<strong-random-key>
   --set postgresql.auth.password=<strong-password>
+  --set backend.email.fromAddress=<noreply@yourdomain>
 
 {{- $backendTag := .Values.backend.image.tag | toString }}
 {{- $frontendTag := .Values.frontend.image.tag | toString }}
@@ -45,5 +47,34 @@ WARNING: Unpinned image tag detected.
   Deploying with an empty tag or "latest" is not reproducible — pod restarts
   may pull a different image than the one you validated, and rollbacks cannot
   recover a known-good state. Always pin to a specific release tag such as
-  "v1.0.0". See docs/getting-started/kubernetes.md for upgrade guidance.
+  "v1.1.0". See docs/getting-started/kubernetes.md for upgrade guidance.
+{{- end }}
+
+{{- $placeholders := list }}
+{{- if contains "visiban.example.com" .Values.backend.settings.frontendUrl }}{{- $placeholders = append $placeholders "backend.settings.frontendUrl" }}{{- end }}
+{{- if contains "visiban.example.com" .Values.backend.settings.corsAllowedOrigins }}{{- $placeholders = append $placeholders "backend.settings.corsAllowedOrigins" }}{{- end }}
+{{- if contains "visiban.example.com" .Values.backend.settings.siteDomain }}{{- $placeholders = append $placeholders "backend.settings.siteDomain" }}{{- end }}
+{{- if $placeholders }}
+
+WARNING: Placeholder values still in use:
+{{- range $placeholders }}
+  - {{ . }}
+{{- end }}
+  These default to "visiban.example.com" and won't fail Django startup, but
+  OAuth redirects, CSRF, and CORS will misbehave. Set them to your real domain.
+{{- end }}
+
+{{- if and (gt (int .Values.backendReplicaCount) 1) (has "ReadWriteOnce" .Values.backend.mediaPersistence.accessModes) }}
+
+WARNING: backendReplicaCount > 1 with mediaPersistence.accessModes = [ReadWriteOnce].
+  RWO PVCs cannot be mounted by pods on different nodes. Either set
+  mediaPersistence.accessModes to [ReadWriteMany] (with a storage class that
+  supports it) or constrain backend pods to one node via affinity.
+{{- end }}
+
+{{- if and (eq .Values.backend.email.backend "console") (not .Values.backend.email.host) }}
+
+NOTE: Email backend is "console" — outgoing emails are written to the backend
+  pod's stdout instead of being delivered. Suitable for staging or air-gapped
+  clusters; configure backend.email.* with real SMTP values for production.
 {{- end }}

@@ -2,8 +2,8 @@ apiVersion: v2
 name: visiban
 description: Self-hosted Kanban board with customer swimlanes and card movement audit trail
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
+version: 0.2.0
+appVersion: "1.1.0"
 
 dependencies:
   - name: postgresql

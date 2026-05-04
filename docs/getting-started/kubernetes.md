@@ -36,12 +36,23 @@ Edit `values.secret.yaml` with strong random values:
 
 ```yaml
 secret:
-  djangoSecretKey: ""  # python -c "import secrets; print(secrets.token_urlsafe(50))"
+  djangoSecretKey: ""  # python3 -c "import secrets; print(secrets.token_hex(50))"
 
 postgresql:
   auth:
     password: ""  # strong random password
+
+backend:
+  email:
+    host: "smtp.yourprovider.com"
+    port: 587
+    user: "smtp-username"
+    password: ""           # SMTP password
+    fromAddress: "noreply@yourdomain.com"
+    useTls: true
 ```
+
+The `backend.email.*` block is required when sending password-reset and email-verification messages. To skip SMTP entirely (logs emails to stdout), set `backend.email.backend=console` and leave the other fields blank.
 
 !!! warning "Never commit `values.secret.yaml`"
     This file is gitignored. Keep secrets out of shell history — always use `-f values.secret.yaml` instead of `--set secret.djangoSecretKey=...`. The `--set` flag leaks values to shell history (`~/.bash_history`), `/proc/*/cmdline`, and process listings visible to other users on the host.
@@ -288,17 +299,31 @@ helm upgrade visiban helm/visiban \
 
 Init containers run `migrate` before the new backend pod becomes ready, so migrations are applied automatically. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
 
+!!! note "Rotating `secret.djangoSecretKey` in-flight"
+    Since chart 0.2.0 the migrate Job reads from a hook-managed bootstrap Secret that lands ahead of the runtime Secret, so a `--set-string secret.djangoSecretKey=...` override applied during `helm upgrade` takes effect for that same upgrade. Earlier chart versions required patching the live Secret out of band before running `helm upgrade`.
+
 !!! warning "Always pin the image tag"
     The chart defaults `backend.image.tag` and `frontend.image.tag` to the current release (e.g. `v1.0.0`). **Never deploy with `tag: "latest"` or an empty tag** — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (`v1.0.0`, `v1.1.0`, etc.), or to an image digest (`sha256:...`) for maximum reproducibility. The chart prints a warning in `helm install` / `helm upgrade` output when it detects an unpinned tag.
 
 ## Django admin access
 
-The Django admin panel (`/admin/`) is restricted to loopback at the Nginx layer. Access it via port-forward:
+The Django admin panel (`/admin/`) is restricted to loopback at both the Nginx and Django layers. Two access patterns:
+
+**Port-forward (default)** — for occasional access from a single workstation:
 
 ```bash
 kubectl port-forward -n visiban svc/visiban-backend 8000:8000
 # Then open http://localhost:8000/admin/
 ```
+
+**IP allowlist** — for persistent access from a bastion or VPN range, set `backend.settings.adminAllowedIPs` to a comma-separated list of CIDRs:
+
+```bash
+helm upgrade visiban helm/visiban --reuse-values \
+  --set backend.settings.adminAllowedIPs="10.0.0.0/8,192.168.42.0/24"
+```
+
+The allowlist is enforced by both the frontend Nginx config and the Django `AdminAllowedIPsMiddleware` for defense in depth.
 
 ## Uninstalling
 
