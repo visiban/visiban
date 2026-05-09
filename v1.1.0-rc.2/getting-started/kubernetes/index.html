@@ -2837,12 +2837,22 @@
 </code></pre></div>
 <p>Edit <code>values.secret.yaml</code> with strong random values:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">secret</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">djangoSecretKey</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">  </span><span class="c1"># python -c &quot;import secrets; print(secrets.token_urlsafe(50))&quot;</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">djangoSecretKey</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">  </span><span class="c1"># python3 -c &quot;import secrets; print(secrets.token_hex(50))&quot;</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">postgresql</span><span class="p">:</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">auth</span><span class="p">:</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">  </span><span class="c1"># strong random password</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">email</span><span class="p">:</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smtp.yourprovider.com&quot;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">587</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="nt">user</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smtp-username&quot;</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span><span class="w">           </span><span class="c1"># SMTP password</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">    </span><span class="nt">fromAddress</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;noreply@yourdomain.com&quot;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="nt">useTls</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
+<p>The <code>backend.email.*</code> block is required when sending password-reset and email-verification messages. To skip SMTP entirely (logs emails to stdout), set <code>backend.email.backend=console</code> and leave the other fields blank.</p>
 <div class="admonition warning">
 <p class="admonition-title">Never commit <code>values.secret.yaml</code></p>
 <p>This file is gitignored. Keep secrets out of shell history — always use <code>-f values.secret.yaml</code> instead of <code>--set secret.djangoSecretKey=...</code>. The <code>--set</code> flag leaks values to shell history (<code>~/.bash_history</code>), <code>/proc/*/cmdline</code>, and process listings visible to other users on the host.</p>
@@ -3093,20 +3103,30 @@
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.1.0
 </code></pre></div>
 <p>Init containers run <code>migrate</code> before the new backend pod becomes ready, so migrations are applied automatically. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback procedures.</p>
+<div class="admonition note">
+<p class="admonition-title">Rotating <code>secret.djangoSecretKey</code> in-flight</p>
+<p>Since chart 0.2.0 the migrate Job reads from a hook-managed bootstrap Secret that lands ahead of the runtime Secret, so a <code>--set-string secret.djangoSecretKey=...</code> override applied during <code>helm upgrade</code> takes effect for that same upgrade. Earlier chart versions required patching the live Secret out of band before running <code>helm upgrade</code>.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">Always pin the image tag</p>
 <p>The chart defaults <code>backend.image.tag</code> and <code>frontend.image.tag</code> to the current release (e.g. <code>v1.0.0</code>). <strong>Never deploy with <code>tag: "latest"</code> or an empty tag</strong> — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (<code>v1.0.0</code>, <code>v1.1.0</code>, etc.), or to an image digest (<code>sha256:...</code>) for maximum reproducibility. The chart prints a warning in <code>helm install</code> / <code>helm upgrade</code> output when it detects an unpinned tag.</p>
 </div>
 <h2 id="django-admin-access">Django admin access<a class="headerlink" href="#django-admin-access" title="Permanent link">&para;</a></h2>
-<p>The Django admin panel (<code>/admin/</code>) is restricted to loopback at the Nginx layer. Access it via port-forward:</p>
+<p>The Django admin panel (<code>/admin/</code>) is restricted to loopback at both the Nginx and Django layers. Two access patterns:</p>
+<p><strong>Port-forward (default)</strong> — for occasional access from a single workstation:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>svc/visiban-backend<span class="w"> </span><span class="m">8000</span>:8000
 <a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># Then open http://localhost:8000/admin/</span>
 </code></pre></div>
+<p><strong>IP allowlist</strong> — for persistent access from a bastion or VPN range, set <code>backend.settings.adminAllowedIPs</code> to a comma-separated list of CIDRs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.adminAllowedIPs<span class="o">=</span><span class="s2">&quot;10.0.0.0/8,192.168.42.0/24&quot;</span>
+</code></pre></div>
+<p>The allowlist is enforced by both the frontend Nginx config and the Django <code>AdminAllowedIPsMiddleware</code> for defense in depth.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
 <p>This removes all Kubernetes resources created by the chart. <strong>PersistentVolumeClaims are not deleted</strong> — delete them manually if you want to remove all data:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
 </code></pre></div>
 
 
