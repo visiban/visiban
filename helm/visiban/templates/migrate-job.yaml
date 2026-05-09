@@ -7,8 +7,12 @@ locks alone are not enough to guarantee safety for concurrent DDL.
 
 The Job is re-created on every release (hook-delete-policy: before-hook-creation)
 so a failed previous migration does not block the next attempt. `hook-weight: 0`
-ensures it runs before any other hook; the backend Deployment starts only after
-this Job completes successfully.
+runs after the bootstrap Secret hook (weight -10) but before the rest of the
+release; the backend Deployment starts only after this Job completes.
+
+Reads from the bootstrap Secret (visiban.bootstrapSecretName) — not the runtime
+Secret — so a SECRET_KEY rotation applied with the same `helm upgrade` is in
+effect when the migrations run. See secret-bootstrap.yaml for the rationale.
 */ -}}
 apiVersion: batch/v1
 kind: Job
@@ -38,6 +42,6 @@ spec:
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           command: ["python", "manage.py", "migrate", "--noinput"]
           env:
-            {{- include "visiban.backendEnv" . | nindent 12 }}
+            {{- include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName" (include "visiban.bootstrapSecretName" .)) | nindent 12 }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}

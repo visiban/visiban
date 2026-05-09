@@ -1,0 +1,6 @@
+{{- /*
+No-op template that invokes visiban.validate so the chart fails-fast on
+placeholder values during render. The partial emits no YAML — only `fail` —
+so this file produces no Kubernetes resources.
+*/ -}}
+{{- include "visiban.validate" . -}}

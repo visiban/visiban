@@ -4,9 +4,11 @@ ServeMediaView must:
 1. Reject non-members with 404 (not 403, to avoid leaking file existence).
 2. Reject path traversal attempts.
 3. Allow board members to access their board's attachments.
+4. Honor USE_X_ACCEL_REDIRECT — when false, stream the body via FileResponse;
+   when true, emit X-Accel-Redirect for Nginx.
 """
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -170,3 +172,46 @@ class ServeMediaContentDispositionTests(TestCase):
         self.assertIn("attachment", disposition)
         self.assertNotIn('"evil"name', disposition,
             "Bare double-quote inside filename value must be escaped/replaced")
+
+
+class ServeMediaXAccelRedirectTests(TestCase):
+    """USE_X_ACCEL_REDIRECT toggle (#1038): pick the right delivery path.
+
+    The Helm chart sets USE_X_ACCEL_REDIRECT=false because the frontend Nginx
+    pod does not mount the media PVC; in that mode Django must stream the file
+    body via FileResponse. The docker-compose deployment leaves it true so
+    Nginx serves the file via the X-Accel-Redirect handoff.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner_xa", password="pass")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", priority="medium", position=0, created_by=self.owner,
+        )
+        f = SimpleUploadedFile("a.png", b"\x89PNG\r\n\x1a\n", content_type="image/png")
+        self.attachment = CardAttachment.objects.create(
+            card=self.card, file=f, filename="a.png", size=8, uploaded_by=self.owner,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    @override_settings(DEBUG=False, USE_X_ACCEL_REDIRECT=True)
+    def test_x_accel_redirect_emitted_when_flag_true(self):
+        r = self.client.get(f"/media/{self.attachment.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            r.get("X-Accel-Redirect"),
+            f"/protected-media/{self.attachment.file.name}",
+        )
+
+    @override_settings(DEBUG=False, USE_X_ACCEL_REDIRECT=False)
+    def test_file_body_streamed_when_flag_false(self):
+        r = self.client.get(f"/media/{self.attachment.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertNotIn("X-Accel-Redirect", r,
+            "When USE_X_ACCEL_REDIRECT=false Django must stream the file body itself")
+        # FileResponse streams the bytes — drain the response and verify content.
+        body = b"".join(r.streaming_content) if r.streaming else r.content
+        self.assertTrue(body.startswith(b"\x89PNG"))

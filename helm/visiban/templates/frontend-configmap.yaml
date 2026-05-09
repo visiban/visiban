@@ -55,27 +55,35 @@ data:
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        # Attachment downloads — proxied through Django for auth and board-membership checks.
-        # Django returns X-Accel-Redirect to hand off the actual file transfer to Nginx.
+        # Attachment downloads — proxied through Django for auth and
+        # board-membership checks. Django streams the file body via FileResponse
+        # because the chart sets USE_X_ACCEL_REDIRECT=false (the frontend
+        # container does not mount the media PVC, so X-Accel-Redirect from
+        # Django to Nginx-on-frontend cannot serve the file).
         location /media/ {
             proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            # Disable Nginx buffering so attachment downloads stream rather
+            # than spool to disk first.
+            proxy_buffering off;
         }
 
-        # Internal-only location for X-Accel-Redirect from Django.
-        location /protected-media/ {
-            internal;
-            alias /app/media/;
-        }
-
-        # Django admin — restricted to loopback only. Access via:
+        # Django admin — restricted to loopback by default. Operators can grant
+        # access from additional CIDRs/IPs via backend.settings.adminAllowedIPs.
+        # Defense-in-depth: the same allowlist is enforced by Django middleware.
+        # Without an allowlist, access via:
         #   kubectl port-forward svc/<release>-visiban-backend 8000:8000
         location /admin/ {
             allow 127.0.0.1;
             allow ::1;
+            {{- if .Values.backend.settings.adminAllowedIPs }}
+            {{- range $cidr := splitList "," .Values.backend.settings.adminAllowedIPs }}
+            allow {{ trim $cidr }};
+            {{- end }}
+            {{- end }}
             deny all;
 
             proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};

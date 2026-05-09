@@ -212,6 +212,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Maximum upload size. Operators can override via MAX_UPLOAD_SIZE_BYTES env var.
 MAX_UPLOAD_SIZE = env.int("MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
 
+# X-Accel-Redirect (Nginx sendfile) for media downloads. Default: enabled in
+# production, disabled in development. Operators on platforms that don't mount
+# the media volume on Nginx (e.g. the Helm chart, where only the backend mounts
+# the media PVC so RWO storage classes work in HA) can disable it explicitly to
+# have Django stream the file body via FileResponse.
+USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_ID = 1
