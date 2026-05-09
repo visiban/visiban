@@ -123,9 +123,15 @@ KEYCLOAK_PORT=8081                         # only matters when running docker-co
 # Must move with FRONTEND_PORT — the backend rejects requests from any other origin
 CORS_ALLOWED_ORIGINS=http://localhost:5174
 FRONTEND_URL=http://localhost:5174
+
+# Must move with BACKEND_PORT — used to build OAuth callback URLs
+SITE_DOMAIN=localhost:8001
 ```
 
 Containers always listen on the canonical ports (`5432` / `8000` / `5173` / `8080`) on the internal Compose network — only the host-side mapping changes. Vite's HMR client port is wired to `FRONTEND_PORT` automatically so hot reload keeps working when the host port shifts.
+
+!!! note "Why aren't the URL vars interpolated from the port vars?"
+    `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, and `SITE_DOMAIN` are kept as separate explicit values rather than `${FRONTEND_PORT}`-style interpolation because Compose's `env_file:` directive does **not** expand variables — interpolated values would arrive at the Django container as literal `${FRONTEND_PORT}` strings and silently break allauth redirects, OAuth callbacks, and CORS. Three vars, three explicit updates: it's a bit more typing but it works in every dev path (Compose, native Python, Helm).
 
 ---
 
