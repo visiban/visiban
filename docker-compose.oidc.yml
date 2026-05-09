@@ -26,7 +26,7 @@ services:
     volumes:
       - ./oidc/keycloak-realm.json:/opt/keycloak/data/import/visiban-realm.json:ro
     ports:
-      - "8080:8080"
+      - "${KEYCLOAK_PORT:-8080}:8080"
     healthcheck:
       test:
         - CMD-SHELL
