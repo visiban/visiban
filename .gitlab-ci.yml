@@ -517,9 +517,18 @@ helm-lint:
     - changes:
         - helm/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  variables:
+    # Render-time validation in templates/_validate.tpl refuses to render the
+    # chart while values.yaml still carries placeholder secrets / hosts. CI
+    # supplies these overrides so the chart can be lint+templated against its
+    # committed defaults without baking real values into values.yaml.
+    HELM_CI_OVERRIDES: >-
+      --set-string secret.djangoSecretKey=ci-not-a-real-secret
+      --set backend.email.backend=console
+      --set backend.settings.allowedHosts=ci.visiban.local
   script:
-    - helm lint helm/visiban -f helm/visiban/values.yaml
-    - helm template visiban helm/visiban -f helm/visiban/values.yaml > /dev/null
+    - helm lint helm/visiban -f helm/visiban/values.yaml $HELM_CI_OVERRIDES
+    - helm template visiban helm/visiban -f helm/visiban/values.yaml $HELM_CI_OVERRIDES > /dev/null
 
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
