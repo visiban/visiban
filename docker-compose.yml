@@ -66,6 +66,10 @@ services:
       # Tell Vite which host port the browser is reaching it on, so HMR
       # websocket URLs match when FRONTEND_PORT is remapped away from 5173.
       VITE_HMR_CLIENT_PORT: ${FRONTEND_PORT:-5173}
+      # Browser-facing backend URL — must match the host port the browser
+      # uses to reach the backend (track BACKEND_PORT). Baked into the bundle
+      # by Vite via import.meta.env.VITE_API_URL.
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     volumes:
       - ./frontend:/app
       - /app/node_modules

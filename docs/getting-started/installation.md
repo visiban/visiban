@@ -126,12 +126,16 @@ FRONTEND_URL=http://localhost:5174
 
 # Must move with BACKEND_PORT — used to build OAuth callback URLs
 SITE_DOMAIN=localhost:8001
+
+# Must move with BACKEND_PORT — the URL the browser uses to call the API.
+# Read by the frontend container and exposed to client code via import.meta.env.
+VITE_API_URL=http://localhost:8001
 ```
 
 Containers always listen on the canonical ports (`5432` / `8000` / `5173` / `8080`) on the internal Compose network — only the host-side mapping changes. Vite's HMR client port is wired to `FRONTEND_PORT` automatically so hot reload keeps working when the host port shifts.
 
 !!! note "Why aren't the URL vars interpolated from the port vars?"
-    `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, and `SITE_DOMAIN` are kept as separate explicit values rather than `${FRONTEND_PORT}`-style interpolation because Compose's `env_file:` directive does **not** expand variables — interpolated values would arrive at the Django container as literal `${FRONTEND_PORT}` strings and silently break allauth redirects, OAuth callbacks, and CORS. Three vars, three explicit updates: it's a bit more typing but it works in every dev path (Compose, native Python, Helm).
+    `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `SITE_DOMAIN`, and `VITE_API_URL` are kept as separate explicit values rather than `${FRONTEND_PORT}`-style interpolation because Compose's `env_file:` directive does **not** expand variables — interpolated values would arrive at the Django container as literal `${FRONTEND_PORT}` strings and silently break allauth redirects, OAuth callbacks, and CORS. Four vars, four explicit updates: it's a bit more typing but it works in every dev path (Compose, native Python, Helm).
 
 ---
 
@@ -184,6 +188,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `CORS_ALLOWED_ORIGINS` | No | Comma-separated allowed frontend origins (default: `http://localhost:5173`). Also controls `CSRF_TRUSTED_ORIGINS` unless `CSRF_TRUSTED_ORIGINS` is set explicitly. |
 | `CSRF_TRUSTED_ORIGINS` | No | Override CSRF trusted origins independently of `CORS_ALLOWED_ORIGINS`. Defaults to `CORS_ALLOWED_ORIGINS`. |
 | `SITE_DOMAIN` | No | Public hostname used for OAuth callbacks (default: `localhost:8000`) — must match your OAuth app's redirect URI |
+| `VITE_API_URL` | No | Browser-facing backend URL (default: `http://localhost:8000`) — the frontend bundle calls the API at this origin. Must move with `BACKEND_PORT` when running side-by-side stacks; in production, set to your public backend origin (e.g. `https://api.yourdomain.com` or the same origin as the SPA when served behind a single proxy). |
 | `DJANGO_SUPERUSER_USERNAME` | No | Override bootstrap admin username (default: `admin`) |
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
 | `EMAIL_VERIFICATION` | No | Email verification mode: `optional` (default — sends verification email but allows login without it), `none` (no verification required, works without SMTP), or `mandatory` (blocks login until email is verified). The old alias `ACCOUNT_EMAIL_VERIFICATION` was removed in 1.1 — use `EMAIL_VERIFICATION` only. |
