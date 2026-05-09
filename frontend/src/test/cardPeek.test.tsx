@@ -167,7 +167,10 @@ describe('Card peek popover', () => {
   // ---- #961: peek surfaces metrics hidden from card face at lower densities ----
 
   it('peek shows weight + attachments on a single muted line when present (last-moved is in the footer, not duplicated here)', async () => {
-    const card = makeCard({ weight: 5, attachment_count: 3, last_moved_at: '2026-04-30T12:00:00Z' })
+    // last_moved_at must be relative-to-now: a hardcoded ISO drifts past the
+    // staleness warning threshold over time and triggers the aging-tint tooltip,
+    // producing two role="tooltip" elements and breaking getByRole('tooltip').
+    const card = makeCard({ weight: 5, attachment_count: 3, last_moved_at: new Date(Date.now() - 2 * 86_400_000).toISOString() })
     const { container } = render(<CardItem card={card} density="comfortable" />)
     fireEvent.mouseEnter(getCardEl(container))
     await act(async () => { vi.advanceTimersByTime(600) })
