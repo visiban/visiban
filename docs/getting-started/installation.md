@@ -106,6 +106,27 @@ Then restart the backend:
 docker compose restart backend
 ```
 
+### Running two Visiban stacks side-by-side
+
+If you have a second checkout of Visiban (or another Compose project that uses the same default ports), the two stacks will fight over `5432` / `8000` / `5173` on the host. The default `docker-compose.yml` reads host ports and the Compose project name from `.env` so a second checkout can coexist without changes to source.
+
+In the second checkout's `.env`, set:
+
+```bash
+COMPOSE_PROJECT_NAME=visiban-secondary    # namespaces containers, networks, volumes
+DB_PORT=5433
+BACKEND_PORT=8001
+FRONTEND_PORT=5174
+KEYCLOAK_PORT=8081                         # only matters when running docker-compose.oidc.yml
+# REDIS_PORT=6380                          # rarely needed — only for host-side redis-cli/GUI
+
+# Must move with FRONTEND_PORT — the backend rejects requests from any other origin
+CORS_ALLOWED_ORIGINS=http://localhost:5174
+FRONTEND_URL=http://localhost:5174
+```
+
+Containers always listen on the canonical ports (`5432` / `8000` / `5173` / `8080`) on the internal Compose network — only the host-side mapping changes. Vite's HMR client port is wired to `FRONTEND_PORT` automatically so hot reload keeps working when the host port shifts.
+
 ---
 
 ## Local Development
