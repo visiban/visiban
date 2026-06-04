@@ -7,7 +7,8 @@ swimlanes, cards, labels, checklists, comments, and full CardMovement history.
 Cards are placed in their *current* column, and movement history is back-filled
 from column 0 through each intermediate stage so the History tab is populated.
 
-Uses a fixed SEED_ANCHOR_DATE so exported JSON/CSV files are git-stable across runs.
+Live seeding anchors movement timestamps and due dates to today; --export runs use
+the fixed SEED_ANCHOR_DATE so exported JSON/CSV files are git-stable across runs.
 
 Export path: sample-boards/<slug>.json   (JSON — includes full movement history)
              sample-boards/<slug>.csv    (CSV — column summary only, no history)
@@ -84,7 +85,7 @@ DEMO_USERS = [
 #           description  — markdown description (can be "")
 #           col_idx      — current column index (0 = leftmost)
 #           priority     — low | medium | high | urgent
-#           due_offset   — int days from SEED_ANCHOR_DATE (neg=overdue), or None
+#           due_offset   — int days from the due anchor (neg=overdue), or None
 #           weight       — int 1–8
 #           labels       — list of label names (must match labels list above)
 #           checklist    — list of {text, is_checked} dicts (may be empty)
@@ -3506,6 +3507,13 @@ class Command(BaseCommand):
                 f"Valid options: all, {', '.join(VALID_SLUGS)}."
             )
 
+        # Due dates are anchored to today for live seeding so a re-seed always
+        # produces a realistic mix of overdue and upcoming cards regardless of
+        # the calendar date. For --export runs the fixed SEED_ANCHOR_DATE is used
+        # so the committed JSON/CSV snapshots stay git-stable across regenerations
+        # (mirrors the movement anchor in seed_demo_data).
+        self._due_anchor = SEED_ANCHOR_DATE if options["export"] else datetime.date.today()
+
         users = self._ensure_demo_users()
 
         for slug in slugs:
@@ -3634,7 +3642,7 @@ class Command(BaseCommand):
 
             due_offset = spec.get("due_offset")
             if due_offset is not None:
-                due_date = SEED_ANCHOR_DATE + datetime.timedelta(days=due_offset)
+                due_date = self._due_anchor + datetime.timedelta(days=due_offset)
             else:
                 due_date = None
 
@@ -3694,7 +3702,9 @@ class Command(BaseCommand):
 
         Date anchoring: movement timestamps are relative to today so that
         analytics windows (7d, 30d, 90d) always show recent data after a
-        re-seed. SEED_ANCHOR_DATE is kept only for due-date calculations.
+        re-seed. Both movement timestamps and due dates are anchored to today
+        for live seeding; SEED_ANCHOR_DATE is used only for --export runs to keep
+        committed JSON/CSV snapshots git-stable.
         """
         today = datetime.date.today()
         anchor = datetime.datetime(
