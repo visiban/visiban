@@ -439,12 +439,13 @@ Update the authenticated user's profile. All fields are optional.
 
 **Permission:** Requires authentication.
 
-**Writable fields:** `first_name`, `last_name`, `display_name`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
+**Writable fields:** `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
 
 **Request body fields**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `avatar_url` | string / null | No | URL of the user's avatar image. Accepts any absolute URL or `null` to clear. |
 | `theme` | string | No | Color scheme preference. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"` for new accounts. |
 | `default_board_id` | integer \| null | No | Board to redirect to after login. Must be a board the user is a member of, or `null` to clear. |
 
