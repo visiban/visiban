@@ -41,14 +41,14 @@ Only the failing subsystems appear in `errors`. Use this as a **readiness probe*
 
 ## `GET /api/v1/version/`
 
-Returns the running application version string. Requires authentication.
+Returns the running application version string. **Requires authentication** (`IsAuthenticated`). Unauthenticated requests receive `403 Forbidden`.
 
 **Response**
 ```json
-{ "version": "1.0.0" }
+{ "version": "1.1.0" }
 ```
 
-The value is read from the `APP_VERSION` environment variable set at deploy time (see `.env.example`). Use this to confirm which version is deployed before running migrations or checking the changelog.
+The value is read from the `APP_VERSION` environment variable set at deploy time (see `.env.example`). Use this to confirm which version is deployed before running migrations or checking the changelog. See [Version API](version.md) for the full reference.
 
 ---
 

@@ -2,9 +2,9 @@
 
 ## `GET /api/v1/version/`
 
-Returns the running server version string. No authentication required.
+Returns the running server version string. Authentication is required.
 
-**Authentication:** none required (public endpoint).
+**Authentication:** requires a valid session or personal access token (`IsAuthenticated`). Unauthenticated requests receive `403 Forbidden`.
 
 **Response**
 

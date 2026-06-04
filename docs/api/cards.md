@@ -44,6 +44,66 @@ Create a card. Requires member or above. The target column must have `allow_card
 ### `GET /api/v1/boards/{board_id}/cards/{id}/`
 Get a single card. The response includes a `uid` field — a stable 16-character hex identifier that does not change when the card is renamed, moved, or reassigned. The `uid` is read-only. The response also includes a `version` integer that increments on every mutation; clients may pass this value back on the [move endpoint](#move) as an optimistic concurrency token.
 
+**Card response field table**
+
+The following fields are returned for every card object in this endpoint, `POST /cards/`, `PATCH /cards/{id}/`, `GET /cards/`, and all mutation responses (archive, unarchive, move).
+
+| Field | Type | Read-only | Nullable | Description |
+|---|---|---|---|---|
+| `id` | integer | yes | no | Database primary key |
+| `uid` | string | yes | no | Stable 16-character hex UID; never changes after creation |
+| `column` | integer | no | no | Column FK ID; update via the [move endpoint](#move) only |
+| `swimlane` | integer | no | no | Swimlane FK ID; update via the [move endpoint](#move) only |
+| `title` | string | no | no | Card title |
+| `description` | string | no | no | Rich-text description (plain text or Markdown); empty string if unset |
+| `priority` | string | no | no | One of `"low"`, `"medium"`, `"high"`, `"urgent"` |
+| `assignee` | object / null | yes | yes | Assignee user — `{ id, username, display_name, avatar_url }` or `null` |
+| `assignee_id` | integer / null | write-only | yes | Write-only FK for setting the assignee; omitted from responses |
+| `labels` | array | yes | no | Array of label objects — `[{ id, uid, name, color }]` |
+| `label_ids` | integer[] | write-only | no | Write-only list of label PKs; omitted from responses |
+| `due_date` | string / null | no | yes | ISO 8601 date (e.g. `"2026-04-01"`) or `null` |
+| `weight` | integer | no | no | Story-point weight; default `1` |
+| `position` | integer | no | no | Sort order within the column/swimlane cell (0-based) |
+| `created_by` | object / null | yes | yes | User who created the card — same shape as `assignee`; `null` for cards created before the field was added |
+| `created_at` | string | yes | no | ISO 8601 creation timestamp |
+| `updated_at` | string | yes | no | ISO 8601 timestamp of last field update |
+| `last_moved_at` | string / null | yes | yes | ISO 8601 timestamp of the card's most recent `CardMovement`; `null` for cards that have never been moved |
+| `attachment_count` | integer | yes | no | Number of attachments on this card |
+| `checklist_total` | integer | yes | no | Total number of checklist items |
+| `checklist_done` | integer | yes | no | Number of checked checklist items |
+| `is_stale` | boolean | yes | no | `true` when the card has not moved within the board's `staleness_threshold_days` window; `false` otherwise |
+| `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
+| `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. |
+
+**Example response**
+
+```json
+{
+  "id": 101,
+  "uid": "3a9f1c2d7e4b8a05",
+  "column": 2,
+  "swimlane": 1,
+  "title": "Fix login bug",
+  "description": "Steps to reproduce: ...",
+  "priority": "high",
+  "assignee": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null },
+  "labels": [{ "id": 3, "uid": "lb_abc123", "name": "Bug", "color": "#EF4444" }],
+  "due_date": "2026-04-01",
+  "weight": 2,
+  "position": 0,
+  "created_by": { "id": 5, "username": "bob", "display_name": "Bob Jones", "avatar_url": null },
+  "created_at": "2026-03-01T10:00:00Z",
+  "updated_at": "2026-03-15T09:41:22Z",
+  "last_moved_at": "2026-03-15T09:41:22Z",
+  "attachment_count": 2,
+  "checklist_total": 3,
+  "checklist_done": 1,
+  "is_stale": false,
+  "archived_at": null,
+  "version": 4
+}
+```
+
 ### `PATCH /api/v1/boards/{board_id}/cards/{id}/`
 Update card fields. Requires member or above.
 
@@ -404,3 +464,27 @@ Update an item (e.g. check/uncheck). **Minimum role: Collaborator.**
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/checklist/{item_id}/`
 Delete a checklist item. **Minimum role: Collaborator.**
+
+**Checklist item response shape**
+
+All checklist endpoints (`GET`, `POST`, `PATCH`) return checklist item objects with the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Checklist item database PK |
+| `text` | string | Item text |
+| `is_checked` | boolean | Whether the item is checked |
+| `position` | integer | Sort order within the checklist (0-based) |
+| `created_by` | object / null | User who added the item — `{ id, username, display_name, avatar_url }`. `null` for items created before this field was added (migration 0044). |
+
+**Example response**
+
+```json
+{
+  "id": 17,
+  "text": "Write tests",
+  "is_checked": false,
+  "position": 0,
+  "created_by": { "id": 7, "username": "alice", "display_name": "Alice Smith", "avatar_url": null }
+}
+```

@@ -107,7 +107,7 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 | `name` | Yes | Board display name |
 | `description` | No | Optional free-text description |
 | `template` | No | Template slug to pre-populate columns. Valid values match those from `GET /api/v1/boards/templates/` (e.g. `simple_kanban`, `sales_pipeline`, `customer_support`). Default: `simple_kanban`. |
-| `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"Swimlane"` |
+| `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"General"` |
 
 ### `GET /api/v1/groups/{id}/descendant-boards/`
 List all boards in this group and all of its descendant subgroups that the requesting user can access. This answers "what boards live anywhere inside this group subtree?" — including boards in deeply nested subgroups. Requires group membership.
@@ -133,7 +133,7 @@ Create a new invite link. Requires group admin.
 { "name": "Team link", "role": "member", "expiry_days": 7 }
 ```
 
-All fields are optional. `role` defaults to `member`; `expiry_days` may be `1`, `7`, `30`, or `null` (never expires).
+All fields are optional. `role` defaults to `member`; `expiry_days` accepts any positive integer (`≥ 1`) or `null` (never expires). Common values: `7`, `30`, `90`.
 
 Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
@@ -284,7 +284,28 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 ### `POST /api/v1/groups/join/{token}/`
 Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.
 
-**Response** `201 Created` (first join) or `200 OK` (already a member at the same or higher role).
+**Response body** — returns the full group object (same shape as `GET /api/v1/groups/{id}/` but using the list serializer, without `ancestors`):
+
+```json
+{
+  "id": 5,
+  "name": "Engineering",
+  "description": "Backend and frontend teams.",
+  "owner": { "id": 1, "username": "alice", "display_name": "Alice Smith", "avatar_url": null },
+  "parent": null,
+  "parent_name": null,
+  "member_count": 4,
+  "board_count": 2,
+  "subgroup_count": 1,
+  "is_starred": false,
+  "shared_labels": [],
+  "default_board_member_role": "member",
+  "allowed_priorities": [],
+  "created_at": "2026-03-01T10:00:00Z"
+}
+```
+
+**Status:** `201 Created` on first join; `200 OK` if the caller was already a member (existing role preserved, no downgrade).
 
 **Note:** Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.
 

@@ -5,6 +5,13 @@
 ### `GET /api/v1/boards/`
 List all boards accessible to the current user.
 
+**Query parameters**
+
+| Parameter | Description |
+|---|---|
+| `?starred=true` | Return only boards the requesting user has starred |
+| `?expand=group` | Populate `group_detail` on each board with a `GroupBrief` object (see `GET /api/v1/boards/{id}/full/` for the shape). Without this parameter `group_detail` is `null`. Triggers a one-query ancestor bulk-fetch — safe to use on list responses. |
+
 ### `POST /api/v1/boards/`
 Create a board.
 
@@ -27,6 +34,7 @@ Get board summary. Response includes:
 | `name`, `description` | string | Board name and description |
 | `owner` | object | Owner user object |
 | `group`, `group_name` | integer / null, string / null | Group ID and name (null for personal boards) |
+| `group_detail` | object / null | Populated with a `GroupBrief` object when `?expand=group` is appended to the request; `null` otherwise. `GroupBrief` shape: `{ id, name, parent, parent_name, ancestors }` where `parent` is the parent group FK ID (or `null`) and `ancestors` is a root-first `[{ id, name }]` chain. |
 | `member_count` | integer | Number of direct board members |
 | `card_count` | integer | Number of active (non-archived) cards |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
@@ -51,7 +59,7 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/v1/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
-**`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing the group's `id`, `name`, `uid`, and `ancestors` chain. Without this parameter `group_detail` is `null`.
+**`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (parent group display name or `null`), and `ancestors` (root-first `[{ id, name }]` chain). Without this parameter `group_detail` is `null`.
 
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
@@ -367,6 +375,8 @@ Export the board. Append `?format=json` for a JSON dump; omit for CSV (the defau
 |---|---|---|---|
 | `format` | `json` | _(omit for CSV)_ | Response format. Omit or set to anything other than `json` for CSV. |
 
+**Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
+
 Requires board membership — non-members receive `403 Forbidden` with body `{"detail": "Board export requires board membership."}`. If the caller is a member but their role is below the board's `export_min_role` threshold, returns `403 Forbidden` with body `{"detail": "...", "code": "export_restricted", "min_role": "<threshold>"}`. Owners and site admins always bypass the threshold.
 
 **CSV columns:** `Card ID`, `Title`, `Description`, `Column`, `Swimlane`, `Priority`, `Assignee`, `Labels`, `Due Date`, `Weight`, `Created At`, `Created By`, `Last Moved At`, `Movement Count`, `Movement History`
@@ -376,7 +386,11 @@ Requires board membership — non-members receive `403 Forbidden` with body `{"d
 ### `GET /api/v1/boards/{id}/export/?format=json`
 Export the board as JSON. Returns `application/json`. Same permission rules as the CSV variant: requires board membership and meeting the `export_min_role` threshold. Owners and site admins always bypass.
 
+**Rate limit:** 20 exports/hour per authenticated user (scope: `board_export`). Exceeding the limit returns `429 Too Many Requests`.
+
 **Response shape:**
+
+The top-level `schema_version` field is always `2` in 1.1+ exports. The importer understands versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
 
 ```json
 {
@@ -442,6 +456,10 @@ Return recent successful board exports for audit purposes (#842). Requires board
 Import a board from a Visiban JSON or CSV export file. Accepts `multipart/form-data` with a `file` field, an optional `name` field to override the board name, and an optional `group_id` field to place the imported board into a group. Creates a new board atomically.
 
 **Permission:** authenticated user. When `group_id` is set, the caller must be a member of that group (any role — viewer and above); a non-member receives `403 Forbidden`.
+
+**Rate limit:** 10 imports/hour per authenticated user (scope: `board_import`). Exceeding the limit returns `429 Too Many Requests`.
+
+**Import limits:** up to 500 cards, 50 columns, and 100 swimlanes per import. Payloads exceeding these limits return `400 Bad Request`.
 
 **Request** (`multipart/form-data`)
 
@@ -659,7 +677,12 @@ This sets the board-wide default for all users — it is a board structure prefe
 A `swimlane.updated` WebSocket event is broadcast to all connected board clients on success.
 
 !!! note
-    The deprecated snake_case alias `set_collapsed` (with underscore) is retained for 1.x backward compatibility and emits the same response. Prefer the kebab-case form `set-collapsed`. The alias will be removed in 2.0.
+    The deprecated snake_case alias `set_collapsed` (with underscore) is retained for 1.x backward compatibility and emits the same response but additionally includes the following response headers:
+
+    - `Deprecation: true` — signals that this URL path is deprecated (RFC 8594).
+    - `Link: <canonical-url>; rel="successor-version"` — points to the canonical kebab-case path (RFC 8288).
+
+    Prefer the kebab-case form `set-collapsed`. The underscore alias will be removed in 2.0.
 
 ### `POST /api/v1/boards/{id}/swimlanes/reorder/`
 Reorder swimlanes. Requires board admin.
