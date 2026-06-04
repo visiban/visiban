@@ -91,7 +91,7 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
           </button>
           <button
             onClick={onConfirm}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             Confirm
           </button>
@@ -596,7 +596,7 @@ function OffboardingModal({ user, onDeactivated, onClose }: OffboardingModalProp
           <button
             onClick={handleConfirm}
             disabled={saving || !allAssigned}
-            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+            className="px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 text-on-danger rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
           >
             {saving ? "Processing…" : "Transfer ownership and deactivate"}
           </button>

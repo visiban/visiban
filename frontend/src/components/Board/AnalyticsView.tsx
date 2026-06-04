@@ -109,7 +109,7 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
           key={m}
           onClick={() => onChange(m)}
           aria-pressed={mode === m}
-          className={`px-3 py-1 text-xs capitalize transition ${
+          className={`px-3 py-1 text-xs capitalize transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-inset ${
             i === 0 ? "border-r border-line-strong" : ""
           } ${
             mode === m
@@ -215,10 +215,10 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                   key={d}
                   onClick={() => setDays(d)}
                   aria-pressed={days === d}
-                  className={`text-xs px-3 py-1 rounded-full border transition ${
+                  className={`text-xs px-3 py-1 rounded-full border transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                     days === d
                       ? "bg-primary text-on-primary border-primary"
-                      : "border-line-strong text-fg-tertiary hover:border-info"
+                      : "border-line-strong text-fg-tertiary hover:border-line-emphasis"
                   }`}
                 >
                   {d}d
@@ -229,7 +229,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
           {(currentUserRole === "admin" || currentUserRole === "site_admin") && (
             <button
               onClick={() => data && exportCsv(data, mode)}
-              className="ml-auto text-xs px-3 py-1 rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover transition"
+              className="ml-auto text-xs px-3 py-1 rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
             >
               Export CSV
             </button>
@@ -364,7 +364,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                     <button
                       onClick={() => setStalledPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       ← Prev
                     </button>
@@ -372,7 +372,7 @@ export default function AnalyticsView({ boardId, currentUserRole, onOpenCard }: 
                     <button
                       onClick={() => setStalledPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      className="px-2 py-1 text-xs rounded border border-line-strong text-fg-tertiary hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >
                       Next →
                     </button>

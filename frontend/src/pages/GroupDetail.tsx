@@ -640,7 +640,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   onChange={(e) => setDescriptionValue(e.target.value)}
                   onKeyDown={handleDescriptionKeyDown}
                   onBlur={handleDescriptionSave}
-                  className="w-full bg-sunken border border-info rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
+                  className="w-full bg-sunken border border-primary-soft rounded px-2 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none placeholder-fg-muted"
                   placeholder="Add a description…"
                 />
               ) : isAdmin ? (
@@ -655,7 +655,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                   )}
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDescriptionStart(); }}
-                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs mt-0.5"
+                    className="opacity-0 group-hover/description:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-xs mt-0.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                     title="Edit description"
                     aria-label="Edit description"
                   >

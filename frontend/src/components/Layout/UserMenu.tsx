@@ -161,7 +161,7 @@ export default function UserMenu({ user, open, onOpenChange, onLogout }: Props) 
             tabIndex={-1}
             onClick={() => { onOpenChange(false); onLogout(); }}
             onKeyDown={(e) => onItemKeyDown(e, 3)}
-            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-danger-bg/20 hover:text-danger transition focus:outline-none focus:bg-danger-bg/20"
+            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-danger hover:bg-danger-bg/20 hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis focus:bg-danger-bg/20"
           >
             <span aria-hidden="true" className="w-4 text-center flex-shrink-0">🚪</span>
             <span className="flex-1">Sign out</span>

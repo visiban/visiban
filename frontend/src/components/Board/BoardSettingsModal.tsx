@@ -845,7 +845,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       key={fmt}
                       className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
                         exportFormat === fmt
-                          ? "border-primary-emphasis bg-info/10"
+                          ? "border-primary-emphasis bg-primary-emphasis/10"
                           : "border-line-strong hover:bg-surface-hover/40"
                       }`}
                     >
