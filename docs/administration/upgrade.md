@@ -228,6 +228,23 @@ After rolling back, restart the backend container with the previous image versio
 
 ### Upgrading to 1.1.x
 
+!!! warning "Removed env-var aliases — rename before upgrading"
+    Two deprecated environment variable aliases were **removed** in 1.1. Operators who still set the old names will get silent failures — OIDC will be deactivated and email verification will have no effect:
+
+    | Old name (removed) | Canonical name (use this) |
+    |---|---|
+    | `OIDC_SECRET` | `OIDC_CLIENT_SECRET` |
+    | `ACCOUNT_EMAIL_VERIFICATION` | `EMAIL_VERIFICATION` |
+
+    Before upgrading, search your `.env` file and any CI/CD secret stores for these old names and rename them. From 1.1 on, setting either removed alias logs a startup deprecation warning naming the canonical replacement — but the old name is no longer read, so that warning is your only signal that SSO or email verification has silently stopped working. If neither alias appears anywhere in your config, no action is required.
+
+!!! note "Card density migration — existing boards default to Dense"
+    In 1.1, card display is controlled by a per-board **Card density** setting (Comfortable / Standard / Dense) that replaces the previous per-user per-field hide toggles.
+
+    Existing boards are automatically migrated to the **Dense** tier, which reproduces the pre-1.1 card layout. New boards default to **Comfortable**.
+
+    The previous per-user preferences (`hideLabels`, `hideDueDate`, `hideAssignee`, `hidePriority`, `hideLastMoved`) stored in `localStorage` are silently ignored after the upgrade — they are not migrated. Board admins can adjust the density for their board at any time from **Board Settings → Display**.
+
 !!! warning "Breaking change — Redis authentication is now required in production"
     `docker-compose.prod.yml` now starts Redis with `--requirepass` and constructs `REDIS_URL` and `REDIS_CACHE_URL` using the password. **The stack will fail to start if `REDIS_PASSWORD` is not set in your `.env`.**
 

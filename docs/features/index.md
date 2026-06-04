@@ -113,6 +113,16 @@ Powered by Django Channels and Redis — no configuration required in the defaul
 
 ---
 
+## Real-time group updates
+
+> **Added in 1.1**
+
+The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time — no manual refresh needed. A **Live / Reconnecting… / Failed** status indicator mirrors the board-view connection badge.
+
+→ [Groups — Live board list](groups.md#live-board-list)
+
+---
+
 ## Groups & access control
 
 Boards can be organized into groups and subgroups (unlimited nesting). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.
@@ -241,6 +251,18 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 
 ---
 
+## Card density
+
+> **Added in 1.1**
+
+Each board has an admin-controlled **Card density** setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in **Board Settings → Display**.
+
+The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and `localStorage` values for the old keys are silently ignored.
+
+→ [Board & Cards — Card density](board.md#card-density)
+
+---
+
 ## Card information at a glance
 
 
@@ -295,6 +317,8 @@ First-time users see an 8-step contextual tooltip walkthrough when they open a b
 
 
 Board admins can generate a public read-only link that lets anyone view the board without a Visiban account. The link serves a static board view showing the full grid (columns, swimlanes, cards) with titles, labels, checklist progress, due dates, weights, and assignee names visible. Editing and commenting are disabled in the public view. Revoking the token immediately invalidates the link.
+
+**Share-link expiry** (added in 1.1) — admins can set an optional TTL of 7 / 30 / 90 days when enabling a share link. Once the link expires, visitors receive a `410 Gone` response. Re-enabling sharing generates a new token; the expired token cannot be restored.
 
 → [Board & Cards — Board sharing](board.md#board-sharing)
 

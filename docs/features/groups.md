@@ -53,6 +53,8 @@ Group admins can create subgroups. Nesting is unlimited (traversal is capped at 
 
 ## Invite links
 
+> **Added in 1.0**
+
 Group admins can generate up to **5 active invite links** per group from the group detail page. Each link can be configured independently:
 
 | Setting | Options |
@@ -82,6 +84,8 @@ Any board can be moved to a different group or back to personal boards. Use the 
 **API:** `POST /api/v1/boards/{id}/move-group/` with `{ "group_id": 5 }` or `{ "group_id": null }` for personal.
 
 ## Group shared labels
+
+> **Added in 1.0**
 
 Group admins can define a shared label library for the group. New boards created inside the group automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.
 
