@@ -1,0 +1,1 @@
+Patched backend dependency CVEs flagged by the `dep-scan-osv` job: bumped PyJWT 2.12.1 → 2.13.0 (PYSEC-2026-175/177/178/179) and added an explicit idna 3.18 pin to clear GHSA-65pc-fj4g-8rjx in the transitive dependency pulled via requests.
