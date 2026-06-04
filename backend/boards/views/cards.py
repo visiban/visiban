@@ -318,9 +318,13 @@ class CardViewSet(viewsets.ModelViewSet):
                 notes="Card created",
             )
             card_data = self._refetch_card_data(card)
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.created", card_data))
+            # Read board.id into a local before deferring: the on_commit closure
+            # should capture the plain int, not the ORM instance (matches every
+            # other broadcast site in this module).
+            board_id = board.id
+            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.created", card_data))
             if hooks.CARD_MUTATION_HOOKS:
-                _h_cid, _h_bid, _h_aid = card.id, board.id, self.request.user.id
+                _h_cid, _h_bid, _h_aid = card.id, board_id, self.request.user.id
                 transaction.on_commit(lambda: [h("card.created", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
             if card.description:
                 # Notify any @mentioned board members in the initial description.
@@ -908,9 +912,13 @@ class CardViewSet(viewsets.ModelViewSet):
         # Broadcast the same shape as the REST response so WS clients can update
         # movement history without re-polling /movements/.
         broadcast_data = dict(response_data)
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board.id, "card.moved", broadcast_data))
+        # Read board.id into a local before deferring: the on_commit closure
+        # should capture the plain int, not the ORM instance (matches every
+        # other broadcast site in this module).
+        board_id = board.id
+        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.moved", broadcast_data))
         if hooks.CARD_MUTATION_HOOKS:
-            _h_cid, _h_bid, _h_aid = card.id, board.id, request.user.id
+            _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
             transaction.on_commit(lambda: [h("card.moved", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(response_data)
 

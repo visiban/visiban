@@ -41,3 +41,35 @@ class WebSocketExtensionPointTests(TestCase):
         # raise — exactly the contract the extension point promises.
         from visiban import asgi
         self.assertTrue(hasattr(asgi, "application"))
+
+
+class URLConfExtensionPointTests(TestCase):
+    """``visiban.urls`` must load without the enterprise package (#1047).
+
+    The URLConf ends with a ``try: from enterprise.urls import ... except
+    ImportError: pass`` block. In the OSS repo ``enterprise`` is absent, so the
+    except branch is taken; if that guard is ever removed, importing the module
+    here would raise ``ImportError`` and fail this test. (The same module loads
+    cleanly in the enterprise mirror, where the try branch succeeds — so this
+    assertion is safe in both repos.)
+    """
+
+    def test_urlconf_loads_and_has_oss_patterns(self):
+        from visiban import urls
+        self.assertTrue(hasattr(urls, "urlpatterns"))
+        # The OSS URL set is non-empty regardless of the enterprise include.
+        self.assertGreater(len(urls.urlpatterns), 0)
+
+
+class SettingsExtensionPointTests(TestCase):
+    """``visiban.settings`` must load without the enterprise package (#1047).
+
+    Settings ends with a ``try: from enterprise.settings import * except
+    ImportError: pass`` block. Mirrors the URLConf guard above: removing the
+    try/except would break OSS startup, which this test surfaces.
+    """
+
+    def test_settings_loads_and_has_core_settings(self):
+        from visiban import settings
+        self.assertTrue(hasattr(settings, "INSTALLED_APPS"))
+        self.assertIn("boards", settings.INSTALLED_APPS)
