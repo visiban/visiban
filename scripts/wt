@@ -1,0 +1,373 @@
+#!/usr/bin/env bash
+# scripts/wt — git worktree helper for parallel multi-issue work.
+#
+# Usage:
+#   scripts/wt new <issue|branch-name>   Create a worktree + branch off origin/<default>.
+#   scripts/wt list                      List active worktrees and WIP count.
+#   scripts/wt remove <issue|name>       Remove a worktree by issue # or name.
+#   scripts/wt prune                     Remove worktrees whose branches were merged to
+#                                        the default branch and deleted on origin. Refuses
+#                                        to remove worktrees with uncommitted work.
+#   scripts/wt doctor                    Verify symlinks and shared docker-stack reuse.
+#   scripts/wt help                      Show this help.
+#
+# Worktrees live at $WT_BASE (default: ../<repo>-wt, a sibling of the main checkout).
+# Each worktree symlinks heavy dev-dep dirs (.venv, node_modules, …) back to the
+# main checkout so installs aren't duplicated. A running Docker Compose stack is
+# shared via COMPOSE_PROJECT_NAME, exported in the generated .envrc for direnv users.
+#
+# WIP discipline: warns at WT_WARN (default 4), errors at WT_CAP (default 5).
+#
+# This script is layout-agnostic: it auto-detects which dev-dep dirs exist
+# (.venv, node_modules, backend/.venv, frontend/node_modules,
+# packages/api/.venv, packages/web/node_modules) and symlinks only those, and
+# picks glab or gh for issue-title lookup based on origin's host. Override any
+# default via env:
+#   WT_BASE             where worktrees are created       (default ../<repo>-wt)
+#   WT_CAP / WT_WARN    WIP error / warn thresholds       (default 5 / 4)
+#   WT_COMPOSE_PROJECT  shared compose project name       (default repo dir name)
+#   WT_SYMLINK_DIRS     space-separated dev-dep dirs to symlink (default: auto-detect)
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+CURRENT_TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null || { echo "wt: not in a git repo" >&2; exit 1; })"
+# REPO_ROOT must always point at the main checkout, even when invoked from
+# inside a secondary worktree. git-common-dir's parent is the main checkout:
+# ".git" → "." in main; "<main>/.git" → "<main>" in a worktree.
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir)"
+case "$GIT_COMMON_DIR" in
+  /*) REPO_ROOT="$(dirname "$GIT_COMMON_DIR")" ;;
+  *)  REPO_ROOT="$(cd "$CURRENT_TOPLEVEL" && cd "$(dirname "$GIT_COMMON_DIR")" && pwd)" ;;
+esac
+REPO_NAME="$(basename "$REPO_ROOT")"
+WT_BASE="${WT_BASE:-${REPO_ROOT%/*}/${REPO_NAME}-wt}"
+WT_CAP="${WT_CAP:-5}"
+WT_WARN="${WT_WARN:-4}"
+COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-$REPO_NAME}}"
+
+# Default branch = origin/HEAD target, falling back to main.
+DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
+DEFAULT_BRANCH="${DEFAULT_BRANCH:-main}"
+
+# Dev-dep dirs to symlink from each new worktree back to the main checkout.
+# Auto-detected from this candidate list (only those present in main are linked)
+# unless WT_SYMLINK_DIRS overrides it.
+WT_SYMLINK_CANDIDATES=(.venv node_modules backend/.venv frontend/node_modules packages/api/.venv packages/web/node_modules)
+if [[ -n "${WT_SYMLINK_DIRS:-}" ]]; then
+  read -r -a WT_SYMLINK_CANDIDATES <<< "$WT_SYMLINK_DIRS"
+fi
+
+# ---------------------------------------------------------------------------
+# Output helpers
+# ---------------------------------------------------------------------------
+
+if [[ -t 1 ]]; then
+  C_RED='\033[31m'; C_YELLOW='\033[33m'; C_GREEN='\033[32m'; C_DIM='\033[2m'; C_OFF='\033[0m'
+else
+  C_RED=''; C_YELLOW=''; C_GREEN=''; C_DIM=''; C_OFF=''
+fi
+
+err()  { printf "${C_RED}wt: %s${C_OFF}\n" "$*" >&2; }
+warn() { printf "${C_YELLOW}wt: %s${C_OFF}\n" "$*" >&2; }
+ok()   { printf "${C_GREEN}wt: %s${C_OFF}\n" "$*"; }
+say()  { printf "%s\n" "$*"; }
+dim()  { printf "${C_DIM}%s${C_OFF}\n" "$*"; }
+die()  { err "$*"; exit 1; }
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Detect the forge CLI for issue-title lookup based on origin's host.
+forge_cli() {
+  local url; url="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
+  case "$url" in
+    *github.com*) echo gh ;;
+    *gitlab*)     echo glab ;;
+    *)            echo "" ;;
+  esac
+}
+
+# Slugify text: strip conventional-commit prefix, lowercase, drop non-alnum,
+# collapse hyphens, cap length. The prefix strip keeps issue titles like
+# "feat(web): foo bar" from doubling the prefix once `feat/` is prepended.
+slugify() {
+  printf "%s" "$1" \
+    | sed -E 's/^(feat|fix|chore|docs|test|refactor|perf|ci|build)(\([^)]*\))?:[[:space:]]*//' \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g' \
+    | sed -E 's/^-+|-+$//g' \
+    | cut -c1-40
+}
+
+# Derive a branch name from an arg. Slash → full branch name as-is. Numeric →
+# issue number, look up its title via the detected forge CLI and build
+# feat/<issue>-<slug>. Anything else → treat as a slug under feat/.
+derive_branch_name() {
+  local input="$1"
+  if [[ "$input" == */* ]]; then
+    printf "%s" "$input"; return
+  fi
+  if [[ "$input" =~ ^[0-9]+$ ]]; then
+    local cli title=""
+    cli="$(forge_cli)"
+    case "$cli" in
+      glab) command -v glab >/dev/null 2>&1 && title="$(glab issue view "$input" --output json 2>/dev/null \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("title",""))' || true)" ;;
+      gh)   command -v gh >/dev/null 2>&1 && title="$(gh issue view "$input" --json title -q .title 2>/dev/null || true)" ;;
+    esac
+    if [[ -z "$title" ]]; then
+      die "couldn't look up issue #$input (need ${cli:-glab/gh} installed + authed); pass a full branch name like 'feat/$input-something'"
+    fi
+    printf "feat/%s-%s" "$input" "$(slugify "$title")"; return
+  fi
+  printf "feat/%s" "$(slugify "$input")"
+}
+
+# Count active worktrees (excludes the main checkout).
+wt_count() {
+  git -C "$REPO_ROOT" worktree list --porcelain \
+    | awk '/^worktree /{print $2}' \
+    | grep -v "^${REPO_ROOT}$" \
+    | wc -l | tr -d ' '
+}
+
+# Find a worktree path by issue number or name fragment.
+find_worktree() {
+  local needle="$1"
+  git -C "$REPO_ROOT" worktree list --porcelain \
+    | awk '/^worktree /{print $2}' \
+    | grep -v "^${REPO_ROOT}$" \
+    | grep -E "/${needle}(-|$)" \
+    | head -n1
+}
+
+# ERE matching the files wt itself creates in a worktree (.envrc + the symlinks)
+# so the dirty-check can tell them apart from the user's work-in-progress.
+auto_created_regex() {
+  local parts=('\.envrc') d esc
+  for d in "${WT_SYMLINK_CANDIDATES[@]}"; do
+    esc="$(printf '%s' "$d" | sed 's/\./\\./g')"
+    parts+=("$esc")
+  done
+  local IFS='|'
+  printf '^(%s)/?$' "${parts[*]}"
+}
+
+# ---------------------------------------------------------------------------
+# Subcommands
+# ---------------------------------------------------------------------------
+
+cmd_new() {
+  [[ $# -ge 1 ]] || die "usage: wt new <issue|branch-name>"
+  local input="$1"
+  local branch; branch="$(derive_branch_name "$input")"
+  local short_name="${branch##*/}"
+  local target_path="${WT_BASE}/${short_name}"
+
+  local count; count="$(wt_count)"
+  if (( count >= WT_CAP )); then
+    die "WIP cap reached (${count}/${WT_CAP}). Finish or remove one first. Override with WT_CAP if you must."
+  fi
+  if (( count >= WT_WARN )); then
+    warn "${count}/${WT_CAP} active worktrees — approaching the WIP cap"
+  fi
+
+  git -C "$REPO_ROOT" fetch origin "$DEFAULT_BRANCH" --quiet
+
+  mkdir -p "$WT_BASE"
+  [[ -e "$target_path" ]] && die "path already exists: $target_path"
+  if git -C "$REPO_ROOT" rev-parse --verify "$branch" >/dev/null 2>&1; then
+    git -C "$REPO_ROOT" worktree add "$target_path" "$branch"
+  else
+    git -C "$REPO_ROOT" worktree add "$target_path" -b "$branch" "origin/$DEFAULT_BRANCH"
+  fi
+
+  # Symlink shared dev deps — only candidates present in the main checkout.
+  local linked=0 rel
+  for rel in "${WT_SYMLINK_CANDIDATES[@]}"; do
+    if [[ -e "$REPO_ROOT/$rel" && ! -e "$target_path/$rel" ]]; then
+      mkdir -p "$target_path/$(dirname "$rel")"
+      ln -s "$REPO_ROOT/$rel" "$target_path/$rel"
+      ok "symlinked $rel → main checkout"
+      linked=$((linked + 1))
+    fi
+  done
+  if (( linked == 0 )); then
+    warn "no dev-dep dirs found in main checkout to symlink (checked: ${WT_SYMLINK_CANDIDATES[*]})"
+  fi
+
+  # .envrc for direnv users. Reuses the running Docker stack via the shared
+  # compose project name; no-op if direnv/docker aren't in use.
+  cat > "$target_path/.envrc" <<EOF
+# Auto-generated by scripts/wt. Reuses the running Docker stack from the main
+# checkout via the shared compose project name.
+export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME_DEFAULT}
+EOF
+
+  ok "created worktree at $target_path on branch $branch"
+  say ""
+  dim "  cd $target_path"
+  if command -v direnv >/dev/null 2>&1; then
+    dim "  direnv allow                           # picks up COMPOSE_PROJECT_NAME"
+  else
+    dim "  source .envrc                          # or set COMPOSE_PROJECT_NAME manually"
+  fi
+}
+
+cmd_list() {
+  local count; count="$(wt_count)"
+  printf "Active worktrees (%s/%s):\n\n" "$count" "$WT_CAP"
+  git -C "$REPO_ROOT" worktree list --porcelain \
+    | awk -v main="$REPO_ROOT" '
+        /^worktree /{path=$2}
+        /^branch /{
+          br=$2; sub("refs/heads/","",br)
+          if (path != main) printf "  %-50s  %s\n", br, path
+        }'
+  say ""
+  if (( count == 0 )); then
+    dim "  (none — use 'wt new <issue>' to create one)"
+  elif (( count >= WT_WARN )); then
+    warn "approaching WIP cap (${count}/${WT_CAP}); finish or remove some before starting more"
+  fi
+}
+
+cmd_remove() {
+  [[ $# -ge 1 ]] || die "usage: wt remove <issue|name>"
+  local needle="$1"
+  local path; path="$(find_worktree "$needle")"
+  [[ -n "$path" ]] || die "no worktree matches '$needle'"
+
+  local force="${2:-}"
+  if [[ -d "$path" ]]; then
+    local tracked_dirty
+    tracked_dirty="$(git -C "$path" status --porcelain --untracked-files=no 2>/dev/null | wc -l | tr -d ' ')"
+    if (( tracked_dirty > 0 )) && [[ "$force" != "--force" ]]; then
+      die "$path has $tracked_dirty uncommitted change(s) to tracked files. Commit/push first, or re-run with --force."
+    fi
+    local re; re="$(auto_created_regex)"
+    local unexpected_untracked
+    unexpected_untracked="$( ( git -C "$path" status --porcelain 2>/dev/null \
+      | awk '/^\?\? /{print $2}' \
+      | grep -Ev "$re" || true ) | wc -l | tr -d ' ')"
+    if (( unexpected_untracked > 0 )) && [[ "$force" != "--force" ]]; then
+      die "$path has $unexpected_untracked untracked file(s) beyond the auto-created set. Stash/commit them, or re-run with --force."
+    fi
+  fi
+
+  # Force git's own remove — the symlinks + .envrc are "untracked" and would block it.
+  git -C "$REPO_ROOT" worktree remove --force "$path"
+  ok "removed worktree $path"
+}
+
+cmd_prune() {
+  local force="${1:-}"
+  say "Fetching origin with --prune to discover deleted remote branches…"
+  git -C "$REPO_ROOT" fetch --prune --quiet origin
+
+  local pruned=0 skipped=0 kept=0 re
+  re="$(auto_created_regex)"
+
+  while IFS= read -r path; do
+    [[ -z "$path" || "$path" == "$REPO_ROOT" ]] && continue
+
+    local branch
+    branch="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    if [[ -z "$branch" || "$branch" == "HEAD" ]]; then
+      dim "  $path: detached HEAD — skipped"; kept=$((kept + 1)); continue
+    fi
+    if ! git -C "$REPO_ROOT" config --get "branch.${branch}.remote" >/dev/null 2>&1; then
+      dim "  $branch: never pushed — skipped"; kept=$((kept + 1)); continue
+    fi
+    if git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/${branch}" >/dev/null; then
+      dim "  $branch: still on origin — skipped"; kept=$((kept + 1)); continue
+    fi
+    if ! git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" "origin/$DEFAULT_BRANCH" 2>/dev/null; then
+      warn "  $branch: remote gone but commits NOT in origin/$DEFAULT_BRANCH — skipped (force-delete manually if intentional)"
+      kept=$((kept + 1)); continue
+    fi
+
+    local tracked_dirty unexpected_untracked
+    tracked_dirty="$(git -C "$path" status --porcelain --untracked-files=no 2>/dev/null | wc -l | tr -d ' ')"
+    unexpected_untracked="$( ( git -C "$path" status --porcelain 2>/dev/null \
+      | awk '/^\?\? /{print $2}' \
+      | grep -Ev "$re" || true ) | wc -l | tr -d ' ')"
+    if [[ "$force" != "--force" ]] && (( tracked_dirty > 0 || unexpected_untracked > 0 )); then
+      warn "  $branch: merged but has local work (tracked=$tracked_dirty, untracked=$unexpected_untracked) — skipped (use --force to drop)"
+      skipped=$((skipped + 1)); continue
+    fi
+
+    git -C "$REPO_ROOT" worktree remove --force "$path"
+    ok "  $branch: removed (merged to $DEFAULT_BRANCH, remote gone)"
+    pruned=$((pruned + 1))
+  done < <(git -C "$REPO_ROOT" worktree list --porcelain | awk '/^worktree /{print $2}')
+
+  say ""
+  say "Pruned: $pruned. Skipped (had local work): $skipped. Kept: $kept."
+}
+
+cmd_doctor() {
+  say "Worktree health — $REPO_NAME"
+  say "============================"
+  say ""
+
+  local here="$CURRENT_TOPLEVEL"
+  if [[ "$here" == "$REPO_ROOT" ]]; then
+    dim "  not currently in a worktree (in main checkout)"
+  else
+    say "  current worktree: $here"
+    local link
+    for link in "${WT_SYMLINK_CANDIDATES[@]}"; do
+      [[ -e "$REPO_ROOT/$link" ]] || continue   # candidate doesn't apply to this repo
+      if [[ -L "$here/$link" ]]; then
+        local target; target="$(readlink "$here/$link")"
+        if [[ -e "$target" ]]; then ok "  $link → $target"; else err "  $link → $target (broken)"; fi
+      elif [[ -e "$here/$link" ]]; then
+        warn "  $link exists but is NOT a symlink (re-created locally; wastes disk)"
+      else
+        warn "  $link missing (run 'wt new' to recreate, or symlink manually)"
+      fi
+    done
+    if [[ "${COMPOSE_PROJECT_NAME:-}" == "$COMPOSE_PROJECT_NAME_DEFAULT" ]]; then
+      ok "  COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME_DEFAULT}"
+    else
+      warn "  COMPOSE_PROJECT_NAME not set to '${COMPOSE_PROJECT_NAME_DEFAULT}'; run: source .envrc"
+    fi
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    local up
+    up="$(docker ps --filter "name=^${COMPOSE_PROJECT_NAME_DEFAULT}-" --format '{{.Names}}' 2>/dev/null | head -3 | tr '\n' ' ' || true)"
+    if [[ -n "$up" ]]; then
+      ok "  docker stack '${COMPOSE_PROJECT_NAME_DEFAULT}' up: ${up}"
+    else
+      warn "  no running '${COMPOSE_PROJECT_NAME_DEFAULT}-*' containers; start your stack (e.g. docker compose up -d)"
+    fi
+  else
+    warn "  docker not installed; can't verify stack"
+  fi
+
+  say ""
+  say "WIP: $(wt_count)/$WT_CAP active worktrees"
+}
+
+cmd_help() { sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; }
+
+# ---------------------------------------------------------------------------
+# Dispatcher
+# ---------------------------------------------------------------------------
+
+case "${1:-help}" in
+  new)        shift; cmd_new "$@" ;;
+  list|ls)    cmd_list ;;
+  remove|rm)  shift; cmd_remove "$@" ;;
+  prune)      shift; cmd_prune "$@" ;;
+  doctor)     cmd_doctor ;;
+  help|--help|-h) cmd_help ;;
+  *)          err "unknown subcommand: $1"; cmd_help; exit 2 ;;
+esac
