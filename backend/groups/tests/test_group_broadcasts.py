@@ -131,3 +131,35 @@ class GroupBroadcastWiringTests(TestCase):
                 )
             self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
             mock_group.assert_not_called()
+
+
+class GroupMembershipBroadcastNamingTests(TestCase):
+    """Group membership events use the member.* naming that mirrors the board
+    channel (member.added / member.updated), so a single frontend socket layer
+    handles both channels. Guards against reverting to the membership.* names.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="g_owner", password="pass")
+        self.member = User.objects.create_user(username="g_member", password="pass")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+        self.group = _make_group(self.owner)
+        GroupMembership.objects.create(
+            group=self.group, user=self.member, role=GroupMembership.Role.MEMBER
+        )
+
+    def test_role_update_fires_member_updated(self):
+        with patch("groups.views.transaction.on_commit") as mock_on_commit, \
+             patch("groups.broadcast.broadcast_group_event") as mock_group:
+            mock_on_commit.side_effect = lambda fn: fn()
+            resp = self.client.patch(
+                f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
+                {"role": GroupMembership.Role.ADMIN},
+            )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        called = [c.args for c in mock_group.call_args_list]
+        self.assertTrue(
+            any(args[0] == self.group.id and args[1] == "member.updated" for args in called),
+            f"expected a member.updated broadcast on the group channel, got {called}",
+        )

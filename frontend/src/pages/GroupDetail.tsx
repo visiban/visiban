@@ -201,13 +201,45 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         return exists ? prev.map((b) => (b.id === incoming.id ? { ...b, ...incoming } : b)) : prev;
       });
     } else if (evt.event === "board.deleted") {
-      const id = typeof data.id === "number" ? data.id : data.board_id;
-      if (typeof id !== "number") return;
+      // board_uid is the canonical key on delete (always present); the legacy
+      // integer board_id only appears on move-out. Evict on EITHER match so an
+      // outright delete (uid-only payload) removes the row, while a move-out
+      // (uid + legacy id) stays covered too (#998).
+      const uid = typeof data.board_uid === "string" ? data.board_uid : undefined;
+      const id = typeof data.id === "number"
+        ? data.id
+        : (typeof data.board_id === "number" ? data.board_id : undefined);
+      if (uid === undefined && id === undefined) return;
       captureFocusedBoardId();
-      setBoards((prev) => prev.filter((b) => b.id !== id));
-      setSubgroupBoards((prev) => prev.filter((b) => b.id !== id));
+      const matches = (b: Board) =>
+        (uid !== undefined && b.uid === uid) || (id !== undefined && b.id === id);
+      setBoards((prev) => prev.filter((b) => !matches(b)));
+      setSubgroupBoards((prev) => prev.filter((b) => !matches(b)));
     } else if (evt.event === "group.updated") {
       // Ownership transfer — refetch the group to get the updated owner object.
+      getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
+    } else if (evt.event === "group.created") {
+      // A subgroup was created under this group (the parent channel also
+      // receives this event). Refetch the subgroup list so it appears live.
+      getSubgroups(groupId).then(setSubgroups).catch(() => { /* stay with current list */ });
+    } else if (evt.event === "group.deleted") {
+      // A direct subgroup was deleted — drop it from the subgroup list.
+      if (typeof data.id === "number") {
+        const deletedId = data.id;
+        setSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
+      }
+    } else if (evt.event === "member.added" || evt.event === "member.updated") {
+      // Refetch the members list rather than splicing the payload: the list
+      // includes inherited rows and nearest-ancestor dedup, so a full refetch
+      // is the only way to keep direct/inherited precedence correct (#998).
+      getGroupMembers(groupId).then(setMembers).catch(() => { /* stay with current list */ });
+    } else if (
+      evt.event === "group.label.created" ||
+      evt.event === "group.label.updated" ||
+      evt.event === "group.label.deleted"
+    ) {
+      // Group shared labels live on the group object — refetch it to converge,
+      // matching the group.updated pattern above.
       getGroup(groupId).then(setGroup).catch(() => { /* stay with current state */ });
     } else if (evt.event === "board.star_changed") {
       // Star is per-user state (#952); ignore events for other users so a
@@ -859,7 +891,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                           ↑ {m.inherited_from}
                         </span>
                       </div>
-                    ) : isAdmin && m.user.id !== user.id && m.role !== "site_admin" ? (
+                    ) : isAdmin && m.user.id !== user.id ? (
                       <div className="flex items-center gap-2 shrink-0">
                         <SelectDropdown
                           value={m.role}
@@ -896,9 +928,6 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     ) : (
                       <div className="flex items-center gap-2 shrink-0">
                         <p className="text-fg-muted text-xs capitalize">{m.role}</p>
-                        {m.role === "site_admin" && (
-                          <span className="text-xs bg-palette-purple-deep text-palette-purple-soft px-1.5 py-0.5 rounded">site admin</span>
-                        )}
                       </div>
                     )}
                   </div>

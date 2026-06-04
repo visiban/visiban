@@ -401,7 +401,11 @@ export interface Group {
 export interface GroupMembership {
   id: number | null;
   user: BoardUser;
-  role: BoardOrSiteRole;
+  // The group members endpoint only ever serializes a GroupMembership.Role
+  // value (viewer/collaborator/member/admin); it never injects synthetic
+  // site_admin/owner rows the way the board members serializer does. Keep this
+  // narrow so the frontend carries no dead `role === "site_admin"` branches.
+  role: BoardRole;
   joined_at: string;
   is_inherited: boolean;
   inherited_from: string | null;

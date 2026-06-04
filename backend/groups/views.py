@@ -407,7 +407,9 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_membership_updated(gid=group_id, data=membership_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "membership.updated", data)
+                # member.* mirrors the board channel's member.added/updated/removed
+                # naming so a single frontend socket layer handles both channels.
+                broadcast_group_event(gid, "member.updated", data)
 
             transaction.on_commit(_broadcast_membership_updated)
         return Response(membership_data)
@@ -1039,17 +1041,19 @@ class JoinGroupView(APIView):
                 link.used_at = timezone.now()
                 link.save(update_fields=["used_at"])
 
-            # Broadcast membership.added on the group channel so other admin
+            # Broadcast member.added on the group channel so other admin
             # sessions on GroupDetail see the new member appear in real time
             # (#998).  Only emit on a fresh join — re-redemption of an
             # already-active membership does not change observable state.
+            # member.* mirrors the board channel's member.added/updated/removed
+            # naming so a single frontend socket layer handles both channels.
             if created:
                 membership_data = GroupMembershipSerializer(membership).data
                 joined_gid = link.group_id
 
                 def _broadcast_member_added(gid=joined_gid, data=membership_data):
                     from .broadcast import broadcast_group_event
-                    broadcast_group_event(gid, "membership.added", data)
+                    broadcast_group_event(gid, "member.added", data)
 
                 transaction.on_commit(_broadcast_member_added)
 

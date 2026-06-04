@@ -1018,7 +1018,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
             <p className="text-fg-tertiary text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
-              <button onClick={executeDelete} className="bg-danger-bg hover:bg-danger-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete</button>
+              <button onClick={executeDelete} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete</button>
             </div>
           </>
         ) : confirmAction === "archive" ? (

@@ -145,7 +145,7 @@ export default function ActivityFilterDropdown({
                   type="checkbox"
                   checked={allChecked}
                   onChange={toggleAll}
-                  className="rounded accent-blue-600"
+                  className="rounded accent-primary"
                   aria-label="Select all event types"
                 />
                 All
@@ -168,7 +168,7 @@ export default function ActivityFilterDropdown({
                       type="checkbox"
                       checked={selected.includes(opt.value)}
                       onChange={() => toggle(opt.value)}
-                      className="rounded accent-blue-600"
+                      className="rounded accent-primary"
                     />
                     {opt.color && (
                       <span
