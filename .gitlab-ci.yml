@@ -429,9 +429,15 @@ backend-schema-validate:
 # resolves inside the job without needing the React dev server running.
 #
 # Runs on any change to OIDC-related files, and always on the default branch.
-# allow_failure: true — Keycloak startup is non-deterministic; a transient
-# container boot failure should not block unrelated MRs.  The job is still
-# reported in the pipeline summary so flakiness is visible.
+# allow_failure: true — Keycloak boot is slow on the shared small runner and the
+# job historically times out far more often than it succeeds, so a red run must
+# not block unrelated MRs.  The job is still reported in the pipeline summary.
+#
+# Debugging note: the 120s readiness budget was too tight for Keycloak's JVM boot
+# when sharing a single vCPU with postgres/redis/python.  We raised the wait to
+# 240s and enabled CI_DEBUG_SERVICES so the Keycloak container log is captured in
+# the trace — this distinguishes a slow boot from a crash/OOM.  If the log shows
+# CPU starvation rather than a crash, move this job to saas-linux-medium-amd64.
 
 oidc-smoke:
   extends: .pip-cache
@@ -469,6 +475,9 @@ oidc-smoke:
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost,127.0.0.1"
+    # Capture the Keycloak (and other) service-container logs in the job trace so
+    # a boot timeout can be diagnosed as slow-boot vs crash/OOM without guessing.
+    CI_DEBUG_SERVICES: "true"
     OIDC_CLIENT_ID: "visiban"
     OIDC_CLIENT_SECRET: "test-oidc-secret"
     OIDC_SERVER_URL: "http://keycloak:8080/realms/visiban-test"
@@ -478,8 +487,10 @@ oidc-smoke:
     FRONTEND_URL: "http://localhost:8000/api/health/liveness/"
   before_script:
     - pip install --quiet -r backend/requirements.txt requests
-    # Provision Keycloak: waits for readiness, then creates realm/client/user
-    - python scripts/oidc_provision.py --keycloak-url http://keycloak:8080
+    # Provision Keycloak: waits for readiness, then creates realm/client/user.
+    # 240s budget — Keycloak's JVM boot routinely exceeds the previous 120s when
+    # sharing a single vCPU with postgres/redis/python on the small runner.
+    - python scripts/oidc_provision.py --keycloak-url http://keycloak:8080 --wait-timeout 240
     # Run migrations
     - cd backend && python manage.py migrate --noinput
     # Start the backend in the background; give it a few seconds to bind
