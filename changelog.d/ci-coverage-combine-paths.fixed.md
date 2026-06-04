@@ -1,0 +1,1 @@
+Fixed flaky `backend-test-coverage` CI job failing with "No source for code" when the parallel test shards and the coverage combine step landed on runners with different build roots. A `[coverage:paths]` mapping now reconciles the shard data files against the combine runner's checkout.
