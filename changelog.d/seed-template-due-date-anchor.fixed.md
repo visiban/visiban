@@ -1,0 +1,1 @@
+- Re-seeding demo boards after 2026-04-01 no longer produces an entirely past-dated set of card due dates — due dates are now anchored to today so upcoming and overdue cards appear correctly after any re-seed; the fixed anchor is preserved only for `--export` runs to keep committed sample-board snapshots git-stable
