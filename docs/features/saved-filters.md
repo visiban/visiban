@@ -38,7 +38,9 @@ See [`docs/api/boards.md`](../api/boards.md#saved-filters) for the full `state_j
 
 ## Schema versioning
 
-Each saved filter carries a `state_version` field (introduced in 1.1). The version identifies the shape of the stored `state_json` so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.
+> **Added in 1.1**
+
+Each saved filter carries a `state_version` field. The version identifies the shape of the stored `state_json` so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.
 
 Today only version `1` exists. The server accepts higher `state_version` values from newer clients unchanged — a mixed-version deploy where a newer frontend writes `state_version: 2` against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.
 
