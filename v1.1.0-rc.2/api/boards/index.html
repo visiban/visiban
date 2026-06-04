@@ -3256,6 +3256,25 @@
 <h2 id="boards">Boards<a class="headerlink" href="#boards" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boards"><code>GET /api/v1/boards/</code><a class="headerlink" href="#get-apiv1boards" title="Permanent link">&para;</a></h3>
 <p>List all boards accessible to the current user.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>?starred=true</code></td>
+<td>Return only boards the requesting user has starred</td>
+</tr>
+<tr>
+<td><code>?expand=group</code></td>
+<td>Populate <code>group_detail</code> on each board with a <code>GroupBrief</code> object (see <code>GET /api/v1/boards/{id}/full/</code> for the shape). Without this parameter <code>group_detail</code> is <code>null</code>. Triggers a one-query ancestor bulk-fetch — safe to use on list responses.</td>
+</tr>
+</tbody>
+</table>
 <h3 id="post-apiv1boards"><code>POST /api/v1/boards/</code><a class="headerlink" href="#post-apiv1boards" title="Permanent link">&para;</a></h3>
 <p>Create a board.</p>
 <p><strong>Request</strong></p>
@@ -3327,6 +3346,11 @@
 <td>Group ID and name (null for personal boards)</td>
 </tr>
 <tr>
+<td><code>group_detail</code></td>
+<td>object / null</td>
+<td>Populated with a <code>GroupBrief</code> object when <code>?expand=group</code> is appended to the request; <code>null</code> otherwise. <code>GroupBrief</code> shape: <code>{ id, name, parent, parent_name, ancestors }</code> where <code>parent</code> is the parent group FK ID (or <code>null</code>) and <code>ancestors</code> is a root-first <code>[{ id, name }]</code> chain.</td>
+</tr>
+<tr>
 <td><code>member_count</code></td>
 <td>integer</td>
 <td>Number of direct board members</td>
@@ -3395,7 +3419,7 @@
 <p>Delete board. Requires board owner or site admin.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
 <p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
-<p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing the group's <code>id</code>, <code>name</code>, <code>uid</code>, and <code>ancestors</code> chain. Without this parameter <code>group_detail</code> is <code>null</code>.</p>
+<p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing <code>id</code>, <code>name</code>, <code>parent</code> (parent group FK ID or <code>null</code>), <code>parent_name</code> (parent group display name or <code>null</code>), and <code>ancestors</code> (root-first <code>[{ id, name }]</code> chain). Without this parameter <code>group_detail</code> is <code>null</code>.</p>
 <h3 id="post-apiv1boardsidstar"><code>POST /api/v1/boards/{id}/star/</code><a class="headerlink" href="#post-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
 <p>Star (favorite) a board. Returns <code>200 OK</code> with the updated board object (whether or not the board was already starred).</p>
 <p><strong>Permissions:</strong> requires authentication and board access (any role). Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>
@@ -4011,12 +4035,15 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Rate limit:</strong> 20 exports/hour per authenticated user (scope: <code>board_export</code>). Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
 <p>Requires board membership — non-members receive <code>403 Forbidden</code> with body <code>{"detail": "Board export requires board membership."}</code>. If the caller is a member but their role is below the board's <code>export_min_role</code> threshold, returns <code>403 Forbidden</code> with body <code>{"detail": "...", "code": "export_restricted", "min_role": "&lt;threshold&gt;"}</code>. Owners and site admins always bypass the threshold.</p>
 <p><strong>CSV columns:</strong> <code>Card ID</code>, <code>Title</code>, <code>Description</code>, <code>Column</code>, <code>Swimlane</code>, <code>Priority</code>, <code>Assignee</code>, <code>Labels</code>, <code>Due Date</code>, <code>Weight</code>, <code>Created At</code>, <code>Created By</code>, <code>Last Moved At</code>, <code>Movement Count</code>, <code>Movement History</code></p>
 <p><code>Movement History</code> is a semicolon-separated list of pipe-delimited records: <code>&lt;timestamp&gt;|&lt;from_column&gt;|&lt;to_column&gt;|&lt;moved_by&gt;</code>.</p>
 <h3 id="get-apiv1boardsidexportformatjson"><code>GET /api/v1/boards/{id}/export/?format=json</code><a class="headerlink" href="#get-apiv1boardsidexportformatjson" title="Permanent link">&para;</a></h3>
 <p>Export the board as JSON. Returns <code>application/json</code>. Same permission rules as the CSV variant: requires board membership and meeting the <code>export_min_role</code> threshold. Owners and site admins always bypass.</p>
+<p><strong>Rate limit:</strong> 20 exports/hour per authenticated user (scope: <code>board_export</code>). Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
 <p><strong>Response shape:</strong></p>
+<p>The top-level <code>schema_version</code> field is always <code>2</code> in 1.1+ exports. The importer understands versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds <code>archived_at</code> per card, <code>movement_type</code>, movement <code>notes</code>, and comment <code>created_at</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Sales Pipeline&quot;</span><span class="p">,</span>
@@ -4096,6 +4123,8 @@
 <h3 id="post-apiv1boardsimport"><code>POST /api/v1/boards/import/</code><a class="headerlink" href="#post-apiv1boardsimport" title="Permanent link">&para;</a></h3>
 <p>Import a board from a Visiban JSON or CSV export file. Accepts <code>multipart/form-data</code> with a <code>file</code> field, an optional <code>name</code> field to override the board name, and an optional <code>group_id</code> field to place the imported board into a group. Creates a new board atomically.</p>
 <p><strong>Permission:</strong> authenticated user. When <code>group_id</code> is set, the caller must be a member of that group (any role — viewer and above); a non-member receives <code>403 Forbidden</code>.</p>
+<p><strong>Rate limit:</strong> 10 imports/hour per authenticated user (scope: <code>board_import</code>). Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
+<p><strong>Import limits:</strong> up to 500 cards, 50 columns, and 100 swimlanes per import. Payloads exceeding these limits return <code>400 Bad Request</code>.</p>
 <p><strong>Request</strong> (<code>multipart/form-data</code>)</p>
 <table>
 <thead>
@@ -4407,7 +4436,12 @@
 <p>A <code>swimlane.updated</code> WebSocket event is broadcast to all connected board clients on success.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The deprecated snake_case alias <code>set_collapsed</code> (with underscore) is retained for 1.x backward compatibility and emits the same response. Prefer the kebab-case form <code>set-collapsed</code>. The alias will be removed in 2.0.</p>
+<p>The deprecated snake_case alias <code>set_collapsed</code> (with underscore) is retained for 1.x backward compatibility and emits the same response but additionally includes the following response headers:</p>
+<ul>
+<li><code>Deprecation: true</code> — signals that this URL path is deprecated (RFC 8594).</li>
+<li><code>Link: &lt;canonical-url&gt;; rel="successor-version"</code> — points to the canonical kebab-case path (RFC 8288).</li>
+</ul>
+<p>Prefer the kebab-case form <code>set-collapsed</code>. The underscore alias will be removed in 2.0.</p>
 </div>
 <h3 id="post-apiv1boardsidswimlanesreorder"><code>POST /api/v1/boards/{id}/swimlanes/reorder/</code><a class="headerlink" href="#post-apiv1boardsidswimlanesreorder" title="Permanent link">&para;</a></h3>
 <p>Reorder swimlanes. Requires board admin.</p>

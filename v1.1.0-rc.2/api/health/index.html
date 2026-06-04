@@ -2651,11 +2651,11 @@
 <p>Only the failing subsystems appear in <code>errors</code>. Use this as a <strong>readiness probe</strong> — traffic should not be routed to the instance until it returns <code>200</code>.</p>
 <hr />
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
-<p>Returns the running application version string. Requires authentication.</p>
+<p>Returns the running application version string. <strong>Requires authentication</strong> (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>403 Forbidden</code>.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0.0&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.1.0&quot;</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
-<p>The value is read from the <code>APP_VERSION</code> environment variable set at deploy time (see <code>.env.example</code>). Use this to confirm which version is deployed before running migrations or checking the changelog.</p>
+<p>The value is read from the <code>APP_VERSION</code> environment variable set at deploy time (see <code>.env.example</code>). Use this to confirm which version is deployed before running migrations or checking the changelog. See <a href="../version/">Version API</a> for the full reference.</p>
 <hr />
 <h2 id="kubernetes-example">Kubernetes example<a class="headerlink" href="#kubernetes-example" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">livenessProbe</span><span class="p">:</span>

@@ -3471,7 +3471,7 @@ can detect the condition and call this endpoint programmatically.</p>
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <p><strong>Request body fields</strong></p>
 <table>
 <thead>
@@ -3483,6 +3483,12 @@ can detect the condition and call this endpoint programmatically.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>avatar_url</code></td>
+<td>string / null</td>
+<td>No</td>
+<td>URL of the user's avatar image. Accepts any absolute URL or <code>null</code> to clear.</td>
+</tr>
 <tr>
 <td><code>theme</code></td>
 <td>string</td>

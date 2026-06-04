@@ -2594,8 +2594,8 @@
 
 <h1 id="version-api">Version API<a class="headerlink" href="#version-api" title="Permanent link">&para;</a></h1>
 <h2 id="get-apiv1version"><code>GET /api/v1/version/</code><a class="headerlink" href="#get-apiv1version" title="Permanent link">&para;</a></h2>
-<p>Returns the running server version string. No authentication required.</p>
-<p><strong>Authentication:</strong> none required (public endpoint).</p>
+<p>Returns the running server version string. Authentication is required.</p>
+<p><strong>Authentication:</strong> requires a valid session or personal access token (<code>IsAuthenticated</code>). Unauthenticated requests receive <code>403 Forbidden</code>.</p>
 <p><strong>Response</strong></p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.1.0&quot;</span>
