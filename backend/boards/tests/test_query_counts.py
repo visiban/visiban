@@ -737,6 +737,65 @@ class NotificationListQueryCountTests(TestCase):
 # ---------------------------------------------------------------------------
 
 
+class ChecklistEndpointQueryCountTests(TestCase):
+    """GET /api/boards/{id}/cards/{id}/checklist/ must not issue per-item queries.
+
+    CardChecklistSerializer nests ``created_by`` (a user serializer), so the
+    checklist_items prefetch must carry select_related("created_by") or each
+    item resolves its creator with a separate query.
+    """
+
+    BUDGET = 8  # auth + board + card + checklist prefetch, × headroom
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u_checklist", password="x")
+        self.board = _make_board(self.user)
+        col = Column.objects.create(board=self.board, name="C", position=0)
+        lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=lane,
+            title="Card", created_by=self.user, position=0,
+        )
+        for i in range(3):
+            CardChecklist.objects.create(
+                card=self.card, text=f"item {i}", is_checked=False,
+                position=i, created_by=self.user,
+            )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def _get_checklist(self):
+        return self.client.get(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/checklist/"
+        )
+
+    def test_checklist_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_checklist()
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.data), 3)
+        self.assertLessEqual(
+            len(ctx), self.BUDGET,
+            f"checklist/ used {len(ctx)} queries — budget is {self.BUDGET}. "
+            "An N+1 on created_by was introduced; fix the prefetch.",
+        )
+
+    def test_checklist_query_count_constant_across_item_count(self):
+        """Adding checklist items must not increase the query count."""
+        baseline = _query_count(self._get_checklist)
+        for i in range(3, 23):
+            CardChecklist.objects.create(
+                card=self.card, text=f"item {i}", is_checked=False,
+                position=i, created_by=self.user,
+            )
+        scaled = _query_count(self._get_checklist)
+        self.assertEqual(
+            baseline, scaled,
+            f"checklist/ query count grew from {baseline} to {scaled} when items "
+            "were added — per-item created_by N+1 regression detected.",
+        )
+
+
 class NotificationUnreadCountQueryCountTests(TestCase):
     """GET /api/notifications/unread-count/ must not issue per-board queries (#1015)."""
 

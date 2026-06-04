@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import transaction
-from django.db.models import Count, F, Q, Sum, Window, prefetch_related_objects
+from django.db.models import Count, F, Prefetch, Q, Sum, Window, prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -1313,8 +1313,18 @@ class CardViewSet(viewsets.ModelViewSet):
     def checklist(self, request, board_pk=None, pk=None):
         """List checklist items on a card or add a new one."""
         board, role = self._board_and_role()
+        # select_related("created_by") inside the prefetch avoids an N+1: the
+        # GET path serializes each item with CardChecklistSerializer, whose
+        # ``created_by`` is a nested user serializer (#995 follow-up).
         card = get_object_or_404(
-            Card.objects.prefetch_related("checklist_items"), pk=pk, board=board
+            Card.objects.prefetch_related(
+                Prefetch(
+                    "checklist_items",
+                    queryset=CardChecklist.objects.select_related("created_by"),
+                )
+            ),
+            pk=pk,
+            board=board,
         )
         if request.method == "GET":
             items = card.checklist_items.all()
