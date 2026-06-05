@@ -11,7 +11,9 @@ django-cors-headers==4.9.0
 django-environ==0.13.0
 drf-nested-routers==0.94.1
 requests==2.33.0
-PyJWT==2.12.1
+# Pin transitive dep (via requests) to clear GHSA-65pc-fj4g-8rjx; within requests' idna<4 range.
+idna==3.18
+PyJWT==2.13.0
 cryptography==46.0.7
 django-filter==25.2
 whitenoise==6.8.2
