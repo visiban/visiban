@@ -58,6 +58,9 @@ _OIDC_CLIENT_ID = env("OIDC_CLIENT_ID", default="")
 # OIDC_CLIENT_SECRET is the canonical name (consistent with GOOGLE_CLIENT_SECRET,
 # GITHUB_CLIENT_SECRET, etc.).
 _OIDC_CLIENT_SECRET = env("OIDC_CLIENT_SECRET", default="")
+# Warn operators still setting the pre-1.1 alias: the old name is no longer
+# read, so an unrenamed OIDC_SECRET silently deactivates SSO (#894, #1047).
+_warn_deprecated_env_alias("OIDC_SECRET", "OIDC_CLIENT_SECRET")
 _OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
 # True when all three OIDC env vars are present. The provider app is only
 # registered in INSTALLED_APPS and SOCIALACCOUNT_PROVIDERS when this is True
@@ -405,6 +408,9 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 ACCOUNT_ADAPTER = "accounts.adapter.RegistrationAdapter"
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialRegistrationAdapter"
 # EMAIL_VERIFICATION is the canonical env var name (added in 1.0).
+# Warn operators still setting the pre-1.1 ACCOUNT_EMAIL_VERIFICATION alias —
+# it is no longer read, so it silently has no effect (#894, #1047).
+_warn_deprecated_env_alias("ACCOUNT_EMAIL_VERIFICATION", "EMAIL_VERIFICATION")
 ACCOUNT_EMAIL_VERIFICATION = env("EMAIL_VERIFICATION", default="optional")
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
