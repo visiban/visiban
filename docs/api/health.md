@@ -17,7 +17,7 @@ Use this as a **liveness probe** — if it fails, the container should be restar
 
 ## `GET /api/health/readiness/`
 
-Returns `200 OK` if both the database and Redis cache are reachable. No authentication required.
+Returns `200 OK` if both the database and Valkey cache are reachable. No authentication required.
 
 **Response — healthy**
 ```json

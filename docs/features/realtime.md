@@ -1,6 +1,6 @@
 # Real-time Updates
 
-Visiban uses WebSockets (Django Channels + Redis) to push board changes to all connected clients instantly — no polling required.
+Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all connected clients instantly — no polling required.
 
 ## How it works
 
@@ -200,35 +200,38 @@ The group channel does not emit card-level events — those remain on the per-bo
 
 ## Requirements
 
-Real-time updates require a Redis instance. Visiban uses two separate Redis connections:
+Real-time updates require a Valkey instance (the Redis-compatible, BSD-licensed fork). Visiban uses two separate connections:
 
 | Environment variable | Purpose | Default |
 |---|---|---|
 | `REDIS_URL` | Django Channels — the WebSocket channel layer | `redis://localhost:6379/0` |
 | `REDIS_CACHE_URL` | Django cache — rate limiting, health checks | `redis://localhost:6379/1` |
 
-These are independent variables. By default they point to the same Redis host but use different databases (`/0` and `/1`). You can point them at separate Redis instances in production if needed.
+These are independent variables. By default they point to the same Valkey host but use different databases (`/0` and `/1`). You can point them at separate instances in production if needed.
+
+!!! note "Why REDIS_URL and not VALKEY_URL?"
+    The `redis://` URL scheme and `REDIS_*` env var names are unchanged — they are part of the stable API contract. The deployed service is Valkey, but the connection protocol (RESP) is identical, so no URL or env var changes are required.
 
 ### Docker Compose
 
-Redis is included in the default `docker-compose.yml` — no extra setup needed.
+Valkey is included in the default `docker-compose.yml` — no extra setup needed.
 
 ### Production / Helm
 
-Set `REDIS_URL` to your Redis DSN, or use the bundled bitnami/redis subchart:
+Set `REDIS_URL` to your Valkey DSN, or use the bundled Bitnami Valkey subchart:
 
 ```yaml
-redis:
+valkey:
   enabled: true
 ```
 
-To use an external Redis instance:
+To use an external Valkey (or Redis-compatible) instance:
 
 ```yaml
-redis:
+valkey:
   enabled: false
 externalRedis:
-  url: "redis://my-redis-host:6379/0"
+  url: "redis://my-valkey-host:6379/0"
 ```
 
 !!! tip

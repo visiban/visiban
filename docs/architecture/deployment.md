@@ -10,7 +10,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The `docker-compose.yml` starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
+The `docker-compose.yml` starts four services: `db` (Postgres 17), `valkey` (Valkey 8), `backend` (daphne ASGI), and `frontend` (Vite dev server). The backend runs `migrate` and `ensure_site_admin` automatically on startup.
 
 > **Note:** The backend uses **daphne** (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.
 
@@ -48,7 +48,7 @@ The Helm chart bundles the following database and cache dependencies:
 | Component | Version | How deployed |
 |---|---|---|
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
-| Redis | 7.4 | Bitnami `redis` subchart 25.x (pinned to `7.4.3`) |
+| Valkey | 8 | Bitnami `valkey` subchart (pinned) |
 
 > **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
 
@@ -57,7 +57,7 @@ The Helm chart bundles the following database and cache dependencies:
 ### Install
 
 ```bash
-# Redis still uses the Bitnami subchart — add the repo and fetch dependencies
+# Valkey uses the Bitnami subchart — add the repo and fetch dependencies
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm dependency update helm/visiban
@@ -221,8 +221,8 @@ helm install visiban helm/visiban \
 | `frontend.image.tag` | `v1.0.0` | Frontend image tag |
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
-| `redis.enabled` | `true` | Use bundled Redis 7.4; set `false` to use `externalRedis.url` |
-| `externalRedis.url` | `""` | External Redis DSN (used when `redis.enabled: false`) — **must be set** when using external Redis |
+| `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
+| `externalRedis.url` | `""` | External Valkey (or Redis-compatible) DSN (used when `valkey.enabled: false`) — **must be set** when using an external instance |
 | `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
 
 ### Ingress annotations
@@ -257,7 +257,7 @@ When `networkPolicy.enabled: true`, the chart creates a default-deny ingress pol
 - Ingress controller → frontend (port 80)
 - Frontend → backend (port 8000)
 - Backend → PostgreSQL (port 5432)
-- Backend → Redis (port 6379)
+- Backend → Valkey (port 6379)
 
 Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, Weave, etc.).
 

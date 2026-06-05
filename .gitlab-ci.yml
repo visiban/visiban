@@ -287,15 +287,15 @@ backend-test:
   services:
     - name: postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
-      alias: redis
+    - name: valkey/valkey:8-alpine
+      alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
     POSTGRES_USER: "${CI_POSTGRES_USER}"
     POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
     DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
-    REDIS_URL: "redis://redis:6379/0"
-    REDIS_CACHE_URL: "redis://redis:6379/1"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"
@@ -475,15 +475,15 @@ oidc-smoke:
         KEYCLOAK_ADMIN_PASSWORD: admin
     - name: postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
-      alias: redis
+    - name: valkey/valkey:8-alpine
+      alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
     POSTGRES_USER: "${CI_POSTGRES_USER}"
     POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
     DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
-    REDIS_URL: "redis://redis:6379/0"
-    REDIS_CACHE_URL: "redis://redis:6379/1"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost,127.0.0.1"
@@ -1470,15 +1470,15 @@ seed-export-check:
   services:
     - name: postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
-      alias: redis
+    - name: valkey/valkey:8-alpine
+      alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
     POSTGRES_USER: "${CI_POSTGRES_USER}"
     POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
     DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
-    REDIS_URL: "redis://redis:6379/0"
-    REDIS_CACHE_URL: "redis://redis:6379/1"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
     DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
     DEBUG: "True"
     ALLOWED_HOSTS: "localhost"

@@ -17,7 +17,7 @@
 └────────────┬────────────────────────┬───────────────┘
              │ psycopg2               │ channels-redis
 ┌────────────▼────────────┐ ┌─────────▼───────────────┐
-│      PostgreSQL 17      │ │       Redis 7 / 8       │
+│      PostgreSQL 17      │ │        Valkey 8          │
 │  (primary data store)   │ │(WebSocket channel layer)│
 └─────────────────────────┘ └─────────────────────────┘
 ```
@@ -29,7 +29,7 @@
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI server | daphne (required for WebSocket support) |
 | Database | PostgreSQL 17 |
-| Cache / Pub-Sub | Redis 7 (Docker Compose) / Redis 8 (Helm — Bitnami subchart) |
+| Cache / Pub-Sub | Valkey 8 (Docker Compose and Helm — Bitnami subchart) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
@@ -58,8 +58,8 @@
 1. Frontend opens `ws://{host}/ws/boards/{board_id}/` on page load
 2. `AuthMiddlewareStack` authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001
 3. On connect, the consumer joins the `board_{id}` channel group
-4. Any mutation (card move, update, delete) calls `broadcast_board_event()` which publishes to Redis
-5. Redis fans the event out to all consumers in the group
+4. Any mutation (card move, update, delete) calls `broadcast_board_event()` which publishes to Valkey
+5. Valkey fans the event out to all consumers in the group
 6. Each consumer forwards the event to its WebSocket client
 7. The `useBoardSocket` React hook applies the event to local state
 

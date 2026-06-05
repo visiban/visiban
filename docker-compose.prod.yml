@@ -25,19 +25,22 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  # Valkey is the BSD-3, Linux Foundation fork of Redis (after Redis 7.4's move
+  # to the non-OSI RSALv2/SSPL license). Wire-compatible with Redis 7 — the
+  # redis:// URL scheme, REDIS_PASSWORD auth, and RESP protocol are unchanged.
+  valkey:
+    image: valkey/valkey:8-alpine
     restart: unless-stopped
     read_only: true
     security_opt:
       - no-new-privileges:true
     tmpfs:
       - /data
-    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
+    command: valkey-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a $$REDIS_PASSWORD --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -54,15 +57,15 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
-      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379/0
-      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379/1
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/0
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/1
       DEBUG: "false"
     volumes:
       - mediafiles:/app/media
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
 
   backend:
@@ -78,8 +81,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
-      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379/0
-      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@redis:6379/1
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/0
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/1
       DEBUG: "false"
     volumes:
       - mediafiles:/app/media

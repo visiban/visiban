@@ -107,7 +107,7 @@ Stale cards show an amber tint overlay with reduced opacity on the board so they
 
 When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small **Live** dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.
 
-Powered by Django Channels and Redis — no configuration required in the default Docker Compose setup.
+Powered by Django Channels and Valkey — no configuration required in the default Docker Compose setup.
 
 → [Real-time Updates](realtime.md)
 

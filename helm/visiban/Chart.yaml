@@ -2,7 +2,7 @@ apiVersion: v2
 name: visiban
 description: Self-hosted Kanban board with customer swimlanes and card movement audit trail
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "1.1.0"
 
 dependencies:
@@ -10,7 +10,7 @@ dependencies:
     version: "16.x.x"
     repository: https://charts.bitnami.com/bitnami
     condition: postgresql.subchartEnabled
-  - name: redis
-    version: "25.x.x"
+  - name: valkey
+    version: "6.x.x"
     repository: https://charts.bitnami.com/bitnami
-    condition: redis.enabled
+    condition: valkey.enabled

@@ -42,9 +42,9 @@ Migrate Job: {{ include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName
 - name: USE_X_ACCEL_REDIRECT
   value: "false"
 - name: REDIS_URL
-  value: {{ if $ctx.Values.redis.enabled }}{{ printf "redis://%s-redis-master:6379/0" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
+  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL
-  value: {{ if $ctx.Values.redis.enabled }}{{ printf "redis://%s-redis-master:6379/1" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
+  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
 - name: EMAIL_BACKEND
   value: {{ printf "django.core.mail.backends.%s.EmailBackend" $ctx.Values.backend.email.backend | quote }}
 - name: EMAIL_HOST

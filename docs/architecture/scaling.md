@@ -13,7 +13,7 @@ The default Docker Compose stack runs all services on one machine:
 
 ```
 Internet → Nginx → daphne (ASGI) → PostgreSQL
-                               ↘ Redis (channel layer)
+                               ↘ Valkey (channel layer)
                                ↘ Local disk (attachments)
 ```
 
@@ -60,11 +60,11 @@ A good starting point: `(2 × vCPU) + 1` workers.
 Run multiple backend replicas behind a load balancer. Requirements before doing this:
 
 1. **Attachment storage must be on S3/GCS** — local disk is not shared between replicas; see [Attachment storage](#attachment-storage) below.
-2. **Redis is already required** — the channel layer (WebSocket pub/sub) uses Redis; this is already in the default stack.
+2. **Valkey is already required** — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.
 3. **Sticky sessions are not required** — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.
 4. **Database connections** — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's `max_connections` (default 100).
 
-**Kubernetes:** The Helm chart supports `backend.replicaCount`. Set it to 2+ and ensure the `externalDatabase` and `externalRedis` values point to shared instances (not the bundled in-cluster pods, which are single-replica by default).
+**Kubernetes:** The Helm chart supports `backend.replicaCount`. Set it to 2+ and ensure the `externalDatabase` and `externalRedis` values point to shared instances (not the bundled in-cluster Valkey pod, which is single-replica by default).
 
 **When to act:** When p95 HTTP response time on `/api/v1/boards/{id}/cards/` exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.
 
@@ -116,18 +116,18 @@ Analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list)
 
 ---
 
-### Redis
+### Valkey
 
-Redis serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.
+Valkey (the Redis-compatible, BSD-licensed fork) serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.
 
 **What limits it:**
-Redis is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one `PUBLISH` and N `SUBSCRIBE` deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.
+Valkey is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one `PUBLISH` and N `SUBSCRIBE` deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.
 
 **How to tune:**
-Redis is rarely the bottleneck for team-scale deployments. The default single-node Redis handles tens of thousands of pub/sub messages per second. No action required until you see Redis CPU above 80%.
+Valkey is rarely the bottleneck for team-scale deployments. The default single-node Valkey handles tens of thousands of pub/sub messages per second. No action required until you see Valkey CPU above 80%.
 
-**Redis Cluster / Sentinel:**
-For high availability, use Redis Sentinel (managed failover) or Redis Cluster (horizontal sharding). Configure via `CHANNEL_LAYERS`:
+**Valkey Cluster / Sentinel:**
+For high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with Redis Sentinel protocol, so the `channels_redis` configuration is the same:
 
 ```python
 CHANNEL_LAYERS = {
@@ -135,8 +135,8 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [
-                {"host": "redis-sentinel-1", "port": 26379},
-                {"host": "redis-sentinel-2", "port": 26379},
+                {"host": "valkey-sentinel-1", "port": 26379},
+                {"host": "valkey-sentinel-2", "port": 26379},
             ],
             "master_name": "visiban-master",
         },
@@ -144,7 +144,7 @@ CHANNEL_LAYERS = {
 }
 ```
 
-**When to act:** When Redis CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Redis Cluster adds complexity without benefit until you have millions of pub/sub events per minute.
+**When to act:** When Valkey CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Valkey Cluster adds complexity without benefit until you have millions of pub/sub events per minute.
 
 ---
 
@@ -255,7 +255,7 @@ Scale components in this order. Each step resolves the typical bottleneck before
 | **4. Add pgBouncer** | DB connections > 80% of `max_connections` | Connection pooling in front of PostgreSQL |
 | **5. Add backend replicas** | After steps 3–4 | `backend.replicaCount: 2+` in Helm |
 | **6. PostgreSQL read replica** | Analytics queries affecting write latency | Route analytics ViewSet to replica |
-| **7. Redis HA** | Redis CPU > 60% or availability SLA | Sentinel or Cluster |
+| **7. Valkey HA** | Valkey CPU > 60% or availability SLA | Sentinel or Cluster |
 | **8. CDN for static** | Multi-region users or high static asset CPU | CloudFront / R2 / Fastly |
 
 Steps 1–2 are operational changes with no code. Steps 3–8 require configuration changes and, for step 6, a small code change to route queries.
@@ -264,6 +264,6 @@ Steps 1–2 are operational changes with no code. Steps 3–8 require configurat
 
 ## What does not scale linearly
 
-- **Board-scoped WebSocket groups** — every user on the same board shares one Redis channel group. 100 users on one board means 100 deliveries per card move. This is by design; it does not degrade other boards.
+- **Board-scoped WebSocket groups** — every user on the same board shares one Valkey channel group. 100 users on one board means 100 deliveries per card move. This is by design; it does not degrade other boards.
 - **The `/api/v1/boards/{id}/full/` endpoint** — returns the full board state in one request. At the 500-card import limit, this is a large payload. If teams consistently hit this size, consider paginating card loads rather than scaling infrastructure — it's a product decision.
 - **`CardMovement` table growth** — every card move and card creation writes a row. On active boards over months, this table grows. Archiving old boards reclaims logical space; a periodic vacuum handles physical space. This is not a problem at team scale but worth noting for multi-year deployments.

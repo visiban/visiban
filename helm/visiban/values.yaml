@@ -175,34 +175,33 @@ externalDatabase:
   username: visiban
   password: ""
 
-# Built-in Redis subchart (bitnami/redis).
+# Built-in Valkey subchart (bitnami/valkey). Valkey is the BSD-3, Linux
+# Foundation fork of Redis; it speaks the same RESP wire protocol, so the
+# backend's redis:// URLs and REDIS_URL env vars are unchanged.
 # Set enabled: false and supply externalRedis.url to use an existing instance.
-redis:
+valkey:
   enabled: true
   architecture: standalone
   auth:
     enabled: false
-  image:
-    tag: "7.4.3"
-  master:
+  primary:
     persistence:
       enabled: false
-  # Override the subchart default which tries to load modules not present
-  # in the standard Bitnami Redis image (redisearch, rejson).
   commonConfiguration: |-
-    # Enable AOF https://redis.io/topics/persistence#append-only-file
+    # Enable AOF https://valkey.io/topics/persistence/
     appendonly yes
     # Disable RDB persistence, AOF persistence already enabled.
     save ""
 
-# External Redis — used only when redis.enabled is false.
-# You must set both url and cacheUrl to valid Redis connection strings.
+# External Valkey/Redis — used only when valkey.enabled is false.
+# You must set both url and cacheUrl to valid (Valkey- or Redis-) connection
+# strings. The values key stays `externalRedis` for backward compatibility.
 externalRedis:
   url: ""
   cacheUrl: ""
 
 # -- Network policies restrict pod-to-pod traffic to only the paths Visiban
-# needs (ingress→frontend, frontend→backend, backend→postgres/redis).
+# needs (ingress→frontend, frontend→backend, backend→postgres/valkey).
 # Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, etc.).
 networkPolicy:
   enabled: false

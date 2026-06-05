@@ -371,7 +371,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 `docker-compose.prod.yml` — production-ready stack with TLS, health checks, and no default credentials:
 
-- Services: `db` (Postgres 17 Alpine), `redis` (Redis 7 Alpine), `backend` (daphne ASGI), `frontend-build` (init container that copies SPA assets into a shared volume), `nginx` (1.27 Alpine), `certbot` (auto-renewing Let's Encrypt every 12 hours)
+- Services: `db` (Postgres 17 Alpine), `valkey` (Valkey 8 Alpine — the Redis-compatible, BSD-licensed fork), `backend` (daphne ASGI), `frontend-build` (init container that copies SPA assets into a shared volume), `nginx` (1.27 Alpine), `certbot` (auto-renewing Let's Encrypt every 12 hours)
 - `DB_PASSWORD` is mandatory — the compose file fails fast with a descriptive error if unset; no insecure default
 - `DOMAIN` is mandatory — nginx config is rendered at container startup via `envsubst` so the host never needs to run it manually
 - `APP_VERSION` env var controls which image tag is pulled (defaults to `latest`)
@@ -380,7 +380,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 ### Helm (Kubernetes)
 
-Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using official `postgres:17` image by default) and Bitnami Redis 7.4 subchart.
+Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using official `postgres:17` image by default) and a Bitnami Valkey subchart.
 
 **Secret management — two supported patterns:**
 
