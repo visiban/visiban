@@ -171,6 +171,12 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   // We key on the rendered button's `data-board-id`; any non-board focus is left
   // alone.
   const pendingRefocusRef = useRef<number | null>(null);
+  // Scope focus-restoration queries to this component's own subtree rather than
+  // the global document. A bare document.querySelector can match a detached
+  // [data-board-id] node left behind by another (unmounted) GroupDetail instance
+  // — e.g. a prior test render whose cleanup has not flushed — and focusing a
+  // detached node is a no-op, leaving focus stranded on <body> (#753 flake).
+  const rootRef = useRef<HTMLDivElement>(null);
   const captureFocusedBoardId = useCallback(() => {
     const el = document.activeElement as HTMLElement | null;
     const raw = el?.getAttribute?.("data-board-id");
@@ -244,15 +250,17 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
     const pending = pendingRefocusRef.current;
     if (pending === null) return;
     pendingRefocusRef.current = null;
+    const root = rootRef.current;
+    if (!root) return;
     const existing = boards.find((b) => b.id === pending);
     if (existing) {
-      document
+      root
         .querySelector<HTMLElement>(`[data-board-id="${pending}"]`)
         ?.focus({ preventScroll: true });
     } else {
       const firstBoard = boards[0];
       if (firstBoard) {
-        document
+        root
           .querySelector<HTMLElement>(`[data-board-id="${firstBoard.id}"]`)
           ?.focus({ preventScroll: true });
       }
@@ -517,7 +525,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   }
 
   return (
-    <div className="h-full bg-sunken flex flex-col">
+    <div ref={rootRef} className="h-full bg-sunken flex flex-col">
       <Navbar user={user} onLogout={onLogout} onUserUpdated={onUserUpdated} breadcrumb={breadcrumb} />
 
       {joinToast && (
