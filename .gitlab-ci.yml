@@ -1069,6 +1069,12 @@ frontend-docker-build:
   # docker:28-cli provides the Docker CLI + buildx plugin without a bundled
   # daemon — the host daemon is reached via the socket mount.
   image: docker:28-cli
+  variables:
+    # Pin the daemon to the mounted host socket. Job-level variables outrank a
+    # runner config.toml `environment` entry, so this neutralizes any stray
+    # DOCKER_HOST=tcp://docker:2375 inherited from the runner (a dind default
+    # this pipeline deliberately does not use — see the socket mount above).
+    DOCKER_HOST: unix:///var/run/docker.sock
   before_script:
     - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
     - docker login -u "${GHCR_USER}" -p "${GHCR_TOKEN}" ghcr.io
