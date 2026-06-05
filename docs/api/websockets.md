@@ -149,8 +149,8 @@ Authentication uses the same session-cookie mechanism as the board channel. The 
 | `group.label.created` | Group shared label created | Full `GroupLabelSerializer` object |
 | `group.label.updated` | Group shared label renamed or recolored | Full `GroupLabelSerializer` object |
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
-| `membership.added` | User joined this group via an invite link | Full `GroupMembershipSerializer` object |
-| `membership.updated` | Group membership role changed | Full `GroupMembershipSerializer` object |
+| `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
+| `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.

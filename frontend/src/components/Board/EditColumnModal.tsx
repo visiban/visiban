@@ -97,7 +97,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
             type="checkbox"
             checked={allowCardCreation}
             onChange={(e) => setAllowCardCreation(e.target.checked)}
-            className="w-4 h-4 rounded accent-blue-600"
+            className="w-4 h-4 rounded accent-primary"
           />
           <span className="text-sm text-fg-secondary">Allow card creation</span>
         </label>
@@ -110,7 +110,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
                 type="checkbox"
                 checked={isDone}
                 onChange={(e) => setIsDone(e.target.checked)}
-                className="w-4 h-4 rounded accent-blue-600"
+                className="w-4 h-4 rounded accent-primary"
               />
               <span className="text-sm text-fg-secondary">Count as completed (for cycle-time metrics)</span>
             </div>

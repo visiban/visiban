@@ -199,7 +199,7 @@ function AddUserModal({ onCreated, onClose }: AddUserModalProps) {
               type="checkbox"
               checked={form.force_password_reset}
               onChange={set("force_password_reset")}
-              className="w-4 h-4 accent-blue-500"
+              className="w-4 h-4 accent-primary"
             />
             Force password reset on first login
           </label>

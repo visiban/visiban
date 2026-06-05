@@ -306,7 +306,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
               <button
                 onClick={() => handleDeleteBoard(confirmDeleteId)}
                 disabled={!canDelete}
-                className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-fg text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                className="bg-danger-bg hover:bg-danger-bg-hover disabled:opacity-40 disabled:cursor-not-allowed text-on-danger text-sm font-medium px-4 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
               >
                 Delete
               </button>

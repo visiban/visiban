@@ -1089,5 +1089,61 @@ describe('GroupDetail', () => {
 
       expect(mockGetGroup).toHaveBeenCalledTimes(1)
     })
+
+    it('removes a subgroup row on group.deleted (#998)', async () => {
+      const subgroup = { ...fakeGroup, id: 2, name: 'Sub Team', parent: 1 }
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([subgroup])
+      mockGetGroupBoards.mockResolvedValue([existingBoard])
+      renderGroupDetail()
+      expect(await screen.findByText('Sub Team')).toBeInTheDocument()
+
+      act(() => {
+        capturedOnEvent?.({ event: 'group.deleted', data: { id: 2 } } as BoardEvent)
+      })
+
+      await waitFor(() => {
+        expect(screen.queryByText('Sub Team')).not.toBeInTheDocument()
+      })
+    })
+
+    it('refetches subgroups on group.created (#998)', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({ event: 'group.created', data: { id: 3, name: 'New Sub', parent: 1 } } as BoardEvent)
+      })
+      // getSubgroups: once on initial load, once on the event.
+      await waitFor(() => {
+        expect(mockGetSubgroups).toHaveBeenCalledTimes(2)
+      })
+    })
+
+    it('refetches members on member.added and member.updated (#998)', async () => {
+      await loadGroup()
+      act(() => {
+        capturedOnEvent?.({ event: 'member.added', data: { id: 5, user: fakeUser, role: 'member', joined_at: '' } } as BoardEvent)
+      })
+      await waitFor(() => {
+        expect(mockGetGroupMembers).toHaveBeenCalledTimes(2)
+      })
+      act(() => {
+        capturedOnEvent?.({ event: 'member.updated', data: { id: 5, user: fakeUser, role: 'admin', joined_at: '' } } as BoardEvent)
+      })
+      await waitFor(() => {
+        expect(mockGetGroupMembers).toHaveBeenCalledTimes(3)
+      })
+    })
+
+    it('refetches the group on group.label.* events (#998)', async () => {
+      await loadGroup()
+      const before = mockGetGroup.mock.calls.length
+      act(() => {
+        capturedOnEvent?.({ event: 'group.label.created', data: { id: 7, name: 'Urgent', color: '#f00' } } as BoardEvent)
+      })
+      await waitFor(() => {
+        expect(mockGetGroup.mock.calls.length).toBe(before + 1)
+      })
+    })
   })
 })
