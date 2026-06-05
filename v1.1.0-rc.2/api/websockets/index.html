@@ -3120,13 +3120,13 @@
 <td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
-<td><code>membership.added</code></td>
-<td>User joined this group via an invite link</td>
+<td><code>member.added</code></td>
+<td>User joined this group via an invite link. Named to mirror the board channel's <code>member.added</code> so one frontend socket layer handles both</td>
 <td>Full <code>GroupMembershipSerializer</code> object</td>
 </tr>
 <tr>
-<td><code>membership.updated</code></td>
-<td>Group membership role changed</td>
+<td><code>member.updated</code></td>
+<td>Group membership role changed. Mirrors the board channel's <code>member.updated</code></td>
 <td>Full <code>GroupMembershipSerializer</code> object</td>
 </tr>
 <tr>
