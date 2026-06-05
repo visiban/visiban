@@ -251,6 +251,56 @@ class NotificationAccessAfterRemovalTests(TestCase):
         self.assertEqual(resp.data[0]["verb"], "account verified")
 
 
+class NotificationUnreadCountCapTests(TestCase):
+    """The unread-count badge is capped at 50 to match the list endpoint.
+
+    The dropdown never shows more than 50 unread notifications, so the badge
+    must not load the user's entire unread backlog into memory just to count
+    it. Capping keeps the count in lock-step with what the dropdown can show
+    and bounds the per-board access checks the endpoint performs.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="cap_user", password="pass")
+        self.board, self.col, _, self.swim = make_board(self.user)
+        self.card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Card", created_by=self.user, position=0,
+        )
+
+    def _make_unread(self, n):
+        Notification.objects.bulk_create([
+            Notification(
+                recipient=self.user,
+                verb=f"unread {i}",
+                board=self.board,
+                card=self.card,
+                action_type=Notification.ActionType.CARD_MOVED,
+                read=False,
+            )
+            for i in range(n)
+        ])
+
+    def test_count_uncapped_below_threshold(self):
+        self._make_unread(7)
+        self.client.force_authenticate(self.user)
+        resp = self.client.get("/api/v1/notifications/unread-count/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["count"], 7)
+
+    def test_count_capped_at_fifty(self):
+        self._make_unread(73)
+        self.client.force_authenticate(self.user)
+        resp = self.client.get("/api/v1/notifications/unread-count/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data["count"], 50,
+            "unread-count must cap at 50 to match the list endpoint's window "
+            "and avoid loading the full unread backlog into memory.",
+        )
+
+
 class CardAssignmentNotificationTests(TestCase):
     def setUp(self):
         self.client = APIClient()

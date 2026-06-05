@@ -137,6 +137,13 @@ class NotificationUnreadCountView(APIView):
         # with the list endpoint (#987) — otherwise the bell would show a
         # number the user can never reach by opening the dropdown.
         # Pre-load the full group ancestor chain — same reasoning as NotificationListView (#1015).
+        #
+        # Cap at 50 to match NotificationListView: the dropdown never shows
+        # more than 50 unread notifications, so the badge count cannot
+        # meaningfully exceed that either. Without the cap this endpoint —
+        # polled on every page load — would load every unread row into memory
+        # and call get_board_role() per distinct board, scaling unbounded with
+        # a user's unread backlog.
         qs = Notification.objects.filter(recipient=request.user, read=False).select_related(
             "board",
             "board__group",
@@ -145,6 +152,6 @@ class NotificationUnreadCountView(APIView):
             "board__group__parent__parent__parent",
             "board__group__parent__parent__parent__parent",
             "board__group__parent__parent__parent__parent__parent",
-        )
+        )[:50]
         count = len(_filter_to_accessible_boards(list(qs), request.user))
         return Response({"count": count})
