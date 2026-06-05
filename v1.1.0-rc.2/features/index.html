@@ -2626,6 +2626,13 @@
 <p>Powered by Django Channels and Redis — no configuration required in the default Docker Compose setup.</p>
 <p>→ <a href="realtime/">Real-time Updates</a></p>
 <hr />
+<h2 id="real-time-group-updates">Real-time group updates<a class="headerlink" href="#real-time-group-updates" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.1</strong></p>
+</blockquote>
+<p>The group detail page auto-refreshes its board list over WebSocket. Boards created, renamed, deleted, or moved into or out of the group by other users appear and disappear in real time — no manual refresh needed. A <strong>Live / Reconnecting… / Failed</strong> status indicator mirrors the board-view connection badge.</p>
+<p>→ <a href="groups/#live-board-list">Groups — Live board list</a></p>
+<hr />
 <h2 id="groups-access-control">Groups &amp; access control<a class="headerlink" href="#groups-access-control" title="Permanent link">&para;</a></h2>
 <p>Boards can be organized into groups and subgroups (unlimited nesting). Group membership cascades down the hierarchy — add someone to "Acme Corp" and they automatically gain access to all boards in "Engineering", "Backend Team", and every other descendant group.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Acme Corp  ← add user here
@@ -2757,6 +2764,14 @@
 <p>Save any combination of filters (search text, assignee, labels, priority, due date) under a name and restore it in one click from the <strong>Saved</strong> dropdown in the filter bar. Saved filters are stored server-side and persist across devices. They are private to each user — other board members cannot see or modify your presets. Any board role, including Viewer, can manage their own saved filters.</p>
 <p>→ <a href="saved-filters/">Saved Filters</a></p>
 <hr />
+<h2 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.1</strong></p>
+</blockquote>
+<p>Each board has an admin-controlled <strong>Card density</strong> setting (Comfortable / Standard / Dense) that controls how much metadata appears on the card face. New boards default to Comfortable — one urgency badge, one label, checklist progress, and the assignee avatar. Dense reproduces the pre-1.1 layout and is the default for boards upgraded from 1.0. Boards upgraded automatically are set to Dense; admins can adjust the setting at any time in <strong>Board Settings → Display</strong>.</p>
+<p>The previous per-user per-field hide toggles (Labels / Due date / Assignee / Priority badge / Last moved) are removed in 1.1. Card density is the single layout knob, and <code>localStorage</code> values for the old keys are silently ignored.</p>
+<p>→ <a href="board/#card-density">Board &amp; Cards — Card density</a></p>
+<hr />
 <h2 id="card-information-at-a-glance">Card information at a glance<a class="headerlink" href="#card-information-at-a-glance" title="Permanent link">&para;</a></h2>
 <p>Two new fields are visible directly on the card face without opening the detail panel:</p>
 <ul>
@@ -2784,6 +2799,7 @@
 <hr />
 <h2 id="board-sharing">Board sharing<a class="headerlink" href="#board-sharing" title="Permanent link">&para;</a></h2>
 <p>Board admins can generate a public read-only link that lets anyone view the board without a Visiban account. The link serves a static board view showing the full grid (columns, swimlanes, cards) with titles, labels, checklist progress, due dates, weights, and assignee names visible. Editing and commenting are disabled in the public view. Revoking the token immediately invalidates the link.</p>
+<p><strong>Share-link expiry</strong> (added in 1.1) — admins can set an optional TTL of 7 / 30 / 90 days when enabling a share link. Once the link expires, visitors receive a <code>410 Gone</code> response. Re-enabling sharing generates a new token; the expired token cannot be restored.</p>
 <p>→ <a href="board/#board-sharing">Board &amp; Cards — Board sharing</a></p>
 <hr />
 <h2 id="sidebar-explorer-tree">Sidebar explorer tree<a class="headerlink" href="#sidebar-explorer-tree" title="Permanent link">&para;</a></h2>

@@ -3044,6 +3044,35 @@
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
 <h3 id="upgrading-to-11x">Upgrading to 1.1.x<a class="headerlink" href="#upgrading-to-11x" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
+<p class="admonition-title">Removed env-var aliases — rename before upgrading</p>
+<p>Two deprecated environment variable aliases were <strong>removed</strong> in 1.1. Operators who still set the old names will get silent failures — OIDC will be deactivated and email verification will have no effect:</p>
+<table>
+<thead>
+<tr>
+<th>Old name (removed)</th>
+<th>Canonical name (use this)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OIDC_SECRET</code></td>
+<td><code>OIDC_CLIENT_SECRET</code></td>
+</tr>
+<tr>
+<td><code>ACCOUNT_EMAIL_VERIFICATION</code></td>
+<td><code>EMAIL_VERIFICATION</code></td>
+</tr>
+</tbody>
+</table>
+<p>Before upgrading, search your <code>.env</code> file and any CI/CD secret stores for these old names and rename them. From 1.1 on, setting either removed alias logs a startup deprecation warning naming the canonical replacement — but the old name is no longer read, so that warning is your only signal that SSO or email verification has silently stopped working. If neither alias appears anywhere in your config, no action is required.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Card density migration — existing boards default to Dense</p>
+<p>In 1.1, card display is controlled by a per-board <strong>Card density</strong> setting (Comfortable / Standard / Dense) that replaces the previous per-user per-field hide toggles.</p>
+<p>Existing boards are automatically migrated to the <strong>Dense</strong> tier, which reproduces the pre-1.1 card layout. New boards default to <strong>Comfortable</strong>.</p>
+<p>The previous per-user preferences (<code>hideLabels</code>, <code>hideDueDate</code>, <code>hideAssignee</code>, <code>hidePriority</code>, <code>hideLastMoved</code>) stored in <code>localStorage</code> are silently ignored after the upgrade — they are not migrated. Board admins can adjust the density for their board at any time from <strong>Board Settings → Display</strong>.</p>
+</div>
+<div class="admonition warning">
 <p class="admonition-title">Breaking change — Redis authentication is now required in production</p>
 <p><code>docker-compose.prod.yml</code> now starts Redis with <code>--requirepass</code> and constructs <code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> using the password. <strong>The stack will fail to start if <code>REDIS_PASSWORD</code> is not set in your <code>.env</code>.</strong></p>
 <p>Before running <code>docker compose -f docker-compose.prod.yml up</code>, add <code>REDIS_PASSWORD</code> to your <code>.env</code>:</p>

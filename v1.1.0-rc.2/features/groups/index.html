@@ -2820,6 +2820,9 @@
 <h2 id="subgroups">Subgroups<a class="headerlink" href="#subgroups" title="Permanent link">&para;</a></h2>
 <p>Group admins can create subgroups. Nesting is unlimited (traversal is capped at 6 levels for performance). The group detail page shows subgroups and optionally lists all boards across subgroups via the "Show subgroup boards" toggle.</p>
 <h2 id="invite-links">Invite links<a class="headerlink" href="#invite-links" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.0</strong></p>
+</blockquote>
 <p>Group admins can generate up to <strong>5 active invite links</strong> per group from the group detail page. Each link can be configured independently:</p>
 <table>
 <thead>
@@ -2862,6 +2865,9 @@
 <p>Any board can be moved to a different group or back to personal boards. Use the <strong>Move to group</strong> option in the board settings (gear icon in the toolbar). Only board admins and site admins can move a board.</p>
 <p><strong>API:</strong> <code>POST /api/v1/boards/{id}/move-group/</code> with <code>{ "group_id": 5 }</code> or <code>{ "group_id": null }</code> for personal.</p>
 <h2 id="group-shared-labels">Group shared labels<a class="headerlink" href="#group-shared-labels" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.0</strong></p>
+</blockquote>
 <p>Group admins can define a shared label library for the group. New boards created inside the group automatically inherit these labels, so your team starts with a consistent tagging vocabulary without manual setup.</p>
 <p>Labels are managed from the <strong>Settings</strong> tab on the group detail page. Changes to a group label (rename, recolor) propagate to all boards that inherited it; deletions only remove the label from the group library — boards that already have the label keep it.</p>
 <p><strong>API:</strong> <code>GET/POST /api/v1/groups/{id}/labels/</code>, <code>PATCH/DELETE /api/v1/groups/{id}/labels/{label_id}/</code></p>
