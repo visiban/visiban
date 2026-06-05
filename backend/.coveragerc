@@ -1,5 +1,12 @@
 [run]
 source = .
+# Store file paths relative to the source root rather than absolute. The three
+# parallel backend-test shards and the backend-test-coverage combine job can land
+# on runners with different builds_dir values (e.g. /builds vs /tmp/builds); with
+# absolute paths, `coverage report` in the combine job fails to resolve source
+# ("No source for code: .../accounts/__init__.py") and aborts before the report.
+# Relative paths make the combined data portable across runners.
+relative_files = true
 omit =
     */tests/*
     */management/commands/benchmark.py
