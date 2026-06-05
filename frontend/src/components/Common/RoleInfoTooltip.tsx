@@ -43,7 +43,7 @@ export default function RoleInfoTooltip({ children, label = "Role information" }
         <div
           role="tooltip"
           style={{ position: "fixed", top: anchor.top, right: anchor.right, maxWidth: 280, zIndex: 9999 }}
-          className="w-72 bg-sunken border border-line-strong rounded-xl p-3 shadow-xl pointer-events-none"
+          className="w-72 bg-sunken border border-line-strong rounded-lg p-3 shadow-xl pointer-events-none"
         >
           {children}
         </div>,

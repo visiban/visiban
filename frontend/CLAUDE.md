@@ -274,7 +274,7 @@ The avatar-triggered user menu in `Navbar.tsx` is the single entry point for all
 Never render browser-default radio circles. Use `sr-only` native `<input type="radio">` inside a `label` container — this preserves native keyboard navigation (arrow keys, Tab, Space) while hiding the visual control.
 
 Represent selection state on the container:
-- Selected: `border-primary-emphasis bg-primary-emphasis/10`
+- Selected: `border-primary-emphasis bg-primary-emphasis/10` — **never `bg-info/10`**; the `primary-emphasis` token tracks the active theme, `info` does not, so an `info`-tinted fill reads off-brand in dark mode
 - Unselected: `border-line-strong hover:bg-surface-hover/40`
 - Keyboard focus: `focus-within:ring-2 focus-within:ring-primary-emphasis rounded-lg` on the `label`
 - Transition: `transition-colors duration-150`
@@ -282,6 +282,10 @@ Represent selection state on the container:
 Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted mt-0.5` for the description line below it.
 
 The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
+
+## Native checkbox and radio accent
+
+When a native `<input type="checkbox">` or `<input type="radio">` is rendered with its default browser control visible (i.e. *not* the `sr-only` custom-styled radio pattern above), it **must** set `accent-primary` — never a raw palette value like `accent-blue-500` / `accent-blue-600`. The `accent-primary` token tracks the active theme (including dark mode); a hardcoded `accent-blue-*` stays the same hue regardless of theme and reads as an off-brand control. This applies to filter checkboxes (`ActivityFilterDropdown`), column-option checkboxes (`EditColumnModal`), and any admin toggle that keeps the native control.
 
 ## Ancestor breadcrumbs
 
@@ -399,6 +403,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 - Admin-only nav items and UI elements must be **hidden entirely** for non-admin users — never greyed out or rendered with reduced opacity. Use `{user.is_site_admin && ...}` (or the equivalent condition) to omit the element from the DOM entirely.
 - Never use `disabled` or `opacity-50` to signal lack of permission for a navigation link — if the user cannot access it, it should not be visible at all.
+- **Permission-gated and context-gated are distinct reasons to hide, with the same outcome: omit from the DOM.** *Permission-gated* — the user's role forbids the action (admin-only delete, site-admin nav). *Context-gated* — the action is valid for this user but meaningless in the current surface (e.g. the "Refresh board" affordance on `ConnectionStatus` is omitted on the group page, which has no single board to refresh). In both cases render nothing rather than a disabled/greyed affordance; do not show users a control they cannot act on, regardless of *why* they cannot.
 
 ## Long URL display fields
 
@@ -413,6 +418,8 @@ The permitted focus-ring form is `focus:ring-2 focus:ring-primary-emphasis` (or 
 `focus-visible:` is permitted only on elements that receive programmatic focus from drag-and-drop libraries (e.g. `CardItem` while a drag is mid-flight) where suppressing the ring during pointer drag is intentional.
 
 **Gate for any PR that touches interactive elements:** run `grep -r "focus-visible:ring" frontend/src/`. If any new instances appear outside the documented DnD exception, switch them to `focus:`. Issues #933, #949, and #983 all closed the same regression — keep this rule visible so it does not recur.
+
+**Confirmation-dialog Cancel buttons need a ring too.** The secondary / "Cancel" button in a confirm or destructive-action dialog is a real tab stop and the keyboard user's safe escape path — it must carry `focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded`, not only the primary or danger action button. A bare-text Cancel with no ring leaves keyboard users with no focus indicator on the very control they are most likely to reach for.
 
 ## Hover-reveal controls
 

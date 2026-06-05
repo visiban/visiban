@@ -242,7 +242,7 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
 
   return (
     <>
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-xl shadow-2xl px-4 py-2.5 border border-line">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-surface text-fg rounded-lg shadow-2xl px-4 py-2.5 border border-line">
         <span className="text-sm font-medium tabular-nums">
           {count} selected
         </span>

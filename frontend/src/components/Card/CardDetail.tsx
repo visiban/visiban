@@ -360,7 +360,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               onChange={(e) => setLocalCard((c) => ({ ...c, title: e.target.value }))}
               onKeyDown={handleTitleKeyDown}
               onBlur={handleTitleBlur}
-              className="text-base font-semibold text-fg w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-info focus:bg-info/20 bg-transparent transition"
+              className="text-base font-semibold text-fg w-full outline-none rounded px-1 -ml-1 border border-transparent focus:border-primary-soft focus:bg-primary-emphasis/20 bg-transparent transition"
             />
             {/* Breadcrumb row — swimlane and column names close the panel so the user
                 lands back on the board at that location. The move icon sits immediately
@@ -783,7 +783,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                       />
                       <div className="flex justify-end gap-3">
-                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition">Cancel</button>
+                        <button onClick={() => setShowBulkAdd(false)} className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
                         <button onClick={handleBulkAdd} className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Add items</button>
                       </div>
                     </div>
@@ -995,7 +995,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setShowMovePopover(false)}
-              className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-fg-muted rounded"
+              className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
             >Cancel</button>
             <button
               onClick={handleMoveSubmit}
@@ -1017,7 +1017,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <>
             <p className="text-fg-tertiary text-sm mb-5">This cannot be undone.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
               <button onClick={executeDelete} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete</button>
             </div>
           </>
@@ -1025,7 +1025,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
           <>
             <p className="text-fg-tertiary text-sm mb-5">It will be hidden from the board but can be unarchived from the Archived panel.</p>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
+              <button onClick={() => setConfirmAction(null)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded">Cancel</button>
               <button onClick={executeArchive} className="bg-warning-bg hover:bg-warning-bg-hover text-fg text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis">Archive</button>
             </div>
           </>
