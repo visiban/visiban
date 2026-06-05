@@ -3,6 +3,12 @@
 from django.db import transaction
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
+
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 from .. import broadcast as _broadcast
 from ..models import BoardMembership, Label
@@ -14,6 +20,14 @@ from ._helpers import get_board_for_user
 class LabelViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for labels on a board; write operations require admin role."""
 
+    # Explicitly enumerate the global default permission chain (#989/#1050) so an
+    # accidental change to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth
+    # gate from this viewset without a visible diff here.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
     serializer_class = LabelSerializer
 
     _cached_board_role = None

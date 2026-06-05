@@ -215,3 +215,27 @@ class ServeMediaXAccelRedirectTests(TestCase):
         # FileResponse streams the bytes — drain the response and verify content.
         body = b"".join(r.streaming_content) if r.streaming else r.content
         self.assertTrue(body.startswith(b"\x89PNG"))
+
+    @override_settings(DEBUG=False, USE_X_ACCEL_REDIRECT=True)
+    def test_x_accel_refuses_path_escaping_media_root(self):
+        """Defense-in-depth (#1050): if a stored attachment path ever escapes
+        MEDIA_ROOT (e.g. a future upload-sanitization regression), the X-Accel
+        branch must refuse it with 404 rather than hand Nginx a traversal path.
+
+        Driven through APIRequestFactory so the malicious `path` reaches the view
+        verbatim without the test client normalizing the `..` segments away.
+        """
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from boards.views.media import ServeMediaView
+
+        evil = "card_attachments/../../../../etc/passwd"
+        # Point the existing (member-owned, access-granted) attachment row at the
+        # escaping path so the membership check passes and we reach the guard.
+        self.attachment.file.name = evil
+        self.attachment.save(update_fields=["file"])
+
+        request = APIRequestFactory().get(f"/media/{evil}")
+        force_authenticate(request, user=self.owner)
+        response = ServeMediaView.as_view()(request, path=evil)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn("X-Accel-Redirect", response)

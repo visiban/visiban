@@ -216,6 +216,35 @@ class TestArchiveIdempotency(CardArchivingSetup):
         # archived_at should not change
         self.assertEqual(self.card.archived_at, first_time)
 
+    def test_unarchive_active_card_is_noop(self):
+        """Unarchiving a card that is already active hits the no-op branch and
+        returns the current card state with a 200 (#1050 — the happy path reuses
+        the dict built inside the transaction; the no-op path serializes once)."""
+        # card starts active (archived_at is null)
+        self.assertIsNone(self.card.archived_at)
+        r = self._client_for(self.admin).post(self._unarchive_url())
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["id"], self.card.pk)
+        self.card.refresh_from_db()
+        self.assertIsNone(self.card.archived_at)
+        # No spurious UNARCHIVED movement is recorded for a no-op restore.
+        self.assertFalse(
+            CardMovement.objects.filter(
+                card=self.card, movement_type=CardMovement.MovementType.UNARCHIVED
+            ).exists()
+        )
+
+    def test_unarchive_archived_card_returns_restored_state(self):
+        """The happy path returns the card with archived_at cleared (#1050 — the
+        response reuses the dict serialized inside the atomic block)."""
+        self.card.archived_at = timezone.now()
+        self.card.save()
+        r = self._client_for(self.admin).post(self._unarchive_url())
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["id"], self.card.pk)
+        self.assertIsNone(body["archived_at"])
+
 
 class TestArchivedListPermissions(CardArchivingSetup):
     """All board members — including viewers — can read the archived card list.

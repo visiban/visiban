@@ -6,7 +6,13 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Swimlane
@@ -17,6 +23,15 @@ from ._helpers import get_board_for_user
 
 class SwimlaneViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for swimlanes on a board; write operations require admin role."""
+
+    # Explicitly enumerate the global default permission chain (#989/#1050) so an
+    # accidental change to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth
+    # gate from this viewset without a visible diff here.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
 
     def get_serializer_class(self):
         # Admin and site_admin members see contact_email and notes; all others get the

@@ -99,6 +99,17 @@ class ServeMediaView(APIView):
             resp["Content-Disposition"] = disposition
             return resp
 
+        # Defense-in-depth: mirror the FileResponse branch's containment check so
+        # the path handed to Nginx via X-Accel-Redirect cannot escape MEDIA_ROOT
+        # (e.g. via a `..` segment) if upload-time sanitization ever regresses.
+        # `path` is bound to a CardAttachment row above, so this is belt-and-braces.
+        import os
+        from django.http import Http404
+        media_root = os.path.realpath(django_settings.MEDIA_ROOT)
+        resolved = os.path.realpath(os.path.join(media_root, path))
+        if os.path.commonpath([media_root, resolved]) != media_root:
+            raise Http404
+
         response = HttpResponse()
         response["X-Accel-Redirect"] = f"/protected-media/{path}"
         response["Content-Type"] = content_type

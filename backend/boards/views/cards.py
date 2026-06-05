@@ -13,10 +13,15 @@ from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 from .. import broadcast as _broadcast
 from .. import hooks
@@ -193,6 +198,14 @@ class CardFilter(django_filters.FilterSet):
 class CardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""
 
+    # Explicitly enumerate the global default permission chain (#989/#1050) so an
+    # accidental change to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth
+    # gate from this viewset without a visible diff here.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
     serializer_class = CardSerializer
     filterset_class = CardFilter
     # Disable pagination: the full board state is loaded via the /full/ endpoint; individual
@@ -297,8 +310,13 @@ class CardViewSet(viewsets.ModelViewSet):
         if not column.allow_card_creation:
             raise ValidationError({"column": "Card creation is not allowed in this column."})
         swimlane = get_object_or_404(Swimlane, pk=serializer.validated_data["swimlane"].pk, board=board)
-        max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
         with transaction.atomic():
+            # Lock the target column row before reading the cell's card count so
+            # two concurrent creates in the same (column, swimlane) cell cannot
+            # both observe the same max position and assign a duplicate. Matches
+            # the column-row lock used by the move action's WIP check (#1050).
+            Column.objects.select_for_update().get(pk=column.pk)
+            max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
             card = serializer.save(board=board, created_by=self.request.user, position=max_pos)
             CardMovement.objects.create(
                 card=card,
@@ -494,6 +512,11 @@ class CardViewSet(viewsets.ModelViewSet):
                 if hooks.CARD_MUTATION_HOOKS:
                     _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
                     transaction.on_commit(lambda: [h("card.restored", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
+            # Reuse the dict already built inside the atomic block — re-running
+            # _card_queryset() here would be a second identical ~5-query fetch of
+            # the same row (#1050).
+            return Response(card_data)
+        # No-op path: card was not archived. One fetch to return current state.
         return Response(CardSerializer(
             _card_queryset(Card.objects.filter(pk=card.pk)).get(),
             # Use the board already fetched by _board_and_role() — avoids a

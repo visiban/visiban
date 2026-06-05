@@ -104,6 +104,46 @@ class ViewerAssigneeRejectionTests(TestCase):
         self.assertEqual(r.json()["assignee"]["id"], self.collaborator_user.id)
 
 
+class AssigneeFailClosedTests(TestCase):
+    """assignee_id is declared with queryset=User.objects.none() and re-scoped in
+    __init__ only when `board` is in context. A serializer built without board
+    context must therefore reject every assignee rather than fall back to the old
+    User.objects.all() (which exposed all users as candidates) (#1050)."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="fc_admin", password="pass")
+        self.board, self.col, self.swim = _make_board(self.user)
+
+    def test_assignee_queryset_is_empty_without_board_context(self):
+        from boards.serializers import CardSerializer
+        s = CardSerializer()
+        self.assertEqual(
+            list(s.fields["assignee_id"].queryset),
+            [],
+            "Without board context the assignee queryset must fail closed (none()).",
+        )
+
+    def test_assignee_queryset_scoped_to_members_with_board_context(self):
+        from boards.serializers import CardSerializer
+        s = CardSerializer(context={"board": self.board})
+        self.assertIn(
+            self.user,
+            list(s.fields["assignee_id"].queryset),
+            "With board context the queryset must include the board's assignable members.",
+        )
+
+    @patch(PATCH_BROADCAST)
+    def test_validation_rejects_assignee_when_board_missing(self, _):
+        """is_valid() must reject a known user id when no board is in context."""
+        from boards.serializers import CardSerializer
+        s = CardSerializer(
+            data={"title": "X", "assignee_id": self.user.id},
+            context={},
+        )
+        s.is_valid()
+        self.assertIn("assignee_id", s.errors)
+
+
 class ClearViewerAssigneesCommandTests(TestCase):
     """Tests for the clear_viewer_assignees management command."""
 
