@@ -1,0 +1,1 @@
+- Focus is now correctly restored to the first remaining board on the group page when a board is removed by a live `board.deleted` event, instead of being stranded on `<body>` (#753)
