@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ImportBoardModal from '../components/Board/ImportBoardModal'
 
 describe('ImportBoardModal', () => {
-  let onImport: ReturnType<typeof vi.fn>
-  let onCancel: ReturnType<typeof vi.fn>
+  let onImport: Mock<(file: File, name?: string) => Promise<void>>
+  let onCancel: Mock<() => void>
 
   beforeEach(() => {
-    onImport = vi.fn().mockResolvedValue(undefined)
-    onCancel = vi.fn()
+    onImport = vi.fn<(file: File, name?: string) => Promise<void>>().mockResolvedValue(undefined)
+    onCancel = vi.fn<() => void>()
   })
 
   it('renders with a file input and Import button', () => {

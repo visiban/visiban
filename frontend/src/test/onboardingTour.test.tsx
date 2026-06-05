@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 // Mock useEscapeStack before importing the component
@@ -20,10 +20,10 @@ vi.mock('../api/auth', () => ({
 import OnboardingTour from '../components/Board/OnboardingTour'
 
 describe('OnboardingTour', () => {
-  let onComplete: ReturnType<typeof vi.fn>
+  let onComplete: Mock<() => void>
 
   beforeEach(() => {
-    onComplete = vi.fn()
+    onComplete = vi.fn<() => void>()
     mockCompleteTour.mockClear()
     mockEscapeHandlers.length = 0
 
