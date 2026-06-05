@@ -36,6 +36,11 @@ vi.mock('../api/groups', () => ({
   createInviteLink: vi.fn(),
   revokeInviteLink: vi.fn(),
   transferGroupOwnership: vi.fn(),
+  starGroup: vi.fn().mockResolvedValue({}),
+  unstarGroup: vi.fn().mockResolvedValue({}),
+  createGroupLabel: vi.fn(),
+  deleteGroupLabel: vi.fn().mockResolvedValue({}),
+  updateGroupBoardDefaults: vi.fn(),
 }))
 
 vi.mock('../api/boards', () => ({
@@ -53,7 +58,7 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -61,6 +66,10 @@ const mockGetSubgroups = getSubgroups as ReturnType<typeof vi.fn>
 const mockGetGroupBoards = getGroupBoards as ReturnType<typeof vi.fn>
 const mockGetGroupDescendantBoards = getGroupDescendantBoards as ReturnType<typeof vi.fn>
 const mockUpdateGroup = updateGroup as ReturnType<typeof vi.fn>
+const mockStarGroup = starGroup as ReturnType<typeof vi.fn>
+const mockUnstarGroup = unstarGroup as ReturnType<typeof vi.fn>
+const mockCreateGroupLabel = createGroupLabel as ReturnType<typeof vi.fn>
+const mockUpdateGroupBoardDefaults = updateGroupBoardDefaults as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1, username: 'jdoe', email: 'j@example.com', first_name: 'Jane',
@@ -94,6 +103,11 @@ describe('GroupDetail', () => {
     vi.clearAllMocks()
     capturedOnEvent = null
     capturedOnReconnected = null
+    // Re-apply default resolved values cleared by clearAllMocks (implementation is preserved
+    // but clearAllMocks wipes the mockResolvedValue queue for one-shot overrides).
+    mockGetGroupDescendantBoards.mockResolvedValue([])
+    mockStarGroup.mockResolvedValue({})
+    mockUnstarGroup.mockResolvedValue({})
   })
 
   it('shows loading state', () => {
@@ -507,6 +521,396 @@ describe('GroupDetail', () => {
     // A single call with the root group ID — not one per subgroup
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledWith(1)
     expect(mockGetGroupDescendantBoards).toHaveBeenCalledTimes(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Star / unstar (#1046)
+  // ---------------------------------------------------------------------------
+
+  describe('star / unstar', () => {
+    function setupAdmin(isStarred = false) {
+      mockGetGroup.mockResolvedValue({ ...fakeGroup, is_starred: isStarred })
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+    }
+
+    it('star button shows hollow star when group is not starred', async () => {
+      setupAdmin(false)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+      const btn = screen.getByRole('button', { name: 'Star group' })
+      expect(btn).toBeInTheDocument()
+      // Button text content is the hollow star glyph
+      expect(btn).toHaveTextContent('☆')
+    })
+
+    it('star button shows filled star when group is already starred', async () => {
+      setupAdmin(true)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+      const btn = screen.getByRole('button', { name: 'Unstar group' })
+      expect(btn).toBeInTheDocument()
+      expect(btn).toHaveTextContent('★')
+    })
+
+    it('clicking star on an unstarred group calls starGroup and flips to filled star', async () => {
+      setupAdmin(false)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
+
+      expect(mockStarGroup).toHaveBeenCalledWith(1)
+      expect(mockUnstarGroup).not.toHaveBeenCalled()
+
+      // Optimistic UI: the button label flips immediately to "Unstar group"
+      expect(await screen.findByRole('button', { name: 'Unstar group' })).toBeInTheDocument()
+    })
+
+    it('clicking unstar on a starred group calls unstarGroup and flips to hollow star', async () => {
+      setupAdmin(true)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
+
+      expect(mockUnstarGroup).toHaveBeenCalledWith(1)
+      expect(mockStarGroup).not.toHaveBeenCalled()
+
+      // Optimistic UI: the button label flips immediately to "Star group"
+      expect(await screen.findByRole('button', { name: 'Star group' })).toBeInTheDocument()
+    })
+
+    it('reverts star state when starGroup API call fails', async () => {
+      setupAdmin(false)
+      mockStarGroup.mockRejectedValueOnce(new Error('network error'))
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Star group' }))
+
+      // After the rejection the state should revert to unstarred
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
+      })
+    })
+
+    it('reverts unstar state when unstarGroup API call fails', async () => {
+      setupAdmin(true)
+      mockUnstarGroup.mockRejectedValueOnce(new Error('network error'))
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Unstar group' }))
+
+      // After the rejection the state should revert to starred
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Unstar group' })).toBeInTheDocument()
+      })
+    })
+
+    it('group.star_changed WS event updates star indicator for current user', async () => {
+      setupAdmin(false)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+      expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
+
+      act(() => {
+        capturedOnEvent?.({
+          event: 'group.star_changed',
+          data: { id: 1, user_id: fakeUser.id, is_starred: true },
+        } as BoardEvent)
+      })
+
+      expect(screen.getByRole('button', { name: 'Unstar group' })).toBeInTheDocument()
+    })
+
+    it('group.star_changed WS event for a different user does not change star indicator', async () => {
+      setupAdmin(false)
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+
+      act(() => {
+        capturedOnEvent?.({
+          event: 'group.star_changed',
+          data: { id: 1, user_id: 999, is_starred: true },
+        } as BoardEvent)
+      })
+
+      // Still showing "Star group" (hollow) — different user, no local state change
+      expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Board-defaults tab (#1046)
+  // ---------------------------------------------------------------------------
+
+  describe('board-defaults tab', () => {
+    async function loadAndSwitchToSettings() {
+      mockGetGroup.mockResolvedValue({
+        ...fakeGroup,
+        default_board_member_role: 'member',
+        allowed_priorities: ['low', 'medium', 'high', 'urgent'],
+        shared_labels: [
+          { id: 10, name: 'Bug', color: '#ef4444' },
+        ],
+      })
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+    }
+
+    it('switching to Settings tab renders the Board defaults section heading', async () => {
+      await loadAndSwitchToSettings()
+      expect(await screen.findByText('Board defaults')).toBeInTheDocument()
+    })
+
+    it('board defaults section shows the default member role label', async () => {
+      await loadAndSwitchToSettings()
+      expect(await screen.findByText('Default member role for new boards')).toBeInTheDocument()
+    })
+
+    it('board defaults section shows the allowed priorities label', async () => {
+      await loadAndSwitchToSettings()
+      expect(await screen.findByText('Allowed priorities on new boards')).toBeInTheDocument()
+    })
+
+    it('board defaults section renders priority toggle buttons', async () => {
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+      // All four priorities should be rendered as buttons
+      expect(screen.getByRole('button', { name: /low/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /medium/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /high/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /urgent/i })).toBeInTheDocument()
+    })
+
+    it('toggling a priority button calls updateGroupBoardDefaults', async () => {
+      mockUpdateGroupBoardDefaults.mockResolvedValue({
+        ...fakeGroup,
+        allowed_priorities: ['medium', 'high', 'urgent'],
+      })
+      await loadAndSwitchToSettings()
+      await screen.findByText('Board defaults')
+
+      // Click the "low" priority button to disable it (accessible name is the text content)
+      fireEvent.click(screen.getByRole('button', { name: 'low' }))
+
+      await waitFor(() => {
+        expect(mockUpdateGroupBoardDefaults).toHaveBeenCalledWith(1, expect.objectContaining({
+          allowed_priorities: expect.not.arrayContaining(['low']),
+        }))
+      })
+    })
+
+    it('board defaults section shows the shared label library heading', async () => {
+      await loadAndSwitchToSettings()
+      expect(await screen.findByText('Shared label library')).toBeInTheDocument()
+    })
+
+    it('shared labels in the group are listed under the shared label library', async () => {
+      await loadAndSwitchToSettings()
+      // The label "Bug" was added to the group fixture
+      expect(await screen.findByText('Bug')).toBeInTheDocument()
+    })
+
+    it('Add button is disabled when label name input is empty', async () => {
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const addBtn = screen.getByRole('button', { name: 'Add' })
+      expect(addBtn).toBeDisabled()
+    })
+
+    it('Add button is enabled after typing a label name', async () => {
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const input = screen.getByPlaceholderText('Label name…')
+      fireEvent.change(input, { target: { value: 'Enhancement' } })
+
+      expect(screen.getByRole('button', { name: 'Add' })).not.toBeDisabled()
+    })
+
+    it('submitting Add calls createGroupLabel with name and color', async () => {
+      const newLabel = { id: 20, name: 'Enhancement', color: '#EAB308' }
+      mockCreateGroupLabel.mockResolvedValue(newLabel)
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const input = screen.getByPlaceholderText('Label name…')
+      fireEvent.change(input, { target: { value: 'Enhancement' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      await waitFor(() => {
+        expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Enhancement' }))
+      })
+    })
+
+    it('new label appears in the list after successful creation', async () => {
+      const newLabel = { id: 20, name: 'Enhancement', color: '#EAB308' }
+      mockCreateGroupLabel.mockResolvedValue(newLabel)
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const input = screen.getByPlaceholderText('Label name…')
+      fireEvent.change(input, { target: { value: 'Enhancement' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      expect(await screen.findByText('Enhancement')).toBeInTheDocument()
+    })
+
+    it('pressing Enter in label name input also triggers creation', async () => {
+      const newLabel = { id: 21, name: 'Spike', color: '#EAB308' }
+      mockCreateGroupLabel.mockResolvedValue(newLabel)
+      await loadAndSwitchToSettings()
+      await screen.findByText('Shared label library')
+
+      const input = screen.getByPlaceholderText('Label name…')
+      fireEvent.change(input, { target: { value: 'Spike' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      await waitFor(() => {
+        expect(mockCreateGroupLabel).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Spike' }))
+      })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Shared-labels tab (within Settings, #1046)
+  // ---------------------------------------------------------------------------
+
+  describe('shared-labels tab', () => {
+    it('shows existing shared labels for the group', async () => {
+      const groupWithLabels: Group = {
+        ...fakeGroup,
+        shared_labels: [
+          { id: 1, name: 'Frontend', color: '#3b82f6' },
+          { id: 2, name: 'Backend', color: '#22c55e' },
+        ],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabels)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+
+      expect(await screen.findByText('Frontend')).toBeInTheDocument()
+      expect(screen.getByText('Backend')).toBeInTheDocument()
+    })
+
+    it('shows empty-state text when group has no shared labels', async () => {
+      mockGetGroup.mockResolvedValue({ ...fakeGroup, shared_labels: [] })
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+
+      expect(await screen.findByText('No shared labels yet.')).toBeInTheDocument()
+    })
+
+    it('each shared label has a Remove button', async () => {
+      const groupWithLabels: Group = {
+        ...fakeGroup,
+        shared_labels: [
+          { id: 1, name: 'Docs', color: '#8b5cf6' },
+          { id: 2, name: 'Chore', color: '#64748b' },
+        ],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabels)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Docs')
+
+      // Each label row carries a Remove button
+      const removeButtons = screen.getAllByRole('button', { name: 'Remove' })
+      // Two labels = two Remove buttons (there may also be a Remove in the Members section)
+      // We just want at least two (one per label)
+      expect(removeButtons.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('clicking Remove on a label shows an inline confirm prompt', async () => {
+      const groupWithLabel: Group = {
+        ...fakeGroup,
+        shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabel)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+
+      // Click Remove on the label. The label-row Remove button is the first one;
+      // the member-row Remove button lives in the Members section below.
+      const removeBtn = screen.getAllByRole('button', { name: 'Remove' })[0]
+      fireEvent.click(removeBtn)
+
+      // Inline confirmation prompt should appear
+      expect(await screen.findByText('Remove?')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()
+    })
+
+    it('confirming label removal removes the label from the list', async () => {
+      const groupWithLabel: Group = {
+        ...fakeGroup,
+        shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabel)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
+      await screen.findByText('Remove?')
+      fireEvent.click(screen.getByRole('button', { name: 'Yes' }))
+
+      await waitFor(() => {
+        expect(screen.queryByText('Design')).not.toBeInTheDocument()
+      })
+    })
+
+    it('cancelling label removal preserves the label in the list', async () => {
+      const groupWithLabel: Group = {
+        ...fakeGroup,
+        shared_labels: [{ id: 1, name: 'Design', color: '#f59e0b' }],
+      }
+      mockGetGroup.mockResolvedValue(groupWithLabel)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+      renderGroupDetail()
+
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Design')
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[0])
+      await screen.findByText('Remove?')
+      fireEvent.click(screen.getByRole('button', { name: 'No' }))
+
+      // Label should still be visible
+      expect(screen.getByText('Design')).toBeInTheDocument()
+    })
   })
 
   describe('live updates (#753)', () => {
