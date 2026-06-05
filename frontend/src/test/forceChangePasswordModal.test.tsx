@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ForceChangePasswordModal from '../components/Auth/ForceChangePasswordModal'
@@ -25,10 +25,10 @@ const baseUser: User = {
 }
 
 describe('ForceChangePasswordModal', () => {
-  let onChanged: ReturnType<typeof vi.fn>
+  let onChanged: Mock<(updatedUser: User) => void>
 
   beforeEach(() => {
-    onChanged = vi.fn()
+    onChanged = vi.fn<(updatedUser: User) => void>()
     vi.clearAllMocks()
   })
 
