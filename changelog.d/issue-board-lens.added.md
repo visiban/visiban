@@ -1,0 +1,1 @@
+Issue Board Lens (experimental) — connect a public GitHub or GitLab repository to a board and view its issues as a read-only Visiban board, pivoting columns and swimlanes by status, milestone, label, or assignee (default: milestone swimlanes). Off by default; operators enable it with `GIT_LENS_ENABLED=true`.
