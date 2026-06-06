@@ -3434,7 +3434,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>movement</code> is <code>null</code> if only position changed within the same cell.</p>
+<p>The <code>movement</code> key is <strong>absent</strong> from the response when only the position changed within the same cell (no column or swimlane change) — a <code>CardMovement</code> record is created, and the <code>movement</code> key included, only when the card actually changes column or swimlane.</p>
 <p><strong>WIP / weight limit enforcement</strong></p>
 <p>When <code>enforce_wip_limits</code> or <code>enforce_weight_limits</code> is enabled on the board and the target column is at or above its limit, the move returns <code>409 Conflict</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wip_limit_exceeded&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;column_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Doing&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;current_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;wip_limit&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>

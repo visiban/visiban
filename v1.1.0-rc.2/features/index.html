@@ -2622,7 +2622,7 @@
 <p>→ <a href="notifications/">Notifications</a></p>
 <hr />
 <h2 id="real-time-collaboration">Real-time collaboration<a class="headerlink" href="#real-time-collaboration" title="Permanent link">&para;</a></h2>
-<p>When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. A green <strong>Live</strong> dot in the toolbar confirms the WebSocket connection is active.</p>
+<p>When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small <strong>Live</strong> dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.</p>
 <p>Powered by Django Channels and Redis — no configuration required in the default Docker Compose setup.</p>
 <p>→ <a href="realtime/">Real-time Updates</a></p>
 <hr />
@@ -2761,6 +2761,9 @@
 <p>→ <a href="board/#hard-wip-enforcement">Board &amp; Cards — Hard WIP enforcement</a></p>
 <hr />
 <h2 id="saved-filters">Saved filters<a class="headerlink" href="#saved-filters" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.0</strong> · <strong>Tab pills added in 1.1</strong></p>
+</blockquote>
 <p>Save any combination of filters (search text, assignee, labels, priority, due date) under a name and restore it in one click from the <strong>Saved</strong> dropdown in the filter bar. Saved filters are stored server-side and persist across devices. They are private to each user — other board members cannot see or modify your presets. Any board role, including Viewer, can manage their own saved filters.</p>
 <p>→ <a href="saved-filters/">Saved Filters</a></p>
 <hr />

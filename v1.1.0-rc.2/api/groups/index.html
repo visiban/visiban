@@ -3277,9 +3277,9 @@
 <h3 id="post-apiv1groupsidinvite-links"><code>POST /api/v1/groups/{id}/invite-links/</code><a class="headerlink" href="#post-apiv1groupsidinvite-links" title="Permanent link">&para;</a></h3>
 <p>Create a new invite link. Requires group admin.</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Team link&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;member&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;expiry_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Team link&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;role&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;member&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;expiry_days&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;single_use&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
-<p>All fields are optional. <code>role</code> defaults to <code>member</code>; <code>expiry_days</code> accepts any positive integer (<code>≥ 1</code>) or <code>null</code> (never expires). Common values: <code>7</code>, <code>30</code>, <code>90</code>.</p>
+<p>All fields are optional. <code>role</code> defaults to <code>member</code>; <code>expiry_days</code> accepts any positive integer (<code>≥ 1</code>) or <code>null</code> (never expires) — common values <code>7</code>, <code>30</code>, <code>90</code>. <code>single_use</code> (boolean, default <code>false</code>) creates a link that expires automatically after one person joins.</p>
 <p>Valid roles: <code>admin</code>, <code>member</code>, <code>collaborator</code>, <code>viewer</code></p>
 <p><strong>Response (create only)</strong> — the raw <code>token</code> is returned once and never again:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
@@ -3463,7 +3463,7 @@
 <h3 id="get-apiv1groupsjointoken"><code>GET /api/v1/groups/join/{token}/</code><a class="headerlink" href="#get-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
 <p>Resolve an invite token to a group name. No authentication required. Rate-limited to 10 requests/hour per IP.</p>
 <p><strong>Response</strong> <code>{ "group_id": 5, "group_name": "Engineering", "role": "member" }</code></p>
-<p><strong>Errors:</strong> <code>404 Not Found</code> (invalid token), <code>410 Gone</code> (link expired or deactivated)</p>
+<p><strong>Errors:</strong> <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
 <h3 id="post-apiv1groupsjointoken"><code>POST /api/v1/groups/join/{token}/</code><a class="headerlink" href="#post-apiv1groupsjointoken" title="Permanent link">&para;</a></h3>
 <p>Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.</p>
 <p><strong>Response body</strong> — returns the full group object (same shape as <code>GET /api/v1/groups/{id}/</code> but using the list serializer, without <code>ancestors</code>):</p>
@@ -3486,7 +3486,7 @@
 </code></pre></div>
 <p><strong>Status:</strong> <code>201 Created</code> on first join; <code>200 OK</code> if the caller was already a member (existing role preserved, no downgrade).</p>
 <p><strong>Note:</strong> Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.</p>
-<p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid token), <code>410 Gone</code> (link expired or deactivated)</p>
+<p><strong>Errors:</strong> <code>401 Unauthorized</code> (not authenticated), <code>404 Not Found</code> (invalid or revoked token), <code>410 Gone</code> — <code>{"detail": "This invite link has expired."}</code> (past its expiry) or <code>{"detail": "This invite link has already been used."}</code> (single-use link already consumed)</p>
 
 
 

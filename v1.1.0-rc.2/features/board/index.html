@@ -3702,6 +3702,7 @@
 </ul>
 <h4 id="export-audit-history">Export audit history<a class="headerlink" href="#export-audit-history" title="Permanent link">&para;</a></h4>
 <p>Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (<code>csv</code> / <code>json</code>), and the number of rows exported. Admins can review the log under <strong>Board Settings → Data → Export history</strong>, or via <code>GET /api/v1/boards/{id}/export-history/</code> (admin-only). Failed exports (permission denied, rate limited) are not logged.</p>
+<p>This per-board export log is a data-exfiltration safeguard scoped to individual board admins — it is part of the open-source core. It is intentionally distinct from the site-wide, compliance-oriented <strong>audit log</strong> in Visiban Enterprise, which records administrative activity across the whole instance.</p>
 <h3 id="import">Import<a class="headerlink" href="#import" title="Permanent link">&para;</a></h3>
 <p>Click <strong>Import</strong> on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.</p>
 <p><strong>JSON import</strong> restores full card history:</p>

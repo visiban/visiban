@@ -2984,7 +2984,7 @@
 <tr>
 <td><code>card.moved</code></td>
 <td>Card moved to a different column or swimlane</td>
-<td><code>{ "card": &lt;CardSerializer&gt;, "movement": &lt;CardMovementSerializer&gt; }</code></td>
+<td><code>{ "card": &lt;CardSerializer&gt;, "movement": &lt;CardMovementSerializer&gt; }</code> — the <code>movement</code> object also carries <code>card_uid</code> and <code>card_title</code> so board-level consumers can identify the card without a second fetch</td>
 </tr>
 <tr>
 <td><code>card.archived</code></td>
