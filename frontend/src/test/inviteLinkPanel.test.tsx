@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InviteLinkPanel from '../components/Group/InviteLinkPanel'
 import type { GroupInviteLink } from '../types'
@@ -198,6 +198,24 @@ describe('InviteLinkPanel', () => {
     expect(screen.getByText('Existing link')).toBeInTheDocument()
     // The revoke button should no longer be visible for a revoked row
     expect(screen.queryByRole('button', { name: 'Revoke' })).not.toBeInTheDocument()
+  })
+
+  it('refetches links when reloadSignal changes (invite_link.revoked convergence)', async () => {
+    mockListInviteLinks.mockResolvedValue([fakeExistingLink])
+    const { rerender } = render(<InviteLinkPanel groupId={1} reloadSignal={0} />)
+    expect(await screen.findByText('Existing link')).toBeInTheDocument()
+    expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
+    // Parent bumps the signal when an invite_link.revoked socket event arrives.
+    rerender(<InviteLinkPanel groupId={1} reloadSignal={1} />)
+    await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+  })
+
+  it('does not double-fetch on mount when reloadSignal is provided', async () => {
+    mockListInviteLinks.mockResolvedValue([])
+    render(<InviteLinkPanel groupId={1} reloadSignal={0} />)
+    expect(await screen.findByText('No invite links.')).toBeInTheDocument()
+    // The mount fetch fires once; the reloadSignal effect must skip its initial run.
+    expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
   })
 
   it('resets single-use toggle on cancel', async () => {

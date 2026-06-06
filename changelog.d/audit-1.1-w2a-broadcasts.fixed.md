@@ -1,0 +1,2 @@
+- Removing a member from a group now updates the members list in real time for other admins viewing the group page, instead of going stale until a manual reload
+- Revoking a group invite link now updates the invite-links panel in real time for other admins, instead of continuing to show the link as active until a reload

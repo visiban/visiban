@@ -58,7 +58,7 @@ vi.mock('../api/auth', () => ({
   getVersion: vi.fn().mockResolvedValue('0.3.0'),
 }))
 
-import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults } from '../api/groups'
+import { getGroup, getGroupMembers, getSubgroups, getGroupBoards, getGroupDescendantBoards, updateGroup, starGroup, unstarGroup, createGroupLabel, updateGroupBoardDefaults, listInviteLinks } from '../api/groups'
 
 const mockGetGroup = getGroup as ReturnType<typeof vi.fn>
 const mockGetGroupMembers = getGroupMembers as ReturnType<typeof vi.fn>
@@ -640,6 +640,66 @@ describe('GroupDetail', () => {
 
       // Still showing "Star group" (hollow) — different user, no local state change
       expect(screen.getByRole('button', { name: 'Star group' })).toBeInTheDocument()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Real-time member + invite events (#1051)
+  // ---------------------------------------------------------------------------
+
+  describe('real-time member + invite events', () => {
+    const mockListInviteLinks = listInviteLinks as ReturnType<typeof vi.fn>
+
+    function setupAdmin() {
+      mockGetGroup.mockResolvedValue(fakeGroup)
+      mockGetGroupMembers.mockResolvedValue([{ id: 1, user: fakeUser, role: 'admin', joined_at: '' }])
+      mockGetSubgroups.mockResolvedValue([])
+      mockGetGroupBoards.mockResolvedValue([])
+    }
+
+    it('member.removed WS event refetches the members list', async () => {
+      setupAdmin()
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+      // Initial load fetched members once.
+      expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        capturedOnEvent?.({ event: 'member.removed', data: { user_id: 2 } } as BoardEvent)
+      })
+
+      await waitFor(() => expect(mockGetGroupMembers).toHaveBeenCalledTimes(2))
+    })
+
+    it('invite_link.revoked WS event reloads the invite panel', async () => {
+      setupAdmin()
+      renderGroupDetail()
+      // Mount the invite panel (Settings tab) — it fetches links once.
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
+      await screen.findByText('Invite links')
+      expect(mockListInviteLinks).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        capturedOnEvent?.({ event: 'invite_link.revoked', data: { id: 7 } } as BoardEvent)
+      })
+
+      // The bumped reloadSignal triggers a refetch in InviteLinkPanel.
+      await waitFor(() => expect(mockListInviteLinks).toHaveBeenCalledTimes(2))
+    })
+
+    it('invite_link.revoked WS event does not refetch the members list', async () => {
+      setupAdmin()
+      renderGroupDetail()
+      await screen.findByRole('heading', { name: 'Engineering' })
+      expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        capturedOnEvent?.({ event: 'invite_link.revoked', data: { id: 7 } } as BoardEvent)
+      })
+
+      // Members are unaffected by an invite revoke — no extra members fetch.
+      await Promise.resolve()
+      expect(mockGetGroupMembers).toHaveBeenCalledTimes(1)
     })
   })
 

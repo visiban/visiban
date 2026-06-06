@@ -391,6 +391,21 @@ class GroupViewSet(viewsets.ModelViewSet):
 
                 transaction.on_commit(_evict_stale_ws)
 
+                # Additive: notify the group channel so other admins viewing the
+                # group page see the members list converge in real time. This is
+                # distinct from the board-channel eviction above (which closes
+                # stale board connections) — the group channel drives the members
+                # panel. New event type; no existing payload shape changed (#1051).
+                group_id = group.pk
+
+                def _broadcast_group_member_removed(gid=group_id, uid=removed_user_id):
+                    from .broadcast import broadcast_group_event
+                    # member.* mirrors the board channel's member.added/updated/
+                    # removed naming so one frontend socket layer handles both.
+                    broadcast_group_event(gid, "member.removed", {"user_id": uid})
+
+                transaction.on_commit(_broadcast_group_member_removed)
+
             return Response(status=status.HTTP_204_NO_CONTENT)
         # PATCH — update role
         membership = get_object_or_404(GroupMembership, group=group, user=target_user)
@@ -777,8 +792,21 @@ class GroupViewSet(viewsets.ModelViewSet):
                 {"detail": "This link has already been consumed and cannot be revoked."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        link.is_active = False
-        link.save(update_fields=["is_active"])
+        with transaction.atomic():
+            link.is_active = False
+            link.save(update_fields=["is_active"])
+            # Additive: notify the group channel so other admins with the invite
+            # panel open see the link drop to revoked in real time rather than
+            # showing it as active until reload. New event type; deferred to
+            # on_commit so it never fires on a rolled-back revoke (#1051).
+            revoked_group_id = link.group_id
+            revoked_link_id = link.pk
+
+            def _broadcast_invite_revoked(gid=revoked_group_id, lid=revoked_link_id):
+                from .broadcast import broadcast_group_event
+                broadcast_group_event(gid, "invite_link.revoked", {"id": lid})
+
+            transaction.on_commit(_broadcast_invite_revoked)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------

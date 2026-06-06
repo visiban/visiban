@@ -163,3 +163,84 @@ class GroupMembershipBroadcastNamingTests(TestCase):
             any(args[0] == self.group.id and args[1] == "member.updated" for args in called),
             f"expected a member.updated broadcast on the group channel, got {called}",
         )
+
+    def test_member_removal_fires_member_removed_on_group_channel(self):
+        """DELETE of a real membership emits member.removed on the group channel
+        so other admins' members panels converge in real time (#1051)."""
+        with patch("groups.views.transaction.on_commit") as mock_on_commit, \
+             patch("groups.broadcast.broadcast_group_event") as mock_group:
+            mock_on_commit.side_effect = lambda fn: fn()
+            resp = self.client.delete(
+                f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        called = [c.args for c in mock_group.call_args_list]
+        self.assertTrue(
+            any(
+                args[0] == self.group.id
+                and args[1] == "member.removed"
+                and args[2].get("user_id") == self.member.id
+                for args in called
+            ),
+            f"expected member.removed on the group channel, got {called}",
+        )
+
+    def test_idempotent_member_removal_does_not_broadcast(self):
+        """A DELETE for a user with no membership row must not broadcast — there
+        is no state change for other admins to converge on (#1051)."""
+        GroupMembership.objects.filter(group=self.group, user=self.member).delete()
+        with patch("groups.views.transaction.on_commit") as mock_on_commit, \
+             patch("groups.broadcast.broadcast_group_event") as mock_group:
+            mock_on_commit.side_effect = lambda fn: fn()
+            resp = self.client.delete(
+                f"/api/v1/groups/{self.group.id}/members/{self.member.id}/",
+            )
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        called = [c.args for c in mock_group.call_args_list]
+        self.assertFalse(
+            any(args[1] == "member.removed" for args in called),
+            f"idempotent removal must not broadcast member.removed, got {called}",
+        )
+
+
+class GroupInviteLinkRevokeBroadcastTests(TestCase):
+    """Revoking an invite link emits an additive invite_link.revoked event on the
+    group channel, deferred to on_commit, so other admins' invite panels converge
+    in real time (#1051)."""
+
+    def setUp(self):
+        from groups.models import GroupInviteLink
+        self.admin = User.objects.create_user(username="il_admin", password="pass")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        self.group = _make_group(self.admin)
+        self.link, _ = GroupInviteLink.generate(group=self.group, created_by=self.admin)
+
+    def _revoke_url(self):
+        return f"/api/v1/groups/{self.group.id}/invite-links/{self.link.id}/"
+
+    def test_revoke_fires_invite_link_revoked(self):
+        with patch("groups.views.transaction.on_commit") as mock_on_commit, \
+             patch("groups.broadcast.broadcast_group_event") as mock_group:
+            mock_on_commit.side_effect = lambda fn: fn()
+            resp = self.client.delete(self._revoke_url())
+        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        called = [c.args for c in mock_group.call_args_list]
+        self.assertTrue(
+            any(
+                args[0] == self.group.id
+                and args[1] == "invite_link.revoked"
+                and args[2].get("id") == self.link.id
+                for args in called
+            ),
+            f"expected invite_link.revoked on the group channel, got {called}",
+        )
+
+    def test_revoke_broadcast_deferred_until_commit(self):
+        """The broadcast must be registered via on_commit, never fired inline."""
+        with patch("groups.broadcast.broadcast_group_event") as mock_group:
+            resp = self.client.delete(self._revoke_url())
+            self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+            # on_commit is NOT patched here, so within the test's outer transaction
+            # the callback never runs — proving the broadcast is deferred.
+            mock_group.assert_not_called()
