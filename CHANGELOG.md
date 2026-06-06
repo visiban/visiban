@@ -10,6 +10,53 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ---
 
+## [1.1.0-rc.3] — 2026-06-06
+
+---
+
+
+### Changed
+- The group WebSocket channel's membership events were renamed from `membership.added` / `membership.updated` to `member.added` / `member.updated`, mirroring the board channel's `member.*` events so a single client socket layer handles both. This aligns the new-in-1.1 group real-time contract before it freezes at GA.
+- Docker Compose host ports are now overridable via `.env` (`DB_PORT`, `BACKEND_PORT`, `FRONTEND_PORT`, `KEYCLOAK_PORT`, `REDIS_PORT`) and the project name via `COMPOSE_PROJECT_NAME`, so a second Visiban checkout (or another project sharing the same default ports) can run side-by-side on one host without colliding. Vite's HMR client port follows `FRONTEND_PORT` automatically when the host port is remapped, and the browser-facing backend URL is now configurable via `VITE_API_URL` so the frontend on the secondary stack can call the remapped backend.
+
+### Fixed
+- The Helm chart now deploys cleanly against v1.1: the OIDC env var name mismatch that silently broke OIDC SSO is corrected, the SMTP/email block is wired, the admin IP allowlist is exposed via `backend.settings.adminAllowedIPs`, and `secret.djangoSecretKey` rotations now take effect in the same `helm upgrade` invocation (a hook-managed bootstrap Secret lands before the migrate Job runs)
+- The frontend pod no longer mounts the media PVC, so a default `ReadWriteOnce` storage class works in HA — Django streams attachment downloads via FileResponse when `USE_X_ACCEL_REDIRECT=false` (the new chart default)
+- Render-time validation in the chart now fails fast with a friendly message when `secret.djangoSecretKey`, `backend.email.fromAddress`, `backend.settings.allowedHosts`, or `postgresql.auth.password` are still placeholders, instead of a hung migrate Job 90 seconds into the deploy
+- Chart bumped to `0.2.0` / appVersion `1.1.0`
+- Design-system compliance pass on the 1.1 UI: panel corners use `rounded-lg` instead of `rounded-xl` (error boundary, bulk-action toolbar, role-info tooltip), the "Sign out" menu item and card confirm/cancel buttons now carry a keyboard focus ring, admin danger buttons include `font-medium`, the selected export-format radio uses the theme-tracking `bg-primary-emphasis/10` fill, and inline-edit input borders use `border-primary-soft` so they track the active theme.
+- Operators who still set the pre-1.1 environment aliases `OIDC_SECRET` or `ACCOUNT_EMAIL_VERIFICATION` now receive a deprecation warning at startup pointing them to the canonical names (`OIDC_CLIENT_SECRET`, `EMAIL_VERIFICATION`). Previously the warning helper existed but was never wired into settings load, so an unrenamed `OIDC_SECRET` silently deactivated SSO with no diagnostic.
+- Group detail now updates in real time when a subgroup is created or deleted, a member joins or changes role, or a shared label is created, edited, or deleted — previously these required a page reload. Board deletions are now evicted by the canonical `board_uid`, so an outright delete (whose event payload is uid-only) removes the row live.
+- Fixed low-contrast text on the card-delete and board-delete confirmation buttons (now `text-on-danger` instead of `text-fg`), and switched the admin add-user, column-edit, and activity-filter checkboxes from a hard-coded blue to the `accent-primary` token so they track the active theme in dark mode.
+- The card checklist endpoint (`GET /api/boards/{id}/cards/{id}/checklist/`) no longer issues one extra query per checklist item to resolve each item's creator — the prefetch now carries `select_related("created_by")`, so the query count stays constant regardless of checklist length
+- The unread-notification badge count (`GET /api/notifications/unread-count/`) is now capped at 50 to match the notification dropdown, so a large unread backlog no longer loads every unread row into memory and resolves board access per row on each poll
+- Card creation now locks the target column row before computing the new card's position, so two simultaneous creates in the same column and swimlane can no longer be assigned the same position
+- Restoring (unarchiving) a card no longer re-fetches and re-serializes the card a second time — the response reuses the data built while the restore is committed, cutting roughly five redundant queries per call
+- Removing a member from a group now updates the members list in real time for other admins viewing the group page, instead of going stale until a manual reload
+- Revoking a group invite link now updates the invite-links panel in real time for other admins, instead of continuing to show the link as active until a reload
+- Keyboard focus rings now appear reliably on filter chips, the saved-filters and activity-filter dropdown triggers, and movement-history rows in Firefox and Safari, where they were previously skipped after a click
+- Added missing keyboard focus rings to several icon and text buttons across the board members modal, group invite-links panel, and group detail page (including the delete-group dialog's Cancel button)
+- Primary and danger buttons in the saved-filter save, card move, and column/swimlane delete controls now use the standard medium font weight for visual consistency
+- Fixed flaky `backend-test-coverage` CI job failing with "No source for code" when the parallel test shards and the coverage combine step landed on runners with different build roots. A `[coverage:paths]` mapping now reconciles the shard data files against the combine runner's checkout.
+- Fixed flaky `backend-test-coverage` CI job that failed with "No source for code" when the coverage-combine runner used a different build root than the test shards. Coverage data is now stored with relative file paths (`relative_files` in `.coveragerc`), making the combined data portable across runners. The earlier `[coverage:paths]` mapping in `setup.cfg` was inert because coverage.py reads `.coveragerc` and ignores `setup.cfg` when both exist.
+- Focus is now correctly restored to the first remaining board on the group page when a board is removed by a live `board.deleted` event, instead of being stranded on `<body>` (#753)
+- All sub-12px text in CardDetail (section labels, breadcrumb buttons, error messages, comment timestamps) and the ColumnHeader collapsed warning glyph now meet the 12px minimum for readability
+- Focus rings on checklist delete, attachment delete, breadcrumb close, and comment confirm/cancel buttons corrected from `ring-1` to the required `ring-2`; "Bulk" and "Clear due date" buttons now show a visible focus ring; UserMenu items gain a compliant focus ring
+- BoardView `ColumnTrashZone` now has an accessible `aria-label`; the no-match filter banner now carries `role="status"` for screen-reader announcements
+- `CheckboxDropdown` ARIA attribute corrected from `aria-haspopup="true"` to `aria-haspopup="menu"` per ARIA 1.2
+- CardDetail close button and bulk-add checklist dialog border radii aligned to the design-system token scale; bulk-add dialog gains a `border border-line` outline
+- `CardChecklistSerializer` now exposes `created_by` on each checklist item and the underlying queryset is prefetched accordingly; the matching TypeScript interface is updated
+- Checklist item delete affordance in CardDetail is now hidden from users who lack delete permission, matching the server-side ownership gate
+- WebSocket `GroupDetail` handler now processes `group.star_changed` events so group star state stays in sync across open sessions
+- Re-seeding demo boards after 2026-04-01 no longer produces an entirely past-dated set of card due dates — due dates are now anchored to today so upcoming and overdue cards appear correctly after any re-seed; the fixed anchor is preserved only for `--export` runs to keep committed sample-board snapshots git-stable
+
+### Security
+- Patched three high-severity frontend dependency advisories found in the 1.1 pre-release audit: `axios` 1.15.0 → 1.17.0 (prototype-pollution MitM/SSRF, credential leak, ReDoS), `react-router-dom` 7.13.x → 7.17.0 (turbo-stream deserialization RCE, XSS, DoS), and `vitest` / `@vitest/coverage-v8` 3.2 → 4.1 (arbitrary file read/execute when the Vitest UI server is running). Transitive `brace-expansion` and `ws` advisories were also resolved. `npm audit` now reports zero vulnerabilities.
+- Hardened the card assignee field to fail closed: the assignee queryset now defaults to empty and is only widened to a board's assignable members when the board context is present, so a future code path that forgets to scope it can no longer expose all users as assignment candidates
+- The authenticated media endpoint now applies the same `MEDIA_ROOT` containment check on the Nginx `X-Accel-Redirect` delivery path that the direct-streaming path already enforced, preventing a stored attachment path from escaping the media root
+- The card, column, swimlane, and label viewsets now declare their authentication and permission chain explicitly (matching the board viewset), so an accidental change to the global default cannot silently drop the auth gate from these endpoints
+- Patched backend dependency CVEs flagged by the `dep-scan-osv` job: bumped PyJWT 2.12.1 → 2.13.0 (PYSEC-2026-175/177/178/179) and added an explicit idna 3.18 pin to clear GHSA-65pc-fj4g-8rjx in the transitive dependency pulled via requests.
+- Bumped Django minimum version to 5.2.15 to pull in the Django security release patching five advisories (PYSEC-2026-197 through -201): cache-poisoning via Vary/Cache-Control header handling in UpdateCacheMiddleware, a signed-cookie salt collision, and SMTP STARTTLS cleartext connection reuse.
 ## [1.1.0-rc.2] — 2026-05-03
 
 ---

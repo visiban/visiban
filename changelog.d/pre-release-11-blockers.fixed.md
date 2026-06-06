@@ -1,8 +1,0 @@
-- All sub-12px text in CardDetail (section labels, breadcrumb buttons, error messages, comment timestamps) and the ColumnHeader collapsed warning glyph now meet the 12px minimum for readability
-- Focus rings on checklist delete, attachment delete, breadcrumb close, and comment confirm/cancel buttons corrected from `ring-1` to the required `ring-2`; "Bulk" and "Clear due date" buttons now show a visible focus ring; UserMenu items gain a compliant focus ring
-- BoardView `ColumnTrashZone` now has an accessible `aria-label`; the no-match filter banner now carries `role="status"` for screen-reader announcements
-- `CheckboxDropdown` ARIA attribute corrected from `aria-haspopup="true"` to `aria-haspopup="menu"` per ARIA 1.2
-- CardDetail close button and bulk-add checklist dialog border radii aligned to the design-system token scale; bulk-add dialog gains a `border border-line` outline
-- `CardChecklistSerializer` now exposes `created_by` on each checklist item and the underlying queryset is prefetched accordingly; the matching TypeScript interface is updated
-- Checklist item delete affordance in CardDetail is now hidden from users who lack delete permission, matching the server-side ownership gate
-- WebSocket `GroupDetail` handler now processes `group.star_changed` events so group star state stays in sync across open sessions

@@ -1,2 +1,0 @@
-- Card creation now locks the target column row before computing the new card's position, so two simultaneous creates in the same column and swimlane can no longer be assigned the same position
-- Restoring (unarchiving) a card no longer re-fetches and re-serializes the card a second time — the response reuses the data built while the restore is committed, cutting roughly five redundant queries per call

@@ -1,2 +1,0 @@
-- The card checklist endpoint (`GET /api/boards/{id}/cards/{id}/checklist/`) no longer issues one extra query per checklist item to resolve each item's creator — the prefetch now carries `select_related("created_by")`, so the query count stays constant regardless of checklist length
-- The unread-notification badge count (`GET /api/notifications/unread-count/`) is now capped at 50 to match the notification dropdown, so a large unread backlog no longer loads every unread row into memory and resolves board access per row on each poll

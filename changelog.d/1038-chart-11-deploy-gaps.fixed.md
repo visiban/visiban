@@ -1,4 +1,0 @@
-- The Helm chart now deploys cleanly against v1.1: the OIDC env var name mismatch that silently broke OIDC SSO is corrected, the SMTP/email block is wired, the admin IP allowlist is exposed via `backend.settings.adminAllowedIPs`, and `secret.djangoSecretKey` rotations now take effect in the same `helm upgrade` invocation (a hook-managed bootstrap Secret lands before the migrate Job runs)
-- The frontend pod no longer mounts the media PVC, so a default `ReadWriteOnce` storage class works in HA — Django streams attachment downloads via FileResponse when `USE_X_ACCEL_REDIRECT=false` (the new chart default)
-- Render-time validation in the chart now fails fast with a friendly message when `secret.djangoSecretKey`, `backend.email.fromAddress`, `backend.settings.allowedHosts`, or `postgresql.auth.password` are still placeholders, instead of a hung migrate Job 90 seconds into the deploy
-- Chart bumped to `0.2.0` / appVersion `1.1.0`

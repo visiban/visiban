@@ -1,1 +1,0 @@
-- The group WebSocket channel's membership events were renamed from `membership.added` / `membership.updated` to `member.added` / `member.updated`, mirroring the board channel's `member.*` events so a single client socket layer handles both. This aligns the new-in-1.1 group real-time contract before it freezes at GA.
