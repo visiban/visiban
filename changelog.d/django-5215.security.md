@@ -1,0 +1,1 @@
+Bumped Django minimum version to 5.2.15 to pull in the Django security release patching five advisories (PYSEC-2026-197 through -201): cache-poisoning via Vary/Cache-Control header handling in UpdateCacheMiddleware, a signed-cookie salt collision, and SMTP STARTTLS cleartext connection reuse.
