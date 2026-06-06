@@ -21,8 +21,21 @@ include:
 
 # ─── Workflow ─────────────────────────────────────────────────────────────────
 #
-# Suppress branch pipelines when an MR is already open — the MR pipeline
-# covers the same commit, so running both just wastes runner minutes.
+# Merge-request-pipeline model: feature branches get CI *only* through their
+# MR, never as a standalone branch pipeline. This makes the branch+MR duplicate
+# structurally impossible rather than merely suppressed.
+#
+# The previous `$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS when: never` dedup
+# could not stop duplicates on the MR-open push: $CI_OPEN_MERGE_REQUESTS is
+# empty in the branch pipeline created at the moment the MR is opened (GitLab
+# hasn't associated the MR with the branch yet), so the rule missed and the
+# catch-all `$CI_COMMIT_BRANCH` rule ran a second pipeline. Dropping that
+# catch-all removes the only branch-pipeline path for feature work.
+#
+# Trade-off: pushing a feature branch with no open MR runs no CI. Open the MR
+# early (Draft is fine) to get pipeline coverage — this matches our
+# always-go-through-an-MR workflow.
+#
 # Main-branch commits always get a pipeline (post-merge verification).
 # Tag pipelines run for version tags so docs-deploy can fire on release.
 
@@ -34,12 +47,11 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_COMMIT_TAG'
-    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
-      when: never
-    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # all feature work
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'        # main, post-merge
+    - if: '$CI_COMMIT_TAG'                                 # release tags
+    # No catch-all $CI_COMMIT_BRANCH rule: a branch with no open MR gets no
+    # pipeline, so the branch+MR duplicate can never be created.
 
 # Test and build run in the same stage so they execute in parallel — build
 # verification (kaniko) doesn't depend on test results, and running them
