@@ -394,6 +394,8 @@ By default, any board member can export. Admins can raise the threshold per boar
 
 Every successful export is recorded in an audit log capturing the actor, the role they held at export time, the format (`csv` / `json`), and the number of rows exported. Admins can review the log under **Board Settings → Data → Export history**, or via `GET /api/v1/boards/{id}/export-history/` (admin-only). Failed exports (permission denied, rate limited) are not logged.
 
+This per-board export log is a data-exfiltration safeguard scoped to individual board admins — it is part of the open-source core. It is intentionally distinct from the site-wide, compliance-oriented **audit log** in Visiban Enterprise, which records administrative activity across the whole instance.
+
 ### Import
 
 Click **Import** on the dashboard to create a new board from a previously exported Visiban JSON or CSV file. The import atomically creates a new board with all structure (columns, swimlanes, labels) and cards.

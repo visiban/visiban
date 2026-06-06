@@ -130,10 +130,10 @@ Create a new invite link. Requires group admin.
 
 **Request**
 ```json
-{ "name": "Team link", "role": "member", "expiry_days": 7 }
+{ "name": "Team link", "role": "member", "expiry_days": 7, "single_use": false }
 ```
 
-All fields are optional. `role` defaults to `member`; `expiry_days` accepts any positive integer (`≥ 1`) or `null` (never expires). Common values: `7`, `30`, `90`.
+All fields are optional. `role` defaults to `member`; `expiry_days` accepts any positive integer (`≥ 1`) or `null` (never expires) — common values `7`, `30`, `90`. `single_use` (boolean, default `false`) creates a link that expires automatically after one person joins.
 
 Valid roles: `admin`, `member`, `collaborator`, `viewer`
 
@@ -279,7 +279,7 @@ Resolve an invite token to a group name. No authentication required. Rate-limite
 
 **Response** `{ "group_id": 5, "group_name": "Engineering", "role": "member" }`
 
-**Errors:** `404 Not Found` (invalid token), `410 Gone` (link expired or deactivated)
+**Errors:** `404 Not Found` (invalid or revoked token), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
 
 ### `POST /api/v1/groups/join/{token}/`
 Join the group with the role configured on the invite link. Requires authentication. Rate-limited to 10 requests/hour per IP.
@@ -309,4 +309,4 @@ Join the group with the role configured on the invite link. Requires authenticat
 
 **Note:** Existing memberships are not downgraded — if you already hold a higher role than the link's role, your current role is preserved.
 
-**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid token), `410 Gone` (link expired or deactivated)
+**Errors:** `401 Unauthorized` (not authenticated), `404 Not Found` (invalid or revoked token), `410 Gone` — `{"detail": "This invite link has expired."}` (past its expiry) or `{"detail": "This invite link has already been used."}` (single-use link already consumed)
