@@ -97,7 +97,7 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `card.created` | New card created | Full `CardSerializer` object |
 | `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed | Full `CardSerializer` object |
 | `card.deleted` | Card deleted | `{ "card_uid": <string> }` |
-| `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` |
+| `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
 

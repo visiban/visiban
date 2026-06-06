@@ -245,7 +245,7 @@ Move a card to a new column/swimlane/position. Creates a `CardMovement` record i
 | `movement_type` | string | Always `"move"` for explicit card moves via this endpoint |
 | `notes` | string | Optional notes recorded at move time (empty string by default) |
 
-`movement` is `null` if only position changed within the same cell.
+The `movement` key is **absent** from the response when only the position changed within the same cell (no column or swimlane change) — a `CardMovement` record is created, and the `movement` key included, only when the card actually changes column or swimlane.
 
 **WIP / weight limit enforcement**
 

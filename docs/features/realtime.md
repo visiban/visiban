@@ -129,10 +129,10 @@ For most events, `data` is the full serialized object. Deletion and archive-remo
 ```
 
 ```json
-{ "event": "board.deleted", "data": { "board_uid": "bd_1a2b3c4d5e6f7890", "board_id": 7 } }
+{ "event": "board.deleted", "data": { "board_uid": "bd_1a2b3c4d5e6f7890" } }
 ```
 
-`board_uid` was added in 1.1 (#696). `board_id` is retained for backward compatibility.
+`board_uid` (added in 1.1, #696) is the stable identifier for a deleted board, matching every other terminal `*.deleted` event. A plain board deletion carries `board_uid` only. The single exception is a board **moved out of a group**: the `board.deleted` emitted on the *old* group's channel additionally carries `"board_id": <int>` so clients keyed by integer id can drop the row without a re-fetch.
 
 ```json
 { "event": "member.removed", "data": { "user_id": 42 } }
@@ -140,20 +140,18 @@ For most events, `data` is the full serialized object. Deletion and archive-remo
 
 ### Reorder payloads
 
-The reorder events include the full list of objects in their new order. Since 1.1, the server emits both a plural (legacy 1.0) and singular (canonical) event name simultaneously during the deprecation window:
+The reorder events include the full list of objects in their new order. The server emits the singular, canonical event names:
 
 ```json
 { "event": "column.reordered",  "data": { "columns": [ { "id": 1, ... }, { "id": 2, ... } ] } }
-{ "event": "columns.reordered", "data": { "columns": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 ```
 
 ```json
 { "event": "swimlane.reordered",  "data": { "swimlanes": [ { "id": 1, ... }, { "id": 2, ... } ] } }
-{ "event": "swimlanes.reordered", "data": { "swimlanes": [ { "id": 1, ... }, { "id": 2, ... } ] } }
 ```
 
-!!! warning "Deprecation"
-    New clients should subscribe to the singular event names (`column.reordered`, `swimlane.reordered`). The plural forms are retained for backward compatibility and will be removed in 2.0. Clients that handle both names today will continue to work across the deprecation window.
+!!! note
+    The legacy plural event names (`columns.reordered`, `swimlanes.reordered`) emitted in 1.0 were dropped in 1.1 (#944) — only the singular forms above are emitted. Subscribe to `column.reordered` / `swimlane.reordered`.
 
 ### `card.moved` payload
 
@@ -196,7 +194,7 @@ In addition to the per-board channel, Visiban exposes a per-group WebSocket chan
 | `board.updated` | A board in this group has its name, settings, or group changed |
 | `board.deleted` | A board in this group is deleted |
 
-Each event payload follows the standard `{"event": "...", "data": {...}}` envelope. `board.deleted` includes `{"board_uid": "...", "board_id": N}` to allow clients to remove the board from their local list without a re-fetch. `board.created` and `board.updated` include the full board summary object.
+Each event payload follows the standard `{"event": "...", "data": {...}}` envelope. `board.deleted` carries `{"board_uid": "..."}`; when the board was **moved out** of this group (rather than deleted outright) the payload additionally carries `"board_id": N` so clients keyed by integer id can drop the row without a re-fetch. `board.created` and `board.updated` include the full board summary object.
 
 The group channel does not emit card-level events — those remain on the per-board channel.
 

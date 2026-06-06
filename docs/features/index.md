@@ -105,7 +105,7 @@ Stale cards show an amber tint overlay with reduced opacity on the board so they
 
 ## Real-time collaboration
 
-When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. A green **Live** dot in the toolbar confirms the WebSocket connection is active.
+When multiple people are working on a board simultaneously, changes appear instantly without a page refresh. The connection status indicator in the toolbar stays quiet when healthy — a small **Live** dot at wider viewports — and becomes a prominent amber or red pill when the connection is reconnecting, stale, or failed, so a degraded connection is obvious at a glance.
 
 Powered by Django Channels and Redis — no configuration required in the default Docker Compose setup.
 
@@ -244,6 +244,7 @@ Weight limits work the same way: the corresponding **Enforce weight limits** set
 
 ## Saved filters
 
+> **Added in 1.0** · **Tab pills added in 1.1**
 
 Save any combination of filters (search text, assignee, labels, priority, due date) under a name and restore it in one click from the **Saved** dropdown in the filter bar. Saved filters are stored server-side and persist across devices. They are private to each user — other board members cannot see or modify your presets. Any board role, including Viewer, can manage their own saved filters.
 

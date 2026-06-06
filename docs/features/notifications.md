@@ -119,6 +119,12 @@ The `GET /api/v1/notifications/` response returns an array of objects with the f
   "card_title": "Deploy v2.3",
   "board_id": 1,
   "board_name": "Engineering",
+  "actor": {
+    "id": 7,
+    "username": "alice",
+    "display_name": "Alice",
+    "avatar_url": ""
+  },
   "action_type": "assigned",
   "read": false,
   "created_at": "2026-03-27T14:00:00Z"
@@ -127,5 +133,5 @@ The `GET /api/v1/notifications/` response returns an array of objects with the f
 
 The `action_type` field is a machine-readable classifier for the event. Possible values: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, or `""` (empty string for legacy notifications created before action types were introduced).
 
-!!! note
-    The `actor` field is stored on the model but is not currently included in the API response. It is available for direct database queries and will be added to the API in a future release.
+!!! note "Added in 1.1"
+    The `actor` field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is `null` for system-generated notifications such as staleness alerts.
