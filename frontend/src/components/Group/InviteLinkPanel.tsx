@@ -7,6 +7,9 @@ import Spinner from "../Common/Spinner";
 
 interface Props {
   groupId: number;
+  /** Bumped by the parent on an invite_link.revoked socket event to trigger a
+   *  refetch so another admin's revoke converges here in real time (#1051). */
+  reloadSignal?: number;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -60,7 +63,7 @@ function effectiveStatus(link: GroupInviteLink): GroupInviteLink["status"] {
   return link.status ?? (link.is_expired ? "expired" : "pending");
 }
 
-export default function InviteLinkPanel({ groupId }: Props) {
+export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
   const [links, setLinks] = useState<GroupInviteLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
@@ -103,6 +106,17 @@ export default function InviteLinkPanel({ groupId }: Props) {
   useEffect(() => {
     fetchLinks();
   }, [fetchLinks]);
+
+  // Refetch when the parent signals an invite_link.revoked socket event so the
+  // panel converges with another admin's revoke without a manual reload (#1051).
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    fetchLinks();
+  }, [reloadSignal, fetchLinks]);
 
   const handleCopy = (link: GroupInviteLink) => {
     // For just-created links with raw token, copy the full join URL

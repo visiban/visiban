@@ -62,6 +62,9 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [members, setMembers] = useState<GroupMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Incremented on an invite_link.revoked socket event so InviteLinkPanel
+  // (which owns its own link state) refetches in real time (#1051).
+  const [inviteReloadKey, setInviteReloadKey] = useState(0);
 
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [showCreateSubgroup, setShowCreateSubgroup] = useState(false);
@@ -228,11 +231,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         const deletedId = data.id;
         setSubgroups((prev) => prev.filter((g) => g.id !== deletedId));
       }
-    } else if (evt.event === "member.added" || evt.event === "member.updated") {
+    } else if (
+      evt.event === "member.added" ||
+      evt.event === "member.updated" ||
+      evt.event === "member.removed"
+    ) {
       // Refetch the members list rather than splicing the payload: the list
       // includes inherited rows and nearest-ancestor dedup, so a full refetch
       // is the only way to keep direct/inherited precedence correct (#998).
+      // member.removed is emitted on the group channel when an admin removes a
+      // member, so the panel converges in real time for other admins (#1051).
       getGroupMembers(groupId).then(setMembers).catch(() => { /* stay with current list */ });
+    } else if (evt.event === "invite_link.revoked") {
+      // An admin revoked an invite link in another session — bump the reload
+      // signal so the InviteLinkPanel (which owns its own link state) refetches
+      // and drops the link to revoked without a manual reload (#1051).
+      setInviteReloadKey((k) => k + 1);
     } else if (
       evt.event === "group.label.created" ||
       evt.event === "group.label.updated" ||
@@ -936,7 +950,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             </section>
 
             {/* Invite links */}
-            <InviteLinkPanel groupId={groupId} />
+            <InviteLinkPanel groupId={groupId} reloadSignal={inviteReloadKey} />
 
             {/* Board defaults */}
             <section>
