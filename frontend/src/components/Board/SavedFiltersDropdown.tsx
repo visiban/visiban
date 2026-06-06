@@ -129,7 +129,7 @@ export default function SavedFiltersDropdown({
         onClick={handleToggle}
         title="Saved filters"
         aria-label="Saved filters"
-        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           savedFilters.length > 0
             ? "border-line-strong text-fg-secondary hover:border-line-emphasis"
             : "border-line-strong text-fg-muted hover:border-line-emphasis"
@@ -178,7 +178,7 @@ export default function SavedFiltersDropdown({
                 <button
                   onClick={() => void handleSave()}
                   disabled={saving}
-                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 text-sm rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 transition"
+                  className="bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 text-sm font-medium rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 transition"
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>

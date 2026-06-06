@@ -130,7 +130,7 @@ export default function EditColumnModal({ boardId, column, cardCount, onUpdated,
           type="button"
           onClick={() => { onClose(); onRequestDelete(column); }}
           disabled={cardCount > 0}
-          className="w-full px-3 py-1.5 text-sm bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
+          className="w-full px-3 py-1.5 text-sm font-medium bg-danger-bg hover:bg-danger-bg-hover text-on-danger rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed mt-2"
         >
           Delete column
         </button>

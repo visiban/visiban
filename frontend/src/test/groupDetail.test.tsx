@@ -483,7 +483,7 @@ describe('GroupDetail', () => {
     renderGroupDetail({ joinedGroup: 'Engineering' })
 
     expect(await screen.findByText(/You've joined/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '×' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }))
     expect(screen.queryByText(/You've joined/)).not.toBeInTheDocument()
   })
 
