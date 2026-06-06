@@ -1,0 +1,3571 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Swimlane pipeline board — documentation">
+      
+      
+      
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/getting-started/installation/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../kubernetes/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Installation - Visiban</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#installation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Visiban
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Installation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Administration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Visiban
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://gitlab.com/visiban/visiban" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    visiban/visiban
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#hardware-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware requirements
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker (recommended)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Docker (recommended)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#running-two-visiban-stacks-side-by-side" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running two Visiban stacks side-by-side
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-development" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local Development
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Local Development">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment Variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kubernetes-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kubernetes / Helm
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#production-deployment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Production Deployment
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Production Deployment">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tls-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pre-flight-security-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-flight security checklist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-1-clone-and-configure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1 — Clone and configure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-run-the-init-script" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2 — Run the init script
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3 — Verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subsequent-deploys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Subsequent deploys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificate-renewal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Certificate renewal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stopping-and-starting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stopping and starting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#updating-to-a-new-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Updating to a new version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backing-up-and-restoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backing up and restoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#troubleshooting_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kubernetes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../first-boot/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Boot
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../oauth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OAuth Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../board-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sample-boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sample Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../onboarding-tour/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Onboarding Tour
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Features
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/board/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-archiving/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Archiving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Descriptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/saved-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Saved Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/analytics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Analytics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/realtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Real-time Updates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card History
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/stable-uids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stable UIDs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/navigation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Navigation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Keyboard Shortcuts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/appearance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Appearance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personal Access Tokens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/permissions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board Permissions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Toggles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_18" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../features/rbac/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roles & Permissions
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3_18" id="__nav_3_18_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roles & Permissions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Group Inheritance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Managing Roles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Administration
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Administration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/site-admins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Site Admins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demo Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/django-admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Django Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/media-security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secret Rotation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
+<h2 id="hardware-requirements">Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>vCPU</th>
+<th>RAM</th>
+<th>Disk</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Minimum (production)</td>
+<td>2</td>
+<td>4 GB</td>
+<td>40 GB SSD</td>
+<td>≤10 users; comfortable for a first install</td>
+</tr>
+<tr>
+<td>Recommended (production)</td>
+<td>4</td>
+<td>8 GB</td>
+<td>80 GB SSD</td>
+<td>10–50 users; room to grow</td>
+</tr>
+<tr>
+<td>Development</td>
+<td>4</td>
+<td>8 GB</td>
+<td>40 GB free</td>
+<td>Docker Desktop on Mac/Windows needs at least 6–8 GB allocated to the VM; Vite dev server spikes on hot reload</td>
+</tr>
+</tbody>
+</table>
+<p>The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Redis, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.</p>
+<p><strong>Disk:</strong> Docker image pulls and build cache alone account for ~3–4 GB. The main unbounded variable is file attachments (cards support up to 10 MB each). The figures above assume light-to-moderate attachment use. Teams with heavy attachment activity should plan for additional storage or configure object storage (S3-compatible).</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Docker and Docker Compose <strong>or</strong> Python 3.12+ and Node.js 18+</li>
+<li>Redis 7+ (included automatically in Docker Compose and Helm; required for WebSocket real-time updates — Docker Compose bundles Redis 7, Kubernetes/Helm bundles Redis 8)</li>
+</ul>
+<h2 id="docker-recommended">Docker (recommended)<a class="headerlink" href="#docker-recommended" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Tested:</strong> The Docker Compose development setup has been verified end-to-end. If something doesn't work, open an issue.</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Edit .env — set DJANGO_SECRET_KEY and any OAuth credentials</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title"><code>--build</code> is required on first install and after pulling updates</p>
+<p>The <code>--build</code> flag tells Docker Compose to build the images before starting containers. It is required the first time you run the stack (no pre-built images exist locally yet) and any time you pull code changes that affect the <code>Dockerfile</code> or frontend assets. Omitting it on a fresh clone will fail; omitting it after <code>git pull</code> may leave you running stale images.</p>
+</div>
+<p>Docker Compose starts four services: <code>db</code> (Postgres 17), <code>redis</code> (Redis 7), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (Vite dev server).</p>
+<p>This setup is for <strong>local development only</strong> — the Vite dev server is not suitable for production. See <a href="#production-deployment">Production Deployment</a> below for a production deployment.</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>URL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend</td>
+<td>http://localhost:5173</td>
+</tr>
+<tr>
+<td>Backend API</td>
+<td>http://localhost:8000</td>
+</tr>
+<tr>
+<td>Django admin</td>
+<td>http://localhost:8000/admin</td>
+</tr>
+<tr>
+<td>API Schema (Swagger UI)</td>
+<td>http://localhost:8000/api/schema/swagger-ui/</td>
+</tr>
+<tr>
+<td>API Schema (ReDoc)</td>
+<td>http://localhost:8000/api/schema/redoc/</td>
+</tr>
+<tr>
+<td>API Schema (raw YAML)</td>
+<td>http://localhost:8000/api/schema/</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Note:</strong> The schema endpoints are served by Django — access them on port 8000 directly. The Vite dev server on port 5173 does not proxy <code>/api/</code> requests, so <code>http://localhost:5173/api/schema/</code> will not work.</p>
+</blockquote>
+<p>On first boot the backend will print a one-time admin password — see <a href="../first-boot/">First Boot</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Accessing from a non-localhost address?</p>
+<p>The defaults in <code>.env.example</code> are configured for <code>localhost</code> only. If you access Visiban from a LAN IP address, hostname, or any address other than <code>127.0.0.1</code>, you must update two variables before starting the stack — otherwise API calls may fail and WebSocket connections will stay stuck on <strong>Reconnecting</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span><span class="m">192</span>.168.1.100<span class="w">          </span><span class="c1"># or your LAN hostname</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://192.168.1.100:5173<span class="w">   </span><span class="c1"># must match the exact origin the browser uses</span>
+</code></pre></div>
+<p>For production deployments behind nginx (where the frontend and backend share the same origin), the <code>CORS_ALLOWED_ORIGINS</code> value should match the nginx-served origin (e.g. <code>http://192.168.1.100:8080</code>), not the Vite dev server port.</p>
+</div>
+<h3 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h3>
+<p><strong><code>db</code> container exits immediately / backend cannot connect</strong></p>
+<p>A common cause after pulling updates is a PostgreSQL major-version mismatch. The data volume was initialized by one major version (e.g. PG 16) and the image has been updated to a newer one (e.g. PG 17), which refuses to start:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>db-1 | FATAL: database files are incompatible with server
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>db-1 | DETAIL: The data directory was initialized by PostgreSQL version 16, which is not compatible with this version 17.x.
+</code></pre></div>
+<blockquote>
+<p><strong>⚠ Destructive:</strong> The steps below delete all local database data. Back up anything you need to keep first (<code>docker compose exec db pg_dump -U visiban visiban &gt; backup.sql</code>).</p>
+</blockquote>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>down<span class="w"> </span>-v<span class="w">          </span><span class="c1"># stop all containers and remove volumes</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w">       </span><span class="c1"># recreate from scratch</span>
+</code></pre></div>
+<p>After the containers start, run migrations and recreate the site admin account:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin
+</code></pre></div>
+<p><strong>API calls fail / browser shows a CORS error</strong></p>
+<p>If the browser console shows a CORS error (e.g. <code>Access to fetch at 'http://...' from origin '...' has been blocked</code>) it means the backend is rejecting cross-origin requests from the address the browser is using. This happens when you access Visiban from anything other than <code>http://localhost:5173</code> — a LAN IP, a VM hostname, a different port, etc.</p>
+<p>At startup, the backend logs the active CORS origins. Check what it has:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;CORS allowed origins&quot;</span>
+</code></pre></div>
+<p>If the logged origin does not match what your browser shows in the address bar, update <code>.env</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://192.168.1.100:5173<span class="w">   </span><span class="c1"># must be the exact origin the browser uses</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span><span class="m">192</span>.168.1.100<span class="w">                       </span><span class="c1"># must include the hostname/IP too</span>
+</code></pre></div>
+<p>Then restart the backend:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>restart<span class="w"> </span>backend
+</code></pre></div>
+<h3 id="running-two-visiban-stacks-side-by-side">Running two Visiban stacks side-by-side<a class="headerlink" href="#running-two-visiban-stacks-side-by-side" title="Permanent link">&para;</a></h3>
+<p>If you have a second checkout of Visiban (or another Compose project that uses the same default ports), the two stacks will fight over <code>5432</code> / <code>8000</code> / <code>5173</code> on the host. The default <code>docker-compose.yml</code> reads host ports and the Compose project name from <code>.env</code> so a second checkout can coexist without changes to source.</p>
+<p>In the second checkout's <code>.env</code>, set:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">COMPOSE_PROJECT_NAME</span><span class="o">=</span>visiban-secondary<span class="w">    </span><span class="c1"># namespaces containers, networks, volumes</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">DB_PORT</span><span class="o">=</span><span class="m">5433</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nv">BACKEND_PORT</span><span class="o">=</span><span class="m">8001</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nv">FRONTEND_PORT</span><span class="o">=</span><span class="m">5174</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">KEYCLOAK_PORT</span><span class="o">=</span><span class="m">8081</span><span class="w">                         </span><span class="c1"># only matters when running docker-compose.oidc.yml</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># REDIS_PORT=6380                          # rarely needed — only for host-side redis-cli/GUI</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># Must move with FRONTEND_PORT — the backend rejects requests from any other origin</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>http://localhost:5174
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>http://localhost:5174
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="c1"># Must move with BACKEND_PORT — used to build OAuth callback URLs</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>localhost:8001
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="c1"># Must move with BACKEND_PORT — the URL the browser uses to call the API.</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="c1"># Read by the frontend container and exposed to client code via import.meta.env.</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8001
+</code></pre></div>
+<p>Containers always listen on the canonical ports (<code>5432</code> / <code>8000</code> / <code>5173</code> / <code>8080</code>) on the internal Compose network — only the host-side mapping changes. Vite's HMR client port is wired to <code>FRONTEND_PORT</code> automatically so hot reload keeps working when the host port shifts.</p>
+<div class="admonition note">
+<p class="admonition-title">Why aren't the URL vars interpolated from the port vars?</p>
+<p><code>FRONTEND_URL</code>, <code>CORS_ALLOWED_ORIGINS</code>, <code>SITE_DOMAIN</code>, and <code>VITE_API_URL</code> are kept as separate explicit values rather than <code>${FRONTEND_PORT}</code>-style interpolation because Compose's <code>env_file:</code> directive does <strong>not</strong> expand variables — interpolated values would arrive at the Django container as literal <code>${FRONTEND_PORT}</code> strings and silently break allauth redirects, OAuth callbacks, and CORS. Four vars, four explicit updates: it's a bit more typing but it works in every dev path (Compose, native Python, Helm).</p>
+</div>
+<hr />
+<h2 id="local-development">Local Development<a class="headerlink" href="#local-development" title="Permanent link">&para;</a></h2>
+<h3 id="backend">Backend<a class="headerlink" href="#backend" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">       </span><span class="c1"># Windows: .venv\Scripts\activate</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>cp<span class="w"> </span>../.env.example<span class="w"> </span>.env
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Set DATABASE_URL=sqlite:///db.sqlite3 for local SQLite</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>python<span class="w"> </span>manage.py<span class="w"> </span>ensure_site_admin<span class="w">   </span><span class="c1"># prints one-time password</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>runserver
+</code></pre></div>
+<h3 id="frontend">Frontend<a class="headerlink" href="#frontend" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>frontend
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>npm<span class="w"> </span>install
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>npm<span class="w"> </span>run<span class="w"> </span>dev
+</code></pre></div>
+<p><code>npm run dev</code> expects the backend to be reachable at <code>http://localhost:8000</code>. Create <code>frontend/.env.local</code> (gitignored — never commit it) to tell Vite where the API is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># frontend/.env.local — local dev only, never included in Docker builds</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
+</code></pre></div>
+<p>A template with comments is at <code>frontend/.env.local.example</code>.</p>
+<h2 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th style="text-align: center;">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DJANGO_SECRET_KEY</code></td>
+<td style="text-align: center;">Yes</td>
+<td>Django secret key — generate with <code>python -c "import secrets; print(secrets.token_urlsafe(50))"</code></td>
+</tr>
+<tr>
+<td><code>DATABASE_URL</code></td>
+<td style="text-align: center;">Yes</td>
+<td>PostgreSQL DSN e.g. <code>postgres://user:pass@host:5432/dbname</code></td>
+</tr>
+<tr>
+<td><code>REDIS_URL</code></td>
+<td style="text-align: center;">Yes</td>
+<td>Redis DSN for Channels / WebSocket (default: <code>redis://redis:6379/0</code> in Docker Compose)</td>
+</tr>
+<tr>
+<td><code>REDIS_CACHE_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Redis DSN for the Django cache — rate limiting, health checks (default: <code>redis://localhost:6379/1</code>). In Docker Compose this is set automatically. Use a different database index than <code>REDIS_URL</code> to avoid key collisions.</td>
+</tr>
+<tr>
+<td><code>FRONTEND_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Full URL of the React SPA (default: <code>http://localhost:5173</code>) — allauth redirects here after OAuth login/logout. <strong>Must be set in production.</strong></td>
+</tr>
+<tr>
+<td><code>DEBUG</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>True</code> for local dev only</td>
+</tr>
+<tr>
+<td><code>ALLOWED_HOSTS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated hostnames (default: <code>localhost,127.0.0.1</code>). <strong>Must be set to your actual domain in production</strong> — the default only permits loopback addresses and will cause Django to reject all requests from a real hostname.</td>
+</tr>
+<tr>
+<td><code>CORS_ALLOWED_ORIGINS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated allowed frontend origins (default: <code>http://localhost:5173</code>). Also controls <code>CSRF_TRUSTED_ORIGINS</code> unless <code>CSRF_TRUSTED_ORIGINS</code> is set explicitly.</td>
+</tr>
+<tr>
+<td><code>CSRF_TRUSTED_ORIGINS</code></td>
+<td style="text-align: center;">No</td>
+<td>Override CSRF trusted origins independently of <code>CORS_ALLOWED_ORIGINS</code>. Defaults to <code>CORS_ALLOWED_ORIGINS</code>.</td>
+</tr>
+<tr>
+<td><code>SITE_DOMAIN</code></td>
+<td style="text-align: center;">No</td>
+<td>Public hostname used for OAuth callbacks (default: <code>localhost:8000</code>) — must match your OAuth app's redirect URI</td>
+</tr>
+<tr>
+<td><code>VITE_API_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>Browser-facing backend URL (default: <code>http://localhost:8000</code>) — the frontend bundle calls the API at this origin. Must move with <code>BACKEND_PORT</code> when running side-by-side stacks; in production, set to your public backend origin (e.g. <code>https://api.yourdomain.com</code> or the same origin as the SPA when served behind a single proxy).</td>
+</tr>
+<tr>
+<td><code>DJANGO_SUPERUSER_USERNAME</code></td>
+<td style="text-align: center;">No</td>
+<td>Override bootstrap admin username (default: <code>admin</code>)</td>
+</tr>
+<tr>
+<td><code>DJANGO_SUPERUSER_EMAIL</code></td>
+<td style="text-align: center;">No</td>
+<td>Override bootstrap admin email (default: <code>admin@localhost</code>)</td>
+</tr>
+<tr>
+<td><code>EMAIL_VERIFICATION</code></td>
+<td style="text-align: center;">No</td>
+<td>Email verification mode: <code>optional</code> (default — sends verification email but allows login without it), <code>none</code> (no verification required, works without SMTP), or <code>mandatory</code> (blocks login until email is verified). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1 — use <code>EMAIL_VERIFICATION</code> only.</td>
+</tr>
+<tr>
+<td><code>SECURE_HSTS_SECONDS</code></td>
+<td style="text-align: center;">No</td>
+<td>HTTP Strict-Transport-Security max-age in seconds (default: <code>0</code> in development, <code>31536000</code> — 1 year — in production when <code>DEBUG=false</code>). <strong>Warning:</strong> setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. <code>300</code>) when first enabling HTTPS, then increase once you confirm everything works.</td>
+</tr>
+<tr>
+<td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
+<td style="text-align: center;">No</td>
+<td>Comma-separated list of IP addresses (or CIDR blocks) allowed to access <code>/admin/</code>. In production the default is loopback only (<code>127.0.0.1</code>, <code>::1</code>). Set this to your management network range if you need non-loopback access. Also documented in <a href="../../administration/secret-rotation/">Secret Rotation</a>.</td>
+</tr>
+<tr>
+<td><code>OIDC_CLIENT_ID</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three <code>OIDC_*</code> vars must be set together to enable OIDC login. See <a href="../oauth/">OAuth Setup</a>.</td>
+</tr>
+<tr>
+<td><code>OIDC_CLIENT_SECRET</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC provider client secret. The old alias <code>OIDC_SECRET</code> was removed in 1.1 — only <code>OIDC_CLIENT_SECRET</code> is read.</td>
+</tr>
+<tr>
+<td><code>OIDC_SERVER_URL</code></td>
+<td style="text-align: center;">No</td>
+<td>OIDC issuer URL, e.g. <code>https://idp.example.com/realms/my-realm</code>. Must be the issuer root — allauth appends <code>.well-known/openid-configuration</code> to discover endpoints.</td>
+</tr>
+<tr>
+<td><code>OIDC_PROVIDER_NAME</code></td>
+<td style="text-align: center;">No</td>
+<td>Display name shown on the OIDC login button (default: <code>SSO</code>).</td>
+</tr>
+<tr>
+<td><code>TLS_MODE</code></td>
+<td style="text-align: center;">No</td>
+<td>TLS mode for the production Docker stack: <code>letsencrypt</code> (default), <code>selfsigned</code>, or <code>none</code>. See <a href="#tls-modes">TLS modes</a>.</td>
+</tr>
+<tr>
+<td><code>FORCE_INSECURE_COOKIES</code></td>
+<td style="text-align: center;">No</td>
+<td>Set <code>true</code> to disable <code>SESSION_COOKIE_SECURE</code> and <code>CSRF_COOKIE_SECURE</code> for plain-HTTP deployments. Automatically set by <code>init-prod.sh</code> when <code>TLS_MODE=none</code>. Default: <code>false</code>.</td>
+</tr>
+<tr>
+<td><code>MAX_UPLOAD_SIZE_BYTES</code></td>
+<td style="text-align: center;">No</td>
+<td>Maximum file size for card attachment uploads in bytes (default: <code>10485760</code> — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use.</td>
+</tr>
+</tbody>
+</table>
+<p>OAuth variables are documented in <a href="../oauth/">OAuth Setup</a>.</p>
+<h2 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Tested:</strong> The Helm chart has been deployed and verified on a live Kubernetes cluster.</p>
+</blockquote>
+<p>A Helm chart is included for Kubernetes deployments. See <a href="../../architecture/deployment/#kubernetes-helm">Deployment — Kubernetes / Helm</a> for install instructions, configuration values, and upgrade steps.</p>
+<h2 id="production-deployment">Production Deployment<a class="headerlink" href="#production-deployment" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Tested:</strong> The production Docker Compose stack has been verified end-to-end. If you encounter issues, please open an issue.</p>
+</blockquote>
+<h3 id="tls-modes">TLS modes<a class="headerlink" href="#tls-modes" title="Permanent link">&para;</a></h3>
+<p>The production stack supports three TLS modes, controlled by the <code>TLS_MODE</code> environment variable:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Description</th>
+<th>Use case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>letsencrypt</code></td>
+<td><strong>(default)</strong> Obtain and auto-renew a Let's Encrypt certificate</td>
+<td>Public-facing deployments with a DNS A record</td>
+</tr>
+<tr>
+<td><code>selfsigned</code></td>
+<td>Generate a self-signed certificate</td>
+<td>Staging, internal networks, or development</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Serve over plain HTTP — no TLS</td>
+<td>Air-gapped networks or deployments behind an external load balancer that terminates TLS</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Security warnings for non-default modes</p>
+<p><strong><code>selfsigned</code></strong> — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert. Intended for internal or staging use only.</p>
+<p><strong><code>none</code></strong> — All traffic including session cookies and API calls is unencrypted. The init script automatically sets <code>FORCE_INSECURE_COOKIES=true</code> so Django does not require HTTPS for cookies. <strong>Do not use this for deployments reachable from the public internet.</strong></p>
+</div>
+<h3 id="pre-flight-security-checklist">Pre-flight security checklist<a class="headerlink" href="#pre-flight-security-checklist" title="Permanent link">&para;</a></h3>
+<p>Before starting the production stack, confirm each item below. The backend will refuse to start if any of these are wrong — this is intentional.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_PASSWORD</code></td>
+<td>Must be set to a strong, unique password. Docker Compose <strong>will not start</strong> if this variable is missing — there is no insecure default.</td>
+</tr>
+<tr>
+<td><code>REDIS_PASSWORD</code></td>
+<td>Must be set to a strong, unique password. The production Redis service starts with <code>--requirepass</code> and the backend URLs are built from this value. Docker Compose <strong>will not start</strong> if this variable is missing. Generate with: <code>openssl rand -base64 32</code></td>
+</tr>
+<tr>
+<td><code>DJANGO_SECRET_KEY</code></td>
+<td>Must be a long random string. If left as <code>change-me-in-production</code> or empty, Django will raise <code>ImproperlyConfigured</code> at startup. Generate one with: <code>python -c "import secrets; print(secrets.token_hex(50))"</code></td>
+</tr>
+<tr>
+<td><code>CORS_ALLOWED_ORIGINS</code></td>
+<td>Must be set to your production frontend origin (e.g. <code>https://yourdomain.com</code>). The default <code>http://localhost:5173</code> is only suitable for local development.</td>
+</tr>
+<tr>
+<td><code>DEBUG</code></td>
+<td>Must be <code>false</code> in production. Running with <code>DEBUG=true</code> leaks stack traces to HTTP responses and disables the <code>DJANGO_SECRET_KEY</code> guard.</td>
+</tr>
+<tr>
+<td><code>ALLOWED_HOSTS</code></td>
+<td>Must include your domain name (e.g. <code>yourdomain.com</code>).</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title"><code>ALLOWED_HOSTS</code> must be set before going live</p>
+<p>The codebase default for <code>ALLOWED_HOSTS</code> is <code>localhost,127.0.0.1</code>. If you deploy without explicitly setting this variable to your real domain, Django will reject every inbound HTTP request with a <code>400 Bad Request</code> — the site will be unreachable. Set it to your public hostname before starting the production stack:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com
+</code></pre></div>
+<p>If you serve the application on a non-standard port or via a load balancer, include the hostname without the port. Django reads the <code>Host</code> header, not the port.</p>
+</div>
+<p>The production stack (<code>docker-compose.prod.yml</code>) replaces the Vite dev server with:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Nginx</strong></td>
+<td>Serves the compiled React app; proxies <code>/api/</code>, <code>/_allauth/</code>, <code>/ws/</code>, <code>/admin/</code>, <code>/static/</code>, <code>/media/</code> to the backend</td>
+</tr>
+<tr>
+<td><strong>Frontend build</strong></td>
+<td><code>npm run build</code> runs once at startup and outputs static files to a shared volume</td>
+</tr>
+<tr>
+<td><strong>Certbot</strong></td>
+<td>(TLS_MODE=letsencrypt only) Obtains the Let's Encrypt certificate on first boot; renews automatically every 12 hours</td>
+</tr>
+</tbody>
+</table>
+<h3 id="prerequisites_1">Prerequisites<a class="headerlink" href="#prerequisites_1" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A Linux server (VPS, cloud VM, bare metal)</li>
+<li><strong>Docker</strong> and <strong>Docker Compose</strong> (v2.21+ required for Compose profiles)</li>
+<li>For <code>TLS_MODE=letsencrypt</code>:<ul>
+<li>Ports <strong>80</strong> and <strong>443</strong> open in your firewall / security group</li>
+<li>A DNS <strong>A record</strong> pointing <code>yourdomain.com</code> → your server's public IP (Let's Encrypt verifies domain ownership before issuing a certificate)</li>
+</ul>
+</li>
+<li>For <code>TLS_MODE=selfsigned</code>: Port <strong>443</strong> open (and <strong>80</strong> for the HTTP→HTTPS redirect)</li>
+<li>For <code>TLS_MODE=none</code>: Port <strong>80</strong> open</li>
+</ul>
+<h3 id="step-1-clone-and-configure">Step 1 — Clone and configure<a class="headerlink" href="#step-1-clone-and-configure" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://gitlab.com/visiban/visiban.git<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+</code></pre></div>
+<p>Open <code>.env</code> in a text editor and set the following values. Every line marked <strong>required</strong> must be changed before continuing.</p>
+<div class="admonition tip">
+<p class="admonition-title">Keeping secrets out of shell history</p>
+<p>Always edit secrets directly in the <code>.env</code> file — never pass them as command-line arguments (e.g. <code>DB_PASSWORD=hunter2 docker compose up</code>). Arguments appear in shell history, <code>/proc/*/cmdline</code>, and process listings.</p>
+<p>To generate and insert a secret in one step without it touching your history:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Generate DJANGO_SECRET_KEY directly into .env</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=</span><span class="k">$(</span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import secrets; print(secrets.token_urlsafe(50))&#39;</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Generate DB_PASSWORD directly into .env</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^DB_PASSWORD=.*|DB_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Generate REDIS_PASSWORD directly into .env</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+</code></pre></div>
+</div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Django</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="nv">DJANGO_SECRET_KEY</span><span class="o">=</span>&lt;long<span class="w"> </span>random<span class="w"> </span>string&gt;<span class="w">   </span><span class="c1"># required — generate: python -c &quot;import secrets; print(secrets.token_urlsafe(50))&quot;</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="nv">DEBUG</span><span class="o">=</span><span class="nb">false</span><span class="w">                              </span><span class="c1"># required — never run DEBUG=true in production</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="nv">ALLOWED_HOSTS</span><span class="o">=</span>yourdomain.com<span class="w">            </span><span class="c1"># required</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com<span class="w">  </span><span class="c1"># required — must be your public domain, not localhost</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="nv">FRONTEND_URL</span><span class="o">=</span>https://yourdomain.com<span class="w">     </span><span class="c1"># required — allauth redirects here after OAuth login/logout</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="nv">SITE_DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">             </span><span class="c1"># required — used for OAuth callback URLs</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a><span class="c1"># Database (Postgres runs inside Docker Compose)</span>
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://visiban:<span class="si">${</span><span class="nv">DB_PASSWORD</span><span class="si">}</span>@db:5432/visiban
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — used by both Django and Postgres</span>
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># Redis (runs inside Docker Compose)</span>
+<a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -base64 32</span>
+<a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="c1"># Only override here if you use an external Redis.</span>
+<a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>
+<a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
+<a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
+<a id="__codelineno-15-20" name="__codelineno-15-20" href="#__codelineno-15-20"></a>
+<a id="__codelineno-15-21" name="__codelineno-15-21" href="#__codelineno-15-21"></a><span class="c1"># Let&#39;s Encrypt (required only when TLS_MODE=letsencrypt)</span>
+<a id="__codelineno-15-22" name="__codelineno-15-22" href="#__codelineno-15-22"></a><span class="nv">DOMAIN</span><span class="o">=</span>yourdomain.com<span class="w">                   </span><span class="c1"># required — must match your DNS A record</span>
+<a id="__codelineno-15-23" name="__codelineno-15-23" href="#__codelineno-15-23"></a><span class="nv">CERTBOT_EMAIL</span><span class="o">=</span>admin@yourdomain.com<span class="w">     </span><span class="c1"># required — used for cert expiry alerts</span>
+<a id="__codelineno-15-24" name="__codelineno-15-24" href="#__codelineno-15-24"></a>
+<a id="__codelineno-15-25" name="__codelineno-15-25" href="#__codelineno-15-25"></a><span class="c1"># App version — set to the version you are deploying (see CHANGELOG.md)</span>
+<a id="__codelineno-15-26" name="__codelineno-15-26" href="#__codelineno-15-26"></a><span class="nv">APP_VERSION</span><span class="o">=</span><span class="m">1</span>.1.0
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Using <code>TLS_MODE=none</code> behind an external load balancer</p>
+<p>If TLS is terminated by an upstream proxy (AWS ALB, Cloudflare, Traefik, etc.) that sets the <code>X-Forwarded-Proto: https</code> header, you do <strong>not</strong> need <code>FORCE_INSECURE_COOKIES=true</code>. Django reads the header and treats the request as secure. Set <code>CORS_ALLOWED_ORIGINS</code> and <code>FRONTEND_URL</code> to <code>https://...</code> as usual.</p>
+<p>Only set <code>FORCE_INSECURE_COOKIES=true</code> (done automatically by <code>init-prod.sh</code> for <code>TLS_MODE=none</code>) when there is genuinely no TLS anywhere in the request path.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">CORS_ALLOWED_ORIGINS must not contain localhost in production</p>
+<p>Visiban refuses to start with <code>DEBUG=False</code> if <code>CORS_ALLOWED_ORIGINS</code> contains a
+<code>localhost</code> or <code>127.0.0.1</code> origin. This prevents a common misconfiguration where
+the default development value is left in place for a production deployment.</p>
+<p><strong>Correct:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>CORS_ALLOWED_ORIGINS=https://yourdomain.com
+</code></pre></div></p>
+<p><strong>Incorrect (will cause startup failure):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>CORS_ALLOWED_ORIGINS=http://localhost:5173
+</code></pre></div></p>
+</div>
+<blockquote>
+<p><strong>OAuth</strong> (Google, GitHub, GitLab) is optional. See <a href="../oauth/">OAuth Setup</a> if you want social login.</p>
+</blockquote>
+<h3 id="step-2-run-the-init-script">Step 2 — Run the init script<a class="headerlink" href="#step-2-run-the-init-script" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>init-prod.sh
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>./init-prod.sh
+</code></pre></div>
+<p>The script performs these steps automatically based on <code>TLS_MODE</code>:</p>
+<table>
+<thead>
+<tr>
+<th>TLS_MODE</th>
+<th>What the script does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>letsencrypt</code></td>
+<td>Runs certbot standalone to obtain the certificate, then starts the full stack including the certbot renewal service</td>
+</tr>
+<tr>
+<td><code>selfsigned</code></td>
+<td>Generates a self-signed certificate with <code>openssl</code> (valid 365 days), then starts the stack without certbot</td>
+</tr>
+<tr>
+<td><code>none</code></td>
+<td>Sets <code>FORCE_INSECURE_COOKIES=true</code> in <code>.env</code>, selects the HTTP-only nginx config, starts the stack without certbot</td>
+</tr>
+</tbody>
+</table>
+<p>When it finishes you will see:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>  Visiban is live at https://yourdomain.com
+</code></pre></div>
+<p>(or <code>http://</code> for <code>TLS_MODE=none</code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Migrating from <code>init-letsencrypt.sh</code></p>
+<p>The old <code>init-letsencrypt.sh</code> script still works — it prints a deprecation warning and delegates to <code>init-prod.sh</code> with <code>TLS_MODE=letsencrypt</code>. No action is required for existing deployments, but new installs should use <code>init-prod.sh</code> directly.</p>
+</div>
+<h3 id="step-3-verify">Step 3 — Verify<a class="headerlink" href="#step-3-verify" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Expected</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>https://yourdomain.com</code> loads (or <code>http://</code> for <code>TLS_MODE=none</code>)</td>
+<td>React app renders and you can log in</td>
+</tr>
+<tr>
+<td><code>http://yourdomain.com</code> (when TLS is enabled)</td>
+<td>Redirects to HTTPS</td>
+</tr>
+<tr>
+<td>Green <strong>Live</strong> dot in toolbar</td>
+<td>WebSocket connected</td>
+</tr>
+<tr>
+<td><code>https://yourdomain.com/admin/</code></td>
+<td>Returns 403 from the internet (restricted to loopback — access via SSH tunnel)</td>
+</tr>
+</tbody>
+</table>
+<p>The backend writes a one-time admin password to <code>/tmp/visiban_admin_password</code> on first boot. Retrieve it with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
+</code></pre></div>
+<p>Delete the file after retrieving the password.</p>
+<div class="admonition note">
+<p class="admonition-title">Password file not found?</p>
+<p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
+</code></pre></div>
+</div>
+<p>See <a href="../first-boot/">First Boot</a> for full details.</p>
+<h3 id="subsequent-deploys">Subsequent deploys<a class="headerlink" href="#subsequent-deploys" title="Permanent link">&para;</a></h3>
+<p>Pull the latest code and rebuild:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</code></pre></div>
+<p>This rebuilds images, re-runs the frontend build (output replaces the previous static files in the shared volume), and restarts services with zero manual steps.</p>
+<h3 id="certificate-renewal">Certificate renewal<a class="headerlink" href="#certificate-renewal" title="Permanent link">&para;</a></h3>
+<p>The <code>certbot</code> container (active only with <code>TLS_MODE=letsencrypt</code>) calls <code>certbot renew</code> every 12 hours. Let's Encrypt certificates are valid for 90 days and are renewed automatically when fewer than 30 days remain. No manual action is required.</p>
+<p>For <code>TLS_MODE=selfsigned</code>, the self-signed certificate is valid for 365 days. To regenerate it, delete the certificate directory and re-run the init script:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>certbot/conf/live/yourdomain.com
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>./init-prod.sh
+</code></pre></div>
+<p>To check renewal status (Let's Encrypt only):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>certbot
+</code></pre></div>
+<h3 id="stopping-and-starting">Stopping and starting<a class="headerlink" href="#stopping-and-starting" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Stop all services (data volumes are preserved)</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>down
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="c1"># Start again (no rebuild needed unless code changed)</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<h3 id="updating-to-a-new-version">Updating to a new version<a class="headerlink" href="#updating-to-a-new-version" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nb">cd</span><span class="w"> </span>visiban
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>git<span class="w"> </span>pull<span class="w"> </span>origin<span class="w"> </span>main
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
+</code></pre></div>
+<p>Django migrations run automatically on startup. Check the backend logs after updating:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+</code></pre></div>
+<h3 id="backing-up-and-restoring">Backing up and restoring<a class="headerlink" href="#backing-up-and-restoring" title="Permanent link">&para;</a></h3>
+<p><strong>Database backup:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a><span class="w">  </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>backup_<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.sql
+</code></pre></div>
+<p><strong>Database restore:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&lt;<span class="w"> </span>backup_20260308.sql
+</code></pre></div>
+<p><strong>Media files</strong> (card attachments) are stored in a Docker volume. Back them up with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="w">  </span>tar<span class="w"> </span>czf<span class="w"> </span>/tmp/media.tar.gz<span class="w"> </span>-C<span class="w"> </span>/app<span class="w"> </span>media/
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>cp<span class="w"> </span>backend:/tmp/media.tar.gz<span class="w"> </span>./media_backup.tar.gz
+</code></pre></div>
+<h3 id="troubleshooting_1">Troubleshooting<a class="headerlink" href="#troubleshooting_1" title="Permanent link">&para;</a></h3>
+<p><strong><code>certbot: error: Could not bind to port 80</code></strong>
+Something else is already using port 80. Stop it before running the init script:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>sudo<span class="w"> </span>systemctl<span class="w"> </span>stop<span class="w"> </span>nginx<span class="w"> </span>apache2<span class="w">   </span><span class="c1"># or whichever service holds port 80</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>./init-prod.sh
+</code></pre></div></p>
+<p><strong><code>Challenge failed: DNS problem: NXDOMAIN</code></strong>
+Your DNS A record hasn't propagated yet. Check with <code>dig yourdomain.com</code> — it must return your server's IP before certbot can issue a certificate. Wait a few minutes and retry.</p>
+<p><strong>Let's Encrypt rate limit</strong>
+If you hit the issuance limit (5 certs per domain per week during testing), add <code>--staging</code> to the certbot command in <code>init-prod.sh</code> to use the Let's Encrypt staging environment. Remove it once you're ready for a real certificate.</p>
+<p><strong>Nginx <code>502 Bad Gateway</code></strong>
+The backend may still be starting up. Check: <code>docker compose -f docker-compose.prod.yml logs backend</code>. Wait for the <code>daphne</code> line to appear before reloading the page.</p>
+<p><strong>"Live" dot stays yellow (Reconnecting) or never turns green</strong></p>
+<p>The connection indicator in the toolbar reflects the WebSocket connection to <code>/ws/boards/{id}/</code>. If it stays yellow after the page loads, work through the following:</p>
+<ol>
+<li>
+<p><strong>Backend not ready</strong> — WebSocket connections are rejected until daphne is fully started:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+</code></pre></div>
+   Wait for a line containing <code>daphne</code> before reloading the page.</p>
+</li>
+<li>
+<p><strong>Redis unavailable</strong> — Django Channels requires Redis for the channel layer. If Redis is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>redis
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import django_redis; print(&#39;ok&#39;)&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong><code>ALLOWED_HOSTS</code> missing your domain</strong> — Django rejects WebSocket handshakes from unlisted hosts. Confirm <code>ALLOWED_HOSTS=yourdomain.com</code> is set in <code>.env</code>.</p>
+</li>
+<li>
+<p><strong>Nginx not proxying <code>/ws/</code></strong> — Verify the nginx container started without errors and that its config includes the WebSocket location block:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>nginx
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>nginx<span class="w"> </span>nginx<span class="w"> </span>-T<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;location /ws&quot;</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>Upstream proxy stripping upgrade headers</strong> — If Visiban sits behind another reverse proxy (CDN, load balancer), confirm that proxy forwards <code>Upgrade</code> and <code>Connection</code> headers and does not terminate WebSocket connections.</p>
+</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
