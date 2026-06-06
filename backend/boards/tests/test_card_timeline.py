@@ -165,6 +165,19 @@ class CardTimelineFilterTests(TestCase):
         self.assertIn("move", kinds)
         self.assertIn("activity", kinds)
 
+    def test_invalid_event_types_returns_400(self):
+        """An unknown group name is a client error, not a silent empty page (#1054)."""
+        r = self.client.get(self.url, {"event_types": "bogus"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid event_types", r.json()["detail"])
+        self.assertIn("bogus", r.json()["detail"])
+
+    def test_partially_invalid_event_types_returns_400(self):
+        """A mix of one valid and one invalid group still rejects the whole request."""
+        r = self.client.get(self.url, {"event_types": "move,bogus"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("bogus", r.json()["detail"])
+
 
 class CardTimelinePaginationTests(TestCase):
     """Verify limit/offset pagination works correctly."""

@@ -82,6 +82,12 @@ vi.mock('../components/Board/FilterBar', () => ({
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({ default: () => <div /> }))
+// Hoisted spies so saved_filter.* socket tests can assert on the hook's
+// refreshFilters / onSavedFilterEvicted callbacks (#1054).
+const { mockRefreshFilters, mockOnSavedFilterEvicted } = vi.hoisted(() => ({
+  mockRefreshFilters: vi.fn(),
+  mockOnSavedFilterEvicted: vi.fn(),
+}))
 vi.mock('../hooks/useSavedFilters', () => ({
   useSavedFilters: () => ({
     savedFilters: [],
@@ -89,6 +95,8 @@ vi.mock('../hooks/useSavedFilters', () => ({
     saveFilter: vi.fn(),
     removeFilter: vi.fn(),
     hydrateFilter: vi.fn(),
+    refreshFilters: mockRefreshFilters,
+    onSavedFilterEvicted: mockOnSavedFilterEvicted,
   }),
 }))
 vi.mock('../hooks/useCardSearch', () => ({
@@ -234,6 +242,48 @@ describe('BoardView socket event routing — new event types', () => {
     await act(async () => {})
     act(() => { getOnEvent.dispatch({ event: 'card.archived', data: { card_uid: 'crd001' } }) })
     expect(ctx.evictCardByUid).toHaveBeenCalledWith('crd001')
+  })
+
+  it('card.unarchived routes the restored card to addCard (#1054)', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView />)
+    await act(async () => {})
+    const restored = { id: 5, uid: 'crd005', title: 'Restored card', column: 10, swimlane: 20 }
+    act(() => { getOnEvent.dispatch({ event: 'card.unarchived', data: restored as unknown as Record<string, unknown> }) })
+    expect(ctx.addCard).toHaveBeenCalledWith(expect.objectContaining({ id: 5, uid: 'crd005' }))
+  })
+
+  it('saved_filter.created refreshes the filter list for the owning user (#1054)', async () => {
+    mockBoardContextValue = makeContext()
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'saved_filter.created', data: { filter_id: 9, user_id: fakeUser.id } }) })
+    expect(mockRefreshFilters).toHaveBeenCalled()
+  })
+
+  it('saved_filter.created is ignored when the owning user is someone else (#1054)', async () => {
+    mockBoardContextValue = makeContext()
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'saved_filter.created', data: { filter_id: 9, user_id: 999 } }) })
+    expect(mockRefreshFilters).not.toHaveBeenCalled()
+  })
+
+  it('saved_filter.deleted evicts the filter for the owning user (#1054)', async () => {
+    mockBoardContextValue = makeContext()
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'saved_filter.deleted', data: { filter_id: 9, user_id: fakeUser.id } }) })
+    expect(mockOnSavedFilterEvicted).toHaveBeenCalledWith(9)
+  })
+
+  it('saved_filter.deleted is ignored when the owning user is someone else (#1054)', async () => {
+    mockBoardContextValue = makeContext()
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    act(() => { getOnEvent.dispatch({ event: 'saved_filter.deleted', data: { filter_id: 9, user_id: 999 } }) })
+    expect(mockOnSavedFilterEvicted).not.toHaveBeenCalled()
   })
 
   it('column.deleted routes to evictColumn with column_uid', async () => {

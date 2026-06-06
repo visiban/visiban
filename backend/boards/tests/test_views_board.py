@@ -401,6 +401,20 @@ class CardDensityValidationTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("card_density", str(r.data))
 
+    @patch(PATCH_BROADCAST)
+    def test_empty_string_density_rejected(self, _):
+        """An empty string is not a valid choice — must 400, not silently blank
+        the field (#1054)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"card_density": ""},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("card_density", str(r.data))
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.card_density, "comfortable")
+
     def test_card_density_in_serializer_output(self):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
