@@ -27,8 +27,8 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
     <button
       type="button"
       onClick={() => window.open(issue.url, "_blank", "noopener,noreferrer")}
-      title={`#${issue.number} — open in new tab`}
-      className={`group block w-full text-left bg-surface rounded-md border border-line p-2.5 transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+      aria-label={`Open issue #${issue.number}: ${issue.title} (opens in new tab)`}
+      className={`group block w-full text-left bg-surface rounded border border-line p-2.5 transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         closed ? "opacity-70" : ""
       }`}
     >
@@ -47,8 +47,9 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
           <span
             className="text-xs text-fg-muted shrink-0 ml-auto"
             title={`This issue appears in ${laneCount} swimlanes`}
+            aria-label={`Appears in ${laneCount} lanes`}
           >
-            🔗 ×{laneCount}
+            <span aria-hidden="true">🔗</span> ×{laneCount}
           </span>
         )}
       </div>

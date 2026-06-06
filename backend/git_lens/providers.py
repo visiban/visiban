@@ -211,11 +211,15 @@ def github_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
+    # Encode each path segment so a crafted repo_slug cannot alter the API path
+    # (defense in depth alongside the serializer's strict validation).
+    repo_path = "/".join(quote(seg, safe="") for seg in repo.split("/"))
+
     issues: list[NormalizedIssue] = []
     truncated = False
     for page in range(1, MAX_PAGES + 1):
         resp = requests.get(
-            f"https://api.github.com/repos/{repo}/issues",
+            f"https://api.github.com/repos/{repo_path}/issues",
             headers=headers,
             params={"state": "all", "per_page": PER_PAGE, "page": page},
             timeout=REQUEST_TIMEOUT,

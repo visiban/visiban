@@ -43,6 +43,9 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
 
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
+  // Inline confirm step before removing — the lens is board-wide and removing it
+  // hides the Lens tab for everyone, so it must be confirmed first.
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trimmedSlug = repoSlug.trim().replace(/^\/+|\/+$/g, "");
@@ -87,6 +90,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
     } catch {
       setError("Could not remove the lens connection.");
       setRemoving(false);
+      setConfirmingRemove(false);
     }
   };
 
@@ -96,6 +100,7 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
         <div className="flex flex-col gap-1.5">
           <label htmlFor="lens-provider" className="text-xs text-fg-muted">Provider</label>
           <SelectDropdown<LensProvider>
+            id="lens-provider"
             value={provider}
             onChange={setProvider}
             options={PROVIDER_OPTIONS}
@@ -148,15 +153,35 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
         </p>
 
         <div className="flex items-center justify-end gap-3">
-          {connection && (
+          {connection && !confirmingRemove && (
             <button
               type="button"
-              onClick={handleRemove}
-              disabled={removing}
+              onClick={() => setConfirmingRemove(true)}
               className="mr-auto bg-danger-bg hover:bg-danger-bg-hover text-on-danger px-3 py-1.5 text-sm rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {removing ? "Removing…" : "Remove lens"}
+              Remove lens
             </button>
+          )}
+          {connection && confirmingRemove && (
+            <div className="mr-auto flex items-center gap-2 text-xs">
+              <span className="text-fg-tertiary">Remove this connection?</span>
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={removing}
+                className="text-danger hover:text-danger font-medium transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+              >
+                {removing ? "Removing…" : "Confirm"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingRemove(false)}
+                disabled={removing}
+                className="text-fg-tertiary hover:text-fg transition disabled:opacity-40 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+              >
+                Cancel
+              </button>
+            </div>
           )}
           <button
             type="button"

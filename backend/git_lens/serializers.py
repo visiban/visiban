@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from accounts.serializers import BoardUserSerializer
@@ -7,6 +9,12 @@ from .providers import available_providers
 
 _VALID_COLUMN_DIMS = {"status", "state"}
 _VALID_SWIMLANE_DIMS = {"milestone", "assignee", "label"}
+
+# A single repo path segment: must start and end alphanumeric, may contain
+# '.', '_', '-' in between. This deliberately rejects "." and ".." segments and
+# leading/trailing dots so a crafted repo_slug cannot collapse to a different
+# upstream API path (dot-segment normalization SSRF — see security review).
+_SEGMENT_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
 
 
 class LensConnectionSerializer(serializers.ModelSerializer):
@@ -37,12 +45,25 @@ class LensConnectionSerializer(serializers.ModelSerializer):
 
     def validate_repo_slug(self, value):
         value = value.strip().strip("/")
-        if not value or "/" not in value or " " in value or value.count("/") > 5:
+        parts = value.split("/")
+        if not (2 <= len(parts) <= 6) or not all(_SEGMENT_RE.match(p) for p in parts):
             raise serializers.ValidationError(
-                "Enter a public repository as 'owner/repo' "
-                "(or 'group/subgroup/project' for GitLab)."
+                "Enter a public repository as 'owner/repo' (or "
+                "'group/subgroup/project' for GitLab). Each segment may contain "
+                "only letters, numbers, '.', '_' and '-'."
             )
         return value
+
+    def validate(self, attrs):
+        # GitHub repos are exactly owner/repo; reject extra path segments that a
+        # loose slug could otherwise smuggle into the upstream API URL.
+        provider = attrs.get("provider")
+        repo = attrs.get("repo_slug", "")
+        if provider == "github" and repo and repo.count("/") != 1:
+            raise serializers.ValidationError(
+                {"repo_slug": "GitHub repositories must be in 'owner/repo' form."}
+            )
+        return attrs
 
     def validate_column_dim(self, value):
         if value not in _VALID_COLUMN_DIMS:

@@ -102,6 +102,58 @@ class LensConnectionRBACTests(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_member_cannot_delete(self):
+        LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
+        )
+        resp = self._client(self.member).delete(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(LensConnection.objects.filter(board=self.board).exists())
+
+    def test_unauthenticated_denied(self):
+        resp = APIClient().get(self.url)  # no force_authenticate
+        self.assertIn(
+            resp.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_path_injection_repo_slug_rejected(self):
+        # ".." segments must be rejected so the slug can't collapse to a
+        # different upstream API path (SSRF defense).
+        resp = self._client(self.owner).put(
+            self.url, {"provider": "github", "repo_slug": "a/../../user"}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_github_requires_two_segments(self):
+        resp = self._client(self.owner).put(
+            self.url, {"provider": "github", "repo_slug": "group/sub/project"}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_put_broadcasts_configured_event(self):
+        with patch("git_lens.views.broadcast_board_event") as mock_bcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                resp = self._client(self.owner).put(
+                    self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
+                )
+            self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        mock_bcast.assert_called_once()
+        args = mock_bcast.call_args[0]
+        self.assertEqual(args[0], self.board.id)
+        self.assertEqual(args[1], "lens_connection.configured")
+
+    def test_delete_broadcasts_removed_event(self):
+        LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
+        )
+        with patch("git_lens.views.broadcast_board_event") as mock_bcast:
+            with self.captureOnCommitCallbacks(execute=True):
+                self._client(self.owner).delete(self.url)
+        mock_bcast.assert_called_once_with(
+            self.board.id, "lens_connection.removed", {"board_id": self.board.id}
+        )
+
 
 class LensBoardRenderTests(TestCase):
     def setUp(self):
@@ -178,3 +230,28 @@ class LensBoardRenderTests(TestCase):
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(resp.data["code"], "repo_not_found")
+
+    def test_non_member_denied(self):
+        outsider = _make_user("outsider2")
+        client = APIClient()
+        client.force_authenticate(outsider)
+        self._connect("gitlab")
+        resp = client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_invalid_pivot_override_coerced_to_stored(self, mock_get_provider):
+        self._connect("gitlab")  # stored dims: status / milestone
+        seen = {}
+
+        def capture(token, repo, config):
+            seen["column_dim"] = config.column_dim
+            seen["swimlane_dim"] = config.swimlane_dim
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        resp = self.client.get(self.url + "?column_dim=evil&swimlane_dim=label")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # invalid column_dim falls back to stored "status"; valid swimlane kept
+        self.assertEqual(seen["column_dim"], "status")
+        self.assertEqual(seen["swimlane_dim"], "label")

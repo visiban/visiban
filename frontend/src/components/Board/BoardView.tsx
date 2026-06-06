@@ -419,6 +419,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (currentUser && payload.user_id === currentUser.id) {
         onSavedFilterEvicted(payload.filter_id);
       }
+    } else if (event.event === "lens_connection.configured") {
+      // Lens config is board-wide; reflect changes from other admins' sessions.
+      // Tab visibility (gitLensEnabled && lensConnection !== null) handles the flag.
+      setLensConnection(d as unknown as LensConnection);
+    } else if (event.event === "lens_connection.removed") {
+      setLensConnection(null);
     }
   }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 

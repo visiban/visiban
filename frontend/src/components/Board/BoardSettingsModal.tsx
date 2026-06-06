@@ -860,6 +860,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                         </p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => onManageLens?.()}
                         className="shrink-0 text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                       >
@@ -868,6 +869,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </div>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => onManageLens?.()}
                       className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                     >

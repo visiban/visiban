@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LensConnectionModal from '../components/Board/LensConnectionModal'
 import type { LensConnection } from '../types'
@@ -104,7 +104,7 @@ describe('LensConnectionModal', () => {
     expect(onSaved).not.toHaveBeenCalled()
   })
 
-  it('removes an existing connection and calls onRemoved', async () => {
+  it('requires an inline confirmation before removing the connection', async () => {
     const user = userEvent.setup()
     const onRemoved = vi.fn()
     mockDelete.mockResolvedValue(undefined)
@@ -118,8 +118,52 @@ describe('LensConnectionModal', () => {
       />,
     )
 
+    // First click only reveals the confirm step — it must not delete.
     await user.click(screen.getByRole('button', { name: 'Remove lens' }))
+    expect(mockDelete).not.toHaveBeenCalled()
+    expect(screen.getByText('Remove this connection?')).toBeInTheDocument()
+
+    // Confirm commits the removal.
+    await user.click(screen.getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(5))
     expect(onRemoved).toHaveBeenCalled()
+  })
+
+  it('cancels the remove confirmation without deleting', async () => {
+    const user = userEvent.setup()
+    const onRemoved = vi.fn()
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={savedConnection}
+        onSaved={vi.fn()}
+        onRemoved={onRemoved}
+        onClose={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Remove lens' }))
+    // Scope to the confirm row — the modal footer also has a Cancel button.
+    const confirmRow = screen.getByText('Remove this connection?').closest('div') as HTMLElement
+    await user.click(within(confirmRow).getByRole('button', { name: 'Cancel' }))
+    expect(mockDelete).not.toHaveBeenCalled()
+    expect(onRemoved).not.toHaveBeenCalled()
+    // The Remove lens button is restored.
+    expect(screen.getByRole('button', { name: 'Remove lens' })).toBeInTheDocument()
+  })
+
+  it('associates the Provider label with the dropdown trigger via id', () => {
+    render(
+      <LensConnectionModal
+        boardId={5}
+        connection={null}
+        onSaved={vi.fn()}
+        onRemoved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    // The label's htmlFor now resolves to the SelectDropdown trigger button.
+    const trigger = screen.getByLabelText('Provider')
+    expect(trigger).toHaveAttribute('id', 'lens-provider')
   })
 })

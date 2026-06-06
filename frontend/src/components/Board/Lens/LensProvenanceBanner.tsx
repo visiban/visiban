@@ -23,7 +23,8 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
   return (
     <div
       role="status"
-      className="bg-info/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0"
+      aria-atomic="true"
+      className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0"
     >
       <span aria-hidden="true" className="text-base leading-none">{glyph}</span>
       <span>
