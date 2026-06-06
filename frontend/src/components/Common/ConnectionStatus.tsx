@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { SocketStatus } from "../../hooks/useBoardSocket";
 import { useIsStale } from "../../hooks/useIsStale";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
+import { relativeTime } from "../../utils/relativeTime";
 
 interface Props {
   status: SocketStatus;
@@ -17,15 +18,6 @@ interface Props {
 }
 
 type EffectiveState = SocketStatus | "stale";
-
-function relativeTime(ts: number, now: number): string {
-  const diff = Math.max(0, now - ts);
-  if (diff < 10_000) return "just now";
-  if (diff < 60_000) return `${Math.floor(diff / 1000)} s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h ago`;
-  return `${Math.floor(diff / 86_400_000)} d ago`;
-}
 
 /**
  * Canonical connection-status indicator (#851).
