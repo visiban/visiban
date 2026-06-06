@@ -2251,8 +2251,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onRemoved={() => {
             setLensConnection(null);
             setShowLensModal(false);
-            // If the user was viewing the lens, fall back to the board view.
-            if (view === "lens") setView("board");
+            // No explicit view fallback needed: clearing the connection flips
+            // showLensTab false, and the effect above redirects lens → board.
+            // (This modal only mounts in the board-view render path anyway.)
           }}
           onClose={() => setShowLensModal(false)}
         />
