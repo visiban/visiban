@@ -78,3 +78,24 @@ class ExplicitPermissionClassesTests(TestCase):
         """/api/vN/ for N != 1 returned 406 unauthenticated; #990 gates it on auth."""
         r = self.client.get("/api/v2/anything/")
         self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_board_scoped_viewsets_declare_explicit_permission_classes(self):
+        """CardViewSet, ColumnViewSet, SwimlaneViewSet, and LabelViewSet must
+        enumerate the global default permission chain explicitly (#1050) — the
+        same hardening applied to BoardViewSet in #989 — so an accidental change
+        to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth gate on these
+        high-value board-scoped resources without a visible diff.
+        """
+        from boards.views.cards import CardViewSet
+        from boards.views.columns import ColumnViewSet
+        from boards.views.swimlanes import SwimlaneViewSet
+        from boards.views.labels import LabelViewSet
+        from rest_framework.permissions import IsAuthenticated
+        from visiban.permissions import (
+            MustNotHavePendingPasswordChange,
+            MustNotHavePendingUsernameChange,
+        )
+        for viewset in (CardViewSet, ColumnViewSet, SwimlaneViewSet, LabelViewSet):
+            self.assertIn(IsAuthenticated, viewset.permission_classes, viewset.__name__)
+            self.assertIn(MustNotHavePendingPasswordChange, viewset.permission_classes, viewset.__name__)
+            self.assertIn(MustNotHavePendingUsernameChange, viewset.permission_classes, viewset.__name__)

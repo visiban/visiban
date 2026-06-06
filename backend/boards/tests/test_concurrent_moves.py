@@ -187,3 +187,61 @@ class ConcurrentColumnCreationTests(TransactionTestCase):
             Swimlane.objects.filter(board=self.board).values_list("position", flat=True).order_by("position")
         )
         self.assertEqual(len(positions), len(set(positions)), f"Duplicate positions: {positions}")
+
+
+class ConcurrentCardCreationTests(TransactionTestCase):
+    """Card creation in the same cell must not produce duplicate positions.
+
+    perform_create() now locks the target column row with select_for_update()
+    before reading the cell's card count, so two simultaneous creates in the
+    same (column, swimlane) cell cannot both read the same Max(position) and
+    assign the same slot (#1050). This mirrors the board-row lock used for
+    column/swimlane creation above.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="cardcreator", password="pass")
+        self.board, self.col_a, self.col_b, self.col_c, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    @patch(PATCH_BROADCAST)
+    def test_sequential_card_creation_assigns_distinct_positions(self, _):
+        """Rapid sequential card creation in one cell never reuses a position."""
+        for i in range(5):
+            r = self.client.post(
+                f"/api/v1/boards/{self.board.pk}/cards/",
+                {"title": f"Card {i}", "column": self.col_a.pk, "swimlane": self.swim.pk},
+            )
+            self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        positions = list(
+            Card.objects.filter(board=self.board, column=self.col_a, swimlane=self.swim)
+            .values_list("position", flat=True)
+            .order_by("position")
+        )
+        self.assertEqual(len(positions), 5)
+        self.assertEqual(len(positions), len(set(positions)), f"Duplicate positions: {positions}")
+        # Positions are contiguous from 0 — the count-based slot assignment is intact.
+        self.assertEqual(positions, [0, 1, 2, 3, 4])
+
+    @patch(PATCH_BROADCAST)
+    def test_card_creation_position_is_per_cell(self, _):
+        """Each (column, swimlane) cell maintains an independent position sequence."""
+        # col_b defaults to allow_card_creation=False in _make_board.
+        self.col_b.allow_card_creation = True
+        self.col_b.save(update_fields=["allow_card_creation"])
+        for col in (self.col_a, self.col_b):
+            for i in range(3):
+                r = self.client.post(
+                    f"/api/v1/boards/{self.board.pk}/cards/",
+                    {"title": f"{col.name} {i}", "column": col.pk, "swimlane": self.swim.pk},
+                )
+                self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        for col in (self.col_a, self.col_b):
+            positions = sorted(
+                Card.objects.filter(board=self.board, column=col, swimlane=self.swim)
+                .values_list("position", flat=True)
+            )
+            self.assertEqual(positions, [0, 1, 2], f"Cell {col.name} should restart at 0")

@@ -1,0 +1,3 @@
+- Hardened the card assignee field to fail closed: the assignee queryset now defaults to empty and is only widened to a board's assignable members when the board context is present, so a future code path that forgets to scope it can no longer expose all users as assignment candidates
+- The authenticated media endpoint now applies the same `MEDIA_ROOT` containment check on the Nginx `X-Accel-Redirect` delivery path that the direct-streaming path already enforced, preventing a stored attachment path from escaping the media root
+- The card, column, swimlane, and label viewsets now declare their authentication and permission chain explicitly (matching the board viewset), so an accidental change to the global default cannot silently drop the auth gate from these endpoints

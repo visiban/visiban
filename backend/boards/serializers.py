@@ -254,7 +254,11 @@ class CardSerializer(serializers.ModelSerializer):
     )
     assignee = BoardUserSerializer(read_only=True)
     assignee_id = serializers.PrimaryKeyRelatedField(
-        write_only=True, read_only=False, queryset=User.objects.all(), source="assignee", required=False, allow_null=True
+        # Fail closed: the queryset is re-scoped to the board's assignable members
+        # in __init__ when `board` is in context. Defaulting to none() (not all())
+        # means a caller that forgets to pass `board` rejects every assignee with a
+        # validation error rather than exposing all users as candidates (#1050).
+        write_only=True, read_only=False, queryset=User.objects.none(), source="assignee", required=False, allow_null=True
     )
     created_by = BoardUserSerializer(read_only=True)
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
