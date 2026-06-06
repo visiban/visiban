@@ -67,6 +67,11 @@ _OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
 # so that allauth does not attempt discovery with an empty server_url.
 _OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_URL)
 
+# Issue Board Lens (experiment) — render a public GitHub/GitLab repo's issues as
+# a read-only Visiban board. Off by default so operators who don't use it never
+# expose the surface area; the app and its routes stay dormant when False.
+GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -103,6 +108,9 @@ INSTALLED_APPS = [
     "accounts",
     "boards",
     "groups",
+    # Issue Board Lens — only registered when the experiment flag is on, mirroring
+    # the OIDC conditional-app pattern above so dormant code loads no tables/routes.
+    *(["git_lens"] if GIT_LENS_ENABLED else []),
 ]
 
 MIDDLEWARE = [
