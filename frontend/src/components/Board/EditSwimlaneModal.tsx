@@ -65,7 +65,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
               <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-sm text-fg-tertiary hover:text-fg rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">
                 Cancel
               </button>
-              <button onClick={handleDelete} className="px-4 py-2 text-sm bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
+              <button onClick={handleDelete} className="px-4 py-2 text-sm font-medium bg-danger-bg text-on-danger rounded hover:bg-danger-bg-hover transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">
                 Delete
               </button>
             </div>
@@ -105,7 +105,7 @@ export default function EditSwimlaneModal({ boardId, swimlane, cardCount, onUpda
           <div className="flex justify-between items-center mt-5">
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-sm text-danger hover:text-danger transition"
+              className="text-sm text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
             >
               Delete swimlane
             </button>

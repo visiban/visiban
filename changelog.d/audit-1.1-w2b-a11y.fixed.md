@@ -1,0 +1,3 @@
+- Keyboard focus rings now appear reliably on filter chips, the saved-filters and activity-filter dropdown triggers, and movement-history rows in Firefox and Safari, where they were previously skipped after a click
+- Added missing keyboard focus rings to several icon and text buttons across the board members modal, group invite-links panel, and group detail page (including the delete-group dialog's Cancel button)
+- Primary and danger buttons in the saved-filter save, card move, and column/swimlane delete controls now use the standard medium font weight for visual consistency

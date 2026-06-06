@@ -360,7 +360,7 @@ export default function MovementHistoryView({ board, currentUser }: Props) {
                         role="row"
                         aria-selected={isSelected}
                         data-testid="history-row"
-                        className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-primary-emphasis ${
+                        className={`border-b border-line-subtle cursor-pointer transition-colors focus:outline-none focus:ring-inset focus:ring-2 focus:ring-primary-emphasis ${
                           isSelected
                             ? "bg-info/10"
                             : isFocused

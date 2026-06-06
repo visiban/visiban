@@ -302,13 +302,13 @@ export default function InviteLinkPanel({ groupId, reloadSignal }: Props) {
                     </div>
                     {confirmRevokeId === link.id ? (
                       <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Revoke</button>
-                        <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">Cancel</button>
+                        <button onClick={() => handleRevoke(link.id)} className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Revoke</button>
+                        <button onClick={() => setConfirmRevokeId(null)} className="text-[11px] text-fg-muted hover:text-fg-secondary transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">Cancel</button>
                       </div>
                     ) : (
                       <button
                         onClick={() => setConfirmRevokeId(link.id)}
-                        className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap"
+                        className="text-[11px] text-danger hover:text-danger transition whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1"
                       >
                         Revoke
                       </button>

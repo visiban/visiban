@@ -577,7 +577,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       {joinToast && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-success/60 border-b border-success/50 text-success text-sm">
           <span>You've joined <strong className="text-success">{joinToast}</strong>. Welcome!</span>
-          <button onClick={() => setJoinToast(null)} className="text-success hover:text-success transition text-lg leading-none shrink-0">×</button>
+          <button onClick={() => setJoinToast(null)} className="text-success hover:text-success transition text-lg leading-none shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded" aria-label="Dismiss notification">×</button>
         </div>
       )}
 
@@ -628,7 +628,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                     </h1>
                     <button
                       onClick={handleRenameStart}
-                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm"
+                      className="opacity-0 group-hover/rename:opacity-100 focus:opacity-100 text-fg-muted hover:text-fg-secondary transition-opacity text-sm focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                       title="Rename group"
                       aria-label="Rename group"
                     >
@@ -709,7 +709,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
             {isAdmin && (
               <button
                 onClick={() => setSearchParams({ tab: "settings" })}
-                className="text-sm text-fg-tertiary hover:text-fg transition"
+                className="text-sm text-fg-tertiary hover:text-fg transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
               >
                 Settings
               </button>
@@ -927,13 +927,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                         {confirmRemoveMemberId === m.user.id ? (
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-fg-tertiary">Remove?</span>
-                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Yes</button>
-                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
+                            <button onClick={() => handleRemoveMember(m.user.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Yes</button>
+                            <button onClick={() => setConfirmRemoveMemberId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">No</button>
                           </div>
                         ) : (
                           <button
                             onClick={() => setConfirmRemoveMemberId(m.user.id)}
-                            className="text-fg-faint hover:text-danger transition text-xs"
+                            className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                           >
                             Remove
                           </button>
@@ -1026,13 +1026,13 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
                       {confirmRemoveLabelId === label.id ? (
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs text-fg-tertiary">Remove?</span>
-                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-1 focus:ring-danger-emphasis rounded px-1">Yes</button>
-                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-1 focus:ring-fg-muted rounded px-1">No</button>
+                          <button onClick={() => handleDeleteGroupLabel(label.id)} className="text-xs text-danger hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded px-1">Yes</button>
+                          <button onClick={() => setConfirmRemoveLabelId(null)} className="text-xs text-fg-muted hover:text-fg-secondary transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded px-1">No</button>
                         </div>
                       ) : (
                         <button
                           onClick={() => setConfirmRemoveLabelId(label.id)}
-                          className="text-fg-faint hover:text-danger transition text-xs"
+                          className="text-fg-faint hover:text-danger transition text-xs focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
                         >
                           Remove
                         </button>
@@ -1208,7 +1208,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       >
         <p className="text-fg-tertiary text-sm mb-5">This will permanently delete the group and all its boards. This cannot be undone.</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 transition">Cancel</button>
+          <button onClick={() => setConfirmDeleteGroup(false)} className="text-fg-tertiary text-sm hover:text-fg px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis">Cancel</button>
           <button onClick={handleDeleteGroup} className="bg-danger-bg hover:bg-danger-bg-hover text-on-danger text-sm px-4 py-1.5 rounded font-medium transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis">Delete group</button>
         </div>
       </ModalWrapper>

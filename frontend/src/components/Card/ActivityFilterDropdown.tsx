@@ -103,7 +103,7 @@ export default function ActivityFilterDropdown({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-sunken ${
+        className={`bg-surface border rounded px-2 py-1 text-sm outline-none flex items-center gap-1 transition focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-sunken ${
           selected.length > 0
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"

@@ -22,7 +22,7 @@ export default function FilterChip({ label, colorDot, avatarUser, onDismiss }: F
       tabIndex={0}
       aria-label={`Remove ${label} filter`}
       title={label}
-      className="inline-flex items-center gap-1 bg-info/20 text-info border border-primary-emphasis/40 rounded-full px-2 py-0.5 text-xs font-medium max-w-[180px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-emphasis focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
+      className="inline-flex items-center gap-1 bg-info/20 text-info border border-primary-emphasis/40 rounded-full px-2 py-0.5 text-xs font-medium max-w-[180px] focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 focus:ring-offset-surface"
       onKeyDown={handleKeyDown}
     >
       {colorDot && (
