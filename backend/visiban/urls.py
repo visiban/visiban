@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
@@ -112,6 +113,11 @@ urlpatterns = [
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="swagger-ui"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="redoc"),
 ]
+
+# Issue Board Lens (experiment) — routes are only mounted when the feature flag
+# is enabled, keeping the API surface dormant for installs that don't use it.
+if settings.GIT_LENS_ENABLED:
+    urlpatterns += [path("api/v1/", include("git_lens.urls"))]
 
 # Enterprise extension point — the enterprise package registers additional URL
 # patterns here without modifying this file. If the enterprise package is not

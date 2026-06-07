@@ -422,6 +422,47 @@ backend-schema-validate:
     - python manage.py spectacular --validate
   allow_failure: false
 
+# ─── Issue Board Lens (experiment) tests ─────────────────────────────────────
+# The git_lens app is only installed when GIT_LENS_ENABLED=true, so its
+# integration tests (models, views, RBAC, caching) cannot run in the main
+# backend-test job (which runs flag-off, where they skip cleanly). This
+# dedicated job enables the flag, verifies the additive migration is complete,
+# and runs the full git_lens suite. Mirrors the OIDC conditional-app pattern.
+backend-test-git-lens:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/git_lens/**/*
+        - backend/visiban/settings.py
+        - backend/visiban/urls.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://redis:6379/0"
+    REDIS_CACHE_URL: "redis://redis:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+    GIT_LENS_ENABLED: "True"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+    - pip install --quiet -r backend/requirements-test.txt
+  script:
+    - cd backend
+    - python manage.py makemigrations --check --dry-run git_lens
+    - pytest git_lens/ -q
+
 # ─── OIDC smoke test ─────────────────────────────────────────────────────────
 #
 # End-to-end smoke test for the OIDC authorization code flow.  Exercises:

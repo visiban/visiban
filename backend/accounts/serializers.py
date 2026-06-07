@@ -113,13 +113,25 @@ class CurrentUserSerializer(UserSerializer):
     """
 
     uploads_enabled = serializers.SerializerMethodField()
+    # Surfaces the Issue Board Lens experiment flag to the SPA so it can show or
+    # hide the lens entry point. Read from settings (no DB hit), so it stays on
+    # CurrentUserSerializer rather than the embedded UserSerializer.
+    git_lens_enabled = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj):
         return get_uploads_enabled()
 
+    def get_git_lens_enabled(self, obj):
+        from django.conf import settings
+
+        return getattr(settings, "GIT_LENS_ENABLED", False)
+
     class Meta(UserSerializer.Meta):
-        fields = UserSerializer.Meta.fields + ["uploads_enabled"]
-        read_only_fields = UserSerializer.Meta.read_only_fields + ["uploads_enabled"]
+        fields = UserSerializer.Meta.fields + ["uploads_enabled", "git_lens_enabled"]
+        read_only_fields = UserSerializer.Meta.read_only_fields + [
+            "uploads_enabled",
+            "git_lens_enabled",
+        ]
 
 
 class PersonalAccessTokenSerializer(serializers.ModelSerializer):

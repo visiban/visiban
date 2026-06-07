@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardMembership, User } from "../../types";
+import type { BoardFull, BoardMembership, LensConnection, User } from "../../types";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
@@ -34,6 +34,12 @@ interface Props {
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+  /** Whether the issue board lens feature is enabled instance-wide. */
+  gitLensEnabled?: boolean;
+  /** The board's current lens connection, or null when none is configured. */
+  lensConnection?: LensConnection | null;
+  /** Opens the LensConnectionModal (owned by BoardView). Admins only. */
+  onManageLens?: () => void;
 }
 
 type Tab = "members" | "display" | "rules" | "sharing" | "data";
@@ -65,7 +71,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, gitLensEnabled = false, lensConnection = null, onManageLens }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -835,6 +841,43 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   </p>
                 )}
               </section>
+
+              {/* Issue board lens — admin-only, gated on the instance feature flag. */}
+              {isAdmin && gitLensEnabled && (
+                <section>
+                  <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Issue board lens</h3>
+                  <p className="text-xs text-fg-muted mb-2">
+                    Mirror a public GitHub or GitLab repository's issues as a read-only board.
+                  </p>
+                  {lensConnection ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-line-strong">
+                      <div className="min-w-0">
+                        <p className="text-sm text-fg font-medium truncate" title={lensConnection.repo_slug}>
+                          {lensConnection.repo_slug}
+                        </p>
+                        <p className="text-xs text-fg-muted">
+                          {lensConnection.provider === "github" ? "GitHub" : "GitLab"} · read-only
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onManageLens?.()}
+                        className="shrink-0 text-fg-secondary hover:text-fg hover:bg-surface-hover px-3 py-1.5 text-sm rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                      >
+                        Manage
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onManageLens?.()}
+                      className="bg-button-primary hover:bg-button-primary-hover text-on-primary text-sm font-medium py-2 px-4 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      Connect a repository
+                    </button>
+                  )}
+                </section>
+              )}
 
               {canExport && (
               <section>

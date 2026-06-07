@@ -397,6 +397,16 @@ A focused set of usability improvements landed across two waves:
 
 ---
 
+## Issue Board Lens
+
+> **Added in 1.2**
+
+Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid — with the swimlane dimension that native provider boards lack. Configure columns (status labels or Open/Closed) and swimlanes (milestone, label, or assignee) in board settings. The lens is off by default; operators enable it with `GIT_LENS_ENABLED=true`.
+
+→ [Issue Board Lens](issue-board-lens.md)
+
+---
+
 ## What to read next
 
 New to Visiban? We recommend this order:

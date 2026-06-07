@@ -48,6 +48,10 @@ import Tooltip from "../Common/Tooltip";
 import BulkActionToolbar from "./BulkActionToolbar";
 import ArchivedCardsPanel from "./ArchivedCardsPanel";
 import OnboardingTour from "./OnboardingTour";
+import LensView from "./Lens/LensView";
+import LensConnectionModal from "./LensConnectionModal";
+import { getLensConnection } from "../../api/gitLens";
+import type { LensConnection } from "../../types";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
 import { useBoardPan } from "../../hooks/useBoardPan";
@@ -94,19 +98,26 @@ function ColumnTrashZone() {
   );
 }
 
+// All board sub-view tab names. "lens" is conditionally available (only when
+// the board has a lens connection and the current user has git_lens_enabled).
+type BoardViewName = "board" | "summary" | "history" | "analytics" | "lens";
+
 function ViewToggle({
   view,
   onChange,
+  showLens = false,
 }: {
-  view: "board" | "summary" | "history" | "analytics";
-  onChange: (v: "board" | "summary" | "history" | "analytics") => void;
+  view: BoardViewName;
+  onChange: (v: BoardViewName) => void;
+  /** Whether to render the read-only "Lens" tab (gated on connection + flag). */
+  showLens?: boolean;
 }) {
   // Bare-letter shortcut per view. Rendered in the tooltip and exposed via
   // `aria-keyshortcuts` so screen readers can announce the binding. Keys are
   // platform-agnostic (single printable character — same on Mac/Linux/Win).
   const btn = (
     label: string,
-    val: "board" | "summary" | "history" | "analytics",
+    val: BoardViewName,
     shortcut: string,
     tourStep?: string,
   ) => (
@@ -128,6 +139,7 @@ function ViewToggle({
   return (
     <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
       {btn("Board", "board", "b")}
+      {showLens && btn("Lens", "lens", "l")}
       {btn("Summary", "summary", "s")}
       {btn("History", "history", "h", "history")}
       <Tooltip content="Analytics (A)">
@@ -407,6 +419,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       if (currentUser && payload.user_id === currentUser.id) {
         onSavedFilterEvicted(payload.filter_id);
       }
+    } else if (event.event === "lens_connection.configured") {
+      // Lens config is board-wide; reflect changes from other admins' sessions.
+      // Tab visibility (gitLensEnabled && lensConnection !== null) handles the flag.
+      setLensConnection(d as unknown as LensConnection);
+    } else if (event.event === "lens_connection.removed") {
+      setLensConnection(null);
     }
   }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
@@ -636,6 +654,38 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // When non-null, new swimlane is inserted at this index (0 = first)
   const [insertSwimlanePosition, setInsertSwimlanePosition] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // --- Issue board lens (read-only GitHub/GitLab mirror) ---
+  // The Lens tab is shown only when the board has a lens connection AND the
+  // current user has the git_lens_enabled feature flag. We fetch the connection
+  // once per board (skipped entirely when the flag is off) so the tab and the
+  // Board Settings entry know whether a lens exists.
+  const gitLensEnabled = currentUser?.git_lens_enabled ?? false;
+  const [lensConnection, setLensConnection] = useState<LensConnection | null>(null);
+  const [showLensModal, setShowLensModal] = useState(false);
+  useEffect(() => {
+    if (!gitLensEnabled) {
+      setLensConnection(null);
+      return;
+    }
+    let cancelled = false;
+    getLensConnection(board.id)
+      .then((conn) => { if (!cancelled) setLensConnection(conn); })
+      .catch(() => { if (!cancelled) setLensConnection(null); }); // 404 = no lens configured
+    return () => { cancelled = true; };
+  }, [board.id, gitLensEnabled]);
+  const showLensTab = gitLensEnabled && lensConnection !== null;
+  // Mirror into a ref so the bare-letter `l` shortcut handler (registered with a
+  // narrow dep array) can consult the latest availability without re-subscribing.
+  const showLensTabRef = useRef(showLensTab);
+  showLensTabRef.current = showLensTab;
+
+  // If the Lens tab disappears while it's active (flag flipped off, or the
+  // connection was removed), fall back to the board view. Done in an effect so
+  // we never call setState during render. `view` and `setView` are read from the
+  // searchParams-derived values below; this effect is intentionally placed after
+  // they are available (see the view derivation a few lines down).
+
   const { filters: persistedFilters, setFilters: setPersistedFilters } = usePersistedFilters(board.id);
 
   // Parse filter state from URL params on mount; URL params override localStorage when present.
@@ -780,10 +830,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Derive view from ?view= search param; any unrecognised value falls back to "board".
   // Using replace: true when switching tabs so the browser Back button skips tab transitions
   // and users can bookmark/share a specific sub-view URL.
-  const VALID_VIEWS = ["board", "summary", "history", "analytics"] as const;
+  const VALID_VIEWS = ["board", "summary", "history", "analytics", "lens"] as const;
   const rawView = searchParams.get("view");
-  const view: "board" | "summary" | "history" | "analytics" = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as "board" | "summary" | "history" | "analytics") : "board";
-  const setView = (v: "board" | "summary" | "history" | "analytics") =>
+  const view: BoardViewName = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as BoardViewName) : "board";
+  const setView = (v: BoardViewName) =>
     setSearchParams(
       (prev) => {
         prev.set("view", v);
@@ -791,6 +841,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       },
       { replace: true }
     );
+  // Fall back to the board view if the Lens tab vanishes while it's active.
+  useEffect(() => {
+    if (view === "lens" && !showLensTab) {
+      setSearchParams((prev) => { prev.set("view", "board"); return prev; }, { replace: true });
+    }
+    // setSearchParams is stable; view + showLensTab are the decision inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, showLensTab]);
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
   const lastHoveredSwimlaneId = useRef<number | null>(null);
@@ -884,6 +942,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       } else if (e.key === "a") {
         e.preventDefault();
         setView("analytics");
+        return;
+      } else if (e.key === "l") {
+        // `l` switches to the read-only Lens view — only when the tab is
+        // actually available (lens connection present + git_lens_enabled).
+        if (!showLensTabRef.current) return;
+        e.preventDefault();
+        setView("lens");
         return;
       } else if (e.key === "e") {
         // `e` collapses/expands everything — mirrors the SplitButton primary
@@ -1438,11 +1503,32 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     replayTour,
   ]);
 
+  // Lens view — read-only GitHub/GitLab issue mirror. If the tab disappears
+  // while it's active (flag flipped off, or connection removed), fall back to
+  // the board view rather than rendering a dead tab.
+  if (view === "lens") {
+    // The fallback-to-board redirect is handled by the effect above; render
+    // nothing for the frame before the URL updates.
+    if (!showLensTab || !lensConnection) {
+      return null;
+    }
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+        </nav>
+        <SectionErrorBoundary section="Lens">
+          <LensView boardId={board.id} connection={lensConnection} />
+        </SectionErrorBoundary>
+      </div>
+    );
+  }
+
   if (view === "summary") {
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
         </nav>
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
@@ -1455,7 +1541,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
         </nav>
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
@@ -1468,7 +1554,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
         </nav>
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
@@ -1549,7 +1635,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       <div data-testid="board-toolbar" className="flex items-center gap-2 h-full min-w-max">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
-          <ViewToggle view={view} onChange={setView} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
         </div>
 
         {/* Divider 1 */}
@@ -2151,6 +2237,25 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onBoardDeleted={onBoardDeleted}
           onUpdateBoardSettings={onUpdateBoardSettings}
+          gitLensEnabled={gitLensEnabled}
+          lensConnection={lensConnection}
+          onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
+        />
+      )}
+
+      {showLensModal && isAdmin && gitLensEnabled && (
+        <LensConnectionModal
+          boardId={board.id}
+          connection={lensConnection}
+          onSaved={(conn) => { setLensConnection(conn); setShowLensModal(false); }}
+          onRemoved={() => {
+            setLensConnection(null);
+            setShowLensModal(false);
+            // No explicit view fallback needed: clearing the connection flips
+            // showLensTab false, and the effect above redirects lens → board.
+            // (This modal only mounts in the board-view render path anyway.)
+          }}
+          onClose={() => setShowLensModal(false)}
         />
       )}
 

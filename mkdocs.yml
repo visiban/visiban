@@ -79,6 +79,7 @@ nav:
     - Personal Access Tokens: features/personal-access-tokens.md
     - Board Permissions: features/permissions.md
     - Feature Toggles: features/feature-toggles.md
+    - Issue Board Lens: features/issue-board-lens.md
     - Roles & Permissions:
       - features/rbac/index.md
       - Overview: features/rbac/roles.md
@@ -92,6 +93,7 @@ nav:
     - Groups: api/groups.md
     - Notifications: api/notifications.md
     - Admin: api/admin.md
+    - Issue Board Lens: api/git-lens.md
     - WebSockets: api/websockets.md
     - Health Checks: api/health.md
     - Version: api/version.md

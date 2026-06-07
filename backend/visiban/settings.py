@@ -67,6 +67,11 @@ _OIDC_SERVER_URL = env("OIDC_SERVER_URL", default="")
 # so that allauth does not attempt discovery with an empty server_url.
 _OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_URL)
 
+# Issue Board Lens (experiment) — render a public GitHub/GitLab repo's issues as
+# a read-only Visiban board. Off by default so operators who don't use it never
+# expose the surface area; the app and its routes stay dormant when False.
+GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -103,6 +108,9 @@ INSTALLED_APPS = [
     "accounts",
     "boards",
     "groups",
+    # Issue Board Lens — only registered when the experiment flag is on, mirroring
+    # the OIDC conditional-app pattern above so dormant code loads no tables/routes.
+    *(["git_lens"] if GIT_LENS_ENABLED else []),
 ]
 
 MIDDLEWARE = [
@@ -480,7 +488,14 @@ SOCIALACCOUNT_PROVIDERS = {
 REST_AUTH = {
     "USE_JWT": False,
     "SESSION_LOGIN": True,
-    "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
+    # CurrentUserSerializer is a strict superset of UserSerializer (adds the
+    # read-only uploads_enabled / git_lens_enabled instance-flag fields). The SPA
+    # bootstraps its current-user object from this endpoint (GET /auth/user/) and
+    # writes profile edits back through it (PATCH), so the flags must live here or
+    # they never reach — and get clobbered out of — the in-memory user. The flags
+    # stay off the *embedded* UserSerializer used for assignees/authors/members in
+    # board and card payloads, so this adds no per-row cost to those responses.
+    "USER_DETAILS_SERIALIZER": "accounts.serializers.CurrentUserSerializer",
     # allauth 65.x SIGNUP_FIELDS causes USERNAME_REQUIRED to return None, which DRF
     # normalises to required=True. Use a custom serializer that sets required=False
     # explicitly so email-only registration works without a username field.

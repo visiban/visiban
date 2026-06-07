@@ -1,5 +1,5 @@
 """Tests for accounts views: CurrentUserView, ChangePasswordView, AuthProvidersView."""
-from django.test import TestCase, Client as DjangoTestClient
+from django.test import TestCase, Client as DjangoTestClient, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -69,6 +69,50 @@ class CurrentUserViewTests(TestCase):
         r = self.client.patch("/api/v1/auth/me/", {"theme": "midnight"})
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("theme", r.json())
+
+
+class UserDetailsFlagExposureTests(TestCase):
+    """The SPA bootstraps and re-saves its current-user object through
+    dj-rest-auth's GET/PATCH /api/v1/auth/user/ (USER_DETAILS_SERIALIZER), not
+    through /auth/me/. Instance feature flags (git_lens_enabled, uploads_enabled)
+    must be carried by that endpoint or they never reach the frontend — and a
+    profile PATCH would clobber them back out of the in-memory user. Regression
+    guard for the Issue Board Lens not appearing despite GIT_LENS_ENABLED=true.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="carol", password="pass12345678")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    @override_settings(GIT_LENS_ENABLED=True)
+    def test_user_endpoint_exposes_git_lens_enabled_true(self):
+        r = self.client.get("/api/v1/auth/user/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("git_lens_enabled", r.json())
+        self.assertTrue(r.json()["git_lens_enabled"])
+
+    @override_settings(GIT_LENS_ENABLED=False)
+    def test_user_endpoint_reflects_git_lens_disabled(self):
+        r = self.client.get("/api/v1/auth/user/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertFalse(r.json()["git_lens_enabled"])
+
+    def test_user_endpoint_exposes_uploads_enabled(self):
+        # Latent gap fixed in the same change: uploads_enabled was likewise only
+        # on /auth/me/, never on the endpoint the SPA actually reads.
+        r = self.client.get("/api/v1/auth/user/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("uploads_enabled", r.json())
+
+    @override_settings(GIT_LENS_ENABLED=True)
+    def test_profile_patch_does_not_clobber_git_lens_enabled(self):
+        # ThemeServerSync / ProfileTab feed this PATCH response straight back into
+        # the user context via setUser; the flag must survive a profile save.
+        r = self.client.patch("/api/v1/auth/user/", {"first_name": "Carol"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(r.json()["first_name"], "Carol")
+        self.assertTrue(r.json()["git_lens_enabled"])
 
 
 class ChangePasswordViewTests(TestCase):

@@ -17,6 +17,8 @@ interface Props<T extends string> {
   size?: "xs" | "sm";
   placeholder?: string;
   className?: string;
+  /** Applied to the trigger button so an external <label htmlFor> can target it. */
+  id?: string;
 }
 
 export default function SelectDropdown<T extends string>({
@@ -28,6 +30,7 @@ export default function SelectDropdown<T extends string>({
   size = "sm",
   placeholder,
   className = "",
+  id,
 }: Props<T>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number>(-1);
@@ -111,6 +114,7 @@ export default function SelectDropdown<T extends string>({
     <div ref={containerRef} className={`relative inline-block ${className}`}>
       <button
         ref={triggerRef}
+        id={id}
         type="button"
         role="combobox"
         disabled={disabled}

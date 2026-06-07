@@ -52,6 +52,13 @@ export interface User {
   default_board_id?: number | null;
   /** Whether file uploads are enabled instance-wide. Reflects SiteSetting.uploads_enabled. */
   uploads_enabled?: boolean;
+  /**
+   * Whether the read-only issue board lens (GitHub/GitLab) is enabled
+   * instance-wide. Reflects the GIT_LENS_ENABLED feature flag, surfaced on the
+   * current-user object so the frontend can gate the Lens view tab without a
+   * second round-trip. See git_lens app.
+   */
+  git_lens_enabled?: boolean;
 }
 
 export interface PersonalAccessToken {
@@ -533,4 +540,79 @@ export interface BoardPublic {
   swimlanes: Swimlane[];
   labels: Label[];
   cards: PublicCard[];
+}
+
+// ---------------------------------------------------------------------------
+// Issue Board Lens types (read-only GitHub/GitLab issue mirror)
+// ---------------------------------------------------------------------------
+//
+// These mirror the provider-neutral dataclasses in backend/git_lens/types.py.
+// Keep them in lockstep — the lens view renders one board model regardless of
+// the upstream provider.
+
+export type LensProvider = "github" | "gitlab";
+
+/** Persisted lens configuration for a board. */
+export interface LensConnection {
+  id: number;
+  provider: LensProvider;
+  /** "owner/repo" (GitHub) or "group/subgroup/project" (GitLab). */
+  repo_slug: string;
+  column_dim: string;
+  swimlane_dim: string;
+  created_by: BoardUser;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A single axis entry (column or swimlane) on the rendered lens board. */
+export interface LensAxis {
+  key: string;
+  label: string;
+}
+
+/** Issue label. ``color`` is a hex string WITHOUT a leading '#'. */
+export interface LensLabel {
+  name: string;
+  color: string;
+}
+
+export interface LensUser {
+  username: string;
+  avatar_url: string;
+}
+
+export interface NormalizedIssue {
+  number: number;
+  title: string;
+  url: string;
+  state: "open" | "closed";
+  labels: LensLabel[];
+  assignees: LensUser[];
+  milestone: string | null;
+  /** Column key(s) this issue maps to. */
+  column_keys: string[];
+  /**
+   * Swimlane key(s) this issue maps to. Plural by design: an issue matching N
+   * swimlane values renders once in EACH matching lane (never hide info).
+   */
+  swimlane_keys: string[];
+}
+
+/** Rendered, read-only lens board for a configured connection. */
+export interface LensData {
+  columns: LensAxis[];
+  swimlanes: LensAxis[];
+  issues: NormalizedIssue[];
+  /** ISO 8601 timestamp of when the data was fetched from the provider. */
+  fetched_at: string;
+  source: {
+    provider: LensProvider;
+    repo: string;
+    url: string;
+  };
+  /** True when the provider returned more issues than the lens rendered. */
+  truncated: boolean;
+  /** Total issue count upstream, or null when the provider does not report it. */
+  total_count: number | null;
 }
