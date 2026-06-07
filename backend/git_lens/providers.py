@@ -170,7 +170,10 @@ def _link_pipeline(issues: list[NormalizedIssue], branch_names: list[str], prs: 
     closing_mr: dict[int, _PR] = {}
     ref_mr: dict[int, _PR] = {}
     for pr in prs:
-        text = f"{pr.title}\n{pr.body}"
+        # Cap the scanned text: MR/PR bodies are unbounded provider input and a
+        # closing/reference keyword realistically appears near the top. Bounds the
+        # per-fetch regex work to ≤ (open MRs) × 8 KB regardless of body size.
+        text = f"{pr.title}\n{pr.body}"[:8000]
         closes = {int(m.group(1)) for m in _CLOSES_RE.finditer(text)}
         mentions = {int(m.group(1)) for m in _MENTION_RE.finditer(text)}
         bn = _issue_num_from_branch(pr.source_branch)

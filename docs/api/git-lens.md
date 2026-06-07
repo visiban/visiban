@@ -20,7 +20,7 @@ Represents the saved mapping between a Visiban board and a remote issue tracker 
 | `id` | integer | Database primary key |
 | `provider` | string | Issue tracker provider. One of `"github"` or `"gitlab"` |
 | `repo_slug` | string | Repository in `owner/repo` format (e.g. `"acme/backend"`) |
-| `column_dim` | string | Dimension used to map issues to board columns. One of `"status"`, `"state"` |
+| `column_dim` | string | Dimension used to map issues to board columns. One of `"status"`, `"state"`, `"pipeline"` |
 | `swimlane_dim` | string | Dimension used to map issues to swimlanes. One of `"milestone"`, `"assignee"`, `"label"` |
 | `created_by` | object | User who created the connection — `{ id, username, display_name, avatar_url }` |
 | `created_at` | string | ISO 8601 creation timestamp |
@@ -53,6 +53,37 @@ Returned by the board data endpoint. Contains the full issue grid for a board at
 | `milestone` | string / null | Milestone title, or `null` if none |
 | `column_keys` | array | List of column dimension key strings this issue maps to |
 | `swimlane_keys` | array | List of swimlane dimension key strings this issue maps to. An issue may appear in **multiple** swimlane keys (e.g. when it carries more than one label and `swimlane_dim` is `"label"`); the UI renders it in each matching lane. |
+| `has_branch` | boolean | `true` when a feature branch for this issue exists in the repo. Always `false` when `column_dim` is not `"pipeline"`. |
+| `has_open_pr` | boolean | `true` when an open MR/PR references or closes this issue. Always `false` when `column_dim` is not `"pipeline"`. |
+| `pipeline_evidence` | object / null | Why the issue landed in its pipeline column (see [PipelineEvidence](#pipelineevidence) below). `null` when `column_dim` is not `"pipeline"`, or when the issue has no linked branch or open MR. |
+
+### PipelineEvidence
+
+Present on an issue when `column_dim=pipeline` and the issue has a linked branch or open MR. `null` otherwise.
+
+| Field | Type | Description |
+|---|---|---|
+| `branch` | string / null | Name of the feature branch driving a "Doing" placement, or `null` if none |
+| `mr_number` | integer / null | Number of the open MR/PR driving a "Review" placement, or `null` if none |
+| `mr_url` | string / null | URL to the open MR/PR on the provider's website, or `null` if none |
+| `mr_closes` | boolean | `true` when the MR's closing pattern explicitly targets this issue |
+
+### Pipeline column dimension
+
+When `column_dim` is `"pipeline"` the board always renders exactly five fixed columns regardless of issue state:
+
+| Key | Label | Placement condition |
+|---|---|---|
+| `backlog` | Backlog | Default — no milestone, no branch, no open MR, issue is open |
+| `todo` | To Do | Issue has a milestone but no branch and no open MR |
+| `doing` | Doing | A feature branch for the issue exists in the repo |
+| `review` | Review | An open MR/PR references or closes the issue |
+| `done` | Done | Issue is closed |
+
+Placement uses a first-match ladder in the order shown above (e.g. a closed issue with an open MR still lands in `done`). All five columns are always present in the `columns` array of the response, even when they contain no issues.
+
+!!! note
+    Branch and open-MR detection requires the connected repository to be on **github.com** or **gitlab.com**. GitLab reads are performed anonymously. The `has_branch`, `has_open_pr`, and `pipeline_evidence` fields are populated only when `column_dim=pipeline`; for all other column dimensions they are `false`, `false`, and `null` respectively.
 
 ---
 
@@ -104,7 +135,7 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 |---|---|---|---|
 | `provider` | string | Yes | Issue tracker provider. One of `"github"` or `"gitlab"` |
 | `repo_slug` | string | Yes | Repository in `owner/repo` format. Must be a public repository |
-| `column_dim` | string | No | Dimension for board columns. One of `"status"`, `"state"` (default: `"status"`) |
+| `column_dim` | string | No | Dimension for board columns. One of `"status"`, `"state"`, `"pipeline"` (default: `"status"`) |
 | `swimlane_dim` | string | No | Dimension for swimlanes. One of `"milestone"`, `"assignee"`, `"label"` (default: `"milestone"`) |
 
 **Example request**
@@ -140,7 +171,7 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 
 | Status | Condition |
 |---|---|
-| `400 Bad Request` | Invalid `provider` value, malformed `repo_slug` (must be `owner/repo`), unsupported `column_dim` or `swimlane_dim` value |
+| `400 Bad Request` | Invalid `provider` value, malformed `repo_slug` (must be `owner/repo`), unsupported `column_dim` (must be `"status"`, `"state"`, or `"pipeline"`) or `swimlane_dim` value |
 | `403 Forbidden` | Caller does not have board admin, owner, or site admin role |
 | `404 Not Found` | Board does not exist, or `GIT_LENS_ENABLED` is not set |
 
@@ -173,13 +204,13 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
 
 | Parameter | Description |
 |---|---|
-| `column_dim` | Override the column pivot dimension for this request only. One of `"status"`, `"state"`. Does not modify the saved connection. |
+| `column_dim` | Override the column pivot dimension for this request only. One of `"status"`, `"state"`, `"pipeline"`. Does not modify the saved connection. |
 | `swimlane_dim` | Override the swimlane pivot dimension for this request only. One of `"milestone"`, `"assignee"`, `"label"`. Does not modify the saved connection. |
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
 
-**Response — 200 OK**
+**Response — 200 OK** (`column_dim=state`, the default for `"state"` connections)
 ```json
 {
   "columns": [
@@ -206,7 +237,10 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
       ],
       "milestone": "v2.0",
       "column_keys": ["open"],
-      "swimlane_keys": ["v2.0"]
+      "swimlane_keys": ["v2.0"],
+      "has_branch": false,
+      "has_open_pr": false,
+      "pipeline_evidence": null
     },
     {
       "number": 198,
@@ -217,7 +251,10 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
       "assignees": [],
       "milestone": null,
       "column_keys": ["closed"],
-      "swimlane_keys": ["__none__"]
+      "swimlane_keys": ["__none__"],
+      "has_branch": false,
+      "has_open_pr": false,
+      "pipeline_evidence": null
     }
   ],
   "fetched_at": "2026-06-06T08:30:00Z",
@@ -228,6 +265,87 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
   },
   "truncated": false,
   "total_count": 2
+}
+```
+
+**Response — 200 OK** (`?column_dim=pipeline`)
+```json
+{
+  "columns": [
+    { "key": "backlog", "label": "Backlog" },
+    { "key": "todo",    "label": "To Do" },
+    { "key": "doing",   "label": "Doing" },
+    { "key": "review",  "label": "Review" },
+    { "key": "done",    "label": "Done" }
+  ],
+  "swimlanes": [
+    { "key": "v2.0", "label": "v2.0" },
+    { "key": "__none__", "label": "No milestone" }
+  ],
+  "issues": [
+    {
+      "number": 214,
+      "title": "Fix pagination on mobile",
+      "url": "https://github.com/acme/backend/issues/214",
+      "state": "open",
+      "labels": [{ "name": "bug", "color": "d73a4a" }],
+      "assignees": [
+        { "username": "alice", "avatar_url": "https://avatars.githubusercontent.com/u/1234?v=4" }
+      ],
+      "milestone": "v2.0",
+      "column_keys": ["review"],
+      "swimlane_keys": ["v2.0"],
+      "has_branch": true,
+      "has_open_pr": true,
+      "pipeline_evidence": {
+        "branch": "fix/214-mobile-pagination",
+        "mr_number": 87,
+        "mr_url": "https://github.com/acme/backend/pull/87",
+        "mr_closes": true
+      }
+    },
+    {
+      "number": 201,
+      "title": "Refactor auth middleware",
+      "url": "https://github.com/acme/backend/issues/201",
+      "state": "open",
+      "labels": [],
+      "assignees": [],
+      "milestone": "v2.0",
+      "column_keys": ["doing"],
+      "swimlane_keys": ["v2.0"],
+      "has_branch": true,
+      "has_open_pr": false,
+      "pipeline_evidence": {
+        "branch": "feat/201-auth-middleware",
+        "mr_number": null,
+        "mr_url": null,
+        "mr_closes": false
+      }
+    },
+    {
+      "number": 198,
+      "title": "Update dependencies",
+      "url": "https://github.com/acme/backend/issues/198",
+      "state": "closed",
+      "labels": [],
+      "assignees": [],
+      "milestone": null,
+      "column_keys": ["done"],
+      "swimlane_keys": ["__none__"],
+      "has_branch": false,
+      "has_open_pr": false,
+      "pipeline_evidence": null
+    }
+  ],
+  "fetched_at": "2026-06-06T08:30:00Z",
+  "source": {
+    "provider": "github",
+    "repo": "acme/backend",
+    "url": "https://github.com/acme/backend"
+  },
+  "truncated": false,
+  "total_count": 3
 }
 ```
 
