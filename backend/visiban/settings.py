@@ -488,7 +488,14 @@ SOCIALACCOUNT_PROVIDERS = {
 REST_AUTH = {
     "USE_JWT": False,
     "SESSION_LOGIN": True,
-    "USER_DETAILS_SERIALIZER": "accounts.serializers.UserSerializer",
+    # CurrentUserSerializer is a strict superset of UserSerializer (adds the
+    # read-only uploads_enabled / git_lens_enabled instance-flag fields). The SPA
+    # bootstraps its current-user object from this endpoint (GET /auth/user/) and
+    # writes profile edits back through it (PATCH), so the flags must live here or
+    # they never reach — and get clobbered out of — the in-memory user. The flags
+    # stay off the *embedded* UserSerializer used for assignees/authors/members in
+    # board and card payloads, so this adds no per-row cost to those responses.
+    "USER_DETAILS_SERIALIZER": "accounts.serializers.CurrentUserSerializer",
     # allauth 65.x SIGNUP_FIELDS causes USERNAME_REQUIRED to return None, which DRF
     # normalises to required=True. Use a custom serializer that sets required=False
     # explicitly so email-only registration works without a username field.
