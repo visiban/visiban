@@ -1,5 +1,4 @@
 import type { LensAxis, NormalizedIssue } from "../../../types";
-import type { LensDensity } from "../../../hooks/useLensDensityPref";
 import LensIssueCard from "./LensIssueCard";
 
 interface Props {
@@ -16,7 +15,7 @@ interface Props {
   isFocused: boolean;
   onFocus: (key: string) => void;
   onExitFocus: () => void;
-  density: LensDensity;
+  compact: boolean;
 }
 
 /**
@@ -35,7 +34,7 @@ export default function LensSwimlaneRow({
   isFocused,
   onFocus,
   onExitFocus,
-  density,
+  compact,
 }: Props) {
   return (
     <div className="flex border-b border-line-subtle">
@@ -95,29 +94,34 @@ export default function LensSwimlaneRow({
           return (
             <div
               key={col.key}
-              className="shrink-0 bg-canvas border-r border-line-subtle p-2 flex flex-col gap-2"
+              className="shrink-0 bg-canvas border-r border-line-subtle p-2"
               style={{ width: colWidth }}
             >
-              {cellIssues.length === 0 ? (
-                // Canonical "no value" marker — pipeline always renders all five
-                // columns, so empty Doing/Review cells are common and must read as
-                // empty, not broken. The count lives in the column header stat.
-                <div
-                  className="flex items-center justify-center py-2 text-xs text-fg-faint select-none"
-                  aria-hidden="true"
-                >
-                  —
-                </div>
-              ) : (
-                cellIssues.map((issue) => (
-                  <LensIssueCard
-                    key={issue.number}
-                    issue={issue}
-                    laneCount={issue.swimlane_keys.length}
-                    density={density}
-                  />
-                ))
-              )}
+              {/* Cards grid is a CONTENT-HEIGHT child of the (lane-height-stretched)
+                  cell — same structure as the board's BoardCell — so compact cards
+                  hug their content at the top instead of stretching to fill the cell. */}
+              <div className={compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-2"}>
+                {cellIssues.length === 0 ? (
+                  // Canonical "no value" marker — pipeline always renders all five
+                  // columns, so empty Doing/Review cells are common and must read as
+                  // empty, not broken. The count lives in the column header stat.
+                  <div
+                    className="col-span-full flex items-center justify-center py-2 text-xs text-fg-faint select-none"
+                    aria-hidden="true"
+                  >
+                    —
+                  </div>
+                ) : (
+                  cellIssues.map((issue) => (
+                    <LensIssueCard
+                      key={issue.number}
+                      issue={issue}
+                      laneCount={issue.swimlane_keys.length}
+                      compact={compact}
+                    />
+                  ))
+                )}
+              </div>
             </div>
           );
         })

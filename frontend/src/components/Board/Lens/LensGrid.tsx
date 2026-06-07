@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import type { LensData, NormalizedIssue } from "../../../types";
-import type { LensDensity } from "../../../hooks/useLensDensityPref";
 import LensColumnHeader from "./LensColumnHeader";
 import LensSwimlaneRow from "./LensSwimlaneRow";
 
@@ -11,7 +10,7 @@ interface Props {
   onToggleCollapse: (key: string) => void;
   onFocus: (key: string) => void;
   onExitFocus: () => void;
-  density: LensDensity;
+  compact: boolean;
 }
 
 const SIDEBAR_WIDTH = 200;
@@ -32,7 +31,7 @@ export default function LensGrid({
   onToggleCollapse,
   onFocus,
   onExitFocus,
-  density,
+  compact,
 }: Props) {
   // Synthetic "(none)" lanes render last so real milestones/assignees lead.
   const swimlanes = useMemo(() => {
@@ -124,7 +123,7 @@ export default function LensGrid({
             isFocused={focusKey === lane.key}
             onFocus={onFocus}
             onExitFocus={onExitFocus}
-            density={density}
+            compact={compact}
           />
         ))}
       </div>

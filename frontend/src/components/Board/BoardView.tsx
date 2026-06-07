@@ -54,6 +54,8 @@ import { getLensConnection } from "../../api/gitLens";
 import type { LensConnection } from "../../types";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
+import LensToolbar from "./Lens/LensToolbar";
+import { lensFilterActiveCount } from "./Lens/lensDims";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
@@ -487,6 +489,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler);
 
   const [searchParams, setSearchParams] = useSearchParams();
+  // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
+  // mount when a shared link already carries an active lens filter.
+  const [lensShowFilters, setLensShowFilters] = useState(() => lensFilterActiveCount(searchParams) > 0);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   // Alt-gating for the column trash zone (#965). The destructive drop target
@@ -1514,11 +1519,31 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+        {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
+            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row)
+            so the tabs and controls line up pixel-for-pixel and the row scrolls
+            instead of wrapping on narrow viewports — switching Board↔Lens is fluid. */}
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
+          <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
+            <div className="flex items-center gap-2 h-full min-w-max">
+              <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+              <LensToolbar
+                connection={lensConnection}
+                cardLayout={cardLayout}
+                onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                showFilters={lensShowFilters}
+                onToggleFilters={() => setLensShowFilters((v) => !v)}
+              />
+            </div>
+          </div>
         </nav>
         <SectionErrorBoundary section="Lens">
-          <LensView boardId={board.id} connection={lensConnection} />
+          <LensView
+            boardId={board.id}
+            connection={lensConnection}
+            cardLayout={cardLayout}
+            showFilters={lensShowFilters}
+          />
         </SectionErrorBoundary>
       </div>
     );

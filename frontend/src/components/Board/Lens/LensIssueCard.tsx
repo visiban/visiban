@@ -10,11 +10,12 @@ interface Props {
    */
   laneCount?: number;
   /**
-   * "compact" strips the card to #number + state pill + single-line title (drops
-   * labels, milestone, branch/MR evidence, and avatars) for an at-a-glance scan.
-   * Defaults to "comfortable" so a caller that forgets it degrades gracefully.
+   * Compact strips the card to #number + state pill + single-line title (drops
+   * labels, milestone, branch/MR evidence, and avatars) for an at-a-glance scan —
+   * needed because compact lays cards out multiple-per-row (narrower cards).
+   * Defaults to false so a caller that forgets it degrades gracefully.
    */
-  density?: "comfortable" | "compact";
+  compact?: boolean;
 }
 
 const MAX_AVATARS = 3;
@@ -25,9 +26,8 @@ const MAX_AVATARS = 3;
  * translate-y) and opens the upstream issue in a new tab on click. See the
  * "Read-only external cells/headers" rule in frontend/CLAUDE.md.
  */
-export default function LensIssueCard({ issue, laneCount = 1, density = "comfortable" }: Props) {
+export default function LensIssueCard({ issue, laneCount = 1, compact = false }: Props) {
   const closed = issue.state === "closed";
-  const compact = density === "compact";
   const extraAssignees = issue.assignees.length - MAX_AVATARS;
   const ev = issue.pipeline_evidence;
 

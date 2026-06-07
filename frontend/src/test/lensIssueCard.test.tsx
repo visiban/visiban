@@ -161,7 +161,7 @@ describe('LensIssueCard', () => {
     it('compact density drops labels/milestone/evidence but keeps number, pill, title', () => {
       render(
         <LensIssueCard
-          density="compact"
+          compact
           issue={makeIssue({
             labels: [{ name: 'bug', color: 'ff0000' }],
             milestone: 'v2.0',

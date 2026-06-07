@@ -42,7 +42,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof LensSwimlaneRow>> 
       isFocused={false}
       onFocus={onFocus}
       onExitFocus={onExitFocus}
-      density="comfortable"
+      compact={false}
       {...overrides}
     />,
   )

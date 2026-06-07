@@ -1,45 +1,35 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
 import { useEscapeStack } from "../../../hooks/useEscapeStack";
-import { useLensDensityPref } from "../../../hooks/useLensDensityPref";
 import type { LensConnection } from "../../../types";
+import type { CardLayout } from "../../../hooks/useCardLayoutPref";
 import LensGrid from "./LensGrid";
-import LensFreshness from "./LensFreshness";
 import LensFocusBanner from "./LensFocusBanner";
 import LensFilterBar, { type LensState } from "./LensFilterBar";
 import LensProvenanceBanner from "./LensProvenanceBanner";
+import { COLUMN_DIM_KEYS, SWIMLANE_DIM_KEYS } from "./lensDims";
 
 interface Props {
   boardId: number;
   connection: LensConnection;
+  /** Shared with the board's card-layout pref — "compact" = multi-card-per-row. */
+  cardLayout: CardLayout;
+  /** Filter-row visibility (toggled by the Filters button on the shared Row 2). */
+  showFilters: boolean;
 }
 
-// Pivot options mirror the backend serializer's accepted dimension values
-// (git_lens/serializers.py). Keep these two lists in lockstep.
-const COLUMN_DIM_OPTIONS = [
-  { value: "pipeline", label: "Pipeline (workflow)" },
-  { value: "status", label: "Status" },
-  { value: "state", label: "State (open/closed)" },
-];
-const SWIMLANE_DIM_OPTIONS = [
-  { value: "milestone", label: "Milestone" },
-  { value: "assignee", label: "Assignee" },
-  { value: "label", label: "Label" },
-];
-
-const COLUMN_DIM_KEYS = new Set(COLUMN_DIM_OPTIONS.map((o) => o.value));
-const SWIMLANE_DIM_KEYS = new Set(SWIMLANE_DIM_OPTIONS.map((o) => o.value));
-
 /**
- * Read-only "Lens" board view. Renders one public GitHub/GitLab repo's issues
- * as a configurable 2D pivot. The pivot can be overridden ad-hoc via the URL
- * (?column_dim=&swimlane_dim=) without changing the board's saved default.
+ * Read-only "Lens" board view. Renders one public GitHub/GitLab repo's issues as
+ * a configurable 2D pivot. The pivot/filter controls live on the shared Row-2
+ * toolbar (LensToolbar, in BoardView); this component owns the data fetch, the
+ * banners, the filter row, and the grid. Pivot/filter values are read from the
+ * URL (?column_dim=&swimlane_dim=&state=&milestone=&q=).
  */
-export default function LensView({ boardId, connection }: Props) {
+export default function LensView({ boardId, connection, cardLayout, showFilters }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const compact = cardLayout === "compact";
 
   // Ad-hoc pivot overrides from the URL, validated against the accepted dims.
   // A missing or invalid param falls back to the saved connection default.
@@ -49,8 +39,6 @@ export default function LensView({ boardId, connection }: Props) {
     rawColumnDim && COLUMN_DIM_KEYS.has(rawColumnDim) ? rawColumnDim : connection.column_dim;
   const swimlaneDim =
     rawSwimlaneDim && SWIMLANE_DIM_KEYS.has(rawSwimlaneDim) ? rawSwimlaneDim : connection.swimlane_dim;
-
-  const isCustomPivot = columnDim !== connection.column_dim || swimlaneDim !== connection.swimlane_dim;
 
   // Filters. State + milestone are server-side (flow into the fetch); text (q) is
   // client-side over the fetched set. All URL-persisted like the pivot.
@@ -67,28 +55,33 @@ export default function LensView({ boardId, connection }: Props) {
     milestone || undefined,
   );
 
-  // Compact density is a personal reading habit → user pref. Collapse/focus are
-  // properties of the shared link → URL params (validated against live data so a
-  // key stale after a re-pivot or truncation is silently ignored).
-  const [density, setDensity] = useLensDensityPref();
+  // Collapse/focus are properties of the shared link → URL params (validated
+  // against live data so a key stale after a re-pivot or truncation is ignored).
   const laneKeys = useMemo(
     () => new Set((data?.swimlanes ?? []).map((s) => s.key)),
     [data],
   );
   const rawFocus = searchParams.get("lens_focus");
   const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
+  // "*" is the collapse-all sentinel set by the Row-2 Collapse button (which has
+  // no lane keys); resolve it here against the live keys.
   const collapsedKeys = useMemo(() => {
     const raw = searchParams.get("lens_collapsed");
+    if (raw === "*") return new Set(laneKeys);
     if (!raw) return new Set<string>();
     return new Set(raw.split(",").map(decodeURIComponent).filter((k) => laneKeys.has(k)));
   }, [searchParams, laneKeys]);
 
   const toggleCollapse = (key: string) => {
     setSearchParams((prev) => {
-      const cur = new Set((prev.get("lens_collapsed")?.split(",").map(decodeURIComponent)) ?? []);
+      const raw = prev.get("lens_collapsed");
+      const cur = raw === "*"
+        ? new Set(laneKeys)
+        : new Set(raw?.split(",").map(decodeURIComponent) ?? []);
       if (cur.has(key)) cur.delete(key);
       else cur.add(key);
       if (cur.size === 0) prev.delete("lens_collapsed");
+      else if (cur.size >= laneKeys.size) prev.set("lens_collapsed", "*"); // normalize "all" → sentinel
       else prev.set("lens_collapsed", Array.from(cur).map(encodeURIComponent).join(","));
       return prev;
     }, { replace: true });
@@ -104,30 +97,6 @@ export default function LensView({ boardId, connection }: Props) {
     if (!focusKey) return false;
     exitFocus();
   }, 12);
-
-  const setPivot = (next: { column_dim?: string; swimlane_dim?: string }) => {
-    setSearchParams((prev) => {
-      if (next.column_dim !== undefined) {
-        // Only persist a param when it differs from the saved default — keeps
-        // the URL clean when the user is on the default pivot.
-        if (next.column_dim === connection.column_dim) prev.delete("column_dim");
-        else prev.set("column_dim", next.column_dim);
-      }
-      if (next.swimlane_dim !== undefined) {
-        if (next.swimlane_dim === connection.swimlane_dim) prev.delete("swimlane_dim");
-        else prev.set("swimlane_dim", next.swimlane_dim);
-      }
-      return prev;
-    }, { replace: true });
-  };
-
-  const resetPivot = () => {
-    setSearchParams((prev) => {
-      prev.delete("column_dim");
-      prev.delete("swimlane_dim");
-      return prev;
-    }, { replace: true });
-  };
 
   const setStateFilter = (next: LensState) =>
     setSearchParams((prev) => {
@@ -172,58 +141,9 @@ export default function LensView({ boardId, connection }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Lens toolbar — re-pivot dropdowns + freshness control */}
-      <div className="shrink-0 bg-surface border-b border-line flex items-center gap-3 px-3 py-1.5 flex-wrap">
-        <SingleSelectDropdown
-          label="Columns: Status"
-          options={COLUMN_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Columns: ${o.label}` }))}
-          selected={columnDim}
-          onChange={(v) => setPivot({ column_dim: v ?? connection.column_dim })}
-        />
-        <SingleSelectDropdown
-          label="Swimlanes: Milestone"
-          options={SWIMLANE_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Swimlanes: ${o.label}` }))}
-          selected={swimlaneDim}
-          onChange={(v) => setPivot({ swimlane_dim: v ?? connection.swimlane_dim })}
-        />
-        {isCustomPivot && (
-          <span className="text-xs text-fg-muted flex items-center gap-1.5">
-            Viewing a custom pivot ·
-            <button
-              type="button"
-              onClick={resetPivot}
-              className="text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-            >
-              Reset
-            </button>
-          </span>
-        )}
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
-          aria-pressed={density === "compact"}
-          aria-label={density === "compact" ? "Comfortable cards" : "Compact cards"}
-          title={density === "compact" ? "Comfortable cards" : "Compact cards"}
-          className={`p-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-            density === "compact"
-              ? "text-info"
-              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
-          }`}
-        >
-          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-            <line x1="2.5" y1="4" x2="13.5" y2="4" />
-            <line x1="2.5" y1="8" x2="13.5" y2="8" />
-            <line x1="2.5" y1="12" x2="13.5" y2="12" />
-          </svg>
-        </button>
-        {data && (
-          <LensFreshness fetchedAt={data.fetched_at} refetching={refetching} onRefresh={refresh} />
-        )}
-      </div>
-
-      {/* Filter row — below the toolbar, above the banners (inputs then status). */}
-      {data && (
+      {/* Filter row — toggled by the Filters button on the shared Row 2; shown
+          above the banners (inputs then status). */}
+      {data && showFilters && (
         <LensFilterBar
           state={stateFilter}
           milestone={milestone}
@@ -237,8 +157,8 @@ export default function LensView({ boardId, connection }: Props) {
         />
       )}
 
-      {/* Provenance banner — outside the grid scroll container so it never
-          scrolls away. Shown whenever we have data. */}
+      {/* Provenance banner (now hosts the freshness control) — outside the grid
+          scroll container so it never scrolls away. */}
       {data && (
         <LensProvenanceBanner
           provider={data.source.provider}
@@ -247,6 +167,9 @@ export default function LensView({ boardId, connection }: Props) {
           truncated={data.truncated}
           shownCount={data.issues.length}
           filtersActive={filtersActive}
+          fetchedAt={data.fetched_at}
+          refetching={refetching}
+          onRefresh={refresh}
         />
       )}
 
@@ -273,7 +196,7 @@ export default function LensView({ boardId, connection }: Props) {
           onToggleCollapse={toggleCollapse}
           onFocus={enterFocus}
           onExitFocus={exitFocus}
-          density={density}
+          compact={compact}
         />
       ) : null}
     </div>
