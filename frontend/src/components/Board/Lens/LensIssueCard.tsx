@@ -9,6 +9,12 @@ interface Props {
    * (an issue with multiple matching swimlane values renders in each lane).
    */
   laneCount?: number;
+  /**
+   * "compact" strips the card to #number + state pill + single-line title (drops
+   * labels, milestone, branch/MR evidence, and avatars) for an at-a-glance scan.
+   * Defaults to "comfortable" so a caller that forgets it degrades gracefully.
+   */
+  density?: "comfortable" | "compact";
 }
 
 const MAX_AVATARS = 3;
@@ -19,8 +25,9 @@ const MAX_AVATARS = 3;
  * translate-y) and opens the upstream issue in a new tab on click. See the
  * "Read-only external cells/headers" rule in frontend/CLAUDE.md.
  */
-export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
+export default function LensIssueCard({ issue, laneCount = 1, density = "comfortable" }: Props) {
   const closed = issue.state === "closed";
+  const compact = density === "compact";
   const extraAssignees = issue.assignees.length - MAX_AVATARS;
   const ev = issue.pipeline_evidence;
 
@@ -41,11 +48,11 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
         }
       }}
       aria-label={`Open issue #${issue.number}: ${issue.title} (opens in new tab)`}
-      className={`group block w-full text-left bg-surface rounded border border-line p-2.5 transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
-        closed ? "opacity-70" : ""
-      }`}
+      className={`group block w-full text-left bg-surface rounded border border-line transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        compact ? "p-1.5" : "p-2.5"
+      } ${closed ? "opacity-70" : ""}`}
     >
-      <div className="flex items-center gap-2 mb-1">
+      <div className={`flex items-center gap-2 ${compact ? "mb-0.5" : "mb-1"}`}>
         <span className="font-mono text-xs text-fg-muted shrink-0">#{issue.number}</span>
         <span
           className={`text-xs font-medium px-1.5 py-0.5 rounded-full shrink-0 ${
@@ -67,9 +74,9 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
         )}
       </div>
 
-      <p className="text-sm text-fg line-clamp-2">{issue.title}</p>
+      <p className={`text-sm text-fg ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{issue.title}</p>
 
-      {issue.labels.length > 0 && (
+      {!compact && issue.labels.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap mt-1.5">
           {issue.labels.map((label) => (
             <span
@@ -88,7 +95,7 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
         </div>
       )}
 
-      {(issue.milestone || issue.assignees.length > 0 || ev) && (
+      {!compact && (issue.milestone || issue.assignees.length > 0 || ev) && (
         <div className="flex items-center gap-2 mt-1.5 text-xs text-fg-muted">
           {/* Left cluster: milestone + pipeline evidence. May flex-wrap — the one
               permitted exception to single-row metadata, so the branch/MR that

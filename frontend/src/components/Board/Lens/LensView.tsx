@@ -1,10 +1,14 @@
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
+import { useEscapeStack } from "../../../hooks/useEscapeStack";
+import { useLensDensityPref } from "../../../hooks/useLensDensityPref";
 import type { LensConnection } from "../../../types";
 import LensGrid from "./LensGrid";
 import LensFreshness from "./LensFreshness";
+import LensFocusBanner from "./LensFocusBanner";
 import LensProvenanceBanner from "./LensProvenanceBanner";
 
 interface Props {
@@ -48,6 +52,44 @@ export default function LensView({ boardId, connection }: Props) {
   const isCustomPivot = columnDim !== connection.column_dim || swimlaneDim !== connection.swimlane_dim;
 
   const { data, error, loading, refetching, refresh } = useLensData(boardId, columnDim, swimlaneDim);
+
+  // Compact density is a personal reading habit → user pref. Collapse/focus are
+  // properties of the shared link → URL params (validated against live data so a
+  // key stale after a re-pivot or truncation is silently ignored).
+  const [density, setDensity] = useLensDensityPref();
+  const laneKeys = useMemo(
+    () => new Set((data?.swimlanes ?? []).map((s) => s.key)),
+    [data],
+  );
+  const rawFocus = searchParams.get("lens_focus");
+  const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
+  const collapsedKeys = useMemo(() => {
+    const raw = searchParams.get("lens_collapsed");
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(",").map(decodeURIComponent).filter((k) => laneKeys.has(k)));
+  }, [searchParams, laneKeys]);
+
+  const toggleCollapse = (key: string) => {
+    setSearchParams((prev) => {
+      const cur = new Set((prev.get("lens_collapsed")?.split(",").map(decodeURIComponent)) ?? []);
+      if (cur.has(key)) cur.delete(key);
+      else cur.add(key);
+      if (cur.size === 0) prev.delete("lens_collapsed");
+      else prev.set("lens_collapsed", Array.from(cur).map(encodeURIComponent).join(","));
+      return prev;
+    }, { replace: true });
+  };
+  const enterFocus = (key: string) =>
+    setSearchParams((prev) => { prev.set("lens_focus", key); return prev; }, { replace: true });
+  const exitFocus = () =>
+    setSearchParams((prev) => { prev.delete("lens_focus"); return prev; }, { replace: true });
+
+  // Priority 12 mirrors the native board's focus-exit slot (the board and lens
+  // are sibling tab views, never mounted together).
+  useEscapeStack(() => {
+    if (!focusKey) return false;
+    exitFocus();
+  }, 12);
 
   const setPivot = (next: { column_dim?: string; swimlane_dim?: string }) => {
     setSearchParams((prev) => {
@@ -102,6 +144,24 @@ export default function LensView({ boardId, connection }: Props) {
           </span>
         )}
         <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}
+          aria-pressed={density === "compact"}
+          aria-label={density === "compact" ? "Comfortable cards" : "Compact cards"}
+          title={density === "compact" ? "Comfortable cards" : "Compact cards"}
+          className={`p-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            density === "compact"
+              ? "text-info"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+          }`}
+        >
+          <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <line x1="2.5" y1="4" x2="13.5" y2="4" />
+            <line x1="2.5" y1="8" x2="13.5" y2="8" />
+            <line x1="2.5" y1="12" x2="13.5" y2="12" />
+          </svg>
+        </button>
         {data && (
           <LensFreshness fetchedAt={data.fetched_at} refetching={refetching} onRefresh={refresh} />
         )}
@@ -119,6 +179,15 @@ export default function LensView({ boardId, connection }: Props) {
         />
       )}
 
+      {/* Focus banner stacks below provenance (source → mode), both outside the
+          grid scroll container so neither scrolls away. */}
+      {data && focusKey && (
+        <LensFocusBanner
+          label={data.swimlanes.find((s) => s.key === focusKey)?.label ?? focusKey}
+          onExit={exitFocus}
+        />
+      )}
+
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <Spinner size="lg" label="Loading issues" />
@@ -126,7 +195,15 @@ export default function LensView({ boardId, connection }: Props) {
       ) : error && !data ? (
         <LensErrorState error={error} onRetry={refresh} provider={connection.provider} />
       ) : data ? (
-        <LensGrid data={data} />
+        <LensGrid
+          data={data}
+          collapsedKeys={collapsedKeys}
+          focusKey={focusKey}
+          onToggleCollapse={toggleCollapse}
+          onFocus={enterFocus}
+          onExitFocus={exitFocus}
+          density={density}
+        />
       ) : null}
     </div>
   );

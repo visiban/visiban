@@ -158,6 +158,31 @@ describe('LensIssueCard', () => {
       ).toBeInTheDocument()
     })
 
+    it('compact density drops labels/milestone/evidence but keeps number, pill, title', () => {
+      render(
+        <LensIssueCard
+          density="compact"
+          issue={makeIssue({
+            labels: [{ name: 'bug', color: 'ff0000' }],
+            milestone: 'v2.0',
+            assignees: [{ username: 'alice', avatar_url: '' }],
+            pipeline_evidence: { branch: 'feat/1-x', mr_number: 9, mr_url: 'https://x/9', mr_closes: true },
+          })}
+        />,
+      )
+      // Kept
+      expect(screen.getByText('#42')).toBeInTheDocument()
+      expect(screen.getByText('Open')).toBeInTheDocument()
+      expect(screen.getByText('Fix the flux capacitor')).toBeInTheDocument()
+      // Dropped
+      expect(screen.queryByText('bug')).not.toBeInTheDocument()
+      expect(screen.queryByText('v2.0')).not.toBeInTheDocument()
+      expect(screen.queryByText('feat/1-x')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link')).not.toBeInTheDocument()
+      const card = screen.getByRole('button')
+      expect(card.className).toContain('p-1.5')
+    })
+
     it('clicking the MR chip opens the MR, not the issue (stopPropagation)', async () => {
       const user = userEvent.setup()
       render(
