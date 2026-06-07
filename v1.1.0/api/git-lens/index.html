@@ -1925,6 +1925,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtering
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2871,6 +2882,11 @@
 <td>integer / null</td>
 <td>Total issue count reported by the provider, or <code>null</code> when the provider does not expose this value</td>
 </tr>
+<tr>
+<td><code>available_milestones</code></td>
+<td>array of strings</td>
+<td>Milestone titles found in the fetched issues, in alphabetical order. Intended for the filter's autocomplete. This list is derived from the fetched issues, not an exhaustive repo milestone list (the milestones-list endpoints require auth even for public repos, so they are not called). The <code>milestone</code> query parameter accepts any title, including ones not in this list.</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Issue object</strong> (each element of <code>issues</code>):</p>
@@ -3184,17 +3200,30 @@
 <thead>
 <tr>
 <th>Parameter</th>
+<th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>column_dim</code></td>
+<td>string</td>
 <td>Override the column pivot dimension for this request only. One of <code>"status"</code>, <code>"state"</code>, <code>"pipeline"</code>. Does not modify the saved connection.</td>
 </tr>
 <tr>
 <td><code>swimlane_dim</code></td>
+<td>string</td>
 <td>Override the swimlane pivot dimension for this request only. One of <code>"milestone"</code>, <code>"assignee"</code>, <code>"label"</code>. Does not modify the saved connection.</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>string</td>
+<td>Filter by issue state. <code>"open"</code> or <code>"closed"</code>. Any other value (including omitting the parameter) returns all states. Applied <strong>server-side</strong> before the issue set is returned.</td>
+</tr>
+<tr>
+<td><code>milestone</code></td>
+<td>string</td>
+<td>Filter to a single milestone by title. Use the synthetic value <code>"__none__"</code> to return only issues with no milestone. Max 255 characters. Applied <strong>server-side</strong> for GitLab; <strong>client-side</strong> for GitHub (see <a href="#filtering">Filtering</a>). Omitting returns all milestones.</td>
 </tr>
 </tbody>
 </table>
@@ -3202,6 +3231,13 @@
 <p class="admonition-title">Note</p>
 <p>Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.</p>
 </div>
+<h3 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h3>
+<p>The <code>state</code> and <code>milestone</code> parameters narrow which issues are returned. They are applied server-side where possible so that scoping to a milestone can surface issues that fall outside the default 300-issue fetch budget (3 pages × 100 per page).</p>
+<p><strong>GitLab</strong> — both <code>state</code> and <code>milestone</code> are pushed to the GitLab API query before any fetching occurs. A <code>?milestone=Sprint+5</code> request asks GitLab for <em>only</em> that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).</p>
+<p><strong>GitHub</strong> — <code>state</code> is sent as a query parameter to the GitHub Issues API and is therefore server-side. <code>milestone</code> is applied <strong>client-side</strong> over the fetched set: GitHub's API requires a numeric milestone ID rather than a title, and resolving a title to an ID would require an authenticated extra request. As a result, a GitHub milestone with more than 300 issues may be truncated when filtered by title. The field <code>truncated: true</code> in the response signals this condition.</p>
+<p><strong>Text search</strong> — there is no <code>q</code> or text-search query parameter. Full-text filtering (by title or issue number) is performed client-side by the SPA over the issues already in the response. Do not pass a text-search value to this endpoint; it is silently ignored.</p>
+<p><strong>Coverage expansion</strong> — when a <code>milestone</code> filter is active, the effective issue set is scoped to that milestone. For GitLab this can return more issues than the unfiltered default view (because the budget applies to the scoped set), making the milestone filter a useful way to deep-dive a large milestone without fetching the entire repository.</p>
+<p>The <code>available_milestones</code> field in the response lists the milestone titles present in the current fetched set, for use as autocomplete suggestions. Because it is derived from the fetched issues and not from the provider's full milestone list, milestones whose issues were not fetched (e.g. milestones beyond the budget on an unfiltered request) will not appear — but passing their title as a <code>?milestone=</code> value still works.</p>
 <p><strong>Response — 200 OK</strong> (<code>column_dim=state</code>, the default for <code>"state"</code> connections)
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -3255,8 +3291,9 @@
 <a id="__codelineno-3-50" name="__codelineno-3-50" href="#__codelineno-3-50"></a><span class="w">    </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/acme/backend&quot;</span>
 <a id="__codelineno-3-51" name="__codelineno-3-51" href="#__codelineno-3-51"></a><span class="w">  </span><span class="p">},</span>
 <a id="__codelineno-3-52" name="__codelineno-3-52" href="#__codelineno-3-52"></a><span class="w">  </span><span class="nt">&quot;truncated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
-<a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a><span class="p">}</span>
+<a id="__codelineno-3-53" name="__codelineno-3-53" href="#__codelineno-3-53"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-3-54" name="__codelineno-3-54" href="#__codelineno-3-54"></a><span class="w">  </span><span class="nt">&quot;available_milestones&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;v2.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;v2.1&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-55" name="__codelineno-3-55" href="#__codelineno-3-55"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Response — 200 OK</strong> (<code>?column_dim=pipeline</code>)
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
@@ -3334,8 +3371,9 @@
 <a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a><span class="w">    </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/acme/backend&quot;</span>
 <a id="__codelineno-4-74" name="__codelineno-4-74" href="#__codelineno-4-74"></a><span class="w">  </span><span class="p">},</span>
 <a id="__codelineno-4-75" name="__codelineno-4-75" href="#__codelineno-4-75"></a><span class="w">  </span><span class="nt">&quot;truncated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
-<a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a><span class="p">}</span>
+<a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a><span class="w">  </span><span class="nt">&quot;available_milestones&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;v2.0&quot;</span><span class="p">]</span>
+<a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a><span class="p">}</span>
 </code></pre></div></p>
 <p><strong>Errors</strong></p>
 <table>
