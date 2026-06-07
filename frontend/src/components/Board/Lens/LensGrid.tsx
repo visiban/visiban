@@ -1,10 +1,17 @@
 import { useMemo } from "react";
 import type { LensData, NormalizedIssue } from "../../../types";
+import type { LensDensity } from "../../../hooks/useLensDensityPref";
 import LensColumnHeader from "./LensColumnHeader";
 import LensSwimlaneRow from "./LensSwimlaneRow";
 
 interface Props {
   data: LensData;
+  collapsedKeys: Set<string>;
+  focusKey: string | null;
+  onToggleCollapse: (key: string) => void;
+  onFocus: (key: string) => void;
+  onExitFocus: () => void;
+  density: LensDensity;
 }
 
 const SIDEBAR_WIDTH = 200;
@@ -18,13 +25,27 @@ const NONE_KEYS = new Set(["__none__", "__nostatus__"]);
  * grid in BoardView — sticky header row, sticky swimlane sidebar, and a
  * stats corner cell, but no separators, trash zones, or add affordances.
  */
-export default function LensGrid({ data }: Props) {
+export default function LensGrid({
+  data,
+  collapsedKeys,
+  focusKey,
+  onToggleCollapse,
+  onFocus,
+  onExitFocus,
+  density,
+}: Props) {
   // Synthetic "(none)" lanes render last so real milestones/assignees lead.
   const swimlanes = useMemo(() => {
     const real = data.swimlanes.filter((s) => !NONE_KEYS.has(s.key));
     const none = data.swimlanes.filter((s) => NONE_KEYS.has(s.key));
     return [...real, ...none];
   }, [data.swimlanes]);
+
+  // Focus mode renders only the focused lane (if it still exists in the data).
+  const visibleSwimlanes = useMemo(
+    () => (focusKey ? swimlanes.filter((s) => s.key === focusKey) : swimlanes),
+    [swimlanes, focusKey],
+  );
 
   // Pre-bucket issues by swimlane key once, rather than re-filtering per row.
   const issuesByLane = useMemo(() => {
@@ -90,7 +111,7 @@ export default function LensGrid({ data }: Props) {
         </div>
 
         {/* Swimlane rows */}
-        {swimlanes.map((lane) => (
+        {visibleSwimlanes.map((lane) => (
           <LensSwimlaneRow
             key={lane.key}
             swimlane={lane}
@@ -98,6 +119,12 @@ export default function LensGrid({ data }: Props) {
             sidebarWidth={SIDEBAR_WIDTH}
             colWidth={COL_WIDTH}
             issues={issuesByLane.get(lane.key) ?? []}
+            collapsed={collapsedKeys.has(lane.key)}
+            onToggleCollapse={() => onToggleCollapse(lane.key)}
+            isFocused={focusKey === lane.key}
+            onFocus={onFocus}
+            onExitFocus={onExitFocus}
+            density={density}
           />
         ))}
       </div>
