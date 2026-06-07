@@ -34,13 +34,21 @@ export const deleteLensConnection = (boardId: number) =>
  */
 export const getLensBoard = (
   boardId: number,
-  pivot?: { column_dim?: string; swimlane_dim?: string },
+  pivot?: {
+    column_dim?: string;
+    swimlane_dim?: string;
+    // Server-side filters. Text search is client-side and not sent here.
+    state?: string;
+    milestone?: string;
+  },
 ) =>
   client
     .get<LensData>(`/api/v1/git-lens/board/${boardId}/`, {
       params: {
         ...(pivot?.column_dim ? { column_dim: pivot.column_dim } : {}),
         ...(pivot?.swimlane_dim ? { swimlane_dim: pivot.swimlane_dim } : {}),
+        ...(pivot?.state ? { state: pivot.state } : {}),
+        ...(pivot?.milestone ? { milestone: pivot.milestone } : {}),
       },
     })
     .then((r) => r.data);

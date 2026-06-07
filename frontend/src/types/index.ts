@@ -636,4 +636,8 @@ export interface LensData {
   truncated: boolean;
   /** Total issue count upstream, or null when the provider does not report it. */
   total_count: number | null;
+  /** Milestone titles seen in the fetched issues — autocomplete suggestions for the
+   *  milestone filter. The filter accepts any typed value (server-side), so a
+   *  milestone outside the fetched window can still be filtered to. */
+  available_milestones: string[];
 }
