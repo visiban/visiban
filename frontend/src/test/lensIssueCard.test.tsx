@@ -13,6 +13,8 @@ function makeIssue(overrides: Partial<NormalizedIssue> = {}): NormalizedIssue {
     labels: [],
     assignees: [],
     milestone: null,
+    milestone_due: null,
+    milestone_state: null,
     column_keys: ['open'],
     swimlane_keys: ['__none__'],
     has_branch: false,

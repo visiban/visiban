@@ -5,8 +5,8 @@ import LensSwimlaneRow from '../components/Board/Lens/LensSwimlaneRow'
 import type { LensAxis, NormalizedIssue } from '../types'
 
 const columns: LensAxis[] = [
-  { key: 'open', label: 'Open' },
-  { key: 'closed', label: 'Closed' },
+  { key: 'open', label: 'Open', is_current: false },
+  { key: 'closed', label: 'Closed', is_current: false },
 ]
 
 function issue(number: number, columnKey: string): NormalizedIssue {
@@ -18,6 +18,8 @@ function issue(number: number, columnKey: string): NormalizedIssue {
     labels: [],
     assignees: [],
     milestone: null,
+    milestone_due: null,
+    milestone_state: null,
     column_keys: [columnKey],
     swimlane_keys: ['v1'],
     has_branch: false,
@@ -32,7 +34,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof LensSwimlaneRow>> 
   const onExitFocus = vi.fn()
   render(
     <LensSwimlaneRow
-      swimlane={{ key: 'v1', label: 'v1.2' }}
+      swimlane={{ key: 'v1', label: 'v1.2', is_current: false }}
       columns={columns}
       sidebarWidth={200}
       colWidth={280}
@@ -78,6 +80,16 @@ describe('LensSwimlaneRow', () => {
     expect(crosshair).toHaveAttribute('aria-pressed', 'true')
     await user.click(crosshair)
     expect(onExitFocus).toHaveBeenCalled()
+  })
+
+  it('renders a "Current" badge when the milestone is current', () => {
+    setup({ swimlane: { key: 'v1', label: 'v1.2', is_current: true } })
+    expect(screen.getByText('Current')).toBeInTheDocument()
+  })
+
+  it('renders no "Current" badge when the milestone is not current', () => {
+    setup()
+    expect(screen.queryByText('Current')).not.toBeInTheDocument()
   })
 
   it('collapse chevron toggles and is labeled by state', async () => {

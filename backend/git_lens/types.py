@@ -71,6 +71,12 @@ class NormalizedIssue:
     labels: list[LensLabel] = field(default_factory=list)
     assignees: list[LensUser] = field(default_factory=list)
     milestone: str | None = None
+    # Milestone metadata carried through normalization so "current milestone"
+    # detection (which milestone is being worked on now) can use due date + state
+    # without a second API call. A milestone's state/due is the same across all its
+    # issues, so reading them off any issue is sufficient. Additive, default-None.
+    milestone_due: str | None = None    # ISO date (GitLab due_date / GitHub due_on)
+    milestone_state: str | None = None  # "active"/"open" vs "closed"
     # Which lane(s) this issue maps to. Plural by design: an issue matching N
     # swimlane values renders in N lanes (never hide information).
     column_keys: list[str] = field(default_factory=list)
@@ -87,6 +93,10 @@ class NormalizedIssue:
 class LensAxis:
     key: str
     label: str
+    # Only ever set for the milestone swimlane axis: marks the milestone currently
+    # being worked on (so the frontend sorts it first + badges it). Always False on
+    # columns and on non-milestone swimlanes. Additive, default-False.
+    is_current: bool = False
 
 
 @dataclass

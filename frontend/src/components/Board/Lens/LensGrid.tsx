@@ -33,11 +33,14 @@ export default function LensGrid({
   onExitFocus,
   compact,
 }: Props) {
-  // Synthetic "(none)" lanes render last so real milestones/assignees lead.
+  // Ordering: the current milestone leads, then the rest in backend order, then
+  // synthetic "(none)" lanes last (so real milestones/assignees lead).
   const swimlanes = useMemo(() => {
     const real = data.swimlanes.filter((s) => !NONE_KEYS.has(s.key));
     const none = data.swimlanes.filter((s) => NONE_KEYS.has(s.key));
-    return [...real, ...none];
+    const current = real.filter((s) => s.is_current);
+    const rest = real.filter((s) => !s.is_current);
+    return [...current, ...rest, ...none];
   }, [data.swimlanes]);
 
   // Focus mode renders only the focused lane (if it still exists in the data).

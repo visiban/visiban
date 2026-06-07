@@ -48,6 +48,14 @@ export default function LensSwimlaneRow({
         <span className="flex-1 min-w-0 text-sm text-fg-secondary truncate" title={swimlane.label}>
           {swimlane.label}
         </span>
+        {swimlane.is_current && (
+          <span
+            className="shrink-0 bg-primary-emphasis/20 text-info text-xs px-2 py-0.5 rounded-full font-medium"
+            title="The milestone currently being worked on"
+          >
+            Current
+          </span>
+        )}
         {/* Focus toggle — hover-reveal (less common action) */}
         <button
           type="button"
