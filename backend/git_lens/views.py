@@ -281,18 +281,24 @@ class LensBoardView(APIView):
                     status=409,
                 )
 
+        # ?refresh=1 (the Refresh button) forces a re-fetch past the soft-TTL so the
+        # user gets the latest upstream issues + an updated "synced" time, instead
+        # of being served the still-fresh cached copy.
+        force = request.query_params.get("refresh") in ("1", "true")
+
         return self._serve_board(
-            request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters
+            request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force
         )
 
-    def _serve_board(self, request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters):
+    def _serve_board(self, request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force=False):
         """Stale-while-revalidate read with a single-flight lock.
 
         At most one request revalidates a given (repo, pivot) at a time; every
         other concurrent viewer is served the last good copy immediately. On a
         provider error we degrade to the stale copy rather than failing the board,
         so a transient rate-limit or network blip is invisible to viewers and we
-        never retry-storm the provider.
+        never retry-storm the provider. ``force`` (the Refresh button) skips the
+        fresh-cache return so a warm copy is revalidated instead of re-served.
         """
         # Scope the cache to the viewer only when we fetch with their credential
         # (GitHub). Anonymous (GitLab public) reads share one copy across the board.
@@ -301,7 +307,7 @@ class LensBoardView(APIView):
             conn.provider, conn.repo_slug, column_dim, swimlane_dim, user_scope, filters
         )
         entry = cache.get(key)
-        if entry is not None and time.time() < entry["soft_expires"]:
+        if not force and entry is not None and time.time() < entry["soft_expires"]:
             return _board_response(entry["payload"], request)  # fresh
 
         # Stale or cold: try to become the sole fetcher for this (repo, pivot).

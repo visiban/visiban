@@ -40,6 +40,8 @@ export const getLensBoard = (
     // Server-side filters. Text search is client-side and not sent here.
     state?: string;
     milestone?: string;
+    // 1 = force a re-fetch past the per-repo cache (the Refresh button).
+    refresh?: number;
   },
 ) =>
   client
@@ -49,6 +51,7 @@ export const getLensBoard = (
         ...(pivot?.swimlane_dim ? { swimlane_dim: pivot.swimlane_dim } : {}),
         ...(pivot?.state ? { state: pivot.state } : {}),
         ...(pivot?.milestone ? { milestone: pivot.milestone } : {}),
+        ...(pivot?.refresh ? { refresh: pivot.refresh } : {}),
       },
     })
     .then((r) => r.data);

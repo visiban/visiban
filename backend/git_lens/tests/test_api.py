@@ -297,6 +297,24 @@ class LensBoardRenderTests(TestCase):
         self.assertEqual(calls["n"], 1)
 
     @patch("git_lens.views.providers.get_provider")
+    def test_refresh_param_forces_refetch_past_warm_cache(self, mock_get_provider):
+        """The Refresh button (?refresh=1) re-fetches even when the cached copy is
+        still within its soft-TTL, so the user gets the latest issues."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url)  # cold → fetch (1)
+        self.client.get(self.url)  # warm cache → served, no fetch
+        self.assertEqual(calls["n"], 1)
+        self.client.get(self.url + "?refresh=1")  # force → re-fetch
+        self.assertEqual(calls["n"], 2)
+
+    @patch("git_lens.views.providers.get_provider")
     def test_filtered_and_unfiltered_do_not_cross_serve(self, mock_get_provider):
         """Server-side filters change WHAT is fetched, so a filtered request must use
         a distinct cache key — never served the unfiltered copy (or vice versa)."""
