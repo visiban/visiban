@@ -20,6 +20,7 @@ const PROVIDER_OPTIONS: { value: LensProvider; label: string }[] = [
 ];
 
 const COLUMN_DIM_OPTIONS = [
+  { value: "pipeline", label: "Pipeline (workflow)" },
   { value: "status", label: "Status" },
   { value: "state", label: "State (open/closed)" },
 ];
@@ -138,6 +139,10 @@ export default function LensConnectionModal({ boardId, connection, onSaved, onRe
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-fg-muted">Columns</label>
                 <SelectDropdown value={columnDim} onChange={setColumnDim} options={COLUMN_DIM_OPTIONS} />
+                <p className="text-xs text-fg-muted">
+                  Pipeline groups issues by workflow stage (Backlog → Done) using linked
+                  branches and merge requests. Recommended for tracking delivery progress.
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-fg-muted">Swimlanes</label>

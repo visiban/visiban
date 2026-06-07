@@ -22,11 +22,24 @@ const MAX_AVATARS = 3;
 export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
   const closed = issue.state === "closed";
   const extraAssignees = issue.assignees.length - MAX_AVATARS;
+  const ev = issue.pipeline_evidence;
+
+  const openIssue = () => window.open(issue.url, "_blank", "noopener,noreferrer");
 
   return (
-    <button
-      type="button"
-      onClick={() => window.open(issue.url, "_blank", "noopener,noreferrer")}
+    // role="button" (not <button>) so the pipeline MR chip can be a nested <a> —
+    // interactive nesting inside a <button> is invalid HTML. See the lens card
+    // rule in frontend/CLAUDE.md.
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openIssue}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openIssue();
+        }
+      }}
       aria-label={`Open issue #${issue.number}: ${issue.title} (opens in new tab)`}
       className={`group block w-full text-left bg-surface rounded border border-line p-2.5 transition-colors cursor-pointer hover:bg-surface-hover focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
         closed ? "opacity-70" : ""
@@ -75,14 +88,50 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
         </div>
       )}
 
-      {(issue.milestone || issue.assignees.length > 0) && (
+      {(issue.milestone || issue.assignees.length > 0 || ev) && (
         <div className="flex items-center gap-2 mt-1.5 text-xs text-fg-muted">
-          {issue.milestone && (
-            <span className="flex items-center gap-1 min-w-0" title={`Milestone: ${issue.milestone}`}>
-              <span aria-hidden="true">🚩</span>
-              <span className="truncate">{issue.milestone}</span>
-            </span>
-          )}
+          {/* Left cluster: milestone + pipeline evidence. May flex-wrap — the one
+              permitted exception to single-row metadata, so the branch/MR that
+              explains a Doing/Review placement is never truncated away. */}
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            {issue.milestone && (
+              <span className="flex items-center gap-1 min-w-0" title={`Milestone: ${issue.milestone}`}>
+                <span aria-hidden="true">🚩</span>
+                <span className="truncate">{issue.milestone}</span>
+              </span>
+            )}
+            {ev?.branch && (
+              <span
+                className="flex items-center gap-1 min-w-0 max-w-[10rem] text-fg-tertiary"
+                title={`Linked branch: ${ev.branch}`}
+              >
+                <span aria-hidden="true">⎇</span>
+                <span className="truncate font-mono">{ev.branch}</span>
+              </span>
+            )}
+            {ev?.mr_number != null && ev.mr_url && (
+              <a
+                href={ev.mr_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-0.5 shrink-0 text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                title={
+                  ev.mr_closes
+                    ? `Closing merge request !${ev.mr_number} (opens in new tab)`
+                    : `Referenced in merge request !${ev.mr_number} (opens in new tab)`
+                }
+                aria-label={
+                  ev.mr_closes
+                    ? `Open closing merge request !${ev.mr_number} in new tab`
+                    : `Open referencing merge request !${ev.mr_number} in new tab`
+                }
+              >
+                <span aria-hidden="true">{ev.mr_closes ? "⮰" : "↗"}</span>
+                <span className="font-mono">!{ev.mr_number}</span>
+              </a>
+            )}
+          </div>
           {issue.assignees.length > 0 && (
             <div className="flex items-center gap-0.5 ml-auto shrink-0">
               {issue.assignees.slice(0, MAX_AVATARS).map((a) => (
@@ -99,6 +148,6 @@ export default function LensIssueCard({ issue, laneCount = 1 }: Props) {
           )}
         </div>
       )}
-    </button>
+    </div>
   );
 }

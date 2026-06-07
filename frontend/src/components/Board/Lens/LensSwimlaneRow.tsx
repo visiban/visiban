@@ -36,13 +36,25 @@ export default function LensSwimlaneRow({ swimlane, columns, sidebarWidth, colWi
             className="shrink-0 bg-canvas border-r border-line-subtle p-2 flex flex-col gap-2"
             style={{ width: colWidth }}
           >
-            {cellIssues.map((issue) => (
-              <LensIssueCard
-                key={issue.number}
-                issue={issue}
-                laneCount={issue.swimlane_keys.length}
-              />
-            ))}
+            {cellIssues.length === 0 ? (
+              // Canonical "no value" marker — pipeline always renders all five
+              // columns, so empty Doing/Review cells are common and must read as
+              // empty, not broken. The count lives in the column header stat.
+              <div
+                className="flex items-center justify-center py-2 text-xs text-fg-faint select-none"
+                aria-hidden="true"
+              >
+                —
+              </div>
+            ) : (
+              cellIssues.map((issue) => (
+                <LensIssueCard
+                  key={issue.number}
+                  issue={issue}
+                  laneCount={issue.swimlane_keys.length}
+                />
+              ))
+            )}
           </div>
         );
       })}

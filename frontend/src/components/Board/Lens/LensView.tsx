@@ -15,6 +15,7 @@ interface Props {
 // Pivot options mirror the backend serializer's accepted dimension values
 // (git_lens/serializers.py). Keep these two lists in lockstep.
 const COLUMN_DIM_OPTIONS = [
+  { value: "pipeline", label: "Pipeline (workflow)" },
   { value: "status", label: "Status" },
   { value: "state", label: "State (open/closed)" },
 ];

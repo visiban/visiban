@@ -1,0 +1,1 @@
+The issue board lens now offers a **Pipeline (workflow)** column view in the toolbar and setup modal, rendering issues across Backlog → To Do → Doing → Review → Done. Each card shows why it landed where it did — the linked branch (Doing) and the open merge request that references or closes it (Review) — with the MR opening in a new tab.

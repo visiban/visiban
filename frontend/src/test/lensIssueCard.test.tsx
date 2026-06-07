@@ -108,4 +108,69 @@ describe('LensIssueCard', () => {
     render(<LensIssueCard issue={makeIssue({ assignees })} />)
     expect(screen.getByText('+2')).toBeInTheDocument()
   })
+
+  describe('pipeline evidence', () => {
+    it('renders no branch/MR chips when pipeline_evidence is null', () => {
+      render(<LensIssueCard issue={makeIssue()} />)
+      expect(screen.queryByRole('link')).not.toBeInTheDocument()
+      expect(screen.queryByText(/^!/)).not.toBeInTheDocument()
+    })
+
+    it('shows the linked branch name', () => {
+      render(
+        <LensIssueCard
+          issue={makeIssue({
+            has_branch: true,
+            pipeline_evidence: { branch: 'feat/482-token-refresh', mr_number: null, mr_url: null, mr_closes: false },
+          })}
+        />,
+      )
+      expect(screen.getByText('feat/482-token-refresh')).toBeInTheDocument()
+    })
+
+    it('renders the MR chip as a new-tab link to mr_url', () => {
+      render(
+        <LensIssueCard
+          issue={makeIssue({
+            has_open_pr: true,
+            pipeline_evidence: { branch: null, mr_number: 91, mr_url: 'https://gitlab.com/acme/widgets/-/merge_requests/91', mr_closes: true },
+          })}
+        />,
+      )
+      const link = screen.getByRole('link', { name: 'Open closing merge request !91 in new tab' })
+      expect(link).toHaveAttribute('href', 'https://gitlab.com/acme/widgets/-/merge_requests/91')
+      expect(link).toHaveAttribute('target', '_blank')
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      expect(screen.getByText('!91')).toBeInTheDocument()
+    })
+
+    it('labels a referencing (non-closing) MR distinctly', () => {
+      render(
+        <LensIssueCard
+          issue={makeIssue({
+            has_open_pr: true,
+            pipeline_evidence: { branch: null, mr_number: 7, mr_url: 'https://x/7', mr_closes: false },
+          })}
+        />,
+      )
+      expect(
+        screen.getByRole('link', { name: 'Open referencing merge request !7 in new tab' }),
+      ).toBeInTheDocument()
+    })
+
+    it('clicking the MR chip opens the MR, not the issue (stopPropagation)', async () => {
+      const user = userEvent.setup()
+      render(
+        <LensIssueCard
+          issue={makeIssue({
+            pipeline_evidence: { branch: null, mr_number: 91, mr_url: 'https://x/91', mr_closes: true },
+          })}
+        />,
+      )
+      await user.click(screen.getByRole('link', { name: /merge request !91/ }))
+      // The card's window.open(issue.url) must NOT fire — the click was isolated
+      // to the nested link, which navigates natively (no window.open spy hit).
+      expect(openSpy).not.toHaveBeenCalled()
+    })
+  })
 })
