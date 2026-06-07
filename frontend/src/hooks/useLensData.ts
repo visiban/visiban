@@ -75,6 +75,8 @@ export function useLensData(
   boardId: number,
   columnDim?: string,
   swimlaneDim?: string,
+  state?: string,
+  milestone?: string,
 ): UseLensDataResult {
   const [data, setData] = useState<LensData | null>(null);
   const [error, setError] = useState<LensError | null>(null);
@@ -96,7 +98,12 @@ export function useLensData(
     } else {
       setLoading(true);
     }
-    getLensBoard(boardId, { column_dim: columnDim, swimlane_dim: swimlaneDim })
+    getLensBoard(boardId, {
+      column_dim: columnDim,
+      swimlane_dim: swimlaneDim,
+      state,
+      milestone,
+    })
       .then((d) => {
         if (id !== reqIdRef.current) return;
         setData(d);
@@ -111,7 +118,7 @@ export function useLensData(
         setLoading(false);
         setRefetching(false);
       });
-  }, [boardId, columnDim, swimlaneDim]);
+  }, [boardId, columnDim, swimlaneDim, state, milestone]);
 
   useEffect(() => {
     run();

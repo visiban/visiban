@@ -19,6 +19,25 @@ class LensConfig:
     swimlane_dim: str = "milestone"
 
 
+@dataclass(frozen=True)
+class LensFilters:
+    """Per-request issue filters. Distinct from the pivot (``LensConfig``): these
+    narrow *which* issues are fetched. ``state``/``milestone`` are applied
+    server-side where the provider supports it (so they can surface issues beyond
+    the fetch budget); text search is applied client-side and never reaches here.
+
+    ``milestone`` is a milestone title, or the synthetic ``"__none__"`` for issues
+    with no milestone, or ``None`` for all.
+    """
+
+    state: str | None = None       # "open" | "closed" | None (all)
+    milestone: str | None = None
+
+    @property
+    def active(self) -> bool:
+        return bool(self.state or self.milestone)
+
+
 @dataclass
 class LensLabel:
     name: str
@@ -81,6 +100,10 @@ class LensData:
     source_url: str
     truncated: bool = False
     total_count: int | None = None
+    # All milestone titles in the repo (not just those on the fetched issues), so
+    # the milestone filter can offer a milestone whose issues fall outside the
+    # fetch budget — the whole point of server-side milestone filtering.
+    available_milestones: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -95,4 +118,5 @@ class LensData:
             },
             "truncated": self.truncated,
             "total_count": self.total_count,
+            "available_milestones": self.available_milestones,
         }

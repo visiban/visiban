@@ -24,6 +24,7 @@ from .types import (
     LensAxis,
     LensConfig,
     LensData,
+    LensFilters,
     LensLabel,
     LensUser,
     NormalizedIssue,
@@ -93,7 +94,9 @@ class LensRateLimited(LensError):
 
 
 # --- registry (internal; public hook deferred to keep-decision) -----------
-_REGISTRY: dict[str, Callable[[str | None, str, LensConfig], LensData]] = {}
+_REGISTRY: dict[str, Callable[[str | None, str, LensConfig, LensFilters], LensData]] = {}
+
+_NONE_MILESTONE = "__none__"  # synthetic value: issues with no milestone
 
 
 def register(provider_id: str):
@@ -310,7 +313,22 @@ def _finalize(issues, truncated, provider, repo, source_url, config) -> LensData
         truncated=truncated,
         # When truncated we don't know the true total without extra calls, so omit it.
         total_count=None if truncated else len(issues),
+        # Milestone suggestions for the filter combobox, derived from the fetched
+        # issues — the GitLab/GitHub milestones-LIST endpoints require auth even for
+        # public repos, so we cannot list them anonymously. The filter itself accepts
+        # any typed value (server-side), so an off-window milestone still works.
+        available_milestones=sorted({i.milestone for i in issues if i.milestone}),
     )
+
+
+def _filter_by_milestone(issues, milestone):
+    """Client-side milestone filter (used where the provider can't filter milestone
+    server-side, e.g. GitHub-by-title). ``__none__`` keeps issues with no milestone."""
+    if not milestone:
+        return issues
+    if milestone == _NONE_MILESTONE:
+        return [i for i in issues if not i.milestone]
+    return [i for i in issues if i.milestone == milestone]
 
 
 # --- GitHub ---------------------------------------------------------------
@@ -349,7 +367,7 @@ def _github_issue(raw: dict) -> NormalizedIssue:
 
 
 @register("github")
-def github_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
+def github_fetch(token: str | None, repo: str, config: LensConfig, filters: LensFilters) -> LensData:
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -361,13 +379,17 @@ def github_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
     # (defense in depth alongside the serializer's strict validation).
     repo_path = "/".join(quote(seg, safe="") for seg in repo.split("/"))
 
+    # State is filtered server-side; milestone-by-title is not reliably queryable on
+    # GitHub (the API wants a number), so it is applied client-side below.
+    state_param = filters.state if filters.state in ("open", "closed") else "all"
+
     issues: list[NormalizedIssue] = []
     truncated = False
     for page in range(1, MAX_PAGES + 1):
         resp = requests.get(
             f"https://api.github.com/repos/{repo_path}/issues",
             headers=headers,
-            params={"state": "all", "per_page": PER_PAGE, "page": page},
+            params={"state": state_param, "per_page": PER_PAGE, "page": page},
             timeout=REQUEST_TIMEOUT,
         )
         _raise_for_github(resp)
@@ -383,6 +405,8 @@ def github_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
             break
     else:
         truncated = True  # hit the page cap with full pages → more may exist
+
+    issues = _filter_by_milestone(issues, filters.milestone)
 
     if config.column_dim == "pipeline":
         _enrich_github_pipeline(issues, repo_path, headers)
@@ -452,7 +476,7 @@ def _gitlab_issue(raw: dict) -> NormalizedIssue:
 
 
 @register("gitlab")
-def gitlab_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
+def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: LensFilters) -> LensData:
     # Public GitLab projects are readable anonymously, which sidesteps the
     # read_api-scope gap on Visiban's existing login-only OAuth tokens. We send
     # the token only if one was supplied (raises the rate limit when present).
@@ -460,19 +484,24 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
     if token:
         headers["Authorization"] = f"Bearer {token}"
     project = quote(repo, safe="")
+    base = f"{GITLAB_BASE}/api/v4/projects/{project}"
+
+    # State + milestone are filtered server-side so they reach issues outside the
+    # fetch budget. GitLab's milestone param takes the title directly; the literal
+    # "None" selects issues with no milestone.
+    base_params = {"per_page": PER_PAGE, "scope": "all", "with_labels_details": "true"}
+    if filters.state in ("open", "closed"):
+        base_params["state"] = "opened" if filters.state == "open" else "closed"
+    if filters.milestone:
+        base_params["milestone"] = "None" if filters.milestone == _NONE_MILESTONE else filters.milestone
 
     issues: list[NormalizedIssue] = []
     truncated = False
     for page in range(1, MAX_PAGES + 1):
         resp = requests.get(
-            f"{GITLAB_BASE}/api/v4/projects/{project}/issues",
+            f"{base}/issues",
             headers=headers,
-            params={
-                "per_page": PER_PAGE,
-                "page": page,
-                "scope": "all",
-                "with_labels_details": "true",
-            },
+            params={**base_params, "page": page},
             timeout=REQUEST_TIMEOUT,
         )
         _raise_for_gitlab(resp)
@@ -486,7 +515,7 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig) -> LensData:
         truncated = True
 
     if config.column_dim == "pipeline":
-        _enrich_gitlab_pipeline(issues, f"{GITLAB_BASE}/api/v4/projects/{project}", headers)
+        _enrich_gitlab_pipeline(issues, base, headers)
 
     return _finalize(issues, truncated, "gitlab", repo, f"{GITLAB_BASE}/{repo}", config)
 

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from django.test import SimpleTestCase
 
 from git_lens import providers
-from git_lens.types import LensConfig, LensLabel, LensUser, NormalizedIssue
+from git_lens.types import LensConfig, LensFilters, LensLabel, LensUser, NormalizedIssue
 
 
 def _issue(number=1, state="open", labels=None, milestone=None, assignees=None):
@@ -82,7 +82,7 @@ class GitHubFetchTests(SimpleTestCase):
             {"number": 1, "title": "real issue", "html_url": "u", "state": "open", "labels": [], "assignees": []},
             {"number": 2, "title": "a PR", "html_url": "u", "state": "open", "labels": [], "assignees": [], "pull_request": {"url": "x"}},
         ])
-        data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"))
+        data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"), LensFilters())
         self.assertEqual([i.number for i in data.issues], [1])
 
     @patch("git_lens.providers.requests.get")
@@ -90,7 +90,7 @@ class GitHubFetchTests(SimpleTestCase):
         full = [{"number": n, "title": "t", "html_url": "u", "state": "open", "labels": [], "assignees": []}
                 for n in range(providers.PER_PAGE)]
         mock_get.return_value = _resp(full)  # every page full → hits page cap
-        data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"))
+        data = providers.github_fetch("tok", "o/r", LensConfig("state", "milestone"), LensFilters())
         self.assertTrue(data.truncated)
         self.assertIsNone(data.total_count)
         self.assertEqual(mock_get.call_count, providers.MAX_PAGES)
@@ -99,13 +99,13 @@ class GitHubFetchTests(SimpleTestCase):
     def test_404_raises_not_found(self, mock_get):
         mock_get.return_value = _resp({}, status=404)
         with self.assertRaises(providers.LensNotFound):
-            providers.github_fetch("tok", "o/r", LensConfig())
+            providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
 
     @patch("git_lens.providers.requests.get")
     def test_rate_limit_detected(self, mock_get):
         mock_get.return_value = _resp({}, status=403, headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "999"})
         with self.assertRaises(providers.LensRateLimited):
-            providers.github_fetch("tok", "o/r", LensConfig())
+            providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
 
     @patch("git_lens.providers.requests.get")
     def test_label_color_default_when_missing(self, mock_get):
@@ -113,7 +113,7 @@ class GitHubFetchTests(SimpleTestCase):
             {"number": 1, "title": "t", "html_url": "u", "state": "open",
              "labels": [{"name": "bug", "color": None}], "assignees": []},
         ])
-        data = providers.github_fetch("tok", "o/r", LensConfig())
+        data = providers.github_fetch("tok", "o/r", LensConfig(), LensFilters())
         self.assertEqual(data.issues[0].labels[0].color, "888888")
 
 
@@ -124,7 +124,7 @@ class GitLabFetchTests(SimpleTestCase):
             {"iid": 7, "title": "t", "web_url": "u", "state": "opened",
              "labels": [{"name": "bug", "color": "#ff0000"}], "assignees": [], "milestone": {"title": "v2"}},
         ])
-        data = providers.gitlab_fetch(None, "g/p", LensConfig("status", "milestone"))
+        data = providers.gitlab_fetch(None, "g/p", LensConfig("status", "milestone"), LensFilters())
         self.assertEqual(data.issues[0].state, "open")
         self.assertEqual(data.issues[0].number, 7)
         self.assertEqual(data.issues[0].labels[0].color, "ff0000")  # leading '#' stripped
@@ -137,7 +137,7 @@ class GitLabFetchTests(SimpleTestCase):
     def test_404_raises_not_found(self, mock_get):
         mock_get.return_value = _resp({}, status=404)
         with self.assertRaises(providers.LensNotFound):
-            providers.gitlab_fetch(None, "g/p", LensConfig())
+            providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
 
 
 class RegistryTests(SimpleTestCase):
@@ -246,7 +246,7 @@ class PipelineEnrichmentGatingTests(SimpleTestCase):
         mock_get.return_value = _resp([
             {"iid": 1, "title": "t", "web_url": "u", "state": "opened", "labels": [], "assignees": []},
         ])
-        providers.gitlab_fetch(None, "g/p", LensConfig("status", "milestone"))
+        providers.gitlab_fetch(None, "g/p", LensConfig("status", "milestone"), LensFilters())
         self.assertEqual(mock_get.call_count, 1)  # issues only
 
     @patch("git_lens.providers.requests.get")
@@ -254,5 +254,46 @@ class PipelineEnrichmentGatingTests(SimpleTestCase):
         mock_get.return_value = _resp([
             {"iid": 1, "title": "t", "web_url": "u", "state": "opened", "labels": [], "assignees": []},
         ])
-        providers.gitlab_fetch(None, "g/p", LensConfig("pipeline", "milestone"))
+        providers.gitlab_fetch(None, "g/p", LensConfig("pipeline", "milestone"), LensFilters())
         self.assertEqual(mock_get.call_count, 3)  # issues + branches + open MRs
+
+
+class FilterTests(SimpleTestCase):
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_state_and_milestone_are_server_side(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.gitlab_fetch(
+            None, "g/p", LensConfig("status", "milestone"),
+            LensFilters(state="open", milestone="0.3"),
+        )
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params.get("state"), "opened")  # open → opened (GitLab vocab)
+        self.assertEqual(params.get("milestone"), "0.3")
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_no_milestone_maps_to_None_literal(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters(milestone="__none__"))
+        self.assertEqual(mock_get.call_args_list[0].kwargs["params"].get("milestone"), "None")
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_state_server_side_milestone_client_side(self, mock_get):
+        mock_get.return_value = _resp([
+            {"number": 1, "title": "a", "html_url": "u", "state": "open", "labels": [], "assignees": [], "milestone": {"title": "1.2"}},
+            {"number": 2, "title": "b", "html_url": "u", "state": "open", "labels": [], "assignees": [], "milestone": {"title": "0.3"}},
+        ])
+        data = providers.github_fetch(
+            "tok", "o/r", LensConfig("state", "milestone"),
+            LensFilters(state="open", milestone="0.3"),
+        )
+        self.assertEqual(mock_get.call_args_list[0].kwargs["params"].get("state"), "open")
+        self.assertEqual({i.number for i in data.issues}, {2})  # milestone filtered client-side
+
+    @patch("git_lens.providers.requests.get")
+    def test_available_milestones_derived_from_fetched_issues(self, mock_get):
+        mock_get.return_value = _resp([
+            {"iid": 1, "title": "a", "web_url": "u", "state": "opened", "labels": [], "assignees": [], "milestone": {"title": "1.2"}},
+            {"iid": 2, "title": "b", "web_url": "u", "state": "opened", "labels": [], "assignees": [], "milestone": None},
+        ])
+        data = providers.gitlab_fetch(None, "g/p", LensConfig(), LensFilters())
+        self.assertEqual(data.available_milestones, ["1.2"])  # None dropped, deduped, sorted

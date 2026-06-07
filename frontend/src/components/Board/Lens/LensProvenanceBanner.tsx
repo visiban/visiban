@@ -7,6 +7,9 @@ interface Props {
   truncated: boolean;
   /** Number of issues actually rendered — used in the truncation warning. */
   shownCount: number;
+  /** True when a server-side filter (state/milestone) is active — rewords the
+   *  truncation copy so the cap reads as relative to the filter. */
+  filtersActive?: boolean;
 }
 
 /**
@@ -16,7 +19,7 @@ interface Props {
  * scrolls away — see the "external-data provenance banner" rule in
  * frontend/CLAUDE.md.
  */
-export default function LensProvenanceBanner({ provider, repo, url, truncated, shownCount }: Props) {
+export default function LensProvenanceBanner({ provider, repo, url, truncated, shownCount, filtersActive }: Props) {
   const glyph = provider === "github" ? "" : "";
   const providerName = provider === "github" ? "GitHub" : "GitLab";
 
@@ -42,7 +45,9 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
       {truncated && (
         <span className="text-warning flex items-center gap-1 ml-2">
           <span aria-hidden="true">⚠</span>
-          Showing first {shownCount} issues
+          {filtersActive
+            ? `Showing first ${shownCount} matching issues — more match beyond the fetch limit`
+            : `Showing first ${shownCount} issues`}
         </span>
       )}
     </div>

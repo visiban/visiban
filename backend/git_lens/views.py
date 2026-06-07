@@ -28,7 +28,22 @@ from .serializers import (
     _VALID_SWIMLANE_DIMS,
     LensConnectionSerializer,
 )
-from .types import LensConfig
+from .types import LensConfig, LensFilters
+
+
+def _parse_filters(request) -> LensFilters:
+    """Read server-side filter params from the query string, fail-open on invalid
+    values (mirrors the dim coercion). Text search is client-side and not read here.
+    """
+    state = request.query_params.get("state")
+    if state not in ("open", "closed"):
+        state = None
+    milestone = request.query_params.get("milestone") or None
+    if milestone:
+        # Bound the value (cache-key hygiene + defense); accept any non-empty title
+        # so a shared link to an off-budget milestone still scopes the fetch.
+        milestone = milestone.strip()[:255] or None
+    return LensFilters(state=state, milestone=milestone)
 
 # Per-repo lens-board cache. The board is shared, so the cache is keyed by
 # (provider, repo, pivot) — NOT by user — so N members viewing one board collapse
@@ -80,18 +95,25 @@ def _user_provider_token(user, provider):
     return tok.token
 
 
-def _board_cache_key(provider, repo, column_dim, swimlane_dim, user_scope=None):
+def _board_cache_key(provider, repo, column_dim, swimlane_dim, user_scope=None, filters=None):
     # GitLab public reads are anonymous → the rendered board is identical for every
     # viewer and safe to SHARE by repo (one fetch serves the whole board). GitHub
     # reads use the viewer's OWN token, which may see repos other members can't, so
     # those are scoped per user (``user_scope``) to preserve that boundary — the
     # "public repos only" contract is not enforced upstream, so we must not let one
     # member's token-authorized view leak to another through a shared cache.
+    # Server-side filters (state, milestone) change WHAT is fetched, so they MUST be
+    # in the key or a filtered view would be served unfiltered (or vice versa). Text
+    # search is client-side, so it is deliberately absent (it would explode the key
+    # space without changing the fetched set).
+    filt = ""
+    if filters is not None:
+        filt = f"|s={filters.state or ''}|m={filters.milestone or ''}"
     digest = hashlib.sha256(
-        f"{provider}|{repo}|{column_dim}|{swimlane_dim}".encode()
+        f"{provider}|{repo}|{column_dim}|{swimlane_dim}{filt}".encode()
     ).hexdigest()[:16]
     scope = f":u{user_scope}" if user_scope is not None else ""
-    return f"git_lens:board:v2{scope}:{digest}"
+    return f"git_lens:board:v3{scope}:{digest}"
 
 
 def _lock_key(cache_key: str) -> str:
@@ -236,6 +258,7 @@ class LensBoardView(APIView):
         if swimlane_dim not in _VALID_SWIMLANE_DIMS:
             swimlane_dim = conn.swimlane_dim
         config = LensConfig(column_dim=column_dim, swimlane_dim=swimlane_dim)
+        filters = _parse_filters(request)
 
         provider_fn = providers.get_provider(conn.provider)
         if provider_fn is None:
@@ -259,10 +282,10 @@ class LensBoardView(APIView):
                 )
 
         return self._serve_board(
-            request, conn, provider_fn, config, column_dim, swimlane_dim, token
+            request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters
         )
 
-    def _serve_board(self, request, conn, provider_fn, config, column_dim, swimlane_dim, token):
+    def _serve_board(self, request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters):
         """Stale-while-revalidate read with a single-flight lock.
 
         At most one request revalidates a given (repo, pivot) at a time; every
@@ -275,7 +298,7 @@ class LensBoardView(APIView):
         # (GitHub). Anonymous (GitLab public) reads share one copy across the board.
         user_scope = request.user.id if token is not None else None
         key = _board_cache_key(
-            conn.provider, conn.repo_slug, column_dim, swimlane_dim, user_scope
+            conn.provider, conn.repo_slug, column_dim, swimlane_dim, user_scope, filters
         )
         entry = cache.get(key)
         if entry is not None and time.time() < entry["soft_expires"]:
@@ -288,7 +311,7 @@ class LensBoardView(APIView):
             return _board_response(entry["payload"], request)
 
         try:
-            data = provider_fn(token, conn.repo_slug, config)
+            data = provider_fn(token, conn.repo_slug, config, filters)
         except (providers.LensError, requests.RequestException) as exc:
             if entry is not None:
                 # Degrade to the last good copy instead of failing the board.

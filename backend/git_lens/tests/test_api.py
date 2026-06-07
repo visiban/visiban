@@ -177,7 +177,7 @@ class LensBoardRenderTests(TestCase):
     @patch("git_lens.views.providers.get_provider")
     def test_happy_path_returns_board(self, mock_get_provider):
         self._connect("gitlab")
-        mock_get_provider.return_value = lambda token, repo, config: _fake_lens_data()
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
         resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["source"]["provider"], "gitlab")
@@ -189,7 +189,7 @@ class LensBoardRenderTests(TestCase):
         self._connect("gitlab")
         calls = {"n": 0}
 
-        def counting(token, repo, config):
+        def counting(token, repo, config, filters):
             calls["n"] += 1
             return _fake_lens_data()
 
@@ -210,7 +210,7 @@ class LensBoardRenderTests(TestCase):
 
         self._connect("gitlab")
 
-        def boom(token, repo, config):
+        def boom(token, repo, config, filters):
             raise providers.LensRateLimited(retry_after="60")
 
         mock_get_provider.return_value = boom
@@ -224,7 +224,7 @@ class LensBoardRenderTests(TestCase):
 
         self._connect("gitlab")
 
-        def boom(token, repo, config):
+        def boom(token, repo, config, filters):
             raise providers.LensNotFound("gone")
 
         mock_get_provider.return_value = boom
@@ -245,7 +245,7 @@ class LensBoardRenderTests(TestCase):
         self._connect("gitlab")  # stored dims: status / milestone
         seen = {}
 
-        def capture(token, repo, config):
+        def capture(token, repo, config, filters):
             seen["column_dim"] = config.column_dim
             seen["swimlane_dim"] = config.swimlane_dim
             return _fake_lens_data()
@@ -269,7 +269,7 @@ class LensBoardRenderTests(TestCase):
         self._connect("gitlab")
         calls = {"n": 0}
 
-        def counting(token, repo, config):
+        def counting(token, repo, config, filters):
             calls["n"] += 1
             return _fake_lens_data()
 
@@ -282,6 +282,23 @@ class LensBoardRenderTests(TestCase):
 
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(calls["n"], 1)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_filtered_and_unfiltered_do_not_cross_serve(self, mock_get_provider):
+        """Server-side filters change WHAT is fetched, so a filtered request must use
+        a distinct cache key — never served the unfiltered copy (or vice versa)."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url)                      # unfiltered → fetch (1)
+        self.client.get(self.url + "?milestone=0.3")   # filtered → distinct key → fetch (2)
+        self.client.get(self.url)                      # unfiltered again → served from cache
+        self.assertEqual(calls["n"], 2)
 
     @patch("git_lens.views._user_provider_token", return_value="ghtok")
     @patch("git_lens.views.providers.get_provider")
@@ -296,7 +313,7 @@ class LensBoardRenderTests(TestCase):
         self._connect("github")
         calls = {"n": 0}
 
-        def counting(token, repo, config):
+        def counting(token, repo, config, filters):
             calls["n"] += 1
             return _fake_lens_data()
 
@@ -315,20 +332,22 @@ class LensBoardRenderTests(TestCase):
         error (e.g. a transient rate-limit) degrades to the last good copy rather
         than failing the board — so a blip never retry-storms the provider."""
         from git_lens import providers
+        from git_lens.types import LensFilters
         from git_lens.views import _board_cache_key
 
         self._connect("gitlab")
-        mock_get_provider.return_value = lambda token, repo, config: _fake_lens_data()
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
         first = self.client.get(self.url)
         self.assertEqual(first.status_code, status.HTTP_200_OK)
 
         # Force the cached copy past its soft-TTL so the next read revalidates.
-        key = _board_cache_key("gitlab", "g/p", "status", "milestone")
+        # The view always passes a LensFilters (empty here), so the key must too.
+        key = _board_cache_key("gitlab", "g/p", "status", "milestone", filters=LensFilters())
         entry = cache.get(key)
         entry["soft_expires"] = time.time() - 1
         cache.set(key, entry, 600)
 
-        def boom(token, repo, config):
+        def boom(token, repo, config, filters):
             raise providers.LensRateLimited(retry_after="60")
 
         mock_get_provider.return_value = boom
@@ -341,7 +360,7 @@ class LensBoardRenderTests(TestCase):
         """A repeat GET carrying the prior ETag gets a 304 (no payload re-sent),
         bounding the client<->Visiban leg on top of the shared upstream cache."""
         self._connect("gitlab")
-        mock_get_provider.return_value = lambda token, repo, config: _fake_lens_data()
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
 
         first = self.client.get(self.url)
         self.assertEqual(first.status_code, status.HTTP_200_OK)

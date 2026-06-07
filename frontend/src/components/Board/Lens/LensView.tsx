@@ -9,6 +9,7 @@ import type { LensConnection } from "../../../types";
 import LensGrid from "./LensGrid";
 import LensFreshness from "./LensFreshness";
 import LensFocusBanner from "./LensFocusBanner";
+import LensFilterBar, { type LensState } from "./LensFilterBar";
 import LensProvenanceBanner from "./LensProvenanceBanner";
 
 interface Props {
@@ -51,7 +52,20 @@ export default function LensView({ boardId, connection }: Props) {
 
   const isCustomPivot = columnDim !== connection.column_dim || swimlaneDim !== connection.swimlane_dim;
 
-  const { data, error, loading, refetching, refresh } = useLensData(boardId, columnDim, swimlaneDim);
+  // Filters. State + milestone are server-side (flow into the fetch); text (q) is
+  // client-side over the fetched set. All URL-persisted like the pivot.
+  const rawState = searchParams.get("state");
+  const stateFilter: LensState = rawState === "open" || rawState === "closed" ? rawState : "all";
+  const milestone = searchParams.get("milestone") ?? "";
+  const q = searchParams.get("q") ?? "";
+
+  const { data, error, loading, refetching, refresh } = useLensData(
+    boardId,
+    columnDim,
+    swimlaneDim,
+    stateFilter === "all" ? undefined : stateFilter,
+    milestone || undefined,
+  );
 
   // Compact density is a personal reading habit → user pref. Collapse/focus are
   // properties of the shared link → URL params (validated against live data so a
@@ -115,6 +129,47 @@ export default function LensView({ boardId, connection }: Props) {
     }, { replace: true });
   };
 
+  const setStateFilter = (next: LensState) =>
+    setSearchParams((prev) => {
+      if (next === "all") prev.delete("state");
+      else prev.set("state", next);
+      return prev;
+    }, { replace: true });
+  const setMilestone = (next: string) =>
+    setSearchParams((prev) => {
+      if (next) prev.set("milestone", next);
+      else prev.delete("milestone");
+      return prev;
+    }, { replace: true });
+  const setQ = (next: string) =>
+    setSearchParams((prev) => {
+      if (next) prev.set("q", next);
+      else prev.delete("q");
+      return prev;
+    }, { replace: true });
+  const clearFilters = () =>
+    setSearchParams((prev) => {
+      prev.delete("state");
+      prev.delete("milestone");
+      prev.delete("q");
+      return prev;
+    }, { replace: true });
+
+  const activeCount =
+    (stateFilter !== "all" ? 1 : 0) + (milestone ? 1 : 0) + (q.trim() ? 1 : 0);
+  const filtersActive = stateFilter !== "all" || milestone !== "";
+
+  // Client-side text filter over the fetched set (title substring / number prefix).
+  const filteredData = useMemo(() => {
+    if (!data) return null;
+    const needle = q.trim().toLowerCase().replace(/^#/, "");
+    if (!needle) return data;
+    const issues = data.issues.filter(
+      (i) => i.title.toLowerCase().includes(needle) || String(i.number).startsWith(needle),
+    );
+    return { ...data, issues };
+  }, [data, q]);
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Lens toolbar — re-pivot dropdowns + freshness control */}
@@ -167,6 +222,21 @@ export default function LensView({ boardId, connection }: Props) {
         )}
       </div>
 
+      {/* Filter row — below the toolbar, above the banners (inputs then status). */}
+      {data && (
+        <LensFilterBar
+          state={stateFilter}
+          milestone={milestone}
+          q={q}
+          availableMilestones={data.available_milestones}
+          activeCount={activeCount}
+          onStateChange={setStateFilter}
+          onMilestoneChange={setMilestone}
+          onQChange={setQ}
+          onClear={clearFilters}
+        />
+      )}
+
       {/* Provenance banner — outside the grid scroll container so it never
           scrolls away. Shown whenever we have data. */}
       {data && (
@@ -176,6 +246,7 @@ export default function LensView({ boardId, connection }: Props) {
           url={data.source.url}
           truncated={data.truncated}
           shownCount={data.issues.length}
+          filtersActive={filtersActive}
         />
       )}
 
@@ -194,9 +265,9 @@ export default function LensView({ boardId, connection }: Props) {
         </div>
       ) : error && !data ? (
         <LensErrorState error={error} onRetry={refresh} provider={connection.provider} />
-      ) : data ? (
+      ) : filteredData ? (
         <LensGrid
-          data={data}
+          data={filteredData}
           collapsedKeys={collapsedKeys}
           focusKey={focusKey}
           onToggleCollapse={toggleCollapse}
