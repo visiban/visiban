@@ -20,7 +20,7 @@ Copy `.env.example` to `.env` in the repository root and fill in the values belo
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of origins allowed to make API requests. Must match the exact origin your browser uses (scheme + host + port). Defaults to `http://localhost:5173`. Also controls `CSRF_TRUSTED_ORIGINS` unless that is set separately. | `http://localhost:5173` |
 | `VITE_API_URL` | Frontend env var for `npm run dev` — create `frontend/.env.local` (gitignored) and set to `http://localhost:8000`. Leave empty for Docker builds; the frontend falls back to `window.location.origin` and relies on nginx to proxy `/api/` and `/ws/`. | `http://localhost:8000` |
 
-Redis has no authentication in development — no variable needed.
+Valkey has no authentication in development — no variable needed.
 
 ### Frontend local override
 
@@ -65,7 +65,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 |---|---|
 | `APP_VERSION` | Image tag to pull, e.g. `v1.0.0`. Defaults to `latest` if unset. |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
-| `REDIS_PASSWORD` | Redis authentication password — required in production; the Redis service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -base64 32` |
+| `REDIS_PASSWORD` | Valkey authentication password — required in production; the Valkey service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -base64 32` |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |
 | `DOMAIN` | Your domain name for Nginx and Certbot, e.g. `app.visiban.com` |
 | `CERTBOT_EMAIL` | Email address for Let's Encrypt expiry notifications |
@@ -166,10 +166,10 @@ The backend exposes two health check endpoints for use by load balancers, monito
 | Endpoint | Method | Purpose | Checks | Success |
 |---|---|---|---|---|
 | `/api/health/liveness/` | GET | Is the process alive? | ASGI server responds | `200 {"status": "ok"}` |
-| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Redis are reachable | `200 {"status": "ok"}` |
+| `/api/health/readiness/` | GET | Can the process serve traffic? | Database and Valkey are reachable | `200 {"status": "ok"}` |
 
 Both endpoints are unauthenticated and do not require a valid `Host` header.
 
 **Docker Compose** uses the liveness endpoint in the backend healthcheck. **Helm** uses both: liveness probe hits `/api/health/liveness/`, readiness probe hits `/api/health/readiness/`.
 
-For external load balancers (AWS ALB, HAProxy, etc.), point your health check at `/api/health/readiness/` on the backend port (8000). This ensures traffic is only routed to instances with working database and Redis connections.
+For external load balancers (AWS ALB, HAProxy, etc.), point your health check at `/api/health/readiness/` on the backend port (8000). This ensures traffic is only routed to instances with working database and Valkey connections.

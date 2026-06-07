@@ -79,18 +79,18 @@ spec:
           protocol: TCP
 {{- end }}
 ---
-{{- if .Values.redis.enabled }}
-# Allow backend → Redis (port 6379)
+{{- if .Values.valkey.enabled }}
+# Allow backend → Valkey (port 6379)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "visiban.fullname" . }}-allow-backend-redis
+  name: {{ include "visiban.fullname" . }}-allow-backend-valkey
   labels:
     {{- include "visiban.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: redis
+      app.kubernetes.io/name: valkey
       app.kubernetes.io/instance: {{ .Release.Name }}
   policyTypes:
     - Ingress

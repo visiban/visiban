@@ -8,14 +8,14 @@
 | Recommended (production) | 4 | 8 GB | 80 GB SSD | 10–50 users; room to grow |
 | Development | 4 | 8 GB | 40 GB free | Docker Desktop on Mac/Windows needs at least 6–8 GB allocated to the VM; Vite dev server spikes on hot reload |
 
-The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Redis, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.
+The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Valkey, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.
 
 **Disk:** Docker image pulls and build cache alone account for ~3–4 GB. The main unbounded variable is file attachments (cards support up to 10 MB each). The figures above assume light-to-moderate attachment use. Teams with heavy attachment activity should plan for additional storage or configure object storage (S3-compatible).
 
 ## Prerequisites
 
 - Docker and Docker Compose **or** Python 3.12+ and Node.js 18+
-- Redis 7+ (included automatically in Docker Compose and Helm; required for WebSocket real-time updates — Docker Compose bundles Redis 7, Kubernetes/Helm bundles Redis 8)
+- Valkey 8 (the Redis-compatible, BSD-licensed fork; included automatically in Docker Compose and Helm; required for WebSocket real-time updates)
 
 ## Docker (recommended)
 
@@ -31,7 +31,7 @@ docker compose up --build
 !!! note "`--build` is required on first install and after pulling updates"
     The `--build` flag tells Docker Compose to build the images before starting containers. It is required the first time you run the stack (no pre-built images exist locally yet) and any time you pull code changes that affect the `Dockerfile` or frontend assets. Omitting it on a fresh clone will fail; omitting it after `git pull` may leave you running stale images.
 
-Docker Compose starts four services: `db` (Postgres 17), `redis` (Redis 7), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
+Docker Compose starts four services: `db` (Postgres 17), `valkey` (Valkey 8), `backend` (daphne/ASGI), and `frontend` (Vite dev server).
 
 This setup is for **local development only** — the Vite dev server is not suitable for production. See [Production Deployment](#production-deployment) below for a production deployment.
 
@@ -180,8 +180,8 @@ A template with comments is at `frontend/.env.local.example`.
 |---|:---:|---|
 | `DJANGO_SECRET_KEY` | Yes | Django secret key — generate with `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
 | `DATABASE_URL` | Yes | PostgreSQL DSN e.g. `postgres://user:pass@host:5432/dbname` |
-| `REDIS_URL` | Yes | Redis DSN for Channels / WebSocket (default: `redis://redis:6379/0` in Docker Compose) |
-| `REDIS_CACHE_URL` | No | Redis DSN for the Django cache — rate limiting, health checks (default: `redis://localhost:6379/1`). In Docker Compose this is set automatically. Use a different database index than `REDIS_URL` to avoid key collisions. |
+| `REDIS_URL` | Yes | Valkey DSN for Channels / WebSocket (default: `redis://valkey:6379/0` in Docker Compose) |
+| `REDIS_CACHE_URL` | No | Valkey DSN for the Django cache — rate limiting, health checks (default: `redis://localhost:6379/1`). In Docker Compose this is set automatically. Use a different database index than `REDIS_URL` to avoid key collisions. |
 | `FRONTEND_URL` | No | Full URL of the React SPA (default: `http://localhost:5173`) — allauth redirects here after OAuth login/logout. **Must be set in production.** |
 | `DEBUG` | No | Set `True` for local dev only |
 | `ALLOWED_HOSTS` | No | Comma-separated hostnames (default: `localhost,127.0.0.1`). **Must be set to your actual domain in production** — the default only permits loopback addresses and will cause Django to reject all requests from a real hostname. |
@@ -236,7 +236,7 @@ Before starting the production stack, confirm each item below. The backend will 
 | Variable | Requirement |
 |---|---|
 | `DB_PASSWORD` | Must be set to a strong, unique password. Docker Compose **will not start** if this variable is missing — there is no insecure default. |
-| `REDIS_PASSWORD` | Must be set to a strong, unique password. The production Redis service starts with `--requirepass` and the backend URLs are built from this value. Docker Compose **will not start** if this variable is missing. Generate with: `openssl rand -base64 32` |
+| `REDIS_PASSWORD` | Must be set to a strong, unique password. The production Valkey service starts with `--requirepass` and the backend URLs are built from this value. Docker Compose **will not start** if this variable is missing. Generate with: `openssl rand -base64 32` |
 | `DJANGO_SECRET_KEY` | Must be a long random string. If left as `change-me-in-production` or empty, Django will raise `ImproperlyConfigured` at startup. Generate one with: `python -c "import secrets; print(secrets.token_hex(50))"` |
 | `CORS_ALLOWED_ORIGINS` | Must be set to your production frontend origin (e.g. `https://yourdomain.com`). The default `http://localhost:5173` is only suitable for local development. |
 | `DEBUG` | Must be `false` in production. Running with `DEBUG=true` leaks stack traces to HTTP responses and disables the `DJANGO_SECRET_KEY` guard. |
@@ -307,10 +307,10 @@ SITE_DOMAIN=yourdomain.com             # required — used for OAuth callback UR
 DATABASE_URL=postgres://visiban:${DB_PASSWORD}@db:5432/visiban
 DB_PASSWORD=<strong password>           # required — used by both Django and Postgres
 
-# Redis (runs inside Docker Compose)
+# Valkey (runs inside Docker Compose)
 REDIS_PASSWORD=<strong password>        # required — generate: openssl rand -base64 32
 # REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.
-# Only override here if you use an external Redis.
+# Only override here if you use an external Valkey or Redis-compatible instance.
 
 # TLS mode — choose one: letsencrypt (default), selfsigned, none
 TLS_MODE=letsencrypt
@@ -501,10 +501,10 @@ The connection indicator in the toolbar reflects the WebSocket connection to `/w
    ```
    Wait for a line containing `daphne` before reloading the page.
 
-2. **Redis unavailable** — Django Channels requires Redis for the channel layer. If Redis is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
+2. **Valkey unavailable** — Django Channels requires Valkey for the channel layer. If Valkey is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
    ```bash
-   docker compose -f docker-compose.prod.yml logs redis
-   docker compose -f docker-compose.prod.yml exec backend python manage.py shell -c "import django_redis; print('ok')"
+   docker compose -f docker-compose.prod.yml logs valkey
+   docker compose -f docker-compose.prod.yml exec backend python manage.py shell -c "from django.core.cache import cache; cache.set('healthcheck', 'ok'); print(cache.get('healthcheck'))"
    ```
 
 3. **`ALLOWED_HOSTS` missing your domain** — Django rejects WebSocket handshakes from unlisted hosts. Confirm `ALLOWED_HOSTS=yourdomain.com` is set in `.env`.

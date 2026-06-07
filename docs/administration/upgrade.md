@@ -148,7 +148,7 @@ Run migrations as a dedicated pre-deploy step before scaling up any application 
     docker compose -f docker-compose.prod.yml up -d --scale backend=3 --no-deps backend
     ```
 
-    The `--no-deps` flag prevents Compose from restarting `db` and `redis`.
+    The `--no-deps` flag prevents Compose from restarting `db` and `valkey`.
 
 === "Kubernetes"
 
@@ -226,6 +226,51 @@ After rolling back, restart the backend container with the previous image versio
 
 ## Release-specific upgrade notes
 
+### Upgrading to 1.2.x
+
+!!! note "Service renamed: Redis → Valkey (container and Helm chart)"
+    Visiban 1.2 replaces the Redis container with **Valkey** (the BSD-3-licensed, Linux Foundation fork of Redis). Valkey is wire-compatible with Redis 7+ — the RESP protocol is identical — so **no env var changes are required**.
+
+    **What changes:**
+
+    | Component | Before 1.2 | After 1.2 |
+    |---|---|---|
+    | Docker Compose service name | `redis` | `valkey` |
+    | Docker image | `redis:7-alpine` | `valkey/valkey:8-alpine` |
+    | Helm subchart | `bitnami/redis` | `bitnami/valkey` |
+    | Helm values key | `redis:` | `valkey:` |
+    | In-cluster service DNS | `<release>-redis-master:6379` | `<release>-valkey-primary:6379` |
+
+    **What stays the same:**
+
+    - `REDIS_URL`, `REDIS_CACHE_URL`, `REDIS_PASSWORD` — env var names are unchanged
+    - `redis://` URL scheme — unchanged; Valkey speaks the same protocol
+    - `externalRedis` Helm values key — unchanged for backward compatibility
+    - `/api/health/readiness/` response field `"redis"` — unchanged (it is a published API contract)
+
+    **No data migration required** — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Simply redeploy:
+
+    === "Docker Compose"
+
+        ```bash
+        docker compose -f docker-compose.prod.yml pull
+        docker compose -f docker-compose.prod.yml up -d
+        ```
+
+        The old `redis` container is replaced by the new `valkey` container. Any in-flight WebSocket connections will reconnect automatically.
+
+    === "Kubernetes / Helm"
+
+        ```bash
+        helm repo update
+        helm dependency update helm/visiban
+        helm upgrade visiban helm/visiban --reuse-values
+        ```
+
+        If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, no change is needed — the `externalRedis` key is unchanged and your external instance continues to work.
+
+        If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
+
 ### Upgrading to 1.1.x
 
 !!! warning "Removed env-var aliases — rename before upgrading"
@@ -245,8 +290,8 @@ After rolling back, restart the backend container with the previous image versio
 
     The previous per-user preferences (`hideLabels`, `hideDueDate`, `hideAssignee`, `hidePriority`, `hideLastMoved`) stored in `localStorage` are silently ignored after the upgrade — they are not migrated. Board admins can adjust the density for their board at any time from **Board Settings → Display**.
 
-!!! warning "Breaking change — Redis authentication is now required in production"
-    `docker-compose.prod.yml` now starts Redis with `--requirepass` and constructs `REDIS_URL` and `REDIS_CACHE_URL` using the password. **The stack will fail to start if `REDIS_PASSWORD` is not set in your `.env`.**
+!!! warning "Breaking change — Valkey authentication is now required in production"
+    `docker-compose.prod.yml` now starts Valkey with `--requirepass` and constructs `REDIS_URL` and `REDIS_CACHE_URL` using the password. **The stack will fail to start if `REDIS_PASSWORD` is not set in your `.env`.**
 
     Before running `docker compose -f docker-compose.prod.yml up`, add `REDIS_PASSWORD` to your `.env`:
 
@@ -263,7 +308,7 @@ After rolling back, restart the backend container with the previous image versio
     REDIS_PASSWORD=<generated value>
     ```
 
-    Existing deployments that used the default unauthenticated Redis will continue to work after setting this variable — Redis data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of Redis data is required.
+    Existing deployments that used the default unauthenticated Valkey (or Redis) will continue to work after setting this variable — Valkey data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of data is required.
 
 !!! note "Migration window — GIN trigram indexes (`boards/0030`)"
     Migration `boards/0030` creates full-text GIN indexes on the `cards` table using `CREATE INDEX` (not `CREATE INDEX CONCURRENTLY`). On PostgreSQL, a standard index build holds an `AccessShareLock` on the table for the duration of the build, blocking writes to `cards`.

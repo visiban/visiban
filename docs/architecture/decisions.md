@@ -10,7 +10,7 @@ The stack follows one rule: choose the simplest thing that could work correctly 
 
 Visiban is a well-built monolith, containerised, with a clear upgrade path to Kubernetes when scale demands it. There are no microservices, no message queues, and no separate search index in the default deployment. Each of those patterns has a real cost — operational overhead, more failure modes, more moving parts for a self-hoster to manage. None of them was justified at the scale Visiban targets out of the box.
 
-The upgrade path exists. Redis is already present for WebSocket channel messaging. The Helm chart deploys today what a Kubernetes migration would require. But the complexity is not paid upfront.
+The upgrade path exists. Valkey is already present for WebSocket channel messaging. The Helm chart deploys today what a Kubernetes migration would require. But the complexity is not paid upfront.
 
 ---
 
@@ -104,15 +104,21 @@ Personal Access Tokens (`vbn_` prefix) are implemented on top of allauth's sessi
 
 ---
 
-## Redis
+## Valkey (replacing Redis)
 
-Redis is in the stack because Django Channels requires a channel layer backend for WebSocket group messaging. When a card moves on one board, the event needs to be broadcast to all connected clients watching that board — Redis is the pub/sub intermediary that makes that possible across multiple daphne workers.
+The deployed service is **Valkey**, not Redis. The rationale covers both why a pub/sub store is in the stack at all and why Valkey specifically.
 
-Redis also serves as the Django cache backend, using a separate database index from the channel layer so cache flushes do not disrupt active WebSocket connections.
+**Why a pub/sub store:** Django Channels requires a channel layer backend for WebSocket group messaging. When a card moves on one board, the event needs to be broadcast to all connected clients watching that board — the channel layer is the pub/sub intermediary that makes that possible across multiple daphne workers.
 
-The Bitnami Redis subchart in the Helm chart is pinned to a specific version (7.4.3) for reproducibility. Unversioned upstream chart dependencies have caused unexpected breakage in the past when charts are updated between deploys.
+The channel layer also serves as the Django cache backend, using a separate database index from the channel layer so cache flushes do not disrupt active WebSocket connections.
 
-Persistence is intentionally disabled for the channel layer. A Redis restart drops in-flight WebSocket messages, but clients reconnect automatically and resync board state from the REST API. The alternative — persisting the channel layer — would complicate the operational model without meaningful benefit: board state is the source of truth in PostgreSQL, not Redis.
+**Why Valkey instead of Redis:** Redis 7.4 changed its license from BSD-3 to the Redis Source Available License v2 (RSALv2) and SSPL. Neither license is approved by the Open Source Initiative (OSI). Visiban is Apache-2.0 — an OSI-approved open-source license. Bundling a non-OSI dependency as the default service creates license friction for users and contradicts the project's open-source intent.
+
+Valkey is a BSD-3-licensed fork of Redis created by contributors from AWS, Google, Snap, and others under the Linux Foundation. It is wire-compatible with Redis 7+ (same RESP protocol, same command set), so the switch is a drop-in replacement at the infrastructure layer — no code changes to `channels_redis`, the `redis-py` client, the Django `RedisCache` backend, or any other dependency are required. `REDIS_URL`, `REDIS_CACHE_URL`, and the `redis://` scheme are all unchanged.
+
+The Bitnami Valkey subchart in the Helm chart is pinned for reproducibility. Unversioned upstream chart dependencies have caused unexpected breakage in the past when charts are updated between deploys.
+
+Persistence is intentionally disabled for the channel layer. A Valkey restart drops in-flight WebSocket messages, but clients reconnect automatically and resync board state from the REST API. The alternative — persisting the channel layer — would complicate the operational model without meaningful benefit: board state is the source of truth in PostgreSQL, not Valkey.
 
 ---
 

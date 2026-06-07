@@ -109,7 +109,7 @@ In your GitLab project, go to **Settings → CI/CD → Variables** and add the f
 |---|---|
 | `DEMO_SECRET_KEY` | Django secret key for the demo environment. Generate with: `python -c "import secrets; print(secrets.token_hex(50))"` |
 | `DEMO_DATABASE_URL` | PostgreSQL connection string for the demo environment's database, e.g. `postgres://user:pass@host:5432/dbname` |
-| `DEMO_REDIS_URL` | Redis connection string for the demo environment, e.g. `redis://host:6379/0` |
+| `DEMO_REDIS_URL` | Valkey (or Redis-compatible) connection string for the demo environment, e.g. `redis://host:6379/0` |
 
 !!! warning
     If any of these variables are missing or empty, the GitLab CI job fails immediately with `ImproperlyConfigured: DJANGO_SECRET_KEY must be set`. The job appears in all pipelines as a manual trigger — if you see this error after clicking **Run**, check that all three variables are set and scoped correctly to the `demo` environment in **Settings → CI/CD → Variables**.

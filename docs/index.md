@@ -9,7 +9,7 @@ A self-hosted Kanban board with swimlane rows and automatic card movement tracki
 
 - **Swimlanes** — rows represent entities (customers, projects, teams); columns are pipeline stages
 - **Movement history** — every drag logs from/to column, from/to swimlane, who moved it, and when; board-level History tab with search and filters
-- **Real-time updates** — board state syncs live across all open tabs via WebSocket (Django Channels + Redis)
+- **Real-time updates** — board state syncs live across all open tabs via WebSocket (Django Channels + Valkey)
 - **Analytics** — summary view (card counts, velocity) and analytics view (dwell time, bottlenecks, stalled cards)
 - **Board sharing** — generate a read-only public link; anyone with the URL can view the board without logging in
 - **Saved filters** — save and restore filter presets per board; private to each user

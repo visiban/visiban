@@ -105,7 +105,7 @@ mkdocs serve --dev-addr=localhost:8001
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI / WebSocket | daphne, Django Channels 4, channels-redis |
 | Database | PostgreSQL 17 |
-| Cache | Redis 7 |
+| Cache / channel layer | Valkey 8 (Redis-compatible) |
 | Auth | django-allauth — Google / GitHub / GitLab OAuth + OIDC |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
 | Drag & drop | @dnd-kit |

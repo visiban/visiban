@@ -200,9 +200,9 @@ The chart skips creating its own Secret when `existingSecret` is set. Required k
 | `oidc-client-id` | OIDC client ID (only if OIDC is enabled) |
 | `oidc-client-secret` | OIDC client secret (only if OIDC is enabled) |
 
-## External database and Redis
+## External database and Valkey
 
-To use an existing PostgreSQL or Redis instance instead of the bundled ones:
+To use an existing PostgreSQL or Valkey (or Redis-compatible) instance instead of the bundled ones:
 
 ```yaml
 # values.override.yaml
@@ -216,12 +216,12 @@ externalDatabase:
   username: visiban
   password: "strong-password"
 
-redis:
+valkey:
   enabled: false
 
 externalRedis:
-  url: "redis://redis.example.com:6379/0"
-  cacheUrl: "redis://redis.example.com:6379/1"
+  url: "redis://valkey.example.com:6379/0"
+  cacheUrl: "redis://valkey.example.com:6379/1"
 ```
 
 ## Network policies
@@ -240,7 +240,7 @@ This creates policies that allow:
 - Ingress controller → frontend (port 80)
 - Frontend → backend (port 8000)
 - Backend → PostgreSQL (port 5432)
-- Backend → Redis (port 6379)
+- Backend → Valkey (port 6379)
 
 All other ingress to Visiban pods is denied. Requires a CNI plugin that supports `NetworkPolicy` (Calico, Cilium, Weave, etc.).
 
@@ -283,7 +283,7 @@ The backend exposes two health endpoints used by liveness and readiness probes:
 | Endpoint | Purpose | Checks |
 |---|---|---|
 | `/api/health/liveness/` | Is the process alive? | HTTP 200 if the ASGI server responds |
-| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database and Redis are reachable |
+| `/api/health/readiness/` | Can the process serve traffic? | HTTP 200 if the database and Valkey are reachable |
 
 These are also suitable for external load balancer health checks. The readiness probe uses `initialDelaySeconds: 5` and `failureThreshold: 3`, so a pod is removed from the Service within ~35 seconds of a dependency failure.
 
