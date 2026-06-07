@@ -3,6 +3,10 @@ zipp==3.19.1
 daphne==4.1.2
 channels==4.3.2
 channels-redis==4.3.0
+# Pin redis-py: channels-redis 4.3.0 only constrains redis>=4.6, but redis-py 8.x
+# enforces a 5s default socket read-timeout that aborts the blocking pop the
+# channel layer uses for idle WebSocket consumers ("Timeout reading from redis").
+redis>=5,<6
 djangorestframework==3.16.1
 psycopg2-binary==2.9.11
 django-allauth==65.14.3
