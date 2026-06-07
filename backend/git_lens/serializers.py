@@ -7,7 +7,7 @@ from accounts.serializers import BoardUserSerializer
 from .models import LensConnection
 from .providers import available_providers
 
-_VALID_COLUMN_DIMS = {"status", "state"}
+_VALID_COLUMN_DIMS = {"status", "state", "pipeline"}
 _VALID_SWIMLANE_DIMS = {"milestone", "assignee", "label"}
 
 # A single repo path segment: must start and end alphanumeric, may contain

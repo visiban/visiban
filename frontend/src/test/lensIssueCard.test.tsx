@@ -15,6 +15,9 @@ function makeIssue(overrides: Partial<NormalizedIssue> = {}): NormalizedIssue {
     milestone: null,
     column_keys: ['open'],
     swimlane_keys: ['__none__'],
+    has_branch: false,
+    has_open_pr: false,
+    pipeline_evidence: null,
     ...overrides,
   }
 }
