@@ -39,6 +39,7 @@ Returned by the board data endpoint. Contains the full issue grid for a board at
 | `source` | object | `{ provider, repo, url }` — identifies the upstream source |
 | `truncated` | boolean | `true` when the provider returned more issues than the server fetched. When `true`, `total_count` (if available) indicates the full result size. |
 | `total_count` | integer / null | Total issue count reported by the provider, or `null` when the provider does not expose this value |
+| `available_milestones` | array of strings | Milestone titles found in the fetched issues, in alphabetical order. Intended for the filter's autocomplete. This list is derived from the fetched issues, not an exhaustive repo milestone list (the milestones-list endpoints require auth even for public repos, so they are not called). The `milestone` query parameter accepts any title, including ones not in this list. |
 
 **Issue object** (each element of `issues`):
 
@@ -202,13 +203,29 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
 
 **Query parameters**
 
-| Parameter | Description |
-|---|---|
-| `column_dim` | Override the column pivot dimension for this request only. One of `"status"`, `"state"`, `"pipeline"`. Does not modify the saved connection. |
-| `swimlane_dim` | Override the swimlane pivot dimension for this request only. One of `"milestone"`, `"assignee"`, `"label"`. Does not modify the saved connection. |
+| Parameter | Type | Description |
+|---|---|---|
+| `column_dim` | string | Override the column pivot dimension for this request only. One of `"status"`, `"state"`, `"pipeline"`. Does not modify the saved connection. |
+| `swimlane_dim` | string | Override the swimlane pivot dimension for this request only. One of `"milestone"`, `"assignee"`, `"label"`. Does not modify the saved connection. |
+| `state` | string | Filter by issue state. `"open"` or `"closed"`. Any other value (including omitting the parameter) returns all states. Applied **server-side** before the issue set is returned. |
+| `milestone` | string | Filter to a single milestone by title. Use the synthetic value `"__none__"` to return only issues with no milestone. Max 255 characters. Applied **server-side** for GitLab; **client-side** for GitHub (see [Filtering](#filtering)). Omitting returns all milestones. |
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
+
+### Filtering
+
+The `state` and `milestone` parameters narrow which issues are returned. They are applied server-side where possible so that scoping to a milestone can surface issues that fall outside the default 300-issue fetch budget (3 pages × 100 per page).
+
+**GitLab** — both `state` and `milestone` are pushed to the GitLab API query before any fetching occurs. A `?milestone=Sprint+5` request asks GitLab for _only_ that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).
+
+**GitHub** — `state` is sent as a query parameter to the GitHub Issues API and is therefore server-side. `milestone` is applied **client-side** over the fetched set: GitHub's API requires a numeric milestone ID rather than a title, and resolving a title to an ID would require an authenticated extra request. As a result, a GitHub milestone with more than 300 issues may be truncated when filtered by title. The field `truncated: true` in the response signals this condition.
+
+**Text search** — there is no `q` or text-search query parameter. Full-text filtering (by title or issue number) is performed client-side by the SPA over the issues already in the response. Do not pass a text-search value to this endpoint; it is silently ignored.
+
+**Coverage expansion** — when a `milestone` filter is active, the effective issue set is scoped to that milestone. For GitLab this can return more issues than the unfiltered default view (because the budget applies to the scoped set), making the milestone filter a useful way to deep-dive a large milestone without fetching the entire repository.
+
+The `available_milestones` field in the response lists the milestone titles present in the current fetched set, for use as autocomplete suggestions. Because it is derived from the fetched issues and not from the provider's full milestone list, milestones whose issues were not fetched (e.g. milestones beyond the budget on an unfiltered request) will not appear — but passing their title as a `?milestone=` value still works.
 
 **Response — 200 OK** (`column_dim=state`, the default for `"state"` connections)
 ```json
@@ -264,7 +281,8 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
     "url": "https://github.com/acme/backend"
   },
   "truncated": false,
-  "total_count": 2
+  "total_count": 2,
+  "available_milestones": ["v2.0", "v2.1"]
 }
 ```
 
@@ -345,7 +363,8 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
     "url": "https://github.com/acme/backend"
   },
   "truncated": false,
-  "total_count": 3
+  "total_count": 3,
+  "available_milestones": ["v2.0"]
 }
 ```
 

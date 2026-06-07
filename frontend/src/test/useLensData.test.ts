@@ -19,6 +19,7 @@ const sampleData: LensData = {
   source: { provider: 'github', repo: 'acme/widgets', url: 'https://github.com/acme/widgets' },
   truncated: false,
   total_count: 0,
+  available_milestones: [],
 }
 
 // Build an object that passes axios.isAxiosError (which checks isAxiosError === true).
