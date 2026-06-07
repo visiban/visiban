@@ -14,6 +14,7 @@ if not settings.GIT_LENS_ENABLED:  # pragma: no cover - exercised only in the fl
         allow_module_level=True,
     )
 
+import time
 from unittest.mock import patch
 
 from django.core.cache import cache
@@ -255,3 +256,97 @@ class LensBoardRenderTests(TestCase):
         # invalid column_dim falls back to stored "status"; valid swimlane kept
         self.assertEqual(seen["column_dim"], "status")
         self.assertEqual(seen["swimlane_dim"], "label")
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_cache_is_shared_across_members(self, mock_get_provider):
+        """The board cache is keyed per-repo, not per-user: two different members
+        viewing the same board collapse to a single upstream fetch. This is the
+        core API-politeness guarantee — without it, N members = N× the calls."""
+        member = _make_user("member3")
+        BoardMembership.objects.create(
+            board=self.board, user=member, role=BoardMembership.Role.MEMBER
+        )
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+
+        self.client.get(self.url)  # owner (cold → fetch)
+        other = APIClient()
+        other.force_authenticate(member)
+        resp = other.get(self.url)  # different member → served from shared cache
+
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(calls["n"], 1)
+
+    @patch("git_lens.views._user_provider_token", return_value="ghtok")
+    @patch("git_lens.views.providers.get_provider")
+    def test_github_cache_is_scoped_per_user(self, mock_get_provider, _mock_token):
+        """GitHub reads use the viewer's OWN token (which may see repos other
+        members can't), so the cache is scoped per user — two members do NOT share
+        a copy. This preserves the privacy boundary the shared GitLab cache can't."""
+        member = _make_user("member4")
+        BoardMembership.objects.create(
+            board=self.board, user=member, role=BoardMembership.Role.MEMBER
+        )
+        self._connect("github")
+        calls = {"n": 0}
+
+        def counting(token, repo, config):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+
+        self.client.get(self.url)  # owner
+        other = APIClient()
+        other.force_authenticate(member)
+        other.get(self.url)  # different member → NOT served the owner's copy
+
+        self.assertEqual(calls["n"], 2)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_serves_stale_copy_when_provider_errors_after_soft_expiry(self, mock_get_provider):
+        """Stale-while-revalidate: once a soft-expired copy exists, a provider
+        error (e.g. a transient rate-limit) degrades to the last good copy rather
+        than failing the board — so a blip never retry-storms the provider."""
+        from git_lens import providers
+        from git_lens.views import _board_cache_key
+
+        self._connect("gitlab")
+        mock_get_provider.return_value = lambda token, repo, config: _fake_lens_data()
+        first = self.client.get(self.url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+
+        # Force the cached copy past its soft-TTL so the next read revalidates.
+        key = _board_cache_key("gitlab", "g/p", "status", "milestone")
+        entry = cache.get(key)
+        entry["soft_expires"] = time.time() - 1
+        cache.set(key, entry, 600)
+
+        def boom(token, repo, config):
+            raise providers.LensRateLimited(retry_after="60")
+
+        mock_get_provider.return_value = boom
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)  # stale, not 429
+        self.assertEqual(resp.data["source"]["provider"], "gitlab")
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_etag_conditional_get_returns_304(self, mock_get_provider):
+        """A repeat GET carrying the prior ETag gets a 304 (no payload re-sent),
+        bounding the client<->Visiban leg on top of the shared upstream cache."""
+        self._connect("gitlab")
+        mock_get_provider.return_value = lambda token, repo, config: _fake_lens_data()
+
+        first = self.client.get(self.url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        etag = first["ETag"]
+        self.assertTrue(etag)
+
+        second = self.client.get(self.url, HTTP_IF_NONE_MATCH=etag)
+        self.assertEqual(second.status_code, status.HTTP_304_NOT_MODIFIED)
