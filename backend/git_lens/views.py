@@ -198,7 +198,7 @@ class LensConnectionView(APIView):
                 defaults={
                     "provider": data["provider"],
                     "repo_slug": data["repo_slug"],
-                    "column_dim": data.get("column_dim", "status"),
+                    "column_dim": data.get("column_dim", "pipeline"),
                     "swimlane_dim": data.get("swimlane_dim", "milestone"),
                     "created_by": request.user,
                 },

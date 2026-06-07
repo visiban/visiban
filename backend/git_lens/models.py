@@ -23,7 +23,11 @@ class LensConnection(models.Model):
     provider = models.CharField(max_length=16, choices=Provider.choices)
     # "owner/repo" (GitHub) or "group/subgroup/project" (GitLab).
     repo_slug = models.CharField(max_length=255)
-    column_dim = models.CharField(max_length=32, default="status")
+    # Pipeline (Backlog→Done, derived from branch/MR state) is the opinionated,
+    # most useful default for a new lens; "status" only shines when the repo uses
+    # status:: scoped labels and otherwise degrades to open/closed. Existing rows
+    # keep their stored value — this default applies to NEW connections only.
+    column_dim = models.CharField(max_length=32, default="pipeline")
     swimlane_dim = models.CharField(max_length=32, default="milestone")
     # SET_NULL (not CASCADE): deleting the user who configured the lens must not
     # delete the board's lens connection.

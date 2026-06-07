@@ -166,9 +166,22 @@ class LensBoardRenderTests(TestCase):
         self.url = f"/api/v1/git-lens/board/{self.board.id}/"
 
     def _connect(self, provider="gitlab"):
+        # Explicit column_dim keeps these pivot/cache-key tests deterministic and
+        # independent of the model default (which is "pipeline" — see
+        # LensConnectionDefaultTests). Most render tests don't want the pipeline
+        # enrichment fetch.
         return LensConnection.objects.create(
-            board=self.board, provider=provider, repo_slug="g/p", created_by=self.owner
+            board=self.board, provider=provider, repo_slug="g/p",
+            column_dim="status", created_by=self.owner,
         )
+
+    def test_new_connection_defaults_to_pipeline(self):
+        # A new lens defaults to the opinionated pipeline view (not status, which
+        # degrades to open/closed without status:: labels).
+        conn = LensConnection.objects.create(
+            board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
+        )
+        self.assertEqual(conn.column_dim, "pipeline")
 
     def test_no_connection_returns_404(self):
         resp = self.client.get(self.url)
