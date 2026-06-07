@@ -2108,10 +2108,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#redis" class="md-nav__link">
+  <a href="#valkey" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Redis
+        Valkey
       
     </span>
   </a>
@@ -2707,7 +2707,7 @@
 <h2 id="the-single-server-baseline">The single-server baseline<a class="headerlink" href="#the-single-server-baseline" title="Permanent link">&para;</a></h2>
 <p>The default Docker Compose stack runs all services on one machine:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Internet → Nginx → daphne (ASGI) → PostgreSQL
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                               ↘ Redis (channel layer)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                               ↘ Valkey (channel layer)
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>                               ↘ Local disk (attachments)
 </code></pre></div>
 <p><strong>Practical ceiling for a single server (4 vCPU / 8 GB RAM):</strong></p>
@@ -2771,11 +2771,11 @@ The REST views are synchronous. Under high concurrent HTTP load, requests queue 
 Run multiple backend replicas behind a load balancer. Requirements before doing this:</p>
 <ol>
 <li><strong>Attachment storage must be on S3/GCS</strong> — local disk is not shared between replicas; see <a href="#attachment-storage">Attachment storage</a> below.</li>
-<li><strong>Redis is already required</strong> — the channel layer (WebSocket pub/sub) uses Redis; this is already in the default stack.</li>
+<li><strong>Valkey is already required</strong> — the channel layer (WebSocket pub/sub) uses Valkey; this is already in the default stack.</li>
 <li><strong>Sticky sessions are not required</strong> — WebSocket subscriptions use Django Channels group names keyed by board ID; any replica can handle any connection.</li>
 <li><strong>Database connections</strong> — each replica opens its own connection pool. Add pgBouncer if the total connection count approaches PostgreSQL's <code>max_connections</code> (default 100).</li>
 </ol>
-<p><strong>Kubernetes:</strong> The Helm chart supports <code>backend.replicaCount</code>. Set it to 2+ and ensure the <code>externalDatabase</code> and <code>externalRedis</code> values point to shared instances (not the bundled in-cluster pods, which are single-replica by default).</p>
+<p><strong>Kubernetes:</strong> The Helm chart supports <code>backend.replicaCount</code>. Set it to 2+ and ensure the <code>externalDatabase</code> and <code>externalRedis</code> values point to shared instances (not the bundled in-cluster Valkey pod, which is single-replica by default).</p>
 <p><strong>When to act:</strong> When p95 HTTP response time on <code>/api/v1/boards/{id}/cards/</code> exceeds 300 ms under normal load, or when CPU is consistently above 70% during business hours.</p>
 <hr />
 <h3 id="postgresql">PostgreSQL<a class="headerlink" href="#postgresql" title="Permanent link">&para;</a></h3>
@@ -2811,28 +2811,28 @@ Analytics queries (the dwell-time heatmap, summary endpoint, stalled-cards list)
 - Vertical scale (more CPU/RAM) before a read replica — PostgreSQL scales well vertically
 - Add a read replica when analytics queries start affecting p95 write latency (observable via <code>pg_stat_activity</code> slow query logging)</p>
 <hr />
-<h3 id="redis">Redis<a class="headerlink" href="#redis" title="Permanent link">&para;</a></h3>
-<p>Redis serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.</p>
+<h3 id="valkey">Valkey<a class="headerlink" href="#valkey" title="Permanent link">&para;</a></h3>
+<p>Valkey (the Redis-compatible, BSD-licensed fork) serves two roles: the Django Channels channel layer (WebSocket pub/sub) and the registration-mode cache.</p>
 <p><strong>What limits it:</strong>
-Redis is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one <code>PUBLISH</code> and N <code>SUBSCRIBE</code> deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.</p>
+Valkey is single-threaded per core. The channel layer publish/subscribe pattern means every board mutation triggers one <code>PUBLISH</code> and N <code>SUBSCRIBE</code> deliveries (one per connected WebSocket client on that board). At 50 users on a single board, that is 50 message deliveries per card move.</p>
 <p><strong>How to tune:</strong>
-Redis is rarely the bottleneck for team-scale deployments. The default single-node Redis handles tens of thousands of pub/sub messages per second. No action required until you see Redis CPU above 80%.</p>
-<p><strong>Redis Cluster / Sentinel:</strong>
-For high availability, use Redis Sentinel (managed failover) or Redis Cluster (horizontal sharding). Configure via <code>CHANNEL_LAYERS</code>:</p>
+Valkey is rarely the bottleneck for team-scale deployments. The default single-node Valkey handles tens of thousands of pub/sub messages per second. No action required until you see Valkey CPU above 80%.</p>
+<p><strong>Valkey Cluster / Sentinel:</strong>
+For high availability, use Valkey Sentinel (managed failover) or Valkey Cluster (horizontal sharding). Valkey is wire-compatible with Redis Sentinel protocol, so the <code>channels_redis</code> configuration is the same:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">CHANNEL_LAYERS</span> <span class="o">=</span> <span class="p">{</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">&quot;BACKEND&quot;</span><span class="p">:</span> <span class="s2">&quot;channels_redis.core.RedisChannelLayer&quot;</span><span class="p">,</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">&quot;CONFIG&quot;</span><span class="p">:</span> <span class="p">{</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>            <span class="s2">&quot;hosts&quot;</span><span class="p">:</span> <span class="p">[</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                <span class="p">{</span><span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;redis-sentinel-1&quot;</span><span class="p">,</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                <span class="p">{</span><span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;redis-sentinel-2&quot;</span><span class="p">,</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>                <span class="p">{</span><span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;valkey-sentinel-1&quot;</span><span class="p">,</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>                <span class="p">{</span><span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="s2">&quot;valkey-sentinel-2&quot;</span><span class="p">,</span> <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="mi">26379</span><span class="p">},</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>            <span class="p">],</span>
 <a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>            <span class="s2">&quot;master_name&quot;</span><span class="p">:</span> <span class="s2">&quot;visiban-master&quot;</span><span class="p">,</span>
 <a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>        <span class="p">},</span>
 <a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">}</span>
 <a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">}</span>
 </code></pre></div>
-<p><strong>When to act:</strong> When Redis CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Redis Cluster adds complexity without benefit until you have millions of pub/sub events per minute.</p>
+<p><strong>When to act:</strong> When Valkey CPU is consistently above 60% during peak hours, or when you require HA with automatic failover (Sentinel). Valkey Cluster adds complexity without benefit until you have millions of pub/sub events per minute.</p>
 <hr />
 <h3 id="attachment-storage">Attachment storage<a class="headerlink" href="#attachment-storage" title="Permanent link">&para;</a></h3>
 <p><strong>This is the one hard blocker for horizontal scaling.</strong></p>
@@ -2940,8 +2940,8 @@ Nginx must forward <code>Upgrade</code> and <code>Connection</code> headers for 
 <td>Route analytics ViewSet to replica</td>
 </tr>
 <tr>
-<td><strong>7. Redis HA</strong></td>
-<td>Redis CPU &gt; 60% or availability SLA</td>
+<td><strong>7. Valkey HA</strong></td>
+<td>Valkey CPU &gt; 60% or availability SLA</td>
 <td>Sentinel or Cluster</td>
 </tr>
 <tr>
@@ -2955,7 +2955,7 @@ Nginx must forward <code>Upgrade</code> and <code>Connection</code> headers for 
 <hr />
 <h2 id="what-does-not-scale-linearly">What does not scale linearly<a class="headerlink" href="#what-does-not-scale-linearly" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Board-scoped WebSocket groups</strong> — every user on the same board shares one Redis channel group. 100 users on one board means 100 deliveries per card move. This is by design; it does not degrade other boards.</li>
+<li><strong>Board-scoped WebSocket groups</strong> — every user on the same board shares one Valkey channel group. 100 users on one board means 100 deliveries per card move. This is by design; it does not degrade other boards.</li>
 <li><strong>The <code>/api/v1/boards/{id}/full/</code> endpoint</strong> — returns the full board state in one request. At the 500-card import limit, this is a large payload. If teams consistently hit this size, consider paginating card loads rather than scaling infrastructure — it's a product decision.</li>
 <li><strong><code>CardMovement</code> table growth</strong> — every card move and card creation writes a row. On active boards over months, this table grows. Archiving old boards reclaims logical space; a periodic vacuum handles physical space. This is not a problem at team scale but worth noting for multi-year deployments.</li>
 </ul>

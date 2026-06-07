@@ -2606,7 +2606,7 @@
 <ul>
 <li><strong>Swimlanes</strong> — rows represent entities (customers, projects, teams); columns are pipeline stages</li>
 <li><strong>Movement history</strong> — every drag logs from/to column, from/to swimlane, who moved it, and when; board-level History tab with search and filters</li>
-<li><strong>Real-time updates</strong> — board state syncs live across all open tabs via WebSocket (Django Channels + Redis)</li>
+<li><strong>Real-time updates</strong> — board state syncs live across all open tabs via WebSocket (Django Channels + Valkey)</li>
 <li><strong>Analytics</strong> — summary view (card counts, velocity) and analytics view (dwell time, bottlenecks, stalled cards)</li>
 <li><strong>Board sharing</strong> — generate a read-only public link; anyone with the URL can view the board without logging in</li>
 <li><strong>Saved filters</strong> — save and restore filter presets per board; private to each user</li>

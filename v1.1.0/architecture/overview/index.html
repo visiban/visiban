@@ -2674,7 +2674,7 @@
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└────────────┬────────────────────────┬───────────────┘
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>             │ psycopg2               │ channels-redis
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>┌────────────▼────────────┐ ┌─────────▼───────────────┐
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      PostgreSQL 17      │ │       Redis 7 / 8       │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      PostgreSQL 17      │ │        Valkey 8          │
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  (primary data store)   │ │(WebSocket channel layer)│
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└─────────────────────────┘ └─────────────────────────┘
 </code></pre></div>
@@ -2701,7 +2701,7 @@
 </tr>
 <tr>
 <td>Cache / Pub-Sub</td>
-<td>Redis 7 (Docker Compose) / Redis 8 (Helm — Bitnami subchart)</td>
+<td>Valkey 8 (Docker Compose and Helm — Bitnami subchart)</td>
 </tr>
 <tr>
 <td>Real-time</td>
@@ -2765,8 +2765,8 @@
 <li>Frontend opens <code>ws://{host}/ws/boards/{board_id}/</code> on page load</li>
 <li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001</li>
 <li>On connect, the consumer joins the <code>board_{id}</code> channel group</li>
-<li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Redis</li>
-<li>Redis fans the event out to all consumers in the group</li>
+<li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Valkey</li>
+<li>Valkey fans the event out to all consumers in the group</li>
 <li>Each consumer forwards the event to its WebSocket client</li>
 <li>The <code>useBoardSocket</code> React hook applies the event to local state</li>
 </ol>

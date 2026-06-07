@@ -2235,10 +2235,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#redis" class="md-nav__link">
+  <a href="#valkey-replacing-redis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Redis
+        Valkey (replacing Redis)
       
     </span>
   </a>
@@ -2708,7 +2708,7 @@
 <h2 id="guiding-principle">Guiding principle<a class="headerlink" href="#guiding-principle" title="Permanent link">&para;</a></h2>
 <p>The stack follows one rule: choose the simplest thing that could work correctly and securely, and resist adding complexity until it genuinely earns its place.</p>
 <p>Visiban is a well-built monolith, containerised, with a clear upgrade path to Kubernetes when scale demands it. There are no microservices, no message queues, and no separate search index in the default deployment. Each of those patterns has a real cost — operational overhead, more failure modes, more moving parts for a self-hoster to manage. None of them was justified at the scale Visiban targets out of the box.</p>
-<p>The upgrade path exists. Redis is already present for WebSocket channel messaging. The Helm chart deploys today what a Kubernetes migration would require. But the complexity is not paid upfront.</p>
+<p>The upgrade path exists. Valkey is already present for WebSocket channel messaging. The Helm chart deploys today what a Kubernetes migration would require. But the complexity is not paid upfront.</p>
 <hr />
 <h2 id="django-django-rest-framework">Django + Django REST Framework<a class="headerlink" href="#django-django-rest-framework" title="Permanent link">&para;</a></h2>
 <p>Django is a battle-tested Python framework with a large, stable ecosystem and a well-understood security model. The ORM eliminates raw SQL by default — parameterised queries are the path of least resistance, not something that has to be remembered. That is a security property built into the stack rather than bolted on.</p>
@@ -2760,11 +2760,14 @@
 <p>Headless API mode separates the concerns cleanly: the React SPA controls what the login screen looks like and how it behaves, while allauth handles OAuth redirects, token exchange, and session management underneath. There is no Django-rendered login page to style or maintain.</p>
 <p>Personal Access Tokens (<code>vbn_</code> prefix) are implemented on top of allauth's session model. Tokens are shown once at creation time, stored as a hash at rest, and revoked on password change. The prefix makes tokens easy to identify in logs and rotate tooling.</p>
 <hr />
-<h2 id="redis">Redis<a class="headerlink" href="#redis" title="Permanent link">&para;</a></h2>
-<p>Redis is in the stack because Django Channels requires a channel layer backend for WebSocket group messaging. When a card moves on one board, the event needs to be broadcast to all connected clients watching that board — Redis is the pub/sub intermediary that makes that possible across multiple daphne workers.</p>
-<p>Redis also serves as the Django cache backend, using a separate database index from the channel layer so cache flushes do not disrupt active WebSocket connections.</p>
-<p>The Bitnami Redis subchart in the Helm chart is pinned to a specific version (7.4.3) for reproducibility. Unversioned upstream chart dependencies have caused unexpected breakage in the past when charts are updated between deploys.</p>
-<p>Persistence is intentionally disabled for the channel layer. A Redis restart drops in-flight WebSocket messages, but clients reconnect automatically and resync board state from the REST API. The alternative — persisting the channel layer — would complicate the operational model without meaningful benefit: board state is the source of truth in PostgreSQL, not Redis.</p>
+<h2 id="valkey-replacing-redis">Valkey (replacing Redis)<a class="headerlink" href="#valkey-replacing-redis" title="Permanent link">&para;</a></h2>
+<p>The deployed service is <strong>Valkey</strong>, not Redis. The rationale covers both why a pub/sub store is in the stack at all and why Valkey specifically.</p>
+<p><strong>Why a pub/sub store:</strong> Django Channels requires a channel layer backend for WebSocket group messaging. When a card moves on one board, the event needs to be broadcast to all connected clients watching that board — the channel layer is the pub/sub intermediary that makes that possible across multiple daphne workers.</p>
+<p>The channel layer also serves as the Django cache backend, using a separate database index from the channel layer so cache flushes do not disrupt active WebSocket connections.</p>
+<p><strong>Why Valkey instead of Redis:</strong> Redis 7.4 changed its license from BSD-3 to the Redis Source Available License v2 (RSALv2) and SSPL. Neither license is approved by the Open Source Initiative (OSI). Visiban is Apache-2.0 — an OSI-approved open-source license. Bundling a non-OSI dependency as the default service creates license friction for users and contradicts the project's open-source intent.</p>
+<p>Valkey is a BSD-3-licensed fork of Redis created by contributors from AWS, Google, Snap, and others under the Linux Foundation. It is wire-compatible with Redis 7+ (same RESP protocol, same command set), so the switch is a drop-in replacement at the infrastructure layer — no code changes to <code>channels_redis</code>, the <code>redis-py</code> client, the Django <code>RedisCache</code> backend, or any other dependency are required. <code>REDIS_URL</code>, <code>REDIS_CACHE_URL</code>, and the <code>redis://</code> scheme are all unchanged.</p>
+<p>The Bitnami Valkey subchart in the Helm chart is pinned for reproducibility. Unversioned upstream chart dependencies have caused unexpected breakage in the past when charts are updated between deploys.</p>
+<p>Persistence is intentionally disabled for the channel layer. A Valkey restart drops in-flight WebSocket messages, but clients reconnect automatically and resync board state from the REST API. The alternative — persisting the channel layer — would complicate the operational model without meaningful benefit: board state is the source of truth in PostgreSQL, not Valkey.</p>
 <hr />
 <h2 id="docker-compose-helm">Docker Compose + Helm<a class="headerlink" href="#docker-compose-helm" title="Permanent link">&para;</a></h2>
 <p>Self-hosting is a first-class requirement, not an afterthought. The deployment story needs to work for a single engineer on a $5 VPS and for a platform team running Kubernetes at scale.</p>

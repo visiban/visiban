@@ -2823,7 +2823,7 @@
 
 
 <h1 id="real-time-updates">Real-time Updates<a class="headerlink" href="#real-time-updates" title="Permanent link">&para;</a></h1>
-<p>Visiban uses WebSockets (Django Channels + Redis) to push board changes to all connected clients instantly — no polling required.</p>
+<p>Visiban uses WebSockets (Django Channels + Valkey) to push board changes to all connected clients instantly — no polling required.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ol>
 <li>When a user opens a board, the frontend opens a WebSocket connection to <code>ws://{host}/ws/boards/{board_id}/</code></li>
@@ -3107,7 +3107,7 @@
 <p>Each event payload follows the standard <code>{"event": "...", "data": {...}}</code> envelope. <code>board.deleted</code> carries <code>{"board_uid": "..."}</code>; when the board was <strong>moved out</strong> of this group (rather than deleted outright) the payload additionally carries <code>"board_id": N</code> so clients keyed by integer id can drop the row without a re-fetch. <code>board.created</code> and <code>board.updated</code> include the full board summary object.</p>
 <p>The group channel does not emit card-level events — those remain on the per-board channel.</p>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
-<p>Real-time updates require a Redis instance. Visiban uses two separate Redis connections:</p>
+<p>Real-time updates require a Valkey instance (the Redis-compatible, BSD-licensed fork). Visiban uses two separate connections:</p>
 <table>
 <thead>
 <tr>
@@ -3129,19 +3129,23 @@
 </tr>
 </tbody>
 </table>
-<p>These are independent variables. By default they point to the same Redis host but use different databases (<code>/0</code> and <code>/1</code>). You can point them at separate Redis instances in production if needed.</p>
+<p>These are independent variables. By default they point to the same Valkey host but use different databases (<code>/0</code> and <code>/1</code>). You can point them at separate instances in production if needed.</p>
+<div class="admonition note">
+<p class="admonition-title">Why REDIS_URL and not VALKEY_URL?</p>
+<p>The <code>redis://</code> URL scheme and <code>REDIS_*</code> env var names are unchanged — they are part of the stable API contract. The deployed service is Valkey, but the connection protocol (RESP) is identical, so no URL or env var changes are required.</p>
+</div>
 <h3 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h3>
-<p>Redis is included in the default <code>docker-compose.yml</code> — no extra setup needed.</p>
+<p>Valkey is included in the default <code>docker-compose.yml</code> — no extra setup needed.</p>
 <h3 id="production-helm">Production / Helm<a class="headerlink" href="#production-helm" title="Permanent link">&para;</a></h3>
-<p>Set <code>REDIS_URL</code> to your Redis DSN, or use the bundled bitnami/redis subchart:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">redis</span><span class="p">:</span>
+<p>Set <code>REDIS_URL</code> to your Valkey DSN, or use the bundled Bitnami Valkey subchart:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">valkey</span><span class="p">:</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
-<p>To use an external Redis instance:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">redis</span><span class="p">:</span>
+<p>To use an external Valkey (or Redis-compatible) instance:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="nt">valkey</span><span class="p">:</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nt">externalRedis</span><span class="p">:</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://my-redis-host:6379/0&quot;</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://my-valkey-host:6379/0&quot;</span>
 </code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>

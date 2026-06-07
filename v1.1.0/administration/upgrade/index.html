@@ -2725,6 +2725,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#upgrading-to-12x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrading to 1.2.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#upgrading-to-11x" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2947,7 +2958,7 @@
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># 2. Start (or restart) application replicas.</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--scale<span class="w"> </span><span class="nv">backend</span><span class="o">=</span><span class="m">3</span><span class="w"> </span>--no-deps<span class="w"> </span>backend
 </code></pre></div>
-<p>The <code>--no-deps</code> flag prevents Compose from restarting <code>db</code> and <code>redis</code>.</p>
+<p>The <code>--no-deps</code> flag prevents Compose from restarting <code>db</code> and <code>valkey</code>.</p>
 </div>
 <div class="tabbed-block">
 <p>Define a Kubernetes <code>Job</code> (or an init container on the <code>Deployment</code>) that runs <code>python manage.py migrate</code>. Set the <code>Deployment</code> to depend on the <code>Job</code> completing successfully, or use a deployment pipeline step that runs the job before updating the <code>Deployment</code> image tag.</p>
@@ -3042,6 +3053,74 @@
 </div>
 <hr />
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
+<h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Service renamed: Redis → Valkey (container and Helm chart)</p>
+<p>Visiban 1.2 replaces the Redis container with <strong>Valkey</strong> (the BSD-3-licensed, Linux Foundation fork of Redis). Valkey is wire-compatible with Redis 7+ — the RESP protocol is identical — so <strong>no env var changes are required</strong>.</p>
+<p><strong>What changes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Before 1.2</th>
+<th>After 1.2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Docker Compose service name</td>
+<td><code>redis</code></td>
+<td><code>valkey</code></td>
+</tr>
+<tr>
+<td>Docker image</td>
+<td><code>redis:7-alpine</code></td>
+<td><code>valkey/valkey:8-alpine</code></td>
+</tr>
+<tr>
+<td>Helm subchart</td>
+<td><code>bitnami/redis</code></td>
+<td><code>bitnami/valkey</code></td>
+</tr>
+<tr>
+<td>Helm values key</td>
+<td><code>redis:</code></td>
+<td><code>valkey:</code></td>
+</tr>
+<tr>
+<td>In-cluster service DNS</td>
+<td><code>&lt;release&gt;-redis-master:6379</code></td>
+<td><code>&lt;release&gt;-valkey-primary:6379</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What stays the same:</strong></p>
+<ul>
+<li><code>REDIS_URL</code>, <code>REDIS_CACHE_URL</code>, <code>REDIS_PASSWORD</code> — env var names are unchanged</li>
+<li><code>redis://</code> URL scheme — unchanged; Valkey speaks the same protocol</li>
+<li><code>externalRedis</code> Helm values key — unchanged for backward compatibility</li>
+<li><code>/api/health/readiness/</code> response field <code>"redis"</code> — unchanged (it is a published API contract)</li>
+</ul>
+<p><strong>No data migration required</strong> — Valkey holds only ephemeral channel-layer and cache data (WebSocket group subscriptions and short-lived rate-limit keys). All of this is rebuilt automatically on startup. Simply redeploy:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Docker Compose</label><label for="__tabbed_2_2">Kubernetes / Helm</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>pull
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>The old <code>redis</code> container is replaced by the new <code>valkey</code> container. Any in-flight WebSocket connections will reconnect automatically.</p>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values
+</code></pre></div>
+<p>If you previously set <code>redis.enabled: false</code> and pointed <code>externalRedis.url</code> at an external Redis instance, no change is needed — the <code>externalRedis</code> key is unchanged and your external instance continues to work.</p>
+<p>If you used the bundled subchart, the in-cluster service DNS changes from <code>&lt;release&gt;-redis-master:6379</code> to <code>&lt;release&gt;-valkey-primary:6379</code>. The Helm chart sets <code>REDIS_URL</code> automatically from the new service name — no manual update is required unless you overrode <code>REDIS_URL</code> in your values file.</p>
+</div>
+</div>
+</div>
+</div>
 <h3 id="upgrading-to-11x">Upgrading to 1.1.x<a class="headerlink" href="#upgrading-to-11x" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">Removed env-var aliases — rename before upgrading</p>
@@ -3073,28 +3152,28 @@
 <p>The previous per-user preferences (<code>hideLabels</code>, <code>hideDueDate</code>, <code>hideAssignee</code>, <code>hidePriority</code>, <code>hideLastMoved</code>) stored in <code>localStorage</code> are silently ignored after the upgrade — they are not migrated. Board admins can adjust the density for their board at any time from <strong>Board Settings → Display</strong>.</p>
 </div>
 <div class="admonition warning">
-<p class="admonition-title">Breaking change — Redis authentication is now required in production</p>
-<p><code>docker-compose.prod.yml</code> now starts Redis with <code>--requirepass</code> and constructs <code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> using the password. <strong>The stack will fail to start if <code>REDIS_PASSWORD</code> is not set in your <code>.env</code>.</strong></p>
+<p class="admonition-title">Breaking change — Valkey authentication is now required in production</p>
+<p><code>docker-compose.prod.yml</code> now starts Valkey with <code>--requirepass</code> and constructs <code>REDIS_URL</code> and <code>REDIS_CACHE_URL</code> using the password. <strong>The stack will fail to start if <code>REDIS_PASSWORD</code> is not set in your <code>.env</code>.</strong></p>
 <p>Before running <code>docker compose -f docker-compose.prod.yml up</code>, add <code>REDIS_PASSWORD</code> to your <code>.env</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Generate a strong random password and insert it into .env</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Generate a strong random password and insert it into .env</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>sed<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">|&quot;</span><span class="w"> </span>.env
 </code></pre></div>
 <p>Or generate a value manually and add it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># Copy the output, then add to .env:</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;generated<span class="w"> </span>value&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># Copy the output, then add to .env:</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;generated<span class="w"> </span>value&gt;
 </code></pre></div>
-<p>Existing deployments that used the default unauthenticated Redis will continue to work after setting this variable — Redis data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of Redis data is required.</p>
+<p>Existing deployments that used the default unauthenticated Valkey (or Redis) will continue to work after setting this variable — Valkey data in the container is ephemeral (it holds only WebSocket channel state and short-lived cache keys), so no migration of data is required.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Migration window — GIN trigram indexes (<code>boards/0030</code>)</p>
 <p>Migration <code>boards/0030</code> creates full-text GIN indexes on the <code>cards</code> table using <code>CREATE INDEX</code> (not <code>CREATE INDEX CONCURRENTLY</code>). On PostgreSQL, a standard index build holds an <code>AccessShareLock</code> on the table for the duration of the build, blocking writes to <code>cards</code>.</p>
 <p>For most self-hosted deployments the index build completes in seconds and is not noticeable. For installations with <strong>millions of cards</strong>, this may cause a brief write outage on board operations during the migration window.</p>
 <p><strong>If you have a large <code>cards</code> table and need zero-downtime index creation</strong>, pre-create the indexes manually before running <code>migrate</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_title_trgm</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">title</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">CREATE</span><span class="w"> </span><span class="k">INDEX</span><span class="w"> </span><span class="n">CONCURRENTLY</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="n">boards_card_description_trgm</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="k">ON</span><span class="w"> </span><span class="n">boards_card</span><span class="w"> </span><span class="k">USING</span><span class="w"> </span><span class="n">gin</span><span class="w"> </span><span class="p">(</span><span class="n">description</span><span class="w"> </span><span class="n">gin_trgm_ops</span><span class="p">);</span>
 </code></pre></div>
 <p>Then run <code>python manage.py migrate</code> as normal — the migration's <code>CREATE INDEX IF NOT EXISTS</code> will detect the indexes exist and skip creation.</p>
 </div>
@@ -3102,8 +3181,8 @@
 <p class="admonition-title">Pre-1.0 installs upgrading directly to 1.1 — <code>groups/0003_placeholder</code></p>
 <p>If your database was created from any pre-1.0 release <strong>and you are upgrading directly to 1.1.x without first running 1.0.x</strong>, you must apply the same <code>groups/0003_placeholder</code> reconciliation step described under <a href="#upgrading-to-100">Upgrading to 1.0.0</a> below before running <code>manage.py migrate</code>. Without it, Django's <code>InconsistentMigrationHistory</code> check aborts the upgrade and the schema is not advanced.</p>
 <p>Equivalent management-command form (run inside the backend container):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>groups<span class="w"> </span>0003_placeholder<span class="w"> </span>--fake
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>groups<span class="w"> </span>0003_placeholder<span class="w"> </span>--fake
 </code></pre></div>
 <p>Instances that already ran 1.0.x are unaffected — the reconciliation row is already present in <code>django_migrations</code>.</p>
 </div>
@@ -3117,22 +3196,22 @@
 <p>Migration <code>boards/0043</code> adds a unique constraint on <code>(board, name)</code> for columns. Before applying the constraint, it runs a Python loop to deduplicate any existing column names within the same board (e.g. renaming a second "Done" column to "Done (2)").</p>
 <p>For deployments with a very large number of boards and columns, this deduplication loop may take several seconds. The subsequent <code>ADD CONSTRAINT</code> then issues a brief table lock to build the unique index.</p>
 <p><strong>If you have many thousands of columns</strong>, you can run the deduplication ahead of the migration window by executing it as a one-off management command before upgrading:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="s2">from boards.models import Column</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="s2">from django.db.models import Count</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="s2">for board_id in Column.objects.values_list(&#39;board_id&#39;, flat=True).distinct():</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="s2">    seen = {}</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by(&#39;position&#39;):</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="s2">        base = col.name</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="s2">        if base in seen:</span>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="s2">            seen[base] += 1</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="s2">            col.name = f&#39;{base} ({seen[base]})&#39;</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="s2">            col.save(update_fields=[&#39;name&#39;])</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="s2">        else:</span>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="s2">            seen[base] = 1</span>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a><span class="s2">print(&#39;Done&#39;)</span>
-<a id="__codelineno-16-16" name="__codelineno-16-16" href="#__codelineno-16-16"></a><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="s2">from boards.models import Column</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="s2">from django.db.models import Count</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="s2">for board_id in Column.objects.values_list(&#39;board_id&#39;, flat=True).distinct():</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="s2">    seen = {}</span>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="s2">    for col in Column.objects.filter(board_id=board_id).order_by(&#39;position&#39;):</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a><span class="s2">        base = col.name</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a><span class="s2">        if base in seen:</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a><span class="s2">            seen[base] += 1</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="s2">            col.name = f&#39;{base} ({seen[base]})&#39;</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a><span class="s2">            col.save(update_fields=[&#39;name&#39;])</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a><span class="s2">        else:</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a><span class="s2">            seen[base] = 1</span>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a><span class="s2">print(&#39;Done&#39;)</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a><span class="s2">&quot;</span>
 </code></pre></div>
 <p>After this runs, <code>boards/0043</code> will find no duplicates and the constraint add will complete quickly.</p>
 </div>
@@ -3140,9 +3219,9 @@
 <div class="admonition warning">
 <p class="admonition-title">Required pre-deploy step for any instance that ran a pre-1.0 beta</p>
 <p>If your database was created from any pre-1.0 release (including any release candidate), you <strong>must</strong> run the following SQL against your database <strong>before</strong> running <code>manage.py migrate</code> or starting the 1.0 backend container:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;groups&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;0003_placeholder&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">django_migrations</span><span class="w"> </span><span class="p">(</span><span class="n">app</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">applied</span><span class="p">)</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;groups&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;0003_placeholder&#39;</span><span class="p">,</span><span class="w"> </span><span class="n">NOW</span><span class="p">())</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">ON</span><span class="w"> </span><span class="n">CONFLICT</span><span class="w"> </span><span class="k">DO</span><span class="w"> </span><span class="k">NOTHING</span><span class="p">;</span>
 </code></pre></div>
 <p><strong>Why:</strong> Migration <code>groups/0003_placeholder</code> was added to the 1.0 release to fill a gap in the <code>groups</code> migration sequence. Because <code>groups/0004</code> was already applied in pre-1.0 releases, Django's startup check (<code>InconsistentMigrationHistory</code>) will prevent <code>manage.py migrate</code> from running if <code>0003</code> is not already marked applied. The SQL above registers it as applied so Django accepts the history as consistent. The migration itself is a no-op — it contains no schema changes.</p>
 <p>Fresh installs (where no pre-1.0 migrations have ever been applied) are not affected.</p>
@@ -3173,8 +3252,8 @@
 <hr />
 <h2 id="checking-migration-status">Checking migration status<a class="headerlink" href="#checking-migration-status" title="Permanent link">&para;</a></h2>
 <p>At any time you can inspect which migrations have been applied:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>backend<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span>python<span class="w"> </span>manage.py<span class="w"> </span>showmigrations
 </code></pre></div>
 <p><code>[X]</code> means applied. <code>[ ]</code> means pending. A pending migration after a deployment indicates the migration step was skipped or failed silently — run <code>migrate</code> manually and check the output for errors before serving traffic.</p>
 

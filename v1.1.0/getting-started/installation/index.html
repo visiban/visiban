@@ -2888,12 +2888,12 @@
 </tr>
 </tbody>
 </table>
-<p>The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Redis, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.</p>
+<p>The production stack at idle consumes ~350 MB for PostgreSQL, ~350 MB for daphne workers, and ~160 MB combined for Valkey, Nginx, and Docker overhead — leaving no safe margin on a 1 GB host. 4 GB is the minimum that provides headroom for startup, migrations, and WebSocket bursts without risking OOM.</p>
 <p><strong>Disk:</strong> Docker image pulls and build cache alone account for ~3–4 GB. The main unbounded variable is file attachments (cards support up to 10 MB each). The figures above assume light-to-moderate attachment use. Teams with heavy attachment activity should plan for additional storage or configure object storage (S3-compatible).</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Docker and Docker Compose <strong>or</strong> Python 3.12+ and Node.js 18+</li>
-<li>Redis 7+ (included automatically in Docker Compose and Helm; required for WebSocket real-time updates — Docker Compose bundles Redis 7, Kubernetes/Helm bundles Redis 8)</li>
+<li>Valkey 8 (the Redis-compatible, BSD-licensed fork; included automatically in Docker Compose and Helm; required for WebSocket real-time updates)</li>
 </ul>
 <h2 id="docker-recommended">Docker (recommended)<a class="headerlink" href="#docker-recommended" title="Permanent link">&para;</a></h2>
 <blockquote>
@@ -2908,7 +2908,7 @@
 <p class="admonition-title"><code>--build</code> is required on first install and after pulling updates</p>
 <p>The <code>--build</code> flag tells Docker Compose to build the images before starting containers. It is required the first time you run the stack (no pre-built images exist locally yet) and any time you pull code changes that affect the <code>Dockerfile</code> or frontend assets. Omitting it on a fresh clone will fail; omitting it after <code>git pull</code> may leave you running stale images.</p>
 </div>
-<p>Docker Compose starts four services: <code>db</code> (Postgres 17), <code>redis</code> (Redis 7), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (Vite dev server).</p>
+<p>Docker Compose starts four services: <code>db</code> (Postgres 17), <code>valkey</code> (Valkey 8), <code>backend</code> (daphne/ASGI), and <code>frontend</code> (Vite dev server).</p>
 <p>This setup is for <strong>local development only</strong> — the Vite dev server is not suitable for production. See <a href="#production-deployment">Production Deployment</a> below for a production deployment.</p>
 <table>
 <thead>
@@ -3058,12 +3058,12 @@
 <tr>
 <td><code>REDIS_URL</code></td>
 <td style="text-align: center;">Yes</td>
-<td>Redis DSN for Channels / WebSocket (default: <code>redis://redis:6379/0</code> in Docker Compose)</td>
+<td>Valkey DSN for Channels / WebSocket (default: <code>redis://valkey:6379/0</code> in Docker Compose)</td>
 </tr>
 <tr>
 <td><code>REDIS_CACHE_URL</code></td>
 <td style="text-align: center;">No</td>
-<td>Redis DSN for the Django cache — rate limiting, health checks (default: <code>redis://localhost:6379/1</code>). In Docker Compose this is set automatically. Use a different database index than <code>REDIS_URL</code> to avoid key collisions.</td>
+<td>Valkey DSN for the Django cache — rate limiting, health checks (default: <code>redis://localhost:6379/1</code>). In Docker Compose this is set automatically. Use a different database index than <code>REDIS_URL</code> to avoid key collisions.</td>
 </tr>
 <tr>
 <td><code>FRONTEND_URL</code></td>
@@ -3221,7 +3221,7 @@
 </tr>
 <tr>
 <td><code>REDIS_PASSWORD</code></td>
-<td>Must be set to a strong, unique password. The production Redis service starts with <code>--requirepass</code> and the backend URLs are built from this value. Docker Compose <strong>will not start</strong> if this variable is missing. Generate with: <code>openssl rand -base64 32</code></td>
+<td>Must be set to a strong, unique password. The production Valkey service starts with <code>--requirepass</code> and the backend URLs are built from this value. Docker Compose <strong>will not start</strong> if this variable is missing. Generate with: <code>openssl rand -base64 32</code></td>
 </tr>
 <tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
@@ -3314,10 +3314,10 @@
 <a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="nv">DATABASE_URL</span><span class="o">=</span>postgres://visiban:<span class="si">${</span><span class="nv">DB_PASSWORD</span><span class="si">}</span>@db:5432/visiban
 <a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a><span class="nv">DB_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">           </span><span class="c1"># required — used by both Django and Postgres</span>
 <a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
-<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># Redis (runs inside Docker Compose)</span>
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># Valkey (runs inside Docker Compose)</span>
 <a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a><span class="nv">REDIS_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;<span class="w">        </span><span class="c1"># required — generate: openssl rand -base64 32</span>
 <a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a><span class="c1"># REDIS_URL and REDIS_CACHE_URL are built from REDIS_PASSWORD in docker-compose.prod.yml.</span>
-<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="c1"># Only override here if you use an external Redis.</span>
+<a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="c1"># Only override here if you use an external Valkey or Redis-compatible instance.</span>
 <a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>
 <a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a><span class="c1"># TLS mode — choose one: letsencrypt (default), selfsigned, none</span>
 <a id="__codelineno-15-19" name="__codelineno-15-19" href="#__codelineno-15-19"></a><span class="nv">TLS_MODE</span><span class="o">=</span>letsencrypt
@@ -3488,9 +3488,9 @@ The backend may still be starting up. Check: <code>docker compose -f docker-comp
    Wait for a line containing <code>daphne</code> before reloading the page.</p>
 </li>
 <li>
-<p><strong>Redis unavailable</strong> — Django Channels requires Redis for the channel layer. If Redis is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
-   <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>redis
-<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import django_redis; print(&#39;ok&#39;)&quot;</span>
+<p><strong>Valkey unavailable</strong> — Django Channels requires Valkey for the channel layer. If Valkey is down, the backend accepts the WebSocket upgrade but immediately closes the connection:
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>valkey
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>shell<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from django.core.cache import cache; cache.set(&#39;healthcheck&#39;, &#39;ok&#39;); print(cache.get(&#39;healthcheck&#39;))&quot;</span>
 </code></pre></div></p>
 </li>
 <li>

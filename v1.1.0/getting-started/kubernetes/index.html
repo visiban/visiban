@@ -742,10 +742,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#external-database-and-redis" class="md-nav__link">
+  <a href="#external-database-and-valkey" class="md-nav__link">
     <span class="md-ellipsis">
       
-        External database and Redis
+        External database and Valkey
       
     </span>
   </a>
@@ -3014,8 +3014,8 @@
 </tr>
 </tbody>
 </table>
-<h2 id="external-database-and-redis">External database and Redis<a class="headerlink" href="#external-database-and-redis" title="Permanent link">&para;</a></h2>
-<p>To use an existing PostgreSQL or Redis instance instead of the bundled ones:</p>
+<h2 id="external-database-and-valkey">External database and Valkey<a class="headerlink" href="#external-database-and-valkey" title="Permanent link">&para;</a></h2>
+<p>To use an existing PostgreSQL or Valkey (or Redis-compatible) instance instead of the bundled ones:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># values.override.yaml</span>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nt">postgresql</span><span class="p">:</span>
 <a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
@@ -3027,12 +3027,12 @@
 <a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="w">  </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban</span>
 <a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="nt">password</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;strong-password&quot;</span>
 <a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="nt">redis</span><span class="p">:</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="nt">valkey</span><span class="p">:</span>
 <a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 <a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>
 <a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="nt">externalRedis</span><span class="p">:</span>
-<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://redis.example.com:6379/0&quot;</span>
-<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">  </span><span class="nt">cacheUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://redis.example.com:6379/1&quot;</span>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://valkey.example.com:6379/0&quot;</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">  </span><span class="nt">cacheUrl</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;redis://valkey.example.com:6379/1&quot;</span>
 </code></pre></div>
 <h2 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h2>
 <p>Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:</p>
@@ -3046,7 +3046,7 @@
 <li>Ingress controller → frontend (port 80)</li>
 <li>Frontend → backend (port 8000)</li>
 <li>Backend → PostgreSQL (port 5432)</li>
-<li>Backend → Redis (port 6379)</li>
+<li>Backend → Valkey (port 6379)</li>
 </ul>
 <p>All other ingress to Visiban pods is denied. Requires a CNI plugin that supports <code>NetworkPolicy</code> (Calico, Cilium, Weave, etc.).</p>
 <h2 id="media-persistence">Media persistence<a class="headerlink" href="#media-persistence" title="Permanent link">&para;</a></h2>
@@ -3090,7 +3090,7 @@
 <tr>
 <td><code>/api/health/readiness/</code></td>
 <td>Can the process serve traffic?</td>
-<td>HTTP 200 if the database and Redis are reachable</td>
+<td>HTTP 200 if the database and Valkey are reachable</td>
 </tr>
 </tbody>
 </table>

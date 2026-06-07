@@ -2794,7 +2794,7 @@
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># Fill in DJANGO_SECRET_KEY and DATABASE_URL (or leave default for bundled Postgres)</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
 </code></pre></div>
-<p>The <code>docker-compose.yml</code> starts four services: <code>db</code> (Postgres 17), <code>redis</code> (Redis 7), <code>backend</code> (daphne ASGI), and <code>frontend</code> (Vite dev server). The backend runs <code>migrate</code> and <code>ensure_site_admin</code> automatically on startup.</p>
+<p>The <code>docker-compose.yml</code> starts four services: <code>db</code> (Postgres 17), <code>valkey</code> (Valkey 8), <code>backend</code> (daphne ASGI), and <code>frontend</code> (Vite dev server). The backend runs <code>migrate</code> and <code>ensure_site_admin</code> automatically on startup.</p>
 <blockquote>
 <p><strong>Note:</strong> The backend uses <strong>daphne</strong> (ASGI server) instead of gunicorn to support WebSocket connections for real-time board updates.</p>
 </blockquote>
@@ -2849,9 +2849,9 @@
 <td>Built-in StatefulSet using the official <code>postgres:17</code> image (default)</td>
 </tr>
 <tr>
-<td>Redis</td>
-<td>7.4</td>
-<td>Bitnami <code>redis</code> subchart 25.x (pinned to <code>7.4.3</code>)</td>
+<td>Valkey</td>
+<td>8</td>
+<td>Bitnami <code>valkey</code> subchart (pinned)</td>
 </tr>
 </tbody>
 </table>
@@ -2860,7 +2860,7 @@
 <p><strong>Note:</strong> Both the Docker Compose and Kubernetes/Helm stacks run <strong>PostgreSQL 17</strong>. If you are migrating an existing deployment from an older release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See <a href="#upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions</a>.</p>
 </blockquote>
 <h3 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Redis still uses the Bitnami subchart — add the repo and fetch dependencies</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Valkey uses the Bitnami subchart — add the repo and fetch dependencies</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>bitnami<span class="w"> </span>https://charts.bitnami.com/bitnami
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
@@ -3094,14 +3094,14 @@
 <td>Set <code>true</code> to use the Bitnami <code>postgresql</code> subchart instead of the built-in StatefulSet</td>
 </tr>
 <tr>
-<td><code>redis.enabled</code></td>
+<td><code>valkey.enabled</code></td>
 <td><code>true</code></td>
-<td>Use bundled Redis 7.4; set <code>false</code> to use <code>externalRedis.url</code></td>
+<td>Use bundled Valkey 8; set <code>false</code> to use <code>externalRedis.url</code></td>
 </tr>
 <tr>
 <td><code>externalRedis.url</code></td>
 <td><code>""</code></td>
-<td>External Redis DSN (used when <code>redis.enabled: false</code>) — <strong>must be set</strong> when using external Redis</td>
+<td>External Valkey (or Redis-compatible) DSN (used when <code>valkey.enabled: false</code>) — <strong>must be set</strong> when using an external instance</td>
 </tr>
 <tr>
 <td><code>networkPolicy.enabled</code></td>
@@ -3153,7 +3153,7 @@
 <li>Ingress controller → frontend (port 80)</li>
 <li>Frontend → backend (port 8000)</li>
 <li>Backend → PostgreSQL (port 5432)</li>
-<li>Backend → Redis (port 6379)</li>
+<li>Backend → Valkey (port 6379)</li>
 </ul>
 <p>Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, Weave, etc.).</p>
 <h3 id="init-containers">Init containers<a class="headerlink" href="#init-containers" title="Permanent link">&para;</a></h3>

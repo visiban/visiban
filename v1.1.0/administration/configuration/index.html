@@ -2781,7 +2781,7 @@
 </tr>
 </tbody>
 </table>
-<p>Redis has no authentication in development — no variable needed.</p>
+<p>Valkey has no authentication in development — no variable needed.</p>
 <h3 id="frontend-local-override">Frontend local override<a class="headerlink" href="#frontend-local-override" title="Permanent link">&para;</a></h3>
 <p>When running the Vite dev server directly (<code>npm run dev</code>), create <code>frontend/.env.local</code> with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">VITE_API_URL</span><span class="o">=</span>http://localhost:8000
@@ -2896,7 +2896,7 @@
 </tr>
 <tr>
 <td><code>REDIS_PASSWORD</code></td>
-<td>Redis authentication password — required in production; the Redis service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -base64 32</code></td>
+<td>Valkey authentication password — required in production; the Valkey service starts with <code>--requirepass</code> and <code>REDIS_URL</code>/<code>REDIS_CACHE_URL</code> are built from this value. Generate with: <code>openssl rand -base64 32</code></td>
 </tr>
 <tr>
 <td><code>DJANGO_SECRET_KEY</code></td>
@@ -3096,14 +3096,14 @@
 <td><code>/api/health/readiness/</code></td>
 <td>GET</td>
 <td>Can the process serve traffic?</td>
-<td>Database and Redis are reachable</td>
+<td>Database and Valkey are reachable</td>
 <td><code>200 {"status": "ok"}</code></td>
 </tr>
 </tbody>
 </table>
 <p>Both endpoints are unauthenticated and do not require a valid <code>Host</code> header.</p>
 <p><strong>Docker Compose</strong> uses the liveness endpoint in the backend healthcheck. <strong>Helm</strong> uses both: liveness probe hits <code>/api/health/liveness/</code>, readiness probe hits <code>/api/health/readiness/</code>.</p>
-<p>For external load balancers (AWS ALB, HAProxy, etc.), point your health check at <code>/api/health/readiness/</code> on the backend port (8000). This ensures traffic is only routed to instances with working database and Redis connections.</p>
+<p>For external load balancers (AWS ALB, HAProxy, etc.), point your health check at <code>/api/health/readiness/</code> on the backend port (8000). This ensures traffic is only routed to instances with working database and Valkey connections.</p>
 
 
 
