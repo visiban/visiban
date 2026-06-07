@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/openapi/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/git-lens/">
       
       
-        <link rel="prev" href="../version/">
+        <link rel="prev" href="../admin/">
       
       
-        <link rel="next" href="../../architecture/">
+        <link rel="next" href="../websockets/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>OpenAPI Spec - Visiban</title>
+        <title>Issue Board Lens - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#openapi-30-spec" class="md-skip">
+        <a href="#issue-board-lens-api" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              OpenAPI Spec
+              Issue Board Lens
             
           </span>
         </div>
@@ -1746,10 +1746,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../git-lens/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1765,6 +1792,126 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#object-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Object reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Object reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lensconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LensConnection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lensdata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LensData
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Endpoints
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1git-lensconnectionsboard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/git-lens/connections/{board_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1git-lensconnectionsboard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/git-lens/connections/{board_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1git-lensconnectionsboard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/git-lens/connections/{board_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1git-lensboardboard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/git-lens/board/{board_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1858,37 +2005,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAPI Spec
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../openapi/" class="md-nav__link">
         
   
   
@@ -1904,109 +2024,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#accessing-the-spec-by-deployment-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Accessing the spec by deployment type
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Accessing the spec by deployment type">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#docker-compose-development-docker-composeyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker Compose — development (docker-compose.yml)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#docker-compose-production-docker-composeprodyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker Compose — production (docker-compose.prod.yml)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kubernetes-helm-chart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes (Helm chart)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI validation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-annotations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding annotations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2724,67 +2741,441 @@
   
 
 
-<h1 id="openapi-30-spec">OpenAPI 3.0 Spec<a class="headerlink" href="#openapi-30-spec" title="Permanent link">&para;</a></h1>
-<p>Visiban exposes a machine-readable OpenAPI 3.0 specification generated by <a href="https://drf-spectacular.readthedocs.io/">drf-spectacular</a>.</p>
-<h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
+<h1 id="issue-board-lens-api">Issue Board Lens API<a class="headerlink" href="#issue-board-lens-api" title="Permanent link">&para;</a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Experimental feature</p>
+<p>Issue Board Lens is an <strong>experimental</strong> feature. It is read-only, supports <strong>public repositories only</strong>, and is subject to change without a deprecation notice until it leaves experimental status.</p>
+</div>
+<p>Issue Board Lens surfaces GitHub or GitLab issues directly inside a Visiban board, pivoted by column and swimlane dimensions. The feature is flag-gated: all endpoints below return <code>404 Not Found</code> unless the server is started with <code>GIT_LENS_ENABLED=true</code>.</p>
+<p>All endpoints require authentication (<code>Authorization: Token &lt;value&gt;</code>). Unauthenticated requests receive <code>403 Forbidden</code>.</p>
+<hr />
+<h2 id="object-reference">Object reference<a class="headerlink" href="#object-reference" title="Permanent link">&para;</a></h2>
+<h3 id="lensconnection">LensConnection<a class="headerlink" href="#lensconnection" title="Permanent link">&para;</a></h3>
+<p>Represents the saved mapping between a Visiban board and a remote issue tracker repository.</p>
 <table>
 <thead>
 <tr>
-<th>URL</th>
+<th>Field</th>
+<th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>GET /api/schema/</code></td>
-<td>Download the raw OpenAPI 3.0 YAML spec</td>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Database primary key</td>
 </tr>
 <tr>
-<td><code>GET /api/schema/swagger-ui/</code></td>
-<td>Interactive Swagger UI — explore and test endpoints in the browser</td>
+<td><code>provider</code></td>
+<td>string</td>
+<td>Issue tracker provider. One of <code>"github"</code> or <code>"gitlab"</code></td>
 </tr>
 <tr>
-<td><code>GET /api/schema/redoc/</code></td>
-<td>ReDoc alternative — clean two-panel reference docs</td>
+<td><code>repo_slug</code></td>
+<td>string</td>
+<td>Repository in <code>owner/repo</code> format (e.g. <code>"acme/backend"</code>)</td>
+</tr>
+<tr>
+<td><code>column_dim</code></td>
+<td>string</td>
+<td>Dimension used to map issues to board columns. One of <code>"status"</code>, <code>"state"</code></td>
+</tr>
+<tr>
+<td><code>swimlane_dim</code></td>
+<td>string</td>
+<td>Dimension used to map issues to swimlanes. One of <code>"milestone"</code>, <code>"assignee"</code>, <code>"label"</code></td>
+</tr>
+<tr>
+<td><code>created_by</code></td>
+<td>object</td>
+<td>User who created the connection — <code>{ id, username, display_name, avatar_url }</code></td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 creation timestamp</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp of last update</td>
 </tr>
 </tbody>
 </table>
-<p>All three endpoints require authentication (<code>IsAuthenticated</code>) — you must be logged in to view the spec.</p>
-<h2 id="accessing-the-spec-by-deployment-type">Accessing the spec by deployment type<a class="headerlink" href="#accessing-the-spec-by-deployment-type" title="Permanent link">&para;</a></h2>
-<h3 id="docker-compose-development-docker-composeyml">Docker Compose — development (<code>docker-compose.yml</code>)<a class="headerlink" href="#docker-compose-development-docker-composeyml" title="Permanent link">&para;</a></h3>
-<p>The backend is exposed directly on port 8000 in the dev stack. The frontend dev server (Vite, port 5173) does <strong>not</strong> proxy <code>/api/</code> requests, so you must hit the backend directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>http://localhost:8000/api/schema/swagger-ui/
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>http://localhost:8000/api/schema/redoc/
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>http://localhost:8000/api/schema/
-</code></pre></div>
-<h3 id="docker-compose-production-docker-composeprodyml">Docker Compose — production (<code>docker-compose.prod.yml</code>)<a class="headerlink" href="#docker-compose-production-docker-composeprodyml" title="Permanent link">&para;</a></h3>
-<p>The backend port is <strong>not</strong> exposed externally. All traffic flows through the nginx reverse proxy, which forwards <code>/api/</code> to the backend internally. Access the spec via your domain:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://yourdomain.com/api/schema/swagger-ui/
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>https://yourdomain.com/api/schema/redoc/
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>https://yourdomain.com/api/schema/
-</code></pre></div>
-<h3 id="kubernetes-helm-chart">Kubernetes (Helm chart)<a class="headerlink" href="#kubernetes-helm-chart" title="Permanent link">&para;</a></h3>
-<p>The nginx ConfigMap in the Helm chart proxies <code>/api/</code> to the backend service. The backend is not exposed outside the cluster. Access via the ingress host configured in <code>values.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>https://&lt;ingress-host&gt;/api/schema/
-</code></pre></div>
-<p>To access the schema directly from a backend pod for debugging:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
-</code></pre></div>
-<h2 id="ci-validation">CI validation<a class="headerlink" href="#ci-validation" title="Permanent link">&para;</a></h2>
-<p>The CI pipeline runs <code>manage.py spectacular --validate</code> on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.</p>
-<h2 id="adding-annotations">Adding annotations<a class="headerlink" href="#adding-annotations" title="Permanent link">&para;</a></h2>
-<p>For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use <code>@extend_schema</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">drf_spectacular.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">extend_schema</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Move a card to a different column or swimlane&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;post&quot;</span><span class="p">])</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">...</span>
-</code></pre></div>
-<p>See the <a href="https://drf-spectacular.readthedocs.io/en/latest/customization.html">drf-spectacular docs</a> for full customization options.</p>
+<h3 id="lensdata">LensData<a class="headerlink" href="#lensdata" title="Permanent link">&para;</a></h3>
+<p>Returned by the board data endpoint. Contains the full issue grid for a board at fetch time.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>columns</code></td>
+<td>array</td>
+<td>Column dimension keys — <code>[{ key, label }]</code></td>
+</tr>
+<tr>
+<td><code>swimlanes</code></td>
+<td>array</td>
+<td>Swimlane dimension keys — <code>[{ key, label }]</code>. Synthetic keys <code>"__none__"</code> and <code>"__nostatus__"</code> appear with user-friendly labels when issues lack the relevant field.</td>
+</tr>
+<tr>
+<td><code>issues</code></td>
+<td>array</td>
+<td>Issue objects (see below)</td>
+</tr>
+<tr>
+<td><code>fetched_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp of when the data was fetched from the provider. Results are cached server-side for ~60 seconds per user + repository + pivot combination.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>object</td>
+<td><code>{ provider, repo, url }</code> — identifies the upstream source</td>
+</tr>
+<tr>
+<td><code>truncated</code></td>
+<td>boolean</td>
+<td><code>true</code> when the provider returned more issues than the server fetched. When <code>true</code>, <code>total_count</code> (if available) indicates the full result size.</td>
+</tr>
+<tr>
+<td><code>total_count</code></td>
+<td>integer / null</td>
+<td>Total issue count reported by the provider, or <code>null</code> when the provider does not expose this value</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Issue object</strong> (each element of <code>issues</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>number</code></td>
+<td>integer</td>
+<td>Issue number in the remote repository</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>string</td>
+<td>Issue title</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>URL to the issue on the provider's website</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>string</td>
+<td><code>"open"</code> or <code>"closed"</code></td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td>array</td>
+<td><code>[{ name, color }]</code> — <code>color</code> is a 6-character hex string without a leading <code>#</code> (e.g. <code>"d73a4a"</code>)</td>
+</tr>
+<tr>
+<td><code>assignees</code></td>
+<td>array</td>
+<td><code>[{ username, avatar_url }]</code></td>
+</tr>
+<tr>
+<td><code>milestone</code></td>
+<td>string / null</td>
+<td>Milestone title, or <code>null</code> if none</td>
+</tr>
+<tr>
+<td><code>column_keys</code></td>
+<td>array</td>
+<td>List of column dimension key strings this issue maps to</td>
+</tr>
+<tr>
+<td><code>swimlane_keys</code></td>
+<td>array</td>
+<td>List of swimlane dimension key strings this issue maps to. An issue may appear in <strong>multiple</strong> swimlane keys (e.g. when it carries more than one label and <code>swimlane_dim</code> is <code>"label"</code>); the UI renders it in each matching lane.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
+<h3 id="get-apiv1git-lensconnectionsboard_id"><code>GET /api/v1/git-lens/connections/{board_id}/</code><a class="headerlink" href="#get-apiv1git-lensconnectionsboard_id" title="Permanent link">&para;</a></h3>
+<p>Retrieve the saved LensConnection for a board.</p>
+<p><strong>Permissions:</strong> Any board member. Non-members receive <code>403 Forbidden</code>.</p>
+<p><strong>Response — 200 OK</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;github&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;repo_slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme/backend&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;column_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;swimlane_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;milestone&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;created_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice Smith&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-01T12:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">  </span><span class="nt">&quot;updated_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-14T09:22:11Z&quot;</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>Caller is not a member of the board</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>No lens connection is configured for this board, or <code>GIT_LENS_ENABLED</code> is not set</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="put-apiv1git-lensconnectionsboard_id"><code>PUT /api/v1/git-lens/connections/{board_id}/</code><a class="headerlink" href="#put-apiv1git-lensconnectionsboard_id" title="Permanent link">&para;</a></h3>
+<p>Create or replace the LensConnection for a board. If no connection exists, one is created; if one already exists, it is replaced in full.</p>
+<p><strong>Permissions:</strong> Board admin, board owner, or site admin. Board members without admin role receive <code>403 Forbidden</code>.</p>
+<p><strong>Request body</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Issue tracker provider. One of <code>"github"</code> or <code>"gitlab"</code></td>
+</tr>
+<tr>
+<td><code>repo_slug</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Repository in <code>owner/repo</code> format. Must be a public repository</td>
+</tr>
+<tr>
+<td><code>column_dim</code></td>
+<td>string</td>
+<td>No</td>
+<td>Dimension for board columns. One of <code>"status"</code>, <code>"state"</code> (default: <code>"status"</code>)</td>
+</tr>
+<tr>
+<td><code>swimlane_dim</code></td>
+<td>string</td>
+<td>No</td>
+<td>Dimension for swimlanes. One of <code>"milestone"</code>, <code>"assignee"</code>, <code>"label"</code> (default: <code>"milestone"</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example request</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;github&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;repo_slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme/backend&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;column_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status&quot;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">&quot;swimlane_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Response — 200 OK</strong> — the full LensConnection object (same shape as <code>GET</code>)
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;github&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;repo_slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme/backend&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;column_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;status&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;swimlane_dim&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;label&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;created_by&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">&quot;display_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Alice Smith&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="nt">&quot;created_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-01T12:00:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">&quot;updated_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-06-06T08:15:00Z&quot;</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>Invalid <code>provider</code> value, malformed <code>repo_slug</code> (must be <code>owner/repo</code>), unsupported <code>column_dim</code> or <code>swimlane_dim</code> value</td>
+</tr>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>Caller does not have board admin, owner, or site admin role</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>Board does not exist, or <code>GIT_LENS_ENABLED</code> is not set</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="delete-apiv1git-lensconnectionsboard_id"><code>DELETE /api/v1/git-lens/connections/{board_id}/</code><a class="headerlink" href="#delete-apiv1git-lensconnectionsboard_id" title="Permanent link">&para;</a></h3>
+<p>Remove the LensConnection for a board. The board's issue data cache is also purged.</p>
+<p><strong>Permissions:</strong> Board admin, board owner, or site admin. Board members without admin role receive <code>403 Forbidden</code>.</p>
+<p><strong>Response — 204 No Content</strong> — empty body.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td>Caller does not have board admin, owner, or site admin role</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td>Board does not exist, no connection is configured, or <code>GIT_LENS_ENABLED</code> is not set</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="get-apiv1git-lensboardboard_id"><code>GET /api/v1/git-lens/board/{board_id}/</code><a class="headerlink" href="#get-apiv1git-lensboardboard_id" title="Permanent link">&para;</a></h3>
+<p>Fetch live issue data from the remote provider for a board, pivoted into columns and swimlanes. The board must have a saved LensConnection (see above).</p>
+<p><strong>Permissions:</strong> Any board member. Non-members receive <code>403 Forbidden</code>.</p>
+<p><strong>Query parameters</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>column_dim</code></td>
+<td>Override the column pivot dimension for this request only. One of <code>"status"</code>, <code>"state"</code>. Does not modify the saved connection.</td>
+</tr>
+<tr>
+<td><code>swimlane_dim</code></td>
+<td>Override the swimlane pivot dimension for this request only. One of <code>"milestone"</code>, <code>"assignee"</code>, <code>"label"</code>. Does not modify the saved connection.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.</p>
+</div>
+<p><strong>Response — 200 OK</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;columns&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;open&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Open&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;closed&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Closed&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;swimlanes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v2.0&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v2.0&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v2.1&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v2.1&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;key&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;__none__&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;label&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;No milestone&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="nt">&quot;issues&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">      </span><span class="nt">&quot;number&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">214</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Fix pagination on mobile&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">      </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/acme/backend/issues/214&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">      </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;open&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bug&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;d73a4a&quot;</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mobile&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;color&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0075ca&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">      </span><span class="p">],</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">      </span><span class="nt">&quot;assignees&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;username&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;alice&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;avatar_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://avatars.githubusercontent.com/u/1234?v=4&quot;</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a><span class="w">      </span><span class="p">],</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a><span class="w">      </span><span class="nt">&quot;milestone&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;v2.0&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="w">      </span><span class="nt">&quot;column_keys&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;open&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="w">      </span><span class="nt">&quot;swimlane_keys&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;v2.0&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="w">      </span><span class="nt">&quot;number&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198</span><span class="p">,</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Update dependencies&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="w">      </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/acme/backend/issues/198&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="w">      </span><span class="nt">&quot;state&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;closed&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="w">      </span><span class="nt">&quot;labels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a><span class="w">      </span><span class="nt">&quot;assignees&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a><span class="w">      </span><span class="nt">&quot;milestone&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a><span class="w">      </span><span class="nt">&quot;column_keys&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;closed&quot;</span><span class="p">],</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a><span class="w">      </span><span class="nt">&quot;swimlane_keys&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;__none__&quot;</span><span class="p">]</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="w">  </span><span class="nt">&quot;fetched_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-06-06T08:30:00Z&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="w">  </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a><span class="w">    </span><span class="nt">&quot;provider&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;github&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a><span class="w">    </span><span class="nt">&quot;repo&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;acme/backend&quot;</span><span class="p">,</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a><span class="w">    </span><span class="nt">&quot;url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://github.com/acme/backend&quot;</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a><span class="w">  </span><span class="nt">&quot;truncated&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a><span class="w">  </span><span class="nt">&quot;total_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="p">}</span>
+</code></pre></div></p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>Caller is not a board member</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>{ "detail": "..." }</code></td>
+<td>Board does not exist, no connection is configured, or <code>GIT_LENS_ENABLED</code> is not set</td>
+</tr>
+<tr>
+<td><code>409 Conflict</code></td>
+<td><code>{ "detail": "...", "code": "auth_required" }</code></td>
+<td>Provider is GitHub and the requesting user has not linked their GitHub account. The user must connect their GitHub account via profile settings before fetching data.</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td><code>{ "detail": "...", "code": "rate_limited", "retry_after": 47 }</code></td>
+<td>The provider's API rate limit has been reached. <code>retry_after</code> is the number of seconds to wait before retrying.</td>
+</tr>
+<tr>
+<td><code>502 Bad Gateway</code></td>
+<td><code>{ "detail": "...", "code": "lens_error" }</code></td>
+<td>Upstream provider returned an unexpected error or the request timed out.</td>
+</tr>
+</tbody>
+</table>
 
 
 
