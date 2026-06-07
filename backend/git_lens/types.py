@@ -32,6 +32,18 @@ class LensUser:
 
 
 @dataclass
+class PipelineEvidence:
+    """Why an issue landed in its ``pipeline`` column — surfaced on the card so the
+    derived placement (Doing/Review) is never a black box. Populated by the provider
+    during fetch; ``None`` when the issue has no linked branch or open MR."""
+
+    branch: str | None = None       # the feature branch name driving "Doing", if any
+    mr_number: int | None = None    # the linked open MR/PR number driving "Review", if any
+    mr_url: str | None = None
+    mr_closes: bool = False          # True when the MR's closing pattern targets this issue
+
+
+@dataclass
 class NormalizedIssue:
     number: int
     title: str
@@ -44,6 +56,12 @@ class NormalizedIssue:
     # swimlane values renders in N lanes (never hide information).
     column_keys: list[str] = field(default_factory=list)
     swimlane_keys: list[str] = field(default_factory=list)
+    # Pipeline-derivation signals (populated only when the "pipeline" column_dim is
+    # requested; the fetch is otherwise unchanged). Additive, default-empty fields
+    # keep the provider→view contract backward compatible.
+    has_branch: bool = False
+    has_open_pr: bool = False
+    pipeline_evidence: PipelineEvidence | None = None
 
 
 @dataclass

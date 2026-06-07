@@ -582,6 +582,21 @@ export interface LensUser {
   avatar_url: string;
 }
 
+/**
+ * Why an issue landed in its `pipeline` column — surfaced on the card so the
+ * derived Doing/Review placement is explainable. `null` when the issue has no
+ * linked branch or open MR. Populated only for the `pipeline` column dimension.
+ */
+export interface LensPipelineEvidence {
+  /** The feature branch name driving "Doing", if any. */
+  branch: string | null;
+  /** The linked open MR/PR number driving "Review", if any. */
+  mr_number: number | null;
+  mr_url: string | null;
+  /** True when the MR's closing pattern (Closes/Fixes #N) targets this issue. */
+  mr_closes: boolean;
+}
+
 export interface NormalizedIssue {
   number: number;
   title: string;
@@ -597,6 +612,12 @@ export interface NormalizedIssue {
    * swimlane values renders once in EACH matching lane (never hide info).
    */
   swimlane_keys: string[];
+  /** Pipeline-derivation signals (present for every issue; defaults when the
+   * `pipeline` column dim wasn't requested). `pipeline_evidence` is null unless
+   * the issue has a linked branch or open MR. */
+  has_branch: boolean;
+  has_open_pr: boolean;
+  pipeline_evidence: LensPipelineEvidence | null;
 }
 
 /** Rendered, read-only lens board for a configured connection. */
