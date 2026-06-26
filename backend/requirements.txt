@@ -1,6 +1,11 @@
 Django>=5.2.15,<6
 zipp==3.19.1
-daphne==4.1.2
+daphne==4.2.2
+# Floor ujson to clear GHSA-c38f-wx89-p2xg / GHSA-c8rr-9gxc-jprv / GHSA-wgvc-ghv9-3pmm /
+# GHSA-3j69-69wj-xqx2. Pulled transitively via daphne -> autobahn, which requires only
+# ujson>=4.0.2 (unbounded), so without a floor the OSV scanner resolves the vulnerable
+# 5.9.0. autobahn imposes no upper bound, so >=5.13.0 is safe.
+ujson>=5.13.0
 channels==4.3.2
 channels-redis==4.3.0
 # Pin redis-py below 6: redis-py 8.0.0 enforces a 5s socket read timeout on
@@ -18,7 +23,7 @@ requests==2.33.0
 # Pin transitive dep (via requests) to clear GHSA-65pc-fj4g-8rjx; within requests' idna<4 range.
 idna==3.18
 PyJWT==2.13.0
-cryptography==46.0.7
+cryptography==48.0.1
 django-filter==25.2
 whitenoise==6.8.2
 drf-spectacular==0.29.0
