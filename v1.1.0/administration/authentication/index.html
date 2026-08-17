@@ -2919,12 +2919,12 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>/accounts / oidc / oidc / login/callback/
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>   │          │      │
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>   │          │      └─ provider_id — the slug assigned to this OIDC app.
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>   │          │         Visiban&#39;s env-var configuration defaults this to &quot;oidc&quot;.
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>   │          │         Visiban's env-var configuration defaults this to "oidc".
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>   │          │
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>   │          └─ allauth&#39;s OPENID_CONNECT_URL_PREFIX — a fixed namespace
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>   │             for all openid_connect providers (default value: &quot;oidc&quot;).
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>   │          └─ allauth's OPENID_CONNECT_URL_PREFIX — a fixed namespace
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>   │             for all openid_connect providers (default value: "oidc").
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>   │
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>   └─ allauth&#39;s base URL prefix — all allauth routes live under /accounts/.
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>   └─ allauth's base URL prefix — all allauth routes live under /accounts/.
 </code></pre></div>
 <p>The <code>oidc/oidc/</code> pattern is correct and expected for the default configuration.
 It is not a misconfiguration. Keycloak, Okta, Authentik, and Dex all accept

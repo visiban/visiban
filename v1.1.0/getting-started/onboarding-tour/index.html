@@ -2741,7 +2741,7 @@
 <h2 id="resetting-the-tour">Resetting the tour<a class="headerlink" href="#resetting-the-tour" title="Permanent link">&para;</a></h2>
 <p><strong>Self-service (any user):</strong> patch your own profile to re-show the tour on your next board visit:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>PATCH /api/v1/auth/me/
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>{ &quot;has_completed_tour&quot;: false }
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>{ "has_completed_tour": false }
 </code></pre></div>
 <p><strong>Admin reset (site admins only):</strong> reset any user's tour flag from the admin panel:</p>
 <ol>
@@ -2751,7 +2751,7 @@
 </ol>
 <p>You can also reset it via the Admin API:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>PATCH /api/v1/admin/users/{id}/
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>{ &quot;has_completed_tour&quot;: false }
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>{ "has_completed_tour": false }
 </code></pre></div>
 <p>In all cases the user will see the tour again the next time they open a board. Resetting the tour does not affect any board data or settings.</p>
 <h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
