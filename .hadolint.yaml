@@ -6,5 +6,14 @@
 # value — versions differ across mirror snapshots and old versions are not
 # guaranteed to remain available. Use pinned base image tags for reproducibility
 # (e.g. python:3.12-slim, node:20-alpine) instead of pinning apt packages.
+#
+# DL3066 — non-numeric user-id in USER
+# Rationale: both backend Dockerfiles create the runtime user with an explicit
+# fixed uid (`adduser --uid 1001`), so `USER visiban` always resolves to 1001
+# inside the image. The named form is kept because it is self-documenting at the
+# point of use. Added in hadolint 2.15 — see the pinned image tag in
+# .gitlab-ci.yml (dockerfile-lint); `latest` floated into 2.15.1 and turned a
+# green job red with no Dockerfile change.
 ignored:
   - DL3008
+  - DL3066

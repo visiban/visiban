@@ -219,7 +219,7 @@ shellcheck:
 dockerfile-lint:
   stage: lint
   image:
-    name: hadolint/hadolint:latest-alpine
+    name: hadolint/hadolint:v2.15.1-alpine
     entrypoint: [""]
   rules:
     - changes:
