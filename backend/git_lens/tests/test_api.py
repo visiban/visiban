@@ -513,6 +513,51 @@ class LensBoardRenderTests(TestCase):
         self.assertEqual(resp.data["source"]["provider"], "gitlab")
 
     @patch("git_lens.views.providers.get_provider")
+    def test_unexpected_parse_error_degrades_to_stale_copy(self, mock_get_provider):
+        """#1085: if a provider payload shape provider_fn didn't anticipate slips
+        past normalization and raises TypeError/KeyError/AttributeError, the view
+        must degrade to the stale copy (same as a LensError) instead of 500ing."""
+        from git_lens.types import LensFilters
+        from git_lens.views import _board_cache_key
+
+        self._connect("gitlab")
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
+        first = self.client.get(self.url)
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+
+        key = _board_cache_key("gitlab", "g/p", "status", "milestone", filters=LensFilters())
+        entry = cache.get(key)
+        entry["soft_expires"] = time.time() - 1
+        cache.set(key, entry, 600)
+
+        for exc in (
+            TypeError("'int' object is not subscriptable"),
+            KeyError(slice(None, 10, None)),
+            AttributeError("'int' object has no attribute 'lower'"),
+        ):
+            def boom(token, repo, config, filters, _exc=exc):
+                raise _exc
+
+            mock_get_provider.return_value = boom
+            resp = self.client.get(self.url)
+            self.assertEqual(resp.status_code, status.HTTP_200_OK)  # stale, not 500
+            self.assertEqual(resp.data["source"]["provider"], "gitlab")
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_unexpected_parse_error_with_no_stale_copy_returns_502_not_500(self, mock_get_provider):
+        """Same malformed-payload failure but on a cold cache (no stale copy to
+        degrade to): must still return a clean error response, never a 500."""
+        self._connect("gitlab")
+
+        def boom(token, repo, config, filters):
+            raise TypeError("'int' object is not subscriptable")
+
+        mock_get_provider.return_value = boom
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertEqual(resp.data["code"], "lens_error")
+
+    @patch("git_lens.views.providers.get_provider")
     def test_etag_conditional_get_returns_304(self, mock_get_provider):
         """A repeat GET carrying the prior ETag gets a 304 (no payload re-sent),
         bounding the client<->Visiban leg on top of the shared upstream cache."""

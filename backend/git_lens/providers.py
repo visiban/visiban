@@ -147,6 +147,17 @@ def _issue_num_from_branch(name: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _as_str_or_none(v) -> str | None:
+    """Coerce a provider-supplied scalar to ``str | None`` at the normalization
+    boundary. Provider JSON is untrusted shape, not just untrusted content —
+    ``milestone_due``/``milestone_state`` have been observed as int/dict/etc,
+    which crashes ``_current_milestone``'s slicing/``.lower()`` downstream (#1085).
+    Anything that isn't already a string is dropped rather than stringified, so a
+    malformed value degrades to "no date"/"no state" instead of propagating a
+    garbage value into the UI."""
+    return v if isinstance(v, str) else None
+
+
 @dataclass
 class _PR:
     """Provider-neutral view of one open merge/pull request, for issue linking."""
@@ -425,8 +436,8 @@ def _github_issue(raw: dict) -> NormalizedIssue:
             for a in raw.get("assignees", [])
         ],
         milestone=milestone.get("title") if milestone else None,
-        milestone_due=(milestone.get("due_on") or None) if milestone else None,
-        milestone_state=milestone.get("state") if milestone else None,
+        milestone_due=_as_str_or_none(milestone.get("due_on")) if milestone else None,
+        milestone_state=_as_str_or_none(milestone.get("state")) if milestone else None,
     )
 
 
@@ -536,8 +547,8 @@ def _gitlab_issue(raw: dict) -> NormalizedIssue:
             for a in raw.get("assignees", [])
         ],
         milestone=milestone.get("title") if milestone else None,
-        milestone_due=(milestone.get("due_date") or None) if milestone else None,
-        milestone_state=milestone.get("state") if milestone else None,
+        milestone_due=_as_str_or_none(milestone.get("due_date")) if milestone else None,
+        milestone_state=_as_str_or_none(milestone.get("state")) if milestone else None,
     )
 
 
