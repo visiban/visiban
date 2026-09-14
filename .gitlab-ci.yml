@@ -286,6 +286,7 @@ backend-test:
     - changes:
         - backend/**/*
         - requirements*.txt
+        - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: postgres:17-alpine
@@ -337,21 +338,27 @@ backend-test:
     expire_in: 1 day
 
 # Combines the .coverage.* artifacts produced by the three parallel backend-test
-# shards and enforces the 90% threshold.  Each shard runs with --parallel so
-# coverage.py treats its data file as a fragment to be combined rather than a
-# standalone measurement.  The union of all executed lines across all shards
-# equals the single-process total, so no test re-run is needed here.
+# shards *and by every feature-flagged test job* and enforces the 90% threshold.
+# Each producer runs with --parallel so coverage.py treats its data file as a
+# fragment to be combined rather than a standalone measurement.
+#
+# Every job that executes tests must be instrumented and listed in `needs`.  A
+# job left out does not merely go unmeasured — the code it covers is reported
+# as 0%, which is worse than not measuring it at all.  backend-test runs with
+# the feature flags off, so the flag-on paths (git_lens, and any future flagged
+# app) are reachable only from their dedicated jobs.
 #
 # No postgres/redis services required — this job only runs coverage combine and
 # report, no Django or test execution.
 backend-test-coverage:
   stage: test
-  needs: [backend-test]
+  needs: [backend-test, backend-test-git-lens]
   image: python:3.12-slim
   rules:
     - changes:
         - backend/**/*
         - requirements*.txt
+        - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
     - pip install --quiet coverage
@@ -436,11 +443,16 @@ backend-test-git-lens:
   stage: test
   needs: []
   image: python:3.12-slim
+  # Runs whenever backend-test-coverage runs, not only on git_lens changes.
+  # The coverage combine job `needs` this job's data file; if it were absent
+  # from the pipeline, every git_lens line would score 0% and the total would
+  # drop back below the threshold on branches that touch no git_lens file.
+  # `.gitlab-ci.yml` is in the list so a change to this job re-runs it.
   rules:
     - changes:
-        - backend/git_lens/**/*
-        - backend/visiban/settings.py
-        - backend/visiban/urls.py
+        - backend/**/*
+        - requirements*.txt
+        - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
     - name: postgres:17-alpine
@@ -464,7 +476,17 @@ backend-test-git-lens:
   script:
     - cd backend
     - python manage.py makemigrations --check --dry-run git_lens
-    - pytest git_lens/ -q
+    # Instrumented, and the data file is published for backend-test-coverage to
+    # combine.  git_lens' views/serializers/models are exercised only with
+    # GIT_LENS_ENABLED=True, which is set here and nowhere else, so an
+    # uninstrumented run made ~230 well-tested statements score 0% and pinned
+    # the project total to the 88-90% knife edge the gate sits on.
+    - coverage run --parallel --data-file=.coverage.git-lens -m pytest git_lens/ -q
+  artifacts:
+    paths:
+      - backend/.coverage.*
+    when: always
+    expire_in: 1 day
 
 # ─── OIDC smoke test ─────────────────────────────────────────────────────────
 #
