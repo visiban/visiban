@@ -1,7 +1,13 @@
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import SingleSelectDropdown from "../../Common/SingleSelectDropdown";
 import SplitButton from "../../Common/SplitButton";
 import Tooltip from "../../Common/Tooltip";
+import OverflowMenu from "../../Layout/OverflowMenu";
+import type { OverflowItem } from "../../Layout/OverflowMenu";
+import { LayoutCompactIcon, LayoutExpandedIcon } from "../toolbarIcons";
+import { useIsLargeViewport } from "../../../hooks/useIsLargeViewport";
+import { formatShortcut } from "../../../utils/platform";
 import type { LensConnection } from "../../../types";
 import type { CardLayout } from "../../../hooks/useCardLayoutPref";
 import {
@@ -12,22 +18,7 @@ import {
   lensFilterActiveCount,
 } from "./lensDims";
 
-// Reused verbatim from the board toolbar so board↔lens read identically.
-const LayoutCompactIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="18" height="5" rx="1" />
-    <rect x="3" y="10" width="18" height="5" rx="1" />
-    <rect x="3" y="17" width="18" height="4" rx="1" />
-  </svg>
-);
-const LayoutExpandedIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="7" height="7" rx="1" />
-    <rect x="14" y="3" width="7" height="7" rx="1" />
-    <rect x="3" y="14" width="7" height="7" rx="1" />
-    <rect x="14" y="14" width="7" height="7" rx="1" />
-  </svg>
-);
+
 
 interface Props {
   connection: LensConnection;
@@ -52,6 +43,30 @@ export default function LensToolbar({
   onToggleFilters,
 }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
+  // Mirrors the native board's Row 2: below `lg` the low-frequency controls fold
+  // into a kebab instead of pushing the row into a horizontal scroll (#1064 —
+  // "lens kebab only when it has folded items (sub-lg)"). The lens has no
+  // ConnectionStatus to pin beside it: it has no WebSocket, it is a pull-only
+  // mirror, so the trailing cluster is the kebab alone.
+  const isLargeViewport = useIsLargeViewport();
+  const foldToolbarControls = !isLargeViewport;
+
+  const layoutShortcutLabel = formatShortcut({ mod: true, shift: true, key: "L" });
+  const layoutLabel =
+    cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout";
+
+  const overflowItems: OverflowItem[] = useMemo(() => {
+    if (!foldToolbarControls) return [];
+    return [
+      {
+        id: "lens-layout",
+        label: cardLayout === "compact" ? "Layout: Compact" : "Layout: Expanded",
+        icon: cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon,
+        shortcut: layoutShortcutLabel,
+        onSelect: onToggleLayout,
+      },
+    ];
+  }, [foldToolbarControls, cardLayout, layoutShortcutLabel, onToggleLayout]);
 
   const rawColumnDim = searchParams.get("column_dim");
   const rawSwimlaneDim = searchParams.get("swimlane_dim");
@@ -128,7 +143,7 @@ export default function LensToolbar({
           );
         }}
       />
-      <Tooltip content={showFilters ? "Hide filters" : "Filters"}>
+      <Tooltip content={showFilters ? "Hide filters (F)" : "Filters (F)"}>
         <button
           type="button"
           onClick={onToggleFilters}
@@ -136,6 +151,7 @@ export default function LensToolbar({
             showFilters ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
           aria-pressed={showFilters || activeCount > 0}
+          aria-keyshortcuts="f"
           aria-label={activeCount > 0 ? `Filters, ${activeCount} active` : "Filters"}
         >
           {showFilters ? "Hide filters" : "Filters"}
@@ -146,20 +162,14 @@ export default function LensToolbar({
           )}
         </button>
       </Tooltip>
-      <Tooltip
-        content={
-          cardLayout === "compact"
-            ? "Switch to expanded card layout"
-            : "Switch to compact card layout"
-        }
-      >
+      {!foldToolbarControls && (
+      <Tooltip content={`${layoutLabel} (${layoutShortcutLabel})`}>
         <button
           type="button"
           onClick={onToggleLayout}
           aria-pressed={cardLayout === "compact"}
-          aria-label={
-            cardLayout === "compact" ? "Switch to expanded card layout" : "Switch to compact card layout"
-          }
+          aria-label={layoutLabel}
+          aria-keyshortcuts={formatShortcut({ mod: true, shift: true, key: "L" })}
           className={`p-1.5 rounded transition shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
             cardLayout === "compact" ? "text-info bg-info/10" : "text-fg-secondary hover:text-fg hover:bg-surface-hover"
           }`}
@@ -167,6 +177,7 @@ export default function LensToolbar({
           {cardLayout === "compact" ? LayoutCompactIcon : LayoutExpandedIcon}
         </button>
       </Tooltip>
+      )}
 
       <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
       {/* Lens-specific pivot controls — to the right of the board-shared zone. */}
@@ -182,6 +193,11 @@ export default function LensToolbar({
         selected={swimlaneDim}
         onChange={(v) => setPivot({ swimlane_dim: v ?? connection.swimlane_dim })}
       />
+      {foldToolbarControls && overflowItems.length > 0 && (
+        <div className="shrink-0 pl-1 ml-1 border-l border-line flex items-center">
+          <OverflowMenu items={overflowItems} ariaLabel="Lens actions" />
+        </div>
+      )}
       {isCustomPivot && (
         <span className="text-xs text-fg-muted flex items-center gap-1.5 shrink-0">
           Viewing a custom pivot ·

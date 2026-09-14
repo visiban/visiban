@@ -94,9 +94,23 @@ You can change the swimlane dimension in **Settings → Lens → Swimlanes**:
 
 Issues that match multiple swimlane values (for example, an issue with two labels when swimlanes are by label) appear once in each matching swimlane.
 
+#### The current milestone is promoted
+
+When swimlanes are grouped by milestone, the milestone you are actively working on sorts to the **top** of the board and is marked with a **Current** badge, so it is not buried among every other milestone. Every other milestone stays visible below it — nothing is hidden or filtered away.
+
+Visiban works out which milestone is current on its own; there is nothing to configure:
+
+- The open milestone whose due date is nearest wins. If every open milestone is already past due, the most recently due one is used — an overdue milestone is still the one in progress.
+- If none of your milestones have due dates, and you are using the **Pipeline** column view, the milestone with the most issues in *Doing* and *Review* wins instead.
+- If neither applies, no milestone is marked.
+
+The **Ungrouped** swimlane is never marked current.
+
 ### Refreshing data
 
 The lens does not poll automatically. Click **Refresh** in the Lens toolbar to fetch the latest issues from the provider. A **Synced X ago** indicator below the toolbar shows when data was last fetched so you always know how fresh the view is.
+
+To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the **Synced X ago** indicator will not advance. Refresh is available to every board role, including viewers.
 
 !!! tip
     Refresh after closing a sprint or milestone to update the board before your retrospective.

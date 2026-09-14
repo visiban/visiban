@@ -61,6 +61,7 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
+import { LayoutCompactIcon, LayoutExpandedIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
@@ -175,21 +176,9 @@ function ViewToggle({
 // Icon constants for the overflow menu. Kept at module scope so the JSX
 // nodes are stable across renders and the items useMemo is not invalidated
 // by fresh icon references every render.
-const LayoutCompactIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="18" height="5" rx="1" />
-    <rect x="3" y="10" width="18" height="5" rx="1" />
-    <rect x="3" y="17" width="18" height="4" rx="1" />
-  </svg>
-);
-const LayoutExpandedIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="7" height="7" rx="1" />
-    <rect x="14" y="3" width="7" height="7" rx="1" />
-    <rect x="3" y="14" width="7" height="7" rx="1" />
-    <rect x="14" y="14" width="7" height="7" rx="1" />
-  </svg>
-);
+// Layout icons live in ./toolbarIcons so the lens toolbar renders the exact
+// same nodes — board↔lens parity is a design requirement (#1064).
+
 const ArchivedIcon = (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
     <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" strokeLinejoin="round" />
@@ -838,6 +827,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const VALID_VIEWS = ["board", "summary", "history", "analytics", "lens"] as const;
   const rawView = searchParams.get("view");
   const view: BoardViewName = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as BoardViewName) : "board";
+  // Assign-on-render ref (same pattern as cardLayoutRef) so the keydown handler
+  // can route `f` to the lens filter row when the lens tab is showing without
+  // re-subscribing. Must sit AFTER `view` is derived — `view` is a plain const,
+  // so reading it earlier is a temporal-dead-zone crash that tsc cannot see.
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const setView = (v: BoardViewName) =>
     setSearchParams(
       (prev) => {
@@ -980,6 +975,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
       if (e.key === "f") {
         e.preventDefault();
+        // The lens has its own filter row on the shared Row 2; `f` must toggle
+        // whichever one is actually on screen. Without this the shortcut
+        // silently toggled the hidden board row while the lens was showing.
+        if (viewRef.current === "lens") {
+          setLensShowFilters((v) => !v);
+          return;
+        }
         setShowFilters((v) => {
           if (!v) {
             // Opening: focus first interactive element in the filter bar

@@ -65,6 +65,12 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   const focusKey = rawFocus && laneKeys.has(rawFocus) ? rawFocus : null;
   // "*" is the collapse-all sentinel set by the Row-2 Collapse button (which has
   // no lane keys); resolve it here against the live keys.
+  //
+  // The sentinel is deliberately open-ended: it means "every lane", not "the lanes
+  // that existed when you clicked". So a milestone that appears upstream after a
+  // refresh arrives collapsed, which is what someone who chose Collapse all and
+  // shared the link expects. Toggling any single lane writes the concrete key list
+  // and drops that property.
   const collapsedKeys = useMemo(() => {
     const raw = searchParams.get("lens_collapsed");
     if (raw === "*") return new Set(laneKeys);
@@ -75,9 +81,17 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   const toggleCollapse = (key: string) => {
     setSearchParams((prev) => {
       const raw = prev.get("lens_collapsed");
+      // Filter against the LIVE lane keys, exactly as the read path above does.
+      // Without this, keys left in the URL for lanes that no longer exist (after a
+      // re-pivot, or after a filter shrank the lane set) still count toward
+      // `cur.size`, so the `>= laneKeys.size` normalization below can trip while
+      // real lanes are still expanded — collapsing the whole board on a single
+      // lane toggle.
       const cur = raw === "*"
         ? new Set(laneKeys)
-        : new Set(raw?.split(",").map(decodeURIComponent) ?? []);
+        : new Set(
+            (raw?.split(",").map(decodeURIComponent) ?? []).filter((k) => laneKeys.has(k)),
+          );
       if (cur.has(key)) cur.delete(key);
       else cur.add(key);
       if (cur.size === 0) prev.delete("lens_collapsed");
