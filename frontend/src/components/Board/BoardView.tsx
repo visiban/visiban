@@ -1527,13 +1527,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
             <div className="flex items-center gap-2 h-full min-w-max">
               <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
-              <LensToolbar
-                connection={lensConnection}
-                cardLayout={cardLayout}
-                onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
-                showFilters={lensShowFilters}
-                onToggleFilters={() => setLensShowFilters((v) => !v)}
-              />
+              {/* Inside its own Lens boundary: before the toolbar was split out of
+                  LensView, all lens chrome sat inside the boundary below. Without
+                  this, a throw from LensToolbar escapes the Lens section and takes
+                  down the whole board page instead of just the lens pane. */}
+              <SectionErrorBoundary section="Lens">
+                <LensToolbar
+                  connection={lensConnection}
+                  cardLayout={cardLayout}
+                  onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                  showFilters={lensShowFilters}
+                  onToggleFilters={() => setLensShowFilters((v) => !v)}
+                />
+              </SectionErrorBoundary>
             </div>
           </div>
         </nav>

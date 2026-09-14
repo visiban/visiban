@@ -78,6 +78,15 @@ describe('useCardLayoutPref', () => {
     expect(second.current[0]).toBe('compact')
   })
 
+  it('ignores the legacy lens-density key so the native board is not silently flipped', () => {
+    // This hook has ONE instance (BoardView) driving both the native board and the
+    // lens. Honoring a lens-only "compact" pref here would change the appearance of
+    // a surface the user never configured. Regression guard for that leak.
+    localStorage.setItem('user:prefs:lens-density', 'compact')
+    const { result } = renderHook(() => useCardLayoutPref())
+    expect(result.current[0]).toBe('expanded')
+  })
+
   it('toggling compact then back to expanded round-trips correctly', () => {
     const { result } = renderHook(() => useCardLayoutPref())
     act(() => { result.current[1]('compact') })

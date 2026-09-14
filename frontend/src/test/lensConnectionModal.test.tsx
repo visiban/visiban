@@ -74,7 +74,9 @@ describe('LensConnectionModal', () => {
     await waitFor(() => expect(mockPut).toHaveBeenCalledWith(5, {
       provider: 'github',
       repo_slug: 'acme/widgets',
-      column_dim: 'status',
+      // New lenses default to the Pipeline column view (see LensConnectionModal
+      // useState default); Status degrades to open/closed without status:: labels.
+      column_dim: 'pipeline',
       swimlane_dim: 'milestone',
     }))
     expect(onSaved).toHaveBeenCalledWith(savedConnection)

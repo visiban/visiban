@@ -24,6 +24,7 @@ from rest_framework.test import APIClient
 
 from boards.models import BoardMembership
 from boards.tests.conftest import _make_board, _make_user
+from git_lens import views
 from git_lens.models import LensConnection
 from git_lens.types import LensAxis, LensData, NormalizedIssue
 
@@ -351,7 +352,9 @@ class LensBoardRenderTests(TestCase):
         mock_get_provider.return_value = counting
         self.client.get(self.url + "?refresh=1")  # cold → fetch (1), claims cooldown
         self.assertEqual(calls["n"], 1)
-        cache.delete(f"git_lens:force:{self.board.id}:{self.owner.id}")  # cooldown lapses
+        # Cooldown is keyed on (provider, repo, user) — the provider rate limit it
+        # protects is shared by every board pointing at the same repo.
+        cache.delete(f"git_lens:force:gitlab:g/p:{self.owner.id}")  # cooldown lapses
         self.client.get(self.url + "?refresh=1")  # force → re-fetch (2)
         self.assertEqual(calls["n"], 2)
 
@@ -380,6 +383,45 @@ class LensBoardRenderTests(TestCase):
         resp = c.get(self.url + "?refresh=1")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(calls["n"], 1)  # the viewer's force actually fetched
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_novel_milestone_filters_cannot_loop_the_provider(self, mock_get_provider):
+        """`milestone` is free text, so the cache key space is unbounded and every
+        novel value is a COLD key that fetches — bypassing both the soft-TTL and the
+        force-refresh cooldown (which only guards ?refresh=1). A per-(provider, repo,
+        user) budget bounds upstream calls regardless of which path triggered them."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        last = None
+        for i in range(views.LENS_FETCH_BUDGET + 6):
+            last = self.client.get(self.url + f"?milestone=novel-{i}")
+        self.assertEqual(calls["n"], views.LENS_FETCH_BUDGET)
+        # No cached copy exists for a novel key, so the over-budget caller is told
+        # to back off rather than being served someone else's board.
+        self.assertEqual(last.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(last.data["code"], "fetch_budget_exhausted")
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_over_budget_serves_stale_rather_than_429(self, mock_get_provider):
+        """When a cached copy exists, an exhausted budget degrades to the stale copy
+        — the board still renders. 429 is only for the cold-key case."""
+        self._connect("gitlab")
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
+        self.client.get(self.url)  # seed the cache for the unfiltered key
+        cache.set(
+            f"git_lens:budget:gitlab:g/p:{self.owner.id}",
+            views.LENS_FETCH_BUDGET + 50,
+            views.LENS_FETCH_BUDGET_WINDOW,
+        )
+        resp = self.client.get(self.url + "?refresh=1")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data["issues"]), 1)
 
     def test_lock_ttl_covers_worst_case_pipeline_fetch(self):
         """The single-flight lock must outlive the slowest fetch it guards, or it

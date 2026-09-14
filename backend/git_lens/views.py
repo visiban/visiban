@@ -52,7 +52,9 @@ def _parse_filters(request) -> LensFilters:
 LENS_CACHE_SOFT_TTL = 60     # serve cached data without revalidating for this long
 LENS_CACHE_HARD_TTL = 600    # keep a stale-servable copy this long (SWR + error fallback)
 LENS_FETCH_LOCK_TTL = 75     # single-flight lock; must exceed worst-case fetch (see assertion)
-LENS_FORCE_REFRESH_COOLDOWN = 30  # per (board, user) floor between ?refresh=1 re-fetches
+LENS_FORCE_REFRESH_COOLDOWN = 30  # per (provider, repo, user) floor between ?refresh=1 re-fetches
+LENS_FETCH_BUDGET = 12            # upstream fetches allowed per window, per (provider, repo, user)
+LENS_FETCH_BUDGET_WINDOW = 300    # seconds
 
 # The lock must outlive the worst-case synchronous fetch, or it could expire
 # mid-fetch and let a second fetcher dogpile the provider. Tie the constants
@@ -85,18 +87,50 @@ _BOARD_PERMISSIONS = [
 ]
 
 
-def _claim_force_refresh(board, user) -> bool:
-    """Consume this user's force-refresh budget for *board*; False if already spent.
+def _claim_force_refresh(conn, user) -> bool:
+    """Consume this user's force-refresh slot for *conn*'s repo; False if spent.
 
     ``cache.add`` only succeeds when the key is absent, so the claim is atomic
     against concurrent clicks. Callers degrade to a normal soft-TTL read rather
     than erroring: a second click inside the cooldown still returns a board, and
     the provenance banner's "Synced X ago" keeps telling the truth about how
     fresh that copy actually is.
+
+    Keyed on (provider, repo, user) rather than (board, user) because the thing
+    being protected is the PROVIDER's rate limit, and that is shared by every
+    board pointing at the same repo. A per-board key would let one user multiply
+    their budget by simply being a member of several boards on one repo.
     """
     return cache.add(
-        f"git_lens:force:{board.id}:{user.id}", 1, LENS_FORCE_REFRESH_COOLDOWN
+        f"git_lens:force:{conn.provider}:{conn.repo_slug}:{user.id}",
+        1,
+        LENS_FORCE_REFRESH_COOLDOWN,
     )
+
+
+def _claim_fetch_budget(conn, user) -> bool:
+    """Consume one upstream-fetch slot for (provider, repo, user); False if spent.
+
+    Bounds how many provider fetches one viewer can cause for one repo regardless
+    of WHICH path triggered them. ``?refresh=1`` has its own cooldown, but a cold
+    cache key also fetches, and ``milestone`` is free text (see ``_parse_filters``)
+    so the key space — and therefore the supply of cold keys — is unbounded. Without
+    this, a viewer can loop novel ``?milestone=`` values and drive a full upstream
+    fetch on every request, bypassing both the soft-TTL and the refresh cooldown.
+
+    A fixed window rather than a sliding one: it keeps the claim to a single atomic
+    cache op, and precision is not the point. The budget is deliberately generous —
+    it exists to stop a scripted loop, not to ration normal use. Re-pivoting and
+    filtering by hand for a few minutes stays well under it.
+    """
+    key = f"git_lens:budget:{conn.provider}:{conn.repo_slug}:{user.id}"
+    if cache.add(key, 1, LENS_FETCH_BUDGET_WINDOW):
+        return True
+    try:
+        return cache.incr(key) <= LENS_FETCH_BUDGET
+    except ValueError:
+        # The window expired between add() and incr(); start a fresh one.
+        return cache.add(key, 1, LENS_FETCH_BUDGET_WINDOW)
 
 
 def _require_board_admin(role):
@@ -329,7 +363,7 @@ class LensBoardView(APIView):
         # sequential re-fetches and burn the shared provider quota for every board
         # on that provider (#1073 rbac-check finding).
         force = request.query_params.get("refresh") in ("1", "true")
-        if force and not _claim_force_refresh(board, request.user):
+        if force and not _claim_force_refresh(conn, request.user):
             force = False
 
         return self._serve_board(
@@ -355,6 +389,20 @@ class LensBoardView(APIView):
         entry = cache.get(key)
         if not force and entry is not None and time.time() < entry["soft_expires"]:
             return _board_response(entry["payload"], request)  # fresh
+
+        # Past this point every path hits the provider, so spend the budget first —
+        # before taking the lock, so an exhausted caller never holds it (#1071
+        # security-review finding).
+        if not _claim_fetch_budget(conn, request.user):
+            if entry is not None:
+                return _board_response(entry["payload"], request)  # stale beats 429
+            return Response(
+                {
+                    "detail": "Too many lens refreshes for this repository. Try again shortly.",
+                    "code": "fetch_budget_exhausted",
+                },
+                status=429,
+            )
 
         # Stale or cold: try to become the sole fetcher for this (repo, pivot).
         holding_lock = cache.add(_lock_key(key), "1", LENS_FETCH_LOCK_TTL)
