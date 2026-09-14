@@ -1941,6 +1941,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#current-milestone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current milestone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#refresh-and-rate-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refresh and rate limits
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2855,7 +2877,7 @@
 <tr>
 <td><code>swimlanes</code></td>
 <td>array</td>
-<td>Swimlane dimension keys — <code>[{ key, label }]</code>. Synthetic keys <code>"__none__"</code> and <code>"__nostatus__"</code> appear with user-friendly labels when issues lack the relevant field.</td>
+<td>Swimlane dimension keys — <code>[{ key, label, is_current? }]</code>. Synthetic keys <code>"__none__"</code> and <code>"__nostatus__"</code> appear with user-friendly labels when issues lack the relevant field. <code>is_current</code> is <code>true</code> on at most one lane, only when <code>swimlane_dim=milestone</code>, marking the milestone currently being worked on (see <a href="#current-milestone">Current milestone</a>). The field is additive — treat its absence as <code>false</code>.</td>
 </tr>
 <tr>
 <td><code>issues</code></td>
@@ -2933,6 +2955,16 @@
 <td><code>milestone</code></td>
 <td>string / null</td>
 <td>Milestone title, or <code>null</code> if none</td>
+</tr>
+<tr>
+<td><code>milestone_due</code></td>
+<td>string / null</td>
+<td>Due date of that milestone as an ISO date (<code>YYYY-MM-DD</code>), or <code>null</code>. Carried through from the provider so current-milestone detection needs no second API call. Additive field.</td>
+</tr>
+<tr>
+<td><code>milestone_state</code></td>
+<td>string / null</td>
+<td>State of that milestone — <code>"active"</code>/<code>"open"</code> vs <code>"closed"</code> — or <code>null</code>. Additive field.</td>
 </tr>
 <tr>
 <td><code>column_keys</code></td>
@@ -3109,7 +3141,7 @@
 <td><code>column_dim</code></td>
 <td>string</td>
 <td>No</td>
-<td>Dimension for board columns. One of <code>"status"</code>, <code>"state"</code>, <code>"pipeline"</code> (default: <code>"status"</code>)</td>
+<td>Dimension for board columns. One of <code>"status"</code>, <code>"state"</code>, <code>"pipeline"</code> (default: <code>"pipeline"</code>)</td>
 </tr>
 <tr>
 <td><code>swimlane_dim</code></td>
@@ -3224,6 +3256,11 @@
 <td><code>milestone</code></td>
 <td>string</td>
 <td>Filter to a single milestone by title. Use the synthetic value <code>"__none__"</code> to return only issues with no milestone. Max 255 characters. Applied <strong>server-side</strong> for GitLab; <strong>client-side</strong> for GitHub (see <a href="#filtering">Filtering</a>). Omitting returns all milestones.</td>
+</tr>
+<tr>
+<td><code>refresh</code></td>
+<td>string</td>
+<td><code>"1"</code> or <code>"true"</code> forces a re-fetch from the provider past the ~60s server cache, so the response carries a fresh <code>fetched_at</code>. Rate-limited per user, per repository (see <a href="#refresh-and-rate-limits">Refresh and rate limits</a>); a request inside the cooldown is served the cached copy instead — it does not error.</td>
 </tr>
 </tbody>
 </table>
@@ -3412,6 +3449,55 @@
 </tr>
 </tbody>
 </table>
+<h2 id="current-milestone">Current milestone<a class="headerlink" href="#current-milestone" title="Permanent link">&para;</a></h2>
+<p>When <code>swimlane_dim=milestone</code>, the server marks at most one swimlane <code>is_current: true</code> — the
+milestone being actively worked on — so a client can promote it instead of burying it among
+every other milestone.</p>
+<p>Detection is automatic; there is no configuration and no per-release maintenance:</p>
+<ol>
+<li>Among milestones that are <strong>not closed</strong> and have <strong>at least one open issue</strong>, the one whose
+   due date is nearest — the next upcoming due date, or, if every candidate is already past, the
+   most recent past one (an overdue milestone is still the one in progress).</li>
+<li>Only when <strong>no</strong> candidate carries a due date <em>and</em> <code>column_dim=pipeline</code>: the milestone with
+   the most issues sitting in Doing/Review.</li>
+<li>Otherwise no lane is marked.</li>
+</ol>
+<p>Ties break on milestone title, so the result is stable across fetches. The synthetic
+<code>"__none__"</code> lane is never marked current.</p>
+<p>The precedence is deliberately independent of <code>column_dim</code> so the marked lane does not move when
+a viewer switches column views — the in-progress signal in rule 2 is only computable under
+pipeline columns, so leading with it would make the badge flicker between pivots.</p>
+<h2 id="refresh-and-rate-limits">Refresh and rate limits<a class="headerlink" href="#refresh-and-rate-limits" title="Permanent link">&para;</a></h2>
+<p>Board data is cached server-side for ~60 seconds per repository and pivot, shared across
+everyone viewing that board. <code>?refresh=1</code> deliberately bypasses that cache.</p>
+<p>Two limits bound how much upstream traffic one account can cause. Both are per user <strong>per
+repository</strong> — not per board — because the budget being protected is the provider's rate limit,
+which every board pointing at the same repository shares:</p>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Window</th>
+<th>Behavior when exceeded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One forced refresh (<code>?refresh=1</code>)</td>
+<td>30 s</td>
+<td>The request is served the cached copy. No error; <code>fetched_at</code> simply does not advance.</td>
+</tr>
+<tr>
+<td>12 upstream fetches from any path</td>
+<td>5 min</td>
+<td>A cached copy is served if one exists, otherwise <code>429 Too Many Requests</code> with <code>code: "fetch_budget_exhausted"</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The second limit covers cold cache keys as well as forced refreshes, because <code>milestone</code> accepts
+free text and every new value is a cache miss that would otherwise reach the provider.</p>
+<p>Refresh is available to <strong>every</strong> board role including viewers — the lens is a read-only surface
+whose main audience is viewers, so the cap is on rate, not on role.</p>
 
 
 

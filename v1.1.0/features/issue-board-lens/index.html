@@ -1427,6 +1427,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Swimlanes — the vertical dimension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-current-milestone-is-promoted" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The current milestone is promoted
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2881,8 +2898,18 @@
 </tbody>
 </table>
 <p>Issues that match multiple swimlane values (for example, an issue with two labels when swimlanes are by label) appear once in each matching swimlane.</p>
+<h4 id="the-current-milestone-is-promoted">The current milestone is promoted<a class="headerlink" href="#the-current-milestone-is-promoted" title="Permanent link">&para;</a></h4>
+<p>When swimlanes are grouped by milestone, the milestone you are actively working on sorts to the <strong>top</strong> of the board and is marked with a <strong>Current</strong> badge, so it is not buried among every other milestone. Every other milestone stays visible below it — nothing is hidden or filtered away.</p>
+<p>Visiban works out which milestone is current on its own; there is nothing to configure:</p>
+<ul>
+<li>The open milestone whose due date is nearest wins. If every open milestone is already past due, the most recently due one is used — an overdue milestone is still the one in progress.</li>
+<li>If none of your milestones have due dates, and you are using the <strong>Pipeline</strong> column view, the milestone with the most issues in <em>Doing</em> and <em>Review</em> wins instead.</li>
+<li>If neither applies, no milestone is marked.</li>
+</ul>
+<p>The <strong>Ungrouped</strong> swimlane is never marked current.</p>
 <h3 id="refreshing-data">Refreshing data<a class="headerlink" href="#refreshing-data" title="Permanent link">&para;</a></h3>
 <p>The lens does not poll automatically. Click <strong>Refresh</strong> in the Lens toolbar to fetch the latest issues from the provider. A <strong>Synced X ago</strong> indicator below the toolbar shows when data was last fetched so you always know how fresh the view is.</p>
+<p>To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the <strong>Synced X ago</strong> indicator will not advance. Refresh is available to every board role, including viewers.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Refresh after closing a sprint or milestone to update the board before your retrospective.</p>
