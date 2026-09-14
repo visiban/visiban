@@ -42,9 +42,18 @@ Migrate Job: {{ include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName
 - name: USE_X_ACCEL_REDIRECT
   value: "false"
 - name: REDIS_URL
-  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
+  {{- /*
+  The bundled Valkey is deployed via the bitnami/valkey subchart, which names
+  its own resources off $.Release.Name directly (release-valkey-primary) —
+  NOT off visiban.fullname (release-visiban), which is this chart's own
+  naming convention for ITS OWN templates. Using visiban.fullname here
+  pointed at a Service that never existed, so the backend could never reach
+  Redis: the readiness probe failed forever and `helm upgrade --wait` timed
+  out on every install with valkey.enabled=true (#1116 deploy-testing gap).
+  */}}
+  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL
-  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" (include "visiban.fullname" $ctx) | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
+  value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
 - name: EMAIL_BACKEND
   value: {{ printf "django.core.mail.backends.%s.EmailBackend" $ctx.Values.backend.email.backend | quote }}
 - name: EMAIL_HOST
