@@ -14,12 +14,19 @@ vi.mock('@tiptap/react', () => ({
   ReactRenderer: vi.fn(),
 }))
 
-vi.mock('@tiptap/starter-kit', () => ({ default: {} }))
-vi.mock('@tiptap/extension-placeholder', () => ({
+// RichTextEditor calls StarterKit.configure({ link: false, underline: false }) to
+// keep Tiptap 3's newly-bundled Link and Underline extensions off, so the stub
+// needs a configure() rather than a bare object.
+vi.mock('@tiptap/starter-kit', () => ({
   default: { configure: vi.fn(() => ({})) },
 }))
-vi.mock('@tiptap/extension-text-style', () => ({ default: {} }))
-vi.mock('@tiptap/extension-color', () => ({ Color: {} }))
+// Tiptap 3 folded Placeholder into @tiptap/extensions and Color into
+// @tiptap/extension-text-style — the standalone extension-placeholder and
+// extension-color packages are no longer installed, so mock the new homes.
+vi.mock('@tiptap/extensions', () => ({
+  Placeholder: { configure: vi.fn(() => ({})) },
+}))
+vi.mock('@tiptap/extension-text-style', () => ({ TextStyle: {}, Color: {} }))
 vi.mock('@tiptap/extension-mention', () => ({
   default: {
     extend: vi.fn((spec) => ({ ...spec, configure: vi.fn(() => ({})) })),

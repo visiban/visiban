@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEscapeStack } from "../../hooks/useEscapeStack";
 import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import TextStyle from "@tiptap/extension-text-style";
-import { Color } from "@tiptap/extension-color";
-import Placeholder from "@tiptap/extension-placeholder";
+import { TextStyle, Color } from "@tiptap/extension-text-style";
+import { Placeholder } from "@tiptap/extensions";
 import MentionExtension from "@tiptap/extension-mention";
+import type { MentionOptions } from "@tiptap/extension-mention";
 import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -146,8 +146,14 @@ function ColorPicker({
 // through tiptap-markdown's getMarkdown() as plain @username text.
 const MentionWithMarkdown = MentionExtension.extend({
   addOptions() {
+    // Tiptap 3 types every MentionOptions field as required, so spreading a
+    // possibly-undefined `this.parent?.()` leaves them all optional and no longer
+    // satisfies the return type. `extend()` always supplies a parent for an
+    // extension that defines addOptions (Mention does), so assert it here rather
+    // than restating each inherited field.
+    const parent = this.parent?.() as MentionOptions;
     return {
-      ...this.parent?.(),
+      ...parent,
       markdown: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         serialize(state: any, node: any) {
@@ -200,7 +206,14 @@ export default function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // Tiptap 3's StarterKit bundles Link (with autolink: true) and Underline;
+      // Tiptap 2's did not. Leaving them on would silently change what gets
+      // stored: a bare URL typed into a description would become a link mark and
+      // serialize as a markdown link, and Ctrl+U would start emitting <u> HTML.
+      // Both are content changes, not rendering changes, so they are disabled
+      // here to keep this upgrade behavior-neutral. Adopting autolinking is a
+      // deliberate product decision — see #1105.
+      StarterKit.configure({ link: false, underline: false }),
       TextStyle,
       Color,
       Placeholder.configure({ placeholder }),
