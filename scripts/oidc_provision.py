@@ -170,8 +170,9 @@ def _preflight(url: str) -> None:
         return
 
     try:
-        with socket.create_connection((host, port), timeout=5):
-            print(f"  preflight: TCP connect to {host}:{port} succeeded")
+        with socket.create_connection((host, port), timeout=5) as sock:
+            peer = sock.getpeername()[0]
+            print(f"  preflight: TCP connect to {host}:{port} succeeded via {peer}")
     except OSError as exc:
         print(f"  preflight: TCP connect to {host}:{port} failed ({exc})")
 

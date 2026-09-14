@@ -539,6 +539,28 @@ oidc-smoke:
     # callback flow resolves without needing the frontend running.
     FRONTEND_URL: "http://localhost:8000/api/health/liveness/"
   before_script:
+    # Pin the keycloak alias to its IPv4 address.
+    #
+    # GitLab's service DNS returns both an A and an IPv6 ULA (fd76::/8) record.
+    # When a client reaches Keycloak over IPv6, Keycloak classifies it as an
+    # *external* connection — its SslRequired.EXTERNAL check only recognises
+    # IPv4 private ranges as local — and the master realm's default
+    # sslRequired=external then rejects plain HTTP with
+    #   403 {"error":"invalid_request","error_description":"HTTPS required"}
+    # on every request. That is what "did not become ready within 240s" has
+    # actually been since 2026-08-03: an immediate, consistent 403, not a slow
+    # boot. Forcing IPv4 keeps the connection "local" so HTTP is allowed, and
+    # is applied via /etc/hosts so the Django process picks it up too.
+    - |
+      KC_IPV4="$(getent ahostsv4 keycloak | awk 'NR==1{print $1}')"
+      if [ -n "${KC_IPV4}" ]; then
+        printf '%s keycloak\n' "${KC_IPV4}" > /tmp/hosts.new
+        cat /etc/hosts >> /tmp/hosts.new
+        cp /tmp/hosts.new /etc/hosts
+        echo "pinned keycloak -> ${KC_IPV4} (IPv4)"
+      else
+        echo "WARNING: could not resolve an IPv4 address for keycloak" >&2
+      fi
     - pip install --quiet -r backend/requirements.txt requests
     # Provision Keycloak: waits for readiness, then creates realm/client/user.
     # 240s budget — Keycloak's JVM boot routinely exceeds the previous 120s when
