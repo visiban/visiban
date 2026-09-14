@@ -298,6 +298,12 @@ REST_FRAMEWORK = {
         # Tighter limit for user-search: protects against enumeration attacks
         # while still comfortably supporting interactive autocomplete use.
         "user_search": "9999/hour" if DEBUG else "30/min",
+        # Cross-board card query (#1112): the first bulk-read endpoint that can
+        # return a member's entire accessible-card corpus (across every board
+        # they belong to) in a handful of ?search=/paged requests, unlike every
+        # other card read which is scoped to one board. Generous enough for a
+        # UI polling for incremental sync, tight enough to bound scraping.
+        "card_query": "9999/hour" if DEBUG else "120/min",
         # Invite-link redemption: low ceiling prevents token brute-force scanning.
         "join_group": "9999/hour" if DEBUG else "10/hour",
         # Registration: prevents invite token brute-force and mass account creation.
