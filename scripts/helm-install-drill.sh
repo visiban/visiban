@@ -252,7 +252,7 @@ ok "both Deployments report available"
 # ---------------------------------------------------------------------------
 step "2. helm test"
 # ---------------------------------------------------------------------------
-helm test "$RELEASE" --namespace "$NAMESPACE" --timeout 5m --logs \
+helm test "$RELEASE" --namespace "$NAMESPACE" --timeout 5m \
   || die "helm test failed — the install is up but not serving (see probe output above)"
 ok "helm test passed: backend ready and the nginx upstream resolves"
 
