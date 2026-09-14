@@ -1290,6 +1290,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scopes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scopes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scopes-are-non-hierarchical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scopes are non-hierarchical
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#default-scopes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Default scopes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tokens-created-before-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tokens created before 1.2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-a-scope-cannot-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a scope cannot do
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#expiry" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2814,6 +2875,58 @@
 <p>Because the full token value is shown only once, the Access Tokens list identifies each token by its <strong>prefix</strong> — the first 8 characters of the raw value (e.g. <code>vbn_a3f1...</code>). Combined with the name you gave the token and the <strong>last used</strong> timestamp, this is usually enough to tell tokens apart.</p>
 <p>The <strong>Last used</strong> column shows when the token was last used to authenticate an API request. Tokens that have never been used show "Never".</p>
 <hr />
+<h2 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Every token created from version 1.2 onward carries an explicit list of <strong>scopes</strong> — the operations it is allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential that is less powerful than your own account.</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Grants</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>read</code></td>
+<td><code>GET</code>, <code>HEAD</code> and <code>OPTIONS</code> requests to the REST API</td>
+</tr>
+<tr>
+<td><code>write</code></td>
+<td><code>POST</code>, <code>PUT</code>, <code>PATCH</code> and <code>DELETE</code> requests to the REST API</td>
+</tr>
+<tr>
+<td><code>admin</code></td>
+<td>Access to the <code>/api/v1/admin/*</code> endpoints (only if your account is a site administrator)</td>
+</tr>
+<tr>
+<td><code>mcp:read</code></td>
+<td>Read access through the <a href="../../api/mcp/">MCP server</a></td>
+</tr>
+<tr>
+<td><code>mcp:write</code></td>
+<td>Write access through the MCP server</td>
+</tr>
+</tbody>
+</table>
+<h3 id="scopes-are-non-hierarchical">Scopes are non-hierarchical<a class="headerlink" href="#scopes-are-non-hierarchical" title="Permanent link">&para;</a></h3>
+<p>This is the most important thing to know about them, and it is deliberate:</p>
+<div class="admonition warning">
+<p class="admonition-title">No scope implies any other</p>
+<p><code>admin</code> does <strong>not</strong> grant <code>read</code> or <code>write</code>. <code>write</code> does <strong>not</strong> grant <code>read</code>. Neither <code>read</code> nor <code>write</code> grants <code>mcp:read</code>, and <code>mcp:read</code> does not grant <code>mcp:write</code>.</p>
+<p>A token must carry <strong>every</strong> scope its request needs. A token that reads the admin API needs both <code>admin</code> <strong>and</strong> <code>read</code>. A token that writes a card needs <code>write</code>. An agent that reads boards over MCP needs <code>mcp:read</code> — being able to read them over REST is not enough.</p>
+</div>
+<p>The reason is that a hierarchy quietly turns a narrow credential back into a broad one. If <code>admin</code> implied <code>write</code>, then a token issued only to read the settings page could modify every board on the instance. Listing each grant explicitly means the token's authority is exactly what you can see on the token list, with nothing inherited.</p>
+<h3 id="default-scopes">Default scopes<a class="headerlink" href="#default-scopes" title="Permanent link">&para;</a></h3>
+<p>Creating a token without asking for specific scopes gives it <code>read</code> and <code>write</code> — enough for the scripting and CI use cases PATs were built for, and nothing more. <code>admin</code> and the <code>mcp:*</code> scopes must always be requested explicitly.</p>
+<h3 id="tokens-created-before-12">Tokens created before 1.2<a class="headerlink" href="#tokens-created-before-12" title="Permanent link">&para;</a></h3>
+<p>Tokens that already existed when your instance upgraded to 1.2 have <strong>no scopes recorded</strong>. They keep working exactly as before across the whole REST API, including the admin endpoints if you are a site administrator — upgrading does not break a running integration.</p>
+<p>They are, however, refused by the MCP server. An agent credential has to be issued deliberately, so a token created before MCP scopes existed cannot be used as one. To connect an MCP client, create a new token with <code>mcp:read</code>.</p>
+<p>We recommend replacing pre-1.2 tokens with scoped ones as you rotate them.</p>
+<h3 id="what-a-scope-cannot-do">What a scope cannot do<a class="headerlink" href="#what-a-scope-cannot-do" title="Permanent link">&para;</a></h3>
+<p>Scopes are a ceiling, never a floor. They narrow a token's authority and never widen it — every request is still subject to the same board membership and role checks as a browser session. A token scoped <code>admin</code> on a non-administrator account reaches nothing new.</p>
+<hr />
 <h2 id="expiry">Expiry<a class="headerlink" href="#expiry" title="Permanent link">&para;</a></h2>
 <p>The expiry date is optional:</p>
 <ul>
@@ -2831,7 +2944,8 @@
 <p class="admonition-title">Note</p>
 <p>Visiban uses DRF's built-in token auth, which requires the <code>Token</code> prefix — not <code>Bearer</code>.</p>
 </div>
-<p>The token works for all API endpoints that accept authenticated requests. The same header format applies regardless of the HTTP method:</p>
+<p>The token works for every API endpoint its <a href="#scopes">scopes</a> allow. A request the token is not scoped for is rejected with <code>403 Forbidden</code> and a message naming the scope it needs — not <code>401</code>, because the credential itself is valid.</p>
+<p>The same header format applies regardless of the HTTP method:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Create a card</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>https://your-instance.example.com/api/v1/boards/1/cards/<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_your_token_here"</span><span class="w"> </span><span class="se">\</span>
@@ -2859,8 +2973,9 @@
 <li><strong>Password change revokes all tokens</strong> — when you change your password, every PAT associated with your account is revoked automatically. You will need to create new tokens and update any scripts or integrations that use them.</li>
 <li><strong>Maximum 10 tokens per user</strong> — if you reach the limit, revoke tokens you no longer use before creating new ones. The <strong>New token</strong> button is disabled when the limit is reached.</li>
 <li><strong>Treat tokens like passwords</strong> — store them in a secrets manager or CI secrets vault, never in plain text in source code or config files committed to a repository.</li>
-<li><strong>Scope</strong> — a PAT carries your full access rights. It can read and write every board, card, and group you have access to. There is no scope restriction at creation time.</li>
+<li><strong>Scopes limit a token, they never extend it</strong> — a scope can only narrow what the token may do. It never grants access your own account does not already have. An <code>admin</code>-scoped token held by a non-admin still cannot reach the admin API.</li>
 <li><strong>The same token authenticates AI agents</strong> — if your operator has enabled the <a href="../../api/mcp/">MCP server</a>, a PAT is also the credential an MCP client uses to read your boards. Revoking the token, or changing your password, cuts off that access too.</li>
+<li><strong>Scopes do not limit instance-wide access</strong> — if your account has the "access all content" privilege, a <code>write</code>-scoped token still reaches every board on the instance. Scopes constrain <em>what kind of operation</em> a token may perform, not <em>which boards</em> it can see.</li>
 </ul>
 <hr />
 <h2 id="full-api-reference">Full API reference<a class="headerlink" href="#full-api-reference" title="Permanent link">&para;</a></h2>

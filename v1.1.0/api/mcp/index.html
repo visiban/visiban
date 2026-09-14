@@ -1890,6 +1890,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#the-mcpread-scope-is-required" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The mcp:read scope is required
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2930,10 +2941,22 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/tokens/<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token &lt;your-session-token&gt;"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "claude-desktop"}'</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "claude-desktop", "scopes": ["mcp:read"]}'</span>
 </code></pre></div>
 <p>The plaintext token is shown <strong>once</strong>, at creation. Only a SHA-256 hash is stored.</p>
-<p>An MCP token carries the full authority of the user who created it. There is no MCP-specific scope yet — the tools available today are read-only, so a token grants an agent no access the user does not already have.</p>
+<h3 id="the-mcpread-scope-is-required">The <code>mcp:read</code> scope is required<a class="headerlink" href="#the-mcpread-scope-is-required" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Changed in 1.2</strong></p>
+</blockquote>
+<p><code>/mcp</code> accepts a token only if it carries the <strong><code>mcp:read</code></strong> <a href="../authentication/#scopes">scope</a>. This is not implied by anything else:</p>
+<ul>
+<li>a token scoped <code>read</code> and <code>write</code> for the REST API is <strong>refused</strong> at <code>/mcp</code></li>
+<li>a token created <strong>before 1.2</strong> (no scopes recorded) is <strong>refused</strong> at <code>/mcp</code>, even though it still works across the whole REST API</li>
+<li><code>mcp:write</code> does not imply <code>mcp:read</code></li>
+</ul>
+<p>The reason is consent, not capability. A PAT is a credential a user is instructed to paste into an agent, and an agent is a fundamentally different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.</p>
+<p>Scopes never widen access: an <code>mcp:read</code> token still sees exactly the boards its owner can see, with the same roles.</p>
+<p>A token intended for both an agent and a script needs both sets of scopes, e.g. <code>["read", "mcp:read"]</code>.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -2946,6 +2969,10 @@
 <tr>
 <td><code>401 Unauthorized</code></td>
 <td>The <code>Authorization</code> header is missing, is not the <code>Bearer</code> scheme, or the token is unknown, expired, revoked, or belongs to a deactivated account.</td>
+</tr>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>The token is valid but lacks the <code>mcp:read</code> scope, or predates scopes entirely. The message names the scope required.</td>
 </tr>
 <tr>
 <td><code>404 Not Found</code></td>
