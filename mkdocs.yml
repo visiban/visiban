@@ -94,6 +94,7 @@ nav:
     - Notifications: api/notifications.md
     - Admin: api/admin.md
     - Issue Board Lens: api/git-lens.md
+    - MCP Server: api/mcp.md
     - WebSockets: api/websockets.md
     - Health Checks: api/health.md
     - Version: api/version.md

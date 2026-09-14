@@ -33,5 +33,20 @@ cryptography==50.0.0
 # startup failure, not an install failure.
 pyopenssl>=26.0.0,<27
 django-filter==25.2
+# MCP (Model Context Protocol) server SDK — FastMCP + Streamable HTTP transport
+# for the /mcp endpoint (#511). Pinned to the 1.x line: 2.x depends on httpx2,
+# a from-scratch httpx successor with no production track record yet. 1.30.0 is
+# past all six historical HIGH advisories (last fixed in 1.28.1); do not float
+# below that. django-mcp was evaluated and rejected — its upstream repo is
+# archived and its own mcp[cli]~=1.9.2 pin forces a vulnerable SDK version.
+mcp==1.30.0
+# python-multipart arrives transitively via mcp, which declares only
+# `python-multipart>=0.0.9` with no upper bound. pip resolves that to the latest
+# (0.0.32 today), so built images are not affected — but osv-scanner resolves the
+# MINIMUM satisfying version and so reports 0.0.9 with 8 advisories
+# (PYSEC-2026-1851/1852 and PYSEC-2026-3036..3041). Nothing guarantees the
+# resolver's choice, so floor it explicitly. 0.0.31 is the highest fix version
+# across the eight; mcp's unbounded spec accepts it.
+python-multipart>=0.0.31
 whitenoise==6.8.2
 drf-spectacular==0.29.0

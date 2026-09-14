@@ -72,6 +72,18 @@ _OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_UR
 # expose the surface area; the app and its routes stay dormant when False.
 GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
 
+# MCP (Model Context Protocol) server — exposes Visiban boards to AI agents
+# over the Streamable HTTP transport at /mcp (#511). Off by default: it is a
+# new network-reachable transport, and an install that upgrades should not
+# acquire that surface without opting in. When False the ASGI mount is skipped
+# entirely, so /mcp does not exist and the MCP SDK is never imported.
+MCP_SERVER_ENABLED = env.bool("MCP_SERVER_ENABLED", default=False)
+
+# Host allowlist for the MCP transport's DNS-rebinding protection. Defaults to
+# ALLOWED_HOSTS; set this explicitly when ALLOWED_HOSTS is "*", which cannot
+# serve as a rebinding allowlist (see mcp_server/server.py).
+MCP_ALLOWED_HOSTS = env.list("MCP_ALLOWED_HOSTS", default=[])
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -111,6 +123,10 @@ INSTALLED_APPS = [
     # Issue Board Lens — only registered when the experiment flag is on, mirroring
     # the OIDC conditional-app pattern above so dormant code loads no tables/routes.
     *(["git_lens"] if GIT_LENS_ENABLED else []),
+    # MCP server — registered only when the flag is on, mirroring the
+    # conditional-app pattern above. The app holds no models (MCP callers
+    # authenticate with accounts.PersonalAccessToken), so it adds no tables.
+    *(["mcp_server"] if MCP_SERVER_ENABLED else []),
 ]
 
 MIDDLEWARE = [
@@ -290,6 +306,11 @@ REST_FRAMEWORK = {
         "password_reset": "9999/hour" if DEBUG else "5/hour",
         # Password reset confirm: prevents automated token-stuffing against the confirm endpoint.
         "password_reset_confirm": "9999/hour" if DEBUG else "10/hour",
+        # WebSocket ticket issuance (#1109): one ticket is spent per connection
+        # attempt, so a client reconnecting after a network blip legitimately
+        # bursts here. Generous enough to absorb a reconnect storm, low enough
+        # to bound a script farming tickets.
+        "ws_ticket": "9999/hour" if DEBUG else "60/min",
         # Public board share-link reads: generous per-IP cap to limit scraping.
         "share_link": "120/hour",
         # Per-token cap (#988): bounds brute-force enumeration of share tokens

@@ -157,6 +157,16 @@ Create named, revocable tokens to authenticate scripts, CI pipelines, and integr
 
 ---
 
+## MCP Server
+
+> **Added in 1.2**
+
+Connect Claude, Copilot, or any [Model Context Protocol](https://spec.modelcontextprotocol.io)-compatible AI agent to Visiban so it can read your boards. The server is read-only in this release and authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with `MCP_SERVER_ENABLED=true`.
+
+→ [MCP Server](../api/mcp.md)
+
+---
+
 ## Stable UIDs
 
 Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.

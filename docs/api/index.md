@@ -6,7 +6,7 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 
 | Reference | Description |
 |---|---|
-| [Authentication](authentication.md) | Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs) |
+| [Authentication](authentication.md) | Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs), WebSocket tickets |
 | [Boards API](boards.md) | Boards, columns, swimlanes, labels, and board member management |
 | [Cards API](cards.md) | Cards, move endpoint, comments, attachments, checklists, and activity |
 | [Groups API](groups.md) | Groups, subgroups, group members, and invite links |
@@ -22,13 +22,13 @@ Visiban provides a WebSocket endpoint for real-time board updates. Clients conne
 
 **URL pattern:** `ws://<host>/ws/boards/{board_id}/` (or `wss://` for TLS)
 
-**Authentication:** session-based. The WebSocket handshake uses the existing session cookie. No `Authorization` header is required.
+**Authentication:** session cookie, or a short-lived ticket (since 1.2). The browser SPA relies on the existing session cookie and needs no `Authorization` header. Token-authenticated clients — native, CLI, or a front end on another origin — obtain a ticket from `POST /api/v1/auth/ws-ticket/` and pass it as `?ticket=`. See [WebSockets](websockets.md#ticket-authentication-since-12).
 
 **Error codes on connection:**
 
 | Code | Meaning |
 |------|---------|
-| `4001` | No valid session — the client is not authenticated |
+| `4001` | Not authenticated — no valid session, and no valid ticket |
 | `4003` | Not a board member — the authenticated user does not have access to this board |
 
 ### Message envelope

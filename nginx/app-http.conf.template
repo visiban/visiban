@@ -67,6 +67,23 @@ server {
         proxy_read_timeout 90s;
     }
 
+    # MCP (Model Context Protocol) server — only reachable when the backend is
+    # started with MCP_SERVER_ENABLED=true; otherwise Django 404s this path.
+    # Streamable HTTP keeps a long-lived SSE response open, so buffering must be
+    # off and the read timeout generous, as for /ws/ below.
+    location /mcp {
+        proxy_pass         http://backend:8000;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Connection        "";
+        proxy_buffering    off;
+        proxy_cache        off;
+        proxy_read_timeout 86400s;
+    }
+
     # WebSocket (Django Channels)
     location /ws/ {
         proxy_pass             http://backend:8000;

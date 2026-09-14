@@ -17,20 +17,74 @@ A single open board tab maintains one board channel connection. A group-list pag
 ws://<host>/ws/boards/<board_id>/
 ```
 
-Authentication uses session cookies — the same mechanism as the REST API. The browser automatically sends the session cookie on the WebSocket upgrade request, so no token parameter is needed:
+There are two ways to authenticate the handshake:
 
-```
-ws://localhost:8000/ws/boards/42/
-```
+- **Session cookie** — used by the browser SPA. The browser automatically sends the session cookie on the upgrade request, so no parameter is needed:
 
-The server validates the session via Django's `AuthMiddlewareStack` and checks board membership before completing the WebSocket handshake. The connection is closed with one of two application-defined codes if either check fails:
+    ```
+    ws://localhost:8000/ws/boards/42/
+    ```
+
+- **Ticket** (since 1.2) — used by token-authenticated clients. See [Ticket authentication](#ticket-authentication-since-12) below.
+
+The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails:
 
 | Close code | Meaning |
 |---|---|
-| `4001` | Unauthenticated — no valid session cookie. The client must log in before reconnecting. |
+| `4001` | Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting. |
 | `4003` | Unauthorized — the user is authenticated but is not a member of this board. Re-login will not help. |
 
 Standard WebSocket close codes (`1000` normal, `1001` going away, `1006` abnormal) may also be observed for transport-level disconnects.
+
+---
+
+## Ticket authentication (since 1.2)
+
+Session and CSRF cookies are `SameSite=Lax`, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a **ticket**: a short-lived, single-use credential obtained over REST and spent on the handshake.
+
+A ticket **authenticates only**. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with `4003` exactly as a session connection would be.
+
+### 1. Obtain a ticket
+
+Call [`POST /api/v1/auth/ws-ticket/`](authentication.md#post-apiv1authws-ticket) with any supported REST credential — a PAT, a session token, or a session cookie.
+
+```bash
+curl -s -X POST http://localhost:8000/api/v1/auth/ws-ticket/ \
+  -H "Authorization: Token vbn_your_personal_access_token"
+```
+
+```json
+{
+  "ticket": "sW9qL2v8dYb1rKp4mNx7cT0zQe3fA6hJ5uV8iO1lP2g",
+  "expires_at": "2026-09-14T10:15:30Z"
+}
+```
+
+### 2. Spend it on the handshake
+
+Pass the ticket as the `ticket` query parameter:
+
+```
+ws://<host>/ws/boards/<board_id>/?ticket=<ticket>
+```
+
+The ticket is consumed by the upgrade. **Obtain a new ticket for every connection attempt**, including every reconnect.
+
+### Rules
+
+| Rule | Detail |
+|---|---|
+| Single use | The first connection to present a ticket consumes it. A replay is closed with `4001`. |
+| Short lived | Valid for 30 seconds from issuance. Request it immediately before connecting, not at app startup. |
+| Not board-scoped | One ticket authenticates the bearer for either `ws/boards/<id>/` or `ws/groups/<id>/`. Authorization is still enforced per connection. |
+| Fails closed | A ticket that is expired, already spent, or tampered with is closed with `4001` — even if the request also carries a valid session cookie. |
+| Rate limited | The issuing endpoint is throttled per user. Back off on `429` rather than retrying in a tight loop. |
+| Not revocable | A ticket cannot be revoked once issued. Logging out or deleting the PAT it was obtained with does not invalidate an outstanding ticket — it stays valid until spent or until its 30 seconds elapse. This is an accepted trade-off, bounded by the TTL. |
+
+!!! warning "Do not put a Personal Access Token in the WebSocket URL"
+    Query strings are recorded in reverse-proxy access logs and proxy history. A PAT placed there is a long-lived credential leak with no time limit. A ticket is single-use and expires in 30 seconds, which bounds the exposure — but it does not remove it: anything able to read the access log and redeem the ticket before your client's own upgrade arrives would win the race and connect as you, once. Single use at least makes that visible rather than silent, since your own connection is then rejected with `4001`.
+
+    If you terminate TLS at a proxy you control, drop the query string from the access-log format for the `/ws/` location to close this off entirely.
 
 ---
 
@@ -132,7 +186,7 @@ Pushes board create/update/delete events for boards that currently live in the g
 ws://<host>/ws/groups/<group_id>/
 ```
 
-Authentication uses the same session-cookie mechanism as the board channel. The server checks group membership (via `get_accessible_group_ids`) before completing the handshake and closes with the same `4001` / `4003` codes on failure.
+Authentication uses the same two mechanisms as the board channel — session cookie, or a [ticket](#ticket-authentication-since-12) for token-authenticated clients. The server checks group membership (via `get_accessible_group_ids`) before completing the handshake and closes with the same `4001` / `4003` codes on failure.
 
 ### Event reference
 
@@ -172,6 +226,8 @@ There is no at-least-once delivery guarantee — if a client is disconnected whe
 
 ## Client example (JavaScript)
 
+Same-origin, session-cookie clients:
+
 ```js
 const boardId = 42;
 // Session cookie is sent automatically by the browser on the upgrade request
@@ -205,4 +261,23 @@ ws.onclose = (event) => {
   }
   // otherwise: reconnect logic and re-fetch full board state
 };
+```
+
+Token-authenticated clients (since 1.2) — a fresh ticket per connection, including
+every reconnect, because each one is single-use:
+
+```js
+async function connect(boardId, apiToken) {
+  const res = await fetch("http://localhost:8000/api/v1/auth/ws-ticket/", {
+    method: "POST",
+    headers: { Authorization: `Token ${apiToken}` },
+  });
+  if (!res.ok) throw new Error(`Could not obtain a ticket: ${res.status}`);
+  const { ticket } = await res.json();
+
+  // Connect immediately — the ticket expires 30 seconds after it is issued.
+  return new WebSocket(
+    `ws://localhost:8000/ws/boards/${boardId}/?ticket=${encodeURIComponent(ticket)}`
+  );
+}
 ```

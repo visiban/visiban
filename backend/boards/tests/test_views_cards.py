@@ -632,6 +632,127 @@ class CardBoardScopingTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    # -- #1106: column/swimlane must not be patchable outside the move endpoint --
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_cross_board_column_rejected(self, _):
+        """A PATCH pointing `column` at another board's column must be rejected, not silently applied."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": self.other_col.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col.id)
+        self.assertEqual(self.card.board_id, self.board.id)
+        self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_cross_board_swimlane_rejected(self, _):
+        """A PATCH pointing `swimlane` at another board's swimlane must be rejected."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"swimlane": self.other_swim.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.swimlane_id, self.swim.id)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_same_board_column_change_rejected(self, _):
+        """A same-board column change via PATCH must also go through /move/, not PATCH."""
+        same_board_other_col = Column.objects.create(
+            board=self.board, name="Other", position=1000, allow_card_creation=True,
+        )
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": same_board_other_col.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json().get("code"), "use_move_endpoint")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col.id)
+        self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 0)
+
+    @patch(PATCH_BROADCAST)
+    def test_viewer_patching_column_gets_403_not_use_move_endpoint(self, _):
+        """A Viewer attempting a column-change PATCH must be blocked by the role
+        check (403) before ever reaching the #1106 use_move_endpoint gate — pins
+        the ordering this fix depends on (role/ownership gates run first)."""
+        viewer = User.objects.create_user(username="viewer1106", password="pass")
+        BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
+        self.client.force_authenticate(viewer)
+        same_board_other_col = Column.objects.create(
+            board=self.board, name="Other1106", position=1001, allow_card_creation=True,
+        )
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": same_board_other_col.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertNotEqual(r.json().get("code"), "use_move_endpoint")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_echoing_current_column_and_swimlane_accepted(self, _):
+        """PUT clients that round-trip the current column/swimlane must keep working (backward compat)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": self.col.id, "swimlane": self.swim.id, "title": "Renamed"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.title, "Renamed")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_null_column_rejected_by_serializer(self, _):
+        """`column: null` is not a use_move_endpoint no-op — it must fail the
+        serializer's own "may not be null" validation (column is a required,
+        non-nullable FK), not be silently accepted (found by security-review)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": None},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertNotEqual(r.json().get("code"), "use_move_endpoint")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col.id)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_non_dict_body_returns_400_not_500(self, _):
+        """A top-level JSON list body must not crash the #1106 column/swimlane
+        guard with AttributeError — it should fall through to DRF's normal
+        malformed-body handling (found by security-review)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            ["column", "swimlane"],
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_create_card_with_cross_board_column_rejected(self, _):
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/",
+            {"title": "X", "column": self.other_col.id, "swimlane": self.swim.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
+    def test_create_card_with_cross_board_swimlane_rejected(self, _):
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/cards/",
+            {"title": "X", "column": self.col.id, "swimlane": self.other_swim.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class AssigneePermissionTests(TestCase):
     """Tests for the assignee_id permission branch added to CardViewSet.update().

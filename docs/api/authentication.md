@@ -51,6 +51,8 @@ Pass the token in the `Authorization` header using the `Token` scheme.
     Visiban uses the prefix `Token`, not `Bearer`. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
     `Authorization: Token vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`
 
+    The one exception is the [MCP server](mcp.md) at `/mcp`, which requires the `Bearer` scheme because the Model Context Protocol specification mandates it. The two schemes are scoped to their own transports and are not interchangeable, but they resolve the same Personal Access Token records — revoking a token revokes it for both.
+
 === "curl"
     ```bash
     # List boards
@@ -225,6 +227,46 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 | `400 Bad Request` | `expires_at` is more than 1 year from now |
 | `400 Bad Request` | User already has 10 active tokens |
 | `401 Unauthorized` | Request is not authenticated |
+
+---
+
+### `POST /api/v1/auth/ws-ticket/`
+
+Mint a short-lived, single-use ticket for a WebSocket handshake. Added in 1.2.
+
+WebSocket upgrades cannot carry an `Authorization` header from a browser, and the session cookie is `SameSite=Lax` so it is not sent cross-origin. Token-authenticated clients — native, CLI, or a front end on another origin — use this endpoint to exchange the credential they already hold for a one-shot ticket, then pass it as the `ticket` query parameter on the upgrade. See [WebSocket API → Ticket authentication](websockets.md#ticket-authentication-since-12).
+
+**Permission:** Requires authentication. Accepts any supported credential — PAT, session token, or session cookie.
+
+**Request body:** none.
+
+**Response** `201 Created`
+
+The `ticket` is returned here and never again.
+
+```json
+{
+  "ticket": "sW9qL2v8dYb1rKp4mNx7cT0zQe3fA6hJ5uV8iO1lP2g",
+  "expires_at": "2026-09-14T10:15:30Z"
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `ticket` | string | The credential to pass as `?ticket=` on the WebSocket upgrade. Single use. |
+| `expires_at` | datetime | ISO 8601. 30 seconds after issuance. |
+
+The ticket authenticates only — board and group membership is still enforced on every connection, so a ticket belonging to a non-member is closed with `4003`.
+
+A ticket cannot be revoked once issued: logging out, or deleting the PAT it was obtained with, does not invalidate an outstanding ticket. It remains valid until it is spent or its 30 seconds elapse. The short TTL is what bounds this, and it is a deliberate trade-off for keeping the handshake a single cache lookup.
+
+**Errors**
+
+| Status | Reason |
+|---|---|
+| `401 Unauthorized` | Request is not authenticated |
+| `405 Method Not Allowed` | Any method other than `POST` |
+| `429 Too Many Requests` | Per-user rate limit exceeded — back off rather than retrying immediately |
 
 ---
 

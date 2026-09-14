@@ -260,16 +260,25 @@ class CardSerializer(serializers.ModelSerializer):
         # validation error rather than exposing all users as candidates (#1050).
         write_only=True, read_only=False, queryset=User.objects.none(), source="assignee", required=False, allow_null=True
     )
+    # Explicitly declared (rather than left to auto-generation from the model
+    # FK) so the queryset can be scoped to the current board in __init__, and
+    # a cross-board id fails validation with 400 instead of silently
+    # attaching the card to another board's column/swimlane (#1106). Fail
+    # closed to none() like assignee_id above — a caller that forgets to pass
+    # `board` rejects every column/swimlane rather than exposing all rows.
+    column = serializers.PrimaryKeyRelatedField(queryset=Column.objects.none())
+    swimlane = serializers.PrimaryKeyRelatedField(queryset=Swimlane.objects.none())
     created_by = BoardUserSerializer(read_only=True)
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
-        """Scope label_ids and assignee_id querysets to the current board.
+        """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
 
-        Without this, a client could assign labels from another board or assign
-        a user who is not a member of the board — both are cross-board IDOR
-        vulnerabilities.  The board must be passed via serializer context.
+        Without this, a client could assign labels, a column, or a swimlane from
+        another board, or assign a user who is not a member of the board — all
+        are cross-board IDOR vulnerabilities.  The board must be passed via
+        serializer context.
 
         When called from BoardFullSerializer.get_cards() or CardViewSet, the
         context may contain pre-computed _member_ids and _board_labels_qs to
@@ -288,6 +297,9 @@ class CardSerializer(serializers.ModelSerializer):
             self.fields["assignee_id"].queryset = User.objects.filter(
                 pk__in=assignable_ids
             )
+            self.fields["column"].queryset = Column.objects.filter(board=board)
+            self.fields["swimlane"].queryset = Swimlane.objects.filter(board=board)
+
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
