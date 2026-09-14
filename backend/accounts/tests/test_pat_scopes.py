@@ -853,3 +853,46 @@ def _effective_permission_classes(pattern):
         return initkwargs["permission_classes"]
     view_cls = getattr(pattern.callback, "cls", None)
     return getattr(view_cls, "permission_classes", None)
+
+
+class WSTicketScopeTests(APITestCase):
+    """The WebSocket ticket endpoint is where a PAT's scope meets realtime (#1109 × #1110).
+
+    The WS middleware accepts tickets and nothing else — never a PAT — so this
+    endpoint is the only place a token's authority is checked before it reaches
+    the socket. If it ever stopped enforcing scope, every scoped token would
+    hold unscoped realtime access and no other test in this file would notice.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = make_user()
+
+    def _token(self, scopes):
+        _, raw = PersonalAccessToken.generate(self.user, "agent", scopes=scopes)
+        return raw
+
+    def test_write_scope_can_mint_a_ticket(self):
+        r = self.client.post("/api/v1/auth/ws-ticket/", **auth(self._token([SCOPE_WRITE])))
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertIn("ticket", r.data)
+
+    def test_read_only_token_cannot_mint_a_ticket(self):
+        """Minting is a POST, so the path/method baseline requires `write`.
+
+        Documented rather than merely observed: a read-only integration cannot
+        currently use the realtime stream. Changing that means adding a path
+        exception to baseline_scopes_for(), which is a deliberate design
+        decision and not something to arrive at by accident.
+        """
+        r = self.client.post("/api/v1/auth/ws-ticket/", **auth(self._token([SCOPE_READ])))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_empty_scope_token_cannot_mint_a_ticket(self):
+        r = self.client.post("/api/v1/auth/ws-ticket/", **auth(self._token([])))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_legacy_token_can_still_mint_a_ticket(self):
+        """scopes IS NULL keeps full REST authority — backward compatibility."""
+        r = self.client.post("/api/v1/auth/ws-ticket/", **auth(self._token(None)))
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)

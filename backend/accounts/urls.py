@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     AuthProvidersView, ChangePasswordView, ChooseUsernameView, CurrentUserView,
     PersonalAccessTokenDeleteView, PersonalAccessTokenListCreateView,
-    SiteConfigView, UserSearchView,
+    SiteConfigView, UserSearchView, WSTicketView,
 )
 from .admin_views import (
     AdminSettingsView, AdminUsersView, AdminUserDetailView,
@@ -18,6 +18,7 @@ urlpatterns = [
     path("auth/me/", CurrentUserView.as_view()),
     path("auth/tokens/", PersonalAccessTokenListCreateView.as_view()),
     path("auth/tokens/<int:pk>/", PersonalAccessTokenDeleteView.as_view()),
+    path("auth/ws-ticket/", WSTicketView.as_view()),
     path("users/", UserSearchView.as_view()),
     # Admin API — all gated by IsSiteAdmin
     path("admin/settings/", AdminSettingsView.as_view()),

@@ -1,8 +1,68 @@
-"""Shared board utilities — mention parsing and notification helpers."""
+"""Shared board utilities — mention parsing, notification, and board-creation helpers."""
 
 import operator
 import re
 from functools import reduce
+
+
+def resolve_board_template(template_slug):
+    """Return the active BoardTemplate row to apply for a new board, or None.
+
+    ``template_slug`` must already be the *validated* value from
+    ``BoardSerializer.validated_data["template"]`` — an empty string for the
+    omitted/blank case (BoardSerializer.validate() rejects any other value
+    that doesn't match an active template's slug with a 400 before this is
+    ever called, so a lookup miss here is not expected in normal operation).
+
+    Blank resolves to the built-in default (``simple_kanban``) — this
+    preserves the pre-#1115 contract for clients that don't send `template`
+    at all. If even the default row is missing (e.g. an install's seed data
+    has not run), this returns None and the caller creates a board with no
+    template-driven columns, the same as the built-in "blank" template,
+    rather than raising — a missing default should degrade gracefully, not
+    500 every board creation on that install.
+    """
+    from .models import BoardTemplate
+
+    slug = template_slug or "simple_kanban"
+    return BoardTemplate.objects.filter(slug=slug, is_active=True).first()
+
+
+def create_template_columns(board, template):
+    """Create Column rows on *board* from *template*.columns_json.
+
+    No-ops when *template* is None or has no columns (the "blank" template,
+    or a missing default — see resolve_board_template()).
+
+    Shared by BoardViewSet.perform_create (boards/views/boards.py) and
+    GroupViewSet.boards() (groups/views.py) so both board-creation paths
+    apply identical column data from the single BoardTemplate table —
+    previously each read its own copy of a separate BOARD_TEMPLATES dict,
+    and the two silently drifted from what GET /boards/templates/ listed
+    (#1115).
+    """
+    from .models import Column
+
+    if not template or not template.columns_json:
+        return
+    # .get() with fallbacks rather than col["name"]/col["color"] — a
+    # template's columns_json can, in principle, come from a
+    # boards.hooks.TEMPLATE_PROVIDERS-registered row (see
+    # boards/template_sync.py) rather than only the built-in, trusted
+    # BOARD_TEMPLATES data. This is a last line of defense: a malformed
+    # column dict should render as an oddly-named/colored column, not a
+    # 500 that fails board creation entirely.
+    Column.objects.bulk_create([
+        Column(
+            board=board,
+            name=col.get("name") or f"Column {i + 1}",
+            position=i,
+            color=col.get("color") or "#6B7280",
+            allow_card_creation=(i == 0),
+            is_done=bool(col.get("is_done", False)),
+        )
+        for i, col in enumerate(template.columns_json)
+    ])
 
 
 def extract_mentions(text: str) -> set:

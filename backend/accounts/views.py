@@ -40,6 +40,7 @@ from .serializers import (
     PublicUserSerializer,
     UserSerializer,
 )
+from .ws_auth import issue_ws_ticket
 
 User = get_user_model()
 
@@ -482,6 +483,60 @@ class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
         if response.status_code == status.HTTP_200_OK:
             request.user.personal_access_tokens.all().delete()
         return response
+
+
+class WSTicketThrottle(UserRateThrottle):
+    """Per-user rate limit for WebSocket ticket issuance.
+
+    One ticket is spent per connection attempt, so a client that loses its
+    network legitimately bursts against this endpoint while it reconnects. The
+    ceiling is set to absorb that while still bounding a scripted loop farming
+    tickets.
+    """
+
+    scope = "ws_ticket"
+
+
+class WSTicketView(APIView):
+    """Mint a short-lived, single-use ticket for a WebSocket handshake (#1109).
+
+    Exists because Channels' ``AuthMiddlewareStack`` reads only the session
+    cookie, so PAT- and token-authenticated clients — native, CLI, or a front end
+    on another origin that never receives the ``SameSite=Lax`` cookie — can use
+    every REST endpoint but get 4001 on ``ws/boards/<id>/`` and
+    ``ws/groups/<id>/``.
+
+    Accepts any authentication class in DEFAULT_AUTHENTICATION_CLASSES, so the
+    caller proves identity over REST with the credential it already holds and
+    spends the returned ticket on the upgrade.
+
+    The ticket authenticates and nothing more — the consumer still resolves the
+    caller's role and still closes 4003 for a non-member.
+    """
+
+    # TokenHasScope is enumerated here for the same reason every other
+    # authenticated view enumerates it (#1110): a ticket minted with a PAT
+    # inherits that token's authority on the socket, so the ticket endpoint is
+    # the single choke point where a PAT's scope is checked before it reaches
+    # the realtime surface — the WS middleware accepts tickets only, never a
+    # PAT. Minting is a POST, so the authenticator's baseline already requires
+    # `write`; no additional required_scopes are declared.
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+        TokenHasScope,
+    ]
+    throttle_classes = [WSTicketThrottle]
+
+    def post(self, request):
+        # The raw ticket is returned here and never again — it is not stored in
+        # recoverable form, matching the PAT-creation contract above.
+        ticket, expires_at = issue_ws_ticket(request.user)
+        return Response(
+            {"ticket": ticket, "expires_at": expires_at},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class RegisterAnonThrottle(AnonRateThrottle):

@@ -20,6 +20,10 @@ class BoardTemplateListView(APIView):
     Authentication is required — the templates contain no sensitive data, but
     an unauthed caller has no reason to query this endpoint and requiring auth
     aligns with the rest of the boards API.
+
+    This table is also the sole source BoardViewSet.perform_create and
+    GroupViewSet.boards() read to apply a template's columns — this list and
+    what board creation actually produces can no longer drift apart (#1115).
     """
 
     permission_classes = [

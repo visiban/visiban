@@ -469,7 +469,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"])
     def boards(self, request, pk=None):
-        from boards.models import Board, Column, Swimlane
+        from boards.models import Board, Swimlane
         from boards.serializers import BoardSerializer
 
         group = self.get_object()
@@ -516,16 +516,18 @@ class GroupViewSet(viewsets.ModelViewSet):
             from boards.models import BoardMembership as _BM
             _BM.objects.create(board=board, user=request.user, role=_BM.Role.ADMIN)
 
-            from boards.templates import BOARD_TEMPLATES
-            template_key = (request.data.get("template") or "simple_kanban").strip()
-            template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
-            if template["columns"]:
-                Column.objects.bulk_create([
-                    Column(board=board, name=col["name"], position=i, color=col["color"], allow_card_creation=(i == 0))
-                    for i, col in enumerate(template["columns"])
-                ])
+            # `template` was already validated by BoardSerializer.is_valid()
+            # above (unknown explicit slugs get a 400 before this point) —
+            # resolve the same BoardTemplate row BoardViewSet.perform_create
+            # uses, and apply it with the same shared helper, so group-scoped
+            # board creation can no longer drift from the top-level endpoint
+            # (previously this read its own separate BOARD_TEMPLATES dict
+            # copy and never set is_done on any column — #1115).
+            from boards.utils import create_template_columns, resolve_board_template
+            template = resolve_board_template(serializer.validated_data.get("template", ""))
+            create_template_columns(board, template)
 
-            swimlane_name = ((request.data.get("swimlane_name") or "").strip() or template.get("default_swimlane") or "General")[:255]
+            swimlane_name = ((request.data.get("swimlane_name") or "").strip() or "General")[:255]
             Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 
             # Apply group defaults: copy shared labels and allowed priorities

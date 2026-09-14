@@ -98,6 +98,10 @@ export interface BoardTemplateColumn {
   name: string;
   color: string;
   position: number;
+  // Optional: present on a template's terminal column(s) (e.g. "Done",
+  // "Closed Won"). Additive field — added when BoardTemplate rows became
+  // the single source for both listing and applying templates (#1115).
+  is_done?: boolean;
 }
 
 export interface BoardTemplate {
