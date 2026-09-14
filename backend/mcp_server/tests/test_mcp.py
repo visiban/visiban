@@ -23,7 +23,13 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
-from accounts.models import PersonalAccessToken
+from accounts.models import (
+    SCOPE_MCP_READ,
+    SCOPE_MCP_WRITE,
+    SCOPE_READ,
+    SCOPE_WRITE,
+    PersonalAccessToken,
+)
 from boards.models import BoardMembership
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -93,7 +99,11 @@ class McpTestCase(TestCase):
     def setUp(self):
         super().setUp()
         self.user = _make_user("mcp-owner")
-        self.pat, self.raw_token = PersonalAccessToken.generate(self.user, "mcp")
+        # MCP requires the mcp:read scope (#1110) — an unscoped/legacy token is
+        # rejected at the transport, so every MCP fixture must opt in explicitly.
+        self.pat, self.raw_token = PersonalAccessToken.generate(
+            self.user, "mcp", scopes=[SCOPE_MCP_READ]
+        )
         # Exercise the real mount (path dispatch + re-rooting + auth), not the
         # bare inner app — the routing is part of what #511 ships.
         self.client_ = McpRequest(
@@ -162,6 +172,7 @@ class BearerAuthTests(McpTestCase):
         _, raw = PersonalAccessToken.generate(
             self.user, "expired",
             expires_at=timezone.now() - datetime.timedelta(days=1),
+            scopes=[SCOPE_MCP_READ],
         )
         status, _ = self._initialize(token=raw)
         self.assertEqual(status, 401)
@@ -191,6 +202,55 @@ class BearerAuthTests(McpTestCase):
         self.pat.delete()
         status, _ = self._initialize(token=self.raw_token)
         self.assertEqual(status, 401)
+
+    # ── Scope enforcement (#1110) ────────────────────────────────────────
+
+    def test_legacy_unscoped_token_is_rejected(self):
+        """The one place a legacy token's full REST authority does NOT carry.
+
+        A token issued before scopes existed was never consented to be used as
+        an agent credential, so it cannot reach MCP no matter how much it can
+        do over REST.
+        """
+        _, raw = PersonalAccessToken.generate(self.user, "legacy")
+        status, _ = self._initialize(token=raw)
+        self.assertEqual(status, 401)
+
+    def test_rest_read_scope_does_not_satisfy_mcp(self):
+        """Non-hierarchical: `read` is a REST grant, not an agent grant."""
+        _, raw = PersonalAccessToken.generate(
+            self.user, "rest", scopes=[SCOPE_READ, SCOPE_WRITE]
+        )
+        status, _ = self._initialize(token=raw)
+        self.assertEqual(status, 401)
+
+    def test_mcp_write_alone_does_not_satisfy_mcp_read(self):
+        """No implication inside the mcp namespace either."""
+        _, raw = PersonalAccessToken.generate(
+            self.user, "writer", scopes=[SCOPE_MCP_WRITE]
+        )
+        status, _ = self._initialize(token=raw)
+        self.assertEqual(status, 401)
+
+    def test_empty_scope_list_is_rejected(self):
+        _, raw = PersonalAccessToken.generate(self.user, "none", scopes=[])
+        status, _ = self._initialize(token=raw)
+        self.assertEqual(status, 401)
+
+    def test_scope_denial_does_not_stamp_usage(self):
+        """A denied request must not record authority it never exercised."""
+        pat, raw = PersonalAccessToken.generate(
+            self.user, "rest-only", scopes=[SCOPE_READ]
+        )
+        self._initialize(token=raw)
+        pat.refresh_from_db()
+        self.assertIsNone(pat.last_used_at)
+        self.assertIsNone(pat.last_used_scope)
+
+    def test_valid_token_stamps_the_mcp_scope_it_presented(self):
+        self._initialize(token=self.raw_token)
+        self.pat.refresh_from_db()
+        self.assertEqual(self.pat.last_used_scope, SCOPE_MCP_READ)
 
 
 class ToolDiscoveryTests(McpTestCase):
@@ -352,7 +412,9 @@ class ListBoardsTests(McpTestCase):
         """
         _make_board(self.user, name="First user board")
         second = _make_user("second")
-        _, second_token = PersonalAccessToken.generate(second, "mcp")
+        _, second_token = PersonalAccessToken.generate(
+            second, "mcp", scopes=[SCOPE_MCP_READ]
+        )
         _make_board(second, name="Second user board")
 
         self.assertEqual(

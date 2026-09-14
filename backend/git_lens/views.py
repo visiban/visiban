@@ -16,6 +16,7 @@ from boards.broadcast import broadcast_board_event
 from boards.models import BoardMembership
 from boards.permissions import SITE_ADMIN
 from boards.views import get_board_for_user
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -84,6 +85,7 @@ _BOARD_PERMISSIONS = [
     IsAuthenticated,
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
+    TokenHasScope,
 ]
 
 

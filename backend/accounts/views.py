@@ -13,6 +13,7 @@ from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import LoginView as DjRestAuthLoginView
 from dj_rest_auth.views import PasswordResetView as DjRestAuthPasswordResetView
 from dj_rest_auth.views import PasswordResetConfirmView as DjRestAuthPasswordResetConfirmView
+from dj_rest_auth.views import PasswordChangeView as DjRestAuthPasswordChangeView
 from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -23,9 +24,22 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 from rest_framework import status
-from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, get_registration_mode
+from .permissions import TokenHasScope
+from .models import (
+    PAT_DEFAULT_SCOPES,
+    PAT_MAX_PER_USER,
+    PersonalAccessToken,
+    SiteSetting,
+    get_registration_mode,
+)
 from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
-from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
+from .serializers import (
+    CurrentUserSerializer,
+    PersonalAccessTokenCreateSerializer,
+    PersonalAccessTokenSerializer,
+    PublicUserSerializer,
+    UserSerializer,
+)
 from .ws_auth import issue_ws_ticket
 
 User = get_user_model()
@@ -146,6 +160,7 @@ class UserSearchView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     throttle_classes = [UserSearchRateThrottle]
 
@@ -200,7 +215,7 @@ class CurrentUserView(APIView):
     the current user and render the appropriate force-change modal.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TokenHasScope]
 
     def get(self, request):
         return Response(CurrentUserSerializer(request.user, context={"request": request}).data)
@@ -221,7 +236,7 @@ class ChangePasswordView(APIView):
     were forced to change their password can still reach this endpoint.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TokenHasScope]
 
     def post(self, request):
         current_password = request.data.get("current_password", "")
@@ -284,7 +299,7 @@ class ChooseUsernameView(APIView):
     endpoint if both flags are somehow set).
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TokenHasScope]
     throttle_classes = [ChooseUsernameThrottle]
 
     def post(self, request):
@@ -362,6 +377,7 @@ class PersonalAccessTokenListCreateView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def get(self, request):
@@ -396,7 +412,27 @@ class PersonalAccessTokenListCreateView(APIView):
             if expires_at <= timezone.now():
                 return Response({"detail": "Token expiry must be in the future."}, status=status.HTTP_400_BAD_REQUEST)
 
-        pat, raw_token = PersonalAccessToken.generate(request.user, name, expires_at)
+        scope_serializer = PersonalAccessTokenCreateSerializer(data=request.data)
+        if not scope_serializer.is_valid():
+            errors = scope_serializer.errors.get("scopes") or ["Invalid scopes."]
+            return Response({"detail": str(errors[0])}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Omitting `scopes` yields PAT_DEFAULT_SCOPES, never NULL. NULL means
+        # "legacy, full authority" and must stay unreachable from any write path
+        # — otherwise every newly minted token silently opts out of scoping.
+        # This does narrow the default for API callers who relied on a new token
+        # carrying admin authority; that is the point of the change and it is
+        # called out in the changelog and upgrade docs.
+        # Key presence, not truthiness. `[]` cannot reach validated_data today
+        # (allow_empty=False on the serializer field rejects it as a 400), but
+        # if that ever relaxes to allow minting a deliberate no-authority token,
+        # a truthiness check here would silently upgrade `scopes: []` into
+        # read+write — turning an explicit grant of nothing into a real
+        # credential. Keyed off presence, that relaxation stays correct.
+        validated = scope_serializer.validated_data
+        scopes = validated["scopes"] if "scopes" in validated else list(PAT_DEFAULT_SCOPES)
+
+        pat, raw_token = PersonalAccessToken.generate(request.user, name, expires_at, scopes=scopes)
         data = PersonalAccessTokenSerializer(pat).data
         # The raw token is included exactly once — in the creation response.
         # It is not persisted and cannot be retrieved again.
@@ -415,6 +451,7 @@ class PersonalAccessTokenDeleteView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def delete(self, request, pk):
@@ -424,6 +461,28 @@ class PersonalAccessTokenDeleteView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         pat.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TokenRevokingPasswordChangeView(DjRestAuthPasswordChangeView):
+    """dj-rest-auth's password change, with the project's token-revocation rule.
+
+    `PersonalAccessToken` documents the invariant "all tokens for a user are
+    deleted when their password is changed", and the docs tell users that
+    rotating their password is how they cut off a leaked token. Visiban's own
+    ChangePasswordView enforces it; dj-rest-auth's stock view does not, so the
+    invariant held only for whichever endpoint the caller happened to pick —
+    and a client that found this one in the OpenAPI schema would get a password
+    change that silently left every token alive.
+
+    Found by the security review on #1110, which made scoping meaningful enough
+    that "rotate the password to revoke the credential" has to actually work.
+    """
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            request.user.personal_access_tokens.all().delete()
+        return response
 
 
 class WSTicketThrottle(UserRateThrottle):
@@ -455,10 +514,18 @@ class WSTicketView(APIView):
     caller's role and still closes 4003 for a non-member.
     """
 
+    # TokenHasScope is enumerated here for the same reason every other
+    # authenticated view enumerates it (#1110): a ticket minted with a PAT
+    # inherits that token's authority on the socket, so the ticket endpoint is
+    # the single choke point where a PAT's scope is checked before it reaches
+    # the realtime surface — the WS middleware accepts tickets only, never a
+    # PAT. Minting is a POST, so the authenticator's baseline already requires
+    # `write`; no additional required_scopes are declared.
     permission_classes = [
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     throttle_classes = [WSTicketThrottle]
 
