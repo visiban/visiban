@@ -1113,10 +1113,9 @@ frontend-docker-build:
 # native arm64 runner — and `saas-linux-medium-arm64` resolves to
 # `no_matching_runner` on this project's plan (verified on pipeline 2845582400).
 # arm64 has not actually been published since 2026-06-26 regardless, because the
-# runner that built it is gone. Restoring it needs an infrastructure decision
-# (paid ARM runners, a revived self-hosted runner, or a dind+QEMU job), so it is
-# deliberately out of scope here rather than left as a job that would hang a
-# release pipeline on no_matching_runner.
+# runner that built it is gone. Restoring it needs a runner that can build arm64
+# natively, so it is tracked separately in #1084 (milestone 1.2) rather than left
+# here as a job that would hang a release pipeline on no_matching_runner.
 #
 # On main-branch merges: :latest and :<short-sha> to the GitLab registry.
 # On release tags: additionally :<tag> and, for stable releases, the
