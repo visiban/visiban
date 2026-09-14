@@ -539,33 +539,33 @@ oidc-smoke:
     # callback flow resolves without needing the frontend running.
     FRONTEND_URL: "http://localhost:8000/api/health/liveness/"
   before_script:
-    # Pin the keycloak alias to its IPv4 address.
+    # Address Keycloak by IPv4 literal.
     #
-    # GitLab's service DNS returns both an A and an IPv6 ULA (fd76::/8) record.
-    # When a client reaches Keycloak over IPv6, Keycloak classifies it as an
-    # *external* connection — its SslRequired.EXTERNAL check only recognises
-    # IPv4 private ranges as local — and the master realm's default
-    # sslRequired=external then rejects plain HTTP with
+    # GitLab's service DNS returns both an A record and an IPv6 ULA (fd76::/8),
+    # and glibc prefers the IPv6 one. Reached over IPv6, Keycloak classifies the
+    # client as *external* — SslRequired.EXTERNAL only recognises IPv4 private
+    # ranges as local — and the master realm's default sslRequired=external then
+    # refuses plain HTTP outright with
     #   403 {"error":"invalid_request","error_description":"HTTPS required"}
     # on every request. That is what "did not become ready within 240s" has
     # actually been since 2026-08-03: an immediate, consistent 403, not a slow
-    # boot. Forcing IPv4 keeps the connection "local" so HTTP is allowed, and
-    # is applied via /etc/hosts so the Django process picks it up too.
+    # boot. Pinning /etc/hosts does not help — the resolver still returns both
+    # records — so the address is substituted into the URLs instead, which also
+    # keeps the issuer consistent between the provisioner and Django.
     - |
       KC_IPV4="$(getent ahostsv4 keycloak | awk 'NR==1{print $1}')"
-      if [ -n "${KC_IPV4}" ]; then
-        printf '%s keycloak\n' "${KC_IPV4}" > /tmp/hosts.new
-        cat /etc/hosts >> /tmp/hosts.new
-        cp /tmp/hosts.new /etc/hosts
-        echo "pinned keycloak -> ${KC_IPV4} (IPv4)"
-      else
-        echo "WARNING: could not resolve an IPv4 address for keycloak" >&2
+      if [ -z "${KC_IPV4}" ]; then
+        echo "ERROR: could not resolve an IPv4 address for the keycloak service" >&2
+        exit 1
       fi
+      export KEYCLOAK_BASE="http://${KC_IPV4}:8080"
+      export OIDC_SERVER_URL="${KEYCLOAK_BASE}/realms/visiban-test"
+      echo "keycloak reachable at ${KEYCLOAK_BASE} (IPv4)"
     - pip install --quiet -r backend/requirements.txt requests
     # Provision Keycloak: waits for readiness, then creates realm/client/user.
     # 240s budget — Keycloak's JVM boot routinely exceeds the previous 120s when
     # sharing a single vCPU with postgres/redis/python on the small runner.
-    - python scripts/oidc_provision.py --keycloak-url http://keycloak:8080 --wait-timeout 240
+    - python scripts/oidc_provision.py --keycloak-url "${KEYCLOAK_BASE}" --wait-timeout 240
     # Run migrations
     - cd backend && python manage.py migrate --noinput
     # Start the backend in the background; give it a few seconds to bind
