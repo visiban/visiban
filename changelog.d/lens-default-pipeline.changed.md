@@ -1,0 +1,1 @@
+A newly configured issue board lens now defaults to the **Pipeline** column view (Backlog → To Do → Doing → Review → Done) instead of Status — the pipeline is the opinionated, most useful view, whereas Status degrades to open/closed for repos without `status::` labels. Existing lenses keep whatever view they were saved with.

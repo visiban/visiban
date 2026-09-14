@@ -91,7 +91,7 @@ export function useLensData(
   const hasDataRef = useRef(false);
   hasDataRef.current = data !== null;
 
-  const run = useCallback(() => {
+  const run = useCallback((force = false) => {
     const id = ++reqIdRef.current;
     if (hasDataRef.current) {
       setRefetching(true);
@@ -103,6 +103,8 @@ export function useLensData(
       swimlane_dim: swimlaneDim,
       state,
       milestone,
+      // The Refresh button forces a re-fetch past the per-repo cache's soft-TTL.
+      refresh: force ? 1 : undefined,
     })
       .then((d) => {
         if (id !== reqIdRef.current) return;
@@ -124,5 +126,9 @@ export function useLensData(
     run();
   }, [run]);
 
-  return { data, error, loading, refetching, refresh: run };
+  // The manual Refresh forces a re-fetch (bypasses the soft-TTL cache); the
+  // automatic fetch above does not.
+  const refresh = useCallback(() => run(true), [run]);
+
+  return { data, error, loading, refetching, refresh };
 }

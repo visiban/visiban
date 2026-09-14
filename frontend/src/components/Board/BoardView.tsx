@@ -54,11 +54,14 @@ import { getLensConnection } from "../../api/gitLens";
 import type { LensConnection } from "../../types";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
+import LensToolbar from "./Lens/LensToolbar";
+import { lensFilterActiveCount } from "./Lens/lensDims";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
+import { LayoutCompactIcon, LayoutExpandedIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
@@ -173,21 +176,9 @@ function ViewToggle({
 // Icon constants for the overflow menu. Kept at module scope so the JSX
 // nodes are stable across renders and the items useMemo is not invalidated
 // by fresh icon references every render.
-const LayoutCompactIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="18" height="5" rx="1" />
-    <rect x="3" y="10" width="18" height="5" rx="1" />
-    <rect x="3" y="17" width="18" height="4" rx="1" />
-  </svg>
-);
-const LayoutExpandedIcon = (
-  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-    <rect x="3" y="3" width="7" height="7" rx="1" />
-    <rect x="14" y="3" width="7" height="7" rx="1" />
-    <rect x="3" y="14" width="7" height="7" rx="1" />
-    <rect x="14" y="14" width="7" height="7" rx="1" />
-  </svg>
-);
+// Layout icons live in ./toolbarIcons so the lens toolbar renders the exact
+// same nodes — board↔lens parity is a design requirement (#1064).
+
 const ArchivedIcon = (
   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
     <path d="M4 8v11a2 2 0 002 2h12a2 2 0 002-2V8" strokeLinejoin="round" />
@@ -487,6 +478,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const { status: socketStatus, lastEventAt: socketLastEventAt, reconnectAttempt: socketReconnectAttempt } = useBoardSocket(board.id, combinedSocketHandler);
 
   const [searchParams, setSearchParams] = useSearchParams();
+  // Lens filter-row visibility (mirrors the board's local `showFilters`). Opens on
+  // mount when a shared link already carries an active lens filter.
+  const [lensShowFilters, setLensShowFilters] = useState(() => lensFilterActiveCount(searchParams) > 0);
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [activeColumn, setActiveColumn] = useState<Column | null>(null);
   // Alt-gating for the column trash zone (#965). The destructive drop target
@@ -833,6 +827,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const VALID_VIEWS = ["board", "summary", "history", "analytics", "lens"] as const;
   const rawView = searchParams.get("view");
   const view: BoardViewName = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as BoardViewName) : "board";
+  // Assign-on-render ref (same pattern as cardLayoutRef) so the keydown handler
+  // can route `f` to the lens filter row when the lens tab is showing without
+  // re-subscribing. Must sit AFTER `view` is derived — `view` is a plain const,
+  // so reading it earlier is a temporal-dead-zone crash that tsc cannot see.
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const setView = (v: BoardViewName) =>
     setSearchParams(
       (prev) => {
@@ -975,6 +975,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       }
       if (e.key === "f") {
         e.preventDefault();
+        // The lens has its own filter row on the shared Row 2; `f` must toggle
+        // whichever one is actually on screen. Without this the shortcut
+        // silently toggled the hidden board row while the lens was showing.
+        if (viewRef.current === "lens") {
+          setLensShowFilters((v) => !v);
+          return;
+        }
         setShowFilters((v) => {
           if (!v) {
             // Opening: focus first interactive element in the filter bar
@@ -1514,11 +1521,37 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     }
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+        {/* Shared Row 2 — uses the SAME wrapper structure as the board's toolbar
+            (flex-1 min-w-0 overflow-x-auto inner region + min-w-max control row)
+            so the tabs and controls line up pixel-for-pixel and the row scrolls
+            instead of wrapping on narrow viewports — switching Board↔Lens is fluid. */}
+        <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
+          <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
+            <div className="flex items-center gap-2 h-full min-w-max">
+              <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+              {/* Inside its own Lens boundary: before the toolbar was split out of
+                  LensView, all lens chrome sat inside the boundary below. Without
+                  this, a throw from LensToolbar escapes the Lens section and takes
+                  down the whole board page instead of just the lens pane. */}
+              <SectionErrorBoundary section="Lens">
+                <LensToolbar
+                  connection={lensConnection}
+                  cardLayout={cardLayout}
+                  onToggleLayout={() => setCardLayout(cardLayout === "compact" ? "expanded" : "compact")}
+                  showFilters={lensShowFilters}
+                  onToggleFilters={() => setLensShowFilters((v) => !v)}
+                />
+              </SectionErrorBoundary>
+            </div>
+          </div>
         </nav>
         <SectionErrorBoundary section="Lens">
-          <LensView boardId={board.id} connection={lensConnection} />
+          <LensView
+            boardId={board.id}
+            connection={lensConnection}
+            cardLayout={cardLayout}
+            showFilters={lensShowFilters}
+          />
         </SectionErrorBoundary>
       </div>
     );

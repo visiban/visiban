@@ -1,4 +1,5 @@
 import type { LensProvider } from "../../../types";
+import LensFreshness from "./LensFreshness";
 
 interface Props {
   provider: LensProvider;
@@ -10,6 +11,11 @@ interface Props {
   /** True when a server-side filter (state/milestone) is active — rewords the
    *  truncation copy so the cap reads as relative to the filter. */
   filtersActive?: boolean;
+  /** Freshness control lives here (not on Row 2) — it's the one lens control that
+   *  depends on the fetched data, which is fetched by LensView next door. */
+  fetchedAt: string;
+  refetching: boolean;
+  onRefresh: () => void;
 }
 
 /**
@@ -19,7 +25,7 @@ interface Props {
  * scrolls away — see the "external-data provenance banner" rule in
  * frontend/CLAUDE.md.
  */
-export default function LensProvenanceBanner({ provider, repo, url, truncated, shownCount, filtersActive }: Props) {
+export default function LensProvenanceBanner({ provider, repo, url, truncated, shownCount, filtersActive, fetchedAt, refetching, onRefresh }: Props) {
   const glyph = provider === "github" ? "" : "";
   const providerName = provider === "github" ? "GitHub" : "GitLab";
 
@@ -30,7 +36,7 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
       className="bg-primary/15 border-b border-primary-emphasis/40 px-4 py-2 flex items-center gap-3 text-sm text-info shrink-0"
     >
       <span aria-hidden="true" className="text-base leading-none">{glyph}</span>
-      <span>
+      <span className="truncate max-w-[24rem]">
         Read-only lens ·{" "}
         <a
           href={url}
@@ -50,6 +56,8 @@ export default function LensProvenanceBanner({ provider, repo, url, truncated, s
             : `Showing first ${shownCount} issues`}
         </span>
       )}
+      <div className="flex-1" />
+      <LensFreshness fetchedAt={fetchedAt} refetching={refetching} onRefresh={onRefresh} />
     </div>
   );
 }

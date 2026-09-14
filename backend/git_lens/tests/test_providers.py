@@ -12,7 +12,8 @@ from git_lens import providers
 from git_lens.types import LensConfig, LensFilters, LensLabel, LensUser, NormalizedIssue
 
 
-def _issue(number=1, state="open", labels=None, milestone=None, assignees=None):
+def _issue(number=1, state="open", labels=None, milestone=None, assignees=None,
+           milestone_due=None, milestone_state=None):
     return NormalizedIssue(
         number=number,
         title=f"#{number}",
@@ -21,6 +22,8 @@ def _issue(number=1, state="open", labels=None, milestone=None, assignees=None):
         labels=[LensLabel(name=n) for n in (labels or [])],
         assignees=[LensUser(username=u) for u in (assignees or [])],
         milestone=milestone,
+        milestone_due=milestone_due,
+        milestone_state=milestone_state,
     )
 
 
@@ -147,11 +150,85 @@ class RegistryTests(SimpleTestCase):
         self.assertIsNone(providers.get_provider("bitbucket"))
 
 
-def _pipe_issue(number, state="open", milestone=None, has_branch=False, has_open_pr=False):
-    i = _issue(number, state=state, milestone=milestone)
+def _pipe_issue(number, state="open", milestone=None, has_branch=False, has_open_pr=False,
+                milestone_due=None, milestone_state=None):
+    i = _issue(number, state=state, milestone=milestone,
+               milestone_due=milestone_due, milestone_state=milestone_state)
     i.has_branch = has_branch
     i.has_open_pr = has_open_pr
     return i
+
+
+class CurrentMilestoneTests(SimpleTestCase):
+    """`is_current` marks the milestone being worked on. Precedence: due-date
+    (column_dim-independent) primary, Doing/Review work as the no-dates fallback
+    (pipeline only), nothing otherwise. Only the milestone swimlane is ever marked."""
+
+    def _current(self, issues, column_dim="pipeline"):
+        _c, swim, _i = providers.apply_pivot(issues, LensConfig(column_dim, "milestone"))
+        cur = [s.key for s in swim if s.is_current]
+        return cur[0] if cur else None
+
+    def test_due_date_nearest_upcoming_wins(self):
+        issues = [
+            _issue(1, milestone="v1.1", milestone_due="2099-12-31"),
+            _issue(2, milestone="v1.0", milestone_due="2099-01-01"),
+        ]
+        self.assertEqual(self._current(issues), "v1.0")
+
+    def test_all_past_due_picks_most_recent(self):
+        # An overdue active milestone is still the current one.
+        issues = [
+            _issue(1, milestone="v0.8", milestone_due="1999-01-01"),
+            _issue(2, milestone="v0.9", milestone_due="2000-01-01"),
+        ]
+        self.assertEqual(self._current(issues), "v0.9")
+
+    def test_no_dates_pipeline_uses_in_progress_work(self):
+        issues = [
+            _pipe_issue(1, milestone="v1.0", has_branch=True),  # doing
+            _pipe_issue(2, milestone="v1.1"),                   # todo (no branch/MR)
+        ]
+        self.assertEqual(self._current(issues, "pipeline"), "v1.0")
+
+    def test_no_dates_non_pipeline_marks_nothing(self):
+        # Doing/Review counts don't exist outside pipeline columns → no guess.
+        issues = [
+            _pipe_issue(1, milestone="v1.0", has_branch=True),
+            _pipe_issue(2, milestone="v1.1"),
+        ]
+        self.assertIsNone(self._current(issues, "state"))
+
+    def test_no_in_progress_work_and_no_dates_marks_nothing(self):
+        issues = [_pipe_issue(1, milestone="v1.0"), _pipe_issue(2, milestone="v1.1")]
+        self.assertIsNone(self._current(issues, "pipeline"))
+
+    def test_tie_breaks_on_title(self):
+        issues = [
+            _issue(1, milestone="v1.1", milestone_due="2099-06-01"),
+            _issue(2, milestone="v1.0", milestone_due="2099-06-01"),
+        ]
+        self.assertEqual(self._current(issues), "v1.0")
+
+    def test_closed_state_milestone_excluded(self):
+        # Closed milestone is excluded even with the nearer due date.
+        issues = [
+            _issue(1, milestone="done-ms", milestone_due="2099-01-01", milestone_state="closed"),
+            _issue(2, milestone="active-ms", milestone_due="2099-12-31", milestone_state="active"),
+        ]
+        self.assertEqual(self._current(issues), "active-ms")
+
+    def test_milestone_with_only_closed_issues_is_not_current(self):
+        issues = [_issue(1, state="closed", milestone="v1.0", milestone_due="2099-01-01")]
+        self.assertIsNone(self._current(issues))
+
+    def test_none_lane_never_current(self):
+        self.assertIsNone(self._current([_issue(1, milestone=None), _issue(2, milestone=None)]))
+
+    def test_only_milestone_swimlane_gets_marked(self):
+        issues = [_pipe_issue(1, milestone="v1.0", has_branch=True)]
+        _c, swim, _i = providers.apply_pivot(issues, LensConfig("pipeline", "assignee"))
+        self.assertFalse(any(s.is_current for s in swim))
 
 
 class PipelinePivotTests(SimpleTestCase):

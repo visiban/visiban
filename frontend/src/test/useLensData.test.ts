@@ -12,8 +12,8 @@ import type { LensData } from '../types'
 const mockGetLensBoard = getLensBoard as ReturnType<typeof vi.fn>
 
 const sampleData: LensData = {
-  columns: [{ key: 'open', label: 'Open' }],
-  swimlanes: [{ key: '__none__', label: '(no milestone)' }],
+  columns: [{ key: 'open', label: 'Open', is_current: false }],
+  swimlanes: [{ key: '__none__', label: '(no milestone)', is_current: false }],
   issues: [],
   fetched_at: '2026-06-06T12:00:00Z',
   source: { provider: 'github', repo: 'acme/widgets', url: 'https://github.com/acme/widgets' },

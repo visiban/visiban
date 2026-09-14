@@ -569,6 +569,9 @@ export interface LensConnection {
 export interface LensAxis {
   key: string;
   label: string;
+  /** Only ever true on the milestone swimlane axis: the milestone currently being
+   *  worked on (sorted first + badged). Always false on columns / other swimlanes. */
+  is_current: boolean;
 }
 
 /** Issue label. ``color`` is a hex string WITHOUT a leading '#'. */
@@ -605,6 +608,10 @@ export interface NormalizedIssue {
   labels: LensLabel[];
   assignees: LensUser[];
   milestone: string | null;
+  /** Milestone metadata carried through normalization for current-milestone
+   *  detection (backend-side); the frontend doesn't read these directly. */
+  milestone_due: string | null;
+  milestone_state: string | null;
   /** Column key(s) this issue maps to. */
   column_keys: string[];
   /**

@@ -224,6 +224,57 @@ def _paginate(url, headers, base_params, raise_for, cap=MAX_AUX_PAGES) -> list[d
     return items
 
 
+def _current_milestone(issues: list[NormalizedIssue], column_dim: str) -> str | None:
+    """The milestone currently being worked on, or None.
+
+    Precedence is column_dim-independent so the "Current" badge doesn't move when
+    the viewer switches column views:
+      1. Among not-closed milestones with at least one open issue and a due date,
+         the nearest upcoming due (today or later); if all are past, the most recent
+         past due (an overdue milestone is still the one in progress).
+      2. Only when no candidate has a due date AND pipeline columns are in play: the
+         milestone with the most issues in Doing/Review (actual in-progress work).
+      3. Otherwise nothing is marked current.
+    The synthetic "(no milestone)" lane is never current. At most one milestone wins;
+    ties break on milestone title so the result is stable across fetches.
+    """
+    meta: dict[str, tuple[str | None, str | None]] = {}  # title -> (state, due-date)
+    open_count: dict[str, int] = {}
+    work_count: dict[str, int] = {}  # Doing/Review — only real under pipeline columns
+    for i in issues:
+        m = i.milestone
+        if not m:
+            continue
+        if m not in meta:
+            # due may be a full datetime (GitHub due_on); normalize to a date.
+            meta[m] = (i.milestone_state, (i.milestone_due or "")[:10] or None)
+        if i.state == "open":
+            open_count[m] = open_count.get(m, 0) + 1
+        if column_dim == "pipeline" and any(c in ("doing", "review") for c in i.column_keys):
+            work_count[m] = work_count.get(m, 0) + 1
+
+    candidates = [
+        m for m in meta
+        if open_count.get(m, 0) > 0 and (meta[m][0] or "").lower() != "closed"
+    ]
+    if not candidates:
+        return None
+
+    dated = [(meta[m][1], m) for m in candidates if meta[m][1]]
+    if dated:
+        today = timezone.now().date().isoformat()
+        upcoming = sorted((d, m) for d, m in dated if d >= today)
+        if upcoming:
+            return upcoming[0][1]
+        return sorted(dated, reverse=True)[0][1]  # most-recent past due (overdue, still current)
+
+    if column_dim == "pipeline":
+        worked = sorted(((work_count.get(m, 0), m) for m in candidates), key=lambda x: (-x[0], x[1]))
+        if worked and worked[0][0] > 0:
+            return worked[0][1]
+    return None
+
+
 def apply_pivot(issues: list[NormalizedIssue], config: LensConfig):
     """Compute the column and swimlane axes from the issues and assign each
     issue its ``column_keys``/``swimlane_keys``. Mutates the issues in place and
@@ -297,6 +348,17 @@ def apply_pivot(issues: list[NormalizedIssue], config: LensConfig):
     swimlanes = [
         LensAxis(key=k, label=none_label if k == _NONE else k) for k in ordered_swims
     ]
+
+    # Mark the milestone currently being worked on so the frontend sorts it first
+    # and badges it. Only meaningful when swimlaning by milestone.
+    if swimlane_dim == "milestone":
+        current = _current_milestone(issues, column_dim)
+        if current is not None:
+            for s in swimlanes:
+                if s.key == current:
+                    s.is_current = True
+                    break
+
     return columns, swimlanes, issues
 
 
@@ -363,6 +425,8 @@ def _github_issue(raw: dict) -> NormalizedIssue:
             for a in raw.get("assignees", [])
         ],
         milestone=milestone.get("title") if milestone else None,
+        milestone_due=(milestone.get("due_on") or None) if milestone else None,
+        milestone_state=milestone.get("state") if milestone else None,
     )
 
 
@@ -472,6 +536,8 @@ def _gitlab_issue(raw: dict) -> NormalizedIssue:
             for a in raw.get("assignees", [])
         ],
         milestone=milestone.get("title") if milestone else None,
+        milestone_due=(milestone.get("due_date") or None) if milestone else None,
+        milestone_state=milestone.get("state") if milestone else None,
     )
 
 

@@ -33,7 +33,7 @@ Returned by the board data endpoint. Contains the full issue grid for a board at
 | Field | Type | Description |
 |---|---|---|
 | `columns` | array | Column dimension keys — `[{ key, label }]` |
-| `swimlanes` | array | Swimlane dimension keys — `[{ key, label }]`. Synthetic keys `"__none__"` and `"__nostatus__"` appear with user-friendly labels when issues lack the relevant field. |
+| `swimlanes` | array | Swimlane dimension keys — `[{ key, label, is_current? }]`. Synthetic keys `"__none__"` and `"__nostatus__"` appear with user-friendly labels when issues lack the relevant field. `is_current` is `true` on at most one lane, only when `swimlane_dim=milestone`, marking the milestone currently being worked on (see [Current milestone](#current-milestone)). The field is additive — treat its absence as `false`. |
 | `issues` | array | Issue objects (see below) |
 | `fetched_at` | string | ISO 8601 timestamp of when the data was fetched from the provider. Results are cached server-side for ~60 seconds per user + repository + pivot combination. |
 | `source` | object | `{ provider, repo, url }` — identifies the upstream source |
@@ -52,6 +52,8 @@ Returned by the board data endpoint. Contains the full issue grid for a board at
 | `labels` | array | `[{ name, color }]` — `color` is a 6-character hex string without a leading `#` (e.g. `"d73a4a"`) |
 | `assignees` | array | `[{ username, avatar_url }]` |
 | `milestone` | string / null | Milestone title, or `null` if none |
+| `milestone_due` | string / null | Due date of that milestone as an ISO date (`YYYY-MM-DD`), or `null`. Carried through from the provider so current-milestone detection needs no second API call. Additive field. |
+| `milestone_state` | string / null | State of that milestone — `"active"`/`"open"` vs `"closed"` — or `null`. Additive field. |
 | `column_keys` | array | List of column dimension key strings this issue maps to |
 | `swimlane_keys` | array | List of swimlane dimension key strings this issue maps to. An issue may appear in **multiple** swimlane keys (e.g. when it carries more than one label and `swimlane_dim` is `"label"`); the UI renders it in each matching lane. |
 | `has_branch` | boolean | `true` when a feature branch for this issue exists in the repo. Always `false` when `column_dim` is not `"pipeline"`. |
@@ -136,7 +138,7 @@ Create or replace the LensConnection for a board. If no connection exists, one i
 |---|---|---|---|
 | `provider` | string | Yes | Issue tracker provider. One of `"github"` or `"gitlab"` |
 | `repo_slug` | string | Yes | Repository in `owner/repo` format. Must be a public repository |
-| `column_dim` | string | No | Dimension for board columns. One of `"status"`, `"state"`, `"pipeline"` (default: `"status"`) |
+| `column_dim` | string | No | Dimension for board columns. One of `"status"`, `"state"`, `"pipeline"` (default: `"pipeline"`) |
 | `swimlane_dim` | string | No | Dimension for swimlanes. One of `"milestone"`, `"assignee"`, `"label"` (default: `"milestone"`) |
 
 **Example request**
@@ -209,6 +211,7 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
 | `swimlane_dim` | string | Override the swimlane pivot dimension for this request only. One of `"milestone"`, `"assignee"`, `"label"`. Does not modify the saved connection. |
 | `state` | string | Filter by issue state. `"open"` or `"closed"`. Any other value (including omitting the parameter) returns all states. Applied **server-side** before the issue set is returned. |
 | `milestone` | string | Filter to a single milestone by title. Use the synthetic value `"__none__"` to return only issues with no milestone. Max 255 characters. Applied **server-side** for GitLab; **client-side** for GitHub (see [Filtering](#filtering)). Omitting returns all milestones. |
+| `refresh` | string | `"1"` or `"true"` forces a re-fetch from the provider past the ~60s server cache, so the response carries a fresh `fetched_at`. Rate-limited per user, per repository (see [Refresh and rate limits](#refresh-and-rate-limits)); a request inside the cooldown is served the cached copy instead — it does not error. |
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
@@ -377,3 +380,46 @@ The `available_milestones` field in the response lists the milestone titles pres
 | `409 Conflict` | `{ "detail": "...", "code": "auth_required" }` | Provider is GitHub and the requesting user has not linked their GitHub account. The user must connect their GitHub account via profile settings before fetching data. |
 | `429 Too Many Requests` | `{ "detail": "...", "code": "rate_limited", "retry_after": 47 }` | The provider's API rate limit has been reached. `retry_after` is the number of seconds to wait before retrying. |
 | `502 Bad Gateway` | `{ "detail": "...", "code": "lens_error" }` | Upstream provider returned an unexpected error or the request timed out. |
+
+
+## Current milestone
+
+When `swimlane_dim=milestone`, the server marks at most one swimlane `is_current: true` — the
+milestone being actively worked on — so a client can promote it instead of burying it among
+every other milestone.
+
+Detection is automatic; there is no configuration and no per-release maintenance:
+
+1. Among milestones that are **not closed** and have **at least one open issue**, the one whose
+   due date is nearest — the next upcoming due date, or, if every candidate is already past, the
+   most recent past one (an overdue milestone is still the one in progress).
+2. Only when **no** candidate carries a due date *and* `column_dim=pipeline`: the milestone with
+   the most issues sitting in Doing/Review.
+3. Otherwise no lane is marked.
+
+Ties break on milestone title, so the result is stable across fetches. The synthetic
+`"__none__"` lane is never marked current.
+
+The precedence is deliberately independent of `column_dim` so the marked lane does not move when
+a viewer switches column views — the in-progress signal in rule 2 is only computable under
+pipeline columns, so leading with it would make the badge flicker between pivots.
+
+## Refresh and rate limits
+
+Board data is cached server-side for ~60 seconds per repository and pivot, shared across
+everyone viewing that board. `?refresh=1` deliberately bypasses that cache.
+
+Two limits bound how much upstream traffic one account can cause. Both are per user **per
+repository** — not per board — because the budget being protected is the provider's rate limit,
+which every board pointing at the same repository shares:
+
+| Limit | Window | Behavior when exceeded |
+|---|---|---|
+| One forced refresh (`?refresh=1`) | 30 s | The request is served the cached copy. No error; `fetched_at` simply does not advance. |
+| 12 upstream fetches from any path | 5 min | A cached copy is served if one exists, otherwise `429 Too Many Requests` with `code: "fetch_budget_exhausted"`. |
+
+The second limit covers cold cache keys as well as forced refreshes, because `milestone` accepts
+free text and every new value is a cache miss that would otherwise reach the provider.
+
+Refresh is available to **every** board role including viewers — the lens is a read-only surface
+whose main audience is viewers, so the cap is on rate, not on role.

@@ -38,7 +38,7 @@ const SWIMLANE_DIM_OPTIONS = [
 export default function LensConnectionModal({ boardId, connection, onSaved, onRemoved, onClose }: Props) {
   const [provider, setProvider] = useState<LensProvider>(connection?.provider ?? "github");
   const [repoSlug, setRepoSlug] = useState(connection?.repo_slug ?? "");
-  const [columnDim, setColumnDim] = useState(connection?.column_dim ?? "status");
+  const [columnDim, setColumnDim] = useState(connection?.column_dim ?? "pipeline");
   const [swimlaneDim, setSwimlaneDim] = useState(connection?.swimlane_dim ?? "milestone");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
