@@ -331,6 +331,35 @@ class GroupBoardsTests(TestCase):
         board_id = r.json()["id"]
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 0)
 
+    def test_create_board_marks_terminal_columns_done(self):
+        """Group-scoped board creation must apply the same `is_done` flags as
+        the top-level endpoint — previously it silently dropped them (#1115)."""
+        from boards.models import Column
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/boards/",
+            {"name": "Pipeline", "template": "sales_pipeline"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        board_id = r.json()["id"]
+        done_names = list(
+            Column.objects.filter(board_id=board_id, is_done=True)
+            .order_by("position").values_list("name", flat=True)
+        )
+        self.assertEqual(done_names, ["Closed Won", "Closed Lost"])
+
+    def test_unknown_explicit_template_returns_400(self):
+        """Same rejection as POST /boards/ — an unknown explicit slug must
+        not silently create a board with the wrong layout (#1115)."""
+        from boards.models import Board
+        boards_before = Board.objects.count()
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/boards/",
+            {"name": "Bad Template", "template": "does_not_exist"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unknown_template", r.json().get("code", []))
+        self.assertEqual(Board.objects.count(), boards_before)
+
     def test_create_board_uses_supplied_swimlane_name(self):
         from boards.models import Swimlane
         r = self.client.post(
