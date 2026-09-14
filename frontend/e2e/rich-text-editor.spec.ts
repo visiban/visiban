@@ -138,6 +138,35 @@ test.describe('rich text editor', () => {
     expect(sink.description).not.toContain('<https://example.com>')
   })
 
+  test('Ctrl+U does not write underline HTML into the description', async ({ page }) => {
+    const sink: { description?: string } = {}
+    await routeCardWithPatchCapture(page, sink)
+
+    const { dialog, editor } = await openDescriptionEditor(page)
+
+    await editor.click()
+    await page.keyboard.press('End')
+    await page.keyboard.type(' underlined')
+    for (let i = 0; i < 'underlined'.length; i++) {
+      await page.keyboard.press('Shift+ArrowLeft')
+    }
+    // ControlOrMeta, not Control: Tiptap binds Mod-u, which is Cmd on macOS and
+    // Ctrl on CI's Linux. A bare 'Control+u' is a no-op on macOS and would make
+    // this test pass whether or not Underline is enabled.
+    await page.keyboard.press('ControlOrMeta+u')
+
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    // Tiptap 3's StarterKit bundles Underline; Tiptap 2's did not, and
+    // RichTextEditor disables it. This guard matters more than the Link one: there
+    // is no markdown for underline, so tiptap-markdown emits raw <u> HTML — and <u>
+    // is absent from rehype-sanitize's defaultSchema.tagNames (53 tags, checked),
+    // so view mode strips it. With Underline enabled the user's formatting is
+    // written to the card and then silently discarded on display.
+    await expect.poll(() => sink.description, { timeout: 5_000 }).toContain('underlined')
+    expect(sink.description).not.toContain('<u>')
+  })
+
   test('Cancel leaves the description unsaved', async ({ page }) => {
     const sink: { description?: string } = {}
     await routeCardWithPatchCapture(page, sink)
