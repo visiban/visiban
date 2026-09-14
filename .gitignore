@@ -68,3 +68,14 @@ values.secret.yaml
 # Claude Code agent worktrees
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+
+# scripts/wt worktree scaffolding
+# wt symlinks the heavy dev-dep dirs back to the main checkout and generates an
+# .envrc. Those are symlinks — git treats them as files, so the `.venv/` and
+# `node_modules/` patterns above (trailing slash = directories only) do not
+# match them, and a plain `git add -A` in a worktree commits them.
+/.envrc
+/.venv
+/node_modules
+/backend/.venv
+/frontend/node_modules
