@@ -622,6 +622,28 @@ describe('ColumnHeader', () => {
     expect(screen.queryByText('WIP 2/2')).not.toBeInTheDocument()
   })
 
+  it('prioritizes Over Weight over the at-limit indicator when both apply and showWipAtLimit is on', () => {
+    // At its WIP limit (2/2, not over) but over its weight budget (14/10) — Over
+    // Weight must win per the priority chain (Over WIP > Over Weight > At WIP > calm).
+    const cards = [makeCard({ id: 1, weight: 7 }), makeCard({ id: 2, weight: 7 })]
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2, weight_limit: 10 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+        showWipAtLimit
+      />,
+    )
+    const row = screen.getByTitle('Over weight budget')
+    expect(row).toHaveTextContent('Weight 14/10')
+    expect(screen.queryByText('WIP 2/2')).not.toBeInTheDocument()
+  })
+
   it('double-clicking the header opens EditColumnModal for admin', async () => {
     render(
       <ColumnHeader
