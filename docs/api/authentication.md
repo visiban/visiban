@@ -51,6 +51,8 @@ Pass the token in the `Authorization` header using the `Token` scheme.
     Visiban uses the prefix `Token`, not `Bearer`. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
     `Authorization: Token vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`
 
+    The one exception is the [MCP server](mcp.md) at `/mcp`, which requires the `Bearer` scheme because the Model Context Protocol specification mandates it. The two schemes are scoped to their own transports and are not interchangeable, but they resolve the same Personal Access Token records — revoking a token revokes it for both.
+
 === "curl"
     ```bash
     # List boards

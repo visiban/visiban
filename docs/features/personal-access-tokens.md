@@ -98,6 +98,7 @@ Revoked tokens are deleted immediately. Any request using the revoked token will
 - **Maximum 10 tokens per user** — if you reach the limit, revoke tokens you no longer use before creating new ones. The **New token** button is disabled when the limit is reached.
 - **Treat tokens like passwords** — store them in a secrets manager or CI secrets vault, never in plain text in source code or config files committed to a repository.
 - **Scope** — a PAT carries your full access rights. It can read and write every board, card, and group you have access to. There is no scope restriction at creation time.
+- **The same token authenticates AI agents** — if your operator has enabled the [MCP server](../api/mcp.md), a PAT is also the credential an MCP client uses to read your boards. Revoking the token, or changing your password, cuts off that access too.
 
 ---
 
