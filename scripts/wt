@@ -2,12 +2,32 @@
 # scripts/wt — git worktree helper for parallel multi-issue work.
 #
 # Usage:
-#   scripts/wt new <issue|branch-name>   Create a worktree + branch off origin/<default>.
+#   scripts/wt new <issue|branch-name> [--force]
+#                                        Create a worktree + branch off origin/<default>.
+#                                        If the input is a bare issue number and glab is
+#                                        available, applies a `status::wip` label + a
+#                                        check-out comment on the issue so a parallel
+#                                        agent sees it's claimed. Refuses an already-
+#                                        claimed issue unless --force.
+#   scripts/wt claim <issue-number> [--force]
+#                                        Apply the status::wip lock WITHOUT creating a
+#                                        worktree yet — reserves the issue immediately.
+#   scripts/wt release <issue-number>   Manually clear a status::wip lock (e.g. a claim
+#                                        you never turned into a worktree, or a stale
+#                                        lock left by a crashed session).
 #   scripts/wt list                      List active worktrees and WIP count.
-#   scripts/wt remove <issue|name>       Remove a worktree by issue # or name.
+#   scripts/wt remove <issue|name>       Remove a worktree by issue # or name. Clears the
+#                                        issue's status::wip lock if one was applied.
 #   scripts/wt prune                     Remove worktrees whose branches were merged to
 #                                        the default branch and deleted on origin. Refuses
-#                                        to remove worktrees with uncommitted work.
+#                                        to remove worktrees with uncommitted work. Clears
+#                                        each pruned worktree's status::wip lock.
+#   scripts/wt stash [push|pop|apply|list|show|drop] [msg]
+#                                        Worktree-scoped stash. Plain `git stash` is NOT
+#                                        worktree-scoped (it's one shared stack for the
+#                                        whole repo) — this uses a private ref per
+#                                        worktree so parallel worktrees never collide on
+#                                        the same stash slot. Defaults to `push`.
 #   scripts/wt doctor                    Verify symlinks and shared docker-stack reuse.
 #   scripts/wt help                      Show this help.
 #
@@ -16,7 +36,13 @@
 # main checkout so installs aren't duplicated. A running Docker Compose stack is
 # shared via COMPOSE_PROJECT_NAME, exported in the generated .envrc for direnv users.
 #
-# WIP discipline: warns at WT_WARN (default 4), errors at WT_CAP (default 5).
+# WIP discipline: warns at WT_WARN (default 8), errors at WT_CAP (default 10).
+#
+# Issue check-out lock: all agents share one GitLab identity, so an assignee or a
+# comment doesn't stop a parallel agent from grabbing the same issue. `new`/`claim`
+# apply a `status::wip` scoped label (created on first use) plus a check-out comment;
+# `remove`/`prune`/`release` clear it. Best-effort — degrades to a warning (never a
+# hard failure) when glab is missing or unauthenticated, or the repo isn't on GitLab.
 #
 # This script is layout-agnostic: it auto-detects which dev-dep dirs exist
 # (.venv, node_modules, backend/.venv, frontend/node_modules,
@@ -24,9 +50,10 @@
 # picks glab or gh for issue-title lookup based on origin's host. Override any
 # default via env:
 #   WT_BASE             where worktrees are created       (default ../<repo>-wt)
-#   WT_CAP / WT_WARN    WIP error / warn thresholds       (default 5 / 4)
+#   WT_CAP / WT_WARN    WIP error / warn thresholds       (default 10 / 8)
 #   WT_COMPOSE_PROJECT  shared compose project name       (default repo dir name)
 #   WT_SYMLINK_DIRS     space-separated dev-dep dirs to symlink (default: auto-detect)
+#   WT_LOCK_LABEL       GitLab label used for the issue check-out lock (default: status::wip)
 
 set -euo pipefail
 
@@ -45,9 +72,11 @@ case "$GIT_COMMON_DIR" in
 esac
 REPO_NAME="$(basename "$REPO_ROOT")"
 WT_BASE="${WT_BASE:-${REPO_ROOT%/*}/${REPO_NAME}-wt}"
-WT_CAP="${WT_CAP:-5}"
-WT_WARN="${WT_WARN:-4}"
+WT_CAP="${WT_CAP:-10}"
+WT_WARN="${WT_WARN:-8}"
 COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-$REPO_NAME}}"
+WT_LOCK_LABEL="${WT_LOCK_LABEL:-status::wip}"
+WT_STASH_NS="refs/wt-stash"
 
 # Default branch = origin/HEAD target, falling back to main.
 DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
@@ -159,23 +188,139 @@ auto_created_regex() {
 }
 
 # ---------------------------------------------------------------------------
+# Issue check-out lock (status::wip)
+# ---------------------------------------------------------------------------
+#
+# All agents share one GitLab identity, so an assignee or a claim-comment alone
+# doesn't stop a parallel agent from grabbing the same issue. This uses the
+# WT_LOCK_LABEL scoped label plus a check-out comment as the shared signal:
+# `new`/`claim` refuse an already-claimed issue, `remove`/`prune`/`release`
+# clear it. Every operation here is best-effort — it degrades to a warning,
+# never a hard failure, when glab is missing, unauthenticated, or the repo
+# isn't GitLab-hosted, so worktree management never breaks on a network blip.
+
+lock_available() { [[ "$(forge_cli)" == "glab" ]] && command -v glab >/dev/null 2>&1; }
+
+# Extract the issue number encoded in a branch name (feat/123-foo -> 123), or
+# empty for a branch with no leading issue number (chore/some-slug).
+issue_from_branch() {
+  local branch="$1"
+  if [[ "$branch" =~ ^[a-z]+/([0-9]+)- ]]; then printf "%s" "${BASH_REMATCH[1]}"; fi
+}
+
+ensure_lock_label() {
+  glab label list 2>/dev/null | grep -qF "$WT_LOCK_LABEL" && return 0
+  glab label create -n "$WT_LOCK_LABEL" -c "#ec9a29" \
+    -d "Checked out by an agent/worktree (scripts/wt) — do not grab in parallel" \
+    >/dev/null 2>&1 || true
+}
+
+issue_is_locked() {
+  glab issue view "$1" --output json 2>/dev/null \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print('locked' if '${WT_LOCK_LABEL}' in (d.get('labels') or []) else '')" \
+    2>/dev/null || true
+}
+
+last_checkout_note() {
+  glab issue view "$1" --comments --output json 2>/dev/null | python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+notes=d.get('Notes') or d.get('notes') or []
+hits=[(n.get('body') or '') for n in notes if '🔒 checked out' in (n.get('body') or '')]
+print(hits[-1] if hits else '')
+" 2>/dev/null || true
+}
+
+apply_lock() {
+  local issue="$1" branch="$2" path="$3" ts
+  ensure_lock_label
+  glab issue update "$issue" --label "$WT_LOCK_LABEL" >/dev/null 2>&1 \
+    || warn "could not apply '$WT_LOCK_LABEL' to #$issue (check glab auth)"
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  glab issue note "$issue" \
+    -m "🔒 checked out ${ts} · branch \`${branch}\` · worktree \`${path}\`" \
+    >/dev/null 2>&1 || warn "could not post check-out comment to #$issue"
+}
+
+clear_lock() {
+  local issue="$1" branch="$2" ts
+  glab issue update "$issue" --unlabel "$WT_LOCK_LABEL" >/dev/null 2>&1 || true
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  glab issue note "$issue" -m "🔓 released ${ts} · branch \`${branch}\`" >/dev/null 2>&1 || true
+}
+
+# Guard used by new/claim: die if $1 is already checked out and --force wasn't given.
+assert_claimable() {
+  local issue="$1" force="$2" note
+  lock_available || { warn "glab unavailable — the #$issue advisory label won't be set, but the local worktree dir + prune grace window still prevent a parallel agent from stomping this work"; return 0; }
+  if [[ "$(issue_is_locked "$issue")" == "locked" && -z "$force" ]]; then
+    err "issue #$issue is already checked out (label '$WT_LOCK_LABEL')."
+    note="$(last_checkout_note "$issue")"
+    [[ -n "$note" ]] && dim "  $note"
+    die "another agent/worktree is likely on it. Re-run with --force to take it over."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Worktree-scoped stash
+# ---------------------------------------------------------------------------
+#
+# Plain `git stash` is NOT worktree-scoped — refs/stash is one shared stack for
+# the whole repo, so two worktrees stashing concurrently clobber each other's
+# slot. Each worktree instead gets its own ref under refs/wt-stash/<slug>,
+# keyed by a hash of the worktree's absolute path, so it survives a rename and
+# never collides with a sibling worktree.
+
+wt_stash_slug() {
+  local base hash
+  base="$(basename "$CURRENT_TOPLEVEL" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40)"
+  hash="$(printf '%s' "$CURRENT_TOPLEVEL" | git hash-object --stdin | cut -c1-8)"
+  printf '%s-%s' "${base:-worktree}" "$hash"
+}
+
+wt_stash_ref() { printf '%s/%s' "$WT_STASH_NS" "$(wt_stash_slug)"; }
+
+# Every entry for THIS worktree, newest first — the reflog of our ref is the stack.
+wt_stash_entries() {
+  git -C "$CURRENT_TOPLEVEL" reflog show "$(wt_stash_ref)" --format='%gd %gs' 2>/dev/null || true
+}
+
+wt_stash_has_entries() {
+  [[ -n "$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "$(wt_stash_ref)" 2>/dev/null || true)" ]]
+}
+
+# ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 
 cmd_new() {
-  [[ $# -ge 1 ]] || die "usage: wt new <issue|branch-name>"
-  local input="$1"
+  local input="" force=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force="1"; shift ;;
+      *)       [[ -z "$input" ]] && input="$1"; shift ;;
+    esac
+  done
+  [[ -n "$input" ]] || die "usage: wt new <issue|branch-name> [--force]"
   local branch; branch="$(derive_branch_name "$input")"
   local short_name="${branch##*/}"
   local target_path="${WT_BASE}/${short_name}"
+  local issue; issue="$(issue_from_branch "$branch")"
 
   local count; count="$(wt_count)"
   if (( count >= WT_CAP )); then
-    die "WIP cap reached (${count}/${WT_CAP}). Finish or remove one first. Override with WT_CAP if you must."
+    die "WIP cap reached (${count}/${WT_CAP}). Run 'scripts/wt prune' to reap worktrees whose MRs already merged, or finish/remove one first. Override with WT_CAP if you must."
   fi
   if (( count >= WT_WARN )); then
     warn "${count}/${WT_CAP} active worktrees — approaching the WIP cap"
   fi
+
+  # Issue check-out lock: refuse fast, before touching the filesystem, if a
+  # parallel agent already holds this issue — unless the caller forces a takeover.
+  [[ -n "$issue" ]] && assert_claimable "$issue" "$force"
 
   git -C "$REPO_ROOT" fetch origin "$DEFAULT_BRANCH" --quiet
 
@@ -184,7 +329,29 @@ cmd_new() {
   if git -C "$REPO_ROOT" rev-parse --verify "$branch" >/dev/null 2>&1; then
     git -C "$REPO_ROOT" worktree add "$target_path" "$branch"
   else
-    git -C "$REPO_ROOT" worktree add "$target_path" -b "$branch" "origin/$DEFAULT_BRANCH"
+    # --no-track: the new branch must NOT adopt origin/<default> as its upstream.
+    # If it did, `wt prune`'s "never pushed" check could not tell a fresh
+    # 0-commit worktree from a merged-and-deleted branch — both look like an
+    # ancestor of origin/<default> with no origin/<branch> — and would
+    # false-prune the fresh one out from under a running agent. The branch's
+    # real upstream is set on its first `git push -u`.
+    git -C "$REPO_ROOT" worktree add --no-track "$target_path" -b "$branch" "origin/$DEFAULT_BRANCH"
+  fi
+
+  # Belt-and-suspenders: on the existing-branch path (or any git that ignores
+  # --no-track), strip an origin/<default> upstream if one slipped through, for
+  # the same false-prune reason above.
+  if [[ "$(git -C "$REPO_ROOT" config --get "branch.${branch}.merge" 2>/dev/null || true)" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+    git -C "$REPO_ROOT" branch --unset-upstream "$branch" 2>/dev/null || true
+  fi
+
+  if [[ -n "$issue" ]]; then
+    apply_lock "$issue" "$branch" "$target_path"
+    if [[ -n "$force" ]]; then
+      ok "took over check-out of #$issue"
+    else
+      ok "checked out #$issue ('$WT_LOCK_LABEL' applied)"
+    fi
   fi
 
   # Symlink shared dev deps — only candidates present in the main checkout.
@@ -260,9 +427,17 @@ cmd_remove() {
     fi
   fi
 
+  local branch; branch="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
   # Force git's own remove — the symlinks + .envrc are "untracked" and would block it.
   git -C "$REPO_ROOT" worktree remove --force "$path"
   ok "removed worktree $path"
+
+  local issue; issue="$(issue_from_branch "$branch")"
+  if [[ -n "$issue" ]] && lock_available; then
+    clear_lock "$issue" "$branch"
+    ok "released check-out of #$issue"
+  fi
 }
 
 cmd_prune() {
@@ -305,10 +480,123 @@ cmd_prune() {
     git -C "$REPO_ROOT" worktree remove --force "$path"
     ok "  $branch: removed (merged to $DEFAULT_BRANCH, remote gone)"
     pruned=$((pruned + 1))
+
+    local issue; issue="$(issue_from_branch "$branch")"
+    if [[ -n "$issue" ]] && lock_available; then
+      clear_lock "$issue" "$branch"
+      dim "    released check-out of #$issue"
+    fi
   done < <(git -C "$REPO_ROOT" worktree list --porcelain | awk '/^worktree /{print $2}')
 
   say ""
   say "Pruned: $pruned. Skipped (had local work): $skipped. Kept: $kept."
+}
+
+cmd_claim() {
+  local issue="" force=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force="1"; shift ;;
+      *)       [[ -z "$issue" ]] && issue="$1"; shift ;;
+    esac
+  done
+  [[ "$issue" =~ ^[0-9]+$ ]] || die "usage: wt claim <issue-number> [--force]"
+  lock_available || die "glab not available (or origin isn't GitLab-hosted) — cannot claim #$issue"
+  assert_claimable "$issue" "$force"
+  apply_lock "$issue" "(not started)" "(claim only — no worktree yet)"
+  if [[ -n "$force" ]]; then
+    ok "took over check-out of #$issue (forced; no worktree yet)"
+  else
+    ok "checked out #$issue ('$WT_LOCK_LABEL' applied; no worktree yet)"
+  fi
+}
+
+cmd_release() {
+  [[ $# -ge 1 ]] || die "usage: wt release <issue-number>"
+  local issue="$1"
+  [[ "$issue" =~ ^[0-9]+$ ]] || die "release needs a numeric issue number"
+  lock_available || die "glab not available (or origin isn't GitLab-hosted) — cannot release #$issue"
+  clear_lock "$issue" "(manual release)"
+  ok "released check-out of #$issue"
+}
+
+cmd_stash() {
+  local sub="${1:-push}"
+  case "$sub" in push|pop|apply|list|drop|show) shift || true ;; *) sub="push" ;; esac
+
+  local ref slug
+  ref="$(wt_stash_ref)"; slug="$(wt_stash_slug)"
+
+  case "$sub" in
+    push)
+      local msg="${1:-}" commit
+      [[ -n "$msg" ]] || msg="wt-stash on $(git -C "$CURRENT_TOPLEVEL" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')"
+      # `create` builds the stash commit and prints its sha WITHOUT writing any
+      # ref — the whole reason a private stash is possible. Empty output means a
+      # clean tree; that is not an error, but it must not be reported as a save.
+      commit="$(git -C "$CURRENT_TOPLEVEL" stash create "$msg" 2>/dev/null || true)"
+      if [[ -z "$commit" ]]; then
+        say "wt: nothing to stash — the worktree is clean"
+        return 0
+      fi
+      # The reflog IS the stack — each push is one entry, newest first, exactly
+      # like refs/stash. --create-reflog is required: git only auto-logs refs
+      # under refs/heads, refs/remotes, refs/notes and HEAD unless
+      # core.logAllRefUpdates=always, and a custom namespace is none of those.
+      git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "$msg" "$ref" "$commit"
+      # Match `git stash push`: the working tree goes back to HEAD. Untracked
+      # files are left alone, as `git stash create` does not capture them.
+      git -C "$CURRENT_TOPLEVEL" reset --hard -q HEAD
+      ok "stashed to ${ref} — restore with: scripts/wt stash pop"
+      if [[ -n "$(git -C "$CURRENT_TOPLEVEL" ls-files --others --exclude-standard 2>/dev/null | head -n1)" ]]; then
+        warn "untracked files were NOT stashed (git stash create does not capture them)"
+      fi
+      ;;
+
+    pop|apply)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      local target="${1:-$ref}"
+      git -C "$CURRENT_TOPLEVEL" stash apply "$target" || die "apply failed — nothing was dropped; resolve, then: scripts/wt stash drop"
+      if [[ "$sub" == "pop" ]]; then
+        local prev
+        prev="$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "${ref}@{1}" 2>/dev/null || true)"
+        if [[ -n "$prev" ]]; then
+          git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "wt-stash pop" "$ref" "$prev"
+        else
+          git -C "$CURRENT_TOPLEVEL" update-ref -d "$ref"
+        fi
+        ok "popped ${ref}"
+      else
+        ok "applied ${ref} (entry kept)"
+      fi
+      ;;
+
+    list)
+      if ! wt_stash_has_entries; then
+        say "no wt stash entries for this worktree ($slug)"
+      else
+        say "wt stash entries for $slug:"
+        wt_stash_entries | sed 's/^/  /'
+      fi
+      ;;
+
+    show)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      git -C "$CURRENT_TOPLEVEL" stash show -p "${1:-$ref}"
+      ;;
+
+    drop)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      local prev
+      prev="$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "${ref}@{1}" 2>/dev/null || true)"
+      if [[ -n "$prev" ]]; then
+        git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "wt-stash drop" "$ref" "$prev"
+      else
+        git -C "$CURRENT_TOPLEVEL" update-ref -d "$ref"
+      fi
+      ok "dropped the newest entry on ${ref}"
+      ;;
+  esac
 }
 
 cmd_doctor() {
@@ -364,9 +652,12 @@ cmd_help() { sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; }
 
 case "${1:-help}" in
   new)        shift; cmd_new "$@" ;;
+  claim)      shift; cmd_claim "$@" ;;
+  release)    shift; cmd_release "$@" ;;
   list|ls)    cmd_list ;;
   remove|rm)  shift; cmd_remove "$@" ;;
   prune)      shift; cmd_prune "$@" ;;
+  stash)      shift; cmd_stash "$@" ;;
   doctor)     cmd_doctor ;;
   help|--help|-h) cmd_help ;;
   *)          err "unknown subcommand: $1"; cmd_help; exit 2 ;;
