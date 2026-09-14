@@ -40,5 +40,13 @@ django-filter==25.2
 # below that. django-mcp was evaluated and rejected — its upstream repo is
 # archived and its own mcp[cli]~=1.9.2 pin forces a vulnerable SDK version.
 mcp==1.30.0
+# python-multipart arrives transitively via mcp, which declares only
+# `python-multipart>=0.0.9` with no upper bound. pip resolves that to the latest
+# (0.0.32 today), so built images are not affected — but osv-scanner resolves the
+# MINIMUM satisfying version and so reports 0.0.9 with 8 advisories
+# (PYSEC-2026-1851/1852 and PYSEC-2026-3036..3041). Nothing guarantees the
+# resolver's choice, so floor it explicitly. 0.0.31 is the highest fix version
+# across the eight; mcp's unbounded spec accepts it.
+python-multipart>=0.0.31
 whitenoise==6.8.2
 drf-spectacular==0.29.0
