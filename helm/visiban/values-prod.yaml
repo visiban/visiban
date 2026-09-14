@@ -1,0 +1,99 @@
+# Production overlay.
+#
+# The shape docs/getting-started/kubernetes.md documents, as a file CI lints
+# rather than a prose list of --set flags that drifts from the chart.
+#
+# This file deliberately contains NO secrets. Supply them either through a
+# pre-created Kubernetes Secret (secret.existingSecret — recommended) or a
+# gitignored values.secret.yaml; see values.secret.yaml.example.
+#
+# Usage:
+#   helm upgrade --install visiban ./helm/visiban \
+#     -f helm/visiban/values-prod.yaml \
+#     -f values.secret.yaml \
+#     --set backend.settings.allowedHosts=boards.example.com \
+#     --set backend.settings.corsAllowedOrigins=https://boards.example.com \
+#     --set backend.settings.frontendUrl=https://boards.example.com \
+#     --set backend.settings.siteDomain=boards.example.com \
+#     --set ingress.host=boards.example.com \
+#     --set backend.email.fromAddress=noreply@example.com \
+#     --set backend.email.host=smtp.example.com
+#
+# Then verify the install actually booted:
+#   helm test visiban
+
+backendReplicaCount: 2
+frontendReplicaCount: 2
+
+backend:
+  settings:
+    debug: "false"
+    # TLS terminates at the ingress, which sets X-Forwarded-Proto — so secure
+    # cookies and HSTS stay on. Flipping this in production sends the session
+    # cookie over plain HTTP.
+    forceInsecureCookies: false
+    emailVerification: "mandatory"
+    # /admin/ is loopback-only. Reach it with:
+    #   kubectl port-forward svc/<release>-visiban-backend 8000:8000
+    # Widen it only to a known operator CIDR, never to 0.0.0.0/0.
+    adminAllowedIPs: ""
+  email:
+    backend: "smtp"
+    port: 587
+    useTls: true
+    # Keep the SMTP password out of the release: create the Secret out of band
+    # and name it here.
+    # existingSecret: visiban-smtp
+  mediaPersistence:
+    enabled: true
+    size: 50Gi
+    accessModes:
+      # ReadWriteOnce is correct only while backendReplicaCount pods can be
+      # scheduled on one node. For multi-node HA, switch to ReadWriteMany on a
+      # storage class that supports it, or the second replica will not start.
+      - ReadWriteOnce
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+frontend:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: visiban-tls
+
+# A real cluster should run PostgreSQL as a managed service or an operator, not
+# as this chart's single-replica StatefulSet — it has no backup, no failover and
+# no connection pooling. Point externalDatabase at it and turn this off.
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+
+valkey:
+  enabled: true
+
+# ON in production. Requires a CNI that ENFORCES NetworkPolicy — Calico, Cilium,
+# or a managed equivalent. kind's default kindnetd admits these objects and
+# silently ignores them, so a green install there is not evidence of isolation;
+# CI's helm-netpol job boots Calico precisely because of that.
+networkPolicy:
+  enabled: true

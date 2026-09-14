@@ -22,8 +22,11 @@ data:
         add_header X-Frame-Options           SAMEORIGIN always;
         add_header X-Content-Type-Options    nosniff always;
 
-        # Allow file uploads up to 20 MB (matches docker-compose.prod)
-        client_max_body_size 20M;
+        # Transport body limit — derived from backend.settings.maxUploadSizeBytes
+        # so the edge always accepts a request Django is still willing to reject
+        # itself, with a message naming the real cap. A hardcoded limit below the
+        # app cap 413s the upload here and Django never sees it.
+        client_max_body_size {{ include "visiban.transportBodyLimitMB" . }}M;
 
         # Compression
         gzip on;

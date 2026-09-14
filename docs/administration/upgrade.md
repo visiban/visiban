@@ -253,6 +253,46 @@ After rolling back, restart the backend container with the previous image versio
 
 ### Upgrading to 1.2.x
 
+!!! warning "Helm values are now schema-validated — an unknown key fails the upgrade"
+    Chart 0.4.0 ships `values.schema.json` with `additionalProperties: false` on
+    the chart's own blocks. A values key the chart does not read — a typo, or a
+    name lifted from another chart's documentation — now fails `helm upgrade`
+    with a message naming the key and its path:
+
+    ```
+    Error: values don't meet the specifications of the schema(s) in the following chart(s):
+    visiban:
+    - at '/backend/settings': additional properties 'allowedHost' not allowed
+    ```
+
+    **This is not a regression in what the chart supports.** Such a key was never
+    being applied; it was accepted in silence and changed nothing on the pod,
+    which is indistinguishable from the setting having no effect. The upgrade now
+    stops instead of continuing to ignore it.
+
+    **What to do:** correct the spelling, or delete the key. To find them ahead
+    of the upgrade, run the schema check without deploying anything:
+
+    ```bash
+    helm template visiban oci://ghcr.io/visiban/charts/visiban -f my-values.yaml >/dev/null
+    ```
+
+    Blocks handed to a subchart or to `toYaml` stay open and accept any key:
+    `global`, `postgresql`, `valkey`, `ingress.annotations`,
+    `backend.resources`, `frontend.resources`.
+
+!!! note "Upload limits are now derived from one value"
+    `backend.settings.maxUploadSizeBytes` (default 10 MB) now drives the
+    application cap, the frontend nginx `client_max_body_size`, and the ingress
+    `nginx.ingress.kubernetes.io/proxy-body-size` annotation — the last two with
+    10 MB of multipart-framing headroom.
+
+    At the chart defaults all three resolve to exactly what 1.1 shipped, so **no
+    existing install changes behavior**. If you previously raised the limit, set
+    `backend.settings.maxUploadSizeBytes` instead of editing the annotation and
+    the nginx config separately; a hand-set `ingress.annotations` entry of the
+    same name still overrides the derived one.
+
 !!! note "Service renamed: Redis → Valkey (container and Helm chart)"
     Visiban 1.2 replaces the Redis container with **Valkey** (the BSD-3-licensed, Linux Foundation fork of Redis). Valkey is wire-compatible with Redis 7+ — the RESP protocol is identical — so **no env var changes are required**.
 

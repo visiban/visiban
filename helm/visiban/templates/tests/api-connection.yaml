@@ -1,0 +1,95 @@
+{{/*
+`helm test` connection probe (#1116).
+
+Runs on demand via `helm test <release>` and is the operator-facing proof that a
+fresh install actually came up end to end. Reaching the backend's readiness
+endpoint means the pre-install migrate hook completed against the bootstrap
+Secret, the render-time guards in _validate.tpl were satisfied by the supplied
+values, and daphne is serving. Probing the FRONTEND Service as well proves its
+nginx resolves the release-scoped backend upstream — nginx resolves a literal
+upstream once at startup, so a stale host (the compose-only `backend`) crash-
+loops the frontend with "host not found in upstream" and no other gate sees it.
+
+CI's helm-install job runs this same hook, so operators and CI verify the
+identical invariant rather than two drifting approximations of it.
+
+Kept out of the way of a normal render: `helm test` only instantiates resources
+carrying the `helm.sh/hook: test` annotation, so this Pod never deploys during
+`helm install` / `helm upgrade`.
+*/}}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "visiban.fullname" . }}-test-api-connection
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    {{- /*
+    component: test is load-bearing, not cosmetic — templates/networkpolicy.yaml
+    names it in the backend ingress allow-list, so this probe is denied on an
+    enforcing CNI without it.
+    */}}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    # Delete a prior run before creating the next so repeated `helm test` calls
+    # don't collide on the Pod name; keep a FAILED pod around for `kubectl logs`
+    # by only deleting on success.
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  # Makes no in-cluster API calls, so the token is never needed.
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      # Literal, not values-driven: a short-lived curl probe never needs tuning,
+      # and a values-driven toYaml would hide the limits from IaC analysis.
+      resources:
+        requests:
+          cpu: 20m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          backend="{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }}"
+          frontend="{{ include "visiban.fullname" . }}-frontend:{{ .Values.frontend.service.port }}"
+          retries={{ .Values.tests.retries | int }}
+
+          # Assert the CODE, not just a non-error exit: `curl -f` succeeds on a
+          # 3xx, so a redirect to a login page would pass a bare -f check while
+          # proving nothing about the endpoint behind it.
+          probe() {
+            label="$1"; url="$2"
+            echo "probing ${label} -> ${url} ..."
+            code="$(curl -sS --retry "${retries}" --retry-delay 2 --retry-all-errors \
+              -H 'Host: localhost' -o /dev/null -w '%{http_code}' "${url}" || echo 000)"
+            if [ "$code" != "200" ]; then
+              echo "FAIL: ${label} returned ${code}, expected 200"
+              return 1
+            fi
+            echo "  ok (200)"
+          }
+
+          # Liveness first: it is process-only, so a failure here separates "the
+          # container never started" from "it started but is not ready".
+          probe "backend liveness" "http://${backend}/api/health/liveness/"
+          # Readiness is migration-aware — reaching it proves the migrate hook ran.
+          probe "backend readiness" "http://${backend}/api/health/readiness/"
+          # Through the frontend's nginx: proves the proxy_pass upstream resolves.
+          probe "frontend -> backend proxy" "http://${frontend}/api/health/readiness/"
+          # The SPA itself, so a frontend that proxies fine but serves no bundle
+          # still fails here rather than at a user's browser.
+          probe "frontend SPA" "http://${frontend}/"
+
+          echo "OK: install booted clean — migrate ran, backend is ready, nginx upstream resolves"

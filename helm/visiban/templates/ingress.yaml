@@ -5,10 +5,19 @@ metadata:
   name: {{ include "visiban.fullname" . }}
   labels:
     {{- include "visiban.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- /*
+    proxy-body-size is DERIVED, not a values literal, and is emitted first so an
+    operator annotation of the same name still wins. /api goes straight to the
+    frontend Service and on to the backend, so this is the only limit an
+    attachment upload meets on a default install: left at the ingress-nginx
+    default of 1m it 413s every upload above 1 MB against an application cap ten
+    times that. See visiban.transportBodyLimitMB in _helpers.tpl.
+    */}}
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ printf "%sm" (include "visiban.transportBodyLimitMB" .) | quote }}
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}

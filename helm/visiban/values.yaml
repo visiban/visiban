@@ -38,6 +38,12 @@ backend:
     adminAllowedIPs: ""
     # Email verification mode — "optional", "mandatory", or "none".
     emailVerification: "optional"
+    # Maximum accepted upload size, in bytes (attachments and board imports).
+    # Wired to MAX_UPLOAD_SIZE_BYTES. The frontend nginx client_max_body_size
+    # and the ingress proxy-body-size annotation are BOTH derived from this
+    # (+10 MB of multipart framing headroom), so raising it raises the whole
+    # path at once — see visiban.transportBodyLimitMB in _helpers.tpl.
+    maxUploadSizeBytes: 10485760
 
   # SMTP / email backend.  Required to send password reset and email
   # verification messages.  When backend == "console" emails are written to
@@ -117,8 +123,10 @@ frontend:
 ingress:
   enabled: true
   className: "nginx"
+  # The nginx.ingress.kubernetes.io/proxy-body-size annotation is added
+  # automatically from backend.settings.maxUploadSizeBytes; set it here only to
+  # override the derived value.
   annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
     # cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -205,3 +213,13 @@ externalRedis:
 # Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, etc.).
 networkPolicy:
   enabled: false
+
+# `helm test <release>` connection probe (templates/tests/api-connection.yaml).
+# Only instantiated by `helm test` — never deployed by install or upgrade.
+tests:
+  image:
+    repository: curlimages/curl
+    tag: "8.11.1"
+  # Probe retries. Raise on a slow cluster where the rollout takes longer than
+  # retries x 2s to admit the first backend pod.
+  retries: 30

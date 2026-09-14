@@ -59,6 +59,14 @@ Migrate Job: {{ include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName
   value: {{ $ctx.Values.backend.email.fromAddress | quote }}
 - name: EMAIL_VERIFICATION
   value: {{ $ctx.Values.backend.settings.emailVerification | quote }}
+- name: MAX_UPLOAD_SIZE_BYTES
+  {{- /*
+  int64 before quote is load-bearing: sprig's `quote` coerces through float64,
+  so a bare `| quote` renders 10485760 as "1.048576e+07" — which Django's
+  env.int() cannot parse, crash-looping the pod on a value that looks fine in
+  values.yaml. Caught by scripts/helm-structure-check.sh section 6.
+  */}}
+  value: {{ $ctx.Values.backend.settings.maxUploadSizeBytes | int64 | quote }}
 {{- if eq $ctx.Values.backend.email.backend "smtp" }}
 - name: EMAIL_HOST_PASSWORD
   valueFrom:
