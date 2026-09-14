@@ -2667,7 +2667,7 @@
 <tbody>
 <tr>
 <td><a href="authentication/">Authentication</a></td>
-<td>Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs)</td>
+<td>Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs), WebSocket tickets</td>
 </tr>
 <tr>
 <td><a href="boards/">Boards API</a></td>
@@ -2699,7 +2699,7 @@
 <p>Visiban provides a WebSocket endpoint for real-time board updates. Clients connect per board and receive push events whenever board state changes.</p>
 <h3 id="connection">Connection<a class="headerlink" href="#connection" title="Permanent link">&para;</a></h3>
 <p><strong>URL pattern:</strong> <code>ws://&lt;host&gt;/ws/boards/{board_id}/</code> (or <code>wss://</code> for TLS)</p>
-<p><strong>Authentication:</strong> session-based. The WebSocket handshake uses the existing session cookie. No <code>Authorization</code> header is required.</p>
+<p><strong>Authentication:</strong> session cookie, or a short-lived ticket (since 1.2). The browser SPA relies on the existing session cookie and needs no <code>Authorization</code> header. Token-authenticated clients — native, CLI, or a front end on another origin — obtain a ticket from <code>POST /api/v1/auth/ws-ticket/</code> and pass it as <code>?ticket=</code>. See <a href="websockets/#ticket-authentication-since-12">WebSockets</a>.</p>
 <p><strong>Error codes on connection:</strong></p>
 <table>
 <thead>
@@ -2711,7 +2711,7 @@
 <tbody>
 <tr>
 <td><code>4001</code></td>
-<td>No valid session — the client is not authenticated</td>
+<td>Not authenticated — no valid session, and no valid ticket</td>
 </tr>
 <tr>
 <td><code>4003</code></td>

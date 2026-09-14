@@ -1895,6 +1895,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ticket-authentication-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ticket authentication (since 1.2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Ticket authentication (since 1.2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-obtain-a-ticket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Obtain a ticket
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-spend-it-on-the-handshake" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Spend it on the handshake
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#message-format" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2907,10 +2957,18 @@
 <h3 id="connecting">Connecting<a class="headerlink" href="#connecting" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ws://&lt;host&gt;/ws/boards/&lt;board_id&gt;/
 </code></pre></div>
-<p>Authentication uses session cookies — the same mechanism as the REST API. The browser automatically sends the session cookie on the WebSocket upgrade request, so no token parameter is needed:</p>
+<p>There are two ways to authenticate the handshake:</p>
+<ul>
+<li>
+<p><strong>Session cookie</strong> — used by the browser SPA. The browser automatically sends the session cookie on the upgrade request, so no parameter is needed:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ws://localhost:8000/ws/boards/42/
 </code></pre></div>
-<p>The server validates the session via Django's <code>AuthMiddlewareStack</code> and checks board membership before completing the WebSocket handshake. The connection is closed with one of two application-defined codes if either check fails:</p>
+</li>
+<li>
+<p><strong>Ticket</strong> (since 1.2) — used by token-authenticated clients. See <a href="#ticket-authentication-since-12">Ticket authentication</a> below.</p>
+</li>
+</ul>
+<p>The server checks board membership before completing the handshake, regardless of which method authenticated the connection. The connection is closed with one of two application-defined codes if either check fails:</p>
 <table>
 <thead>
 <tr>
@@ -2921,7 +2979,7 @@
 <tbody>
 <tr>
 <td><code>4001</code></td>
-<td>Unauthenticated — no valid session cookie. The client must log in before reconnecting.</td>
+<td>Unauthenticated — no valid session cookie, and no valid ticket. The client must log in (or obtain a fresh ticket) before reconnecting.</td>
 </tr>
 <tr>
 <td><code>4003</code></td>
@@ -2931,9 +2989,68 @@
 </table>
 <p>Standard WebSocket close codes (<code>1000</code> normal, <code>1001</code> going away, <code>1006</code> abnormal) may also be observed for transport-level disconnects.</p>
 <hr />
+<h2 id="ticket-authentication-since-12">Ticket authentication (since 1.2)<a class="headerlink" href="#ticket-authentication-since-12" title="Permanent link">&para;</a></h2>
+<p>Session and CSRF cookies are <code>SameSite=Lax</code>, so the cookie is not sent on a WebSocket upgrade initiated from another origin. Native, CLI, and agent clients have no cookie jar at all. Those clients authenticate with a <strong>ticket</strong>: a short-lived, single-use credential obtained over REST and spent on the handshake.</p>
+<p>A ticket <strong>authenticates only</strong>. Board and group membership is still resolved on every connection, so a ticket for a non-member is closed with <code>4003</code> exactly as a session connection would be.</p>
+<h3 id="1-obtain-a-ticket">1. Obtain a ticket<a class="headerlink" href="#1-obtain-a-ticket" title="Permanent link">&para;</a></h3>
+<p>Call <a href="../authentication/#post-apiv1authws-ticket"><code>POST /api/v1/auth/ws-ticket/</code></a> with any supported REST credential — a PAT, a session token, or a session cookie.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/ws-ticket/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_your_personal_access_token"</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"ticket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sW9qL2v8dYb1rKp4mNx7cT0zQe3fA6hJ5uV8iO1lP2g"</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T10:15:30Z"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="2-spend-it-on-the-handshake">2. Spend it on the handshake<a class="headerlink" href="#2-spend-it-on-the-handshake" title="Permanent link">&para;</a></h3>
+<p>Pass the ticket as the <code>ticket</code> query parameter:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ws://&lt;host&gt;/ws/boards/&lt;board_id&gt;/?ticket=&lt;ticket&gt;
+</code></pre></div>
+<p>The ticket is consumed by the upgrade. <strong>Obtain a new ticket for every connection attempt</strong>, including every reconnect.</p>
+<h3 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Single use</td>
+<td>The first connection to present a ticket consumes it. A replay is closed with <code>4001</code>.</td>
+</tr>
+<tr>
+<td>Short lived</td>
+<td>Valid for 30 seconds from issuance. Request it immediately before connecting, not at app startup.</td>
+</tr>
+<tr>
+<td>Not board-scoped</td>
+<td>One ticket authenticates the bearer for either <code>ws/boards/&lt;id&gt;/</code> or <code>ws/groups/&lt;id&gt;/</code>. Authorization is still enforced per connection.</td>
+</tr>
+<tr>
+<td>Fails closed</td>
+<td>A ticket that is expired, already spent, or tampered with is closed with <code>4001</code> — even if the request also carries a valid session cookie.</td>
+</tr>
+<tr>
+<td>Rate limited</td>
+<td>The issuing endpoint is throttled per user. Back off on <code>429</code> rather than retrying in a tight loop.</td>
+</tr>
+<tr>
+<td>Not revocable</td>
+<td>A ticket cannot be revoked once issued. Logging out or deleting the PAT it was obtained with does not invalidate an outstanding ticket — it stays valid until spent or until its 30 seconds elapse. This is an accepted trade-off, bounded by the TTL.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Do not put a Personal Access Token in the WebSocket URL</p>
+<p>Query strings are recorded in reverse-proxy access logs and proxy history. A PAT placed there is a long-lived credential leak with no time limit. A ticket is single-use and expires in 30 seconds, which bounds the exposure — but it does not remove it: anything able to read the access log and redeem the ticket before your client's own upgrade arrives would win the race and connect as you, once. Single use at least makes that visible rather than silent, since your own connection is then rejected with <code>4001</code>.</p>
+<p>If you terminate TLS at a proxy you control, drop the query string from the access-log format for the <code>/ws/</code> location to close this off entirely.</p>
+</div>
+<hr />
 <h2 id="message-format">Message format<a class="headerlink" href="#message-format" title="Permanent link">&para;</a></h2>
 <p>All server-to-client messages use the same envelope:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><code>event</code> is a dotted string identifying the event type. <code>data</code> is event-specific — see the table below.</p>
 <p>Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.</p>
@@ -3171,9 +3288,9 @@
 <h2 id="group-channel-since-11">Group channel (since 1.1)<a class="headerlink" href="#group-channel-since-11" title="Permanent link">&para;</a></h2>
 <p>Pushes board create/update/delete events for boards that currently live in the group, letting the group page keep its board list live without polling.</p>
 <h3 id="connecting_1">Connecting<a class="headerlink" href="#connecting_1" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ws://&lt;host&gt;/ws/groups/&lt;group_id&gt;/
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>ws://&lt;host&gt;/ws/groups/&lt;group_id&gt;/
 </code></pre></div>
-<p>Authentication uses the same session-cookie mechanism as the board channel. The server checks group membership (via <code>get_accessible_group_ids</code>) before completing the handshake and closes with the same <code>4001</code> / <code>4003</code> codes on failure.</p>
+<p>Authentication uses the same two mechanisms as the board channel — session cookie, or a <a href="#ticket-authentication-since-12">ticket</a> for token-authenticated clients. The server checks group membership (via <code>get_accessible_group_ids</code>) before completing the handshake and closes with the same <code>4001</code> / <code>4003</code> codes on failure.</p>
 <h3 id="event-reference_1">Event reference<a class="headerlink" href="#event-reference_1" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3268,38 +3385,55 @@
 <p>There is no at-least-once delivery guarantee — if a client is disconnected when an event fires, it will not be replayed. Clients should re-fetch the full board state (<code>GET /api/v1/boards/{id}/full/</code>) on reconnect.</p>
 <hr />
 <h2 id="client-example-javascript">Client example (JavaScript)<a class="headerlink" href="#client-example-javascript" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">boardId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">42</span><span class="p">;</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1">// Session cookie is sent automatically by the browser on the upgrade request</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/`</span><span class="p">);</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">event</span><span class="o">:</span><span class="w"> </span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.created"</span><span class="o">:</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="c1">// add card to local state</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.updated"</span><span class="o">:</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="c1">// update card in local state</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="o">:</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_uid</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="o">:</span>
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">      </span><span class="c1">// update card position and record movement</span>
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
-<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">    </span><span class="k">default</span><span class="o">:</span>
-<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a><span class="w">      </span><span class="c1">// ignore unknown event types for forward compatibility</span>
-<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="p">};</span>
-<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>
-<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onclose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">    </span><span class="c1">// not authenticated — redirect to login</span>
-<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4003</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">    </span><span class="c1">// authenticated but not a member of this board — do not retry</span>
-<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">  </span><span class="c1">// otherwise: reconnect logic and re-fetch full board state</span>
-<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="p">};</span>
+<p>Same-origin, session-cookie clients:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kd">const</span><span class="w"> </span><span class="nx">boardId</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">42</span><span class="p">;</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1">// Session cookie is sent automatically by the browser on the upgrade request</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">const</span><span class="w"> </span><span class="nx">ws</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/`</span><span class="p">);</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onmessage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">event</span><span class="o">:</span><span class="w"> </span><span class="nx">type</span><span class="p">,</span><span class="w"> </span><span class="nx">data</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">data</span><span class="p">);</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="k">switch</span><span class="w"> </span><span class="p">(</span><span class="nx">type</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.created"</span><span class="o">:</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">      </span><span class="c1">// add card to local state</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.updated"</span><span class="o">:</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">      </span><span class="c1">// update card in local state</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.deleted"</span><span class="o">:</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">      </span><span class="c1">// remove card from local state by data.card_uid</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="s2">"card.moved"</span><span class="o">:</span>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">      </span><span class="c1">// update card position and record movement</span>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="w">      </span><span class="k">break</span><span class="p">;</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">    </span><span class="k">default</span><span class="o">:</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">      </span><span class="c1">// ignore unknown event types for forward compatibility</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a><span class="p">};</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a><span class="nx">ws</span><span class="p">.</span><span class="nx">onclose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a><span class="w">    </span><span class="c1">// not authenticated — redirect to login</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a><span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">code</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="mf">4003</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a><span class="w">    </span><span class="c1">// authenticated but not a member of this board — do not retry</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a><span class="w">  </span><span class="c1">// otherwise: reconnect logic and re-fetch full board state</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a><span class="p">};</span>
+</code></pre></div>
+<p>Token-authenticated clients (since 1.2) — a fresh ticket per connection, including
+every reconnect, because each one is single-use:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">connect</span><span class="p">(</span><span class="nx">boardId</span><span class="p">,</span><span class="w"> </span><span class="nx">apiToken</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s2">"http://localhost:8000/api/v1/auth/ws-ticket/"</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s2">"POST"</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Authorization</span><span class="o">:</span><span class="w"> </span><span class="sb">`Token </span><span class="si">${</span><span class="nx">apiToken</span><span class="si">}</span><span class="sb">`</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p">});</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">res</span><span class="p">.</span><span class="nx">ok</span><span class="p">)</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="ne">Error</span><span class="p">(</span><span class="sb">`Could not obtain a ticket: </span><span class="si">${</span><span class="nx">res</span><span class="p">.</span><span class="nx">status</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">ticket</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">res</span><span class="p">.</span><span class="nx">json</span><span class="p">();</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="c1">// Connect immediately — the ticket expires 30 seconds after it is issued.</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">WebSocket</span><span class="p">(</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">    </span><span class="sb">`ws://localhost:8000/ws/boards/</span><span class="si">${</span><span class="nx">boardId</span><span class="si">}</span><span class="sb">/?ticket=</span><span class="si">${</span><span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">ticket</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span><span class="p">);</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">}</span>
 </code></pre></div>
 
 

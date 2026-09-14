@@ -1727,6 +1727,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-apiv1authws-ticket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/auth/ws-ticket/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#delete-apiv1authtokensid" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3361,6 +3372,65 @@
 </tbody>
 </table>
 <hr />
+<h3 id="post-apiv1authws-ticket"><code>POST /api/v1/auth/ws-ticket/</code><a class="headerlink" href="#post-apiv1authws-ticket" title="Permanent link">&para;</a></h3>
+<p>Mint a short-lived, single-use ticket for a WebSocket handshake. Added in 1.2.</p>
+<p>WebSocket upgrades cannot carry an <code>Authorization</code> header from a browser, and the session cookie is <code>SameSite=Lax</code> so it is not sent cross-origin. Token-authenticated clients — native, CLI, or a front end on another origin — use this endpoint to exchange the credential they already hold for a one-shot ticket, then pass it as the <code>ticket</code> query parameter on the upgrade. See <a href="../websockets/#ticket-authentication-since-12">WebSocket API → Ticket authentication</a>.</p>
+<p><strong>Permission:</strong> Requires authentication. Accepts any supported credential — PAT, session token, or session cookie.</p>
+<p><strong>Request body:</strong> none.</p>
+<p><strong>Response</strong> <code>201 Created</code></p>
+<p>The <code>ticket</code> is returned here and never again.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"ticket"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sW9qL2v8dYb1rKp4mNx7cT0zQe3fA6hJ5uV8iO1lP2g"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"expires_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T10:15:30Z"</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ticket</code></td>
+<td>string</td>
+<td>The credential to pass as <code>?ticket=</code> on the WebSocket upgrade. Single use.</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>datetime</td>
+<td>ISO 8601. 30 seconds after issuance.</td>
+</tr>
+</tbody>
+</table>
+<p>The ticket authenticates only — board and group membership is still enforced on every connection, so a ticket belonging to a non-member is closed with <code>4003</code>.</p>
+<p>A ticket cannot be revoked once issued: logging out, or deleting the PAT it was obtained with, does not invalidate an outstanding ticket. It remains valid until it is spent or its 30 seconds elapse. The short TTL is what bounds this, and it is a deliberate trade-off for keeping the handshake a single cache lookup.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Request is not authenticated</td>
+</tr>
+<tr>
+<td><code>405 Method Not Allowed</code></td>
+<td>Any method other than <code>POST</code></td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>Per-user rate limit exceeded — back off rather than retrying immediately</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="delete-apiv1authtokensid"><code>DELETE /api/v1/auth/tokens/{id}/</code><a class="headerlink" href="#delete-apiv1authtokensid" title="Permanent link">&para;</a></h3>
 <p>Revoke a Personal Access Token. The token is immediately invalidated and cannot be used for further requests.</p>
 <p><strong>Permission:</strong> Requires authentication. Users can only revoke their own tokens.</p>
@@ -3391,19 +3461,19 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="3:1"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">curl</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Step 1 — log in and save cookies + extract CSRF token</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>curl<span class="w"> </span>-s<span class="w"> </span>-c<span class="w"> </span>cookies.txt<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/login/<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"username": "admin", "password": "your-password"}'</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="nv">CSRF</span><span class="o">=</span><span class="k">$(</span>grep<span class="w"> </span>csrftoken<span class="w"> </span>cookies.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'{print $7}'</span><span class="k">)</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="c1"># Step 2 — use session cookie + CSRF token for mutating requests</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>curl<span class="w"> </span>-s<span class="w"> </span>-b<span class="w"> </span>cookies.txt<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"X-CSRFToken: </span><span class="nv">$CSRF</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/boards/<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "My Board"}'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Step 1 — log in and save cookies + extract CSRF token</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>curl<span class="w"> </span>-s<span class="w"> </span>-c<span class="w"> </span>cookies.txt<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/login/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"username": "admin", "password": "your-password"}'</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="nv">CSRF</span><span class="o">=</span><span class="k">$(</span>grep<span class="w"> </span>csrftoken<span class="w"> </span>cookies.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'{print $7}'</span><span class="k">)</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># Step 2 — use session cookie + CSRF token for mutating requests</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>curl<span class="w"> </span>-s<span class="w"> </span>-b<span class="w"> </span>cookies.txt<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"X-CSRFToken: </span><span class="nv">$CSRF</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">  </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/boards/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "My Board"}'</span>
 </code></pre></div>
 </div>
 </div>
@@ -3440,13 +3510,13 @@
 <h3 id="get-apiv1authproviders"><code>GET /api/v1/auth/providers/</code><a class="headerlink" href="#get-apiv1authproviders" title="Permanent link">&para;</a></h3>
 <p>Returns the list of configured OAuth providers. No authentication required. Used by the login page to determine which social login buttons to display.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"google"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">"github"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">"gitlab"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="nt">"oidc"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">  </span><span class="nt">"oidc_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Okta"</span>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"google"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">"github"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">"gitlab"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="nt">"oidc"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">  </span><span class="nt">"oidc_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Okta"</span>
+<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="p">}</span>
 </code></pre></div></p>
 <ul>
 <li><code>google</code>, <code>github</code>, <code>gitlab</code> — <code>true</code> if the respective OAuth provider is configured on this instance, <code>false</code> otherwise.</li>
@@ -3458,7 +3528,7 @@
 <h3 id="post-apiv1authpasswordreset"><code>POST /api/v1/auth/password/reset/</code><a class="headerlink" href="#post-apiv1authpasswordreset" title="Permanent link">&para;</a></h3>
 <p>Request a password reset email. <strong>No authentication required.</strong></p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user@example.com"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user@example.com"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <ul>
 <li>The response is always <code>200 OK</code> regardless of whether the email matches a registered account — this prevents user enumeration.</li>
@@ -3471,12 +3541,12 @@
 <h3 id="post-apiv1authpasswordresetconfirm"><code>POST /api/v1/auth/password/reset/confirm/</code><a class="headerlink" href="#post-apiv1authpasswordresetconfirm" title="Permanent link">&para;</a></h3>
 <p>Set a new password using the token from the reset email. <strong>No authentication required.</strong></p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MQ"</span><span class="p">,</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">  </span><span class="nt">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123-..."</span><span class="p">,</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">  </span><span class="nt">"new_password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newsecurepassword"</span><span class="p">,</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newsecurepassword"</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MQ"</span><span class="p">,</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">"token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123-..."</span><span class="p">,</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">"new_password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newsecurepassword"</span><span class="p">,</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newsecurepassword"</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -3514,7 +3584,7 @@
 <h3 id="post-apiv1authchange-password"><code>POST /api/v1/auth/change-password/</code><a class="headerlink" href="#post-apiv1authchange-password" title="Permanent link">&para;</a></h3>
 <p>Change the authenticated user's password. Requires authentication.</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"current_password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"current-password"</span><span class="p">,</span><span class="w"> </span><span class="nt">"new_password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"current_password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"current-password"</span><span class="p">,</span><span class="w"> </span><span class="nt">"new_password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <ul>
 <li><code>current_password</code> is not required for social-only accounts (accounts with no usable password that are setting a password for the first time)</li>
@@ -3530,7 +3600,7 @@ when <code>must_change_username</code> is <code>true</code> — the user's previ
 auto-generated by allauth and collided (case-insensitively) with another
 account during the uniqueness enforcement migration.</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"desired-username"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"desired-username"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <ul>
 <li>Username must be 1-150 characters; only letters, digits, and <code>@/./ +/-/_</code></li>
@@ -3579,15 +3649,15 @@ can detect the condition and call this endpoint programmatically.</p>
 </tbody>
 </table>
 <p><strong>Example response (excerpt)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">  </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice@example.com"</span><span class="p">,</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">  </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="p">,</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">  </span><span class="nt">"timezone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"America/New_York"</span><span class="p">,</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">  </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice@example.com"</span><span class="p">,</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">  </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="p">,</span>
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">  </span><span class="nt">"timezone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"America/New_York"</span><span class="p">,</span>
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">  </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
@@ -3626,12 +3696,12 @@ can detect the condition and call this endpoint programmatically.</p>
 </table>
 <p><strong><code>default_board_id</code></strong> — set the board to redirect to after login. Accepts a board <code>id</code> (integer) or <code>null</code> to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns <code>400 Bad Request</code>. This prevents enumeration of boards the user has no access to.</p>
 <p><strong>Example — set theme</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Example — set default board</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Errors</strong></p>
 <table>
@@ -3661,10 +3731,10 @@ can detect the condition and call this endpoint programmatically.</p>
 <h3 id="get-apiv1authsite-config"><code>GET /api/v1/auth/site-config/</code><a class="headerlink" href="#get-apiv1authsite-config" title="Permanent link">&para;</a></h3>
 <p>Returns site-level configuration. This endpoint is public — no authentication required.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -3729,14 +3799,14 @@ can detect the condition and call this endpoint programmatically.</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The returned <code>key</code> is an API token that can be used immediately in the <code>Authorization: Token &lt;key&gt;</code> header.</p>
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
@@ -3778,12 +3848,12 @@ can detect the condition and call this endpoint programmatically.</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code> — same shape as open mode: <code>{ "key": "&lt;token&gt;" }</code>.</p>
 <p><strong>Errors</strong></p>
