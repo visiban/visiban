@@ -26,6 +26,7 @@ from rest_framework import status
 from .models import PAT_MAX_PER_USER, PersonalAccessToken, SiteSetting, get_registration_mode
 from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
 from .serializers import CurrentUserSerializer, PersonalAccessTokenSerializer, PublicUserSerializer, UserSerializer
+from .ws_auth import issue_ws_ticket
 
 User = get_user_model()
 
@@ -423,6 +424,52 @@ class PersonalAccessTokenDeleteView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         pat.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class WSTicketThrottle(UserRateThrottle):
+    """Per-user rate limit for WebSocket ticket issuance.
+
+    One ticket is spent per connection attempt, so a client that loses its
+    network legitimately bursts against this endpoint while it reconnects. The
+    ceiling is set to absorb that while still bounding a scripted loop farming
+    tickets.
+    """
+
+    scope = "ws_ticket"
+
+
+class WSTicketView(APIView):
+    """Mint a short-lived, single-use ticket for a WebSocket handshake (#1109).
+
+    Exists because Channels' ``AuthMiddlewareStack`` reads only the session
+    cookie, so PAT- and token-authenticated clients — native, CLI, or a front end
+    on another origin that never receives the ``SameSite=Lax`` cookie — can use
+    every REST endpoint but get 4001 on ``ws/boards/<id>/`` and
+    ``ws/groups/<id>/``.
+
+    Accepts any authentication class in DEFAULT_AUTHENTICATION_CLASSES, so the
+    caller proves identity over REST with the credential it already holds and
+    spends the returned ticket on the upgrade.
+
+    The ticket authenticates and nothing more — the consumer still resolves the
+    caller's role and still closes 4003 for a non-member.
+    """
+
+    permission_classes = [
+        IsAuthenticated,
+        MustNotHavePendingPasswordChange,
+        MustNotHavePendingUsernameChange,
+    ]
+    throttle_classes = [WSTicketThrottle]
+
+    def post(self, request):
+        # The raw ticket is returned here and never again — it is not stored in
+        # recoverable form, matching the PAT-creation contract above.
+        ticket, expires_at = issue_ws_ticket(request.user)
+        return Response(
+            {"ticket": ticket, "expires_at": expires_at},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class RegisterAnonThrottle(AnonRateThrottle):
