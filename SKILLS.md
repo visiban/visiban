@@ -17,7 +17,7 @@ A `PostToolUse` hook in `.claude/settings.json` additionally triggers the three 
 ├── broadcast-check.md    — verifies broadcast_board_event() wiring
 ├── changelog.md          — writes CHANGELOG.md [Unreleased] entries
 ├── dependency.md         — license + CVE + justification check for new packages
-├── docs.md               — writes/updates docs/features/, docs/administration/, etc.
+├── docs-writer.md        — writes/updates docs/features/, docs/administration/, etc.
 ├── duplicate-check.md    — scans GitLab issues for duplicates before opening one
 ├── enterprise-check.md   — OSS vs enterprise boundary evaluation
 ├── migration-check.md    — Django migration safety audit
