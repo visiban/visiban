@@ -37,10 +37,12 @@ logger = logging.getLogger(__name__)
 # Defense-in-depth beyond the providers.py normalization boundary (#1085): a
 # provider payload shape we didn't anticipate should degrade the board to the
 # stale copy, same as a LensError/RequestException, rather than 500ing. Bounded
-# to the concrete failure modes actually observed from malformed milestone
-# metadata (non-string subscripted/keyed/`.lower()`d) — not a bare Exception —
-# so a genuine bug elsewhere in provider_fn still surfaces instead of being
-# silently absorbed here.
+# by exception TYPE (not bare Exception) to the ones malformed provider data is
+# known to raise (non-string subscripted/keyed/`.lower()`d) — not by cause, so
+# an unrelated bug in provider_fn's call graph that happens to raise one of
+# these four common types is also caught here rather than surfacing as a 500.
+# We log with exc_info so that case is still triageable from the exception type
+# and traceback (never payload contents — see the log call below).
 _UNEXPECTED_PARSE_ERRORS = (TypeError, KeyError, AttributeError, ValueError)
 
 
@@ -439,6 +441,7 @@ class LensBoardView(APIView):
                     "git_lens: unexpected error parsing provider response "
                     "(conn_id=%s, provider=%s, exc_type=%s)",
                     conn.pk, conn.provider, type(exc).__name__,
+                    exc_info=True,
                 )
             if entry is not None:
                 # Degrade to the last good copy instead of failing the board.
