@@ -221,4 +221,43 @@ Before committing a new spec:
 - Playwright E2E runs in `e2e-test` — requires the Vite dev server build to succeed first
 - The `changelog-check` job blocks the pipeline if no fragment is added under `changelog.d/`
 
+## Git hooks
+
+`scripts/wt` (see its `--help`) applies a `status::wip` GitLab label when you create a
+worktree with `wt new`/`wt claim`, so a parallel agent or teammate doesn't grab the same
+issue — but that lock only covers work that goes through `wt`. A plain
+`git checkout -b feat/N-something` bypasses it entirely, and the first sign of a
+collision is two merge requests solving the same issue.
+
+`scripts/check-issue-collision.sh` closes that gap at push time, regardless of how the
+branch was created. Install it once per clone:
+
+```bash
+scripts/setup-hooks.sh
+```
+
+This installs a `pre-push` hook (shared by every `scripts/wt` worktree of this clone,
+since hooks live in the git common dir — no need to re-run per worktree). Before each
+push, on a branch named `(feat|fix|chore|docs)/<issue>-...`, it:
+
+- **Blocks the push** if an *open* merge request already exists for that issue from a
+  *different* source branch — naming the MR and branch
+- **Warns only** (never blocks) if the issue is already closed, or its `status::wip`
+  lock is held by a different branch, possibly another worktree
+- **Degrades to a warning and allows the push** whenever the forge can't be consulted —
+  `glab` missing or unauthenticated, no network, origin isn't GitLab-hosted — so being
+  offline never blocks a push
+
+For the legitimate stacked-MR case (two branches against the same issue on purpose),
+override a detected collision with:
+
+```bash
+ALLOW_ISSUE_COLLISION=1 git push ...
+```
+
+`setup-hooks.sh` is idempotent and never clobbers a `pre-push` hook it doesn't manage
+(e.g. a hand-written lint hook) — it prints the line to add manually so the two can be
+chained instead. Run `scripts/check-issue-collision.sh --self-test` to exercise the
+check offline against stubbed forge responses.
+
 All four jobs must be green before a merge request can be merged.
