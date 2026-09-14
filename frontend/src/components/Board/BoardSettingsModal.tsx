@@ -659,6 +659,19 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       aria-label="Enforce weight limits"
                     />
                   </div>
+                  <div className="flex items-center justify-between py-2 border-b border-line/60">
+                    <div className="min-w-0 pr-4">
+                      <span className="text-sm text-fg">Show at-limit WIP indicator</span>
+                      <p className="text-xs text-fg-muted mt-0.5">
+                        When enabled, a column's header shows a calm "WIP n/n" indicator in place of the card count once the column is exactly at its WIP limit. Ambient only — does not change move enforcement.
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={board.show_wip_at_limit}
+                      onChange={(v) => onUpdateBoardSettings({ show_wip_at_limit: v })}
+                      aria-label="Show at-limit WIP indicator"
+                    />
+                  </div>
                 </section>
               ) : (
                 <section>
@@ -673,6 +686,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           : "informational only"}
                     </p>
                     <p className="text-sm text-fg-secondary">Weight limits: {board.enforce_weight_limits ? "enforced" : "informational only"}</p>
+                    <p className="text-sm text-fg-secondary">At-limit WIP indicator: {board.show_wip_at_limit ? "shown" : "hidden"}</p>
                   </div>
                 </section>
               )}

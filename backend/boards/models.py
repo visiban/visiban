@@ -126,6 +126,17 @@ class Board(models.Model):
             "Compact / Expanded* toolbar pref. Validated at the serializer layer."
         ),
     )
+    show_wip_at_limit = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, a column's header stat row shows a calm 'WIP n/n' "
+            "indicator (in place of the normal card count) once the column's "
+            "card count exactly equals its wip_limit (#973). Purely ambient — "
+            "does not affect move enforcement, which is controlled by "
+            "enforce_wip_limits / enforce_wip_hard. Off by default so existing "
+            "boards are unchanged."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

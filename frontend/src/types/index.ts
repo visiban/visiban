@@ -299,6 +299,7 @@ export interface Board {
   enforce_weight_limits: boolean;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
+  show_wip_at_limit: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;
@@ -371,6 +372,7 @@ export interface BoardFull {
   enforce_weight_limits: boolean;
   export_min_role: BoardExportMinRole;
   card_density: CardDensity;
+  show_wip_at_limit: boolean;
   is_starred: boolean;
   created_at: string;
   updated_at: string;

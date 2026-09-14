@@ -540,6 +540,88 @@ describe('ColumnHeader', () => {
     expect(screen.queryByTitle('Over weight budget')).not.toBeInTheDocument()
   })
 
+  // ---- At-limit WIP indicator (#973) ----
+
+  it('shows plain card count at the WIP limit when showWipAtLimit is off (default)', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })]
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+      />,
+    )
+    expect(screen.getByTitle('Cards in column')).toHaveTextContent('2 cards')
+    expect(screen.queryByText(/^WIP\b/)).not.toBeInTheDocument()
+  })
+
+  it('shows "WIP count/limit" when showWipAtLimit is on and column is exactly at its limit', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 })]
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+        showWipAtLimit
+      />,
+    )
+    const row = screen.getByTitle('Column is at its WIP limit (2/2)')
+    expect(row).toHaveTextContent('WIP 2/2')
+    // Calm treatment — no accent strip, no glyph, muted text only.
+    expect(row.className).toContain('text-fg-muted')
+    expect(row.textContent).not.toContain('⚠')
+    expect(row.textContent).not.toContain('⛔')
+  })
+
+  it('does not show the at-limit indicator when under the WIP limit, even with showWipAtLimit on', () => {
+    const cards = [makeCard({ id: 1 })]
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+        showWipAtLimit
+      />,
+    )
+    expect(screen.getByTitle('Cards in column')).toHaveTextContent('1 card')
+    expect(screen.queryByText(/^WIP\b/)).not.toBeInTheDocument()
+  })
+
+  it('prioritizes Over WIP over the at-limit indicator when showWipAtLimit is on', () => {
+    const cards = [makeCard({ id: 1 }), makeCard({ id: 2 }), makeCard({ id: 3 })]
+    render(
+      <ColumnHeader
+        column={makeColumn({ wip_limit: 2 })}
+        cards={cards}
+        boardId={1}
+        isAdmin={false}
+        onColumnUpdated={noop}
+        onRequestDelete={noop}
+        collapsed={false}
+        onToggleCollapse={noop}
+        showWipAtLimit
+      />,
+    )
+    const row = screen.getByTitle('Over WIP limit')
+    expect(row).toHaveTextContent('Over WIP · 3/2')
+    expect(screen.queryByText('WIP 2/2')).not.toBeInTheDocument()
+  })
+
   it('double-clicking the header opens EditColumnModal for admin', async () => {
     render(
       <ColumnHeader

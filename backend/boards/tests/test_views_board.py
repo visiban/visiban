@@ -425,3 +425,62 @@ class CardDensityValidationTests(TestCase):
         r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("card_density", r.data)
+
+
+class ShowWipAtLimitTests(TestCase):
+    """#973: board-level `show_wip_at_limit` setting — default, round-trip, and
+    the admin-only write gate (BoardViewSet.perform_update guards every board
+    field, but this setting gets its own coverage since a missing permission
+    check on a new field is a security issue, not just a quality one)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="wip_ind_owner", password="pass")
+        self.member = User.objects.create_user(username="wip_ind_member", password="pass")
+        self.board, _, _ = _make_board(self.owner, name="WipIndicatorBoard")
+        BoardMembership.objects.create(
+            board=self.board, user=self.member, role=BoardMembership.Role.MEMBER
+        )
+        self.client = APIClient()
+
+    def test_new_board_defaults_to_false(self):
+        self.assertFalse(self.board.show_wip_at_limit)
+
+    @patch(PATCH_BROADCAST)
+    def test_admin_can_enable(self, _):
+        self.client.force_authenticate(self.owner)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"show_wip_at_limit": True},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.board.refresh_from_db()
+        self.assertTrue(self.board.show_wip_at_limit)
+
+    def test_non_admin_cannot_write_show_wip_at_limit(self):
+        """A board member (non-admin) PATCHing show_wip_at_limit gets a 403 and
+        the field is left unchanged — perform_update's admin gate covers the
+        whole board, including newly added fields (#973)."""
+        self.client.force_authenticate(self.member)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"show_wip_at_limit": True},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.board.refresh_from_db()
+        self.assertFalse(self.board.show_wip_at_limit)
+
+    def test_show_wip_at_limit_in_serializer_output(self):
+        self.client.force_authenticate(self.owner)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("show_wip_at_limit", r.data)
+        self.assertFalse(r.data["show_wip_at_limit"])
+
+    def test_show_wip_at_limit_in_full_endpoint(self):
+        self.client.force_authenticate(self.owner)
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIn("show_wip_at_limit", r.data)
+        self.assertFalse(r.data["show_wip_at_limit"])

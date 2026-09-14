@@ -136,7 +136,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     staleness_threshold_days: 7,
     stale_warning_pct: 50,
     allowed_priorities: ['low', 'medium', 'high', 'urgent'],
-    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer', card_density: 'comfortable',
+    enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer', card_density: 'comfortable',
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',

@@ -77,7 +77,7 @@ const fakeBoard: BoardFull = {
   staleness_threshold_days: 7,
   stale_warning_pct: 50,
   allowed_priorities: [],
-  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, export_min_role: 'viewer',
+  enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false, show_wip_at_limit: false, export_min_role: 'viewer',
   card_density: 'comfortable',
   is_starred: false,
   created_at: '',
@@ -639,6 +639,77 @@ describe('BoardSettingsModal — Card density radio', () => {
     expect(screen.queryByRole('radio', { name: /Comfortable/i })).not.toBeInTheDocument()
     expect(screen.getByText(/Only board admins can change this setting/i)).toBeInTheDocument()
     expect(screen.getByText(/dense/i)).toBeInTheDocument()
+  })
+})
+
+// ─── Show at-limit WIP indicator toggle (#973) ─────────────────────────────
+
+describe('BoardSettingsModal — Show at-limit WIP indicator toggle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('renders as a peer of Enforce weight limits, unchecked by default', async () => {
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    const toggle = screen.getByRole('switch', { name: 'Show at-limit WIP indicator' })
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('clicking the toggle fires onUpdateBoardSettings({ show_wip_at_limit: true })', async () => {
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        onUpdateBoardSettings={onUpdate}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    await user.click(screen.getByRole('switch', { name: 'Show at-limit WIP indicator' }))
+    expect(onUpdate).toHaveBeenCalledWith({ show_wip_at_limit: true })
+  })
+
+  it('reflects checked state when the setting is already on', async () => {
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, show_wip_at_limit: true }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    expect(screen.getByRole('switch', { name: 'Show at-limit WIP indicator' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('non-admins see a read-only line instead of the toggle', async () => {
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, show_wip_at_limit: true, current_user_role: 'viewer' }}
+        isAdmin={false}
+        onClose={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+
+    expect(screen.queryByRole('switch', { name: 'Show at-limit WIP indicator' })).not.toBeInTheDocument()
+    expect(screen.getByText(/At-limit WIP indicator: shown/i)).toBeInTheDocument()
   })
 })
 

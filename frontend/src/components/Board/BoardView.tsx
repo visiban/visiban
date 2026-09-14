@@ -2046,6 +2046,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     width={colWidths.get(col.id) ?? DEFAULT_COL_WIDTH}
                     onToggleCollapse={() => toggleCollapsedColumn(col.id)}
                     hardWipEnforced={board.enforce_wip_hard}
+                    showWipAtLimit={board.show_wip_at_limit}
                   />
                   <ColumnSeparator
                     isAdmin={isAdmin}
