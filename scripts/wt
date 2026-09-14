@@ -2,12 +2,32 @@
 # scripts/wt — git worktree helper for parallel multi-issue work.
 #
 # Usage:
-#   scripts/wt new <issue|branch-name>   Create a worktree + branch off origin/<default>.
+#   scripts/wt new <issue|branch-name> [--force]
+#                                        Create a worktree + branch off origin/<default>.
+#                                        If the input is a bare issue number and glab is
+#                                        available, applies a `status::wip` label + a
+#                                        check-out comment on the issue so a parallel
+#                                        agent sees it's claimed. Refuses an already-
+#                                        claimed issue unless --force.
+#   scripts/wt claim <issue-number> [--force]
+#                                        Apply the status::wip lock WITHOUT creating a
+#                                        worktree yet — reserves the issue immediately.
+#   scripts/wt release <issue-number>   Manually clear a status::wip lock (e.g. a claim
+#                                        you never turned into a worktree, or a stale
+#                                        lock left by a crashed session).
 #   scripts/wt list                      List active worktrees and WIP count.
-#   scripts/wt remove <issue|name>       Remove a worktree by issue # or name.
+#   scripts/wt remove <issue|name>       Remove a worktree by issue # or name. Clears the
+#                                        issue's status::wip lock if one was applied.
 #   scripts/wt prune                     Remove worktrees whose branches were merged to
 #                                        the default branch and deleted on origin. Refuses
-#                                        to remove worktrees with uncommitted work.
+#                                        to remove worktrees with uncommitted work. Clears
+#                                        each pruned worktree's status::wip lock.
+#   scripts/wt stash [push|pop|apply|list|show|drop] [msg]
+#                                        Worktree-scoped stash. Plain `git stash` is NOT
+#                                        worktree-scoped (it's one shared stack for the
+#                                        whole repo) — this uses a private ref per
+#                                        worktree so parallel worktrees never collide on
+#                                        the same stash slot. Defaults to `push`.
 #   scripts/wt doctor                    Verify symlinks and shared docker-stack reuse.
 #   scripts/wt help                      Show this help.
 #
@@ -16,7 +36,21 @@
 # main checkout so installs aren't duplicated. A running Docker Compose stack is
 # shared via COMPOSE_PROJECT_NAME, exported in the generated .envrc for direnv users.
 #
-# WIP discipline: warns at WT_WARN (default 4), errors at WT_CAP (default 5).
+# Test isolation: backend/.env is seeded with an isolated SQLite database (each
+# worktree is already its own directory, so this needs no port arithmetic — see
+# docs/getting-started/installation.md § Local Development) unless backend/.env
+# already exists. The frontend e2e dev server gets its own port via WT_E2E_PORT,
+# a deterministic offset derived from the worktree's slug and probed against
+# sibling worktrees + live listeners — see resolve_e2e_port_offset. Skip either
+# by deleting the seeded backend/.env or unsetting WT_E2E_PORT in .envrc.
+#
+# WIP discipline: warns at WT_WARN (default 8), errors at WT_CAP (default 10).
+#
+# Issue check-out lock: all agents share one GitLab identity, so an assignee or a
+# comment doesn't stop a parallel agent from grabbing the same issue. `new`/`claim`
+# apply a `status::wip` scoped label (created on first use) plus a check-out comment;
+# `remove`/`prune`/`release` clear it. Best-effort — degrades to a warning (never a
+# hard failure) when glab is missing or unauthenticated, or the repo isn't on GitLab.
 #
 # This script is layout-agnostic: it auto-detects which dev-dep dirs exist
 # (.venv, node_modules, backend/.venv, frontend/node_modules,
@@ -24,9 +58,12 @@
 # picks glab or gh for issue-title lookup based on origin's host. Override any
 # default via env:
 #   WT_BASE             where worktrees are created       (default ../<repo>-wt)
-#   WT_CAP / WT_WARN    WIP error / warn thresholds       (default 5 / 4)
+#   WT_CAP / WT_WARN    WIP error / warn thresholds       (default 10 / 8)
 #   WT_COMPOSE_PROJECT  shared compose project name       (default repo dir name)
 #   WT_SYMLINK_DIRS     space-separated dev-dep dirs to symlink (default: auto-detect)
+#   WT_LOCK_LABEL       GitLab label used for the issue check-out lock (default: status::wip)
+#   WT_E2E_PORT_BASE / WT_E2E_PORT_SPAN
+#                       Playwright dev-server port range (default: 15173, span 800)
 
 set -euo pipefail
 
@@ -45,9 +82,19 @@ case "$GIT_COMMON_DIR" in
 esac
 REPO_NAME="$(basename "$REPO_ROOT")"
 WT_BASE="${WT_BASE:-${REPO_ROOT%/*}/${REPO_NAME}-wt}"
-WT_CAP="${WT_CAP:-5}"
-WT_WARN="${WT_WARN:-4}"
+WT_CAP="${WT_CAP:-10}"
+WT_WARN="${WT_WARN:-8}"
 COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-$REPO_NAME}}"
+WT_LOCK_LABEL="${WT_LOCK_LABEL:-status::wip}"
+WT_STASH_NS="refs/wt-stash"
+
+# Test isolation: backend tests get their own SQLite file for free (each
+# worktree is already a separate directory — see cmd_new); the frontend e2e
+# dev server needs an explicit distinct port, since playwright.config.ts
+# hardcodes one and `reuseExistingServer` would otherwise make a second
+# worktree's Playwright run silently attach to a FIRST worktree's dev server.
+WT_E2E_PORT_BASE="${WT_E2E_PORT_BASE:-15173}"
+WT_E2E_PORT_SPAN="${WT_E2E_PORT_SPAN:-800}"
 
 # Default branch = origin/HEAD target, falling back to main.
 DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
@@ -159,23 +206,205 @@ auto_created_regex() {
 }
 
 # ---------------------------------------------------------------------------
+# Issue check-out lock (status::wip)
+# ---------------------------------------------------------------------------
+#
+# All agents share one GitLab identity, so an assignee or a claim-comment alone
+# doesn't stop a parallel agent from grabbing the same issue. This uses the
+# WT_LOCK_LABEL scoped label plus a check-out comment as the shared signal:
+# `new`/`claim` refuse an already-claimed issue, `remove`/`prune`/`release`
+# clear it. Every operation here is best-effort — it degrades to a warning,
+# never a hard failure, when glab is missing, unauthenticated, or the repo
+# isn't GitLab-hosted, so worktree management never breaks on a network blip.
+
+lock_available() { [[ "$(forge_cli)" == "glab" ]] && command -v glab >/dev/null 2>&1; }
+
+# Extract the issue number encoded in a branch name (feat/123-foo -> 123), or
+# empty for a branch with no leading issue number (chore/some-slug).
+issue_from_branch() {
+  local branch="$1"
+  if [[ "$branch" =~ ^[a-z]+/([0-9]+)- ]]; then printf "%s" "${BASH_REMATCH[1]}"; fi
+}
+
+ensure_lock_label() {
+  glab label list 2>/dev/null | grep -qF "$WT_LOCK_LABEL" && return 0
+  glab label create -n "$WT_LOCK_LABEL" -c "#ec9a29" \
+    -d "Checked out by an agent/worktree (scripts/wt) — do not grab in parallel" \
+    >/dev/null 2>&1 || true
+}
+
+issue_is_locked() {
+  glab issue view "$1" --output json 2>/dev/null \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print('locked' if '${WT_LOCK_LABEL}' in (d.get('labels') or []) else '')" \
+    2>/dev/null || true
+}
+
+last_checkout_note() {
+  glab issue view "$1" --comments --output json 2>/dev/null | python3 -c "
+import json,sys
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+notes=d.get('Notes') or d.get('notes') or []
+hits=[(n.get('body') or '') for n in notes if '🔒 checked out' in (n.get('body') or '')]
+print(hits[-1] if hits else '')
+" 2>/dev/null || true
+}
+
+apply_lock() {
+  local issue="$1" branch="$2" path="$3" ts
+  ensure_lock_label
+  glab issue update "$issue" --label "$WT_LOCK_LABEL" >/dev/null 2>&1 \
+    || warn "could not apply '$WT_LOCK_LABEL' to #$issue (check glab auth)"
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  glab issue note "$issue" \
+    -m "🔒 checked out ${ts} · branch \`${branch}\` · worktree \`${path}\`" \
+    >/dev/null 2>&1 || warn "could not post check-out comment to #$issue"
+}
+
+clear_lock() {
+  local issue="$1" branch="$2" ts
+  glab issue update "$issue" --unlabel "$WT_LOCK_LABEL" >/dev/null 2>&1 || true
+  ts="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  glab issue note "$issue" -m "🔓 released ${ts} · branch \`${branch}\`" >/dev/null 2>&1 || true
+}
+
+# Guard used by new/claim: die if $1 is already checked out and --force wasn't given.
+assert_claimable() {
+  local issue="$1" force="$2" note
+  lock_available || { warn "glab unavailable — the #$issue advisory label won't be set, but the local worktree dir + prune grace window still prevent a parallel agent from stomping this work"; return 0; }
+  if [[ "$(issue_is_locked "$issue")" == "locked" && -z "$force" ]]; then
+    err "issue #$issue is already checked out (label '$WT_LOCK_LABEL')."
+    note="$(last_checkout_note "$issue")"
+    [[ -n "$note" ]] && dim "  $note"
+    die "another agent/worktree is likely on it. Re-run with --force to take it over."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Worktree-scoped stash
+# ---------------------------------------------------------------------------
+#
+# Plain `git stash` is NOT worktree-scoped — refs/stash is one shared stack for
+# the whole repo, so two worktrees stashing concurrently clobber each other's
+# slot. Each worktree instead gets its own ref under refs/wt-stash/<slug>,
+# keyed by a hash of the worktree's absolute path, so it survives a rename and
+# never collides with a sibling worktree.
+
+wt_stash_slug() {
+  local base hash
+  base="$(basename "$CURRENT_TOPLEVEL" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g' | cut -c1-40)"
+  hash="$(printf '%s' "$CURRENT_TOPLEVEL" | git hash-object --stdin | cut -c1-8)"
+  printf '%s-%s' "${base:-worktree}" "$hash"
+}
+
+wt_stash_ref() { printf '%s/%s' "$WT_STASH_NS" "$(wt_stash_slug)"; }
+
+# Every entry for THIS worktree, newest first — the reflog of our ref is the stack.
+wt_stash_entries() {
+  git -C "$CURRENT_TOPLEVEL" reflog show "$(wt_stash_ref)" --format='%gd %gs' 2>/dev/null || true
+}
+
+wt_stash_has_entries() {
+  [[ -n "$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "$(wt_stash_ref)" 2>/dev/null || true)" ]]
+}
+
+# ---------------------------------------------------------------------------
+# Frontend e2e port isolation
+# ---------------------------------------------------------------------------
+#
+# playwright.config.ts and package.json's `dev` script default to a single
+# hardcoded port. Two worktrees running Playwright at once either fight over
+# that port or, worse, `reuseExistingServer` makes the second one silently
+# test against the FIRST worktree's already-running dev server. Each worktree
+# instead gets a deterministic offset derived from its own slug — stable
+# across recreations of the same branch — probed forward until it lands on a
+# port no sibling worktree has claimed and nothing is already listening on.
+
+# The Playwright port a worktree was given, read back from its own .envrc.
+# awk (not `sed | head`) so there is no pipe into SIGPIPE under `pipefail`.
+worktree_e2e_port() {
+  local path="$1"
+  [[ -f "$path/.envrc" ]] || return 0
+  awk -F= '/^export WT_E2E_PORT=/ { print $2; exit }' "$path/.envrc"
+}
+
+# Every e2e port currently claimed by a live worktree, one per line.
+claimed_e2e_ports() {
+  local path port
+  while IFS= read -r path; do
+    [[ -z "$path" || "$path" == "$REPO_ROOT" ]] && continue
+    port="$(worktree_e2e_port "$path")"
+    [[ -n "$port" ]] && printf '%s\n' "$port"
+  done < <(git -C "$REPO_ROOT" worktree list --porcelain | awk '/^worktree /{print $2}')
+}
+
+# Deterministic offset in [0, WT_E2E_PORT_SPAN) derived from the slug via
+# POSIX cksum (CRC-32, identical on macOS and Linux) — the same slug every
+# time the branch is recreated lands on the same port, which is what makes a
+# stale .envrc harmless rather than a footgun.
+port_offset_for_slug() {
+  local slug="$1" sum
+  sum="$(printf '%s' "$slug" | cksum | awk '{print $1}')"
+  printf '%s' "$(( sum % WT_E2E_PORT_SPAN ))"
+}
+
+# True when nothing is listening on 127.0.0.1:$1. Uses bash's /dev/tcp rather
+# than lsof/nc: a builtin, so nothing extra to install, and no BSD-vs-GNU flag
+# divergence to trip over.
+port_is_free() {
+  local port="$1"
+  ( exec 3<>"/dev/tcp/127.0.0.1/${port}" ) >/dev/null 2>&1 && return 1
+  return 0
+}
+
+# Resolve the offset this worktree will use: start at the slug's own
+# deterministic offset, then probe forward until the candidate port is both
+# unclaimed by a sibling worktree's .envrc and unbound by any live process.
+# Falls back to the slug's own offset if every slot is somehow taken.
+resolve_e2e_port_offset() {
+  local slug="$1" start offset i port claimed
+  start="$(port_offset_for_slug "$slug")"
+  claimed="$(claimed_e2e_ports)"
+  for (( i = 0; i < WT_E2E_PORT_SPAN; i++ )); do
+    offset=$(( (start + i) % WT_E2E_PORT_SPAN ))
+    port=$(( WT_E2E_PORT_BASE + offset ))
+    if printf '%s\n' "$claimed" | grep -qx "$port"; then continue; fi
+    if port_is_free "$port"; then printf '%s' "$offset"; return 0; fi
+  done
+  printf '%s' "$start"
+}
+
+# ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 
 cmd_new() {
-  [[ $# -ge 1 ]] || die "usage: wt new <issue|branch-name>"
-  local input="$1"
+  local input="" force=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force="1"; shift ;;
+      *)       [[ -z "$input" ]] && input="$1"; shift ;;
+    esac
+  done
+  [[ -n "$input" ]] || die "usage: wt new <issue|branch-name> [--force]"
   local branch; branch="$(derive_branch_name "$input")"
   local short_name="${branch##*/}"
   local target_path="${WT_BASE}/${short_name}"
+  local issue; issue="$(issue_from_branch "$branch")"
 
   local count; count="$(wt_count)"
   if (( count >= WT_CAP )); then
-    die "WIP cap reached (${count}/${WT_CAP}). Finish or remove one first. Override with WT_CAP if you must."
+    die "WIP cap reached (${count}/${WT_CAP}). Run 'scripts/wt prune' to reap worktrees whose MRs already merged, or finish/remove one first. Override with WT_CAP if you must."
   fi
   if (( count >= WT_WARN )); then
     warn "${count}/${WT_CAP} active worktrees — approaching the WIP cap"
   fi
+
+  # Issue check-out lock: refuse fast, before touching the filesystem, if a
+  # parallel agent already holds this issue — unless the caller forces a takeover.
+  [[ -n "$issue" ]] && assert_claimable "$issue" "$force"
 
   git -C "$REPO_ROOT" fetch origin "$DEFAULT_BRANCH" --quiet
 
@@ -184,7 +413,29 @@ cmd_new() {
   if git -C "$REPO_ROOT" rev-parse --verify "$branch" >/dev/null 2>&1; then
     git -C "$REPO_ROOT" worktree add "$target_path" "$branch"
   else
-    git -C "$REPO_ROOT" worktree add "$target_path" -b "$branch" "origin/$DEFAULT_BRANCH"
+    # --no-track: the new branch must NOT adopt origin/<default> as its upstream.
+    # If it did, `wt prune`'s "never pushed" check could not tell a fresh
+    # 0-commit worktree from a merged-and-deleted branch — both look like an
+    # ancestor of origin/<default> with no origin/<branch> — and would
+    # false-prune the fresh one out from under a running agent. The branch's
+    # real upstream is set on its first `git push -u`.
+    git -C "$REPO_ROOT" worktree add --no-track "$target_path" -b "$branch" "origin/$DEFAULT_BRANCH"
+  fi
+
+  # Belt-and-suspenders: on the existing-branch path (or any git that ignores
+  # --no-track), strip an origin/<default> upstream if one slipped through, for
+  # the same false-prune reason above.
+  if [[ "$(git -C "$REPO_ROOT" config --get "branch.${branch}.merge" 2>/dev/null || true)" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+    git -C "$REPO_ROOT" branch --unset-upstream "$branch" 2>/dev/null || true
+  fi
+
+  if [[ -n "$issue" ]]; then
+    apply_lock "$issue" "$branch" "$target_path"
+    if [[ -n "$force" ]]; then
+      ok "took over check-out of #$issue"
+    else
+      ok "checked out #$issue ('$WT_LOCK_LABEL' applied)"
+    fi
   fi
 
   # Symlink shared dev deps — only candidates present in the main checkout.
@@ -201,21 +452,47 @@ cmd_new() {
     warn "no dev-dep dirs found in main checkout to symlink (checked: ${WT_SYMLINK_CANDIDATES[*]})"
   fi
 
+  # Backend test isolation: seed backend/.env with an isolated SQLite database
+  # instead of the shared Postgres stack, so tests in this worktree can never
+  # collide with another worktree's data — each worktree is already its own
+  # directory, so a relative sqlite:/// path is isolated by construction, no
+  # port arithmetic needed. Only when this repo has a backend/ dir with a
+  # .env.example to seed from, and only if backend/.env isn't already there
+  # (never overwrite something the branch itself carries or the user made).
+  if [[ -d "$target_path/backend" && -f "$REPO_ROOT/.env.example" && ! -e "$target_path/backend/.env" ]]; then
+    sed -E 's#^DATABASE_URL=.*#DATABASE_URL=sqlite:///db.sqlite3#' \
+      "$REPO_ROOT/.env.example" > "$target_path/backend/.env"
+    ok "seeded backend/.env with an isolated SQLite database (see docs/getting-started/installation.md § Local Development)"
+  fi
+
+  # Frontend e2e port isolation: playwright.config.ts reads WT_E2E_PORT (falls
+  # back to 5173) so two worktrees' Playwright runs never fight over the same
+  # port or, worse, silently reuse each other's dev server.
+  local e2e_port=""
+  if [[ -d "$target_path/frontend" ]]; then
+    e2e_port=$(( WT_E2E_PORT_BASE + $(resolve_e2e_port_offset "$short_name") ))
+  fi
+
   # .envrc for direnv users. Reuses the running Docker stack via the shared
   # compose project name; no-op if direnv/docker aren't in use.
-  cat > "$target_path/.envrc" <<EOF
-# Auto-generated by scripts/wt. Reuses the running Docker stack from the main
-# checkout via the shared compose project name.
-export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME_DEFAULT}
-EOF
+  {
+    printf '# Auto-generated by scripts/wt. Reuses the running Docker stack from the main\n'
+    printf '# checkout via the shared compose project name.\n'
+    printf 'export COMPOSE_PROJECT_NAME=%s\n' "$COMPOSE_PROJECT_NAME_DEFAULT"
+    if [[ -n "$e2e_port" ]]; then
+      printf '\n# Isolates this worktree'"'"'s Playwright dev server from every sibling\n'
+      printf '# worktree'"'"'s — see resolve_e2e_port_offset in scripts/wt.\n'
+      printf 'export WT_E2E_PORT=%s\n' "$e2e_port"
+    fi
+  } > "$target_path/.envrc"
 
   ok "created worktree at $target_path on branch $branch"
   say ""
   dim "  cd $target_path"
   if command -v direnv >/dev/null 2>&1; then
-    dim "  direnv allow                           # picks up COMPOSE_PROJECT_NAME"
+    dim "  direnv allow                           # picks up COMPOSE_PROJECT_NAME${e2e_port:+ + WT_E2E_PORT}"
   else
-    dim "  source .envrc                          # or set COMPOSE_PROJECT_NAME manually"
+    dim "  source .envrc                          # or set the vars above manually"
   fi
 }
 
@@ -260,9 +537,17 @@ cmd_remove() {
     fi
   fi
 
+  local branch; branch="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
   # Force git's own remove — the symlinks + .envrc are "untracked" and would block it.
   git -C "$REPO_ROOT" worktree remove --force "$path"
   ok "removed worktree $path"
+
+  local issue; issue="$(issue_from_branch "$branch")"
+  if [[ -n "$issue" ]] && lock_available; then
+    clear_lock "$issue" "$branch"
+    ok "released check-out of #$issue"
+  fi
 }
 
 cmd_prune() {
@@ -305,10 +590,123 @@ cmd_prune() {
     git -C "$REPO_ROOT" worktree remove --force "$path"
     ok "  $branch: removed (merged to $DEFAULT_BRANCH, remote gone)"
     pruned=$((pruned + 1))
+
+    local issue; issue="$(issue_from_branch "$branch")"
+    if [[ -n "$issue" ]] && lock_available; then
+      clear_lock "$issue" "$branch"
+      dim "    released check-out of #$issue"
+    fi
   done < <(git -C "$REPO_ROOT" worktree list --porcelain | awk '/^worktree /{print $2}')
 
   say ""
   say "Pruned: $pruned. Skipped (had local work): $skipped. Kept: $kept."
+}
+
+cmd_claim() {
+  local issue="" force=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force="1"; shift ;;
+      *)       [[ -z "$issue" ]] && issue="$1"; shift ;;
+    esac
+  done
+  [[ "$issue" =~ ^[0-9]+$ ]] || die "usage: wt claim <issue-number> [--force]"
+  lock_available || die "glab not available (or origin isn't GitLab-hosted) — cannot claim #$issue"
+  assert_claimable "$issue" "$force"
+  apply_lock "$issue" "(not started)" "(claim only — no worktree yet)"
+  if [[ -n "$force" ]]; then
+    ok "took over check-out of #$issue (forced; no worktree yet)"
+  else
+    ok "checked out #$issue ('$WT_LOCK_LABEL' applied; no worktree yet)"
+  fi
+}
+
+cmd_release() {
+  [[ $# -ge 1 ]] || die "usage: wt release <issue-number>"
+  local issue="$1"
+  [[ "$issue" =~ ^[0-9]+$ ]] || die "release needs a numeric issue number"
+  lock_available || die "glab not available (or origin isn't GitLab-hosted) — cannot release #$issue"
+  clear_lock "$issue" "(manual release)"
+  ok "released check-out of #$issue"
+}
+
+cmd_stash() {
+  local sub="${1:-push}"
+  case "$sub" in push|pop|apply|list|drop|show) shift || true ;; *) sub="push" ;; esac
+
+  local ref slug
+  ref="$(wt_stash_ref)"; slug="$(wt_stash_slug)"
+
+  case "$sub" in
+    push)
+      local msg="${1:-}" commit
+      [[ -n "$msg" ]] || msg="wt-stash on $(git -C "$CURRENT_TOPLEVEL" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '-')"
+      # `create` builds the stash commit and prints its sha WITHOUT writing any
+      # ref — the whole reason a private stash is possible. Empty output means a
+      # clean tree; that is not an error, but it must not be reported as a save.
+      commit="$(git -C "$CURRENT_TOPLEVEL" stash create "$msg" 2>/dev/null || true)"
+      if [[ -z "$commit" ]]; then
+        say "wt: nothing to stash — the worktree is clean"
+        return 0
+      fi
+      # The reflog IS the stack — each push is one entry, newest first, exactly
+      # like refs/stash. --create-reflog is required: git only auto-logs refs
+      # under refs/heads, refs/remotes, refs/notes and HEAD unless
+      # core.logAllRefUpdates=always, and a custom namespace is none of those.
+      git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "$msg" "$ref" "$commit"
+      # Match `git stash push`: the working tree goes back to HEAD. Untracked
+      # files are left alone, as `git stash create` does not capture them.
+      git -C "$CURRENT_TOPLEVEL" reset --hard -q HEAD
+      ok "stashed to ${ref} — restore with: scripts/wt stash pop"
+      if [[ -n "$(git -C "$CURRENT_TOPLEVEL" ls-files --others --exclude-standard 2>/dev/null | head -n1)" ]]; then
+        warn "untracked files were NOT stashed (git stash create does not capture them)"
+      fi
+      ;;
+
+    pop|apply)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      local target="${1:-$ref}"
+      git -C "$CURRENT_TOPLEVEL" stash apply "$target" || die "apply failed — nothing was dropped; resolve, then: scripts/wt stash drop"
+      if [[ "$sub" == "pop" ]]; then
+        local prev
+        prev="$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "${ref}@{1}" 2>/dev/null || true)"
+        if [[ -n "$prev" ]]; then
+          git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "wt-stash pop" "$ref" "$prev"
+        else
+          git -C "$CURRENT_TOPLEVEL" update-ref -d "$ref"
+        fi
+        ok "popped ${ref}"
+      else
+        ok "applied ${ref} (entry kept)"
+      fi
+      ;;
+
+    list)
+      if ! wt_stash_has_entries; then
+        say "no wt stash entries for this worktree ($slug)"
+      else
+        say "wt stash entries for $slug:"
+        wt_stash_entries | sed 's/^/  /'
+      fi
+      ;;
+
+    show)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      git -C "$CURRENT_TOPLEVEL" stash show -p "${1:-$ref}"
+      ;;
+
+    drop)
+      wt_stash_has_entries || die "no wt stash entries for this worktree ($slug)"
+      local prev
+      prev="$(git -C "$CURRENT_TOPLEVEL" rev-parse --verify --quiet "${ref}@{1}" 2>/dev/null || true)"
+      if [[ -n "$prev" ]]; then
+        git -C "$CURRENT_TOPLEVEL" update-ref --create-reflog -m "wt-stash drop" "$ref" "$prev"
+      else
+        git -C "$CURRENT_TOPLEVEL" update-ref -d "$ref"
+      fi
+      ok "dropped the newest entry on ${ref}"
+      ;;
+  esac
 }
 
 cmd_doctor() {
@@ -338,6 +736,28 @@ cmd_doctor() {
     else
       warn "  COMPOSE_PROJECT_NAME not set to '${COMPOSE_PROJECT_NAME_DEFAULT}'; run: source .envrc"
     fi
+
+    if [[ -d "$here/backend" ]]; then
+      if [[ -f "$here/backend/.env" ]] && grep -q '^DATABASE_URL=sqlite' "$here/backend/.env" 2>/dev/null; then
+        ok "  backend/.env → isolated SQLite database"
+      elif [[ -f "$here/backend/.env" ]]; then
+        warn "  backend/.env exists but is not pointed at an isolated SQLite database — backend tests may hit a shared database"
+      else
+        warn "  backend/.env missing — backend tests/dev server won't start; run 'wt new' to recreate, or seed one manually"
+      fi
+    fi
+    if [[ -d "$here/frontend" ]]; then
+      local port; port="$(worktree_e2e_port "$here")"
+      if [[ -n "$port" ]]; then
+        if [[ "${WT_E2E_PORT:-}" == "$port" ]]; then
+          ok "  WT_E2E_PORT=${port}"
+        else
+          warn "  WT_E2E_PORT=${port} in .envrc but not exported in this shell; run: source .envrc"
+        fi
+      else
+        warn "  no WT_E2E_PORT in .envrc — Playwright will default to 5173 and may collide with a sibling worktree"
+      fi
+    fi
   fi
 
   if command -v docker >/dev/null 2>&1; then
@@ -364,9 +784,12 @@ cmd_help() { sed -n '2,/^$/p' "$0" | sed -E 's/^# ?//'; }
 
 case "${1:-help}" in
   new)        shift; cmd_new "$@" ;;
+  claim)      shift; cmd_claim "$@" ;;
+  release)    shift; cmd_release "$@" ;;
   list|ls)    cmd_list ;;
   remove|rm)  shift; cmd_remove "$@" ;;
   prune)      shift; cmd_prune "$@" ;;
+  stash)      shift; cmd_stash "$@" ;;
   doctor)     cmd_doctor ;;
   help|--help|-h) cmd_help ;;
   *)          err "unknown subcommand: $1"; cmd_help; exit 2 ;;
