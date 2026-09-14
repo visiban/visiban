@@ -1915,6 +1915,8 @@
       
         
       
+        
+      
     
     
     
@@ -2434,6 +2436,34 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
   
 
     
@@ -3219,7 +3249,7 @@
 <h3 id="init-containers">Init containers<a class="headerlink" href="#init-containers" title="Permanent link">&para;</a></h3>
 <p>The Helm chart runs three init containers on every deploy:</p>
 <ol>
-<li><strong>migrate</strong> — <code>python manage.py migrate --noinput</code></li>
+<li><strong>migrate</strong> — <code>python manage.py migrate --noinput</code>. Since 1.2 every index and constraint Visiban adds is built without an <code>ACCESS EXCLUSIVE</code> lock, so this init container does not block the running pods it is replacing — see <a href="../../development/database-migrations/">Database migrations</a>.</li>
 <li><strong>collectstatic</strong> — <code>python manage.py collectstatic --noinput</code> (populates whitenoise static files)</li>
 <li><strong>bootstrap</strong> — <code>python manage.py ensure_site_admin</code> (creates the admin account on first install and writes the one-time password to <code>/run/visiban/admin_password</code>)</li>
 </ol>

@@ -1913,6 +1913,8 @@
       
         
       
+        
+      
     
     
     
@@ -2178,6 +2180,34 @@
     
   
     Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
   
 
     
@@ -2717,6 +2747,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#rule-4-every-index-and-constraint-is-built-concurrently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rule 4 — Every index and constraint is built concurrently
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2968,7 +3009,7 @@
 <p>Visiban enforces strict migration authoring rules that make the upgrade sequence above safe. Understanding these rules helps you evaluate whether a third-party migration or a local customization is safe to run without downtime.</p>
 <h3 id="why-these-rules-exist">Why these rules exist<a class="headerlink" href="#why-these-rules-exist" title="Permanent link">&para;</a></h3>
 <p>During the upgrade window (between step 3 and step 4 above), two versions of the application code are running against the same database schema: the old code reading the migrated schema, and the new code starting up against it. For zero-downtime upgrades to work, the schema after migration must be fully compatible with both versions simultaneously.</p>
-<p>Three patterns break this compatibility and are therefore prohibited:</p>
+<p>Four patterns break this compatibility — or block the upgrade outright — and are therefore prohibited:</p>
 <h3 id="rule-1-every-new-column-must-be-nullable-or-have-a-default">Rule 1 — Every new column must be nullable or have a default<a class="headerlink" href="#rule-1-every-new-column-must-be-nullable-or-have-a-default" title="Permanent link">&para;</a></h3>
 <p>A <code>NOT NULL</code> column without a default added to an existing table blocks any <code>INSERT</code> from the old code that does not know about the new column. The old container cannot supply a value for a column it does not know about.</p>
 <p><strong>Safe:</strong> <code>nullable=True</code> or a <code>default=</code> value on the field. The old code omits the column from its <code>INSERT</code>; PostgreSQL fills in <code>NULL</code> or the default.</p>
@@ -2994,6 +3035,28 @@
 <li>Release N+1: switch all reads and writes to the new column. Retain the old column.</li>
 <li>Release N+2: drop the old column.</li>
 </ol>
+<h3 id="rule-4-every-index-and-constraint-is-built-concurrently">Rule 4 — Every index and constraint is built concurrently<a class="headerlink" href="#rule-4-every-index-and-constraint-is-built-concurrently" title="Permanent link">&para;</a></h3>
+<p>The first three rules keep the <em>schema</em> compatible across the upgrade window. This one keeps
+<code>migrate</code> itself from being the outage.</p>
+<p>A plain <code>CREATE INDEX</code> or <code>ALTER TABLE ... ADD CONSTRAINT</code> holds an <code>ACCESS EXCLUSIVE</code> lock on
+its table for the entire build — every read and every write to that table blocks until it
+finishes. On <code>cards</code> that is the whole product, and on a large instance an index build is
+minutes, not milliseconds.</p>
+<p>Since 1.2, every index Visiban adds is built with <code>CREATE INDEX CONCURRENTLY</code> and every check
+constraint is added <code>NOT VALID</code> and validated separately. Neither takes a lock that blocks
+readers or writers, so step 3 of the upgrade above can run while the old containers are still
+serving traffic. A CI gate fails the build on any migration that regresses to the blocking
+form — see <a href="../../development/database-migrations/">Database migrations</a> for the pattern and
+the authoring rules.</p>
+<div class="admonition note">
+<p class="admonition-title">Migrations added before 1.2</p>
+<p>Fourteen migrations predate this rule and still build their indexes with a lock. If you are
+replaying them against an already-populated database — the restore-then-migrate case, for
+example loading a pre-1.1 dump into a 1.2 deployment — you can build those indexes by hand
+with <code>CONCURRENTLY</code> first and then <code>migrate --fake</code> past them. The full list and the exact
+procedure are in
+<a href="../../development/database-migrations/#the-pre-1081-migrations-decision-and-reasoning">Database migrations</a>.</p>
+</div>
 <hr />
 <h2 id="multi-replica-deployments">Multi-replica deployments<a class="headerlink" href="#multi-replica-deployments" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
