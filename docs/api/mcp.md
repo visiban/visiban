@@ -52,7 +52,16 @@ If you terminate TLS behind a reverse proxy, the `/mcp` location must disable re
 
 ### DNS rebinding protection
 
-The transport validates the `Host` and `Origin` headers of every request against the server's `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` settings. A request whose `Host` is not in `ALLOWED_HOSTS` is rejected with `421 Misdirected Request`. If you reach the server on a hostname the backend does not know about, add it to `ALLOWED_HOSTS`.
+The transport validates the `Host` and `Origin` headers of every request against the server's `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS` settings. This stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose `Host` is not allowed is rejected with `421 Misdirected Request`. If you reach the server on a hostname the backend does not know about, add it to `ALLOWED_HOSTS`.
+
+!!! warning "If `ALLOWED_HOSTS` is `*`"
+    A wildcard cannot serve as a rebinding allowlist — the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set `MCP_ALLOWED_HOSTS` to the hostnames clients actually reach `/mcp` on:
+
+    ```bash
+    MCP_ALLOWED_HOSTS=visiban.example.com,visiban.internal
+    ```
+
+    Until you do, the backend logs a warning at startup and only `Origin` checking (from `CORS_ALLOWED_ORIGINS`) applies. `MCP_ALLOWED_HOSTS` takes precedence over `ALLOWED_HOSTS` whenever it is set.
 
 ---
 

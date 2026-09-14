@@ -10,6 +10,8 @@ Later waves register their tools here too:
     delegates to a plain function in ``tools.py``. Authentication is already
     handled by the transport middleware; no per-tool auth code is needed.
 """
+import logging
+
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
@@ -17,29 +19,45 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from . import tools
 
+logger = logging.getLogger(__name__)
+
 SERVER_NAME = "visiban"
 
 
 def _build_transport_security():
     """Bind MCP's DNS-rebinding protection to Django's own host/origin config.
 
-    The SDK validates Host and Origin headers to stop a malicious page from
-    driving a local MCP server. Deriving the allowlists from ALLOWED_HOSTS and
-    CORS_ALLOWED_ORIGINS keeps one source of truth rather than a second list
-    that drifts out of sync with the deployment's real hostnames.
+    The SDK validates Host and Origin headers to stop a malicious web page from
+    using DNS rebinding to reach this server from a victim's browser. Deriving
+    the allowlist from ALLOWED_HOSTS keeps one source of truth rather than a
+    second list that drifts out of sync with the deployment's real hostnames.
+
+    ``MCP_ALLOWED_HOSTS`` overrides that derivation. It exists for the
+    ``ALLOWED_HOSTS = ["*"]`` case: a wildcard there is a common self-hosting
+    shortcut (often just masking a reverse-proxy Host mismatch), and the two
+    settings guard different threats — Django trusting a claimed Host server
+    side is not the same question as a browser-resident attacker rebinding DNS.
+    Inheriting the wildcard would silently turn this protection off, so instead
+    the operator is warned and asked to name the hosts explicitly.
     """
-    allowed_hosts = [h for h in getattr(settings, "ALLOWED_HOSTS", []) if h]
+    configured = [h for h in getattr(settings, "MCP_ALLOWED_HOSTS", []) if h]
     allowed_origins = list(getattr(settings, "CORS_ALLOWED_ORIGINS", []) or [])
 
-    # A wildcard in ALLOWED_HOSTS means the operator has already accepted any
-    # Host; mirroring that here keeps the transport from being stricter than
-    # the deployment it runs in and silently 421-ing every request.
-    if "*" in allowed_hosts:
-        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    if not configured:
+        allowed_hosts = [h for h in getattr(settings, "ALLOWED_HOSTS", []) if h]
+        if "*" in allowed_hosts:
+            logger.warning(
+                "ALLOWED_HOSTS contains '*', which cannot be used as an MCP "
+                "DNS-rebinding allowlist. Set MCP_ALLOWED_HOSTS to the "
+                "hostnames clients reach /mcp on. Until then only Origin "
+                "checking from CORS_ALLOWED_ORIGINS applies."
+            )
+            allowed_hosts = [h for h in allowed_hosts if h != "*"]
+        configured = allowed_hosts
 
     # Hosts are matched with their port, which ALLOWED_HOSTS entries omit.
     expanded = []
-    for host in allowed_hosts:
+    for host in configured:
         expanded.extend([host, f"{host}:*"])
 
     return TransportSecuritySettings(

@@ -10,6 +10,13 @@ thread, so ORM code called from a tool still sees it.
 The var is set by :mod:`mcp_server.auth` before the MCP app is invoked and
 cleared in a ``finally`` on the way out, so a value can never leak from one
 request into the next on a reused task.
+
+Isolation between concurrent requests relies on the MCP SDK dispatching a tool
+call within the calling task's context rather than re-parenting it into an
+unrelated one. That holds for the pinned SDK and anyio versions, but it is
+their behavior rather than a documented contract, so a bump of either should
+be checked here — ``ConcurrentIdentityTests`` in the test suite drives two
+users simultaneously and is what would catch a regression.
 """
 from contextvars import ContextVar
 

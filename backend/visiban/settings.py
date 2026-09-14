@@ -79,6 +79,11 @@ GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
 # entirely, so /mcp does not exist and the MCP SDK is never imported.
 MCP_SERVER_ENABLED = env.bool("MCP_SERVER_ENABLED", default=False)
 
+# Host allowlist for the MCP transport's DNS-rebinding protection. Defaults to
+# ALLOWED_HOSTS; set this explicitly when ALLOWED_HOSTS is "*", which cannot
+# serve as a rebinding allowlist (see mcp_server/server.py).
+MCP_ALLOWED_HOSTS = env.list("MCP_ALLOWED_HOSTS", default=[])
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",

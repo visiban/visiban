@@ -18,7 +18,9 @@ import json
 
 import httpx
 from asgiref.sync import async_to_sync
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from accounts.models import PersonalAccessToken
@@ -27,7 +29,11 @@ from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
     _make_user,
 )
+from mcp_server import tools
 from mcp_server.asgi_mount import McpPathRouter, build_mcp_asgi_app
+from mcp_server.context import (
+    get_current_user, reset_current_user, set_current_user,
+)
 
 PROTOCOL_VERSION = "2025-03-26"
 
@@ -297,6 +303,46 @@ class ListBoardsTests(McpTestCase):
         self.assertEqual([(b["name"], b["role"]) for b in boards], [("Orphan", "admin")])
         self.assertFalse(board.memberships.exists())
 
+    def test_group_inherited_access_is_visible(self):
+        """A board reached only through group membership must be returned.
+
+        This is the branch of get_board_role() that walks the group ancestor
+        chain — the user has no BoardMembership row at all, so a tool that
+        queried memberships directly would silently omit the board.
+        """
+        from groups.models import Group, GroupMembership
+
+        other = _make_user("group-board-owner")
+        group = Group.objects.create(name="Eng", owner=other)
+        GroupMembership.objects.create(
+            group=group, user=self.user, role=GroupMembership.Role.MEMBER
+        )
+        board = _make_board(other, name="Group board")
+        board.group = group
+        board.save(update_fields=["group"])
+
+        boards = self._call_list_boards(self.raw_token)
+        self.assertEqual(
+            [(b["name"], b["role"]) for b in boards], [("Group board", "member")]
+        )
+        self.assertFalse(board.memberships.filter(user=self.user).exists())
+
+    def test_site_admin_sees_every_board_with_the_site_admin_role(self):
+        """can_access_all_content bypasses per-board access entirely.
+
+        The reported role is the `site_admin` sentinel, which is deliberately
+        not a BoardMembership.Role value — it is documented as a distinct value
+        because it is not a revocable per-board membership.
+        """
+        self.user.can_access_all_content = True
+        self.user.save(update_fields=["can_access_all_content"])
+        other = _make_user("unrelated-owner")
+        _make_board(other, name="Someone else's board")
+
+        boards = self._call_list_boards(self.raw_token)
+        self.assertIn("Someone else's board", [b["name"] for b in boards])
+        self.assertTrue(all(b["role"] == "site_admin" for b in boards), boards)
+
     def test_the_authenticated_user_reaches_the_tool(self):
         """The contextvar must survive the SDK's tool dispatch and sync_to_async.
 
@@ -317,6 +363,118 @@ class ListBoardsTests(McpTestCase):
             [b["name"] for b in self._call_list_boards(second_token)],
             ["Second user board"],
         )
+
+
+class ConcurrentIdentityTests(TestCase):
+    """Interleaved requests must never observe each other's identity.
+
+    The end-to-end tests drive one caller at a time, so they would still pass
+    if the identity carrier were a module-level global instead of a
+    context-local. This drives many callers concurrently on one event loop,
+    with a forced suspension point between setting the identity and reading it
+    back, which is exactly the interleaving a shared global would fail.
+
+    It exercises the carrier rather than the full HTTP stack on purpose: the
+    real stack's ORM access runs under ``sync_to_async(thread_sensitive=True)``,
+    which serializes onto the single thread blocked by ``async_to_sync`` in a
+    test, so a gather over full requests deadlocks in the harness even though
+    it is fine under a real ASGI server.
+    """
+
+    def test_interleaved_tasks_do_not_share_identity(self):
+        import asyncio
+
+        users = [_make_user(f"concurrent-{i}") for i in range(8)]
+
+        async def handle(user):
+            token = set_current_user(user)
+            try:
+                # Yield control so every other task runs between the set and
+                # the read — a global carrier would be overwritten here.
+                await asyncio.sleep(0)
+                observed = get_current_user()
+                await asyncio.sleep(0)
+                self.assertIs(get_current_user(), observed)
+                return observed.pk
+            finally:
+                reset_current_user(token)
+
+        async def drive():
+            return await asyncio.gather(*(handle(u) for u in users))
+
+        self.assertEqual(async_to_sync(drive)(), [u.pk for u in users])
+
+    def test_identity_is_cleared_after_a_failing_request(self):
+        """A tool raising must not leave the caller bound to the context."""
+        user = _make_user("concurrent-failer")
+        token = set_current_user(user)
+        try:
+            self.assertIs(get_current_user(), user)
+        finally:
+            reset_current_user(token)
+        with self.assertRaises(RuntimeError):
+            get_current_user()
+
+
+class ListBoardsQueryCountTests(TestCase):
+    """list_boards must issue a constant number of queries.
+
+    Role resolution is the trap: resolving each board separately costs a
+    membership query per board, and for group-derived access an ancestor walk
+    on top of that. Both membership sources are batched instead, so adding
+    boards must not add queries.
+    """
+
+    def _query_count(self, board_count, via_group):
+        """Build a fresh user owning *board_count* boards; count list_boards queries.
+
+        A new user per call keeps the two measurements independent — reusing
+        one would accumulate boards and make the comparison meaningless.
+        """
+        from groups.models import Group, GroupMembership
+
+        suffix = f"{'group' if via_group else 'direct'}-{board_count}"
+        user = _make_user(f"counter-{suffix}")
+        owner = _make_user(f"counter-owner-{suffix}")
+
+        group = None
+        if via_group:
+            # Three levels deep, with the user's membership only on the ROOT, so
+            # role resolution must actually walk the ancestor chain. A flat
+            # single-level group would never exercise the walk.
+            root = Group.objects.create(name=f"root-{suffix}", owner=owner)
+            mid = Group.objects.create(name=f"mid-{suffix}", owner=owner, parent=root)
+            group = Group.objects.create(name=f"leaf-{suffix}", owner=owner, parent=mid)
+            GroupMembership.objects.create(
+                group=root, user=user, role=GroupMembership.Role.MEMBER
+            )
+
+        for i in range(board_count):
+            board = _make_board(owner, name=f"board-{suffix}-{i}")
+            if via_group:
+                board.group = group
+                board.save(update_fields=["group"])
+            else:
+                _make_membership(board, user, role=BoardMembership.Role.MEMBER)
+
+        token = set_current_user(user)
+        try:
+            with CaptureQueriesContext(connection) as ctx:
+                boards = tools.list_boards()
+        finally:
+            reset_current_user(token)
+        self.assertEqual(len(boards), board_count)
+        return len(ctx.captured_queries)
+
+    def test_direct_membership_boards_do_not_scale_queries(self):
+        few = self._query_count(2, via_group=False)
+        many = self._query_count(8, via_group=False)
+        self.assertEqual(few, many, f"query count grew: {few} -> {many}")
+
+    def test_group_derived_boards_do_not_scale_queries(self):
+        few = self._query_count(2, via_group=True)
+        many = self._query_count(8, via_group=True)
+        self.assertEqual(few, many, f"query count grew: {few} -> {many}")
 
 
 class AsgiRoutingTests(McpTestCase):
