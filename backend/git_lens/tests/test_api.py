@@ -315,6 +315,90 @@ class LensBoardRenderTests(TestCase):
         self.assertEqual(calls["n"], 2)
 
     @patch("git_lens.views.providers.get_provider")
+    def test_force_refresh_is_rate_capped_per_user(self, mock_get_provider):
+        """?refresh=1 bypasses the soft-TTL, so without a floor one member could
+        drive a full upstream fetch on every request and burn the shared provider
+        quota for the whole board. The single-flight lock only collapses
+        CONCURRENT fetches — it does not bound frequency. Second force inside the
+        cooldown must fall back to the normal cached read, not re-fetch."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url)                     # cold → fetch (1)
+        self.client.get(self.url + "?refresh=1")      # force → re-fetch (2)
+        self.assertEqual(calls["n"], 2)
+        resp = self.client.get(self.url + "?refresh=1")  # inside cooldown → no fetch
+        self.assertEqual(calls["n"], 2)
+        # Degrades to a normal read rather than erroring — the viewer still gets a
+        # board, and the banner's "Synced X ago" stays truthful about its age.
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_force_refresh_allowed_again_after_cooldown(self, mock_get_provider):
+        """The cap is a cooldown, not a one-shot: once it lapses, Refresh works."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url + "?refresh=1")  # cold → fetch (1), claims cooldown
+        self.assertEqual(calls["n"], 1)
+        cache.delete(f"git_lens:force:{self.board.id}:{self.owner.id}")  # cooldown lapses
+        self.client.get(self.url + "?refresh=1")  # force → re-fetch (2)
+        self.assertEqual(calls["n"], 2)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_viewer_may_force_refresh(self, mock_get_provider):
+        """Force-refresh is deliberately NOT role-gated. The lens is a read-only
+        surface whose primary audience is viewers (#1062); a Refresh button that
+        403s for them would break the persona the feature exists for. The abuse
+        vector is frequency, and that is capped by the cooldown above — not by
+        role. This test exists so a future 'harden the refresh endpoint' change
+        has to consciously break it rather than silently regress the persona."""
+        self._connect("gitlab")
+        viewer = _make_user("lens_viewer")
+        BoardMembership.objects.create(
+            board=self.board, user=viewer, role=BoardMembership.Role.VIEWER
+        )
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        c = APIClient()
+        c.force_authenticate(viewer)
+        resp = c.get(self.url + "?refresh=1")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(calls["n"], 1)  # the viewer's force actually fetched
+
+    def test_lock_ttl_covers_worst_case_pipeline_fetch(self):
+        """The single-flight lock must outlive the slowest fetch it guards, or it
+        expires mid-fetch and a second caller dogpiles the provider. The worst case
+        is the pipeline view: MAX_PAGES issue pages plus TWO aux paginations
+        (branches + MRs). The original formula counted only the issue pages, so it
+        asserted 45 >= 30 and passed while the real worst case (70s) exceeded the
+        45s lock. Pipeline is now the default for new lenses, so this is the
+        common path, not a corner."""
+        from git_lens import providers as _p
+        from git_lens import views as _v
+
+        worst = (_p.MAX_PAGES + 2 * _p.MAX_AUX_PAGES) * _p.REQUEST_TIMEOUT
+        self.assertGreaterEqual(
+            _v.LENS_FETCH_LOCK_TTL, worst,
+            "lock TTL must cover issue pages AND both aux paginations",
+        )
+
+    @patch("git_lens.views.providers.get_provider")
     def test_filtered_and_unfiltered_do_not_cross_serve(self, mock_get_provider):
         """Server-side filters change WHAT is fetched, so a filtered request must use
         a distinct cache key — never served the unfiltered copy (or vice versa)."""

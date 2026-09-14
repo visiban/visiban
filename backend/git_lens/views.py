@@ -51,15 +51,28 @@ def _parse_filters(request) -> LensFilters:
 # outbound provider-call rate bounded and predictable (the API-politeness contract).
 LENS_CACHE_SOFT_TTL = 60     # serve cached data without revalidating for this long
 LENS_CACHE_HARD_TTL = 600    # keep a stale-servable copy this long (SWR + error fallback)
-LENS_FETCH_LOCK_TTL = 45     # single-flight lock; must exceed worst-case fetch (MAX_PAGES * timeout)
+LENS_FETCH_LOCK_TTL = 75     # single-flight lock; must exceed worst-case fetch (see assertion)
+LENS_FORCE_REFRESH_COOLDOWN = 30  # per (board, user) floor between ?refresh=1 re-fetches
 
 # The lock must outlive the worst-case synchronous fetch, or it could expire
 # mid-fetch and let a second fetcher dogpile the provider. Tie the constants
 # together so a future bump to the provider page cap / timeout can't silently
 # break the guarantee — fail loudly at import instead.
-assert LENS_FETCH_LOCK_TTL >= providers.MAX_PAGES * providers.REQUEST_TIMEOUT, (
+#
+# The worst case is the PIPELINE column view: MAX_PAGES issue pages, plus two
+# aux paginations (branches + open MRs, MAX_AUX_PAGES each) inside
+# _enrich_{github,gitlab}_pipeline, which runs whenever column_dim == "pipeline"
+# (providers.py). The previous formula counted only the issue pages, so the
+# assertion passed (45 >= 30) while the guarantee this comment claims was false
+# for every pipeline fetch (real worst case 70s > 45s lock). That mattered less
+# when pipeline was opt-in; this branch makes it the default for new lenses, so
+# the formula now counts the aux pages it always should have.
+_WORST_CASE_FETCH_SECONDS = (
+    providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES
+) * providers.REQUEST_TIMEOUT
+assert LENS_FETCH_LOCK_TTL >= _WORST_CASE_FETCH_SECONDS, (
     "LENS_FETCH_LOCK_TTL must exceed the worst-case provider fetch duration "
-    "(MAX_PAGES * REQUEST_TIMEOUT)"
+    "((MAX_PAGES + 2 * MAX_AUX_PAGES) * REQUEST_TIMEOUT)"
 )
 
 # Explicit permission chain, mirroring every other board-scoped view in the
@@ -70,6 +83,20 @@ _BOARD_PERMISSIONS = [
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
 ]
+
+
+def _claim_force_refresh(board, user) -> bool:
+    """Consume this user's force-refresh budget for *board*; False if already spent.
+
+    ``cache.add`` only succeeds when the key is absent, so the claim is atomic
+    against concurrent clicks. Callers degrade to a normal soft-TTL read rather
+    than erroring: a second click inside the cooldown still returns a board, and
+    the provenance banner's "Synced X ago" keeps telling the truth about how
+    fresh that copy actually is.
+    """
+    return cache.add(
+        f"git_lens:force:{board.id}:{user.id}", 1, LENS_FORCE_REFRESH_COOLDOWN
+    )
 
 
 def _require_board_admin(role):
@@ -238,6 +265,13 @@ class LensBoardView(APIView):
     (provider, repo, pivot) and shared across all members; GitHub (the viewer's own
     token) is additionally scoped per user so a token-authorized view never leaks
     to a member whose token lacks that access.
+
+    ``?refresh=1`` forces a re-fetch past the soft-TTL. It is deliberately open to
+    every board role including viewer — see the rationale at the ``force`` gate in
+    ``get()`` — and is bounded instead by a per-(board, user) cooldown, so the
+    privilege split here is read=any-member, force-refresh=any-member-but-rate-capped,
+    configure=admin. Do not convert the cooldown into a role gate without revisiting
+    the viewer persona in #1062.
     """
 
     permission_classes = _BOARD_PERMISSIONS
@@ -284,7 +318,19 @@ class LensBoardView(APIView):
         # ?refresh=1 (the Refresh button) forces a re-fetch past the soft-TTL so the
         # user gets the latest upstream issues + an updated "synced" time, instead
         # of being served the still-fresh cached copy.
+        #
+        # Forcing stays open to EVERY board role, viewer included: the lens is a
+        # read-only surface whose primary audience is viewers (#1062), so a Refresh
+        # button that 403s for them would break the persona the feature exists for.
+        # What has to be bounded is the outbound provider-call RATE, not who may
+        # click — the soft-TTL is the API-politeness contract and ?refresh=1 is a
+        # deliberate hole in it. The single-flight lock below only collapses
+        # CONCURRENT fetches, so without a cooldown one member can drive continuous
+        # sequential re-fetches and burn the shared provider quota for every board
+        # on that provider (#1073 rbac-check finding).
         force = request.query_params.get("refresh") in ("1", "true")
+        if force and not _claim_force_refresh(board, request.user):
+            force = False
 
         return self._serve_board(
             request, conn, provider_fn, config, column_dim, swimlane_dim, token, filters, force
