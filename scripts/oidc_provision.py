@@ -14,10 +14,10 @@ exists, so it is safe to re-run.
 """
 
 import argparse
-import json
 import os
-import sys
+import socket
 import time
+from urllib.parse import urlparse
 
 import requests
 
@@ -150,22 +150,71 @@ def _create_user(base_url: str, token: str) -> None:
     print(f"  Created user '{TEST_USER}' ({TEST_USER_EMAIL}).")
 
 
+def _preflight(url: str) -> None:
+    """Log DNS and TCP reachability for *url* before polling it.
+
+    A readiness loop that only reports "not ready yet" cannot distinguish an
+    unresolvable host from a service that is still booting, and the two have
+    completely different fixes.  Emitting this once up front means a failure is
+    diagnosable from the job log alone.
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    try:
+        addrs = sorted({ai[4][0] for ai in socket.getaddrinfo(host, port)})
+        print(f"  preflight: {host} resolves to {', '.join(addrs)}")
+    except OSError as exc:
+        print(f"  preflight: {host} does NOT resolve ({exc})")
+        return
+
+    try:
+        with socket.create_connection((host, port), timeout=5) as sock:
+            peer = sock.getpeername()[0]
+            print(f"  preflight: TCP connect to {host}:{port} succeeded via {peer}")
+    except OSError as exc:
+        print(f"  preflight: TCP connect to {host}:{port} failed ({exc})")
+
+
 def _wait_for_url(url: str, label: str, timeout: int = 60) -> None:
     """Poll *url* until it returns HTTP 200, or raise RuntimeError after *timeout*."""
+    _preflight(url)
+
     deadline = time.monotonic() + timeout
     attempt = 0
+    last_error = "no attempt completed"
+    reported: set[str] = set()
     while time.monotonic() < deadline:
         try:
             r = requests.get(url, timeout=5)
             if r.status_code == 200:
                 print(f"  {label} is ready (attempt {attempt + 1}).")
                 return
-        except Exception:
-            pass
+            # Include a slice of the body: a bare status tells you the
+            # request was refused but not by what. This is a public discovery
+            # endpoint, so the body carries no secrets.
+            body = " ".join(r.text.split())[:200]
+            server = r.headers.get("server", "?")
+            last_error = f"HTTP {r.status_code} (server: {server}) {body}"
+        except Exception as exc:
+            # Keep the reason: swallowing it here is what made a 240s timeout
+            # in CI indistinguishable from a DNS failure, a refused connection
+            # and a slow boot.
+            last_error = f"{type(exc).__name__}: {exc}"
         attempt += 1
-        print(f"  Waiting for {label}... ({attempt})", flush=True)
+        # Per-attempt lines stay short so a long wait does not bury the log;
+        # each distinct error is spelled out in full the first time it is seen.
+        short = last_error.split("(")[0].strip().rstrip(":")
+        print(f"  Waiting for {label}... ({attempt}: {short})", flush=True)
+        if last_error not in reported:
+            reported.add(last_error)
+            print(f"    ↳ {last_error}", flush=True)
         time.sleep(5)
-    raise RuntimeError(f"{label} at {url} did not become ready within {timeout}s")
+    raise RuntimeError(
+        f"{label} at {url} did not become ready within {timeout}s "
+        f"(last error: {last_error})"
+    )
 
 
 def _wait_for_keycloak(base_url: str, timeout: int = 120) -> None:
