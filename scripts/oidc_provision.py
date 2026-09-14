@@ -190,7 +190,12 @@ def _wait_for_url(url: str, label: str, timeout: int = 60) -> None:
             if r.status_code == 200:
                 print(f"  {label} is ready (attempt {attempt + 1}).")
                 return
-            last_error = f"HTTP {r.status_code}"
+            # Include a slice of the body: a bare status tells you the
+            # request was refused but not by what. This is a public discovery
+            # endpoint, so the body carries no secrets.
+            body = " ".join(r.text.split())[:200]
+            server = r.headers.get("server", "?")
+            last_error = f"HTTP {r.status_code} (server: {server}) {body}"
         except Exception as exc:
             # Keep the reason: swallowing it here is what made a 240s timeout
             # in CI indistinguishable from a DNS failure, a refused connection
