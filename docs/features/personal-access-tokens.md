@@ -39,6 +39,49 @@ The **Last used** column shows when the token was last used to authenticate an A
 
 ---
 
+## Scopes
+
+> **Added in 1.2**
+
+Every token created from version 1.2 onward carries an explicit list of **scopes** — the operations it is allowed to perform. This is what lets you give a script, a CI pipeline, or an AI agent a credential that is less powerful than your own account.
+
+| Scope | Grants |
+|---|---|
+| `read` | `GET`, `HEAD` and `OPTIONS` requests to the REST API |
+| `write` | `POST`, `PUT`, `PATCH` and `DELETE` requests to the REST API |
+| `admin` | Access to the `/api/v1/admin/*` endpoints (only if your account is a site administrator) |
+| `mcp:read` | Read access through the [MCP server](../api/mcp.md) |
+| `mcp:write` | Write access through the MCP server |
+
+### Scopes are non-hierarchical
+
+This is the most important thing to know about them, and it is deliberate:
+
+!!! warning "No scope implies any other"
+    `admin` does **not** grant `read` or `write`. `write` does **not** grant `read`. Neither `read` nor `write` grants `mcp:read`, and `mcp:read` does not grant `mcp:write`.
+
+    A token must carry **every** scope its request needs. A token that reads the admin API needs both `admin` **and** `read`. A token that writes a card needs `write`. An agent that reads boards over MCP needs `mcp:read` — being able to read them over REST is not enough.
+
+The reason is that a hierarchy quietly turns a narrow credential back into a broad one. If `admin` implied `write`, then a token issued only to read the settings page could modify every board on the instance. Listing each grant explicitly means the token's authority is exactly what you can see on the token list, with nothing inherited.
+
+### Default scopes
+
+Creating a token without asking for specific scopes gives it `read` and `write` — enough for the scripting and CI use cases PATs were built for, and nothing more. `admin` and the `mcp:*` scopes must always be requested explicitly.
+
+### Tokens created before 1.2
+
+Tokens that already existed when your instance upgraded to 1.2 have **no scopes recorded**. They keep working exactly as before across the whole REST API, including the admin endpoints if you are a site administrator — upgrading does not break a running integration.
+
+They are, however, refused by the MCP server. An agent credential has to be issued deliberately, so a token created before MCP scopes existed cannot be used as one. To connect an MCP client, create a new token with `mcp:read`.
+
+We recommend replacing pre-1.2 tokens with scoped ones as you rotate them.
+
+### What a scope cannot do
+
+Scopes are a ceiling, never a floor. They narrow a token's authority and never widen it — every request is still subject to the same board membership and role checks as a browser session. A token scoped `admin` on a non-administrator account reaches nothing new.
+
+---
+
 ## Expiry
 
 The expiry date is optional:
@@ -62,7 +105,9 @@ curl -s https://your-instance.example.com/api/v1/boards/ \
 !!! note
     Visiban uses DRF's built-in token auth, which requires the `Token` prefix — not `Bearer`.
 
-The token works for all API endpoints that accept authenticated requests. The same header format applies regardless of the HTTP method:
+The token works for every API endpoint its [scopes](#scopes) allow. A request the token is not scoped for is rejected with `403 Forbidden` and a message naming the scope it needs — not `401`, because the credential itself is valid.
+
+The same header format applies regardless of the HTTP method:
 
 ```bash
 # Create a card
@@ -97,8 +142,9 @@ Revoked tokens are deleted immediately. Any request using the revoked token will
 - **Password change revokes all tokens** — when you change your password, every PAT associated with your account is revoked automatically. You will need to create new tokens and update any scripts or integrations that use them.
 - **Maximum 10 tokens per user** — if you reach the limit, revoke tokens you no longer use before creating new ones. The **New token** button is disabled when the limit is reached.
 - **Treat tokens like passwords** — store them in a secrets manager or CI secrets vault, never in plain text in source code or config files committed to a repository.
-- **Scope** — a PAT carries your full access rights. It can read and write every board, card, and group you have access to. There is no scope restriction at creation time.
+- **Scopes limit a token, they never extend it** — a scope can only narrow what the token may do. It never grants access your own account does not already have. An `admin`-scoped token held by a non-admin still cannot reach the admin API.
 - **The same token authenticates AI agents** — if your operator has enabled the [MCP server](../api/mcp.md), a PAT is also the credential an MCP client uses to read your boards. Revoking the token, or changing your password, cuts off that access too.
+- **Scopes do not limit instance-wide access** — if your account has the "access all content" privilege, a `write`-scoped token still reaches every board on the instance. Scopes constrain *what kind of operation* a token may perform, not *which boards* it can see.
 
 ---
 

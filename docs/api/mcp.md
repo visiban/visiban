@@ -84,18 +84,33 @@ Create a token from **Profile → Access Tokens**, or via the API:
 curl -s -X POST http://localhost:8000/api/v1/auth/tokens/ \
   -H "Authorization: Token <your-session-token>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "claude-desktop"}'
+  -d '{"name": "claude-desktop", "scopes": ["mcp:read"]}'
 ```
 
 The plaintext token is shown **once**, at creation. Only a SHA-256 hash is stored.
 
-An MCP token carries the full authority of the user who created it. There is no MCP-specific scope yet — the tools available today are read-only, so a token grants an agent no access the user does not already have.
+### The `mcp:read` scope is required
+
+> **Changed in 1.2**
+
+`/mcp` accepts a token only if it carries the **`mcp:read`** [scope](authentication.md#scopes). This is not implied by anything else:
+
+- a token scoped `read` and `write` for the REST API is **refused** at `/mcp`
+- a token created **before 1.2** (no scopes recorded) is **refused** at `/mcp`, even though it still works across the whole REST API
+- `mcp:write` does not imply `mcp:read`
+
+The reason is consent, not capability. A PAT is a credential a user is instructed to paste into an agent, and an agent is a fundamentally different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.
+
+Scopes never widen access: an `mcp:read` token still sees exactly the boards its owner can see, with the same roles.
+
+A token intended for both an agent and a script needs both sets of scopes, e.g. `["read", "mcp:read"]`.
 
 ### Errors
 
 | Status | Meaning |
 |---|---|
 | `401 Unauthorized` | The `Authorization` header is missing, is not the `Bearer` scheme, or the token is unknown, expired, revoked, or belongs to a deactivated account. |
+| `401 Unauthorized` | The token is valid but lacks the `mcp:read` scope, or predates scopes entirely. The message names the scope required. |
 | `404 Not Found` | `MCP_SERVER_ENABLED` is not set. |
 | `421 Misdirected Request` | The `Host` header is not in `ALLOWED_HOSTS`. |
 

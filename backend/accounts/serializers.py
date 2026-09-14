@@ -2,7 +2,7 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 from rest_framework import serializers
 
-from .models import PersonalAccessToken, User, get_uploads_enabled
+from .models import PAT_SCOPES, PersonalAccessToken, User, get_uploads_enabled
 from .forms import VisibanPasswordResetForm
 
 
@@ -137,5 +137,59 @@ class CurrentUserSerializer(UserSerializer):
 class PersonalAccessTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = PersonalAccessToken
-        fields = ["id", "name", "prefix", "created_at", "last_used_at", "expires_at"]
-        read_only_fields = ["id", "name", "prefix", "created_at", "last_used_at", "expires_at"]
+        fields = [
+            "id",
+            "name",
+            "prefix",
+            "created_at",
+            "last_used_at",
+            "expires_at",
+            "scopes",
+        ]
+        read_only_fields = [
+            "id",
+            "name",
+            "prefix",
+            "created_at",
+            "last_used_at",
+            "expires_at",
+            "scopes",
+        ]
+
+
+class PersonalAccessTokenCreateSerializer(serializers.Serializer):
+    """Validate the scopes requested for a new personal access token.
+
+    Validation lives here, not in the view, per the project's
+    validate-at-the-boundary rule — `scopes` is the most security-sensitive
+    input in the token flow and is the one field that must not be hand-parsed
+    out of `request.data`. Shaped after `validate_allowed_priorities` in
+    groups/serializers.py.
+
+    The rest of the create payload (name, expires_at) is still parsed in the
+    view; moving it here is tracked separately so this change stays scoped.
+    """
+
+    scopes = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate_scopes(self, value):
+        """Reject anything outside the known vocabulary.
+
+        An unrecognised scope string is *ambiguous authority*: nothing can
+        decide what it grants, so it must not be stored and silently ignored.
+        Adding a scope later is a one-line edit to PAT_SCOPES, which is the
+        right place for that decision to be visible.
+        """
+        unknown = sorted(set(value) - set(PAT_SCOPES))
+        if unknown:
+            raise serializers.ValidationError(
+                f"Unknown scope(s): {', '.join(unknown)}. "
+                f"Valid scopes are: {', '.join(PAT_SCOPES)}."
+            )
+        # Preserve the declared vocabulary order and drop duplicates so the
+        # stored value is canonical and comparable.
+        return [scope for scope in PAT_SCOPES if scope in set(value)]

@@ -18,6 +18,7 @@ from rest_framework.response import Response
 
 from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -205,6 +206,7 @@ class CardViewSet(viewsets.ModelViewSet):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     serializer_class = CardSerializer
     filterset_class = CardFilter

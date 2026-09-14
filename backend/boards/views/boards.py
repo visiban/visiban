@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import User
+from accounts.permissions import TokenHasScope
 from groups.broadcast import broadcast_group_event as _broadcast_group_event
 from groups.models import Group, GroupMembership
 from visiban.permissions import (
@@ -54,6 +55,7 @@ class BoardViewSet(
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     serializer_class = BoardSerializer
 

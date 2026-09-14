@@ -267,6 +267,11 @@ REST_FRAMEWORK = {
         # must NOT override permission_classes with [IsAuthenticated] alone.
         "visiban.permissions.MustNotHavePendingPasswordChange",
         "visiban.permissions.MustNotHavePendingUsernameChange",
+        # Per-view scope requirements for personal access tokens (#1110). The
+        # read/write/admin baseline is NOT here — it runs in PATAuthentication,
+        # because the views below almost all override permission_classes and a
+        # baseline declared here would be evaluated on nearly no endpoint.
+        "accounts.permissions.TokenHasScope",
     ],
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

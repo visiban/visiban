@@ -51,6 +51,7 @@ const token1: PersonalAccessToken = {
   created_at: '2026-01-01T00:00:00Z',
   last_used_at: null,
   expires_at: null,
+  scopes: ['read', 'write'],
 }
 
 const token2: PersonalAccessToken = {
@@ -60,6 +61,8 @@ const token2: PersonalAccessToken = {
   created_at: '2026-01-02T00:00:00Z',
   last_used_at: null,
   expires_at: '2027-01-02T00:00:00Z',
+  // Legacy token issued before #1110 — scopes is null, not [].
+  scopes: null,
 }
 
 function renderPage() {
@@ -214,6 +217,7 @@ describe('AccessTokensTab', () => {
       created_at: '2026-01-01T00:00:00Z',
       last_used_at: null,
       expires_at: null,
+      scopes: ['read', 'write'],
     }))
     mockListTokens.mockResolvedValue(tenTokens)
     renderPage()
