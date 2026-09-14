@@ -61,6 +61,16 @@ export interface User {
   git_lens_enabled?: boolean;
 }
 
+/** A scope a personal access token can carry. Strictly non-hierarchical — no
+ *  scope implies any other, and `admin` does not satisfy `mcp:read`. Mirrors
+ *  PAT_SCOPES in backend/accounts/models.py. */
+export type PersonalAccessTokenScope =
+  | "read"
+  | "write"
+  | "admin"
+  | "mcp:read"
+  | "mcp:write";
+
 export interface PersonalAccessToken {
   id: number;
   name: string;
@@ -69,6 +79,14 @@ export interface PersonalAccessToken {
   created_at: string;
   last_used_at: string | null;
   expires_at: string | null;
+  /**
+   * Scopes this token carries, or `null` for a legacy token issued before
+   * scopes existed. `null` is not the same as `[]`: a legacy token keeps the
+   * owner's full REST authority, whereas an empty array is an explicit grant
+   * of nothing. Both states are reachable from the API, so both must be
+   * handled here.
+   */
+  scopes: PersonalAccessTokenScope[] | null;
 }
 
 /** Returned only on token creation — includes the one-time raw value. */

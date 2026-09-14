@@ -92,7 +92,7 @@ describe('auth API', () => {
   })
 
   it('createToken calls POST /api/auth/tokens/ with name', async () => {
-    const created = { id: 1, name: 'ci', prefix: 'vbn_1234', created_at: '2026-01-01T00:00:00Z', last_used_at: null, expires_at: null, token: 'vbn_abc123' }
+    const created = { id: 1, name: 'ci', prefix: 'vbn_1234', created_at: '2026-01-01T00:00:00Z', last_used_at: null, expires_at: null, scopes: ['read', 'write'] as const, token: 'vbn_abc123' }
     mockPost.mockResolvedValue({ data: created })
     const result = await createToken('ci')
     expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/tokens/', { name: 'ci', expires_at: undefined })
@@ -103,6 +103,24 @@ describe('auth API', () => {
     mockPost.mockResolvedValue({ data: {} })
     await createToken('ci', '2027-01-01T00:00:00Z')
     expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/tokens/', { name: 'ci', expires_at: '2027-01-01T00:00:00Z' })
+  })
+
+  it('createToken omits scopes entirely when not supplied', async () => {
+    // The key is that `scopes` is ABSENT, not `undefined` — the backend
+    // distinguishes "omitted" (apply the default) from an explicit value.
+    mockPost.mockResolvedValue({ data: {} })
+    await createToken('ci')
+    expect(mockPost.mock.calls[0][1]).not.toHaveProperty('scopes')
+  })
+
+  it('createToken passes scopes when provided', async () => {
+    mockPost.mockResolvedValue({ data: {} })
+    await createToken('agent', undefined, ['mcp:read'])
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/auth/tokens/', {
+      name: 'agent',
+      expires_at: undefined,
+      scopes: ['mcp:read'],
+    })
   })
 
   it('revokeToken calls DELETE /api/auth/tokens/:id/', async () => {

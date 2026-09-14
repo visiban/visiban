@@ -8,6 +8,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -30,6 +31,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     serializer_class = ColumnSerializer
 

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.serializers import BoardUserSerializer
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -78,6 +79,7 @@ class NotificationListView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def get(self, request):
@@ -112,6 +114,7 @@ class NotificationMarkReadView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def post(self, request):
@@ -130,6 +133,7 @@ class NotificationUnreadCountView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def get(self, request):

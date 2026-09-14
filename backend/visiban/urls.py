@@ -4,9 +4,19 @@ from django.urls import path, include, re_path
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from dj_rest_auth.views import UserDetailsView
 from dj_rest_auth.registration.views import VerifyEmailView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from accounts.views import InviteRegisterView, ThrottledLoginView, ThrottledPasswordResetView, ThrottledPasswordResetConfirmView, EmailConfirmRedirectView, VerifyEmailThrottle
+from accounts.permissions import TokenHasScope
+from accounts.views import (
+    EmailConfirmRedirectView,
+    InviteRegisterView,
+    ThrottledLoginView,
+    ThrottledPasswordResetConfirmView,
+    ThrottledPasswordResetView,
+    TokenRevokingPasswordChangeView,
+    VerifyEmailThrottle,
+)
 from boards.views import LivenessView, ReadinessView, ServeMediaView, ShareBoardView
 
 
@@ -22,7 +32,7 @@ class UnsupportedVersionView(APIView):
     every request — overriding ``dispatch`` would bypass the auth check
     that ``permission_classes`` is supposed to enforce.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TokenHasScope]
 
     def _unsupported(self, request, *args, **kwargs):
         return Response(
@@ -67,6 +77,33 @@ urlpatterns = [
     # Registered before dj_rest_auth.urls so Django's URL resolver picks this
     # throttled subclass instead of the default PasswordResetConfirmView.
     path("api/v1/auth/password/reset/confirm/", ThrottledPasswordResetConfirmView.as_view()),
+    # dj-rest-auth ships these two with permission_classes = [IsAuthenticated],
+    # which drops the global chain — including TokenHasScope (#1110). They are
+    # reachable with a personal access token, so re-declare the chain here
+    # rather than exempt them. Registered before the include() so these patterns
+    # win, matching the override style used for login/ and password/reset/ above.
+    #
+    # BOTH deliberately omit MustNotHavePendingPasswordChange and
+    # MustNotHavePendingUsernameChange, exactly like the project's own
+    # CurrentUserView / ChangePasswordView / ChooseUsernameView do. These are the
+    # endpoints a user with a pending forced change must still be able to reach:
+    # /auth/user/ is how the SPA *discovers* must_change_password and
+    # must_change_username in the first place (useAuth bootstraps through it and
+    # LoginPage re-fetches it after login), so gating it on those flags locks the
+    # affected user out of the very flow that clears them. Only the scope gate
+    # belongs here.
+    path(
+        "api/v1/auth/user/",
+        UserDetailsView.as_view(
+            permission_classes=[IsAuthenticated, TokenHasScope]
+        ),
+    ),
+    path(
+        "api/v1/auth/password/change/",
+        TokenRevokingPasswordChangeView.as_view(
+            permission_classes=[IsAuthenticated, TokenHasScope]
+        ),
+    ),
     path("api/v1/auth/", include("dj_rest_auth.urls")),
     # Override the default RegisterView with InviteRegisterView so that
     # invite-only mode validates tokens atomically with user creation.
@@ -109,9 +146,9 @@ urlpatterns = [
     # exposing the full API surface (all endpoint paths, parameter names, field
     # shapes) to unauthenticated callers. Operators may additionally block
     # /api/schema/* at the Nginx layer for internet-facing deployments.
-    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsAuthenticated]), name="schema"),
-    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="swagger-ui"),
-    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAuthenticated]), name="redoc"),
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[IsAuthenticated, TokenHasScope]), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated, TokenHasScope]), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAuthenticated, TokenHasScope]), name="redoc"),
 ]
 
 # Issue Board Lens (experiment) — routes are only mounted when the feature flag

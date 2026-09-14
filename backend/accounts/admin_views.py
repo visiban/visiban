@@ -15,16 +15,31 @@ from rest_framework.views import APIView
 from boards.permissions import get_board_role
 from .adapter import invalidate_registration_mode_cache
 from .models import InviteLink, MAX_ACTIVE_INVITE_LINKS, SiteSetting, invalidate_uploads_enabled_cache
-from .permissions import IsSiteAdmin
-from visiban.permissions import MustNotHavePendingPasswordChange
+from .permissions import IsSiteAdmin, TokenHasScope
+from visiban.permissions import (
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+)
 
 logger = logging.getLogger(__name__)
 
-# Combining both permissions ensures that a site admin with a forced-password-
-# reset flag (must_change_password=True) cannot reach any admin endpoint.
+# Combining these permissions ensures that a site admin with a forced-password-
+# reset or forced-username-change flag cannot reach any admin endpoint.
 # Declaring permission_classes = [IsSiteAdmin] alone would silently drop the
-# global MustNotHavePendingPasswordChange default.
-_ADMIN_PERMISSIONS = [IsSiteAdmin, MustNotHavePendingPasswordChange]
+# global defaults.
+#
+# MustNotHavePendingUsernameChange was missing here until #1110: every other
+# override site in the repo enumerates all three, so a site admin with
+# must_change_username=True reached every /api/v1/admin/* route. Found by the
+# architect review on #1110 while auditing this list as a scope-enforcement
+# site; fixed here rather than deferred because it is a live gap, not a
+# quality finding.
+_ADMIN_PERMISSIONS = [
+    IsSiteAdmin,
+    MustNotHavePendingPasswordChange,
+    MustNotHavePendingUsernameChange,
+    TokenHasScope,
+]
 
 User = get_user_model()
 

@@ -10,6 +10,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
+from accounts.permissions import TokenHasScope
 from visiban.permissions import MustNotHavePendingPasswordChange, MustNotHavePendingUsernameChange
 from visiban.utils import get_client_ip
 from rest_framework.response import Response
@@ -88,6 +89,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     serializer_class = GroupSerializer
 
@@ -961,7 +963,12 @@ class JoinGroupView(APIView):
     def get_permissions(self):
         if self.request.method == "GET":
             return [AllowAny()]
-        return [IsAuthenticated(), MustNotHavePendingPasswordChange(), MustNotHavePendingUsernameChange()]
+        return [
+            IsAuthenticated(),
+            MustNotHavePendingPasswordChange(),
+            MustNotHavePendingUsernameChange(),
+            TokenHasScope(),
+        ]
 
     def get(self, request, token):
         # Intentionally public preview — the token itself is a capability: 160

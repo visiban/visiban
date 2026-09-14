@@ -5,6 +5,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -27,6 +28,7 @@ class LabelViewSet(viewsets.ModelViewSet):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     serializer_class = LabelSerializer
 
