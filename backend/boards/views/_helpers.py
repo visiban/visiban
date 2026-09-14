@@ -9,7 +9,7 @@ re-exports them from the appropriate submodule.
 import logging
 
 from django.shortcuts import get_object_or_404
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
@@ -18,6 +18,37 @@ from ..serializers import CardSerializer, _card_queryset
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
 
 logger = logging.getLogger(__name__)
+
+
+def get_accessible_boards_queryset(user):
+    """Return the Board queryset `user` may access: owned, directly a member of,
+    inherited via group ancestry, or — for `can_access_all_content` users — every
+    board.
+
+    Factored out of `BoardViewSet.get_queryset()` so the board-list endpoint and
+    the cross-board card query endpoint (#1112) share one access-scoping rule
+    rather than two copies that can drift. Callers that need board-list-specific
+    behavior (the `?starred=` filter, `select_related`/`annotate` for
+    `BoardSerializer`) apply that on top of this queryset, same as before.
+
+    Uses `get_group_ids_for_board_access()`, NOT `get_accessible_group_ids()`.
+    The latter also walks UP to a user's ancestor groups (for sidebar
+    navigation — its own docstring calls those ancestors "read-only") and
+    `get_board_role()` grants no role via that direction, so using it here
+    would let group-inherited access flow upward — a user in a low-level
+    subgroup could see (and, via the card query endpoint, read every card of)
+    boards belonging to that subgroup's ancestors, where `get_board_role()`
+    would return None (#1112 rbac-check finding).
+    """
+    from groups.models import get_group_ids_for_board_access
+
+    if user.can_access_all_content:
+        return Board.objects.all()
+    return Board.objects.filter(
+        Q(owner=user) |
+        Q(memberships__user=user) |
+        Q(group__in=get_group_ids_for_board_access(user))
+    ).distinct()
 
 
 def get_board_for_user(board_id, user, *, slim=False):

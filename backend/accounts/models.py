@@ -11,6 +11,38 @@ from django.utils import timezone
 PAT_PREFIX = "vbn_"
 PAT_MAX_PER_USER = 10
 
+# ---------------------------------------------------------------------------
+# Personal Access Token scopes (#1110)
+# ---------------------------------------------------------------------------
+# The vocabulary is STRICTLY NON-HIERARCHICAL: no scope implies any other.
+# `admin` does not grant `read` or `write`, `write` does not grant `read`, and
+# nothing at all grants `mcp:read` / `mcp:write`. This is deliberate — a
+# hierarchy is what turns a least-privilege credential back into a full-
+# authority one the first time someone adds a convenience implication.
+SCOPE_READ = "read"
+SCOPE_WRITE = "write"
+SCOPE_ADMIN = "admin"
+SCOPE_MCP_READ = "mcp:read"
+SCOPE_MCP_WRITE = "mcp:write"
+
+PAT_SCOPES = (
+    SCOPE_READ,
+    SCOPE_WRITE,
+    SCOPE_ADMIN,
+    SCOPE_MCP_READ,
+    SCOPE_MCP_WRITE,
+)
+
+# Scopes that a legacy (scopes IS NULL) token may never satisfy, no matter how
+# much REST authority it carries.
+MCP_SCOPES = frozenset({SCOPE_MCP_READ, SCOPE_MCP_WRITE})
+
+# Applied when POST /api/v1/auth/tokens/ omits `scopes`. Reproduces today's
+# non-admin REST behavior so existing integrations keep working, while making
+# `admin` and the `mcp:*` surface opt-in. A write path must never persist NULL
+# — NULL is reachable only by tokens that predate this field.
+PAT_DEFAULT_SCOPES = [SCOPE_READ, SCOPE_WRITE]
+
 INVITE_LINK_PREFIX = "vbnl_"
 MAX_ACTIVE_INVITE_LINKS = 50  # Soft cap per instance — prevents token flood from a compromised admin
 
@@ -174,6 +206,7 @@ class PersonalAccessToken(models.Model):
       (enforced in ChangePasswordView) so that a compromised account cannot
       retain API access after a credential reset.
     - expires_at is nullable; null means the token never expires.
+    - scopes is nullable; null means "legacy" (see the field comment).
     """
 
     user = models.ForeignKey(
@@ -188,17 +221,38 @@ class PersonalAccessToken(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
+    # Allow-list of scopes this token carries. THREE distinct states — note that
+    # the empty-list meaning is the INVERSE of the other list-valued JSONFields
+    # in this codebase (Board.allowed_priorities, Group.allowed_priorities,
+    # where [] means "no restriction"):
+    #   None  — "legacy": issued before #1110, carries the owner's full REST
+    #           authority exactly as before, but can never satisfy an mcp:*
+    #           requirement. Reachable only by pre-existing rows; no write path
+    #           may persist None.
+    #   []    — NO authority at all. Denied everywhere. Not "unrestricted".
+    #   [...] — exactly the listed scopes, with no implication between them.
+    scopes = models.JSONField(null=True, blank=True, default=None)
+    # The scope requirement this token actually satisfied on its most recent
+    # request ("legacy" for an unscoped token). Recorded rather than a constant
+    # so the audit trail shows the authority that was exercised, not the
+    # authority that was configured. Written in the same UPDATE as last_used_at
+    # — the PAT hot path must not gain a second write.
+    last_used_scope = models.CharField(max_length=64, null=True, blank=True)
 
     class Meta:
         db_table = "personal_access_tokens"
         ordering = ["-created_at"]
 
     @classmethod
-    def generate(cls, user, name, expires_at=None):
+    def generate(cls, user, name, expires_at=None, scopes=None):
         """Create a new token, persist the hash, return (instance, raw_token).
 
         The raw_token is the only time the plain-text value is available — the
         caller must return it to the user exactly once and never again.
+
+        `scopes=None` creates a legacy, unscoped token. Every API write path
+        passes an explicit list; the default exists so that pre-#1110 callers
+        (and the tests that assert pre-#1110 behavior) keep working unchanged.
         """
         raw = PAT_PREFIX + secrets.token_hex(20)  # "vbn_" + 40 hex chars
         token_hash = hashlib.sha256(raw.encode()).hexdigest()
@@ -209,8 +263,18 @@ class PersonalAccessToken(models.Model):
             prefix=prefix,
             token_hash=token_hash,
             expires_at=expires_at,
+            scopes=scopes,
         )
         return instance, raw
+
+    @property
+    def is_legacy(self) -> bool:
+        """True for tokens issued before scopes existed (scopes IS NULL).
+
+        Deliberately distinguishes None from [] — an empty list is an explicit
+        grant of nothing, not an absent grant.
+        """
+        return self.scopes is None
 
 
 class InviteLink(models.Model):
