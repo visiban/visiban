@@ -2426,6 +2426,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#git-hooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git hooks
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3053,6 +3064,36 @@
 <li>Playwright E2E runs in <code>e2e-test</code> — requires the Vite dev server build to succeed first</li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
+<h2 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">&para;</a></h2>
+<p><code>scripts/wt</code> (see its <code>--help</code>) applies a <code>status::wip</code> GitLab label when you create a
+worktree with <code>wt new</code>/<code>wt claim</code>, so a parallel agent or teammate doesn't grab the same
+issue — but that lock only covers work that goes through <code>wt</code>. A plain
+<code>git checkout -b feat/N-something</code> bypasses it entirely, and the first sign of a
+collision is two merge requests solving the same issue.</p>
+<p><code>scripts/check-issue-collision.sh</code> closes that gap at push time, regardless of how the
+branch was created. Install it once per clone:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>scripts/setup-hooks.sh
+</code></pre></div>
+<p>This installs a <code>pre-push</code> hook (shared by every <code>scripts/wt</code> worktree of this clone,
+since hooks live in the git common dir — no need to re-run per worktree). Before each
+push, on a branch named <code>(feat|fix|chore|docs)/&lt;issue&gt;-...</code>, it:</p>
+<ul>
+<li><strong>Blocks the push</strong> if an <em>open</em> merge request already exists for that issue from a
+  <em>different</em> source branch — naming the MR and branch</li>
+<li><strong>Warns only</strong> (never blocks) if the issue is already closed, or its <code>status::wip</code>
+  lock is held by a different branch, possibly another worktree</li>
+<li><strong>Degrades to a warning and allows the push</strong> whenever the forge can't be consulted —
+  <code>glab</code> missing or unauthenticated, no network, origin isn't GitLab-hosted — so being
+  offline never blocks a push</li>
+</ul>
+<p>For the legitimate stacked-MR case (two branches against the same issue on purpose),
+override a detected collision with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">ALLOW_ISSUE_COLLISION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>...
+</code></pre></div>
+<p><code>setup-hooks.sh</code> is idempotent and never clobbers a <code>pre-push</code> hook it doesn't manage
+(e.g. a hand-written lint hook) — it prints the line to add manually so the two can be
+chained instead. Run <code>scripts/check-issue-collision.sh --self-test</code> to exercise the
+check offline against stubbed forge responses.</p>
 <p>All four jobs must be green before a merge request can be merged.</p>
 
 
