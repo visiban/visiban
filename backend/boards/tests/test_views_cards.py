@@ -678,6 +678,25 @@ class CardBoardScopingTests(TestCase):
         self.assertEqual(CardMovement.objects.filter(card=self.card).count(), 0)
 
     @patch(PATCH_BROADCAST)
+    def test_viewer_patching_column_gets_403_not_use_move_endpoint(self, _):
+        """A Viewer attempting a column-change PATCH must be blocked by the role
+        check (403) before ever reaching the #1106 use_move_endpoint gate — pins
+        the ordering this fix depends on (role/ownership gates run first)."""
+        viewer = User.objects.create_user(username="viewer1106", password="pass")
+        BoardMembership.objects.create(board=self.board, user=viewer, role=BoardMembership.Role.VIEWER)
+        self.client.force_authenticate(viewer)
+        same_board_other_col = Column.objects.create(
+            board=self.board, name="Other1106", position=1001, allow_card_creation=True,
+        )
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": same_board_other_col.id},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertNotEqual(r.json().get("code"), "use_move_endpoint")
+
+    @patch(PATCH_BROADCAST)
     def test_update_card_echoing_current_column_and_swimlane_accepted(self, _):
         """PUT clients that round-trip the current column/swimlane must keep working (backward compat)."""
         r = self.client.patch(
