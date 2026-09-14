@@ -604,6 +604,38 @@ class CardViewSet(viewsets.ModelViewSet):
                         "Assigning cards requires Moderator or Admin access — ask a board admin."
                     )
                 raise PermissionDenied("You can only edit cards you created.")
+        # Reject a PATCH/PUT that changes `column` or `swimlane` — same-board or
+        # cross-board (#1106). Either bypasses WIP/weight enforcement and the
+        # CardMovement audit trail, which only POST .../move/ evaluates. Echoing
+        # back the card's *current* value is still accepted so a PUT client that
+        # round-trips the full representation it was given keeps working
+        # (required by the 1.0 backward-compatibility contract). Comparing the
+        # raw request value as a string (rather than deferring to the
+        # serializer) avoids ever needing to tell the client whether a foreign
+        # id it guessed happens to exist on another board. `None` is left to
+        # the serializer's own "may not be null" validation below rather than
+        # treated as a no-op here, since column/swimlane are non-nullable FKs
+        # and current_id can therefore never legitimately be None (security-review).
+        # isinstance-guarded because request.data need not be a dict (e.g. a
+        # top-level JSON list) — without the guard, `.get()` on a non-dict
+        # would raise AttributeError instead of the normal 400 the serializer
+        # gives for a malformed body.
+        if isinstance(request.data, dict):
+            for field_name, current_id in (("column", card.column_id), ("swimlane", card.swimlane_id)):
+                if field_name in request.data:
+                    raw_value = request.data.get(field_name)
+                    if raw_value is not None and str(raw_value) != str(current_id):
+                        return Response(
+                            {
+                                "code": "use_move_endpoint",
+                                "detail": (
+                                    f"Changing a card's {field_name} via PATCH/PUT is not allowed — "
+                                    "it bypasses WIP/weight limits and the movement audit trail. "
+                                    f"Use POST /api/v1/boards/{board.pk}/cards/{card.pk}/move/ instead."
+                                ),
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
         with transaction.atomic():
             # Snapshot before update
             old_title = card.title
