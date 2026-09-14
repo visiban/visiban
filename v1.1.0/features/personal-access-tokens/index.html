@@ -1647,6 +1647,8 @@
       
         
       
+        
+      
     
     
     
@@ -1884,6 +1886,34 @@
     
   
     Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
   
 
     
@@ -2830,6 +2860,7 @@
 <li><strong>Maximum 10 tokens per user</strong> — if you reach the limit, revoke tokens you no longer use before creating new ones. The <strong>New token</strong> button is disabled when the limit is reached.</li>
 <li><strong>Treat tokens like passwords</strong> — store them in a secrets manager or CI secrets vault, never in plain text in source code or config files committed to a repository.</li>
 <li><strong>Scope</strong> — a PAT carries your full access rights. It can read and write every board, card, and group you have access to. There is no scope restriction at creation time.</li>
+<li><strong>The same token authenticates AI agents</strong> — if your operator has enabled the <a href="../../api/mcp/">MCP server</a>, a PAT is also the credential an MCP client uses to read your boards. Revoking the token, or changing your password, cuts off that access too.</li>
 </ul>
 <hr />
 <h2 id="full-api-reference">Full API reference<a class="headerlink" href="#full-api-reference" title="Permanent link">&para;</a></h2>

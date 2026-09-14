@@ -1517,6 +1517,8 @@
       
         
       
+        
+      
     
     
     
@@ -2200,6 +2202,34 @@
     
   
     Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
   
 
     
@@ -3111,6 +3141,7 @@
 <p class="admonition-title">Note</p>
 <p>Visiban uses the prefix <code>Token</code>, not <code>Bearer</code>. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
 <code>Authorization: Token vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2</code></p>
+<p>The one exception is the <a href="../mcp/">MCP server</a> at <code>/mcp</code>, which requires the <code>Bearer</code> scheme because the Model Context Protocol specification mandates it. The two schemes are scoped to their own transports and are not interchangeable, but they resolve the same Personal Access Token records — revoking a token revokes it for both.</p>
 </div>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">curl</label><label for="__tabbed_2_2">httpie</label><label for="__tabbed_2_3">Python</label></div>
 <div class="tabbed-content">

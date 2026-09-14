@@ -1523,6 +1523,8 @@
       
         
       
+        
+      
     
     
     
@@ -1760,6 +1762,34 @@
     
   
     Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
   
 
     
@@ -2763,6 +2793,13 @@
 <h2 id="personal-access-tokens">Personal Access Tokens<a class="headerlink" href="#personal-access-tokens" title="Permanent link">&para;</a></h2>
 <p>Create named, revocable tokens to authenticate scripts, CI pipelines, and integrations without sharing your password. Tokens use the <code>vbn_</code> prefix, are shown once at creation, and are automatically revoked when your password changes.</p>
 <p>→ <a href="personal-access-tokens/">Personal Access Tokens</a></p>
+<hr />
+<h2 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Connect Claude, Copilot, or any <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a>-compatible AI agent to Visiban so it can read your boards. The server is read-only in this release and authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with <code>MCP_SERVER_ENABLED=true</code>.</p>
+<p>→ <a href="../api/mcp/">MCP Server</a></p>
 <hr />
 <h2 id="stable-uids">Stable UIDs<a class="headerlink" href="#stable-uids" title="Permanent link">&para;</a></h2>
 <p>Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.</p>

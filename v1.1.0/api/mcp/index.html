@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/administration/demo-data/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/mcp/">
       
       
-        <link rel="prev" href="../authentication/">
+        <link rel="prev" href="../git-lens/">
       
       
-        <link rel="next" href="../django-admin/">
+        <link rel="next" href="../websockets/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Demo Data - Visiban</title>
+        <title>MCP Server - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#demo-data" class="md-skip">
+        <a href="#mcp-server" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Demo Data
+              MCP Server
             
           </span>
         </div>
@@ -288,11 +288,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../api/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -332,13 +334,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
           
   
   
@@ -1484,6 +1484,8 @@
       
   
   
+    
+  
   
   
     
@@ -1521,20 +1523,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../api/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1552,13 +1557,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1578,7 +1583,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/authentication/" class="md-nav__link">
+      <a href="../authentication/" class="md-nav__link">
         
   
   
@@ -1606,7 +1611,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/boards/" class="md-nav__link">
+      <a href="../boards/" class="md-nav__link">
         
   
   
@@ -1634,7 +1639,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/cards/" class="md-nav__link">
+      <a href="../cards/" class="md-nav__link">
         
   
   
@@ -1662,7 +1667,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/groups/" class="md-nav__link">
+      <a href="../groups/" class="md-nav__link">
         
   
   
@@ -1690,7 +1695,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/notifications/" class="md-nav__link">
+      <a href="../notifications/" class="md-nav__link">
         
   
   
@@ -1718,7 +1723,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/admin/" class="md-nav__link">
+      <a href="../admin/" class="md-nav__link">
         
   
   
@@ -1746,7 +1751,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/git-lens/" class="md-nav__link">
+      <a href="../git-lens/" class="md-nav__link">
         
   
   
@@ -1771,10 +1776,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../api/mcp/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1790,6 +1822,171 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#enabling-the-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Enabling the server
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transport" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transport
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Transport">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dns-rebinding-protection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DNS rebinding protection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Authentication">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#connecting-a-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connecting a client
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tools
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tools">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#list_boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_boards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="list_boards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-boards-are-returned" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which boards are returned
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-role-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The role field
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1802,7 +1999,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/websockets/" class="md-nav__link">
+      <a href="../websockets/" class="md-nav__link">
         
   
   
@@ -1830,7 +2027,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/health/" class="md-nav__link">
+      <a href="../health/" class="md-nav__link">
         
   
   
@@ -1858,7 +2055,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/version/" class="md-nav__link">
+      <a href="../version/" class="md-nav__link">
         
   
   
@@ -1886,7 +2083,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../api/openapi/" class="md-nav__link">
+      <a href="../openapi/" class="md-nav__link">
         
   
   
@@ -2262,8 +2459,6 @@
       
   
   
-    
-  
   
   
     
@@ -2295,23 +2490,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../administration/" class="md-nav__link ">
               
   
   
@@ -2329,13 +2521,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2355,7 +2547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
+      <a href="../../administration/configuration/" class="md-nav__link">
         
   
   
@@ -2383,7 +2575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../site-admins/" class="md-nav__link">
+      <a href="../../administration/site-admins/" class="md-nav__link">
         
   
   
@@ -2411,7 +2603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../admin-panel/" class="md-nav__link">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
         
   
   
@@ -2439,7 +2631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
+      <a href="../../administration/authentication/" class="md-nav__link">
         
   
   
@@ -2464,37 +2656,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Demo Data
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../administration/demo-data/" class="md-nav__link">
         
   
   
@@ -2510,170 +2675,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-the-command" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running the command
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#production-guard" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Production guard
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#demo-user-accounts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Demo user accounts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#demo-data-and-real-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Demo data and real data
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cleaning-up-accidental-seeding" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Cleaning up accidental seeding
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gitlab-ci-setup-for-automated-demo-refresh" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GitLab CI setup for automated demo refresh
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="GitLab CI setup for automated demo refresh">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#required-gitlab-cicd-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required GitLab CI/CD variables
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#setting-up-the-weekly-gitlab-ci-schedule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setting up the weekly GitLab CI schedule
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-custom-random-seed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional: custom random seed
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#import-files-and-test-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Import files and test data
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Import files and test data">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#identifying-test-boards-in-development" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Identifying test boards in development
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2686,7 +2687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../django-admin/" class="md-nav__link">
+      <a href="../../administration/django-admin/" class="md-nav__link">
         
   
   
@@ -2714,7 +2715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../media-security/" class="md-nav__link">
+      <a href="../../administration/media-security/" class="md-nav__link">
         
   
   
@@ -2742,7 +2743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../secret-rotation/" class="md-nav__link">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
         
   
   
@@ -2770,7 +2771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../upgrade/" class="md-nav__link">
+      <a href="../../administration/upgrade/" class="md-nav__link">
         
   
   
@@ -2845,176 +2846,245 @@
   
 
 
-<h1 id="demo-data">Demo Data<a class="headerlink" href="#demo-data" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Warning: development and staging only.</strong> The command is guarded against running when <code>DEBUG=False</code> without <code>--force</code>, but <code>--force</code> must never be used on a live database. Demo boards, demo users, and dummy cards are indistinguishable from real data at the database level — there is no <code>is_demo</code> flag and no automated cleanup. See <a href="#cleaning-up-accidental-seeding">Cleaning up accidental seeding</a> if this happens.</p>
-</blockquote>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The <code>seed_demo_data</code> management command creates a "Visiban Demo Board" populated with realistic-looking data: five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. It is intended for:</p>
-<ul>
-<li>Local development to have a board ready without manual setup</li>
-<li>Staging environments used for product demos or sales calls</li>
-<li>CI pipelines that need a non-empty board for integration tests</li>
-</ul>
-<h2 id="running-the-command">Running the command<a class="headerlink" href="#running-the-command" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Create the demo board (skip if it already exists). Requires DEBUG=True or --force.</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Wipe and recreate from scratch. Requires DEBUG=True or --force.</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Run on a staging/CI environment where DEBUG=False</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># After seeding, write canonical JSON and CSV snapshots to scripts/seed/</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Run this and commit the result whenever the board structure changes</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--export
+<h1 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h1>
+<p>Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read your Visiban data.</p>
+<p>The feature is flag-gated: <code>/mcp</code> returns <code>404 Not Found</code> unless the server is started with <code>MCP_SERVER_ENABLED=true</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is the Phase 1 (OSS core) surface. It is read-only and ships a single tool, <code>list_boards</code>.</p>
+</div>
+<hr />
+<h2 id="enabling-the-server">Enabling the server<a class="headerlink" href="#enabling-the-server" title="Permanent link">&para;</a></h2>
+<p>Set the environment variable on the backend and restart it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">MCP_SERVER_ENABLED</span><span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
-<h2 id="production-guard">Production guard<a class="headerlink" href="#production-guard" title="Permanent link">&para;</a></h2>
-<p>Both the plain run and the <code>--wipe</code> flag are guarded: the command raises an error if <code>DEBUG</code> is <code>False</code> and <code>--force</code> is not passed.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>CommandError: Refusing to seed: DEBUG is False.
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Pass --force to override (only safe on dedicated demo environments).
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Docker Compose</label><label for="__tabbed_1_2">Helm</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">services</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">MCP_SERVER_ENABLED</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
-<p>Use <code>--force</code> only on dedicated demo or staging environments — never against a live database:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Allowed on staging where DEBUG=False</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--wipe<span class="w"> </span>--force
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">extraEnv</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MCP_SERVER_ENABLED</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
-<p>Even with the guard in place, do not expose <code>manage.py</code> on production servers in ways that allow arbitrary command execution, and ensure your deployment runbooks do not include <code>seed_demo_data</code> in any production provisioning step.</p>
-<h2 id="demo-user-accounts">Demo user accounts<a class="headerlink" href="#demo-user-accounts" title="Permanent link">&para;</a></h2>
-<p>The seed command creates five user accounts with unusable passwords (they cannot log in via password auth):</p>
+</div>
+</div>
+</div>
+<p>When the flag is off, the app is not installed, the <code>/mcp</code> route does not exist, and the MCP SDK is never imported — an install that does not use MCP exposes no additional surface.</p>
+<hr />
+<h2 id="transport">Transport<a class="headerlink" href="#transport" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Username</th>
-<th>Email</th>
+<th></th>
+<th></th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>demo1</code></td>
-<td><code>demo1@visiban.example</code></td>
+<td>Endpoint</td>
+<td><code>/mcp</code></td>
 </tr>
 <tr>
-<td><code>demo2</code></td>
-<td><code>demo2@visiban.example</code></td>
+<td>Transport</td>
+<td>Streamable HTTP (MCP spec rev <code>2025-03-26</code>)</td>
 </tr>
 <tr>
-<td><code>demo3</code></td>
-<td><code>demo3@visiban.example</code></td>
+<td>Methods</td>
+<td><code>POST</code></td>
 </tr>
 <tr>
-<td><code>demo4</code></td>
-<td><code>demo4@visiban.example</code></td>
-</tr>
-<tr>
-<td><code>demo5</code></td>
-<td><code>demo5@visiban.example</code></td>
+<td>Session mode</td>
+<td>Stateless</td>
 </tr>
 </tbody>
 </table>
-<p>The <code>@visiban.example</code> domain is deliberately not a real domain. If you need to use demo accounts for OAuth testing, you will need to adjust these emails to match your OAuth provider's allowed domains.</p>
-<h2 id="demo-data-and-real-data">Demo data and real data<a class="headerlink" href="#demo-data-and-real-data" title="Permanent link">&para;</a></h2>
-<p>Demo records carry no special marker. A demo card looks identical to a real card at the database level — same fields, same UID format, same <code>archived_at</code> behavior. This means:</p>
-<ul>
-<li>Archived demo cards show up alongside real archived cards in any query that reads <code>archived_at</code></li>
-<li>Movement history generated by the seed command is stored in <code>CardMovement</code> alongside real movement records</li>
-<li>Deleting a demo board also deletes all its cards, movements, and comments via cascading FK deletes — swimlane and label objects tied to the board are removed too, but the demo user accounts (<code>demo1</code>–<code>demo5</code>) persist</li>
-</ul>
-<h2 id="cleaning-up-accidental-seeding">Cleaning up accidental seeding<a class="headerlink" href="#cleaning-up-accidental-seeding" title="Permanent link">&para;</a></h2>
-<p>If <code>seed_demo_data</code> is run against a production database by mistake:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># In a Django shell (python manage.py shell)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<p>The server runs <strong>stateless</strong>: every request is self-contained and no session state is pinned to a single process. This means a deployment running several backend replicas needs no sticky-session configuration.</p>
+<p>If you terminate TLS behind a reverse proxy, the <code>/mcp</code> location must disable response buffering — the transport holds a long-lived Server-Sent Events response open, and a buffering proxy will withhold event frames. The bundled Nginx templates and the Helm chart already include a correct <code>/mcp</code> block.</p>
+<h3 id="dns-rebinding-protection">DNS rebinding protection<a class="headerlink" href="#dns-rebinding-protection" title="Permanent link">&para;</a></h3>
+<p>The transport validates the <code>Host</code> and <code>Origin</code> headers of every request against the server's <code>ALLOWED_HOSTS</code> and <code>CORS_ALLOWED_ORIGINS</code> settings. This stops a malicious web page from using DNS rebinding to reach the MCP server from a victim's browser. A request whose <code>Host</code> is not allowed is rejected with <code>421 Misdirected Request</code>. If you reach the server on a hostname the backend does not know about, add it to <code>ALLOWED_HOSTS</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">If <code>ALLOWED_HOSTS</code> is <code>*</code></p>
+<p>A wildcard cannot serve as a rebinding allowlist — the two settings guard different threats, and inheriting the wildcard would silently switch this protection off. Set <code>MCP_ALLOWED_HOSTS</code> to the hostnames clients actually reach <code>/mcp</code> on:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">MCP_ALLOWED_HOSTS</span><span class="o">=</span>visiban.example.com,visiban.internal
 </code></pre></div>
-<p>This cascade-deletes all columns, swimlanes, labels, cards, movements, and comments associated with the demo board. It does <strong>not</strong> remove the demo user accounts. To remove those:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__in</span><span class="o">=</span><span class="p">[</span><span class="s2">"demo1"</span><span class="p">,</span> <span class="s2">"demo2"</span><span class="p">,</span> <span class="s2">"demo3"</span><span class="p">,</span> <span class="s2">"demo4"</span><span class="p">,</span> <span class="s2">"demo5"</span><span class="p">])</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<p>Until you do, the backend logs a warning at startup and only <code>Origin</code> checking (from <code>CORS_ALLOWED_ORIGINS</code>) applies. <code>MCP_ALLOWED_HOSTS</code> takes precedence over <code>ALLOWED_HOSTS</code> whenever it is set.</p>
+</div>
+<hr />
+<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
+<p>Every request to <code>/mcp</code> must carry a Visiban <a href="../../features/personal-access-tokens/">Personal Access Token</a> in an <code>Authorization</code> header using the <strong><code>Bearer</code></strong> scheme:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Authorization: Bearer vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
 </code></pre></div>
-<p>Run both steps inside a transaction if you want to roll back on failure:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="admonition warning">
+<p class="admonition-title"><code>Bearer</code> here, <code>Token</code> everywhere else</p>
+<p>The REST API uses the <code>Token</code> scheme (see <a href="../authentication/">Authentication</a>). <code>/mcp</code> uses <code>Bearer</code> because the MCP specification mandates it. The two schemes are not interchangeable: the REST API rejects <code>Bearer</code>, and <code>/mcp</code> rejects <code>Token</code>.</p>
+<p>Both resolve the <strong>same</strong> Personal Access Token records, so a token that is revoked, expired, or dropped by a password change stops working for MCP at the same moment it stops working for the REST API.</p>
+</div>
+<p>Create a token from <strong>Profile → Access Tokens</strong>, or via the API:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/api/v1/auth/tokens/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token &lt;your-session-token&gt;"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"name": "claude-desktop"}'</span>
 </code></pre></div>
-<h2 id="gitlab-ci-setup-for-automated-demo-refresh">GitLab CI setup for automated demo refresh<a class="headerlink" href="#gitlab-ci-setup-for-automated-demo-refresh" title="Permanent link">&para;</a></h2>
-<p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.</p>
-<h3 id="required-gitlab-cicd-variables">Required GitLab CI/CD variables<a class="headerlink" href="#required-gitlab-cicd-variables" title="Permanent link">&para;</a></h3>
-<p>In your GitLab project, go to <strong>Settings → CI/CD → Variables</strong> and add the following. All three must be <strong>Protected</strong> and <strong>Masked</strong>, scoped to the <code>demo</code> environment.</p>
+<p>The plaintext token is shown <strong>once</strong>, at creation. Only a SHA-256 hash is stored.</p>
+<p>An MCP token carries the full authority of the user who created it. There is no MCP-specific scope yet — the tools available today are read-only, so a token grants an agent no access the user does not already have.</p>
+<h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Variable</th>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>The <code>Authorization</code> header is missing, is not the <code>Bearer</code> scheme, or the token is unknown, expired, revoked, or belongs to a deactivated account.</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>MCP_SERVER_ENABLED</code> is not set.</td>
+</tr>
+<tr>
+<td><code>421 Misdirected Request</code></td>
+<td>The <code>Host</code> header is not in <code>ALLOWED_HOSTS</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Authentication is enforced at the transport layer, before any MCP protocol frame is parsed — an unauthenticated caller cannot reach the protocol machinery at all. The <code>401</code> body is a JSON-RPC error envelope so that spec-compliant clients surface a useful message.</p>
+<hr />
+<h2 id="connecting-a-client">Connecting a client<a class="headerlink" href="#connecting-a-client" title="Permanent link">&para;</a></h2>
+<p>Point any MCP client at the endpoint with the token as a Bearer credential. For example, with the reference inspector:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector
+</code></pre></div>
+<p>Then connect to <code>http://localhost:8000/mcp</code> using <strong>Streamable HTTP</strong> transport, adding the <code>Authorization: Bearer vbn_...</code> header. The inspector will list the server and its tools.</p>
+<hr />
+<h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
+<h3 id="list_boards"><code>list_boards</code><a class="headerlink" href="#list_boards" title="Permanent link">&para;</a></h3>
+<p>Returns every board the authenticated user can access.</p>
+<p><strong>Arguments:</strong> none.</p>
+<p><strong>Returns:</strong> an array of objects.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
 <th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>DEMO_SECRET_KEY</code></td>
-<td>Django secret key for the demo environment. Generate with: <code>python -c "import secrets; print(secrets.token_hex(50))"</code></td>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Board primary key, the same identifier the REST API uses.</td>
 </tr>
 <tr>
-<td><code>DEMO_DATABASE_URL</code></td>
-<td>PostgreSQL connection string for the demo environment's database, e.g. <code>postgres://user:pass@host:5432/dbname</code></td>
+<td><code>uid</code></td>
+<td>string</td>
+<td>Stable public short id.</td>
 </tr>
 <tr>
-<td><code>DEMO_REDIS_URL</code></td>
-<td>Valkey (or Redis-compatible) connection string for the demo environment, e.g. <code>redis://host:6379/0</code></td>
+<td><code>name</code></td>
+<td>string</td>
+<td>Board name.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Board description; empty string when unset.</td>
+</tr>
+<tr>
+<td><code>role</code></td>
+<td>string</td>
+<td>The user's <strong>effective</strong> role on the board — see below.</td>
+</tr>
+<tr>
+<td><code>column_count</code></td>
+<td>integer</td>
+<td>Number of columns.</td>
+</tr>
+<tr>
+<td><code>swimlane_count</code></td>
+<td>integer</td>
+<td>Number of swimlanes.</td>
+</tr>
+<tr>
+<td><code>card_count</code></td>
+<td>integer</td>
+<td>Number of <strong>non-archived</strong> cards.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp.</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp.</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If any of these variables are missing or empty, the GitLab CI job fails immediately with <code>ImproperlyConfigured: DJANGO_SECRET_KEY must be set</code>. The job appears in all pipelines as a manual trigger — if you see this error after clicking <strong>Run</strong>, check that all three variables are set and scoped correctly to the <code>demo</code> environment in <strong>Settings → CI/CD → Variables</strong>.</p>
-</div>
-<h3 id="setting-up-the-weekly-gitlab-ci-schedule">Setting up the weekly GitLab CI schedule<a class="headerlink" href="#setting-up-the-weekly-gitlab-ci-schedule" title="Permanent link">&para;</a></h3>
-<ol>
-<li>In your GitLab project, go to <strong>CI/CD → Schedules</strong> and click <strong>New schedule</strong>.</li>
-<li>Set the cron to <code>0 4 * * 1</code> (Mondays at 04:00 UTC).</li>
-<li>Set the target branch to <code>main</code>.</li>
-<li>Add a schedule variable: <code>SEED_SCHEDULE</code> = <code>true</code>.</li>
-<li>Save the schedule.</li>
-</ol>
-<p>The schedule variable <code>SEED_SCHEDULE=true</code> is what activates the job — without it the scheduled GitLab pipeline runs but <code>seed-demo-data</code> is skipped.</p>
-<h3 id="optional-custom-random-seed">Optional: custom random seed<a class="headerlink" href="#optional-custom-random-seed" title="Permanent link">&para;</a></h3>
-<p>The job uses today's date (<code>YYYYMMDD</code>) as the random seed by default, so each weekly refresh produces a naturally varied board while remaining reproducible within the same day. To override this, set <code>SEED_VALUE</code> to any integer when triggering the job manually via the GitLab pipeline UI:</p>
+<p><strong>Example</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">[</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5930ca070e34672b"</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform Roadmap"</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 delivery"</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">"column_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">"swimlane_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nt">"card_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725480+00:00"</span><span class="p">,</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725490+00:00"</span>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="p">]</span>
+</code></pre></div>
+<h4 id="which-boards-are-returned">Which boards are returned<a class="headerlink" href="#which-boards-are-returned" title="Permanent link">&para;</a></h4>
+<p>The tool applies exactly the same access rule as <code>GET /api/v1/boards/</code>, so an agent sees the same boards the user sees in the web UI. A board is included when the user owns it, holds a membership on it, inherits access through a group, or is a site admin with access to all content.</p>
+<h4 id="the-role-field">The <code>role</code> field<a class="headerlink" href="#the-role-field" title="Permanent link">&para;</a></h4>
+<p><code>role</code> is the user's <em>effective</em> role, not a raw membership row. It is one of:</p>
 <table>
 <thead>
 <tr>
-<th>Variable</th>
-<th>Example value</th>
-<th>Effect</th>
+<th>Value</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>SEED_VALUE</code></td>
-<td><code>42</code></td>
-<td>Uses seed 42 — same board layout every time</td>
+<td><code>admin</code></td>
+<td>Board admin, or the board's owner.</td>
 </tr>
 <tr>
-<td><em>(unset)</em></td>
-<td>—</td>
-<td>Uses today's date — varies weekly</td>
+<td><code>member</code></td>
+<td>Can create, edit, move, and delete cards.</td>
+</tr>
+<tr>
+<td><code>collaborator</code></td>
+<td>Read-only on cards; may comment and attach.</td>
+</tr>
+<tr>
+<td><code>viewer</code></td>
+<td>Read-only.</td>
+</tr>
+<tr>
+<td><code>site_admin</code></td>
+<td>A site administrator with access to all content. Not a board membership — it is not revocable per board.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="import-files-and-test-data">Import files and test data<a class="headerlink" href="#import-files-and-test-data" title="Permanent link">&para;</a></h2>
-<p>The board import endpoint (<code>POST /api/v1/boards/import/</code>) accepts the same JSON and CSV format produced by the board export. If someone uploads a hand-crafted file to simulate a board import (for automation testing, template validation, etc.):</p>
-<ul>
-<li><strong>All objects receive fresh UIDs</strong> — the import code ignores any <code>uid</code> field present in the source file and generates new UIDs for every board, column, swimlane, label, and card created</li>
-<li><strong>Imported records are not tagged as test data</strong> — they are real database rows with no provenance marker</li>
-<li><strong>Column, swimlane, and label names drive the import</strong> — duplicate names within the same file are merged into a single object; the card's <code>column</code> and <code>swimlane</code> fields must match a name defined in the file's <code>columns</code>/<code>swimlanes</code> arrays</li>
-</ul>
-<p>If you are using the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you will need to delete the board that was created.</p>
-<h3 id="identifying-test-boards-in-development">Identifying test boards in development<a class="headerlink" href="#identifying-test-boards-in-development" title="Permanent link">&para;</a></h3>
-<p>If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. <code>TEST: My Board</code>) so they can be found and deleted in bulk:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-</code></pre></div>
-<p>This is a convention, not an enforced constraint, and relies on the person creating the test data using the prefix consistently.</p>
+<p>Group-inherited access reports the role inherited from the group.</p>
+<hr />
+<h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
+<p>Phase 1 (this release) covers connectivity, authentication, and board discovery. Card and board write tools, MCP resources, and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
 
 
 
