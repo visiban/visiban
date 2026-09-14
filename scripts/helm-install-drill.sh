@@ -119,6 +119,42 @@ install_args() {
 ARGS
 }
 
+# kind-in-dind kubeconfig fixup.
+#
+# kind writes a kubeconfig whose server is https://127.0.0.1:<port>. That is
+# correct when the Docker daemon is local. In CI the daemon is the `docker:dind`
+# SERVICE container and this script runs in a DIFFERENT container, so the API
+# server is reachable at the service hostname, not at our own loopback — and
+# without this every kubectl and helm call dies with "connection refused" AFTER
+# the cluster has come up perfectly, which reads like a broken cluster and is
+# not.
+#
+# The cluster is created with apiServerAddress 0.0.0.0 so it binds beyond the
+# dind container's loopback; the serving cert therefore does not carry the
+# service hostname as a SAN, so TLS verification is turned off for this
+# connection. That is acceptable here and nowhere else: the "cluster" is a
+# throwaway created seconds ago inside the job's own dind, on a private bridge
+# network, and torn down at exit.
+retarget_kubeconfig() {
+  local cluster="$1" host="${APISERVER_HOST:-}"
+  [ -z "$host" ] && return 0
+  [ "$host" = "127.0.0.1" ] && return 0
+
+  local port
+  port="$(kubectl config view -o jsonpath="{.clusters[?(@.name=='kind-${cluster}')].cluster.server}" | sed 's|.*:||')"
+  if [ -z "$port" ]; then
+    echo "  ! could not read the API server port from the kubeconfig; leaving it untouched" >&2
+    return 0
+  fi
+
+  kubectl config set-cluster "kind-${cluster}" \
+    --server="https://${host}:${port}" \
+    --insecure-skip-tls-verify=true >/dev/null
+  kubectl config unset "clusters.kind-${cluster}.certificate-authority-data" >/dev/null
+  echo "  ↳ kubeconfig retargeted to https://${host}:${port} (kind-in-dind)"
+}
+
+
 for bin in docker kind kubectl helm; do
   command -v "$bin" >/dev/null || { echo "ERROR: $bin not on PATH" >&2; exit 1; }
 done
@@ -135,9 +171,18 @@ ok "frontend built"
 step "Creating kind cluster '$CLUSTER'"
 # ---------------------------------------------------------------------------
 kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true
-kind create cluster --name "$CLUSTER" --wait 120s
+# apiServerAddress 0.0.0.0 so the API server is reachable from outside the
+# Docker host — required under kind-in-dind, harmless locally.
+cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 120s
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: "0.0.0.0"
+EOF
+retarget_kubeconfig "$CLUSTER"
+kubectl cluster-info >/dev/null || die "the cluster came up but is not reachable from this container"
 kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" --name "$CLUSTER"
-ok "cluster up, images side-loaded"
+ok "cluster up, reachable, images side-loaded"
 
 # ---------------------------------------------------------------------------
 step "1. Install the release (two-phase — see #1117)"

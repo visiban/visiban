@@ -96,6 +96,42 @@ expect() {
   fi
 }
 
+# kind-in-dind kubeconfig fixup.
+#
+# kind writes a kubeconfig whose server is https://127.0.0.1:<port>. That is
+# correct when the Docker daemon is local. In CI the daemon is the `docker:dind`
+# SERVICE container and this script runs in a DIFFERENT container, so the API
+# server is reachable at the service hostname, not at our own loopback — and
+# without this every kubectl and helm call dies with "connection refused" AFTER
+# the cluster has come up perfectly, which reads like a broken cluster and is
+# not.
+#
+# The cluster is created with apiServerAddress 0.0.0.0 so it binds beyond the
+# dind container's loopback; the serving cert therefore does not carry the
+# service hostname as a SAN, so TLS verification is turned off for this
+# connection. That is acceptable here and nowhere else: the "cluster" is a
+# throwaway created seconds ago inside the job's own dind, on a private bridge
+# network, and torn down at exit.
+retarget_kubeconfig() {
+  local cluster="$1" host="${APISERVER_HOST:-}"
+  [ -z "$host" ] && return 0
+  [ "$host" = "127.0.0.1" ] && return 0
+
+  local port
+  port="$(kubectl config view -o jsonpath="{.clusters[?(@.name=='kind-${cluster}')].cluster.server}" | sed 's|.*:||')"
+  if [ -z "$port" ]; then
+    echo "  ! could not read the API server port from the kubeconfig; leaving it untouched" >&2
+    return 0
+  fi
+
+  kubectl config set-cluster "kind-${cluster}" \
+    --server="https://${host}:${port}" \
+    --insecure-skip-tls-verify=true >/dev/null
+  kubectl config unset "clusters.kind-${cluster}.certificate-authority-data" >/dev/null
+  echo "  ↳ kubeconfig retargeted to https://${host}:${port} (kind-in-dind)"
+}
+
+
 for bin in docker kind kubectl helm; do
   command -v "$bin" >/dev/null || die "$bin not on PATH"
 done
@@ -120,7 +156,10 @@ networking:
   # reports success.
   disableDefaultCNI: true
   podSubnet: "192.168.0.0/16"
+  apiServerAddress: "0.0.0.0"
 EOF
+retarget_kubeconfig "$CLUSTER"
+kubectl cluster-info >/dev/null || die "the cluster came up but is not reachable from this container"
 
 kubectl apply -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/calico.yaml" >/dev/null
 echo "  waiting for Calico to become ready (this is the slow part)..."

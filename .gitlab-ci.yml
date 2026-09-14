@@ -859,11 +859,30 @@ helm-template:
     KIND_VERSION: "0.24.0"
     KUBECTL_VERSION: "1.31.2"
     HELM_VERSION: "3.16.4"
+    # Calico is only used by helm-netpol, but it lives HERE on purpose. A
+    # job-level `variables:` REPLACES an anchored one rather than merging into
+    # it, so giving helm-netpol its own block to hold CALICO_VERSION silently
+    # dropped every variable above — the tool URLs became ".../v/kind-linux-amd64",
+    # 404'd to a small HTML page, and `tar` failed with "invalid magic" nine
+    # seconds in. One shared block is the fix; do not re-split it.
+    CALICO_VERSION: "v3.28.2"
+    # kind writes a kubeconfig pointing at 127.0.0.1. The API server actually
+    # runs inside the dind SERVICE container, which is a different container
+    # from this job, so the drills retarget the kubeconfig at this hostname.
+    APISERVER_HOST: "docker"
   before_script:
     - apk add --no-cache bash curl
-    - curl -sSLo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && chmod +x /usr/local/bin/kind
-    - curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
-    - curl -sSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
+    # Fail loudly on an empty version rather than downloading a 404 page and
+    # letting `tar` report "invalid magic" from three commands later.
+    - |
+      for v in KIND_VERSION KUBECTL_VERSION HELM_VERSION; do
+        eval "val=\${$v}"
+        [ -n "$val" ] || { echo "ERROR: $v is empty — a variables: merge clobber?"; exit 1; }
+      done
+    - curl -fsSLo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && chmod +x /usr/local/bin/kind
+    - curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+    - curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
+    - kind version && kubectl version --client=true 2>/dev/null | head -1 && helm version --short
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
 
 helm-install:
@@ -905,8 +924,6 @@ helm-netpol:
   # file itself.
   <<: *helm-drill-base
   timeout: 45m
-  variables:
-    CALICO_VERSION: "v3.28.2"
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       allow_failure: true
