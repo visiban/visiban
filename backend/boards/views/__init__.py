@@ -11,6 +11,7 @@ from .columns import ColumnViewSet  # noqa: F401
 from .swimlanes import SwimlaneViewSet  # noqa: F401
 from .labels import LabelViewSet  # noqa: F401
 from .cards import CardViewSet, CardFilter  # noqa: F401
+from .card_query import CardQueryViewSet, CardQueryFilter, CardQuerySerializer  # noqa: F401
 
 # Standalone API views
 from .notifications import (  # noqa: F401
