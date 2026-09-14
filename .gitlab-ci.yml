@@ -248,7 +248,10 @@ backend-lint:
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
-    - pip install --quiet ruff
+    # Pinned: unpinned installs silently picked up ruff 0.16's much larger
+    # default rule set, surfacing 600+ pre-existing findings (mostly RUF012 on
+    # Django migrations' `operations = [...]`) unrelated to any given branch.
+    - pip install --quiet ruff==0.15.22
   script:
     - ruff check backend/
     - ruff check backend/ --output-format=gitlab -o code-quality-report.json || true
