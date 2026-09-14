@@ -709,6 +709,33 @@ class CardBoardScopingTests(TestCase):
         self.assertEqual(self.card.title, "Renamed")
 
     @patch(PATCH_BROADCAST)
+    def test_update_card_with_null_column_rejected_by_serializer(self, _):
+        """`column: null` is not a use_move_endpoint no-op — it must fail the
+        serializer's own "may not be null" validation (column is a required,
+        non-nullable FK), not be silently accepted (found by security-review)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            {"column": None},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertNotEqual(r.json().get("code"), "use_move_endpoint")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col.id)
+
+    @patch(PATCH_BROADCAST)
+    def test_update_card_with_non_dict_body_returns_400_not_500(self, _):
+        """A top-level JSON list body must not crash the #1106 column/swimlane
+        guard with AttributeError — it should fall through to DRF's normal
+        malformed-body handling (found by security-review)."""
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/",
+            ["column", "swimlane"],
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch(PATCH_BROADCAST)
     def test_create_card_with_cross_board_column_rejected(self, _):
         r = self.client.post(
             f"/api/v1/boards/{self.board.id}/cards/",
