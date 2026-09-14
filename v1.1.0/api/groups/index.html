@@ -3376,7 +3376,7 @@
 <tr>
 <td><code>template</code></td>
 <td>No</td>
-<td>Template slug to pre-populate columns. Valid values match those from <code>GET /api/v1/boards/templates/</code> (e.g. <code>simple_kanban</code>, <code>sales_pipeline</code>, <code>customer_support</code>). Default: <code>simple_kanban</code>.</td>
+<td>Template slug to pre-populate columns. Valid values match those from <code>GET /api/v1/boards/templates/</code> (e.g. <code>simple_kanban</code>, <code>sales_pipeline</code>, <code>customer_support</code>). Default: <code>simple_kanban</code>. Omitting the field (or sending <code>""</code>/<code>null</code>) uses the default; a non-blank slug that doesn't match an active template returns <code>400 {"code": ["unknown_template"], ...}</code> — same validation and error shape as <code>POST /api/v1/boards/</code> (#1115).</td>
 </tr>
 <tr>
 <td><code>swimlane_name</code></td>

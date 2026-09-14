@@ -3420,7 +3420,7 @@
 <tr>
 <td><code>template</code></td>
 <td></td>
-<td>Template slug to use for column layout (default: <code>"simple_kanban"</code>). See <code>GET /api/v1/boards/templates/</code> for available slugs.</td>
+<td>Template slug to use for column layout (default: <code>"simple_kanban"</code>). See <code>GET /api/v1/boards/templates/</code> for available slugs. Omitting the field (or sending <code>""</code>/<code>null</code>) uses the default; sending a non-blank slug that doesn't match an active template returns <code>400</code> — see <strong>Errors</strong> below.</td>
 </tr>
 <tr>
 <td><code>swimlane_name</code></td>
@@ -3431,6 +3431,23 @@
 <td><code>group</code></td>
 <td></td>
 <td>Integer group ID — assigns the board to this group at creation time. The caller must be a group member.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td><code>{"code": ["unknown_template"], "detail": ["Unknown board template: '...'."]}</code></td>
+<td><code>template</code> was sent as a non-blank value that doesn't match an active template's slug. This is deliberately distinct from a generic per-field validation error — a stale or mistyped <code>template</code> value previously created a <code>simple_kanban</code> board with a <code>201</code> instead of surfacing the mistake (#1115).</td>
 </tr>
 </tbody>
 </table>
@@ -3583,6 +3600,7 @@
 <h2 id="templates">Templates<a class="headerlink" href="#templates" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1boardstemplates"><code>GET /api/v1/boards/templates/</code><a class="headerlink" href="#get-apiv1boardstemplates" title="Permanent link">&para;</a></h3>
 <p>List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.</p>
+<p>This endpoint and board creation (<code>POST /api/v1/boards/</code>, <code>POST /api/v1/groups/{id}/boards/</code>) read the same <code>BoardTemplate</code> database table — a template's listed columns are exactly the columns a board created with it will get (#1115).</p>
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p">{</span>
@@ -3621,11 +3639,12 @@
 </tr>
 <tr>
 <td><code>columns_json</code></td>
-<td>JSON array of column names that will be created</td>
+<td>JSON array of column objects that will be created: <code>{name, color, position}</code>, plus <code>is_done: true</code> on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not <code>false</code>) on every other column.</td>
 </tr>
 </tbody>
 </table>
 <p>Available templates: <strong>Sales Pipeline</strong>, <strong>Customer Support</strong>, <strong>Customer Success</strong>, <strong>Simple Kanban</strong>, <strong>Product Roadmap</strong>, <strong>Project Delivery</strong>, <strong>Content Production</strong>, <strong>Hiring &amp; Recruiting</strong>, <strong>Legal &amp; Compliance</strong>, <strong>Infrastructure &amp; DevOps</strong>, <strong>Blank Board</strong>.</p>
+<p><strong>Registering additional templates.</strong> An installed package (not just enterprise) can register more templates without an OSS code change or migration via <code>boards.hooks.TEMPLATE_PROVIDERS</code> — see that module for the callable signature and conflict policy (new slugs only; an existing row, built-in or provider-registered, is never overwritten by the sync). See <a href="../../architecture/open-core-boundary/"><code>docs/architecture/open-core-boundary.md</code></a> for how this fits the OSS extension-point conventions.</p>
 <h3 id="get-apiv1boardsidsummary"><code>GET /api/v1/boards/{id}/summary/</code><a class="headerlink" href="#get-apiv1boardsidsummary" title="Permanent link">&para;</a></h3>
 <p>Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.</p>
 <p><strong>Response shape:</strong></p>

@@ -3109,7 +3109,7 @@
 <tr>
 <td>Board template visual editor</td>
 <td>Enterprise</td>
-<td>Basic template creation via API/admin is sufficient for OSS</td>
+<td>Basic template creation via API/admin, or installed-package registration (see <code>TEMPLATE_PROVIDERS</code>, #1115), is sufficient for OSS</td>
 <td>enterprise #3</td>
 </tr>
 <tr>
@@ -3327,6 +3327,11 @@
 <td><code>ANALYTICS_EXTENSIONS</code> list (<code>boards/hooks.py</code>)</td>
 <td>Enterprise advanced analytics (#341 enterprise)</td>
 <td>✅ Implemented — <code>boards/hooks.py</code></td>
+</tr>
+<tr>
+<td><code>TEMPLATE_PROVIDERS</code> list (<code>boards/hooks.py</code>)</td>
+<td>External board-template registration by installed packages (#1115; tracked further in #504)</td>
+<td>✅ Implemented — <code>boards/hooks.py</code> + <code>boards/template_sync.py</code>, synced via <code>post_migrate</code> in <code>BoardsConfig.ready()</code></td>
 </tr>
 <tr>
 <td><code>post_notification_created</code> signal</td>
