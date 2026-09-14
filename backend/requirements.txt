@@ -28,8 +28,10 @@ cryptography==50.0.0
 # cryptography<47). Pulled transitively via daphne -> twisted's TLS support,
 # which imports OpenSSL.SSL unconditionally at app-load time, so an
 # incompatible pair breaks Django startup rather than failing at install time.
-# pyOpenSSL is not itself declared elsewhere in this file.
-pyopenssl>=26.0.0
+# pyOpenSSL is not itself declared elsewhere in this file. Bounded below 27 for
+# the same reason: a major bump arriving silently in a rebuild would surface as a
+# startup failure, not an install failure.
+pyopenssl>=26.0.0,<27
 django-filter==25.2
 whitenoise==6.8.2
 drf-spectacular==0.29.0
