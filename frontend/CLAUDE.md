@@ -158,11 +158,13 @@ The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visibl
 - Background: `bg-surface` — one level above the cell canvas
 - Layout: left nav arrow · colored dot · name (truncated) · right nav arrow, then a single stat row below
 - Column name: `text-sm font-medium text-fg truncate`
-- **Stat row — single line, worst-offender wins.** A column header renders exactly one stat line, never two stacked lines. The decision tree (priority order: WIP > Weight > calm):
+- **Stat row — single line, worst-offender wins.** A column header renders exactly one stat line, never two stacked lines. The decision tree (priority order: Over WIP > Over Weight > At WIP > calm):
   - **Over WIP** → `⚠ Over WIP · {count}/{limit}` (or `⛔` glyph when `hardWipEnforced`), `text-danger font-medium`, `title="Over WIP limit"`
   - **Over Weight** (and not over WIP) → `Weight {weight}/{limit}`, `text-warning font-medium`, `title="Over weight budget"`
+  - **At WIP** (`cardCount === wip_limit`, not over WIP/Weight, board opt-in `show_wip_at_limit` on) → `WIP {count}/{limit}`, `text-fg-muted` (no accent strip, no glyph — it's calm, not a warning), `title="Column is at its WIP limit ({count}/{limit})"` (#973)
   - **Calm** → `{count} cards` (`1 card` for a single card), `text-fg-muted`, `title="Cards in column"`
-- **Drop the `WIP` / `Weight` label words in calm states.** The limit phrasing only earns its place when a column is actually over — otherwise the count alone reads faster on a scan.
+- **Drop the `WIP` / `Weight` label words in calm states.** The limit phrasing only earns its place when a column is actually over, or the board has opted into the at-limit indicator — otherwise the count alone reads faster on a scan.
+- **At-limit indicator is off by default and board-scoped (`Board.show_wip_at_limit`, admin-only toggle in Board Settings → Rules → Limit enforcement).** It never adds chrome beyond the calm-state text color — no top accent strip, no glyph — so it stays visually subordinate to the two over-limit states above it in the priority chain.
 - **Top accent strip — peripherally scannable cue for over-limit state.** When over WIP, render `border-t-2 border-t-danger-emphasis` on the header surface; when over weight (and not over WIP), `border-t-2 border-t-warning-emphasis`. The strip is the *only* over-limit chrome; the existing rule "text color + `font-semibold` only, no filled background" still holds for the stat text. Never use a filled `bg-danger/…` background for over-limit stats — it competes with the column header surface color.
 - The collapsed (40px-wide) header mirrors the same top accent strip and shows a `⚠` glyph in red (over WIP) or amber (over weight, not over WIP). Title includes the over-limit reason for screen readers.
 - Column color dot: `w-2.5 h-2.5 rounded-full flex-shrink-0` in the column's assigned color

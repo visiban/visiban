@@ -19,9 +19,10 @@ interface Props {
   width?: number;
   onToggleCollapse: () => void;
   hardWipEnforced?: boolean;
+  showWipAtLimit?: boolean;
 }
 
-export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced }: Props) {
+export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumnUpdated, onRequestDelete, collapsed, hidden, abbreviation, width, onToggleCollapse, hardWipEnforced, showWipAtLimit }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -33,6 +34,10 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
   const totalWeight = cards.reduce((sum, c) => sum + c.weight, 0);
   const overWip = column.wip_limit !== null && column.wip_limit > 0 && cardCount > column.wip_limit;
   const overWeight = column.weight_limit !== null && totalWeight > column.weight_limit;
+  // At-limit indicator (#973) — board-level opt-in, off by default. Only ever
+  // shown when the column is exactly at its WIP limit and not already over it
+  // (overWip takes precedence in the stat-row priority chain below).
+  const atWipLimit = column.wip_limit !== null && column.wip_limit > 0 && cardCount === column.wip_limit;
   // Top accent strip — peripherally scannable cue for over-limit state. Worst-offender
   // takes precedence (WIP > weight); calm state has no strip.
   const accentClass = overWip
@@ -236,6 +241,16 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
                 Weight{" "}
                 <span className="font-semibold">
                   {totalWeight}/{column.weight_limit}
+                </span>
+              </span>
+            ) : showWipAtLimit && atWipLimit ? (
+              <span
+                className="text-xs font-medium text-fg-muted"
+                title={`Column is at its WIP limit (${cardCount}/${column.wip_limit})`}
+              >
+                WIP{" "}
+                <span className="font-semibold">
+                  {cardCount}/{column.wip_limit}
                 </span>
               </span>
             ) : (
