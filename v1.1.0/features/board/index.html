@@ -1043,6 +1043,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#at-limit-wip-indicator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At-limit WIP indicator
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3324,7 +3335,7 @@
 <p>Columns represent pipeline stages. Each column has:</p>
 <ul>
 <li><strong>Name</strong> and <strong>color</strong></li>
-<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header carries a single calm <code>N cards</code> stat line when within budget; when the limit is exceeded the line flips to <code>⚠ Over WIP · count/limit</code> and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode.</li>
+<li><strong>WIP limit</strong> — maximum number of active cards allowed. The column header carries a single calm <code>N cards</code> stat line when within budget; when the limit is exceeded the line flips to <code>⚠ Over WIP · count/limit</code> and the header gains a 2 px red top accent strip so the over-limit state is visible at a distance (#963). If the board has <strong>Enforce WIP limits</strong> enabled (Board Settings → Rules), moving a card into a column at or over its limit returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged. See <a href="#hard-wip-enforcement">Hard WIP enforcement</a> for a stricter mode. Optionally, the <strong>Show at-limit WIP indicator</strong> board setting (off by default) surfaces the <em>at</em>-limit case too — see <a href="#at-limit-wip-indicator">At-limit WIP indicator</a> below.</li>
 <li><strong>Weight limit</strong> — maximum total card weight (story points / effort) allowed. When the limit is exceeded (and the column is not also over WIP — that state wins) the stat line shows <code>Weight weight/limit</code> and the header gains a 2 px amber top accent strip. If the board has <strong>Enforce weight limits</strong> enabled (Board Settings → Rules), moving a card that would push the column over its budget returns a <code>409</code> error — board admins can override with <code>?force=true</code>. Enforcement is <strong>on by default</strong> for newly created boards; existing boards are unchanged.</li>
 <li><strong>Allow card creation</strong> — only columns with this enabled show the add-card input; useful for marking "done" columns as write-protected</li>
 <li><strong>Done column</strong> — mark a column as the completion target for cycle-time and throughput metrics; multiple done columns are supported (e.g. "Done" and "Released")</li>
@@ -3359,6 +3370,18 @@
 <p class="admonition-title">Tip</p>
 <p>Hard WIP enforcement is useful for teams that treat WIP limits as a strict policy rather than a guideline. To unblock a column, move a card out of it or ask an admin to raise the WIP limit.</p>
 </div>
+<h3 id="at-limit-wip-indicator">At-limit WIP indicator<a class="headerlink" href="#at-limit-wip-indicator" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>The column header's stat line only ever flips out of its calm state to warn about the <em>over</em>-limit case (<code>⚠ Over WIP · count/limit</code>) — a column sitting exactly <em>at</em> its WIP limit still reads as an ordinary <code>N cards</code> line. The <strong>Show at-limit WIP indicator</strong> board setting (off by default, admin-only, in <strong>Board Settings → Rules → Limit enforcement</strong>) adds ambient visibility for that at-limit state:</p>
+<ul>
+<li><strong>Off (default):</strong> a column at its WIP limit shows <code>N cards</code> — unchanged from the calm state</li>
+<li><strong>On:</strong> a column at its WIP limit shows <code>WIP N/N</code> in place of the card count, styled the same as the calm state (<code>text-fg-muted</code>, no accent strip, no glyph) — deliberately quieter than the over-limit warning so the two states stay visually distinct. Hovering shows the tooltip "Column is at its WIP limit (N/N)"</li>
+<li>Columns <strong>over</strong> their limit are unaffected — the existing <code>⚠ Over WIP</code> treatment always takes precedence</li>
+<li>Columns under the limit are unaffected — always <code>N cards</code></li>
+</ul>
+<p>This setting is purely ambient: it does not change move enforcement, which is controlled independently by <strong>Enforce WIP limits</strong> / <strong>Enforce WIP hard</strong> above (#973).</p>
 <h2 id="cards">Cards<a class="headerlink" href="#cards" title="Permanent link">&para;</a></h2>
 <p>Cards are displayed as compact tiles with a full colored border indicating priority. <strong>How much metadata appears on each card depends on the board's <em>Card density</em> setting</strong> (Comfortable / Standard / Dense — see <a href="#card-density">Card density</a> below). At every density the colored border carries priority, the assignee avatar sits at the bottom-right, and the card count badge appears in the top-right corner of cells with 2 or more cards.</p>
 <h3 id="card-density">Card density<a class="headerlink" href="#card-density" title="Permanent link">&para;</a></h3>
