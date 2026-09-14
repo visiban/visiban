@@ -94,6 +94,25 @@ data:
         }
 
         # WebSocket (Django Channels)
+        # MCP (Model Context Protocol) server — only reachable when the backend
+        # sets MCP_SERVER_ENABLED=true; otherwise Django 404s this path. The
+        # Streamable HTTP transport holds a long-lived SSE response open, so
+        # buffering is off and the read timeout matches /ws/ below. Without this
+        # block /mcp would fall through to the SPA catch-all and never reach
+        # Django.
+        location /mcp {
+            proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Connection "";
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 86400s;
+        }
+
         location /ws/ {
             proxy_pass http://{{ include "visiban.fullname" . }}-backend:{{ .Values.backend.service.port }};
             proxy_http_version 1.1;

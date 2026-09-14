@@ -22,9 +22,17 @@ try:
 except ImportError:
     pass
 
+from mcp_server.asgi_mount import mount_mcp_server  # noqa: E402
+
 application = ProtocolTypeRouter(
     {
-        "http": get_asgi_application(),
+        # mount_mcp_server() wraps the Django HTTP app so that /mcp reaches the
+        # MCP server (#511) and every other path falls through to Django
+        # unchanged. It returns the Django app as-is when MCP_SERVER_ENABLED is
+        # off. Only the "http" value is wrapped — the "websocket" branch and
+        # its enterprise routing extension point above are deliberately
+        # untouched, since enterprise registers against their current shape.
+        "http": mount_mcp_server(get_asgi_application()),
         "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
     }
 )

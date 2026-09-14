@@ -33,5 +33,12 @@ cryptography==50.0.0
 # startup failure, not an install failure.
 pyopenssl>=26.0.0,<27
 django-filter==25.2
+# MCP (Model Context Protocol) server SDK — FastMCP + Streamable HTTP transport
+# for the /mcp endpoint (#511). Pinned to the 1.x line: 2.x depends on httpx2,
+# a from-scratch httpx successor with no production track record yet. 1.30.0 is
+# past all six historical HIGH advisories (last fixed in 1.28.1); do not float
+# below that. django-mcp was evaluated and rejected — its upstream repo is
+# archived and its own mcp[cli]~=1.9.2 pin forces a vulnerable SDK version.
+mcp==1.30.0
 whitenoise==6.8.2
 drf-spectacular==0.29.0

@@ -493,6 +493,52 @@ backend-test-git-lens:
     when: always
     expire_in: 1 day
 
+# ─── MCP server tests ────────────────────────────────────────────────────────
+# The mcp_server app is only installed and only mounts /mcp when
+# MCP_SERVER_ENABLED=true, so its transport/auth/tool tests skip cleanly in the
+# main backend-test job (which runs flag-off). This dedicated job enables the
+# flag and runs the suite. Mirrors the git_lens conditional-app pattern above.
+# ALLOWED_HOSTS must contain the host the tests use, because the MCP transport
+# derives its DNS-rebinding allowlist from it.
+backend-test-mcp:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/mcp_server/**/*
+        - backend/accounts/authentication.py
+        - backend/visiban/settings.py
+        - backend/visiban/asgi.py
+        - backend/requirements.txt
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://redis:6379/0"
+    REDIS_CACHE_URL: "redis://redis:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+    MCP_SERVER_ENABLED: "True"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+    - pip install --quiet -r backend/requirements-test.txt
+  script:
+    - cd backend
+    # The app ships no models; assert that stays true so a future model addition
+    # cannot land without its migration.
+    - python manage.py makemigrations --check --dry-run
+    - pytest mcp_server/ -q
+
 # ─── OIDC smoke test ─────────────────────────────────────────────────────────
 #
 # End-to-end smoke test for the OIDC authorization code flow.  Exercises:

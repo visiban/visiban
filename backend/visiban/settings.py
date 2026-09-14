@@ -72,6 +72,13 @@ _OIDC_ENABLED = bool(_OIDC_CLIENT_ID and _OIDC_CLIENT_SECRET and _OIDC_SERVER_UR
 # expose the surface area; the app and its routes stay dormant when False.
 GIT_LENS_ENABLED = env.bool("GIT_LENS_ENABLED", default=False)
 
+# MCP (Model Context Protocol) server — exposes Visiban boards to AI agents
+# over the Streamable HTTP transport at /mcp (#511). Off by default: it is a
+# new network-reachable transport, and an install that upgrades should not
+# acquire that surface without opting in. When False the ASGI mount is skipped
+# entirely, so /mcp does not exist and the MCP SDK is never imported.
+MCP_SERVER_ENABLED = env.bool("MCP_SERVER_ENABLED", default=False)
+
 INSTALLED_APPS = [
     "daphne",
     "django.contrib.admin",
@@ -111,6 +118,10 @@ INSTALLED_APPS = [
     # Issue Board Lens — only registered when the experiment flag is on, mirroring
     # the OIDC conditional-app pattern above so dormant code loads no tables/routes.
     *(["git_lens"] if GIT_LENS_ENABLED else []),
+    # MCP server — registered only when the flag is on, mirroring the
+    # conditional-app pattern above. The app holds no models (MCP callers
+    # authenticate with accounts.PersonalAccessToken), so it adds no tables.
+    *(["mcp_server"] if MCP_SERVER_ENABLED else []),
 ]
 
 MIDDLEWARE = [
