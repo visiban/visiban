@@ -265,7 +265,7 @@ Requires a CNI plugin that supports NetworkPolicy (Calico, Cilium, Weave, etc.).
 
 The Helm chart runs three init containers on every deploy:
 
-1. **migrate** — `python manage.py migrate --noinput`
+1. **migrate** — `python manage.py migrate --noinput`. Since 1.2 every index and constraint Visiban adds is built without an `ACCESS EXCLUSIVE` lock, so this init container does not block the running pods it is replacing — see [Database migrations](../development/database-migrations.md).
 2. **collectstatic** — `python manage.py collectstatic --noinput` (populates whitenoise static files)
 3. **bootstrap** — `python manage.py ensure_site_admin` (creates the admin account on first install and writes the one-time password to `/run/visiban/admin_password`)
 

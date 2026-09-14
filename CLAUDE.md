@@ -38,6 +38,7 @@ Visiban 1.0 is a public API contract. Every change from this point forward must 
 
 ### Database migrations
 - **Every new column must be nullable or have a default** — `NOT NULL` without a default requires a multi-step deploy and blocks zero-downtime upgrades
+- **Every new index and constraint must be built concurrently** — `AddIndex`, `AddConstraint`, `db_index=True` or `unique=True` on an existing table, `AlterUniqueTogether`/`AlterIndexTogether`, and raw `CREATE INDEX` all take `ACCESS EXCLUSIVE` on the table for the whole build, which on `cards` is a full outage. `unique=True` is the one that does not look like an index and still is one. Use `visiban.db_operations` with `atomic = False`, and never combine a concurrent operation with another schema operation in the same migration — `atomic = False` has no rollback. Same zero-downtime goal as the nullable-column rule above; CI `migration-check` fails on a violation, with an inline `# concurrency-exempt: <reason>` comment as the escape hatch. See [`docs/development/database-migrations.md`](docs/development/database-migrations.md)
 - **Never drop a column or table** in the same migration that removes the ORM reference — add a second migration after at least one release cycle
 - **Rename = add + copy + drop** in three separate releases — never rename a column in a single migration
 
