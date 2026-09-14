@@ -12,7 +12,7 @@ channels-redis==4.3.0
 # block-forever BZPOPMIN, which channels-redis 4.3.0 relies on, killing idle
 # WebSocket connections after 5s. channels-redis only requires redis>=4.6.
 redis>=4.6,<6
-djangorestframework==3.16.1
+djangorestframework==3.17.2
 psycopg2-binary==2.9.11
 django-allauth==65.14.3
 dj-rest-auth==7.1.1
@@ -23,7 +23,13 @@ requests==2.33.0
 # Pin transitive dep (via requests) to clear GHSA-65pc-fj4g-8rjx; within requests' idna<4 range.
 idna==3.18
 PyJWT==2.13.0
-cryptography==48.0.1
+cryptography==50.0.0
+# Floor pyOpenSSL to clear its cap on cryptography (pyOpenSSL 25.3.0 requires
+# cryptography<47). Pulled transitively via daphne -> twisted's TLS support,
+# which imports OpenSSL.SSL unconditionally at app-load time, so an
+# incompatible pair breaks Django startup rather than failing at install time.
+# pyOpenSSL is not itself declared elsewhere in this file.
+pyopenssl>=26.0.0
 django-filter==25.2
 whitenoise==6.8.2
 drf-spectacular==0.29.0
