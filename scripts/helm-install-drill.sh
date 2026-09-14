@@ -71,15 +71,30 @@ dump_diagnostics() {
   kubectl -n "$NAMESPACE" get pods,jobs -o wide 2>&1 | sed 's/^/  /' >&2 || true
   echo >&2
   kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp 2>&1 | tail -30 | sed 's/^/  /' >&2 || true
-  # Logs from anything not Running/Completed — the crash-loop is almost always
+  # Logs from anything not cleanly Succeeded — the crash-loop is almost always
   # the whole story, and hunting for it by hand costs a re-run.
+  #
+  # `.status.phase` alone is NOT enough: a pod reads "Running" as soon as its
+  # containers have started, regardless of whether they are actually Ready.
+  # A container stuck failing its readiness probe (the case that matters most
+  # here) is phase=Running with containerStatuses[*].ready=false, and the old
+  # phase-only check skipped it — silently discarding the one log that would
+  # have explained the failure.
   for pod in $(kubectl -n "$NAMESPACE" get pods -o name 2>/dev/null); do
-    local phase
+    local phase ready all_ready
     phase="$(kubectl -n "$NAMESPACE" get "$pod" -o jsonpath='{.status.phase}' 2>/dev/null || echo '')"
-    if [ "$phase" != "Running" ] && [ "$phase" != "Succeeded" ]; then
-      echo >&2; echo "  ── logs: $pod ($phase)" >&2
-      kubectl -n "$NAMESPACE" logs "$pod" --all-containers --tail=60 2>&1 | sed 's/^/    /' >&2 || true
+    ready="$(kubectl -n "$NAMESPACE" get "$pod" -o jsonpath='{range .status.containerStatuses[*]}{.ready}{" "}{end}' 2>/dev/null || echo '')"
+    all_ready="true"
+    [ -z "$ready" ] && all_ready="false"
+    for r in $ready; do [ "$r" = "true" ] || all_ready="false"; done
+    if [ "$phase" = "Succeeded" ]; then
+      continue
     fi
+    if [ "$phase" = "Running" ] && [ "$all_ready" = "true" ]; then
+      continue
+    fi
+    echo >&2; echo "  ── logs: $pod (phase=$phase ready=$all_ready)" >&2
+    kubectl -n "$NAMESPACE" logs "$pod" --all-containers --tail=60 2>&1 | sed 's/^/    /' >&2 || true
   done
 }
 
