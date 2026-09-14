@@ -396,10 +396,16 @@ class BoardSerializer(serializers.ModelSerializer):
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
+    # Write-only and not a Board model field — it exists only to be validated
+    # here and read back off `serializer.validated_data["template"]` by the
+    # view (BoardViewSet.perform_create / GroupViewSet.boards()) to pick the
+    # BoardTemplate row to apply at creation. Never appears in a response, so
+    # this does not change the read shape of any Board endpoint (#1115).
+    template = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True, max_length=100)
 
     class Meta:
         model = Board
-        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred"]
+        fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
     def get_group_detail(self, obj):
@@ -454,6 +460,64 @@ class BoardSerializer(serializers.ModelSerializer):
                 f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
         return value
+
+    def validate(self, attrs):
+        # `template` is validated at the object level (rather than a normal
+        # `validate_template` field validator) so an unknown slug's error
+        # body carries a top-level `code` key — `{"code": ["unknown_template"],
+        # "detail": [...]}` — instead of this codebase's usual
+        # `{"template": ["..."]}` shape nested under the field name. DRF's
+        # `as_serializer_error()` always coerces a `.validate()` dict's
+        # scalar values into single-item lists (the same as every other DRF
+        # field error), so `code` still comes back as a list — a caller
+        # checks `"unknown_template" in body["code"]`. `template` is a
+        # public, documented request field (docs/api/boards.md) and an
+        # unknown slug is a distinct, machine-checkable failure mode a
+        # caller needs to branch on (e.g. a stale client's saved slug vs.
+        # any other 400) — not a message it should have to string-match
+        # (#1115).
+        #
+        # `template` only selects columns at board *creation* time — it has
+        # no effect on an existing board. Before this field was declared,
+        # DRF silently dropped an unrecognized `template` key on PUT/PATCH
+        # (unknown input keys are ignored); this serializer is also used by
+        # BoardViewSet.perform_update (backend/boards/views/boards.py), so
+        # without this guard a stray or mistyped `template` in an update
+        # body would start rejecting an otherwise-valid update with a 400 —
+        # a regression this codebase's backward-compatibility rules don't
+        # allow. `self.instance` is only set on an update (see
+        # UpdateModelMixin.update() / get_serializer(instance, ...)), so
+        # this drops the field as a no-op rather than validating it.
+        if self.instance is not None:
+            attrs.pop("template", None)
+            return attrs
+
+        template_slug = (attrs.get("template") or "").strip()
+        if template_slug:
+            if not BoardTemplate.objects.filter(slug=template_slug, is_active=True).exists():
+                raise serializers.ValidationError({
+                    "code": "unknown_template",
+                    "detail": f"Unknown board template: {template_slug!r}.",
+                })
+            attrs["template"] = template_slug
+        else:
+            # Omitted, blank, or null all mean "use the default" — only an
+            # explicit, non-matching slug is rejected. This keeps the 1.0
+            # contract for clients that never send `template` at all.
+            attrs["template"] = ""
+        return attrs
+
+    def create(self, validated_data):
+        # `template` is not a Board model field (see the field's docstring
+        # above) — pop it from this *local* merged copy before delegating to
+        # ModelSerializer.create(), which would otherwise pass it straight
+        # into Board(...) and crash. This does not affect
+        # `self.validated_data`: DRF's Serializer.save() builds
+        # `{**self.validated_data, **kwargs}` — a new dict — before calling
+        # create(), so the view can still read
+        # `serializer.validated_data["template"]` after `.save()` returns.
+        validated_data.pop("template", None)
+        return super().create(validated_data)
 
     def get_member_count(self, obj):
         # Use the annotation injected by BoardViewSet.get_queryset() when available

@@ -137,11 +137,77 @@ class BoardCreationTests(TestCase):
         board_id = resp.data["id"]
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 0)
 
-    def test_unknown_template_falls_back_to_simple_kanban(self):
-        """An unknown template key falls back to simple_kanban (5 columns)."""
+    def test_unknown_explicit_template_returns_400(self):
+        """An unknown, explicitly-supplied template key is rejected — it must
+        not silently create a board with the wrong layout (#1115)."""
+        boards_before = Board.objects.count()
         resp = self._create_board(template="does_not_exist")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("unknown_template", resp.data.get("code", []))
+        self.assertEqual(Board.objects.count(), boards_before)
+
+    def test_omitted_template_still_defaults_to_simple_kanban(self):
+        """No `template` field at all → the pre-#1115 contract: simple_kanban."""
+        resp = self._create_board()
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         board_id = resp.data["id"]
         self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
+
+    def test_blank_template_value_also_defaults_to_simple_kanban(self):
+        """An explicit but empty `template` value is treated as omitted, not
+        as an unknown slug — only a non-blank, non-matching value is a 400."""
+        resp = self._create_board(template="")
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        board_id = resp.data["id"]
+        self.assertEqual(Column.objects.filter(board_id=board_id).count(), 5)
+
+    def test_every_listed_template_creates_matching_columns(self):
+        """GET /boards/templates/ and POST /boards/ must read the same
+        source: for every active template, the board actually created with
+        it must have exactly the columns (name, order, is_done) the list
+        endpoint advertised (#1115)."""
+        list_resp = self.client.get("/api/v1/boards/templates/")
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        self.assertGreater(len(list_resp.data), 0)
+
+        for template in list_resp.data:
+            resp = self._create_board(name=f"T-{template['slug']}", template=template["slug"])
+            self.assertEqual(
+                resp.status_code, status.HTTP_201_CREATED,
+                f"template {template['slug']!r} failed to create a board",
+            )
+            board_id = resp.data["id"]
+            columns = Column.objects.filter(board_id=board_id).order_by("position")
+            expected = template["columns_json"]
+            self.assertEqual(
+                [c.name for c in columns], [col["name"] for col in expected],
+                f"column names diverged for template {template['slug']!r}",
+            )
+            self.assertEqual(
+                [c.is_done for c in columns], [bool(col.get("is_done")) for col in expected],
+                f"is_done diverged for template {template['slug']!r}",
+            )
+
+    def test_patch_with_bogus_template_does_not_400(self):
+        """`template` only applies at creation time. A stray or mistyped
+        `template` value in a board UPDATE must be silently ignored, exactly
+        as an unrecognized field was before it became a declared serializer
+        field — not start rejecting otherwise-valid updates (#1115)."""
+        resp = self._create_board(name="Existing Board")
+        board_id = resp.data["id"]
+        columns_before = list(
+            Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
+        )
+
+        patch_resp = self.client.patch(
+            f"/api/v1/boards/{board_id}/", {"name": "Renamed", "template": "does_not_exist"},
+        )
+        self.assertEqual(patch_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_resp.data["name"], "Renamed")
+        columns_after = list(
+            Column.objects.filter(board_id=board_id).order_by("position").values_list("name", flat=True)
+        )
+        self.assertEqual(columns_before, columns_after)
 
     @patch("boards.models.Swimlane.objects.create", side_effect=RuntimeError("db boom"))
     def test_perform_create_rolls_back_on_swimlane_failure(self, _mock_create):
