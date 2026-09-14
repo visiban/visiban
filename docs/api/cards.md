@@ -1,5 +1,65 @@
 # Cards API
 
+## Cross-board card query
+
+### `GET /api/v1/cards/`
+
+Paginated, filterable card query across every board the requesting user can access — for
+table/list views over large boards and for incremental sync (`?updated_since=`). This is
+additive: it does not change `GET /api/v1/boards/{board_id}/cards/` or `GET
+/api/v1/boards/{board_id}/full/` below, both of which keep their existing (unpaginated) shape.
+
+**Access scoping:** identical to `GET /api/v1/boards/` — boards you own, are a direct member
+of, or have via group-ancestry inheritance, or every board if you have `can_access_all_content`.
+A card never appears here unless its board would appear in your board list; this holds even if
+you pass `?board=<id>` for a board you cannot access — the result is an empty page, not a 403.
+
+**Response shape:** `{results, next_cursor}` — **not** the `{count, offset, page_size, results}`
+envelope `OffsetCountPagination` uses elsewhere. This endpoint uses cursor pagination instead of
+offset pagination because it is designed for a card feed under concurrent writes (incremental
+sync): offset pagination needs a stable row order and `COUNT(*)`, and a page walk can otherwise
+skip or repeat rows as cards are created/updated/archived between page fetches. There is no
+`previous` field — walk forward only, re-fetching page one (no `cursor`) to restart.
+
+```json
+{
+  "results": [
+    { "id": 101, "uid": "3a9f1c2d7e4b8a05", "board": 4, "column": 2, "swimlane": 1, "...": "..." }
+  ],
+  "next_cursor": "cD0yMDI2LTA0LTAxKzAwJTNBMDAlM0EwMA%3D%3D"
+}
+```
+
+`next_cursor` is `null` on the last page. Pass it back as `?cursor=<value>` to fetch the next
+page; treat it as opaque.
+
+**Query parameters**
+
+| Parameter | Description |
+|---|---|
+| `?board=<id>` | Restrict to one board |
+| `?swimlane=<id>` | Filter by swimlane ID |
+| `?column=<id>` | Filter by column ID |
+| `?assignee=<id>` | Filter by assignee user ID |
+| `?label=<id>` | Filter by label ID |
+| `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `urgent`) |
+| `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
+| `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
+| `?updated_since=<ISO 8601 datetime>` | Cards updated at or after this timestamp — the incremental-sync filter |
+| `?include_archived=true` | Include archived cards. Omit or `false` to exclude them (the default, matching the endpoints below) |
+| `?search=<q>` | Filter by title and description (partial, case-insensitive) |
+| `?ordering=<field>` | Sort results. Allowed values: `updated_at` (default: `-updated_at`, i.e. most recently updated first), `-updated_at`, `created_at`, `-created_at`. Every value is a 2-tuple with an `id` tiebreaker under the hood, so cursor pagination stays stable when many cards share the same timestamp. An unrecognized value falls back to the default rather than erroring. `due_date` is deliberately not an ordering option — it is nullable, and a nullable cursor field can silently skip or duplicate rows across a page boundary. |
+| `?cursor=<opaque>` | Page cursor from a previous response's `next_cursor` |
+| `?page_size=<n>` | Rows per page (default 50, max 200) |
+
+**Card response fields:** the same fields as the card response field table under
+`GET /api/v1/boards/{board_id}/cards/{id}/` below, plus `board` (the board's integer ID) —
+single-board endpoints omit `board` because the URL already scopes to one board; a cross-board
+list has to say which board each row belongs to. `assignee_id` and `label_ids` (the write-only
+fields used to set an assignee or labels) are not present — this endpoint is read-only.
+
+---
+
 ## Cards
 
 ### `GET /api/v1/boards/{board_id}/cards/`

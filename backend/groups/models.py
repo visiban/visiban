@@ -81,6 +81,60 @@ def get_accessible_group_ids(user):
     return all_ids
 
 
+def get_group_ids_for_board_access(user):
+    """Return group IDs whose boards `user` may access via group inheritance:
+    direct member/owner groups plus descendant sub-groups only. Site admins
+    have access to every group's boards.
+
+    Deliberately NOT `get_accessible_group_ids()`: that function also walks
+    UP to ancestor groups so a user can navigate to their subgroup through the
+    sidebar tree, and its own docstring says those ancestors are "read-only"
+    for exactly that reason — membership in group S does not grant a role on
+    S's ancestor A's boards, only on S's and S's descendants' boards. That
+    matches `get_board_role()` (backend/boards/permissions.py), which walks
+    UP from a board's own group through its ancestors looking for a
+    membership — i.e. membership in an ancestor grants access to a
+    descendant board, never the reverse. Using the ancestor-inclusive
+    function here would let a user whose only membership is in a low-level
+    subgroup read every board (and, via CardQueryViewSet, every card) in
+    every ancestor group above it — a real IDOR, not just an extra list
+    entry, since `get_board_role()` would deny that same user a role on the
+    same board (#1112 rbac-check finding).
+
+    Descendant discovery is capped at _GROUP_TRAVERSAL_MAX_DEPTH iterations,
+    matching `get_board_role()`'s own ancestor-walk cap.
+    """
+    if getattr(user, "can_access_all_content", False):
+        return set(Group.objects.values_list("id", flat=True))
+    direct_ids = set(
+        Group.objects.filter(
+            Q(owner=user) | Q(memberships__user=user)
+        ).values_list("id", flat=True)
+    )
+    all_ids = set(direct_ids)
+    frontier = set(direct_ids)
+    for depth in range(_GROUP_TRAVERSAL_MAX_DEPTH):
+        if not frontier:
+            break
+        children = set(
+            Group.objects.filter(parent__in=frontier)
+            .exclude(id__in=all_ids)
+            .values_list("id", flat=True)
+        )
+        all_ids |= children
+        frontier = children
+    else:
+        if frontier:
+            logger.warning(
+                "Group descendant traversal capped at depth %d for user %s "
+                "(board-access scoping). Groups nested deeper than this limit "
+                "are not included.",
+                _GROUP_TRAVERSAL_MAX_DEPTH,
+                getattr(user, "pk", user),
+            )
+    return all_ids
+
+
 class Group(models.Model):
     """A workspace that groups boards and members; supports nested subgroups up to 6 levels deep."""
 

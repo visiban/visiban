@@ -13,7 +13,7 @@ from rest_framework.response import Response
 
 from accounts.models import User
 from groups.broadcast import broadcast_group_event as _broadcast_group_event
-from groups.models import Group, GroupMembership, get_accessible_group_ids
+from groups.models import Group, GroupMembership
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -21,7 +21,7 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..models import (
-    Board, BoardFavorite, BoardMembership, Notification, SavedFilter, Swimlane,
+    BoardFavorite, BoardMembership, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import (
@@ -29,7 +29,7 @@ from ..serializers import (
     SavedFilterSerializer,
 )
 from ..utils import create_template_columns, resolve_board_template
-from ._helpers import get_board_for_user
+from ._helpers import get_board_for_user, get_accessible_boards_queryset
 from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
 
@@ -92,14 +92,11 @@ class BoardViewSet(
 
     def get_queryset(self):
         user = self.request.user
-        if user.can_access_all_content:
-            qs = Board.objects.all()
-        else:
-            qs = Board.objects.filter(
-                Q(owner=user) |
-                Q(memberships__user=user) |
-                Q(group__in=get_accessible_group_ids(user))
-            ).distinct()
+        # Access-scoping (owner / direct membership / group ancestry / site-admin)
+        # is factored out to get_accessible_boards_queryset() so the cross-board
+        # card query endpoint (#1112) shares the same rule instead of a second
+        # copy that can drift.
+        qs = get_accessible_boards_queryset(user)
         if self.request.query_params.get("starred") == "true":
             qs = qs.filter(favorites__user=user)
         # select_related("owner", "group") prevents one JOIN-per-board for the
