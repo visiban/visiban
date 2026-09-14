@@ -147,22 +147,22 @@ class CardUpdateValidationTests(TestCase):
 
     @patch(PATCH_BROADCAST)
     def test_update_card_column_to_different_board_column(self, _):
-        """Updating a card's column to one from a different board via PATCH.
+        """Updating a card's column to one from a different board via PATCH is rejected (#1106).
 
-        The CardSerializer accepts a column PK without board scoping, so
-        Django will happily save the FK. However, the card remains scoped
-        to board_a in the URL, and the column actually belongs to board_b.
-        Document the current behavior.
+        CardSerializer.column is scoped to the card's own board, and
+        CardViewSet.update() additionally rejects any column/swimlane change
+        outside the /move/ endpoint. The card must be left completely
+        unchanged — no partial FK swap, no CardMovement record.
         """
         r = self.client.patch(
             f"/api/v1/boards/{self.board_a.id}/cards/{self.card.id}/",
             {"column": self.col_b.id},
         )
-        # Current behavior: the serializer does not cross-validate the
-        # column's board against the card's board on plain update (PATCH).
-        # We document the status code so that if validation is later added
-        # (returning 400), this test will need updating.
-        self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST])
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(r.json().get("code"), "use_move_endpoint")
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col_a.id)
+        self.assertEqual(self.card.board_id, self.board_a.id)
 
     @patch(PATCH_BROADCAST)
     def test_update_board_name_to_empty_string(self, _):
