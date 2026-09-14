@@ -197,6 +197,9 @@ release_args() {
 --set frontend.image.pullPolicy=Never
 --set-string secret.djangoSecretKey=netpol-drill-key-aaaaaaaaaaaaaaaaaaaaaaaa
 --set backend.settings.allowedHosts=netpol.visiban.local
+--set backend.settings.corsAllowedOrigins=http://netpol.visiban.local
+--set backend.settings.frontendUrl=http://netpol.visiban.local
+--set backend.settings.siteDomain=netpol.visiban.local
 --set backend.settings.forceInsecureCookies=true
 --set backend.email.backend=console
 --set backend.mediaPersistence.enabled=false
