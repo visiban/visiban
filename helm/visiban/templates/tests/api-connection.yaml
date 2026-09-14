@@ -52,6 +52,12 @@ spec:
       securityContext:
         allowPrivilegeEscalation: false
         runAsNonRoot: true
+        # curlimages/curl's image user is the non-numeric "curl_user" (uid 100),
+        # and the kubelet can only verify runAsNonRoot against a numeric UID —
+        # it does not read /etc/passwd. Without this, CreateContainerConfigError:
+        # "image has non-numeric user (curl_user), cannot verify user is non-root".
+        runAsUser: 100
+        runAsGroup: 101
         readOnlyRootFilesystem: true
         capabilities:
           drop: ["ALL"]
