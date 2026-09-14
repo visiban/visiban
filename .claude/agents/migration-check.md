@@ -27,10 +27,19 @@ Flag each of the following as 🔴 **Blocking** (must be addressed before merge)
 - `NOT NULL` constraint added to an existing column without a `default` — fails on non-empty tables
 - Renaming a column or table without a transition period — breaks old code immediately
 - Unique constraint added to a column that may have duplicates in production data
+- **A non-concurrent index or constraint build** (#1081) — takes `ACCESS EXCLUSIVE` on the table for the whole build, which on `cards` is a full outage. All of these are the same defect, and everything after the first is what actually gets missed in review:
+  - `migrations.AddIndex` / `migrations.AddConstraint`
+  - `db_index=True` on a field in `AddField` / `AlterField` against an **existing** table (inside `CreateModel` it is fine — new table, no rows, no readers)
+  - `unique=True` on a field in `AddField` / `AlterField` against an existing table — Django builds a unique index for it; this is the one that does not look like an index at all
+  - `AlterUniqueTogether` / `AlterIndexTogether`
+  - raw `CREATE INDEX` in `RunSQL` / `RunPython` without `CONCURRENTLY`
+  - a concurrent operation sharing a migration with **any other schema operation** — `atomic = False` has no rollback, so a later failure wedges the migration
+  - a concurrent operation in a migration that forgot `atomic = False` — `NotSupportedError` at `migrate` time
+  
+  The fix is `visiban.db_operations` (`AddIndexConcurrently`, or `AddConstraintNotValid` + `ValidateConstraint` for a check constraint) with `atomic = False` on the `Migration` class; a unique constraint needs `SeparateDatabaseAndState` plus a vendor-guarded `CREATE UNIQUE INDEX CONCURRENTLY`, because `NOT VALID` is not accepted for uniqueness. The escape hatch is an inline `# concurrency-exempt: <reason>` comment with a real reason. Verify with `cd backend && python manage.py check_migration_concurrency`, and see `docs/development/database-migrations.md`.
 
 **🟡 Risky (requires explicit acknowledgement):**
-- Adding a new `NOT NULL` field with a `default` — safe but locks table on large tables in PostgreSQL without `CONCURRENTLY`
-- Adding an index — use `Meta: indexes` with `db_index=True`; for large tables, prefer a separate `RunSQL` migration with `CREATE INDEX CONCURRENTLY`
+- Adding a new `NOT NULL` field with a `default` — safe but locks the table on large tables in PostgreSQL
 - Changing a field type (e.g. `CharField` → `TextField`) — usually safe in PostgreSQL but confirm
 - Data migrations (`RunPython`) — verify idempotency and that they handle empty tables
 

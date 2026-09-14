@@ -81,7 +81,7 @@ Visiban enforces strict migration authoring rules that make the upgrade sequence
 
 During the upgrade window (between step 3 and step 4 above), two versions of the application code are running against the same database schema: the old code reading the migrated schema, and the new code starting up against it. For zero-downtime upgrades to work, the schema after migration must be fully compatible with both versions simultaneously.
 
-Three patterns break this compatibility and are therefore prohibited:
+Four patterns break this compatibility — or block the upgrade outright — and are therefore prohibited:
 
 ### Rule 1 — Every new column must be nullable or have a default
 
@@ -115,6 +115,31 @@ Renaming a column in a single migration causes the old code to fail on every que
 1. Release N: add the new column (nullable), start populating it alongside the old one.
 2. Release N+1: switch all reads and writes to the new column. Retain the old column.
 3. Release N+2: drop the old column.
+
+### Rule 4 — Every index and constraint is built concurrently
+
+The first three rules keep the *schema* compatible across the upgrade window. This one keeps
+`migrate` itself from being the outage.
+
+A plain `CREATE INDEX` or `ALTER TABLE ... ADD CONSTRAINT` holds an `ACCESS EXCLUSIVE` lock on
+its table for the entire build — every read and every write to that table blocks until it
+finishes. On `cards` that is the whole product, and on a large instance an index build is
+minutes, not milliseconds.
+
+Since 1.2, every index Visiban adds is built with `CREATE INDEX CONCURRENTLY` and every check
+constraint is added `NOT VALID` and validated separately. Neither takes a lock that blocks
+readers or writers, so step 3 of the upgrade above can run while the old containers are still
+serving traffic. A CI gate fails the build on any migration that regresses to the blocking
+form — see [Database migrations](../development/database-migrations.md) for the pattern and
+the authoring rules.
+
+!!! note "Migrations added before 1.2"
+    Fourteen migrations predate this rule and still build their indexes with a lock. If you are
+    replaying them against an already-populated database — the restore-then-migrate case, for
+    example loading a pre-1.1 dump into a 1.2 deployment — you can build those indexes by hand
+    with `CONCURRENTLY` first and then `migrate --fake` past them. The full list and the exact
+    procedure are in
+    [Database migrations](../development/database-migrations.md#the-pre-1081-migrations-decision-and-reasoning).
 
 ---
 
