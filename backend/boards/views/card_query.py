@@ -23,6 +23,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 
+from accounts.permissions import TokenHasScope
 from accounts.serializers import BoardUserSerializer
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
@@ -204,6 +205,7 @@ class CardQueryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
     throttle_classes = [CardQueryRateThrottle]
     serializer_class = CardQuerySerializer
