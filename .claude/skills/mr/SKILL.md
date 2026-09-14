@@ -146,16 +146,13 @@ Rules:
 - **One line per gate that ran**, using the gate's exact registered name:
   `architect`, `ux-design`, `ux-review`, `security-review`, `rbac-check`,
   `perf-check`, `broadcast-check`, `migration-check`, `regression-check`,
-  `enterprise-check`, `dependency`, `test-scaffold`, `changelog`, `docs`,
+  `enterprise-check`, `dependency`, `test-scaffold`, `changelog`, `docs-writer`,
   `api-docs`, or `voc` (the established shorthand for `voice-of-customer` used
   throughout `CLAUDE.md`). Exact names matter. **Before adding a name here,
   confirm the corresponding file exists under `.claude/agents/` or
   `.claude/skills/`** — a name that resolves to nothing is a phantom gate: the
   ledger tallies it as covered while it can never actually run, which is worse
-  than no gate at all. (Note: `CLAUDE.md`'s gate table currently says
-  `docs-writer`; the registered agent is `.claude/agents/docs.md`. Use `docs` in
-  the ledger until that naming is reconciled — flag the mismatch to the user
-  rather than silently perpetuating a phantom name.)
+  than no gate at all.
 - **Design-stage gates belong on the ledger too.** `architect`, `ux-design`, and
   `voc` already run before any code exists. Their `<N>` is the count of findings
   that **changed the design** — a gap closed before coding, a risk mitigated or

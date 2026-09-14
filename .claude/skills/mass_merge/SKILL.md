@@ -230,16 +230,16 @@ checkout.** Two failure modes make the shared checkout the wrong place:
    that work.
 
 ```bash
-SIM=../visiban-wt/_mmsim
-git branch -f _mass_merge_sim origin/main
-git worktree add "$SIM" _mass_merge_sim
-# symlink the shared deps — `scripts/wt new` does this; a bare `worktree add`
-# does not, and without them ruff/tsc/vitest die looking for their installs.
-ln -sfn "$PWD/backend/.venv"        "$SIM/backend/.venv"
-ln -sfn "$PWD/frontend/node_modules" "$SIM/frontend/node_modules"
-ln -sfn "$PWD/node_modules"          "$SIM/node_modules"
+scripts/wt new chore/mass-merge-sim   # counts against WT_CAP like any other worktree
+SIM=../visiban-wt/mass-merge-sim
 cd "$SIM"
+git reset --hard origin/main          # wt new branches off origin/main already; this is belt-and-suspenders
 ```
+
+Using `scripts/wt new` here (rather than a bare `git worktree add`) gets the
+symlinks (`.venv`, `node_modules`) and the isolated `backend/.env`/`WT_E2E_PORT`
+for free — a bare `worktree add` gets none of them, and without the symlinks
+`ruff`/`tsc`/`vitest` die looking for their installs.
 
 For each `iid` in order (let `B` = its `source_branch`):
 
@@ -283,12 +283,16 @@ it — the coupling is a registry invariant, not a text overlap):
 
 ```bash
 cd frontend && npx vitest run                                    # if the batch touches frontend/src
-cd backend  && pytest -q                                         # if it touches backend/ (needs the shared postgres/valkey stack up)
+cd backend  && pytest -q                                         # if it touches backend/
 ```
 
-Backend tests need the docker-compose services running — `docker compose up -d
-postgres valkey` (or the full stack) from the main checkout first, since the sim
-worktree shares them via `COMPOSE_PROJECT_NAME`.
+`scripts/wt new` seeds the sim worktree's `backend/.env` with an isolated
+SQLite database, so `pytest` here needs nothing running — it doesn't touch the
+shared Postgres/Valkey stack at all. Only fall back to
+`docker compose up -d postgres valkey` (sharing them via `COMPOSE_PROJECT_NAME`)
+if the batch specifically touches code that requires Postgres/Valkey semantics
+SQLite doesn't reproduce (e.g. a migration using Postgres-specific SQL, or
+WebSocket/channels behavior backed by Valkey).
 
 **Phase A still runs no Playwright e2e, and adding the unit suites does not
 close that.** The full e2e suite is too slow to run per stack-add, so the
@@ -318,12 +322,14 @@ earlier MRs. A `--dry-run` table showing zero conflicts still means editing
 contributors' branches, so get explicit approval for that up front rather than
 presenting the batch as hands-off.
 
-Clean up (from the main checkout, once Phase A is done):
+Clean up (from the main checkout, once Phase A is done). `scripts/wt remove`
+would refuse — the sim branch is intentionally full of merge commits and
+diverged state that isn't going anywhere — so remove it directly:
 
 ```bash
 cd <main-checkout>
-git worktree remove ../visiban-wt/_mmsim --force
-git branch -D _mass_merge_sim
+git worktree remove ../visiban-wt/mass-merge-sim --force
+git branch -D chore/mass-merge-sim
 ```
 
 **Report the simulation as a table** — for each MR: merges-clean? and check

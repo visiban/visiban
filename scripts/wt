@@ -36,6 +36,14 @@
 # main checkout so installs aren't duplicated. A running Docker Compose stack is
 # shared via COMPOSE_PROJECT_NAME, exported in the generated .envrc for direnv users.
 #
+# Test isolation: backend/.env is seeded with an isolated SQLite database (each
+# worktree is already its own directory, so this needs no port arithmetic — see
+# docs/getting-started/installation.md § Local Development) unless backend/.env
+# already exists. The frontend e2e dev server gets its own port via WT_E2E_PORT,
+# a deterministic offset derived from the worktree's slug and probed against
+# sibling worktrees + live listeners — see resolve_e2e_port_offset. Skip either
+# by deleting the seeded backend/.env or unsetting WT_E2E_PORT in .envrc.
+#
 # WIP discipline: warns at WT_WARN (default 8), errors at WT_CAP (default 10).
 #
 # Issue check-out lock: all agents share one GitLab identity, so an assignee or a
@@ -54,6 +62,8 @@
 #   WT_COMPOSE_PROJECT  shared compose project name       (default repo dir name)
 #   WT_SYMLINK_DIRS     space-separated dev-dep dirs to symlink (default: auto-detect)
 #   WT_LOCK_LABEL       GitLab label used for the issue check-out lock (default: status::wip)
+#   WT_E2E_PORT_BASE / WT_E2E_PORT_SPAN
+#                       Playwright dev-server port range (default: 15173, span 800)
 
 set -euo pipefail
 
@@ -77,6 +87,14 @@ WT_WARN="${WT_WARN:-8}"
 COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-$REPO_NAME}}"
 WT_LOCK_LABEL="${WT_LOCK_LABEL:-status::wip}"
 WT_STASH_NS="refs/wt-stash"
+
+# Test isolation: backend tests get their own SQLite file for free (each
+# worktree is already a separate directory — see cmd_new); the frontend e2e
+# dev server needs an explicit distinct port, since playwright.config.ts
+# hardcodes one and `reuseExistingServer` would otherwise make a second
+# worktree's Playwright run silently attach to a FIRST worktree's dev server.
+WT_E2E_PORT_BASE="${WT_E2E_PORT_BASE:-15173}"
+WT_E2E_PORT_SPAN="${WT_E2E_PORT_SPAN:-800}"
 
 # Default branch = origin/HEAD target, falling back to main.
 DEFAULT_BRANCH="$(git -C "$REPO_ROOT" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')"
@@ -293,6 +311,72 @@ wt_stash_has_entries() {
 }
 
 # ---------------------------------------------------------------------------
+# Frontend e2e port isolation
+# ---------------------------------------------------------------------------
+#
+# playwright.config.ts and package.json's `dev` script default to a single
+# hardcoded port. Two worktrees running Playwright at once either fight over
+# that port or, worse, `reuseExistingServer` makes the second one silently
+# test against the FIRST worktree's already-running dev server. Each worktree
+# instead gets a deterministic offset derived from its own slug — stable
+# across recreations of the same branch — probed forward until it lands on a
+# port no sibling worktree has claimed and nothing is already listening on.
+
+# The Playwright port a worktree was given, read back from its own .envrc.
+# awk (not `sed | head`) so there is no pipe into SIGPIPE under `pipefail`.
+worktree_e2e_port() {
+  local path="$1"
+  [[ -f "$path/.envrc" ]] || return 0
+  awk -F= '/^export WT_E2E_PORT=/ { print $2; exit }' "$path/.envrc"
+}
+
+# Every e2e port currently claimed by a live worktree, one per line.
+claimed_e2e_ports() {
+  local path port
+  while IFS= read -r path; do
+    [[ -z "$path" || "$path" == "$REPO_ROOT" ]] && continue
+    port="$(worktree_e2e_port "$path")"
+    [[ -n "$port" ]] && printf '%s\n' "$port"
+  done < <(git -C "$REPO_ROOT" worktree list --porcelain | awk '/^worktree /{print $2}')
+}
+
+# Deterministic offset in [0, WT_E2E_PORT_SPAN) derived from the slug via
+# POSIX cksum (CRC-32, identical on macOS and Linux) — the same slug every
+# time the branch is recreated lands on the same port, which is what makes a
+# stale .envrc harmless rather than a footgun.
+port_offset_for_slug() {
+  local slug="$1" sum
+  sum="$(printf '%s' "$slug" | cksum | awk '{print $1}')"
+  printf '%s' "$(( sum % WT_E2E_PORT_SPAN ))"
+}
+
+# True when nothing is listening on 127.0.0.1:$1. Uses bash's /dev/tcp rather
+# than lsof/nc: a builtin, so nothing extra to install, and no BSD-vs-GNU flag
+# divergence to trip over.
+port_is_free() {
+  local port="$1"
+  ( exec 3<>"/dev/tcp/127.0.0.1/${port}" ) >/dev/null 2>&1 && return 1
+  return 0
+}
+
+# Resolve the offset this worktree will use: start at the slug's own
+# deterministic offset, then probe forward until the candidate port is both
+# unclaimed by a sibling worktree's .envrc and unbound by any live process.
+# Falls back to the slug's own offset if every slot is somehow taken.
+resolve_e2e_port_offset() {
+  local slug="$1" start offset i port claimed
+  start="$(port_offset_for_slug "$slug")"
+  claimed="$(claimed_e2e_ports)"
+  for (( i = 0; i < WT_E2E_PORT_SPAN; i++ )); do
+    offset=$(( (start + i) % WT_E2E_PORT_SPAN ))
+    port=$(( WT_E2E_PORT_BASE + offset ))
+    if printf '%s\n' "$claimed" | grep -qx "$port"; then continue; fi
+    if port_is_free "$port"; then printf '%s' "$offset"; return 0; fi
+  done
+  printf '%s' "$start"
+}
+
+# ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
 
@@ -368,21 +452,47 @@ cmd_new() {
     warn "no dev-dep dirs found in main checkout to symlink (checked: ${WT_SYMLINK_CANDIDATES[*]})"
   fi
 
+  # Backend test isolation: seed backend/.env with an isolated SQLite database
+  # instead of the shared Postgres stack, so tests in this worktree can never
+  # collide with another worktree's data — each worktree is already its own
+  # directory, so a relative sqlite:/// path is isolated by construction, no
+  # port arithmetic needed. Only when this repo has a backend/ dir with a
+  # .env.example to seed from, and only if backend/.env isn't already there
+  # (never overwrite something the branch itself carries or the user made).
+  if [[ -d "$target_path/backend" && -f "$REPO_ROOT/.env.example" && ! -e "$target_path/backend/.env" ]]; then
+    sed -E 's#^DATABASE_URL=.*#DATABASE_URL=sqlite:///db.sqlite3#' \
+      "$REPO_ROOT/.env.example" > "$target_path/backend/.env"
+    ok "seeded backend/.env with an isolated SQLite database (see docs/getting-started/installation.md § Local Development)"
+  fi
+
+  # Frontend e2e port isolation: playwright.config.ts reads WT_E2E_PORT (falls
+  # back to 5173) so two worktrees' Playwright runs never fight over the same
+  # port or, worse, silently reuse each other's dev server.
+  local e2e_port=""
+  if [[ -d "$target_path/frontend" ]]; then
+    e2e_port=$(( WT_E2E_PORT_BASE + $(resolve_e2e_port_offset "$short_name") ))
+  fi
+
   # .envrc for direnv users. Reuses the running Docker stack via the shared
   # compose project name; no-op if direnv/docker aren't in use.
-  cat > "$target_path/.envrc" <<EOF
-# Auto-generated by scripts/wt. Reuses the running Docker stack from the main
-# checkout via the shared compose project name.
-export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME_DEFAULT}
-EOF
+  {
+    printf '# Auto-generated by scripts/wt. Reuses the running Docker stack from the main\n'
+    printf '# checkout via the shared compose project name.\n'
+    printf 'export COMPOSE_PROJECT_NAME=%s\n' "$COMPOSE_PROJECT_NAME_DEFAULT"
+    if [[ -n "$e2e_port" ]]; then
+      printf '\n# Isolates this worktree'"'"'s Playwright dev server from every sibling\n'
+      printf '# worktree'"'"'s — see resolve_e2e_port_offset in scripts/wt.\n'
+      printf 'export WT_E2E_PORT=%s\n' "$e2e_port"
+    fi
+  } > "$target_path/.envrc"
 
   ok "created worktree at $target_path on branch $branch"
   say ""
   dim "  cd $target_path"
   if command -v direnv >/dev/null 2>&1; then
-    dim "  direnv allow                           # picks up COMPOSE_PROJECT_NAME"
+    dim "  direnv allow                           # picks up COMPOSE_PROJECT_NAME${e2e_port:+ + WT_E2E_PORT}"
   else
-    dim "  source .envrc                          # or set COMPOSE_PROJECT_NAME manually"
+    dim "  source .envrc                          # or set the vars above manually"
   fi
 }
 
@@ -625,6 +735,28 @@ cmd_doctor() {
       ok "  COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME_DEFAULT}"
     else
       warn "  COMPOSE_PROJECT_NAME not set to '${COMPOSE_PROJECT_NAME_DEFAULT}'; run: source .envrc"
+    fi
+
+    if [[ -d "$here/backend" ]]; then
+      if [[ -f "$here/backend/.env" ]] && grep -q '^DATABASE_URL=sqlite' "$here/backend/.env" 2>/dev/null; then
+        ok "  backend/.env → isolated SQLite database"
+      elif [[ -f "$here/backend/.env" ]]; then
+        warn "  backend/.env exists but is not pointed at an isolated SQLite database — backend tests may hit a shared database"
+      else
+        warn "  backend/.env missing — backend tests/dev server won't start; run 'wt new' to recreate, or seed one manually"
+      fi
+    fi
+    if [[ -d "$here/frontend" ]]; then
+      local port; port="$(worktree_e2e_port "$here")"
+      if [[ -n "$port" ]]; then
+        if [[ "${WT_E2E_PORT:-}" == "$port" ]]; then
+          ok "  WT_E2E_PORT=${port}"
+        else
+          warn "  WT_E2E_PORT=${port} in .envrc but not exported in this shell; run: source .envrc"
+        fi
+      else
+        warn "  no WT_E2E_PORT in .envrc — Playwright will default to 5173 and may collide with a sibling worktree"
+      fi
     fi
   fi
 

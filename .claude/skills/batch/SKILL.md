@@ -96,14 +96,18 @@ scripts/wt new <issue>      # branch + worktree off latest origin/main, claims s
   delete another session's worktree to make room; a worktree you did not
   create belongs to someone else's session.
 - Each worktree's `.envrc` sets `COMPOSE_PROJECT_NAME` to reuse the main
-  checkout's running Docker Compose stack — there is **no per-worktree test
-  database isolation** in this project (unlike some sibling projects). If two
-  agents in the same wave both run backend tests concurrently against the
-  shared Postgres/Valkey containers, they can collide on the same Django test
-  database name. Either serialize `pytest`/`manage.py test` runs across the
-  wave's agents, or have each agent's brief set a distinct `DATABASE_URL`
-  before running backend tests. Frontend `vitest`/`playwright` runs do not hit
-  this — they don't share stateful services the same way.
+  checkout's running Docker Compose stack (for anything that genuinely needs
+  Postgres/Valkey, e.g. WebSocket/channels work), but `wt new` also seeds a
+  worktree-local `backend/.env` pointing at an **isolated SQLite database** —
+  each worktree is already its own directory, so `pytest`/`manage.py test`
+  runs never collide across agents, no port arithmetic needed. Tell each
+  agent's brief not to overwrite that seeded `backend/.env` unless the issue
+  specifically needs the shared Postgres stack.
+- Frontend e2e is isolated too: `wt new` writes a deterministic `WT_E2E_PORT`
+  into `.envrc`, which `playwright.config.ts` reads — without it, a second
+  agent's Playwright run would either fight over port 5173 or (worse) silently
+  attach to a sibling worktree's already-running dev server via
+  `reuseExistingServer`. `source .envrc` (or direnv) before running e2e.
 - `git stash` is **not** worktree-scoped. Tell every agent to use
   `scripts/wt stash`, never bare `git stash` — see `scripts/wt help`.
 
