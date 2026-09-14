@@ -42,7 +42,13 @@ spec:
   containers:
     - name: probe
       image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
-      imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+      # Literal, not backend.image.pullPolicy: this is always a public probe
+      # image pulled from a registry, never a locally-built one. Reusing
+      # backend.image.pullPolicy inherited Never from the kind drills (which
+      # side-load their own backend/frontend images and never pull), so the
+      # probe pod could never start — ErrImageNeverPull on an image that was
+      # never meant to be side-loaded in the first place.
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         runAsNonRoot: true

@@ -192,6 +192,17 @@ valkey:
   architecture: standalone
   auth:
     enabled: false
+  # The subchart's own NetworkPolicy defaults to networkPolicy.allowExternal
+  # true, which renders an ingress rule with no `from` restriction at all —
+  # "accept connections from any source" on the Valkey port. NetworkPolicies
+  # are additive, so that alone opens port 6379 to every pod in the namespace
+  # regardless of how restrictive templates/networkpolicy.yaml's own
+  # allow-backend-valkey rule is (#1116: caught by the netpol drill's
+  # unlabeled-pod-is-denied negative probe). Disabled so this chart's own
+  # policy — the single declared allow-list — is the only one governing
+  # ingress to Valkey.
+  networkPolicy:
+    enabled: false
   primary:
     persistence:
       enabled: false
