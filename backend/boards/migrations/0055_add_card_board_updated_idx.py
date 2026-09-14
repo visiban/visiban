@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("boards", "0052_board_show_wip_at_limit"),
+        ("boards", "0054_fix_board_template_drift"),
     ]
 
     operations = [

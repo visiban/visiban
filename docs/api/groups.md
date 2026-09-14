@@ -106,7 +106,7 @@ Create a board in this group. Requires group admin. Boards created here inherit 
 |---|---|---|
 | `name` | Yes | Board display name |
 | `description` | No | Optional free-text description |
-| `template` | No | Template slug to pre-populate columns. Valid values match those from `GET /api/v1/boards/templates/` (e.g. `simple_kanban`, `sales_pipeline`, `customer_support`). Default: `simple_kanban`. |
+| `template` | No | Template slug to pre-populate columns. Valid values match those from `GET /api/v1/boards/templates/` (e.g. `simple_kanban`, `sales_pipeline`, `customer_support`). Default: `simple_kanban`. Omitting the field (or sending `""`/`null`) uses the default; a non-blank slug that doesn't match an active template returns `400 {"code": ["unknown_template"], ...}` — same validation and error shape as `POST /api/v1/boards/` (#1115). |
 | `swimlane_name` | No | Label for the swimlane axis (e.g. `"Customer"`, `"Team"`). Defaults to `"General"` |
 
 ### `GET /api/v1/groups/{id}/descendant-boards/`

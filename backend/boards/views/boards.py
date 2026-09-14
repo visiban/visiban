@@ -21,14 +21,14 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..models import (
-    BoardFavorite, BoardMembership, Column, Notification, SavedFilter, Swimlane,
+    BoardFavorite, BoardMembership, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import (
     BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
     SavedFilterSerializer,
 )
-from ..templates import BOARD_TEMPLATES
+from ..utils import create_template_columns, resolve_board_template
 from ._helpers import get_board_for_user, get_accessible_boards_queryset
 from .analytics import BoardAnalyticsMixin
 from .import_export import BoardImportExportMixin
@@ -131,27 +131,17 @@ class BoardViewSet(
             board = serializer.save(owner=self.request.user)
             BoardMembership.objects.create(board=board, user=self.request.user, role=BoardMembership.Role.ADMIN)
 
-            template_key = self.request.data.get("template", "simple_kanban")
-            template = BOARD_TEMPLATES.get(template_key, BOARD_TEMPLATES["simple_kanban"])
-
-            if template["columns"]:
-                Column.objects.bulk_create([
-                    Column(
-                        board=board,
-                        name=col["name"],
-                        position=i,
-                        color=col["color"],
-                        allow_card_creation=(i == 0),
-                        is_done=col.get("is_done", False),
-                    )
-                    for i, col in enumerate(template["columns"])
-                ])
+            # `template` was already validated by BoardSerializer (unknown
+            # explicit slugs are rejected with a 400 before perform_create
+            # ever runs) — resolve_board_template() just looks up the row to
+            # apply, defaulting the omitted/blank case to simple_kanban (#1115).
+            template = resolve_board_template(serializer.validated_data.get("template", ""))
+            create_template_columns(board, template)
 
             # Prefer the user-supplied swimlane name from the modal prompt;
-            # fall back to the legacy static default for backwards compatibility.
+            # no template currently defines a non-empty default, so an
+            # omitted swimlane_name simply creates no swimlane.
             swimlane_name = (self.request.data.get("swimlane_name") or "").strip()
-            if not swimlane_name:
-                swimlane_name = template.get("default_swimlane") or ""
             if swimlane_name:
                 Swimlane.objects.create(board=board, name=swimlane_name, position=0, color="#6B7280")
 

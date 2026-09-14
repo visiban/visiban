@@ -45,3 +45,28 @@ ANALYTICS_EXTENSIONS: list = []
 # OSS behaviour is unchanged when this list is empty (the check is guarded by
 # ``if hooks.CARD_MUTATION_HOOKS:`` at each call site).
 CARD_MUTATION_HOOKS: list = []
+
+# Board template registration hook (#1115) — lets an installed package (e.g. an
+# enterprise or other downstream add-on) register its own board templates
+# without an OSS code change or a data migration in this repo.
+# Callable signature: () -> list[dict]
+# Each dict has the same shape as one entry of boards.templates.BOARD_TEMPLATES
+# plus an explicit "slug" key (BOARD_TEMPLATES doesn't need one — its dict keys
+# already are the slug; a provider returns free-standing dicts so it must
+# include it):
+#   {"slug": str, "name": str, "description": str, "icon": str,
+#    "sort_order": int, "is_active": bool, "lane_label": str,
+#    "lane_placeholder": str,
+#    "columns": [{"name": str, "color": str, "is_done": bool}, ...]}
+# Register via: from boards.hooks import TEMPLATE_PROVIDERS
+#               TEMPLATE_PROVIDERS.append(my_provider)
+# Consumed by boards.template_sync.sync_board_templates(), which runs at
+# every `migrate` for the boards app (via a post_migrate signal connected in
+# BoardsConfig.ready()) — see that module for the idempotent insert-only
+# conflict policy. A provider callable that raises, or returns a dict with an
+# already-registered slug, is skipped with a logged warning rather than
+# failing the sync for every other provider or for the built-in templates —
+# same defensive pattern as ANALYTICS_EXTENSIONS in boards/views/analytics.py.
+# OSS behaviour (11 built-in templates, no others) is unchanged when this
+# list is empty.
+TEMPLATE_PROVIDERS: list = []

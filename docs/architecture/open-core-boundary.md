@@ -52,7 +52,7 @@ This document records the OSS vs enterprise classification for every feature are
 | Scheduled report emails | Enterprise | Automated digest delivery | enterprise #13 |
 | Custom dashboards (multi-board widgets) | Enterprise | Advanced cross-board visibility | enterprise #14 |
 | Slack/Teams notifications | Enterprise | Third-party integrations | enterprise #16 |
-| Board template visual editor | Enterprise | Basic template creation via API/admin is sufficient for OSS | enterprise #3 |
+| Board template visual editor | Enterprise | Basic template creation via API/admin, or installed-package registration (see `TEMPLATE_PROVIDERS`, #1115), is sufficient for OSS | enterprise #3 |
 | Data retention policies (auto-delete/archive) | Enterprise | Compliance/legal-hold tooling; manual archiving is OSS | enterprise #19 |
 | Multi-tenancy / organization management | Enterprise | Multiple groups under one billing entity | enterprise #21 |
 | Usage quotas and plan limits | Enterprise | SaaS tier management | enterprise #22 |
@@ -209,6 +209,7 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 | `VISIBAN_AUTOMATION_BACKEND` setting | Enterprise automation (enterprise #8) | Not yet implemented |
 | `MOVEMENT_EXPORT_BACKENDS` list (`boards/hooks.py`) | Enterprise delivery report export (#342 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise advanced analytics (#341 enterprise) | ✅ Implemented — `boards/hooks.py` |
+| `TEMPLATE_PROVIDERS` list (`boards/hooks.py`) | External board-template registration by installed packages (#1115; tracked further in #504) | ✅ Implemented — `boards/hooks.py` + `boards/template_sync.py`, synced via `post_migrate` in `BoardsConfig.ready()` |
 | `post_notification_created` signal | Enterprise channel delivery (enterprise #34) | Not yet implemented |
 | `BaseSnapshotStorage` / `SNAPSHOT_STORAGE_BACKEND` | Enterprise S3 snapshots (enterprise #37) | Not yet implemented |
 | `post_reminder_due` signal | Enterprise reminder delivery (enterprise #35) | Not yet implemented |

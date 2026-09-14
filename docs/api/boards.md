@@ -21,9 +21,15 @@ Create a board.
 |---|---|---|
 | `name` | ✓ | Board name |
 | `description` | | Board description (default: `""`) |
-| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. |
+| `template` | | Template slug to use for column layout (default: `"simple_kanban"`). See `GET /api/v1/boards/templates/` for available slugs. Omitting the field (or sending `""`/`null`) uses the default; sending a non-blank slug that doesn't match an active template returns `400` — see **Errors** below. |
 | `swimlane_name` | | Name for the first swimlane (default: `"General"`) |
 | `group` | | Integer group ID — assigns the board to this group at creation time. The caller must be a group member. |
+
+**Errors**
+
+| Status | Body | Condition |
+|---|---|---|
+| `400 Bad Request` | `{"code": ["unknown_template"], "detail": ["Unknown board template: '...'."]}` | `template` was sent as a non-blank value that doesn't match an active template's slug. This is deliberately distinct from a generic per-field validation error — a stale or mistyped `template` value previously created a `simple_kanban` board with a `201` instead of surfacing the mistake (#1115). |
 
 ### `GET /api/v1/boards/{id}/`
 Get board summary. Response includes:
@@ -96,6 +102,8 @@ Move board to a different group (or `null` for personal).
 ### `GET /api/v1/boards/templates/`
 List all active board templates. Requires authentication. Used by the board creation modal to populate the template picker.
 
+This endpoint and board creation (`POST /api/v1/boards/`, `POST /api/v1/groups/{id}/boards/`) read the same `BoardTemplate` database table — a template's listed columns are exactly the columns a board created with it will get (#1115).
+
 **Response**
 ```json
 [
@@ -119,9 +127,11 @@ List all active board templates. Requires authentication. Used by the board crea
 | `slug` | Stable identifier (used by integrations) |
 | `lane_label` | Label for the "first swimlane" step in board creation (e.g. "Account", "Project") |
 | `lane_placeholder` | Placeholder text shown in the swimlane name input |
-| `columns_json` | JSON array of column names that will be created |
+| `columns_json` | JSON array of column objects that will be created: `{name, color, position}`, plus `is_done: true` on a template's terminal column(s) (e.g. "Done", "Closed Won") — omitted (not `false`) on every other column. |
 
 Available templates: **Sales Pipeline**, **Customer Support**, **Customer Success**, **Simple Kanban**, **Product Roadmap**, **Project Delivery**, **Content Production**, **Hiring & Recruiting**, **Legal & Compliance**, **Infrastructure & DevOps**, **Blank Board**.
+
+**Registering additional templates.** An installed package (not just enterprise) can register more templates without an OSS code change or migration via `boards.hooks.TEMPLATE_PROVIDERS` — see that module for the callable signature and conflict policy (new slugs only; an existing row, built-in or provider-registered, is never overwritten by the sync). See [`docs/architecture/open-core-boundary.md`](../architecture/open-core-boundary.md) for how this fits the OSS extension-point conventions.
 
 ### `GET /api/v1/boards/{id}/summary/`
 Board health summary — per-swimlane card counts, stage distribution, and velocity. Uses three aggregate queries regardless of board size.
