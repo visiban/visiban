@@ -34,6 +34,14 @@ Before running the script:
 - [ ] Confirm all open MRs intended for this release are merged into `main`
 - [ ] Confirm `CHANGELOG.md [Unreleased]` is up to date — if not, stop and update it first
 - [ ] Confirm the working tree is clean (`git status`) and on `main` with latest pulled
+- [ ] Run `make memory-check` (`scripts/check-memory-index.sh`) from the primary checkout to
+      budget-check the local Claude Code memory store — fails if `MEMORY.md` exceeds its byte
+      budget or an index entry (`[[wikilink]]`, `[text](file.md)`, bare `[file.md]`) points at a
+      missing file; warns on files with no `description:` frontmatter or over the size-warning
+      threshold. This is per-machine developer tooling, not a CI gate — see `CLAUDE.md`'s
+      "Memory discipline" section for why it matters at a release boundary. If it fails, fix the
+      index (restore or remove the dangling entry; trim `MEMORY.md` toward the archive) before
+      proceeding — do not tag a release on top of a broken index.
 
 ## Step 1b — Documentation audit
 
