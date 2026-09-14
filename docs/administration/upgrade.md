@@ -296,6 +296,27 @@ After rolling back, restart the backend container with the previous image versio
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
 
+!!! note "Data integrity check — cards pointing at another board's column/swimlane"
+    1.2 closes a security hole where `PATCH`/`PUT .../cards/{id}/` accepted a `column` or
+    `swimlane` id from a different board, silently detaching the card from both boards'
+    `/full/` views and skipping WIP/weight enforcement and the `CardMovement` audit trail
+    (see the changelog security entry for this release). The API now rejects such requests
+    with `400`, but rows written by a client that exploited this before upgrading are not
+    fixed automatically.
+
+    Run the new read-only management command after upgrading to find any already-corrupted
+    cards:
+
+    ```bash
+    docker compose -f docker-compose.prod.yml run --rm backend \
+      python manage.py find_cross_board_cards
+    ```
+
+    It lists every card whose `column.board_id` or `swimlane.board_id` does not match the
+    card's own `board_id`. It makes no changes — repair each reported card manually (move it
+    back to a column/swimlane on its own board via the API or admin, or archive it) since the
+    correct destination cannot be inferred automatically.
+
 ### Upgrading to 1.1.x
 
 !!! warning "Removed env-var aliases — rename before upgrading"

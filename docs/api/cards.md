@@ -111,7 +111,9 @@ Update card fields. Requires member or above.
 
 **Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`
 
-> **Do not PATCH `column` or `swimlane` directly.** These fields are present in the serializer response but patching them bypasses WIP/weight enforcement, skips `CardMovement` record creation, and skips position reordering — corrupting board state silently. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`.
+> **`column` and `swimlane` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
+
+> `column` and `swimlane` are also rejected on **create** (`POST`) when they reference a column/swimlane belonging to a different board — `400`, not `404`.
 
 > `uid` is not patchable — any `uid` value sent in the request body is silently ignored.
 
