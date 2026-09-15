@@ -5,7 +5,7 @@ Visiban can expose its boards to AI agents over the [Model Context Protocol](htt
 The feature is flag-gated: `/mcp` returns `404 Not Found` unless the server is started with `MCP_SERVER_ENABLED=true`.
 
 !!! note
-    This is the Phase 1 (OSS core) surface: board discovery and full card CRUD. MCP resources (`board://`, `card://`) and a full setup guide are tracked separately.
+    This is the Phase 1 (OSS core) surface: board discovery, full card CRUD, and the `board://`/`card://` resources below. A full setup guide is tracked separately.
 
 ---
 
@@ -287,6 +287,59 @@ Soft-deletes a card. Idempotent — archiving an already-archived card succeeds 
 
 ---
 
+## Resources
+
+> **Added in 1.2**
+
+A **resource** is MCP's second kind of server capability, alongside a tool. Where a tool is invoked with `tools/call` and takes arguments an agent chooses per call, a resource is addressed by a URI and read with `resources/read` — it exists so an agent can load a whole board's or card's context in a single round trip, instead of chaining several `list_*` tool calls together. Visiban registers two resource templates: `board://{board_id}` and `card://{card_id}`.
+
+Like every other endpoint under `/mcp`, reading a resource requires the `mcp:read` scope. Neither resource needs `mcp:write` — both are read-only.
+
+`/mcp` also now sends `Access-Control-*` headers — including a response to preflight `OPTIONS` requests — for origins listed in `CORS_ALLOWED_ORIGINS`, the same setting already used by the REST API and the WebSocket, so a browser-based MCP client can reach the server directly.
+
+### `board://{board_id}`
+
+A full read-only board snapshot: metadata, columns, swimlanes, active cards, and labels — equivalent to calling `list_columns` + `list_swimlanes` + `list_cards` and merging the results, but resolves and authorizes the board once instead of three times. All board roles may read it. Mime type `application/json`.
+
+**Returns:**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Board primary key. |
+| `name` | string | Board name. |
+| `description` | string | Board description; empty string when unset. |
+| `created_at` | string | ISO 8601 timestamp. |
+| `updated_at` | string | ISO 8601 timestamp. |
+| `columns` | array | Same shape as `list_columns`'s return above. |
+| `swimlanes` | array | Same shape as `list_swimlanes`'s return above, including the admin/site_admin-only `contact_email` rule. |
+| `cards` | array | Same shape as `list_cards`'s return above, unfiltered and excluding archived cards. |
+| `labels` | array | `{id, name, color}` objects, one per label defined on the board. |
+
+!!! note
+    `board://{board_id}` deliberately omits every web-session-only field the REST board detail response carries — `share_token`, `capabilities`, `is_starred`, `members`, `current_user_role`. These have no meaning for an AI agent reading board context, and a share token in particular is a bearer credential that must never appear in agent-facing output.
+
+### `card://{card_id}`
+
+Card detail plus full audit history. Requires board membership — any role, including `collaborator`/`viewer`. Mime type `application/json`.
+
+**Returns:** the same fields as one row of `list_cards`, plus:
+
+| Field | Type | Description |
+|---|---|---|
+| `archived_at` | string or `null` | ISO 8601 timestamp, or `null` if the card is not archived. |
+| `movements` | array | `{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by}` objects — same shape as `move_card`'s `movement` above. |
+| `checklist_items` | array | `{id, text, is_checked, position}` objects. |
+| `activities` | array | `{id, event_type, from_value, to_value, actor, created_at}` objects, newest first. |
+| `comments` | array | `{id, body, author, created_at, updated_at}` objects, oldest first. |
+
+### Resource errors
+
+Resources fail differently from tools. A tool that cannot complete returns a structured `{"error": {"code": ...}}` result (see [Tool errors](#tool-errors) above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like `No Board matches the given query.` or `No Card matches the given query.`
+
+That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the `board_not_found`/`card_not_found` tool error codes already document above. There is no way to distinguish the two cases from the response, by design.
+
+---
+
 ## Roadmap
 
-Phase 1 covers connectivity, authentication, board discovery, and full card CRUD (this release). MCP resources (`board://`, `card://`) and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.
+Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the `board://`/`card://` resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.

@@ -30,7 +30,9 @@ from accounts.models import (
     SCOPE_WRITE,
     PersonalAccessToken,
 )
-from boards.models import BoardMembership
+from boards.models import (
+    BoardMembership, CardActivity, CardChecklist, CardComment, Label,
+)
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
     _make_user,
@@ -117,6 +119,17 @@ class McpTestCase(TestCase):
                 "id": 1,
                 "method": "tools/call",
                 "params": {"name": name, "arguments": arguments or {}},
+            },
+            token=token,
+        )
+
+    def _read_resource(self, uri, token):
+        return self.client_.post(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "resources/read",
+                "params": {"uri": uri},
             },
             token=token,
         )
@@ -274,6 +287,29 @@ class ToolDiscoveryTests(McpTestCase):
     def test_tools_list_requires_auth(self):
         status, _ = self.client_.post(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token=None
+        )
+        self.assertEqual(status, 401)
+
+    def test_resource_templates_list_exposes_both_resources(self):
+        """#513: board:// and card:// must be discoverable, not just callable."""
+        status, body = self.client_.post(
+            {"jsonrpc": "2.0", "id": 1, "method": "resources/templates/list"},
+            token=self.raw_token,
+        )
+        self.assertEqual(status, 200)
+        templates = _parse_sse(body)["result"]["resourceTemplates"]
+        self.assertEqual(
+            {(t["uriTemplate"], t["mimeType"]) for t in templates},
+            {("board://{board_id}", "application/json"), ("card://{card_id}", "application/json")},
+        )
+
+    def test_resources_read_requires_auth(self):
+        status, _ = self.client_.post(
+            {
+                "jsonrpc": "2.0", "id": 1, "method": "resources/read",
+                "params": {"uri": "board://1"},
+            },
+            token=None,
         )
         self.assertEqual(status, 401)
 
@@ -435,6 +471,316 @@ class ListBoardsTests(McpTestCase):
         )
 
 
+class BoardResourceTests(McpTestCase):
+    """`board://{board_id}` — full snapshot, content + RBAC (#513)."""
+
+    def _read_board(self, board_id, token=None):
+        status, body = self._read_resource(f"board://{board_id}", token or self.raw_token)
+        self.assertEqual(status, 200)
+        payload = _parse_sse(body)
+        self.assertNotIn("error", payload, payload)
+        contents = payload["result"]["contents"]
+        self.assertEqual(len(contents), 1)
+        return json.loads(contents[0]["text"])
+
+    def _read_board_error(self, board_id, token=None):
+        status, body = self._read_resource(f"board://{board_id}", token or self.raw_token)
+        self.assertEqual(status, 200)
+        payload = _parse_sse(body)
+        self.assertIn("error", payload, payload)
+        return payload["error"]["message"]
+
+    def test_snapshot_shape_and_content(self):
+        board = _make_board(self.user, name="Snapshot", description="d")
+        column = _make_column(board, name="Doing", order=0)
+        swimlane = _make_swimlane(board, name="Lane", order=0)
+        Label.objects.create(board=board, name="bug", color="#FF0000")
+        _make_card(column, swimlane, title="Card A", position=0)
+        _make_card(
+            column, swimlane, title="Archived", position=1,
+            archived_at=timezone.now(),
+        )
+
+        data = self._read_board(board.id)
+        self.assertEqual(
+            set(data),
+            {"id", "name", "description", "created_at", "updated_at",
+             "columns", "swimlanes", "cards", "labels"},
+        )
+        self.assertEqual(data["id"], board.id)
+        self.assertEqual(data["name"], "Snapshot")
+        self.assertEqual([c["name"] for c in data["columns"]], ["Doing"])
+        self.assertEqual([s["name"] for s in data["swimlanes"]], ["Lane"])
+        # Archived cards are excluded — an agent reasoning about "the board"
+        # wants the active board state, matching list_cards' default.
+        self.assertEqual([c["title"] for c in data["cards"]], ["Card A"])
+        self.assertEqual([label["name"] for label in data["labels"]], ["bug"])
+
+    def test_web_only_fields_are_never_exposed(self):
+        """share_token and friends must never reach an AI agent (#513 architect finding)."""
+        board = _make_board(self.user, name="NoLeak")
+        data = self._read_board(board.id)
+        for leaky_field in (
+            "share_token", "share_token_expires_at", "capabilities",
+            "is_starred", "current_user_role", "members", "uid",
+        ):
+            self.assertNotIn(leaky_field, data)
+
+    def test_swimlane_contact_email_is_admin_only(self):
+        board = _make_board(self.user, name="Contact")
+        _make_swimlane(board, name="Lane", order=0, contact_email="a@example.com")
+        viewer = _make_user("viewer-board")
+        _make_membership(board, viewer, role=BoardMembership.Role.VIEWER)
+        _, viewer_token = PersonalAccessToken.generate(
+            viewer, "mcp", scopes=[SCOPE_MCP_READ]
+        )
+
+        admin_data = self._read_board(board.id)
+        self.assertEqual(admin_data["swimlanes"][0]["contact_email"], "a@example.com")
+
+        viewer_data = self._read_board(board.id, token=viewer_token)
+        self.assertNotIn("contact_email", viewer_data["swimlanes"][0])
+
+    def test_nonexistent_and_forbidden_board_return_the_identical_error(self):
+        """IDOR: a non-member must not be able to tell "no access" from "doesn't exist"."""
+        stranger = _make_user("stranger-board")
+        board = _make_board(stranger, name="Not yours")
+
+        nonexistent_message = self._read_board_error(999999)
+        forbidden_message = self._read_board_error(board.id)
+        self.assertIn("No Board matches the given query.", nonexistent_message)
+        self.assertIn("No Board matches the given query.", forbidden_message)
+
+    def test_all_board_roles_may_read_the_snapshot(self):
+        other = _make_user("role-owner-snap")
+        for role in BoardMembership.Role.values:
+            board = _make_board(other, name=f"Board {role}")
+            _make_membership(board, self.user, role=role)
+            data = self._read_board(board.id)
+            self.assertEqual(data["name"], f"Board {role}")
+
+
+class CardResourceTests(McpTestCase):
+    """`card://{card_id}` — detail + full audit history, content + RBAC (#513)."""
+
+    def _read_card(self, card_id, token=None):
+        status, body = self._read_resource(f"card://{card_id}", token or self.raw_token)
+        self.assertEqual(status, 200)
+        payload = _parse_sse(body)
+        self.assertNotIn("error", payload, payload)
+        contents = payload["result"]["contents"]
+        return json.loads(contents[0]["text"])
+
+    def _read_card_error(self, card_id, token=None):
+        status, body = self._read_resource(f"card://{card_id}", token or self.raw_token)
+        self.assertEqual(status, 200)
+        payload = _parse_sse(body)
+        self.assertIn("error", payload, payload)
+        return payload["error"]["message"]
+
+    def _setup_card(self):
+        board = _make_board(self.user, name="CardRes")
+        column = _make_column(board, name="Doing", order=0)
+        swimlane = _make_swimlane(board, name="Lane", order=0)
+        return _make_card(column, swimlane, title="Detailed", position=0)
+
+    def test_detail_shape_and_content(self):
+        card = self._setup_card()
+        CardChecklist.objects.create(card=card, text="Write tests", position=0)
+        CardComment.objects.create(card=card, author=self.user, body="hello")
+        CardActivity.objects.create(
+            card=card, event_type=CardActivity.EventType.TITLE_CHANGE,
+            from_value="Old", to_value="Detailed", actor=self.user,
+        )
+
+        data = self._read_card(card.id)
+        self.assertEqual(
+            set(data),
+            {
+                "id", "title", "description", "priority", "assignee", "labels",
+                "column", "swimlane", "due_date", "position", "created_at",
+                "updated_at", "archived_at", "movements", "checklist_items",
+                "activities", "comments",
+            },
+        )
+        self.assertEqual(data["title"], "Detailed")
+        self.assertIsNone(data["archived_at"])
+        self.assertEqual([i["text"] for i in data["checklist_items"]], ["Write tests"])
+        self.assertEqual([c["body"] for c in data["comments"]], ["hello"])
+        self.assertEqual(data["comments"][0]["author"], self.user.email)
+        self.assertEqual(
+            [a["event_type"] for a in data["activities"]],
+            [CardActivity.EventType.TITLE_CHANGE],
+        )
+
+    def test_movement_history_is_included(self):
+        card = self._setup_card()
+        board = card.board
+        second_column = _make_column(board, name="Done", order=1)
+        # move_card resolves the actor internally via the same contextvar the
+        # transport binds per-request; reset in `finally` so this leftover
+        # binding cannot leak into a later test in the same OS thread — this
+        # test calls tools.move_card() directly, bypassing the transport's
+        # own set/reset-in-finally in mcp_server/auth.py.
+        token = set_current_user(self.user)
+        try:
+            result = tools.move_card(card_id=card.id, to_column_id=second_column.id)
+        finally:
+            reset_current_user(token)
+        self.assertNotIn("error", result, result)
+
+        data = self._read_card(card.id)
+        self.assertEqual(len(data["movements"]), 1)
+        movement = data["movements"][0]
+        self.assertEqual(movement["to_column"], "Done")
+        self.assertEqual(movement["moved_by"], self.user.email)
+
+    def test_nonexistent_and_forbidden_card_return_the_identical_error(self):
+        """IDOR: mirrors the board:// guarantee for a card on a board the caller cannot see."""
+        stranger = _make_user("stranger-card")
+        board = _make_board(stranger, name="Not yours")
+        column = _make_column(board)
+        swimlane = _make_swimlane(board)
+        card = _make_card(column, swimlane, title="Hidden")
+
+        nonexistent_message = self._read_card_error(999999)
+        forbidden_message = self._read_card_error(card.id)
+        self.assertIn("No Card matches the given query.", nonexistent_message)
+        self.assertIn("No Card matches the given query.", forbidden_message)
+
+    def test_all_board_roles_may_read_the_card(self):
+        other = _make_user("role-owner-card")
+        board = _make_board(other, name="RoleCard")
+        column = _make_column(board)
+        swimlane = _make_swimlane(board)
+        card = _make_card(column, swimlane, title="Shared card")
+        for role in BoardMembership.Role.values:
+            user = _make_user(f"reader-{role}")
+            _make_membership(board, user, role=role)
+            _, token = PersonalAccessToken.generate(user, "mcp", scopes=[SCOPE_MCP_READ])
+            data = self._read_card(card.id, token=token)
+            self.assertEqual(data["title"], "Shared card")
+
+
+class McpCorsTests(McpTestCase):
+    """CORS headers on /mcp so a browser-based MCP client can reach it (#513).
+
+    Drives httpx directly against the mounted app rather than through
+    ``McpRequest`` (which always issues an authenticated POST): a CORS
+    preflight is a real, unauthenticated ``OPTIONS`` request, and asserting
+    on raw response headers needs the underlying httpx.Response rather than
+    ``McpRequest``'s ``(status, body)`` tuple.
+    """
+
+    def _options(self, origin, request_headers="authorization,content-type"):
+        import httpx
+        from asgiref.sync import async_to_sync
+
+        async def _call():
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=self.client_.app),
+                base_url="http://localhost",
+            ) as client:
+                return await client.options(
+                    "/mcp",
+                    headers={
+                        "origin": origin,
+                        "access-control-request-method": "POST",
+                        "access-control-request-headers": request_headers,
+                    },
+                )
+
+        return async_to_sync(_call)()
+
+    def _post_raw(self, origin, token):
+        import httpx
+        from asgiref.sync import async_to_sync
+
+        async def _call():
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=self.client_.app),
+                base_url="http://localhost",
+            ) as client:
+                return await client.post(
+                    "/mcp",
+                    json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+                    headers={
+                        "origin": origin,
+                        "authorization": f"Bearer {token}",
+                        "content-type": "application/json",
+                        "accept": "application/json, text/event-stream",
+                    },
+                )
+
+        return async_to_sync(_call)()
+
+    def test_preflight_from_allowed_origin_gets_cors_headers(self):
+        response = self._options("http://localhost:5173")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
+        self.assertIn("POST", response.headers["access-control-allow-methods"])
+        self.assertIn("authorization", response.headers["access-control-allow-headers"].lower())
+        self.assertEqual(response.headers["access-control-allow-credentials"], "true")
+        # Exactly one Vary header, not two — _response_headers() and
+        # _send_preflight() must not each add their own copy.
+        self.assertEqual(response.headers.get_list("vary"), ["Origin"])
+
+    def test_preflight_from_disallowed_origin_gets_no_cors_headers(self):
+        """An origin absent from CORS_ALLOWED_ORIGINS gets a plain 200, no headers.
+
+        Not a 403/error — an error response would confirm to a probing
+        browser that /mcp exists and specifically rejected this origin.
+        """
+        response = self._options("http://evil.example.com")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("access-control-allow-origin", response.headers)
+        # Still sent on the disallowed branch: a shared cache keying only on
+        # method+path (ignoring Vary: Origin) could otherwise store this
+        # "no CORS headers" response and replay it for a later, legitimate
+        # allowed origin whose browser needs the real headers to read it.
+        self.assertEqual(response.headers.get("vary"), "Origin")
+
+    def test_preflight_does_not_require_authentication(self):
+        """A CORS preflight carries no Authorization header by design.
+
+        If MCPCorsMiddleware ran inside BearerAuthMiddleware instead of
+        outside it, this would 401 and no browser could ever complete the
+        handshake to send the real, authenticated request.
+        """
+        response = self._options("http://localhost:5173")
+        self.assertEqual(response.status_code, 200)
+
+    def test_real_response_carries_cors_headers_for_allowed_origin(self):
+        """The real (non-preflight) response must also carry CORS headers."""
+        response = self._post_raw("http://localhost:5173", self.raw_token)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], "http://localhost:5173")
+        self.assertEqual(response.headers.get("access-control-expose-headers"), "mcp-session-id")
+        self.assertEqual(response.headers.get_list("vary"), ["Origin"])
+
+    def test_real_response_omits_cors_headers_for_disallowed_origin(self):
+        """A disallowed Origin never gets an Allow-Origin header.
+
+        This actually never reaches MCPCorsMiddleware's own branch either
+        way: the SDK's pre-existing DNS-rebinding protection
+        (mcp_server/server.py::_build_transport_security, derived from the
+        same CORS_ALLOWED_ORIGINS) already refuses a non-preflight request
+        from an origin outside that allowlist with 403 before this request
+        gets anywhere near a resource or tool. The two checks share one
+        source of truth for what counts as "trusted", so this is belt and
+        suspenders, not redundant: assert neither layer leaks the header.
+        """
+        response = self._post_raw("http://evil.example.com", self.raw_token)
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("access-control-allow-origin", response.headers)
+        self.assertEqual(response.headers.get("vary"), "Origin")
+
+    def test_auth_failure_is_unaffected_by_origin(self):
+        """CORS wrapping must not weaken or bypass Bearer authentication."""
+        response = self._post_raw("http://localhost:5173", "not-a-real-token")
+        self.assertEqual(response.status_code, 401)
+
+
 class ConcurrentIdentityTests(TestCase):
     """Interleaved requests must never observe each other's identity.
 
@@ -544,6 +890,81 @@ class ListBoardsQueryCountTests(TestCase):
     def test_group_derived_boards_do_not_scale_queries(self):
         few = self._query_count(2, via_group=True)
         many = self._query_count(8, via_group=True)
+        self.assertEqual(few, many, f"query count grew: {few} -> {many}")
+
+
+class BoardSnapshotQueryCountTests(TestCase):
+    """board_snapshot must issue a constant number of queries per section (#513).
+
+    Mirrors ListBoardsQueryCountTests' shape, but scales the number of
+    columns/swimlanes/cards on ONE board rather than the number of boards —
+    the trap here is different: board_snapshot composes three payload
+    builders, and calling the public list_columns/list_swimlanes/list_cards
+    tools instead of the private *_payload(board) helpers would silently
+    reintroduce the 3x _resolve_board() queries the refactor exists to avoid.
+    """
+
+    def _query_count(self, row_count):
+        user = _make_user(f"snap-counter-{row_count}")
+        board = _make_board(user, name=f"Snap {row_count}")
+        for i in range(row_count):
+            column = _make_column(board, name=f"C{i}", order=i)
+            swimlane = _make_swimlane(board, name=f"S{i}", order=i)
+            _make_card(column, swimlane, title=f"Card {i}", position=i)
+            Label.objects.create(board=board, name=f"L{i}", color="#000000")
+
+        token = set_current_user(user)
+        try:
+            with CaptureQueriesContext(connection) as ctx:
+                data = tools.board_snapshot(board_id=board.id)
+        finally:
+            reset_current_user(token)
+        self.assertEqual(len(data["columns"]), row_count)
+        self.assertEqual(len(data["cards"]), row_count)
+        return len(ctx.captured_queries)
+
+    def test_snapshot_sections_do_not_scale_queries(self):
+        few = self._query_count(2)
+        many = self._query_count(8)
+        self.assertEqual(few, many, f"query count grew: {few} -> {many}")
+
+
+class CardDetailQueryCountTests(TestCase):
+    """card_detail must issue a constant number of queries regardless of history size (#513).
+
+    The trap: activities/comments are fetched with two queries NOT covered by
+    _card_queryset's shared prefetch chain — scaling their row count must not
+    turn either into a per-row query.
+    """
+
+    def _query_count(self, row_count):
+        user = _make_user(f"card-counter-{row_count}")
+        board = _make_board(user, name=f"CardCount {row_count}")
+        column = _make_column(board)
+        swimlane = _make_swimlane(board)
+        card = _make_card(column, swimlane, title="Counted")
+        for i in range(row_count):
+            CardComment.objects.create(card=card, author=user, body=f"c{i}")
+            CardActivity.objects.create(
+                card=card, event_type=CardActivity.EventType.TITLE_CHANGE,
+                from_value="a", to_value="b", actor=user,
+            )
+            CardChecklist.objects.create(card=card, text=f"item {i}", position=i)
+
+        token = set_current_user(user)
+        try:
+            with CaptureQueriesContext(connection) as ctx:
+                data = tools.card_detail(card_id=card.id)
+        finally:
+            reset_current_user(token)
+        self.assertEqual(len(data["comments"]), row_count)
+        self.assertEqual(len(data["activities"]), row_count)
+        self.assertEqual(len(data["checklist_items"]), row_count)
+        return len(ctx.captured_queries)
+
+    def test_detail_history_does_not_scale_queries(self):
+        few = self._query_count(2)
+        many = self._query_count(8)
         self.assertEqual(few, many, f"query count grew: {few} -> {many}")
 
 
