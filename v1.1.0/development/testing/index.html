@@ -3308,6 +3308,11 @@
 <li>Backend tests run in the <code>test-backend</code> job on every MR</li>
 <li>Frontend unit tests run in <code>test-frontend</code></li>
 <li>Playwright E2E runs in <code>e2e-test</code> — requires the Vite dev server build to succeed first</li>
+<li><code>backend-schema-validate</code> checks the generated OpenAPI document is well-formed;
+  <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
+  <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
+  its declared schema — see <a href="../../api/openapi/#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz"><code>docs/api/openapi.md</code></a>.
+  Currently non-blocking (<code>allow_failure: true</code>) while its baseline is triaged (#1120)</li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
 <h2 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">&para;</a></h2>

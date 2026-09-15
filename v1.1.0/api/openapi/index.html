@@ -2042,6 +2042,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI validation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fuzz testing the contract against real responses (backend-schema-fuzz)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3093,6 +3110,37 @@
 <h2 id="ci-validation">CI validation<a class="headerlink" href="#ci-validation" title="Permanent link">&para;</a></h2>
 <p>The CI pipeline runs <code>manage.py spectacular --validate</code> on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.</p>
 <p><strong>Not yet enforced: <code>--fail-on-warn</code>.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1108">#1108</a> proposed also running <code>--fail-on-warn</code> in CI so the schema cannot regress by acquiring a new warning (as opposed to <code>--validate</code> alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly <code>@action</code>/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve <code>board_pk</code>-scoped path parameter types without a request. Flipping <code>--fail-on-warn</code> on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean <code>--validate --fail-on-warn</code> run as informative, not a merge gate.</p>
+<h3 id="fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz">Fuzz testing the contract against real responses (<code>backend-schema-fuzz</code>)<a class="headerlink" href="#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz" title="Permanent link">&para;</a></h3>
+<p><code>--validate</code> only proves the generated <em>document</em> is internally well-formed — it has no way
+to know whether a view actually returns what its declared schema says. A view that bypasses
+its serializer (a bare <code>Response({...})</code> from an error path, an <code>@action</code> method, an admin
+endpoint) can be syntactically valid in the document while describing a response the server
+never sends. <a href="https://gitlab.com/visiban/visiban/-/issues/1080">#1080</a> closes that gap with a
+second job, <code>backend-schema-fuzz</code>, that boots a real backend against seeded demo data
+(<code>manage.py seed_demo_data</code>), authenticates as a normal, non-admin board member (see
+<code>accounts/management/commands/provision_fuzz_token.py</code> — it refuses to mint a token for a
+superuser/site-admin/<code>can_access_all_content</code> account), and drives
+<a href="https://schemathesis.readthedocs.io/">schemathesis</a> against every operation the schema
+describes, checking <code>response_schema_conformance</code>, <code>status_code_conformance</code>, and
+<code>content_type_conformance</code>.</p>
+<p>Runs on any MR touching <code>backend/**/views/**</code>, <code>**/serializers.py</code>, or <code>**/urls.py</code>, and
+always on <code>main</code>.</p>
+<p><strong>Error envelope.</strong> Visiban has no custom DRF <code>EXCEPTION_HANDLER</code>, so authentication,
+permission, lookup, and throttling failures all render as DRF's default <code>{"detail": "&lt;message&gt;"}</code>.
+<code>visiban/schema_hooks.py</code> (a drf-spectacular <code>POSTPROCESSING_HOOKS</code> entry) documents that
+envelope for 401/403/404/429 on every operation that doesn't already declare a response for
+that status code, so <code>backend-schema-fuzz</code> has something to validate a real error response
+against instead of silently skipping an undocumented one. It never overwrites a response an
+operation already declares — the card-mutation 409s (<code>WipLimitExceeded</code>, <code>VersionConflict</code>,
+etc. — see <code>boards/services/errors.py</code>) and the move/comments/checklist/share/members
+<code>@extend_schema</code> blocks from #1108 still win.</p>
+<p><strong>Non-blocking for now.</strong> Per #1080's own phased plan, the job runs with <code>allow_failure: true</code>
+for one release to establish a baseline without turning every unrelated MR red on day one.
+Its first-run findings were triaged and filed as <a href="https://gitlab.com/visiban/visiban/-/issues/1119">#1119</a>
+(a <code>Group</code>/<code>GroupDetail</code> serializer type-accuracy bug, same class as #1108's <code>CardSerializer</code>
+fixes) and <a href="https://gitlab.com/visiban/visiban/-/issues/1120">#1120</a> (triage the remaining
+noise and flip the job to blocking — tracked for 1.2). See the <code>backend-schema-fuzz</code> job
+comment in <code>.gitlab-ci.yml</code> for the full list.</p>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
 <p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the Second Chair front end and the MCP server's REST-client package (#511) are the two known cases — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>
