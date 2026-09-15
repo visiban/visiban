@@ -57,6 +57,42 @@ The CI pipeline runs `manage.py spectacular --validate` on every change to the b
 
 **Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot regress by acquiring a new warning (as opposed to `--validate` alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly `@action`/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Flipping `--fail-on-warn` on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean `--validate --fail-on-warn` run as informative, not a merge gate.
 
+### Fuzz testing the contract against real responses (`backend-schema-fuzz`)
+
+`--validate` only proves the generated *document* is internally well-formed — it has no way
+to know whether a view actually returns what its declared schema says. A view that bypasses
+its serializer (a bare `Response({...})` from an error path, an `@action` method, an admin
+endpoint) can be syntactically valid in the document while describing a response the server
+never sends. [#1080](https://gitlab.com/visiban/visiban/-/issues/1080) closes that gap with a
+second job, `backend-schema-fuzz`, that boots a real backend against seeded demo data
+(`manage.py seed_demo_data`), authenticates as a normal, non-admin board member (see
+`accounts/management/commands/provision_fuzz_token.py` — it refuses to mint a token for a
+superuser/site-admin/`can_access_all_content` account), and drives
+[schemathesis](https://schemathesis.readthedocs.io/) against every operation the schema
+describes, checking `response_schema_conformance`, `status_code_conformance`, and
+`content_type_conformance`.
+
+Runs on any MR touching `backend/**/views/**`, `**/serializers.py`, or `**/urls.py`, and
+always on `main`.
+
+**Error envelope.** Visiban has no custom DRF `EXCEPTION_HANDLER`, so authentication,
+permission, lookup, and throttling failures all render as DRF's default `{"detail": "<message>"}`.
+`visiban/schema_hooks.py` (a drf-spectacular `POSTPROCESSING_HOOKS` entry) documents that
+envelope for 401/403/404/429 on every operation that doesn't already declare a response for
+that status code, so `backend-schema-fuzz` has something to validate a real error response
+against instead of silently skipping an undocumented one. It never overwrites a response an
+operation already declares — the card-mutation 409s (`WipLimitExceeded`, `VersionConflict`,
+etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
+`@extend_schema` blocks from #1108 still win.
+
+**Non-blocking for now.** Per #1080's own phased plan, the job runs with `allow_failure: true`
+for one release to establish a baseline without turning every unrelated MR red on day one.
+Its first-run findings were triaged and filed as [#1119](https://gitlab.com/visiban/visiban/-/issues/1119)
+(a `Group`/`GroupDetail` serializer type-accuracy bug, same class as #1108's `CardSerializer`
+fixes) and [#1120](https://gitlab.com/visiban/visiban/-/issues/1120) (triage the remaining
+noise and flip the job to blocking — tracked for 1.2). See the `backend-schema-fuzz` job
+comment in `.gitlab-ci.yml` for the full list.
+
 ## Versioning
 
 The schema is generated live from whatever code is deployed — `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme the REST API itself uses (see [`docs/api/authentication.md`](authentication.md) for the versioning contract those endpoints follow).
