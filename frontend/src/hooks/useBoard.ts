@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition } from "../types";
 
 export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
@@ -239,6 +239,15 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, labels: b.labels.filter((l) => l.uid !== labelUid) } : b);
   }, []);
 
+  // Custom fields (#371) — one wholesale-replace setter rather than granular
+  // add/update/remove mutators like labels above. Every caller (the Fields
+  // tab's local mutations, and each `custom_field.*` WS event handled in
+  // BoardView) already computes the full resulting array before calling
+  // this, so there's no delta-application logic to duplicate per call site.
+  const applyCustomFieldDefinitions = useCallback((definitions: CustomFieldDefinition[]) => {
+    setBoard((b) => b ? { ...b, custom_field_definitions: definitions } : b);
+  }, []);
+
   const addMember = useCallback((membership: BoardMembership) => {
     setBoard((b) => {
       if (!b) return b;
@@ -359,5 +368,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

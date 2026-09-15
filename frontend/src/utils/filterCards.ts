@@ -1,6 +1,32 @@
 import type { Card } from "../types";
 import { userDisplayName } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
+import { isCustomFieldFilterActive } from "../components/Board/FilterBar";
+
+/**
+ * Whether any *client-side* filter dimension is active — everything
+ * `filterCards` applies except `search`, which `BoardView` handles via a
+ * separate server-side path (`useCardSearch` → `searchMatchIds`) and
+ * intersects with this function's result rather than filtering through it.
+ *
+ * Extracted as its own export (#371) after a real bug: adding the
+ * custom-fields dimension required updating this exact "what counts as
+ * active" check in two places — `FilterBar`'s `countActiveFilters` (which
+ * *was* updated) and this one, inline in `BoardView.tsx` (which briefly
+ * wasn't) — and the drift meant a custom-field-only filter left the board
+ * completely unfiltered while the toolbar chip claimed one was active. A
+ * shared, exported, directly-testable function is the fix that actually
+ * prevents a repeat, not just this one instance of it.
+ */
+export function hasActiveClientFilters(filters: FilterState): boolean {
+  return (
+    filters.assigneeIds.length > 0 ||
+    filters.labelIds.length > 0 ||
+    filters.priorities.length > 0 ||
+    filters.dueDate !== null ||
+    Object.values(filters.customFields).some(isCustomFieldFilterActive)
+  );
+}
 
 /**
  * Pure client-side card filter. Applies assignee, label, priority, due-date,
@@ -68,6 +94,34 @@ export function filterCards(
         }
         if (filters.dueDate === "this_week") {
           if (!card.due_date || card.due_date < todayStr || card.due_date >= nextWeekStr) return false;
+        }
+      }
+
+      // #371 — custom field filters, AND-combined with everything above like
+      // every other dimension. Equality-only for number/date (see FilterBar's
+      // CustomFieldFilterValue JSDoc — the value is stored as TextField
+      // server-side, so a range comparison would be lexicographic, not
+      // numeric). A card with no CustomFieldValue row for a filtered field
+      // never matches a non-empty filter on that field — matching every other
+      // "no value = doesn't match a specific-value filter" dimension above.
+      for (const [idStr, cf] of Object.entries(filters.customFields)) {
+        if (cf.kind === "text" && cf.query === "") continue;
+        if (cf.kind !== "text" && cf.kind !== "choice" && cf.equals === "") continue;
+        if (cf.kind === "choice" && cf.values.length === 0) continue;
+
+        const fieldId = Number(idStr);
+        const cardValue = card.custom_field_values.find((v) => v.field_definition === fieldId)?.value;
+
+        if (cf.kind === "text") {
+          if (!cardValue || !cardValue.toLowerCase().includes(cf.query.toLowerCase())) return false;
+        } else if (cf.kind === "number") {
+          const a = cardValue !== undefined ? Number(cardValue) : NaN;
+          const b = Number(cf.equals);
+          if (!Number.isFinite(a) || !Number.isFinite(b) || a !== b) return false;
+        } else if (cf.kind === "date") {
+          if (cardValue !== cf.equals) return false;
+        } else if (cf.kind === "choice") {
+          if (cardValue === undefined || !cf.values.includes(cardValue)) return false;
         }
       }
 

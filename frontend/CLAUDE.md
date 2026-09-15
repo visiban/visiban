@@ -91,7 +91,8 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 ## Badges and labels
 
 - **Priority pills use filled background everywhere** — green/orange/red/dark-red fill, white text. Do not use outline/ring style; filled is more immediately scannable.
-- **Label pills are an exception to the filled-pill rule** — labels carry arbitrary user-assigned colors (any hue, any lightness), so white-on-fill would fail contrast on light labels. Use a tint (`color + "22"` alpha suffix for the background, `color + "44"` for the border) with the label color as the text color. This is the only permitted outline-style pill in the system.
+- **Label pills are an exception to the filled-pill rule** — labels carry arbitrary user-assigned colors (any hue, any lightness), so white-on-fill would fail contrast on light labels. Use a tint (`color + "22"` alpha suffix for the background, `color + "44"` for the border) with the label color as the text color. This is one of two permitted outline-style pills in the system — see the custom-field chip exception below for the other.
+- **Pinned custom-field chips are a second, distinct exception to the filled-pill rule** — the card-face custom-field chip (`CustomFieldValueDisplay`, `CardItem`) uses `border border-line rounded` with plain `text-fg-secondary` value text, never a filled or tinted background. Custom fields need their own visual language distinct from both the priority pill (filled, semantic urgency color) and the label pill (tinted, user-assigned color) — collapsing all three into one visual bucket would make it impossible to scan a card face and tell "this is a priority" from "this is a label" from "this is a custom field" at a glance. The neutral bordered chip signals "structured metadata, no inherent color" the way a table cell border does, leaving the field's own semantics (a dropdown choice's color dot, a date, a number) to carry any further meaning inside it.
 - Filter active-count badge: `bg-primary-emphasis/20 text-info` — always use the `primary-emphasis` token for the fill so the badge tracks the active theme
 - Consistent badge sizing: `px-2 py-0.5 text-xs rounded-full`
 
@@ -332,6 +333,14 @@ For plain-text description fields that are inline-editable by admins:
 - **Non-admin, non-empty**: render plain `<p className="text-sm text-fg-tertiary whitespace-pre-wrap">`
 - **Non-admin, empty**: render nothing (`null`) — do not show a placeholder the user cannot act on
 
+## Composite inline editors — explicit Save/Cancel (#371)
+
+The pattern above (and the single-value autosave pattern used everywhere else — Weight, Due date, priority, labels) commits on blur or on selection with no separate save step. That pattern only holds for a **single interdependent value**. It breaks down once an editor has **two or more sub-fields that depend on each other** — e.g. Board Settings → Fields' add/edit panel, where the `field_type` selector changes which other sub-fields are relevant (dropdown needs a `choices` list; other types don't) and requires cross-field validation ("a dropdown field needs at least one choice") before any of it is safe to persist.
+
+**Rule:** an inline editor with ≥2 interdependent sub-fields, or any cross-field validation that must pass before a partial state is safe to write, uses explicit `Cancel` / `Save {noun}` text buttons (secondary + primary variant, standard focus rings, `gap-3`) instead of blur/immediate-commit. A single-value inline editor (one text field, one toggle, one dropdown with no dependent fields) stays on blur/immediate-commit — do not add a Save button to a field that doesn't need one; that adds friction without a matching risk.
+
+Reference implementation: `BoardSettingsFieldsTab`'s `FieldEditPanel` (name + type + choices + help text + pin toggle, all validated together in `handleSave`).
+
 ## Tooltips
 
 - Consistent delay: 300 ms show, immediate hide
@@ -426,6 +435,14 @@ The permitted focus-ring form is `focus:ring-2 focus:ring-primary-emphasis` (or 
 ## Hover-reveal controls
 
 When an action button is hidden until hover (`opacity-0 group-hover:opacity-100`), it **must** also include `focus:opacity-100` and a focus ring so keyboard users can reach and activate it. Without `focus:opacity-100`, the button is unreachable by keyboard. This applies to all hover-reveal controls (comment delete, swimlane edit, RTE pencil icon, etc.).
+
+## Card-face quick-edit chip affordance (custom fields, #371)
+
+Pinned custom-field chips on the card face (`CardItem`, checkbox/dropdown types only) are a deliberate exception to the hover-reveal-by-default convention above and to § Inline description fields' hover-only pencil-icon pattern: the dotted-underline edit affordance (`border-b border-dotted border-fg-tertiary` on the value text) is **always visible at rest**, not gated behind `group-hover:opacity-100`.
+
+**Why:** VoC input flagged that Sam (occasional, non-daily user) gets no opportunity to learn a hover-only affordance exists on a card face he visits only a few times a week — by the time he'd hover to discover it, he's already concluded there's no way to edit the value inline. A persistent, low-contrast dotted underline is discoverable without training and adds no visual weight to the chip beyond the browser's own `<abbr title>` convention for "this text is a control."
+
+This exception is scoped narrowly to the pinned-chip quick-edit affordance itself. It does **not** relax the hover-reveal convention for anything else on the card — the card's other hover-only controls (the selection checkbox, etc.) keep their existing `opacity-0 group-hover:opacity-100 focus:opacity-100` treatment. Do not generalize "always visible" to other inline-edit affordances without a matching VoC finding; hover-reveal stays the default.
 
 ## Move-blocked toast (MoveBlockedToast)
 

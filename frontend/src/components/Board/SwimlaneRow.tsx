@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, CardDensity, Column, Swimlane } from "../../types";
+import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import { updateSwimlane } from "../../api/boards";
 import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
@@ -51,9 +51,11 @@ interface Props {
   compact?: boolean;
   staleness_threshold_days?: number;
   stale_warning_pct?: number;
+  customFieldDefinitions?: CustomFieldDefinition[];
+  onCardUpdated?: (card: Card) => void;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -347,6 +349,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 compact={compact}
                 staleness_threshold_days={staleness_threshold_days}
                 stale_warning_pct={stale_warning_pct}
+                customFieldDefinitions={customFieldDefinitions}
+                onCardUpdated={onCardUpdated}
                 width={cellWidth}
               />
             </div>

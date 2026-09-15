@@ -43,11 +43,69 @@ describe('usePersistedFilters', () => {
       labelIds: [10],
       priorities: ['high'],
       dueDate: 'overdue',
+      customFields: {},
+      visibleCustomFieldFilterIds: [],
     }
     mockStorage.setItem('board:1:filters', JSON.stringify(stored))
 
     const { result } = renderHook(() => usePersistedFilters(1))
     expect(result.current.filters).toEqual(stored)
+  })
+
+  // #371
+  it('restores a populated custom field filter from localStorage', () => {
+    const stored: FilterState = {
+      ...EMPTY_FILTER,
+      customFields: { 7: { kind: 'text', query: 'sprint 14' } },
+      visibleCustomFieldFilterIds: [7],
+    }
+    mockStorage.setItem('board:1:filters', JSON.stringify(stored))
+
+    const { result } = renderHook(() => usePersistedFilters(1))
+    expect(result.current.filters.customFields).toEqual({ 7: { kind: 'text', query: 'sprint 14' } })
+    expect(result.current.filters.visibleCustomFieldFilterIds).toEqual([7])
+  })
+
+  it('drops a malformed custom field filter entry without failing the whole load', () => {
+    mockStorage.setItem(
+      'board:1:filters',
+      JSON.stringify({
+        ...EMPTY_FILTER,
+        customFields: {
+          1: { kind: 'text', query: 'valid' },
+          2: { kind: 'choice', values: 'not-an-array' }, // malformed — values must be string[]
+          3: { kind: 'bogus-kind' },
+        },
+      }),
+    )
+    const { result } = renderHook(() => usePersistedFilters(1))
+    expect(result.current.filters.customFields).toEqual({ 1: { kind: 'text', query: 'valid' } })
+  })
+
+  it('self-heals visibleCustomFieldFilterIds to the board\'s current pinned fields when missing from storage', () => {
+    // A pre-#371 stored filter genuinely omits the key — spreading EMPTY_FILTER
+    // here would defeat the test by supplying a valid (empty) array instead.
+    mockStorage.setItem(
+      'board:1:filters',
+      JSON.stringify({ search: 'x', assigneeIds: [], labelIds: [], priorities: [], dueDate: null }),
+    )
+    const { result } = renderHook(() => usePersistedFilters(1, [5, 9]))
+    expect(result.current.filters.visibleCustomFieldFilterIds).toEqual([5, 9])
+  })
+
+  it('self-heals visibleCustomFieldFilterIds when the stored value is malformed', () => {
+    mockStorage.setItem(
+      'board:1:filters',
+      JSON.stringify({ ...EMPTY_FILTER, visibleCustomFieldFilterIds: ['not', 'numbers'] }),
+    )
+    const { result } = renderHook(() => usePersistedFilters(1, [4]))
+    expect(result.current.filters.visibleCustomFieldFilterIds).toEqual([4])
+  })
+
+  it('does not self-heal visibleCustomFieldFilterIds when a valid (even empty) array is already stored', () => {
+    mockStorage.setItem('board:1:filters', JSON.stringify({ ...EMPTY_FILTER, visibleCustomFieldFilterIds: [] }))
+    const { result } = renderHook(() => usePersistedFilters(1, [4]))
+    expect(result.current.filters.visibleCustomFieldFilterIds).toEqual([])
   })
 
   it('writes to localStorage when filters change', () => {

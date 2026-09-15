@@ -1,10 +1,23 @@
 import type { RefObject } from "react";
-import type { BoardFull, BoardUser, Priority, User } from "../../types";
+import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import CheckboxDropdown from "../Common/CheckboxDropdown";
 import Avatar from "../Common/Avatar";
 import FilterChip from "./FilterChip";
+import { choiceColor, formatCustomFieldValue } from "../../utils/customFieldValue";
+
+// #371 — one filter value per custom field, keyed by field_definition id in
+// FilterState.customFields. Number/date are equality-only (the value is
+// stored as TextField server-side, so a range comparison would be
+// lexicographic, not numeric — out of scope for this phase, see the ux-design
+// spec's explicit non-goal). Dropdown and checkbox share the multi-select
+// "choice" shape since a checkbox is just a 2-choice dropdown for filtering
+// purposes.
+export type CustomFieldFilterValue =
+  | { kind: "text"; query: string }
+  | { kind: "number" | "date"; equals: string }
+  | { kind: "choice"; values: string[] };
 
 export interface FilterState {
   search: string;
@@ -12,6 +25,16 @@ export interface FilterState {
   labelIds: number[];
   priorities: Priority[];
   dueDate: "overdue" | "today" | "this_week" | "none" | null;
+  /** #371 — keyed by CustomFieldDefinition.id. */
+  customFields: Record<number, CustomFieldFilterValue>;
+  /**
+   * #371 — which custom fields have an open control in the toolbar row. Not
+   * itself a filter (an empty/open control filters nothing) — this is UI
+   * state so an admin can open a control before typing into it without it
+   * disappearing. Seeded to the board's pinned field ids on first load per
+   * board; see usePersistedFilters' self-heal fallback.
+   */
+  visibleCustomFieldFilterIds: number[];
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
@@ -21,7 +44,28 @@ export const EMPTY_FILTER: FilterState = {
   labelIds: [],
   priorities: [],
   dueDate: null,
+  customFields: {},
+  visibleCustomFieldFilterIds: [],
 };
+
+// eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
+export function isCustomFieldFilterActive(v: CustomFieldFilterValue): boolean {
+  return v.kind === "choice" ? v.values.length > 0 : v.kind === "text" ? v.query !== "" : v.equals !== "";
+}
+
+function emptyCustomFieldFilterValue(def: CustomFieldDefinition): CustomFieldFilterValue {
+  switch (def.field_type) {
+    case "number":
+    case "date":
+      return { kind: def.field_type, equals: "" };
+    case "dropdown":
+    case "checkbox":
+      return { kind: "choice", values: [] };
+    case "text":
+    default:
+      return { kind: "text", query: "" };
+  }
+}
 
 // eslint-disable-next-line react-refresh/only-export-components -- intentional utility export, co-located with the component for cohesion
 export function countActiveFilters(f: FilterState): number {
@@ -31,6 +75,7 @@ export function countActiveFilters(f: FilterState): number {
     f.labelIds.length > 0,
     f.priorities.length > 0,
     f.dueDate !== null,
+    Object.values(f.customFields).some(isCustomFieldFilterActive),
   ].filter(Boolean).length;
 }
 
@@ -155,6 +200,20 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
     }
   }
 
+  // #371 — custom field filter chips. Dismissing clears the value but keeps
+  // the field in visibleCustomFieldFilterIds so its (now-empty) control
+  // doesn't disappear mid-interaction.
+  for (const def of board.custom_field_definitions) {
+    const v = filters.customFields[def.id];
+    if (!v || !isCustomFieldFilterActive(v)) continue;
+    const displayValue = v.kind === "choice" ? v.values.join(", ") : v.kind === "text" ? v.query : formatCustomFieldValue(def, v.equals, "MM/DD/YYYY");
+    chips.push({
+      key: `cf:${def.id}`,
+      label: `${def.name}: ${displayValue}`,
+      onDismiss: () => onChange({ ...filters, customFields: { ...filters.customFields, [def.id]: emptyCustomFieldFilterValue(def) } }),
+    });
+  }
+
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {/* Row 1: filter controls */}
@@ -263,6 +322,38 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
         />
 
+        {/* #371 — one control per field in visibleCustomFieldFilterIds (seeded
+            to the board's pinned fields on first load; see
+            usePersistedFilters). All 30 possible fields never get a
+            permanent toolbar slot — the "+ Custom fields" picker below adds
+            more on demand, matching Maya's "what I filter aligns with what I
+            see on the card" mental model for the default set. */}
+        {board.custom_field_definitions
+          .filter((d) => filters.visibleCustomFieldFilterIds.includes(d.id))
+          .sort((a, b) => a.position - b.position)
+          .map((def) => (
+            <CustomFieldFilterControl
+              key={def.id}
+              definition={def}
+              value={filters.customFields[def.id] ?? emptyCustomFieldFilterValue(def)}
+              onChange={(v) => onChange({ ...filters, customFields: { ...filters.customFields, [def.id]: v } })}
+            />
+          ))}
+
+        {board.custom_field_definitions.length > 0 && (
+          <CheckboxDropdown
+            label="+ Custom fields"
+            options={[...board.custom_field_definitions]
+              .sort((a, b) => a.position - b.position)
+              .map((d) => ({ value: d.id, label: d.name }))}
+            selected={filters.visibleCustomFieldFilterIds}
+            // Toggling a field here only shows/hides its control — it does not
+            // itself filter anything until that control gets a value, so this
+            // never touches `customFields`.
+            onChange={(visibleCustomFieldFilterIds) => onChange({ ...filters, visibleCustomFieldFilterIds })}
+          />
+        )}
+
         {activeCount > 0 && (
           <button
             onClick={() => onChange(EMPTY_FILTER)}
@@ -287,5 +378,63 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
         </div>
       )}
     </div>
+  );
+}
+
+interface CustomFieldFilterControlProps {
+  definition: CustomFieldDefinition;
+  value: CustomFieldFilterValue;
+  onChange: (value: CustomFieldFilterValue) => void;
+}
+
+/**
+ * One toolbar control for one custom field (#371), styling matched to the
+ * existing dimension controls (plain `<input>` for text/number/date — the
+ * board search input already establishes that inline-input pattern in this
+ * toolbar; `CheckboxDropdown` for dropdown/checkbox, sharing the same
+ * deterministic color-dot helper as the card-face chip so a choice reads
+ * consistently in both places).
+ */
+function CustomFieldFilterControl({ definition, value, onChange }: CustomFieldFilterControlProps) {
+  if (definition.field_type === "text" && value.kind === "text") {
+    return (
+      <input
+        type="text"
+        value={value.query}
+        onChange={(e) => onChange({ kind: "text", query: e.target.value })}
+        placeholder={`${definition.name} contains…`}
+        className="bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary placeholder-fg-muted w-32 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0"
+      />
+    );
+  }
+
+  if ((definition.field_type === "number" || definition.field_type === "date") && value.kind !== "choice" && value.kind !== "text") {
+    return (
+      <input
+        type={definition.field_type === "number" ? "number" : "date"}
+        value={value.equals}
+        onChange={(e) => onChange({ kind: definition.field_type as "number" | "date", equals: e.target.value })}
+        title={definition.name}
+        className={`bg-surface border border-line rounded px-2 py-1 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent shrink-0 ${
+          definition.field_type === "number" ? "w-24" : "w-32"
+        }`}
+      />
+    );
+  }
+
+  // dropdown / checkbox — both use the "choice" multi-select shape.
+  const options =
+    definition.field_type === "checkbox"
+      ? [{ value: "true", label: "Yes" }, { value: "false", label: "No" }]
+      : definition.choices.map((c) => ({ value: c, label: c, color: choiceColor(c) }));
+  const selected = value.kind === "choice" ? value.values : [];
+
+  return (
+    <CheckboxDropdown
+      label={definition.name}
+      options={options}
+      selected={selected}
+      onChange={(values) => onChange({ kind: "choice", values })}
+    />
   );
 }

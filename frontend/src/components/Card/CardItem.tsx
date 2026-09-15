@@ -1,13 +1,16 @@
 import { useState, useRef, useCallback, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useDraggable } from "@dnd-kit/core";
-import type { Card, CardDensity } from "../../types";
+import type { Card, CardDensity, CustomFieldDefinition } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import Avatar from "../Common/Avatar";
 import { formatDueDate, formatRelativeMovedAt } from "../../utils/date";
 import { agingTint, idleDays } from "../../utils/agingTint";
 import { classifyCardUrgency } from "../../utils/cardUrgency";
 import CardPeekPopover from "./CardPeekPopover";
+import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
+import { choiceColor, formatCustomFieldValue, isValidForType, withCustomFieldValue } from "../../utils/customFieldValue";
+import { updateCard } from "../../api/cards";
 
 
 
@@ -35,6 +38,21 @@ interface Props {
   compact?: boolean;
   staleness_threshold_days?: number;
   stale_warning_pct?: number;
+  /** Every board custom field definition (#371) — not pre-filtered; this
+   *  component filters to pinned (`show_on_card`) ones for the chip row and
+   *  passes the full list through to `CardPeekPopover` for the non-pinned
+   *  ones. */
+  customFieldDefinitions?: CustomFieldDefinition[];
+  boardId?: number;
+  /**
+   * Called after a quick-edit write succeeds, with the full updated card —
+   * same shape as the WS `card.updated` → `onCardUpdated` path in
+   * `BoardView`, which already replaces the full card by id in local state.
+   * Quick-edit chips (checkbox/dropdown) are interactive only when this is
+   * provided; omit it (as the share-page / read-only call sites do) to get
+   * plain, non-interactive chips.
+   */
+  onCardUpdated?: (card: Card) => void;
 }
 
 // Custom comparator for React.memo — avoids re-renders when the card object
@@ -59,12 +77,26 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.is_stale !== next.card.is_stale ||
     prev.card.archived_at !== next.card.archived_at ||
     prev.card.assignee?.id !== next.card.assignee?.id ||
-    prev.card.labels.length !== next.card.labels.length
+    prev.card.labels.length !== next.card.labels.length ||
+    prev.card.custom_field_values.length !== next.card.custom_field_values.length
   ) return false;
 
   // Shallow label identity check
   for (let i = 0; i < prev.card.labels.length; i++) {
     if (prev.card.labels[i].id !== next.card.labels[i].id) return false;
+  }
+
+  // Custom field value check (#371) — NOT a copy of the labels loop above.
+  // Labels' identity check is sufficient because membership *is* the datum
+  // (present/absent); a custom field's value can change while its
+  // field_definition id stays constant, so an id-only check here would
+  // silently miss value edits and stale-render the chip. Assumes stable
+  // array ordering from the API per card, the same pre-existing assumption
+  // the labels loop already makes.
+  for (let i = 0; i < prev.card.custom_field_values.length; i++) {
+    const p = prev.card.custom_field_values[i];
+    const n = next.card.custom_field_values[i];
+    if (p.field_definition !== n.field_definition || p.value !== n.value) return false;
   }
 
   return (
@@ -79,11 +111,14 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.readOnly === next.readOnly &&
     prev.compact === next.compact &&
     prev.staleness_threshold_days === next.staleness_threshold_days &&
-    prev.stale_warning_pct === next.stale_warning_pct
+    prev.stale_warning_pct === next.stale_warning_pct &&
+    prev.customFieldDefinitions === next.customFieldDefinitions &&
+    prev.boardId === next.boardId &&
+    prev.onCardUpdated === next.onCardUpdated
   );
 }
 
-const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50 }: Props) {
+const CardItem = memo(function CardItem({ card, onClick, overlay, selected, highlighted, onSelect, density = "comfortable", userTimezone = "", userDateFormat = "MM/DD/YYYY", readOnly = false, compact = false, staleness_threshold_days = 14, stale_warning_pct = 50, customFieldDefinitions = [], boardId, onCardUpdated }: Props) {
   // Per-density visibility booleans (#961). The decision tree:
   //   comfortable → one urgency badge, one primary label, checklist, assignee
   //   standard    → adds due date (when not in urgency), weight (>1), attachments, second label
@@ -103,6 +138,11 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const draggable = useDraggable({ id: card.id, disabled: readOnly });
   const { attributes, listeners, setNodeRef, isDragging } = draggable;
   const [hovered, setHovered] = useState(false);
+  // Quick-edit dropdown popover state (#371) — which pinned field's chip
+  // opened it, and the chip's own rect for anchoring. Checkbox chips toggle
+  // directly on click with no popover.
+  const [quickEditFieldId, setQuickEditFieldId] = useState<number | null>(null);
+  const [quickEditAnchor, setQuickEditAnchor] = useState<DOMRect | null>(null);
   // Tracks tooltip visibility for the aging indicator. We manage this with
   // local state rather than wrapping the card in <Tooltip> (which uses
   // cloneElement and would clobber ref={setNodeRef} from useDraggable).
@@ -162,6 +202,7 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         peekTimer.current = null;
       }
       setPeekVisible(false);
+      setQuickEditFieldId(null);
     }
   }, [isDragging]);
 
@@ -213,6 +254,34 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   // Suppress the recently-moved dot when urgency is already showing "Just moved".
   const recentAlreadyInUrgency = urgency?.kind === "recent";
 
+  // Pinned custom fields (#371, Direction A). Quick-edit is only wired when
+  // the caller opted in by passing both boardId and onCardUpdated — the
+  // share page / any read-only render simply omits them and gets plain,
+  // non-interactive chips, the same opt-in shape as onSelect above.
+  const pinnedFields = customFieldDefinitions.filter((d) => d.show_on_card).sort((a, b) => a.position - b.position);
+  const quickEditEnabled = !readOnly && boardId !== undefined && !!onCardUpdated;
+  // Empty-value handling (#371 ux-design spec §2): comfortable/standard omit
+  // an unset pinned field entirely; dense renders a ghost placeholder, so an
+  // empty field still counts toward "is there anything in this row" at dense.
+  const hasVisibleCustomFieldChips = pinnedFields.some((d) => {
+    const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
+    return (v && v.value !== "") || density === "dense";
+  });
+
+  const commitCustomFieldValue = async (fieldId: number, value: string) => {
+    if (boardId === undefined || !onCardUpdated) return;
+    const nextValues = withCustomFieldValue(card.custom_field_values, fieldId, value);
+    try {
+      const updated = await updateCard(boardId, card.id, { custom_field_values: nextValues });
+      onCardUpdated(updated);
+    } catch {
+      // Silent rollback — matches the existing label/priority quick-toggle
+      // precedent in CardDetail: no toast system exists in this app, and the
+      // card simply stays at its last-known-good server state since we never
+      // optimistically mutated `card` itself here (only local UI state).
+    }
+  };
+
   const hasMetadata =
     (showDescriptionIndicator && !!card.description) ||
     card.labels.length > 0 ||
@@ -224,7 +293,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     (showRecentlyMovedDot && isRecent && !recentAlreadyInUrgency) ||
     !!movedLabel ||
     !!urgency ||
-    (showPriorityBadge && card.priority !== "low");
+    (showPriorityBadge && card.priority !== "low") ||
+    hasVisibleCustomFieldChips;
 
   return (
     <>
@@ -363,6 +433,101 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                   <span className="text-xs text-fg-tertiary shrink-0">+{card.labels.length - labelLimit}</span>
                 )}
 
+                {/* Pinned custom fields (#371, Direction A) — bordered chip,
+                    same tier as labels (high priority to see). Rendered
+                    inline here rather than through `CustomFieldValueDisplay`
+                    because the populated case needs the quick-edit click
+                    handler / keyboard affordance / dotted-underline marking
+                    that a pure read-only renderer shouldn't know about;
+                    `CustomFieldValueDisplay` stays reusable for card-detail
+                    and any future read-only surface. */}
+                {pinnedFields.map((def) => {
+                  const entry = card.custom_field_values.find((v) => v.field_definition === def.id);
+                  const populated = entry && entry.value !== "";
+                  const editableType = def.field_type === "checkbox" || def.field_type === "dropdown";
+                  const interactive = quickEditEnabled && editableType;
+
+                  if (!populated) {
+                    // Empty-value handling (§2): comfortable/standard omit
+                    // entirely; dense shows a dashed ghost. Checkbox/dropdown
+                    // ghosts stay clickable (there's just nothing set yet —
+                    // clicking still opens the same toggle/popover as a
+                    // populated chip); text/number/date ghosts are inert.
+                    if (density !== "dense") return null;
+                    return (
+                      <span
+                        key={def.id}
+                        role={interactive ? "button" : undefined}
+                        tabIndex={interactive ? 0 : undefined}
+                        onClick={interactive ? (e) => {
+                          e.stopPropagation();
+                          if (def.field_type === "checkbox") { void commitCustomFieldValue(def.id, "true"); return; }
+                          setQuickEditFieldId(def.id);
+                          setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+                        } : undefined}
+                        onKeyDown={interactive ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (def.field_type === "checkbox") { void commitCustomFieldValue(def.id, "true"); return; }
+                            setQuickEditFieldId(def.id);
+                            setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+                          }
+                        } : undefined}
+                        aria-label={interactive ? `${def.name}: not set. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                        className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-dashed border-line shrink-0 max-w-[10rem] text-fg-faint ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                        title={`${def.name}: not set`}
+                      >
+                        {def.name}
+                        <span className={interactive ? "border-b border-dotted border-fg-tertiary" : ""}>—</span>
+                      </span>
+                    );
+                  }
+
+                  const value = entry!.value;
+                  const valid = isValidForType(def, value);
+                  const displayText = valid ? formatCustomFieldValue(def, value, userDateFormat) : value;
+                  const dot = valid && def.field_type === "dropdown" ? (
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: choiceColor(value) }} aria-hidden="true" />
+                  ) : null;
+
+                  return (
+                    <span
+                      key={def.id}
+                      role={interactive ? "button" : undefined}
+                      tabIndex={interactive ? 0 : undefined}
+                      onClick={interactive ? (e) => {
+                        e.stopPropagation();
+                        if (def.field_type === "checkbox") { void commitCustomFieldValue(def.id, value === "true" ? "false" : "true"); return; }
+                        setQuickEditFieldId(def.id);
+                        setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+                      } : undefined}
+                      onKeyDown={interactive ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (def.field_type === "checkbox") { void commitCustomFieldValue(def.id, value === "true" ? "false" : "true"); return; }
+                          setQuickEditFieldId(def.id);
+                          setQuickEditAnchor((e.currentTarget as HTMLElement).getBoundingClientRect());
+                        }
+                      } : undefined}
+                      aria-label={interactive ? `${def.name}: ${displayText}. Press Enter to ${def.field_type === "checkbox" ? "toggle" : "edit"}.` : undefined}
+                      className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border border-line shrink-0 max-w-[10rem] ${interactive ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-emphasis" : ""}`}
+                      title={`${def.name}: ${displayText}`}
+                    >
+                      {dot}
+                      <span className="text-fg-muted truncate">{def.name}:</span>
+                      {/* Firm VoC requirement — the editable-badge affordance
+                          (dotted underline) stays visible at rest, never
+                          hover-reveal-only, so an occasional user can
+                          discover it without training. */}
+                      <span className={`text-fg-secondary truncate ${interactive ? "border-b border-dotted border-fg-tertiary" : ""}`}>
+                        {displayText.length > 16 ? `${displayText.slice(0, 16)}…` : displayText}
+                      </span>
+                    </span>
+                  );
+                })}
+
                 {/* Checklist — shown at every density (it's a quick progress signal) */}
                 {card.checklist_total > 0 && (
                   <span
@@ -441,9 +606,26 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
         anchorRect={anchorRect}
         onMouseEnter={() => setPeekVisible(true)}
         onMouseLeave={() => setPeekVisible(false)}
+        customFieldDefinitions={customFieldDefinitions}
+        userDateFormat={userDateFormat}
       />,
       document.body,
     )}
+    {quickEditFieldId !== null && quickEditAnchor && (() => {
+      const def = pinnedFields.find((d) => d.id === quickEditFieldId);
+      if (!def || def.field_type !== "dropdown") return null;
+      const entry = card.custom_field_values.find((v) => v.field_definition === def.id);
+      return createPortal(
+        <CustomFieldQuickEditPopover
+          anchorRect={quickEditAnchor}
+          choices={def.choices}
+          selected={entry?.value ?? ""}
+          onSelect={(v) => void commitCustomFieldValue(def.id, v)}
+          onDismiss={() => setQuickEditFieldId(null)}
+        />,
+        document.body,
+      );
+    })()}
     </>
   );
 }, arePropsEqual);

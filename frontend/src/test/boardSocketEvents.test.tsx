@@ -77,8 +77,9 @@ vi.mock('../components/Swimlane/AddSwimlaneModal', () => ({ default: () => <div 
 vi.mock('../components/Board/BoardSettingsModal', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div />,
-  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
+  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
   countActiveFilters: () => 0,
+  isCustomFieldFilterActive: () => false,
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({ default: () => <div /> }))
 vi.mock('../components/Board/BulkActionToolbar', () => ({ default: () => <div /> }))
@@ -169,6 +170,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     addLabel: vi.fn(),
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
+    applyCustomFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
     removeMember: vi.fn(),

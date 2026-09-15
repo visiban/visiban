@@ -50,6 +50,7 @@ function emptyBoardContext(): BoardContextType {
     addLabel: vi.fn(),
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
+    applyCustomFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
     removeMember: vi.fn(),

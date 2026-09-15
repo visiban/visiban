@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority, CardTimelineEntry } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -9,6 +9,13 @@ export interface CardPatch {
   assignee_id?: number | null;
   label_ids?: number[];
   weight?: number;
+  /**
+   * Full replacement array, not a delta (#371) — matches every other list
+   * field on this type. Callers rebuild the whole array client-side (existing
+   * values with the target field's entry inserted/replaced/removed) before
+   * sending; see `frontend/src/utils/customFieldValue.ts` for the merge helper.
+   */
+  custom_field_values?: CustomFieldValue[];
 }
 
 export const createCard = (boardId: number, data: {

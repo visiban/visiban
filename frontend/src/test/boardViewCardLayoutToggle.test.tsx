@@ -110,8 +110,9 @@ vi.mock('../components/Board/BoardSettingsModal', () => ({
 }))
 vi.mock('../components/Board/FilterBar', () => ({
   default: () => <div data-testid="filter-bar">FilterBar</div>,
-  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
+  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
   countActiveFilters: () => 0,
+  isCustomFieldFilterActive: () => false,
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   default: ({ onClose }: { onClose: () => void }) => (
@@ -202,6 +203,7 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     addLabel: vi.fn(),
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
+    applyCustomFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
     removeMember: vi.fn(),

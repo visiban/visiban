@@ -262,6 +262,16 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 
 ---
 
+## Custom fields
+
+> **Added in 1.2**
+
+Board admins can define up to 30 typed metadata fields per board — text, number, date, dropdown, or checkbox — for tracking anything specific to that board's workflow. Up to 2 fields can be pinned to the card face as small chips; checkbox and dropdown chips are editable directly from the card face. Every field also gets its own input in the card detail panel, and the filter bar can filter on any of them.
+
+→ [Custom Fields](custom-fields.md)
+
+---
+
 ## Card density
 
 > **Added in 1.1**

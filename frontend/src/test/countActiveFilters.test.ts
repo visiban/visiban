@@ -49,6 +49,47 @@ describe('countActiveFilters', () => {
       labelIds: [3],
       priorities: ['urgent'],
       dueDate: 'today',
+      customFields: {},
+      visibleCustomFieldFilterIds: [],
     })).toBe(5)
+  })
+
+  // #371
+  it('does not count an empty custom field filter value', () => {
+    expect(countActiveFilters({
+      ...EMPTY_FILTER,
+      customFields: { 1: { kind: 'text', query: '' } },
+    })).toBe(0)
+  })
+
+  it('counts a non-empty text custom field filter as one active filter', () => {
+    expect(countActiveFilters({
+      ...EMPTY_FILTER,
+      customFields: { 1: { kind: 'text', query: 'sprint 14' } },
+    })).toBe(1)
+  })
+
+  it('counts a non-empty choice custom field filter as one active filter', () => {
+    expect(countActiveFilters({
+      ...EMPTY_FILTER,
+      customFields: { 2: { kind: 'choice', values: ['Beta'] } },
+    })).toBe(1)
+  })
+
+  it('counts multiple populated custom field filters as one active filter, matching other multi-value dimensions', () => {
+    expect(countActiveFilters({
+      ...EMPTY_FILTER,
+      customFields: {
+        1: { kind: 'text', query: 'sprint 14' },
+        2: { kind: 'choice', values: ['Beta'] },
+      },
+    })).toBe(1)
+  })
+
+  it('does not count visibleCustomFieldFilterIds by itself — an open control with no value filters nothing', () => {
+    expect(countActiveFilters({
+      ...EMPTY_FILTER,
+      visibleCustomFieldFilterIds: [1, 2],
+    })).toBe(0)
   })
 })

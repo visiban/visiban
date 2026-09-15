@@ -1,7 +1,7 @@
 import { useState, memo } from "react";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
-import type { Card, CardDensity, Column, Swimlane } from "../../types";
+import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
 
@@ -25,9 +25,11 @@ interface Props {
   compact?: boolean;
   staleness_threshold_days?: number;
   stale_warning_pct?: number;
+  customFieldDefinitions?: CustomFieldDefinition[];
+  onCardUpdated?: (card: Card) => void;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -103,6 +105,9 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
               compact={compact}
               staleness_threshold_days={staleness_threshold_days}
               stale_warning_pct={stale_warning_pct}
+              customFieldDefinitions={customFieldDefinitions}
+              boardId={boardId}
+              onCardUpdated={canEdit ? onCardUpdated : undefined}
             />
           ))}
         </div>

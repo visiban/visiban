@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { SavedFilter } from "../types";
 import type { FilterState } from "../components/Board/FilterBar";
 import { EMPTY_FILTER } from "../components/Board/FilterBar";
+import { loadCustomFields } from "./usePersistedFilters";
 import {
   listSavedFilters,
   createSavedFilter,
@@ -98,6 +99,15 @@ export function useSavedFilters(boardId: number) {
         s["dueDate"] === "none"
           ? s["dueDate"]
           : EMPTY_FILTER.dueDate,
+      // #371 — a v1 saved filter predates custom fields and has none of this;
+      // the defensive reader below returns {} for it, same as any other
+      // missing field. customFields keys drive visibleCustomFieldFilterIds
+      // (not the reverse) so applying a saved filter that has an active
+      // custom-field value always shows that field's control — a hidden
+      // active filter with no visible control would be a confusing "why is
+      // this card missing" state.
+      customFields: loadCustomFields(s["customFields"]),
+      visibleCustomFieldFilterIds: Object.keys(loadCustomFields(s["customFields"])).map(Number),
     };
   }, []);
 
