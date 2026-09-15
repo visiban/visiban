@@ -458,6 +458,113 @@ backend-schema-validate:
     - python manage.py spectacular --validate
   allow_failure: false
 
+# Fuzzes the OpenAPI contract itself: boots a real backend against seeded demo
+# data, authenticates as a normal (non-admin) board member, and drives
+# schemathesis against every documented operation, asserting the response
+# actually matches the declared schema, status code, and content type
+# (#1080). backend-schema-validate above only proves the generated DOCUMENT is
+# well-formed — it has no way to catch a view that bypasses its serializer and
+# returns a body the schema never described (the TruePPM red-team finding
+# #1080 is built on: same class as their #2515/#2649, and Visiban's own
+# #1108). "Authenticate as a normal board member — not a superuser" is a
+# direct requirement of #1080: provision_fuzz_token refuses to mint a token
+# for any user carrying is_superuser/is_site_admin/can_access_all_content.
+#
+# Non-blocking for one release (allow_failure: true) to establish a baseline
+# without turning every unrelated MR red on day one — this is #1080's own
+# phased plan, not a bug. Findings from the first baseline run were triaged
+# and filed individually rather than fixed in the same branch that adds the
+# job, to stay out of the way of the concurrent views/serializers work in
+# #1114 and #371:
+#   - #1119 — Group/GroupDetail serializer fields declared string, return
+#     int/bool/null (same class of bug as #1108's CardSerializer fixes)
+#   - #1120 — triage the remaining baseline findings (undocumented
+#     content-type/status-code noise from version-prefix path fuzzing,
+#     operations schemathesis can't reach without seeded path-parameter
+#     examples) and flip this job to allow_failure: false, per #1080
+#     acceptance criterion 3 ("blocking by end of 1.2").
+#
+# Scoped to the file classes #1080 names (views/, serializers.py, urls.py)
+# plus always on main, so a schema-shape change gets checked before merge
+# without running on every unrelated branch (e.g. a frontend-only MR).
+backend-schema-fuzz:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  allow_failure: true
+  rules:
+    - changes:
+        - backend/**/views/**/*
+        - backend/**/serializers.py
+        - backend/**/urls.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+    - name: valkey/valkey:8-alpine
+      alias: valkey
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+    # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
+    # never to job output — see the command's docstring.
+    VISIBAN_FUZZ_TOKEN_FILE: "/tmp/visiban_fuzz_token"
+  cache:
+    - key:
+        prefix: "pip"
+        files: [backend/requirements.txt]
+      paths: [.cache/pip/]
+      policy: pull
+    - key:
+        prefix: "pip-test"
+        files: [backend/requirements-test.txt]
+      paths: [.cache/pip/]
+      policy: pull
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+    - pip install --quiet -r backend/requirements-test.txt
+    - cd backend
+    - python manage.py migrate --noinput
+    # Deterministic, git-diffable demo data — a real member's-eye view of a
+    # populated board, not an empty database where every path-parameterized
+    # operation 404s before schemathesis can reach its core logic.
+    - python manage.py seed_demo_data --force
+    - python manage.py provision_fuzz_token --username demo2
+    - python manage.py runserver 0.0.0.0:8000 &
+    # Poll liveness instead of a fixed sleep, same pattern as oidc-smoke.
+    - |
+      for i in $(seq 1 30); do
+        python3 -c "import requests; requests.get('http://localhost:8000/api/health/liveness/', timeout=2)" \
+          2>/dev/null && break
+        sleep 1
+      done
+    - cd ..
+  script:
+    - |
+      st run http://localhost:8000/api/schema/ \
+        -H "Authorization: Token $(cat ${VISIBAN_FUZZ_TOKEN_FILE})" \
+        --checks response_schema_conformance,status_code_conformance,content_type_conformance \
+        --phases examples,fuzzing \
+        --max-examples 10 \
+        --max-time 600 \
+        --workers 4 \
+        --report junit \
+        --report-junit-path schemathesis-junit.xml \
+        --no-color
+  artifacts:
+    reports:
+      junit: schemathesis-junit.xml
+    when: always
+    expire_in: 1 week
+
 # ─── Issue Board Lens (experiment) tests ─────────────────────────────────────
 # The git_lens app is only installed when GIT_LENS_ENABLED=true, so its
 # integration tests (models, views, RBAC, caching) cannot run in the main
@@ -761,14 +868,17 @@ helm-lint:
 # it cannot know whether the rendered manifests still honor the contract a
 # deploy depends on. That gap is what let #1038 ship: an OIDC env-var name
 # mismatch that silently disabled SSO, a hook-ordering bug that made SECRET_KEY
-# rotation impossible, and zero email wiring — all of them rendering green.
+# rotation impossible, and zero email wiring — all of them rendering green. It
+# is also what let #1117 ship: a pre-install migrate hook that could not reach
+# the database it was installed alongside.
 #
 # Two halves, both cluster-free and therefore always-on:
 #   kubeconform -strict       every rendered object validates against the real
 #                             Kubernetes API schema, unknown fields included
 #   helm-structure-check.sh   the runtime contract a refactor can silently break
-#                             (hook order, secret propagation, nginx upstream,
-#                             probe paths, transport limits, netpol coverage)
+#                             (migrate placement, secret rotation reaching the
+#                             migrating pod, nginx upstream, probe paths,
+#                             transport limits, netpol coverage)
 #
 # The runtime half lives in helm-install and helm-netpol below.
 
@@ -886,13 +996,17 @@ helm-template:
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
 
 helm-install:
-  # Boots the chart and asserts it SERVES: `helm install --wait` completes (so
-  # the migrate hook ran and both Deployments rolled out), `helm test` passes
-  # (the same hook operators run), the one-time admin password is retrievable
-  # from the shared emptyDir, a placeholder SECRET_KEY is REJECTED (the
-  # fail-closed guard is asserted, not assumed), and a DJANGO_SECRET_KEY
-  # rotation applied in a single `helm upgrade` takes effect — #1038 blocker 2
-  # on the path that actually broke. See scripts/helm-install-drill.sh.
+  # Boots the chart and asserts it SERVES. ONE `helm install --wait` of the
+  # chart's own defaults completes against a cluster with no pre-existing
+  # database (#1117's acceptance criterion — this needed a two-phase
+  # --no-hooks workaround while the migrate Job was a pre-install hook),
+  # `helm test` passes (the same hook operators run), the one-time admin
+  # password is retrievable from the shared emptyDir, a placeholder SECRET_KEY
+  # is REJECTED (the fail-closed guard is asserted, not assumed), a
+  # DJANGO_SECRET_KEY rotation applied in a single `helm upgrade` takes effect
+  # AND replaces the pods — #1038 blocker 2 on the path that actually broke —
+  # three replicas migrate without deadlocking on the advisory lock, and
+  # `helm uninstall` leaves nothing behind. See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
   rules:
@@ -913,7 +1027,8 @@ helm-netpol:
   # IMPLEMENT NetworkPolicy — the chart's policies are admitted there and
   # silently ignored, so a policy selecting the wrong pods passes every other
   # gate in this file. That is exactly how the migrate Job came to be missing
-  # from the datastore allow-list (#1116).
+  # from the datastore allow-list (#1116) — that Job is gone as of #1117, but
+  # the omission shape it demonstrated outlives it.
   #
   # Separate rather than a flag on helm-install so the common deploy smoke test
   # stays fast and two unrelated failure modes stay uncoupled.

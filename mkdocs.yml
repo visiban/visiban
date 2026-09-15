@@ -123,6 +123,7 @@ nav:
     - Media Storage Security: administration/media-security.md
     - Secret Rotation: administration/secret-rotation.md
     - Upgrading: administration/upgrade.md
+    - Zero-Downtime Upgrade Playbook: administration/zero-downtime-upgrade.md
   - Maintainers:
     - maintainers/index.md
     - CI Runners: maintainers/ci-runners.md

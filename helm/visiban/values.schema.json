@@ -108,7 +108,24 @@
             }
           }
         },
-        "mediaPersistence": {
+        "migrate": {
+      "description": "Timeouts for the `migrate` init container on the backend Deployment (#1117). It waits for the database to accept connections, then takes a PostgreSQL advisory lock so concurrent replicas cannot migrate at the same time. Both waits are bounded so a stuck deploy reports a named timeout instead of hanging.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "connectTimeout": {
+          "description": "Seconds to wait for the database to accept a connection before failing the init container.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "lockTimeout": {
+          "description": "Seconds to wait for another replica's in-flight migration to finish before failing rather than starting against a possibly half-migrated schema.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "mediaPersistence": {
           "type": "object",
           "additionalProperties": false,
           "properties": {

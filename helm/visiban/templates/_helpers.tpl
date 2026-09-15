@@ -95,21 +95,6 @@ Database URL — built from postgresql subchart or externalDatabase values.
 {{- end }}
 
 {{/*
-Name of the bootstrap Secret consumed by the pre-upgrade migrate Job. Carries
-the same data as the runtime Secret but is rendered via a hook so it lands
-before the migrate Job runs — a regular Secret resource is reconciled only
-after the hook completes, so a SECRET_KEY rotation in the same upgrade would
-otherwise leave the migrate Job reading the previous value.
-*/}}
-{{- define "visiban.bootstrapSecretName" -}}
-{{- if .Values.secret.existingSecret -}}
-{{- .Values.secret.existingSecret -}}
-{{- else -}}
-{{- printf "%s-bootstrap" (include "visiban.fullname" .) -}}
-{{- end -}}
-{{- end }}
-
-{{/*
 Name of the Secret containing the SMTP password — the operator-supplied one
 when backend.email.existingSecret is set, otherwise the chart-managed Secret.
 */}}
@@ -122,9 +107,13 @@ when backend.email.existingSecret is set, otherwise the chart-managed Secret.
 {{- end }}
 
 {{/*
-Shared key/value body for the runtime Secret and the bootstrap hook Secret.
-Both must contain identical data so the migrate Job and the backend Deployment
-read the same credentials in any single upgrade.
+Key/value body of the chart-managed runtime Secret.
+
+Also checksummed into the backend Deployment's pod template annotations, so a
+rotation of ANY value here forces a rollout — which is what makes the rotation
+reach both the running app and the `migrate` init container. There was a second,
+hook-managed copy of this Secret until #1117; it existed only so a pre-upgrade
+migrate Job could read a rotated value, and it went away with the Job.
 */}}
 {{- define "visiban.secretData" -}}
 django-secret-key: {{ .Values.secret.djangoSecretKey | quote }}

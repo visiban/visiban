@@ -13,15 +13,18 @@
 #
 # That is exactly how the migrate Job came to be missing from the datastore
 # allow-list: templates/networkpolicy.yaml named only `component: backend`, while
-# the pre-install migrate hook runs with `component: migrate`. Every install with
+# the pre-install migrate hook ran with `component: migrate`. Every install with
 # networkPolicy.enabled=true — the documented production setting — hung at the
-# migrate hook on Calico or Cilium, and looked perfect on kind.
+# migrate hook on Calico or Cilium, and looked perfect on kind. (#1117 removed
+# that Job; migrations are now an init container of the backend pod and so carry
+# `component: backend`. The omission SHAPE is what this drill guards against, and
+# it long outlives the one workload that demonstrated it.)
 #
 # This drill therefore builds its own cluster with disableDefaultCNI + Calico and
 # asserts BEHAVIOR, not manifest shape:
 #
-#   POSITIVE  backend reaches PostgreSQL and Valkey
-#   POSITIVE  migrate reaches PostgreSQL and Valkey   <- the #1116 regression
+#   POSITIVE  backend reaches PostgreSQL and Valkey   <- also covers the migrate
+#             and bootstrap init containers, which share the backend pod's labels
 #   NEGATIVE  an unlabeled pod is denied
 #   NEGATIVE  a wrong-component pod is denied
 #   CONTROL   the unlabeled pod CAN still reach the frontend (so "denied" is not
@@ -173,16 +176,14 @@ kind load docker-image "visiban-netpol/backend:${TAG}" "visiban-netpol/frontend:
 # ---------------------------------------------------------------------------
 step "Installing the chart with networkPolicy.enabled=true"
 # ---------------------------------------------------------------------------
-# Two-phase, for #1117 — see the long note in scripts/helm-install-drill.sh.
-# A single `helm install` cannot work with the bundled PostgreSQL regardless of
-# NetworkPolicy (the migrate pre-install hook runs before Helm creates the
-# database), so phase 1 applies the release with --no-hooks and phase 2's
-# `helm upgrade` runs the migrate hook once PostgreSQL is up.
+# A single `helm install`, as of #1117 — the migrate pre-install hook that made
+# a one-shot install impossible is gone.
 #
-# Phase 2 is itself the first assertion of this drill: the migrate hook has to
-# reach PostgreSQL THROUGH the enforced policies to complete. Before #1116 the
-# allow-list named only `component: backend` while the hook runs as
-# `component: migrate`, so this step hung until the Job exhausted its backoff.
+# The install is itself the first assertion of this drill: the backend pod's
+# `migrate` init container has to reach PostgreSQL THROUGH the enforced policies
+# before any pod can become ready. Before #1116 the allow-list named only
+# `component: backend` while the migrate workload ran as `component: migrate`, so
+# this step hung until the Job exhausted its backoff.
 release_args() {
   # shellcheck disable=SC2086
   [ -n "${EXTRA_HELM_ARGS:-}" ] && printf '%s\n' ${EXTRA_HELM_ARGS}
@@ -210,17 +211,9 @@ ARGS
 }
 
 # shellcheck disable=SC2046  # release_args is deliberately word-split
-helm install "$RELEASE" "$CHART" $(release_args) --no-hooks \
-  || die "helm install --no-hooks failed — the chart cannot even be applied"
-ok "phase 1: release resources and NetworkPolicies created (#1117 workaround)"
-
-kubectl -n "$NAMESPACE" rollout status "statefulset/${RELEASE}-postgresql" --timeout=300s >/dev/null \
-  || die "the bundled PostgreSQL never became ready"
-
-# shellcheck disable=SC2046
-helm upgrade "$RELEASE" "$CHART" $(release_args) --wait --timeout 10m \
+helm install "$RELEASE" "$CHART" $(release_args) --wait --timeout 10m \
   || die "the release did not roll out with NetworkPolicy ENFORCED — a workload that needs a datastore is missing from the allow-list in templates/networkpolicy.yaml (#1116)"
-ok "phase 2: rolled out under enforced NetworkPolicy — the migrate hook reached PostgreSQL"
+ok "rolled out under enforced NetworkPolicy — the migrate init container reached PostgreSQL"
 
 PG_SVC="${RELEASE}-postgresql"
 VALKEY_SVC="${RELEASE}-valkey-primary"
@@ -235,13 +228,10 @@ expect ALLOWED "$(probe probe-backend-pg "${NAME_LABEL},${INSTANCE_LABEL},app.ku
   "backend -> PostgreSQL"
 expect ALLOWED "$(probe probe-backend-valkey "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=backend" "$VALKEY_SVC" 6379)" \
   "backend -> Valkey"
-# The regression #1116 fixed. Before the fix this probe was DENIED and the whole
-# install hung; keeping it as an explicit probe means a future allow-list edit
-# that drops `migrate` again is named, not just "the install timed out".
-expect ALLOWED "$(probe probe-migrate-pg "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=migrate" "$PG_SVC" 5432)" \
-  "migrate -> PostgreSQL (#1116)"
-expect ALLOWED "$(probe probe-migrate-valkey "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=migrate" "$VALKEY_SVC" 6379)" \
-  "migrate -> Valkey (#1116)"
+# The `backend` probes above are what now covers migrations: since #1117 they run
+# in the backend pod's `migrate` init container, under the backend pod's labels.
+# There is no longer a separate `component: migrate` workload, so it must NOT be
+# in the allow-list — see the negative probe for it below.
 
 # ---------------------------------------------------------------------------
 step "NEGATIVE probes — everything else is denied"
@@ -254,6 +244,11 @@ expect DENIED "$(probe probe-unlabeled-valkey "drill=unlabeled" "$VALKEY_SVC" 63
 # PostgreSQL, the allow-list has been widened past its purpose.
 expect DENIED "$(probe probe-frontend-pg "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=frontend" "$PG_SVC" 5432)" \
   "frontend -> PostgreSQL"
+# `component: migrate` was a real workload until #1117 and is not one any more.
+# Re-adding it to the allow-list would widen the policy for a pod that does not
+# exist, which is exactly the kind of leftover nobody notices in a diff.
+expect DENIED "$(probe probe-migrate-pg "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=migrate" "$PG_SVC" 5432)" \
+  "retired 'migrate' component -> PostgreSQL (#1117)"
 
 # ---------------------------------------------------------------------------
 step "CONTROL 1 — a denied pod still has working networking"

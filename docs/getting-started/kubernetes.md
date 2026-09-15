@@ -106,11 +106,26 @@ helm install visiban helm/visiban \
   --set backend.settings.siteDomain=boards.example.com
 ```
 
-Release-time tasks run automatically:
+That single command is all a fresh install needs — including the bundled
+PostgreSQL, which the chart creates and waits for as part of the same release.
 
-1. **migrate** — applies database migrations. Runs as a Helm `pre-install` / `pre-upgrade` Job (`templates/migrate-job.yaml`) so only **one** pod migrates per release, regardless of `backendReplicaCount`. Inspect with `kubectl get jobs -l app.kubernetes.io/component=migrate` and `kubectl logs job/<release>-visiban-migrate`.
-2. **collectstatic** (init container) — bundles Django static assets.
-3. **bootstrap** (init container, first install only) — creates the initial admin account.
+Three init containers run in order inside each backend pod, before its
+application container starts:
+
+1. **migrate** — applies database migrations. It waits for the database to accept
+   connections, then takes a PostgreSQL advisory lock so that concurrent replicas
+   apply migrations one at a time; a replica that loses the race waits for the
+   winner rather than starting against a half-migrated schema. Inspect with
+   `kubectl logs -n visiban deploy/visiban-backend -c migrate`.
+2. **collectstatic** — bundles Django static assets.
+3. **bootstrap** (first install only) — creates the initial admin account.
+
+!!! info "Tuning the migrate waits"
+    `backend.migrate.connectTimeout` (default 300s) bounds the wait for the
+    database to come up, and `backend.migrate.lockTimeout` (default 900s) bounds
+    the wait for another replica's migration. Raise the second one if your
+    migrations legitimately take longer than that to apply. Both fail with a
+    named error rather than hanging.
 
 ### 4. Retrieve the admin password
 
@@ -282,8 +297,11 @@ This creates policies that allow:
 
 - Ingress controller → frontend (port 80)
 - Frontend (and the `helm test` probe) → backend (port 8000)
-- Backend **and the migrate Job** → PostgreSQL (port 5432)
-- Backend **and the migrate Job** → Valkey (port 6379)
+- Backend → PostgreSQL (port 5432)
+- Backend → Valkey (port 6379)
+
+The backend entry covers migrations too: they run as an init container of the
+backend pod and so carry the backend pod's labels.
 
 All other ingress to Visiban pods is denied.
 
@@ -307,8 +325,8 @@ All other ingress to Visiban pods is denied.
 The policies name their allowed clients by `app.kubernetes.io/component`. If you
 add a workload that opens a PostgreSQL or Valkey connection, add its component to
 the allow-lists at the top of `templates/networkpolicy.yaml` — otherwise it is
-denied, and on a hook-phase workload that presents as an install that hangs
-rather than an error.
+denied, and that usually presents as an install that hangs rather than as an
+error.
 
 ## Media persistence
 
@@ -363,10 +381,10 @@ helm upgrade visiban helm/visiban \
   --set frontend.image.tag=v1.1.0
 ```
 
-Init containers run `migrate` before the new backend pod becomes ready, so migrations are applied automatically. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
+Each new backend pod runs the `migrate` init container before its application container starts, so migrations are applied automatically and no pod serves traffic against a schema it has not migrated. See the [Upgrade guide](../administration/upgrade.md) for version-specific notes and rollback procedures.
 
 !!! note "Rotating `secret.djangoSecretKey` in-flight"
-    Since chart 0.2.0 the migrate Job reads from a hook-managed bootstrap Secret that lands ahead of the runtime Secret, so a `--set-string secret.djangoSecretKey=...` override applied during `helm upgrade` takes effect for that same upgrade. Earlier chart versions required patching the live Secret out of band before running `helm upgrade`.
+    A `--set-string secret.djangoSecretKey=...` override applied during `helm upgrade` takes effect for that same upgrade. The backend pod template carries a checksum over the chart-managed Secret, so rotating any value in it replaces the running pods — which is what puts the new key in front of both the application and the `migrate` init container. Chart versions before 1.2 used a hook-managed bootstrap Secret to achieve the same thing for a separate migrate Job; that Job and that Secret are gone.
 
 !!! warning "Always pin the image tag"
     The chart defaults `backend.image.tag` and `frontend.image.tag` to the current release (e.g. `v1.0.0`). **Never deploy with `tag: "latest"` or an empty tag** — pod restarts may silently pull a different image than the one you validated, and rollbacks cannot recover a known-good state. Pin to a specific release tag (`v1.0.0`, `v1.1.0`, etc.), or to an image digest (`sha256:...`) for maximum reproducibility. The chart prints a warning in `helm install` / `helm upgrade` output when it detects an unpinned tag.
@@ -397,7 +415,7 @@ The allowlist is enforced by both the frontend Nginx config and the Django `Admi
 helm uninstall visiban --namespace visiban
 ```
 
-This removes all Kubernetes resources created by the chart. **PersistentVolumeClaims are not deleted** — delete them manually if you want to remove all data:
+This removes all Kubernetes resources created by the chart — the chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind. **PersistentVolumeClaims are not deleted** — delete them manually if you want to remove all data:
 
 ```bash
 kubectl delete pvc -n visiban -l app.kubernetes.io/instance=visiban

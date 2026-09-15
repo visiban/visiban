@@ -3,3 +3,10 @@ factory-boy>=3.3.0
 pytest
 pytest-django
 pytest-split
+# Drives the backend-schema-fuzz CI job (#1080): generates requests from the
+# live OpenAPI schema and asserts real responses conform to it. MIT license,
+# no known CVEs as of 2026-09-15 (checked via `pip-audit` / OSV before adding —
+# see the `dependency` gate note in the #1080 MR). Pinned exact, matching this
+# file's other test-only deps; requires pytest<10,>=9, already satisfied by
+# the unpinned `pytest` above.
+schemathesis==4.27.1

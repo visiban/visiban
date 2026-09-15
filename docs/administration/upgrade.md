@@ -145,6 +145,12 @@ the authoring rules.
 
 ## Multi-replica deployments
 
+!!! tip "Rolling a Helm deployment with zero downtime"
+    This section explains why running migrations separately from replica startup matters. For
+    a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
+    watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
+    see the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md).
+
 !!! warning
     Running `migrate` inside the container startup command is unsafe when `backendReplicaCount > 1`.
 
@@ -200,6 +206,16 @@ Run migrations as a dedicated pre-deploy step before scaling up any application 
     ```
 
     Run this job to completion before applying the updated `Deployment`.
+
+    !!! tip "The Helm chart already handles this"
+        If you deploy with the bundled chart you do not need any of the above.
+        Each backend pod runs `python manage.py migrate_with_lock` as an init
+        container, which serializes concurrent replicas on a PostgreSQL advisory
+        lock: exactly one replica applies migrations, the others wait for it and
+        then start. The lock is session-scoped, so a pod killed mid-migration
+        releases it instead of blocking the next deploy. See
+        [Kubernetes (Helm)](../getting-started/kubernetes.md). The same command
+        works for hand-rolled manifests — use it in place of bare `migrate`.
 
 ---
 
