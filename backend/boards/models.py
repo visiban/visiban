@@ -694,3 +694,78 @@ class BoardExportLog(models.Model):
 
     def __str__(self):
         return f"{self.board_id} / {self.actor_id} / {self.export_format} @ {self.created_at}"
+
+
+class BoardEvent(models.Model):
+    """One committed board mutation, appended to a durable, resumable feed (#1114).
+
+    Why this exists
+    ---------------
+    Before this table the only way to observe a board mutation from outside the
+    Django process was to hold a WebSocket open. ``broadcast_board_event`` is
+    fire-and-forget, so a consumer that dropped its connection could not ask
+    "what did I miss?" — it had to re-fetch ``/full/`` and diff. A second front
+    end, CRM-style sync jobs and the MCP REST client all need a cursor they can
+    resume from instead.
+
+    A row is written by ``boards.broadcast.record_board_event`` **inside the same
+    transaction as the mutation it describes**, and the broadcast that publishes
+    it is registered with ``transaction.on_commit``. A rolled-back mutation
+    therefore writes no row and sends nothing: both halves fall out of the
+    transaction rather than out of extra bookkeeping.
+
+    ``data`` is the broadcast payload verbatim, so the feed row and the
+    WebSocket frame carry the same bytes and a consumer can switch between the
+    two without a second representation to reconcile.
+
+    Why ``board_id`` and ``actor_id`` are plain integers and not ForeignKeys
+    ----------------------------------------------------------------------
+    This table is append-only, and a ForeignKey would quietly break that:
+    ``on_delete=CASCADE`` on ``board`` lets deleting a board rewrite the history
+    a consumer was mid-way through reading, and ``SET_NULL`` on ``actor`` lets
+    deactivating a user rewrite who did what. ``board.deleted`` is itself an
+    emitted event type that must be persisted, and under a CASCADE FK that row
+    could never survive the transaction that produced it.
+
+    Nothing is given up for it. Read access is resolved through
+    ``get_board_for_user`` on the board id, not through the relation, so scoping
+    is unchanged; and because ``actor_id`` is a local column rather than a join,
+    serializing a page of events cannot N+1 on the actor. Row lifecycle belongs
+    to retention pruning (``manage.py prune_board_events``), not to referential
+    integrity.
+    """
+
+    board_id = models.BigIntegerField(
+        help_text="Board this event belongs to. Deliberately not a ForeignKey — see the model docstring.",
+    )
+    event = models.CharField(
+        max_length=64,
+        help_text="Event type, exactly as broadcast over the WebSocket (e.g. 'card.moved').",
+    )
+    data = models.JSONField(
+        default=dict,
+        help_text="The broadcast payload, verbatim — identical to the WebSocket frame's 'data' object.",
+    )
+    actor_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        help_text="User who caused the event; NULL for events with no authenticated actor.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "board_events"
+        # id order is the feed's contract: the `after` cursor is an id, and ids
+        # are monotonic per insert, so ordering by id is ordering by commit
+        # sequence. Never reorder by created_at — two rows can share a timestamp.
+        ordering = ["id"]
+        indexes = [
+            # Serves the only read query the feed has: board scope + id > cursor,
+            # returned in id order.
+            models.Index(fields=["board_id", "id"], name="bev_board_id_idx"),
+            # Serves the retention pruner's single scan.
+            models.Index(fields=["created_at"], name="bev_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.pk} / board {self.board_id} / {self.event}"

@@ -93,10 +93,12 @@ The ticket is consumed by the upgrade. **Obtain a new ticket for every connectio
 All server-to-client messages use the same envelope:
 
 ```json
-{ "event": "<event_type>", "data": { ... } }
+{ "event": "<event_type>", "data": { ... }, "event_id": 84213 }
 ```
 
 `event` is a dotted string identifying the event type. `data` is event-specific — see the table below.
+
+`event_id` (since 1.2) is the id of this event's row in the board [change feed](events.md). It is **additive** — `event` and `data` are unchanged — and is **omitted entirely**, never sent as `null`, on the few frames that are broadcast without a feed row (the group channel's frames, and `ping`). Keep the last `event_id` you processed and hand it to `GET /api/v1/boards/<id>/events/?after=<event_id>` after a reconnect to replay exactly what you missed, instead of re-fetching `/full/`.
 
 Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.
 
@@ -165,6 +167,8 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 !!! note "`is_moderator` is filtered per-recipient"
     On `member.added` and `member.updated`, the `is_moderator` field is stripped from the broadcast payload for non-`admin` / non-`site_admin` subscribers (consistent with the REST response filtering, #978). Only admin-role and site-admin connections receive the field — viewer- and member-role clients do not.
+
+    The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
 ### Keepalive
 
@@ -252,6 +256,10 @@ ws.onmessage = (event) => {
       // ignore unknown event types for forward compatibility
   }
 };
+
+// Remember the newest event_id you processed; on reconnect, replay from it via
+// GET /api/v1/boards/<id>/events/?after=<lastEventId> instead of re-fetching /full/.
+// See the Change Feed page for the cursor and 410 re-sync rules.
 
 ws.onclose = (event) => {
   if (event.code === 4001) {

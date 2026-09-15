@@ -96,6 +96,7 @@ nav:
     - Issue Board Lens: api/git-lens.md
     - MCP Server: api/mcp.md
     - WebSockets: api/websockets.md
+    - Change Feed: api/events.md
     - Health Checks: api/health.md
     - Version: api/version.md
     - OpenAPI Spec: api/openapi.md

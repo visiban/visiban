@@ -3,6 +3,17 @@ import { useEffect, useRef, useState } from "react";
 export type BoardEvent = {
   event: string;
   data: Record<string, unknown>;
+  /**
+   * Id of the row this frame has in the board change feed (#1114).
+   *
+   * Optional because it is additive and absent on any frame broadcast without a
+   * feed row — the group channel's frames, for instance. Nothing in the SPA
+   * reads it yet; the SPA re-fetches `/full/` on reconnect and that remains
+   * correct. It is declared here so the type keeps matching what the server
+   * sends, and so a future resume-from-cursor client does not have to widen the
+   * type first.
+   */
+  event_id?: number;
 };
 
 /**

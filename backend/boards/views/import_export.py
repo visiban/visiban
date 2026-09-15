@@ -694,8 +694,11 @@ class BoardImportExportMixin:
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
             group_id = board.group_id
-            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
-                _broadcast.broadcast_board_event(bid, "board.created", bd)
+            event_id = _broadcast.persist_board_event(
+                board_id, "board.created", board_data, actor_id=request.user.id,
+            )
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd, event_id=eid)
                 # Group-scoped broadcast powers the boards-list live view (#753).
                 if gid is not None:
                     from groups.broadcast import broadcast_group_event
@@ -972,8 +975,11 @@ class BoardImportExportMixin:
             board_data = BoardSerializer(board, context={"request": request}).data
             board_id = board.pk
             group_id = board.group_id
-            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
-                _broadcast.broadcast_board_event(bid, "board.created", bd)
+            event_id = _broadcast.persist_board_event(
+                board_id, "board.created", board_data, actor_id=request.user.id,
+            )
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd, event_id=eid)
                 # Group-scoped broadcast powers the boards-list live view (#753).
                 if gid is not None:
                     from groups.broadcast import broadcast_group_event

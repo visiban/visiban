@@ -10,7 +10,7 @@ from django.test import RequestFactory, TestCase
 
 from accounts.models import User
 from boards.admin import CardAdmin, ColumnAdmin
-from boards.models import Board, BoardMembership, Card, Column, Swimlane
+from boards.models import Board, BoardEvent, BoardMembership, Card, Column, Swimlane
 
 
 class _DummyForm:
@@ -86,8 +86,11 @@ class CardAdminBroadcastTests(TestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self.admin.delete_model(request, card)
+            # event_id is the additive #1114 field — assert the frame carries the
+            # id of the feed row the same write appended, not just that it is present.
             mock_broadcast.assert_called_once_with(
-                self.board.id, "card.deleted", {"card_uid": card_uid}
+                self.board.id, "card.deleted", {"card_uid": card_uid},
+                event_id=BoardEvent.objects.get(event="card.deleted").pk,
             )
 
     def test_delete_queryset_broadcasts_once_per_card(self):
@@ -152,7 +155,8 @@ class ColumnAdminBroadcastTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 self.admin.delete_model(request, col)
             mock_broadcast.assert_called_once_with(
-                self.board.id, "column.deleted", {"column_uid": col_uid}
+                self.board.id, "column.deleted", {"column_uid": col_uid},
+                event_id=BoardEvent.objects.get(event="column.deleted").pk,
             )
 
     def test_delete_queryset_broadcasts_once_per_column(self):

@@ -246,6 +246,13 @@ MAX_UPLOAD_SIZE = env.int("MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
 # have Django stream the file body via FileResponse.
 USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
 
+# Board change feed (#1114) — how long an event stays readable by
+# GET /api/v1/boards/<id>/events/. Enforced by `manage.py prune_board_events`,
+# which an operator schedules; nothing expires on its own, so raising this only
+# takes effect for events the pruner has not already removed. A consumer whose
+# cursor falls outside the window gets 410 and re-syncs via /full/.
+BOARD_EVENT_RETENTION_DAYS = env.int("BOARD_EVENT_RETENTION_DAYS", default=30)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_ID = 1

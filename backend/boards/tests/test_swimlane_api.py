@@ -193,6 +193,8 @@ class SwimlaneSetCollapsedTests(TestCase):
         r = self.client.patch(url, {"is_collapsed": True}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         mock_broadcast.assert_called_once_with(
-            self.board.id, "swimlane.updated", mock_broadcast.call_args[0][2]
+            self.board.id, "swimlane.updated", mock_broadcast.call_args[0][2],
+            # Additive #1114 field: the frame now names the change-feed row.
+            event_id=mock_broadcast.call_args[1]["event_id"],
         )
         self.assertEqual(mock_broadcast.call_args[0][1], "swimlane.updated")

@@ -67,7 +67,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             column = serializer.save(board=board, position=max_pos)
             column_data = ColumnSerializer(column).data
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.created", column_data))
+            _broadcast.record_board_event(board_id, "column.created", column_data, actor_id=self.request.user.id)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
@@ -77,7 +77,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             column = serializer.save()
             column_data = ColumnSerializer(column).data
             board_id = column.board_id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.updated", column_data))
+            _broadcast.record_board_event(board_id, "column.updated", column_data, actor_id=self.request.user.id)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -87,7 +87,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
         column_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "column.deleted", {"column_uid": column_uid}))
+            _broadcast.record_board_event(board_id, "column.deleted", {"column_uid": column_uid}, actor_id=self.request.user.id)
 
     @extend_schema(
         summary="Reorder columns",
@@ -131,8 +131,8 @@ class ColumnViewSet(viewsets.ModelViewSet):
             Column.objects.bulk_update([id_to_col[cid] for cid in order_ints if cid in id_to_col], ["position"])
             cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
             board_id = board.id
-            def _broadcast_column_reorder() -> None:
-                _broadcast.broadcast_board_event(board_id, "column.reordered", {"columns": list(cols_data)})
-
-            transaction.on_commit(_broadcast_column_reorder)
+            _broadcast.record_board_event(
+                board_id, "column.reordered", {"columns": list(cols_data)},
+                actor_id=request.user.id,
+            )
         return Response(cols_data)

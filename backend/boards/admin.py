@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.db import transaction
 
 from . import broadcast as _broadcast
 from .models import (
@@ -27,18 +26,14 @@ class CardAdmin(admin.ModelAdmin):
         event = "card.updated" if change else "card.created"
         card_data = _refetched_card_data(obj, request, board)
         board_id = board.id
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, event, card_data)
-        )
+        _broadcast.record_board_event(board_id, event, card_data, actor_id=request.user.pk)
 
     def delete_model(self, request, obj):
         board_id = obj.board_id
         card_uid = obj.uid
         super().delete_model(request, obj)
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(
-                board_id, "card.deleted", {"card_uid": card_uid}
-            )
+        _broadcast.record_board_event(
+            board_id, "card.deleted", {"card_uid": card_uid}, actor_id=request.user.pk
         )
 
     def delete_queryset(self, request, queryset):
@@ -46,11 +41,9 @@ class CardAdmin(admin.ModelAdmin):
         deleted = [(c.board_id, c.uid) for c in queryset]
         super().delete_queryset(request, queryset)
         for board_id, card_uid in deleted:
-            # Bind loop vars into the closure to avoid late-binding all lambdas
-            # to the final iteration's values.
-            def _emit(bid=board_id, uid=card_uid):
-                _broadcast.broadcast_board_event(bid, "card.deleted", {"card_uid": uid})
-            transaction.on_commit(_emit)
+            _broadcast.record_board_event(
+                board_id, "card.deleted", {"card_uid": card_uid}, actor_id=request.user.pk
+            )
 
 
 @admin.register(Column)
@@ -62,27 +55,23 @@ class ColumnAdmin(admin.ModelAdmin):
         event = "column.updated" if change else "column.created"
         column_data = ColumnSerializer(obj).data
         board_id = obj.board_id
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(board_id, event, column_data)
-        )
+        _broadcast.record_board_event(board_id, event, column_data, actor_id=request.user.pk)
 
     def delete_model(self, request, obj):
         board_id = obj.board_id
         column_uid = obj.uid
         super().delete_model(request, obj)
-        transaction.on_commit(
-            lambda: _broadcast.broadcast_board_event(
-                board_id, "column.deleted", {"column_uid": column_uid}
-            )
+        _broadcast.record_board_event(
+            board_id, "column.deleted", {"column_uid": column_uid}, actor_id=request.user.pk
         )
 
     def delete_queryset(self, request, queryset):
         deleted = [(c.board_id, c.uid) for c in queryset]
         super().delete_queryset(request, queryset)
         for board_id, column_uid in deleted:
-            def _emit(bid=board_id, uid=column_uid):
-                _broadcast.broadcast_board_event(bid, "column.deleted", {"column_uid": uid})
-            transaction.on_commit(_emit)
+            _broadcast.record_board_event(
+                board_id, "column.deleted", {"column_uid": column_uid}, actor_id=request.user.pk
+            )
 
 
 admin.site.register(Board)

@@ -7,6 +7,22 @@ logger = logging.getLogger(__name__)
 
 SITE_ADMIN = "site_admin"
 
+# Roles that may see ``is_moderator`` on a ``member.*`` payload.
+#
+# Moderator status is an internal trust tier (#920/#978) and there are now three
+# surfaces that must apply the identical gate: the REST members panel
+# (``BoardMembershipSerializer.to_representation``), the WebSocket fan-out
+# (``BoardConsumer.board_event``, which filters per subscriber because the
+# serializer has no recipient), and the board change feed
+# (``BoardEventSerializer``, which filters per reader for the same reason).
+# The tuple lives here, at the same level as ``SITE_ADMIN``, so those three
+# cannot drift apart — a fourth reader must import it rather than restate it.
+ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+# Event types whose payload carries ``is_moderator``. Kept beside the role tuple
+# so adding a new member event forces a look at the gate that protects it.
+MODERATOR_BEARING_EVENTS = ("member.added", "member.updated")
+
 # Maximum number of ancestor levels walked during group-based permission checks.
 # The cap exists to prevent unbounded query chains on deeply nested group trees
 # (e.g. a cycle caused by a data bug, or a legitimate but very deep hierarchy).

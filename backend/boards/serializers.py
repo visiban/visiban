@@ -8,9 +8,11 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
 
+from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILITY
+
 from .models import (
-    Board, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card, CardMovement,
-    CardComment, CardActivity, CardAttachment, CardChecklist, SavedFilter,
+    Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
+    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, SavedFilter,
 )
 
 
@@ -62,6 +64,57 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
             role = get_board_role(request.user, board)
         if role is not None and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             data.pop("is_moderator", None)
+        return data
+
+
+
+class BoardEventSerializer(serializers.ModelSerializer):
+    """One row of a board's change feed (#1114).
+
+    ``data`` is returned verbatim — it is the same object the WebSocket frame
+    carried, which is the whole point of the feed: a consumer that reconnects
+    replays rows through the identical handler it uses for live frames, with no
+    second representation to reconcile.
+
+    ``actor_id`` is a plain integer rather than a nested user object, and
+    deliberately so on two counts. It keeps ``BoardEvent`` free of a ForeignKey
+    (see that model's docstring on why an append-only table must not cascade),
+    and it makes an N+1 on the actor structurally impossible: there is no
+    relation to walk, so serializing a 500-row page costs exactly the one query
+    that fetched it. Consumers that need a username resolve it once against the
+    members list they already hold.
+    """
+
+    class Meta:
+        model = BoardEvent
+        fields = ["id", "event", "data", "actor_id", "created_at"]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        """Apply the same per-recipient stripping the WebSocket consumer applies.
+
+        ``member.added`` / ``member.updated`` rows are stored with
+        ``is_moderator`` present, because what is stored is the broadcast payload
+        verbatim and the writer has no reader to filter for. The gate therefore
+        has to run on read, per reader — exactly as ``BoardConsumer.board_event``
+        runs it per subscriber (#978). Without this, the feed would be a way to
+        read back a field the socket refuses to send you.
+
+        The reader's role arrives as ``context["role"]``, resolved by the view's
+        access check. It **fails closed**: an absent role strips the field rather
+        than keeping it. That is the opposite of
+        ``BoardMembershipSerializer.to_representation``, which keeps the field
+        when the role is unknown — it can afford to, because the consumer layer
+        is its second line of defense. The feed has no second line, so an
+        unknown role here must mean "show less", never "show more".
+        """
+        data = super().to_representation(instance)
+        if instance.event in MODERATOR_BEARING_EVENTS:
+            role = self.context.get("role")
+            if role not in ROLES_WITH_MODERATOR_VISIBILITY:
+                payload = data.get("data")
+                if isinstance(payload, dict) and "is_moderator" in payload:
+                    data["data"] = {k: v for k, v in payload.items() if k != "is_moderator"}
         return data
 
 
