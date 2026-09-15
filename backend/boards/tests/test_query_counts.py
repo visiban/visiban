@@ -889,13 +889,20 @@ class CardMutationQueryCountTests(TestCase):
     """
 
     # Measured on the fixture below, then +3 for framework headroom.
-    BUDGET_CREATE = 34              # measured 31
-    BUDGET_UPDATE = 29              # measured 26
-    BUDGET_MOVE_COLUMN_CHANGE = 27  # measured 24
-    BUDGET_MOVE_REORDER = 22        # measured 19
-    BUDGET_ARCHIVE = 19             # measured 16
-    BUDGET_UNARCHIVE = 19           # measured 16
-    BUDGET_DESTROY = 22             # measured 19 (FK cascade deletes)
+    #
+    # Re-measured for #371 (custom fields). Every mutation that re-renders a
+    # card through `_card_queryset()` gained the `custom_field_values` prefetch,
+    # and the cascade delete gained the new table — a constant, row-independent
+    # cost that does not scale with the number of cards or fields. The numbers
+    # are moved here rather than absorbed into the existing headroom, so the
+    # budgets keep catching the *next* regression at the same tightness.
+    BUDGET_CREATE = 36              # measured 33 (was 31 pre-#371)
+    BUDGET_UPDATE = 31              # measured 28 (was 26 pre-#371)
+    BUDGET_MOVE_COLUMN_CHANGE = 28  # measured 25 (was 24 pre-#371)
+    BUDGET_MOVE_REORDER = 23        # measured 20 (was 19 pre-#371)
+    BUDGET_ARCHIVE = 20             # measured 17 (was 16 pre-#371)
+    BUDGET_UNARCHIVE = 20           # measured 17 (was 16 pre-#371)
+    BUDGET_DESTROY = 24             # measured 21 (was 19 pre-#371; FK cascade deletes)
 
     def setUp(self):
         self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")

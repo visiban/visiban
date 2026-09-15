@@ -134,6 +134,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `is_stale` | boolean | yes | no | `true` when the card has not moved within the board's `staleness_threshold_days` window; `false` otherwise |
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
 | `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. |
+| `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
 
 **Example response**
 
@@ -160,7 +161,11 @@ The following fields are returned for every card object in this endpoint, `POST 
   "checklist_done": 1,
   "is_stale": false,
   "archived_at": null,
-  "version": 4
+  "version": 4,
+  "custom_field_values": [
+    { "field_definition": 12, "value": "raid10" },
+    { "field_definition": 13, "value": "4" }
+  ]
 }
 ```
 
@@ -169,7 +174,37 @@ Update card fields. Requires member or above.
 
 > **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
-**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`
+**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`
+
+#### Custom field values (since 1.2)
+
+`custom_field_values` is read and written in the same shape, so the representation the API
+returned can be sent straight back:
+
+```json
+{ "custom_field_values": [{ "field_definition": 12, "value": "raid10" }] }
+```
+
+- **Only the fields named in the payload are touched** — a PATCH naming one field leaves
+  every other value on the card alone.
+- **Sending `""` or `null` clears a field**, removing its value entirely rather than
+  storing a blank one. A cleared field is absent from subsequent responses.
+- Values are validated and normalized per the definition's `field_type`: a `number` must
+  parse as a finite decimal, a `date` must be `YYYY-MM-DD`, a `dropdown` value must be one
+  of the definition's current `choices`, and a `checkbox` accepts `true`/`false`, `"true"`/
+  `"false"`, `"1"`/`"0"` and `"yes"`/`"no"` and stores `"true"` or `"false"`. A value may be
+  at most 500 characters.
+- A `field_definition` id that does not belong to this card's board is rejected with `400`,
+  as is the same field appearing twice in one payload.
+- Setting a value is a card edit: it goes through the same role allow-list and ownership
+  gate as any other field, bumps `version`, and is included in the `card.updated`
+  WebSocket payload.
+- `is_required` is **not enforced** in this release.
+
+**Errors:**
+- `400 Bad Request` with the message on `custom_field_values` for any of the above. The
+  whole card update is rolled back — a card is never left half-updated because one value
+  failed validation.
 
 > **`column` and `swimlane` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
 

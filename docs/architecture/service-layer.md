@@ -86,6 +86,23 @@ Two paths deliberately do **not** go through the card service. Both are document
 
 **Django admin** (`boards/admin.py`, `CardAdmin.save_model`) broadcasts card events but skips the version bump, the `CardMovement` audit trail, WIP and weight enforcement, the board-level RBAC check, and the hooks. An admin moving a card between columns therefore leaves no audit trail. This is the strongest candidate to migrate next — it is a single call site.
 
+## A service that is not a transition: `custom_fields`
+
+`boards/services/custom_fields.py` (#371) is the second module in the package and does not
+follow the `cards.py` shape, deliberately. It owns no transaction, no role check and no
+broadcast — writing a card's custom field values is not a transition of its own, it is part
+of the card update that contains it.
+
+The split it does own is the one worth keeping: validation and per-type casting stay at the
+serializer boundary (`CustomFieldValuesField`), while the **diff** — deciding which
+submitted values actually changed — and the `custom_field_value_changed` signal fan-out
+live in the service. That is what keeps a client echoing back the representation it was
+given from firing an enterprise audit-log entry for a change nobody made.
+
+It is called from `CardSerializer.create`/`update`, which run inside `update_card`'s and
+`create_card`'s transaction, so the values roll back with the card and the deferred
+`card.updated` broadcast already reflects them.
+
 ## Adding to this layer
 
 Swimlane and column reorder and the other structural mutations are slated to follow in this package, which is why `boards/services/` is a package rather than a single module. When adding a transition:

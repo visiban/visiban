@@ -83,6 +83,7 @@ const fakeBoard: BoardFull = {
   created_at: '',
   updated_at: '',
   current_user_role: 'admin',
+  custom_field_definitions: [],
   owner: fakeUser,
   capabilities: { movement_export: false },
   share_token: null,

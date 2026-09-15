@@ -70,3 +70,20 @@ CARD_MUTATION_HOOKS: list = []
 # OSS behaviour (11 built-in templates, no others) is unchanged when this
 # list is empty.
 TEMPLATE_PROVIDERS: list = []
+
+# Custom field value validation hook (#371).
+# Callable signature: (definition: CustomFieldDefinition, value: str) -> str | None
+# Called at the serializer boundary, once per submitted value, AFTER the built-in
+# per-type validation and normalization have run — so `value` is already the
+# normalized string that would be stored. A validator either:
+#   * returns None (or the value unchanged) to accept it, or
+#   * returns a replacement string to normalize it further, or
+#   * raises django.core.exceptions.ValidationError to reject it, which the
+#     serializer surfaces as a 400 on the `custom_field_values` field.
+# Validators run in registration order and each sees the previous one's output.
+# Register via: from boards.hooks import CUSTOM_FIELD_VALIDATORS
+#               CUSTOM_FIELD_VALIDATORS.append(my_validator)
+# OSS behaviour is unchanged when this list is empty. Per the stability guarantee
+# above, call sites must read the module attribute rather than a copy taken at
+# import time, and must never rebind it.
+CUSTOM_FIELD_VALIDATORS: list = []

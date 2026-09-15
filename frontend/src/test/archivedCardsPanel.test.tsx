@@ -31,6 +31,7 @@ const fakeBoard: BoardFull = {
   capabilities: { movement_export: false },
   share_token: null,
   share_token_expires_at: null,
+  custom_field_definitions: [],
 }
 
 const archivedCard: Card = {
@@ -40,6 +41,7 @@ const archivedCard: Card = {
   created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" }, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z',
   last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
   is_stale: false, archived_at: '2024-02-01T00:00:00Z', version: 1,
+  custom_field_values: [],
 }
 
 const makePage = (cards: Card[], total?: number): ArchivedCardsPage => ({

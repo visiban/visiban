@@ -1045,6 +1045,10 @@ class BoardImportExportMixin:
                 "comments__author",
                 "checklist_items",
                 "activities__actor",
+                # Custom field values (#371) — one query for the whole export,
+                # with the definition joined so neither branch below resolves a
+                # per-card FK.
+                "custom_field_values__field_definition",
             )
             .order_by("position")
         )
@@ -1052,6 +1056,26 @@ class BoardImportExportMixin:
         # here so both the JSON and CSV branches share the count without
         # double-iterating the queryset.
         row_count = len(cards)
+
+        # Custom field definitions for this board, in display order (#371).
+        # Materialized once: the CSV branch needs one column per definition and
+        # the JSON branch exports the schema alongside the values, and both
+        # must agree on the order.
+        custom_field_definitions = list(
+            board.custom_field_definitions.order_by("position", "id")
+        )
+
+        def _custom_values_by_name(card):
+            """Return ``{field name: value}`` for one card.
+
+            Keyed by name rather than id because an export is read by people and
+            by other tools, neither of which has this instance's PKs. Names are
+            unique per board (``unique_together``), so the mapping is lossless.
+            """
+            return {
+                row.field_definition.name: row.value
+                for row in card.custom_field_values.all()
+            }
 
         if export_format == "json":
             # Prefetch columns and swimlanes onto the export-bound board in a
@@ -1087,6 +1111,10 @@ class BoardImportExportMixin:
                     "created_at": card.created_at.isoformat(),
                     "created_by": card.created_by.username if card.created_by else None,
                     "archived_at": card.archived_at.isoformat() if card.archived_at else None,
+                    # #371. Additive, so schema_version stays at 2: the importer
+                    # ignores unrecognized keys, and re-importing custom field
+                    # data is a tracked follow-up rather than part of this phase.
+                    "custom_field_values": _custom_values_by_name(card),
                     "comments": [
                         {
                             "author": c.author.username if c.author else None,
@@ -1162,6 +1190,20 @@ class BoardImportExportMixin:
                     {"name": lb.name, "color": lb.color}
                     for lb in labels
                 ],
+                # The custom field schema (#371), so a consumer can type the
+                # values above rather than guessing from their text form.
+                "custom_fields": [
+                    {
+                        "name": cf.name,
+                        "field_type": cf.field_type,
+                        "choices": cf.choices_json,
+                        "position": cf.position,
+                        "show_on_card": cf.show_on_card,
+                        "is_required": cf.is_required,
+                        "help_text": cf.help_text,
+                    }
+                    for cf in custom_field_definitions
+                ],
                 "cards": cards_data,
             }
 
@@ -1186,11 +1228,18 @@ class BoardImportExportMixin:
         # Default: CSV export
         buf = io.StringIO()
         writer = csv.writer(buf)
+        # Custom field columns are appended after the fixed set (#371), so every
+        # existing column keeps its position and a consumer reading by index
+        # still works. The `Custom: ` prefix keeps a field named "Title" or
+        # "Weight" from producing a duplicate header that the importer's
+        # header map would then mis-bind.
+        custom_field_headers = [f"Custom: {cf.name}" for cf in custom_field_definitions]
         writer.writerow([
             "Card ID", "Title", "Description", "Column", "Swimlane",
             "Priority", "Assignee", "Labels", "Due Date", "Weight",
             "Created At", "Created By", "Last Moved At", "Movement Count",
             "Movement History",
+            *custom_field_headers,
         ])
 
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
@@ -1207,6 +1256,12 @@ class BoardImportExportMixin:
                     f"{mv.moved_at.isoformat()}|{from_col}|{to_col}|{moved_by}"
                 )
             history = "; ".join(history_parts)
+            # Sanitized like every other user-controlled string in this export:
+            # a value beginning with = + - @ is a formula to a spreadsheet.
+            card_custom = _custom_values_by_name(card)
+            custom_cells = [
+                s(card_custom.get(cf.name, "")) for cf in custom_field_definitions
+            ]
 
             writer.writerow([
                 card.id,
@@ -1224,6 +1279,7 @@ class BoardImportExportMixin:
                 last_moved,
                 len(movements),
                 history,
+                *custom_cells,
             ])
 
         response = HttpResponse(buf.getvalue(), content_type="text/csv")

@@ -165,6 +165,49 @@ export interface Label {
 
 export type Priority = "low" | "medium" | "high" | "urgent";
 
+export type CustomFieldType =
+  | "text"
+  | "number"
+  | "date"
+  | "dropdown"
+  | "checkbox";
+
+/**
+ * A board's declaration of one typed custom field (#371). Mirrors
+ * `CustomFieldDefinitionSerializer`; arrives with the board on `/full/`.
+ */
+export interface CustomFieldDefinition {
+  id: number;
+  uid: string;
+  name: string;
+  field_type: CustomFieldType;
+  /** Permitted values; non-empty only when `field_type` is `"dropdown"`. */
+  choices: string[];
+  /** Display order within the board. Changed only via the reorder endpoint. */
+  position: number;
+  /** Pin this field's value to the card face. At most 2 per board. */
+  show_on_card: boolean;
+  /** Declared but not enforced in v1 — see the serializer. */
+  is_required: boolean;
+  help_text: string;
+  created_at: string;
+}
+
+/**
+ * One card's value for one definition (#371). Every type is carried as a
+ * string: numbers as written, dates as `YYYY-MM-DD`, checkboxes as
+ * `"true"` / `"false"`. A field with no value has no entry at all rather than
+ * an entry holding `""`.
+ *
+ * The same shape is accepted on a card PATCH, so the representation the client
+ * receives can be sent straight back; sending `""` clears a field.
+ */
+export interface CustomFieldValue {
+  /** `CustomFieldDefinition.id` — look the schema up in `BoardFull`. */
+  field_definition: number;
+  value: string;
+}
+
 export interface CardChecklistItem {
   id: number;
   text: string;
@@ -205,6 +248,7 @@ export interface Card {
   is_stale: boolean;
   archived_at: string | null;
   version: number;
+  custom_field_values: CustomFieldValue[];
 }
 
 export interface Notification {
@@ -386,6 +430,7 @@ export interface BoardFull {
   cards: Card[];
   labels: Label[];
   members: BoardMembership[];
+  custom_field_definitions: CustomFieldDefinition[];
   staleness_threshold_days: number;
   stale_warning_pct: number;
   allowed_priorities: Priority[];

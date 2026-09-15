@@ -33,6 +33,7 @@ function makeCard(id: number, title: string): Card {
     checklist_total: 0,
     checklist_done: 0,
     is_stale: false,
+    custom_field_values: [],
     archived_at: null,
     version: 1,
   }

@@ -407,6 +407,11 @@ Requires board membership — non-members receive `403 Forbidden` with body `{"d
 
 `Movement History` is a semicolon-separated list of pipe-delimited records: `<timestamp>|<from_column>|<to_column>|<moved_by>`.
 
+Since 1.2, one further column is **appended** per [custom field](#custom-fields-since-12)
+defined on the board, in the fields' display order, headed `Custom: <field name>`. The
+fixed columns above keep their positions, so a consumer reading by index is unaffected.
+The prefix keeps a field named e.g. `Title` from colliding with a built-in header.
+
 ### `GET /api/v1/boards/{id}/export/?format=json`
 Export the board as JSON. Returns `application/json`. Same permission rules as the CSV variant: requires board membership and meeting the `export_min_role` threshold. Owners and site admins always bypass.
 
@@ -416,6 +421,11 @@ Export the board as JSON. Returns `application/json`. Same permission rules as t
 
 The top-level `schema_version` field is always `2` in 1.1+ exports. The importer understands versions 0 (pre-1.0, no field present), 1, and 2. Version 2 adds `archived_at` per card, `movement_type`, movement `notes`, and comment `created_at`.
 
+Since 1.2 the payload also carries the board's `custom_fields` schema and each card's
+`custom_field_values`, keyed by field name. Both are **additive**, so `schema_version`
+stays at `2` and an existing consumer is unaffected. Re-importing custom field data is not
+supported yet — the importer ignores both keys.
+
 ```json
 {
   "schema_version": 2,
@@ -424,6 +434,9 @@ The top-level `schema_version` field is always `2` in 1.1+ exports. The importer
   "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true }],
   "swimlanes": [{ "name": "Acme Corp", "position": 0, "color": "#3B82F6", "contact_email": "", "notes": "" }],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
+  "custom_fields": [
+    { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "" }
+  ],
   "cards": [
     {
       "title": "Fix login bug",
@@ -438,6 +451,7 @@ The top-level `schema_version` field is always `2` in 1.1+ exports. The importer
       "position": 0,
       "created_at": "2026-03-01T10:00:00Z",
       "created_by": "alice",
+      "custom_field_values": { "Array Type": "raid10" },
       "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z" }],
       "checklist": [{ "text": "Write tests", "is_checked": false }]
     }
@@ -737,6 +751,75 @@ Update a label. Requires board admin.
 
 ### `DELETE /api/v1/boards/{id}/labels/{label_id}/`
 Delete a label. Requires board admin.
+
+---
+
+## Custom fields (since 1.2)
+
+Typed, per-board metadata fields that cards can carry — where a label is an untyped tag,
+a custom field is a named key with a type. A board's definitions are also returned on
+`GET /api/v1/boards/{id}/full/` as `custom_field_definitions`, so a client has the schema
+on board load. Card **values** are read and written through the
+[card endpoints](cards.md), not here.
+
+Definition objects include a `uid` field — stable across renames, read-only.
+
+**Limits:** at most **30** definitions per board, and at most **2** with
+`show_on_card: true`.
+
+| Field | Type | Read-only | Description |
+|---|---|---|---|
+| `id` | integer | yes | Database primary key |
+| `uid` | string | yes | Stable 16-character hex UID |
+| `name` | string | no | Field name; unique within the board |
+| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"` |
+| `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
+| `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
+| `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
+| `is_required` | boolean | no | Declared but **not enforced** in this release |
+| `help_text` | string | no | Hint shown next to the input |
+| `created_at` | string | yes | ISO 8601 creation timestamp |
+
+### `GET /api/v1/boards/{id}/custom-fields/`
+List the board's custom field definitions, in `position` order. Available to **all board
+members, including viewers** — a reader needs the schema to make sense of the values they
+can already see. Paginated with the project-wide offset pagination.
+
+### `GET /api/v1/boards/{id}/custom-fields/{field_id}/`
+Get a single definition. Available to all board members.
+
+### `POST /api/v1/boards/{id}/custom-fields/`
+Create a definition. Requires board admin.
+
+**Request** `{ "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "show_on_card": true }`
+
+`position` is server-assigned (appended to the end) and ignored if supplied.
+
+**Errors:**
+- `400 Bad Request` if the name is blank or already used on this board, a dropdown has no
+  choices, a non-dropdown supplies choices, the board already has 30 definitions, or a
+  third field is pinned with `show_on_card`.
+
+### `PATCH /api/v1/boards/{id}/custom-fields/{field_id}/`
+Update a definition. Requires board admin.
+
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_card`, `is_required`, `help_text`
+
+> Removing a choice from a dropdown does **not** rewrite cards that already hold it: the
+> stored value keeps reading back, but it can no longer be written again.
+
+### `DELETE /api/v1/boards/{id}/custom-fields/{field_id}/`
+Delete a definition. Requires board admin. **Every card's value for that field is deleted
+with it.**
+
+### `PUT /api/v1/boards/{id}/custom-fields/reorder/`
+Reorder definitions. Requires board admin. `POST` is accepted as well, matching the column
+and swimlane reorder actions.
+
+**Request** `{ "order": [3, 1, 2] }` — custom field IDs in the new order. IDs belonging to
+another board are ignored.
+
+**Response** the full list in the new order.
 
 ---
 

@@ -146,6 +146,18 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 | `label.updated` | Label renamed or recolored | Full `LabelSerializer` object |
 | `label.deleted` | Label deleted | `{ "label_uid": <string> }` |
 
+### Custom field events (since 1.2)
+
+Schema changes only. A change to a card's **values** arrives as `card.updated`, whose
+payload carries the card's `custom_field_values`.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `custom_field.created` | New custom field definition created | Full `CustomFieldDefinitionSerializer` object |
+| `custom_field.updated` | Definition renamed, retyped, or its choices/pinning changed | Full `CustomFieldDefinitionSerializer` object |
+| `custom_field.deleted` | Definition deleted (and every card value with it) | `{ "custom_field_uid": <string> }` |
+| `custom_field.reordered` | Definition order changed | `{ "custom_fields": [<CustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
+
 ### Card events
 
 | Event | Trigger | `data` shape |

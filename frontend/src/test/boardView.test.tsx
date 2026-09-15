@@ -208,6 +208,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
+    custom_field_definitions: [],
     owner: fakeUser,
     capabilities: { movement_export: false },
     share_token: null,
@@ -369,6 +370,7 @@ describe('BoardView', () => {
       updated_at: '2026-01-01T00:00:00Z', last_moved_at: null,
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
       version: 1,
+      custom_field_values: [],
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [stalledCard] }) })
     render(<BoardView {...defaultProps()} />)
@@ -668,6 +670,7 @@ describe('BoardView', () => {
       created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
     render(<BoardView {...defaultProps()} />)
@@ -789,6 +792,7 @@ describe('BoardView', () => {
       created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
+      custom_field_values: [],
     }
     const ctx = defaultContext({ board: makeBoard({ cards: [card] }) })
     mockBoardContextValue = ctx

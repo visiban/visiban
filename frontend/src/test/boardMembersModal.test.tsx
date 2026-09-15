@@ -36,6 +36,7 @@ const fakeBoard: BoardFull = {
   capabilities: { movement_export: false },
   share_token: null,
   share_token_expires_at: null,
+  custom_field_definitions: [],
 }
 
 describe('BoardMembersModal', () => {

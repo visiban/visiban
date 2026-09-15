@@ -172,6 +172,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     is_starred: false,
     created_at: '', updated_at: '',
     current_user_role: 'admin',
+    custom_field_definitions: [],
     owner: fakeUser,
     capabilities: { movement_export: false },
     share_token: null,

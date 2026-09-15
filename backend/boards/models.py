@@ -769,3 +769,135 @@ class BoardEvent(models.Model):
 
     def __str__(self):
         return f"{self.pk} / board {self.board_id} / {self.event}"
+
+
+class CustomFieldDefinition(models.Model):
+    """A typed metadata field that every card on one board may carry (#371).
+
+    Labels are untyped tags: they can say "backend" but not "hypervisors = 4".
+    A definition is the *schema* half of that — the board-scoped declaration of
+    a name, a type, and (for dropdowns) the permitted choices. The per-card half
+    is :class:`CustomFieldValue`.
+
+    Why an auto PK plus ``uid`` rather than the UUID PK the issue sketched:
+    every other board-scoped model here (Column, Swimlane, Label, Card) uses an
+    integer PK for the URL and a random ``uid`` as the stable external handle,
+    and the nested routers, the WebSocket payloads and the export format all
+    assume that shape. A UUID PK on this one model would buy nothing the ``uid``
+    does not already provide and would make it the odd one out.
+
+    The two caps below are enforced at the serializer boundary (see
+    ``boards.serializers.assert_definition_caps``) rather than by a database
+    constraint, because neither is expressible as one: both are counts over a
+    board's rows.
+    """
+
+    class FieldType(models.TextChoices):
+        """Value types a definition can declare. Casting/validation is per type."""
+        TEXT = "text"
+        NUMBER = "number"
+        DATE = "date"
+        DROPDOWN = "dropdown"
+        CHECKBOX = "checkbox"
+
+    # EAV with a cap: /full/ joins every card against every value row, so an
+    # uncapped field count is a Cartesian blow-up waiting to happen. 500 cards
+    # x 30 fields = 15,000 value rows, which the prefetch handles in one query.
+    MAX_PER_BOARD = 30
+    # Card-face real estate. The card is a summary, not a record view.
+    MAX_PINNED_PER_BOARD = 2
+    # Cap on a stored value, enforced in the serializer. It is not cosmetic: the
+    # (field_definition, value) index below is a btree, and PostgreSQL rejects an
+    # index tuple larger than ~2704 bytes at INSERT time. 500 characters cannot
+    # exceed that even at 4 bytes per character, so no legal value can be written
+    # and then fail to index. Raising this cap later is backward compatible;
+    # lowering it is not, so it starts deliberately conservative.
+    MAX_VALUE_LENGTH = 500
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
+    board = models.ForeignKey(
+        Board, on_delete=models.CASCADE, related_name="custom_field_definitions"
+    )
+    name = models.CharField(max_length=100)
+    field_type = models.CharField(
+        max_length=20, choices=FieldType.choices, default=FieldType.TEXT
+    )
+    choices_json = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Permitted values, used only when field_type is 'dropdown'. Stored on "
+            "the definition rather than in a separate table so the choices are "
+            "always loaded with the field they belong to."
+        ),
+    )
+    position = models.IntegerField(default=0)
+    show_on_card = models.BooleanField(
+        default=False,
+        help_text="Pin this field's value to the card face. Max 2 per board.",
+    )
+    is_required = models.BooleanField(
+        default=False,
+        help_text=(
+            "Declared but NOT enforced in v1 — the column exists so the flag can "
+            "be set and read before enforcement lands. Do not add enforcement "
+            "without a release note: it would turn existing valid card writes "
+            "into 400s."
+        ),
+    )
+    help_text = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "custom_field_definitions"
+        ordering = ["position", "id"]
+        # (board, position) keeps the display order unambiguous — the reorder
+        # action does a two-pass update to stay inside it, same as columns.
+        # (board, name) makes a field addressable by name, which the CSV export
+        # header and the (future) import both rely on.
+        unique_together = [("board", "position"), ("board", "name")]
+
+    def __str__(self):
+        return f"{self.board_id} / {self.name}"
+
+
+class CustomFieldValue(models.Model):
+    """One card's value for one :class:`CustomFieldDefinition` (#371).
+
+    A single ``value`` text column holds every type. The alternative — one
+    typed column per type — trades a cast for a table full of sparse nulls and
+    a migration every time a type is added; casting and validation live in the
+    serializer instead. Typed columns (``value_number``, ``value_date``) are
+    deferred to the enterprise analytics work that would actually need SUM/AVG.
+
+    A row is only written when a card has a value: clearing a field deletes the
+    row rather than storing an empty string, so "unset" has exactly one
+    representation.
+    """
+
+    card = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="custom_field_values"
+    )
+    field_definition = models.ForeignKey(
+        CustomFieldDefinition, on_delete=models.CASCADE, related_name="values"
+    )
+    value = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "custom_field_values"
+        # No Meta.ordering: ordering by the definition's position would force a
+        # join on every query that touches this table. The read path orders
+        # explicitly in its Prefetch queryset instead, paying for the join once.
+        unique_together = [("card", "field_definition")]
+        indexes = [
+            # Supports "which cards have <value> for <field>" lookups. No OSS
+            # query uses it yet — server-side filtering is not in this phase —
+            # but the table is empty today, so building it now is free, and
+            # building it later on a populated table is not.
+            models.Index(
+                fields=["field_definition", "value"], name="cfv_definition_value_idx"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.card_id} / {self.field_definition_id}"

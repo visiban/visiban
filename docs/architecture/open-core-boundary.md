@@ -212,6 +212,8 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 | `MOVEMENT_EXPORT_BACKENDS` list (`boards/hooks.py`) | Enterprise delivery report export (#342 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise advanced analytics (#341 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `TEMPLATE_PROVIDERS` list (`boards/hooks.py`) | External board-template registration by installed packages (#1115; tracked further in #504) | ✅ Implemented — `boards/hooks.py` + `boards/template_sync.py`, synced via `post_migrate` in `BoardsConfig.ready()` |
+| `CUSTOM_FIELD_VALIDATORS` list (`boards/hooks.py`) | Enterprise per-type custom field validators (#371) | ✅ Implemented — `boards/hooks.py`, applied at the serializer boundary |
+| `custom_field_value_changed` signal (`boards/signals.py`) | Enterprise custom field change audit trail (#371) | ✅ Implemented — `boards/signals.py`, sent from `boards/services/custom_fields.py` |
 | `post_notification_created` signal | Enterprise channel delivery (enterprise #34) | Not yet implemented |
 | `BaseSnapshotStorage` / `SNAPSHOT_STORAGE_BACKEND` | Enterprise S3 snapshots (enterprise #37) | Not yet implemented |
 | `post_reminder_due` signal | Enterprise reminder delivery (enterprise #35) | Not yet implemented |
