@@ -20,7 +20,7 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, Column, Label, Swimlane, User } from "../../types";
+import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, Swimlane, User } from "../../types";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
@@ -66,7 +66,7 @@ import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
-import { filterCards } from "../../utils/filterCards";
+import { filterCards, hasActiveClientFilters } from "../../utils/filterCards";
 import ModalWrapper from "../shared/ModalWrapper";
 
 interface Props {
@@ -243,6 +243,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     addLabel: onLabelAdded,
     updateLabel: onLabelUpdated,
     removeLabel: onLabelDeleted,
+    applyCustomFieldDefinitions: onCustomFieldDefinitionsApplied,
     addMember: onMemberAdded,
     updateMember: onMemberUpdated,
     removeMember: onMemberRemoved,
@@ -368,6 +369,19 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       onLabelUpdated(d as unknown as Label);
     } else if (event.event === "label.deleted") {
       onLabelDeleted((d as { label_uid: string }).label_uid);
+    } else if (event.event === "custom_field.created") {
+      const created = d as unknown as CustomFieldDefinition;
+      onCustomFieldDefinitionsApplied([...board.custom_field_definitions, created]);
+    } else if (event.event === "custom_field.updated") {
+      const updated = d as unknown as CustomFieldDefinition;
+      onCustomFieldDefinitionsApplied(
+        board.custom_field_definitions.map((f) => (f.id === updated.id ? updated : f))
+      );
+    } else if (event.event === "custom_field.deleted") {
+      const { custom_field_uid } = d as { custom_field_uid: string };
+      onCustomFieldDefinitionsApplied(board.custom_field_definitions.filter((f) => f.uid !== custom_field_uid));
+    } else if (event.event === "custom_field.reordered") {
+      onCustomFieldDefinitionsApplied((d as { custom_fields: CustomFieldDefinition[] }).custom_fields);
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
     } else if (event.event === "member.updated") {
@@ -417,7 +431,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -680,7 +694,10 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // searchParams-derived values below; this effect is intentionally placed after
   // they are available (see the view derivation a few lines down).
 
-  const { filters: persistedFilters, setFilters: setPersistedFilters } = usePersistedFilters(board.id);
+  const { filters: persistedFilters, setFilters: setPersistedFilters } = usePersistedFilters(
+    board.id,
+    board.custom_field_definitions.filter((d) => d.show_on_card).map((d) => d.id),
+  );
 
   // Parse filter state from URL params on mount; URL params override localStorage when present.
   const initialFilters = useMemo<typeof persistedFilters>(() => {
@@ -701,6 +718,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       dueDate: (["overdue", "today", "this_week", "none"] as const).includes(fDue as never)
         ? (fDue as typeof persistedFilters["dueDate"])
         : null,
+      // #371 — custom field filters aren't URL-shareable in this phase; a
+      // URL-driven filter link never carries one, so it always starts empty.
+      // The visible-controls set still carries over from localStorage so an
+      // incoming filter link doesn't collapse whichever custom-field
+      // controls the user already had open.
+      customFields: {},
+      visibleCustomFieldFilterIds: persistedFilters.visibleCustomFieldFilterIds,
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount; searchParams and persistedFilters are stable on first render
   }, []);
@@ -1131,12 +1155,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // Note: server search matches title+description only; client-side filterCards additionally
   // matches assignee name and label name — this is intentional (client has richer context).
   const filteredCardIds: Set<number> | null = (() => {
-    const clientFiltersActive = (
-      filters.assigneeIds.length > 0 ||
-      filters.labelIds.length > 0 ||
-      filters.priorities.length > 0 ||
-      filters.dueDate !== null
-    );
+    const clientFiltersActive = hasActiveClientFilters(filters);
 
     if (!clientFiltersActive && searchMatchIds === null) return null;
 
@@ -2138,6 +2157,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       compact={cardLayout === "compact"}
                       staleness_threshold_days={board.staleness_threshold_days ?? 14}
                       stale_warning_pct={board.stale_warning_pct ?? 50}
+                      customFieldDefinitions={board.custom_field_definitions}
+                      onCardUpdated={onCardUpdated}
                     />
                   </React.Fragment>
                 ));
@@ -2187,7 +2208,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>{/* end flex-row wrapper */}
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay density={board.card_density} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} />}
+          {activeCard && <CardItem card={activeCard} overlay density={board.card_density} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} customFieldDefinitions={board.custom_field_definitions} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2 min-w-0">
@@ -2274,6 +2295,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}
           onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
+          onFieldsUpdated={onCustomFieldDefinitionsApplied}
         />
       )}
 

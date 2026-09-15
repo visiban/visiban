@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -112,6 +112,31 @@ export const listLabels = (boardId: number) =>
 
 export const createLabel = (boardId: number, data: { name: string; color?: string }) =>
   client.post<Label>(`/api/v1/boards/${boardId}/labels/`, data).then((r) => r.data);
+
+// Custom fields (#371)
+export const listCustomFieldDefinitions = (boardId: number) =>
+  client.get<CustomFieldDefinition[]>(`/api/v1/boards/${boardId}/custom-fields/`).then((r) => r.data);
+
+export const createCustomFieldDefinition = (boardId: number, data: {
+  name: string;
+  field_type: CustomFieldType;
+  choices?: string[];
+  help_text?: string;
+}) =>
+  client.post<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/`, data).then((r) => r.data);
+
+export const updateCustomFieldDefinition = (
+  boardId: number,
+  fieldId: number,
+  data: Partial<Pick<CustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_card">>
+) =>
+  client.patch<CustomFieldDefinition>(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`, data).then((r) => r.data);
+
+export const deleteCustomFieldDefinition = (boardId: number, fieldId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/custom-fields/${fieldId}/`);
+
+export const reorderCustomFields = (boardId: number, order: number[]) =>
+  client.post<CustomFieldDefinition[]>(`/api/v1/boards/${boardId}/custom-fields/reorder/`, { order }).then((r) => r.data);
 
 export const importBoard = (file: File, name?: string, groupId?: number) => {
   const formData = new FormData();

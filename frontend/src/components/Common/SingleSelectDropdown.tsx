@@ -12,6 +12,13 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * Decorative — the component wraps it in aria-hidden.
    */
   triggerPrefix?: ReactNode;
+  /**
+   * Extra classes merged onto the trigger button (#371) — e.g. `"w-full
+   * justify-between"` when the dropdown needs to fill a form-field-width
+   * container instead of the default inline/auto width. Additive only; the
+   * component's own base classes always apply.
+   */
+  className?: string;
 }
 
 export default function SingleSelectDropdown<T extends string | number>({
@@ -20,6 +27,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   selected,
   onChange,
   triggerPrefix,
+  className,
 }: SingleSelectDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -89,7 +97,7 @@ export default function SingleSelectDropdown<T extends string | number>({
           selected !== null
             ? "border-info text-info"
             : "border-line-strong text-fg-secondary hover:border-line-emphasis"
-        }`}
+        } ${className ?? ""}`}
       >
         {triggerPrefix !== undefined && (
           <span aria-hidden="true" className="flex items-center">

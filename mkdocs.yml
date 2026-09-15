@@ -67,6 +67,7 @@ nav:
     - Card Archiving: features/card-archiving.md
     - Card Descriptions: features/card-descriptions.md
     - Saved Filters: features/saved-filters.md
+    - Custom Fields: features/custom-fields.md
     - Analytics: features/analytics.md
     - Notifications: features/notifications.md
     - Real-time Updates: features/realtime.md

@@ -142,8 +142,9 @@ vi.mock('../components/Board/FilterBar', () => ({
     capturedFilterBarProps = props
     return <div data-testid="filter-bar" data-scope={props.scope}>FilterBar</div>
   },
-  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null },
+  EMPTY_FILTER: { search: '', assigneeIds: [], labelIds: [], priorities: [], dueDate: null, customFields: {}, visibleCustomFieldFilterIds: [] },
   countActiveFilters: () => 0,
+  isCustomFieldFilterActive: () => false,
 }))
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   default: ({ onClose }: { onClose: () => void }) => <div data-testid="shortcuts-overlay"><button onClick={onClose}>Close Shortcuts</button></div>,
@@ -238,6 +239,7 @@ function defaultContext(overrides: Partial<BoardContextType> = {}): BoardContext
     addLabel: vi.fn(),
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
+    applyCustomFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
     removeMember: vi.fn(),

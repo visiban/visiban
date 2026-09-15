@@ -17,6 +17,8 @@ import MentionTextarea from "./MentionTextarea";
 import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
+import CustomFieldEditRow from "./CustomFieldEditRow";
+import { withCustomFieldValue } from "../../utils/customFieldValue";
 
 interface Props {
   card: Card;
@@ -78,6 +80,13 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const [bulkText, setBulkText] = useState("");
   const [checklistOpen, setChecklistOpen] = useState(true);
   const [attachmentsOpen, setAttachmentsOpen] = useState(true);
+  // #371 — expanded by default only when the card already has ≥1 populated
+  // custom-field value; a board with fields defined but none filled in on
+  // this card starts collapsed so an empty structure doesn't dominate the
+  // panel, while still surfacing populated data without an extra click.
+  const [customFieldsOpen, setCustomFieldsOpen] = useState(
+    () => card.custom_field_values.some((v) => v.value !== "")
+  );
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Focus the panel on open so screen readers announce it as a dialog.
@@ -667,6 +676,57 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   ) : null}
                 </div>
               </div>
+
+              {/* Custom fields (#371) — the whole section, dividers included, is
+                  omitted when the board has none defined. This is a context-gate,
+                  not a permission-gate (frontend/CLAUDE.md's Conditional
+                  admin-only elements rule covers both the same way): the feature
+                  is valid for this user, just meaningless on a board with no
+                  fields, so there's nothing to render rather than an empty
+                  placeholder section. No `is_required` indicator anywhere here —
+                  the field is API-exposed but server-unenforced in v1, so a
+                  required-field asterisk would promise validation that doesn't
+                  exist. */}
+              {board.custom_field_definitions.length > 0 && (
+                <>
+                  <div className="border-t border-line" />
+                  <div>
+                    <button
+                      className="flex items-center justify-between w-full mb-2 group/cf focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                      onClick={() => setCustomFieldsOpen((o) => !o)}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                        Custom fields
+                        <span className="ml-1.5 normal-case font-normal text-fg-muted">({board.custom_field_definitions.length})</span>
+                      </p>
+                      <svg className={`w-3.5 h-3.5 text-fg-faint group-hover/cf:text-fg-tertiary transition-transform ${customFieldsOpen ? "" : "-rotate-90"}`} viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {customFieldsOpen && (
+                      <div className="flex flex-col gap-4">
+                        {[...board.custom_field_definitions]
+                          .sort((a, b) => a.position - b.position)
+                          .map((definition) => {
+                            const existing = localCard.custom_field_values.find((v) => v.field_definition === definition.id);
+                            return (
+                              <CustomFieldEditRow
+                                key={definition.id}
+                                definition={definition}
+                                value={existing?.value}
+                                disabled={!canEdit}
+                                userDateFormat={userDateFormat}
+                                onSave={(v) => save({
+                                  custom_field_values: withCustomFieldValue(localCard.custom_field_values, definition.id, v),
+                                })}
+                              />
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Weight */}
               <div>

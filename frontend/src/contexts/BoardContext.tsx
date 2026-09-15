@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import { useBoard } from "../hooks/useBoard";
 import type { MoveBlockedError } from "../hooks/useBoard";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label } from "../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition } from "../types";
 
 export interface BoardContextType {
   board: BoardFull | null;
@@ -24,6 +24,7 @@ export interface BoardContextType {
   addLabel: (label: Label) => void;
   updateLabel: (label: Label) => void;
   removeLabel: (labelUid: string) => void;
+  applyCustomFieldDefinitions: (definitions: CustomFieldDefinition[]) => void;
   addMember: (membership: BoardMembership) => void;
   updateMember: (membership: BoardMembership) => void;
   removeMember: (userId: number) => void;

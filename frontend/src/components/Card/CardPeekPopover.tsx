@@ -1,19 +1,25 @@
 import { useRef } from "react";
-import type { Card } from "../../types";
+import type { Card, CustomFieldDefinition } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
+import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
 
 interface CardPeekPopoverProps {
   card: Card;           // from ../../types
   anchorRect: DOMRect;  // captured via getBoundingClientRect() on the card element
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  /** Every board custom field definition (#371) — not pre-filtered; the peek
+   *  filters to non-pinned ones itself, since pinned fields are already
+   *  visible on the card face and would be redundant here. */
+  customFieldDefinitions?: CustomFieldDefinition[];
+  userDateFormat?: string;
 }
 
 const POPOVER_WIDTH = 288; // w-72 = 288px
 const POPOVER_GAP = 8;
 
-export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave }: CardPeekPopoverProps) {
+export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMouseLeave, customFieldDefinitions = [], userDateFormat = "MM/DD/YYYY" }: CardPeekPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Check prefers-reduced-motion — when true, skip the fade-in animation class.
@@ -117,6 +123,29 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
           it twice in a 288px panel is just noise. */}
       {(() => {
         const parts: string[] = [];
+
+        // Custom fields (#371) — non-pinned only (pinned fields already show
+        // on the card face; repeating them here would be redundant), in
+        // board position order, capped at 6 populated entries so up to 30
+        // possible fields can never blow the "single muted line" rule past
+        // readability. "+N more" replaces the 6th entry rather than being
+        // appended after it, keeping the hard cap at 6 visible slots.
+        const populated = [...customFieldDefinitions]
+          .filter((d) => !d.show_on_card)
+          .sort((a, b) => a.position - b.position)
+          .map((d) => {
+            const v = card.custom_field_values.find((cv) => cv.field_definition === d.id);
+            if (!v || v.value === "") return null;
+            const text = isValidForType(d, v.value) ? formatCustomFieldValue(d, v.value, userDateFormat) : v.value;
+            return `${d.name}: ${text}`;
+          })
+          .filter((p): p is string => p !== null);
+        if (populated.length > 6) {
+          parts.push(...populated.slice(0, 5), `+${populated.length - 5} more`);
+        } else {
+          parts.push(...populated);
+        }
+
         if (card.weight > 1) parts.push(`Weight ${card.weight}`);
         if (card.attachment_count > 0) parts.push(`${card.attachment_count} attachment${card.attachment_count === 1 ? "" : "s"}`);
         if (parts.length === 0) return null;
