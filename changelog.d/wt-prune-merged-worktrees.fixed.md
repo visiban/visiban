@@ -1,0 +1,1 @@
+`scripts/wt prune` now reaps a merged worktree even when its branch's local tip never appears in `origin/main`'s history — a squash merge, an amend/rebase after the last push, or a default branch whose own history was rewritten after the merge landed all used to be reported as "commits NOT in origin/main" and kept forever, silently eating the WIP cap.
