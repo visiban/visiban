@@ -313,7 +313,7 @@ Every Personal Access Token created from 1.2 onward carries an explicit list of 
 | `write` | Any `POST`, `PUT`, `PATCH` or `DELETE` request to the REST API |
 | `admin` | Any request to `/api/v1/admin/*`, **in addition to** the verb scope above |
 | `mcp:read` | Any request to the MCP transport at `/mcp` (see [MCP server](mcp.md)) |
-| `mcp:write` | Reserved for MCP write tools |
+| `mcp:write` | Required, **in addition to** `mcp:read`, to call an MCP write tool (`create_card`, `move_card`, `update_card`, `archive_card`) |
 
 ### Non-hierarchical by design
 

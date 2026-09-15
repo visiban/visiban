@@ -1,11 +1,11 @@
 # MCP Server
 
-Visiban can expose its boards to AI agents over the [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to `/mcp`, authenticates with a Personal Access Token, and calls tools that read your Visiban data.
+Visiban can expose its boards to AI agents over the [Model Context Protocol](https://spec.modelcontextprotocol.io) (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to `/mcp`, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.
 
 The feature is flag-gated: `/mcp` returns `404 Not Found` unless the server is started with `MCP_SERVER_ENABLED=true`.
 
 !!! note
-    This is the Phase 1 (OSS core) surface. It is read-only and ships a single tool, `list_boards`.
+    This is the Phase 1 (OSS core) surface: board discovery and full card CRUD. MCP resources (`board://`, `card://`) and a full setup guide are tracked separately.
 
 ---
 
@@ -105,6 +105,14 @@ Scopes never widen access: an `mcp:read` token still sees exactly the boards its
 
 A token intended for both an agent and a script needs both sets of scopes, e.g. `["read", "mcp:read"]`.
 
+### Write tools additionally require `mcp:write`
+
+> **Added in 1.2**
+
+`mcp:read` opens a session and is enough to call every read tool below. Calling any **write** tool (`create_card`, `move_card`, `update_card`, `archive_card`) additionally requires the **`mcp:write`** scope on the same token — non-hierarchically, exactly like every other scope pair: `mcp:read` does not grant `mcp:write`, and `mcp:write` alone does not even open a session (a token needs `mcp:read` to reach `/mcp` at all). A write-capable agent credential therefore needs **both**: `["mcp:read", "mcp:write"]`.
+
+Unlike a missing `mcp:read` (rejected at the transport, before any tool runs), a missing `mcp:write` is reported by the tool itself as a normal result — `{"error": {"code": "missing_scope", "detail": "..."}}` — not a `401`. The session is valid; only that one call was declined.
+
 ### Errors
 
 | Status | Meaning |
@@ -192,6 +200,93 @@ Group-inherited access reports the role inherited from the group.
 
 ---
 
+### Tool errors
+
+> **Added in 1.2**
+
+A tool that can fail for a reason other than "your token can't reach `/mcp` at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as an ordinary result — never a `500`, and never an unstructured exception message. The result carries a top-level `error` key instead of the tool's normal payload:
+
+```json
+{
+  "error": {
+    "code": "wip_limit_exceeded",
+    "column_name": "In Progress",
+    "current_count": 3,
+    "wip_limit": 3
+  }
+}
+```
+
+Every error has a `code` your agent can branch on. The common ones:
+
+| `code` | Meaning |
+|---|---|
+| `board_not_found` | The board id does not exist, or exists but you have no role on it (identical either way — Visiban never confirms a board id you cannot see). |
+| `card_not_found` | Same, for a card id. |
+| `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. |
+| `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
+| `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee_email`/label name that does not resolve to a real board member/label. |
+| `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. `move_card` never overrides either — there is no `force` option over MCP. |
+| `weight_limit_exceeded` | The target column is at its weight limit. |
+
+### `list_columns`
+
+Lists a board's columns, ordered by position. All board roles may call it.
+
+**Arguments:** `board_id` (integer, required).
+
+**Returns:** an array of `{id, name, position, color, wip_limit, card_count}` — `card_count` excludes archived cards.
+
+### `list_swimlanes`
+
+Lists a board's swimlanes, ordered by position. All board roles may call it.
+
+**Arguments:** `board_id` (integer, required).
+
+**Returns:** an array of `{id, name, position, color, card_count, is_collapsed}`, plus `contact_email` for `admin`/`site_admin` callers only — a `collaborator`/`viewer` response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.
+
+### `list_cards`
+
+Lists a board's cards, ordered by column then swimlane then position. All board roles may call it. Capped at 200 rows, like the REST card list endpoint.
+
+**Arguments:** `board_id` (integer, required); `column_id`, `swimlane_id` (integers), `assignee` (email, case-insensitive), `priority`, `label` (name) — all optional filters, ANDed together; `include_archived` (boolean, default `false`).
+
+**Returns:** an array of `{id, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}`. `assignee` is an email or `null`; `labels` is an array of names; `column`/`swimlane` are `{id, name}` objects so a result can be fed straight into `move_card`.
+
+### `create_card`
+
+Creates a card, appended to the end of its column/swimlane cell (or inserted at `position` if given). Requires `admin` or `member` board role and the `mcp:write` scope.
+
+**Arguments:** `board_id`, `column_id`, `swimlane_id`, `title` (required); `description`, `priority` (default `"medium"`), `assignee_email`, `labels` (array of names), `due_date` (`YYYY-MM-DD`), `position` — all optional.
+
+**Returns:** the created card, same shape as one row of `list_cards`. Writes a `CardMovement` record with no "from" column (matching how the REST API records card creation) and broadcasts `card.created` on the board's WebSocket channel.
+
+### `move_card`
+
+Moves a card to a new column and/or swimlane and/or position. Requires `admin` or `member` board role and the `mcp:write` scope.
+
+**Arguments:** `card_id` (required); `to_column_id`, `to_swimlane_id` — at least one required, the other defaults to the card's current value; `position` (default `0`).
+
+**Returns:** `{"card": <card>, "movement": <movement-or-null>}`. `movement` is `null` for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries `{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by}`. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns `wip_limit_exceeded`/`wip_hard_blocked`/`weight_limit_exceeded` rather than moving the card.
+
+### `update_card`
+
+Updates one or more fields on a card. Requires `admin` or `member` board role and the `mcp:write` scope.
+
+**Arguments:** `card_id` (required); any of `title`, `description`, `priority`, `assignee_email`, `labels`, `due_date` — omitted fields are left unchanged. `labels: []` clears every label; `assignee_email: ""` unassigns the card. Cannot change a card's column or swimlane — use `move_card`.
+
+**Returns:** the updated card, same shape as `create_card`. Records a `CardActivity` audit entry per field that actually changed.
+
+### `archive_card`
+
+Soft-deletes a card. Idempotent — archiving an already-archived card succeeds and returns its existing `archived_at`. Requires `admin` or `member` board role and the `mcp:write` scope.
+
+**Arguments:** `card_id` (required).
+
+**Returns:** `{"card_id": <id>, "archived_at": <ISO 8601 timestamp>}`.
+
+---
+
 ## Roadmap
 
-Phase 1 (this release) covers connectivity, authentication, and board discovery. Card and board write tools, MCP resources, and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.
+Phase 1 covers connectivity, authentication, board discovery, and full card CRUD (this release). MCP resources (`board://`, `card://`) and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.

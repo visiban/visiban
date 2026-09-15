@@ -150,6 +150,18 @@ class SwimlaneNotFound(ObjectNotFound):
     model_name = "Swimlane"
 
 
+class BoardNotFound(ObjectNotFound):
+    """A board id does not exist, or exists but the caller has no role on it.
+
+    Added for the MCP CRUD tools (#512), which resolve a board directly (no
+    DRF ``get_object_or_404``/``PermissionDenied`` available to them) and need
+    a typed error carrying the same IDOR-safe "identical response either way"
+    guarantee ``ObjectNotFound`` already documents for its siblings above.
+    """
+
+    model_name = "Board"
+
+
 # ---------------------------------------------------------------------------
 # Concurrency
 # ---------------------------------------------------------------------------

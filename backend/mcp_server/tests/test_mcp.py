@@ -254,14 +254,22 @@ class BearerAuthTests(McpTestCase):
 
 
 class ToolDiscoveryTests(McpTestCase):
-    def test_tools_list_exposes_list_boards(self):
+    def test_tools_list_exposes_every_registered_tool(self):
         status, body = self.client_.post(
             {"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
             token=self.raw_token,
         )
         self.assertEqual(status, 200)
         tools = _parse_sse(body)["result"]["tools"]
-        self.assertEqual([t["name"] for t in tools], ["list_boards"])
+        # #512 added the six CRUD tools alongside #511's list_boards. Order is
+        # registration order (server.py), not asserted — only the full set is.
+        self.assertEqual(
+            {t["name"] for t in tools},
+            {
+                "list_boards", "list_columns", "list_swimlanes", "list_cards",
+                "create_card", "move_card", "update_card", "archive_card",
+            },
+        )
 
     def test_tools_list_requires_auth(self):
         status, _ = self.client_.post(

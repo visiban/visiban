@@ -20,7 +20,9 @@ from accounts.authentication import (
     resolve_personal_access_token,
 )
 
-from .context import reset_current_user, set_current_user
+from .context import (
+    reset_current_scopes, reset_current_user, set_current_scopes, set_current_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +136,14 @@ class BearerAuthMiddleware:
             await _send_401(send, exc.detail)
             return
 
-        token = set_current_user(pat.user)
+        user_token = set_current_user(pat.user)
+        # A token predating scopes never reaches here — enforce_mcp_scope()
+        # already rejected it above — so `pat.scopes` is always a real list at
+        # this point, never None. Frozen so a tool cannot accidentally mutate
+        # the shared PAT-scopes list through the context carrier.
+        scopes_token = set_current_scopes(frozenset(pat.scopes))
         try:
             await self.app(scope, receive, send)
         finally:
-            reset_current_user(token)
+            reset_current_scopes(scopes_token)
+            reset_current_user(user_token)
