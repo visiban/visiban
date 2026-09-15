@@ -21,9 +21,12 @@ What is deliberately *not* here
 Nothing in this module imports ``rest_framework``, reads a request, or builds a
 response. Three consequences worth knowing before you call it:
 
-1. **Parsing is the caller's job.** ``force`` arrives as a ``bool`` and
-   ``expected_version`` as ``int | None``; the "version must be an integer" 400
-   is input coercion and stays in the adapter.
+1. **Parsing is mostly the caller's job.** ``force`` arrives as a ``bool``.
+   ``expected_version`` is the exception: it arrives raw and ``move_card``
+   coerces it, because *when* the "version must be an integer" 400 is raised is
+   part of the frozen contract — it must come after the role allow-list, the
+   card lookup and the assignment gate, so a caller who fails one of those sees
+   that answer instead.
 
 2. **Field validation is the caller's job, for now.** Per the project rule that
    input is validated at the serializer boundary, ``create_card`` and
@@ -64,8 +67,9 @@ from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..utils import notify_new_mentions
 from .errors import (
     CardCreationNotAllowed, CardNotFound, ColumnNotFound, ForceNotPermitted,
-    MoveNotPermitted, NotPermitted, SwimlaneNotFound, UseMoveEndpoint,
-    VersionConflict, WeightLimitExceeded, WipHardBlocked, WipLimitExceeded,
+    InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
+    UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
+    WipLimitExceeded,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,19 +108,32 @@ class CardMutationResult:
 def _resolve_role(actor, board, role):
     """Return the actor's effective role on the board.
 
-    ``role`` is an optional pre-resolved value, and it is a **trust boundary**:
-    it must be exactly what ``get_board_role(actor, board)`` returned for this
-    same ``(actor, board)`` pair. It exists only so an adapter that has just
-    resolved the role (``get_board_for_user`` does, as part of its own access
-    check) does not pay for it twice — on a group-inherited board that second
-    resolution is a real query.
+    ``role`` is an optional pre-resolved value. It exists so an adapter that has
+    just resolved the role — ``get_board_for_user`` does, as part of its own
+    access check — does not pay for it twice; on a group-inherited board that
+    second resolution is a real query.
 
-    Any caller that is not in that position must pass ``None`` and let the
-    service derive it. Passing a role the actor does not hold bypasses every
-    check in this module.
+    It **fails closed**. A supplied role is believed only when it matches the
+    memo ``get_board_role`` / ``get_board_roles`` left on this board instance
+    for this actor; anything else is discarded and the role is derived from the
+    database. So a caller cannot widen its own access by passing ``"admin"``,
+    and — the likelier mistake now that ``get_board_roles`` hands out a
+    ``{board_id: role}`` dict — cannot escalate by indexing that dict with the
+    wrong board id either. Both cases simply cost the query the parameter was
+    there to save.
+
+    A caller with no already-resolved role passes ``None``, which is always
+    correct and never slower than it has to be.
     """
     if role is not None:
-        return role
+        resolved = getattr(board, "_resolved_role", None)
+        if resolved == (actor.id, role):
+            return role
+        logger.warning(
+            "card.service.role_hint_rejected board_id=%s actor_id=%s supplied=%r "
+            "resolved=%r — deriving from the database instead",
+            board.pk, actor.id, role, resolved,
+        )
     return get_board_role(actor, board)
 
 
@@ -441,6 +458,17 @@ def move_card(
     ``force`` only ever relaxes a *soft* limit, and only for a board admin.
     Hard WIP mode is evaluated before ``force`` is consulted at all, so no role
     can override it.
+
+    ``expected_version`` is taken raw and coerced here, not by the caller — see
+    the note in the module docstring about why its 400 cannot move earlier.
+
+    Unlike ``update_card`` and ``delete_card``, this transition **does** accept
+    an archived card, and the exemption is deliberate rather than an oversight.
+    The move endpoint has always read through the unfiltered manager, so
+    archiving a card never froze its position: a restored card returns to
+    wherever it was put, and tidying archived history is a legitimate operation.
+    A guard here would be a behavior change rather than a tightening —
+    ``test_archived_cards_can_still_be_moved`` pins it.
     """
     role = _resolve_role(actor, board, role)
     _require_mutation_role(role)
@@ -470,8 +498,19 @@ def move_card(
 
         # Optimistic concurrency control — reject stale writes. Optional for
         # backward compatibility: a caller that supplies no version skips OCC.
-        if expected_version is not None and card.version != expected_version:
-            raise VersionConflict(card.version)
+        #
+        # The int() coercion is here rather than in the adapter because its
+        # position in the sequence is observable: a caller who fails the role
+        # allow-list, names a card that does not exist, or fails the assignment
+        # gate must see that answer, not a 400 about a malformed version they
+        # also sent.
+        if expected_version is not None:
+            try:
+                expected_version = int(expected_version)
+            except (TypeError, ValueError):
+                raise InvalidVersion() from None
+            if card.version != expected_version:
+                raise VersionConflict(card.version)
 
         target_column = _board_scoped(Column, target_column_id, board, ColumnNotFound)
         target_swimlane = _board_scoped(Swimlane, target_swimlane_id, board, SwimlaneNotFound)

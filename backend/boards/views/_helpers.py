@@ -14,6 +14,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
 from ..permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
     can_modify_others_content as _can_modify_others_content,  # noqa: F401
     get_board_role,
 )
@@ -77,7 +78,10 @@ def get_board_for_user(board_id, user, *, slim=False):
     """
     queryset = Board.objects.select_related(
         "owner",
-        "group__parent__parent__parent__parent__parent__parent",
+        # Shared with get_board_roles() rather than spelled out here, so a
+        # change to _GROUP_TRAVERSAL_MAX_DEPTH cannot leave one copy of the
+        # ancestor chain shorter than the ladder that walks it (#1107).
+        GROUP_ANCESTOR_SELECT_RELATED,
     )
     if not slim:
         queryset = queryset.prefetch_related(

@@ -46,7 +46,9 @@ def _role_before_groups(user, board, explicit_membership):
 
     Caches a found membership on the board as ``_cached_membership`` so
     ``can_modify_others_content`` can reuse it without a second query — the
-    same side effect ``get_board_role`` has always had.
+    same side effect ``get_board_role`` has always had. Consumers of that cache
+    must confirm it belongs to the user they are asking about; see
+    ``can_modify_others_content``.
     """
     # can_access_all_content wins outright. Note that is_site_admin alone does
     # NOT grant board access; it only gates the /api/admin/* routes.
@@ -90,6 +92,25 @@ def _group_ancestor_ids(board):
             board.group_id,
         )
     return ancestor_ids
+
+
+def _stamp_resolved_role(board, user, role):
+    """Record on the board instance which role was resolved, and for whom.
+
+    Services accept an already-resolved role so an adapter that has just
+    resolved it does not pay for it twice. That parameter is only safe if a
+    wrong value cannot be believed, so the resolvers leave this memo behind and
+    ``boards.services.cards._resolve_role`` refuses any role that does not
+    match it — see that function. The memo carries the user id as well as the
+    role, so neither another user's role nor another board's role can satisfy
+    it.
+
+    Set by the resolvers alone. It is a memo of work already done, never an
+    input: a caller cannot widen its own access by supplying one, because a
+    mismatch makes the service derive the role from the database instead.
+    """
+    board._resolved_role = (user.id, role)
+    return role
 
 
 def _nearest_ancestor_role(ancestor_ids, group_roles):
@@ -143,11 +164,11 @@ def get_board_role(user, board):
 
     role, decided = _role_before_groups(user, board, explicit)
     if decided:
-        return role
+        return _stamp_resolved_role(board, user, role)
 
     ancestor_ids = _group_ancestor_ids(board)
     if not ancestor_ids:
-        return None
+        return _stamp_resolved_role(board, user, None)
 
     # Load all matching memberships in one round-trip. Scoped to this board's
     # ancestors rather than to every group the user belongs to, because this
@@ -160,7 +181,9 @@ def get_board_role(user, board):
             group_id__in=ancestor_ids, user=user
         )
     }
-    return _nearest_ancestor_role(ancestor_ids, group_roles)
+    return _stamp_resolved_role(
+        board, user, _nearest_ancestor_role(ancestor_ids, group_roles)
+    )
 
 
 def get_board_roles(user, boards):
@@ -191,7 +214,10 @@ def get_board_roles(user, boards):
     # Short-circuit: a can_access_all_content user is SITE_ADMIN everywhere, so
     # neither membership lookup can change the answer.
     if user.can_access_all_content:
-        return {board.pk: SITE_ADMIN for board in boards}
+        return {
+            board.pk: _stamp_resolved_role(board, user, SITE_ADMIN)
+            for board in boards
+        }
 
     from groups.models import GroupMembership
 
@@ -216,12 +242,11 @@ def get_board_roles(user, boards):
         role, decided = _role_before_groups(
             user, board, memberships_by_board.get(board.pk)
         )
-        if decided:
-            roles[board.pk] = role
-            continue
-        roles[board.pk] = _nearest_ancestor_role(
-            _group_ancestor_ids(board), group_roles
-        )
+        if not decided:
+            role = _nearest_ancestor_role(
+                _group_ancestor_ids(board), group_roles
+            )
+        roles[board.pk] = _stamp_resolved_role(board, user, role)
     return roles
 
 
@@ -249,7 +274,15 @@ def can_modify_others_content(board, role, user):
     if board.owner_id == user.id:
         return True
     membership = getattr(board, "_cached_membership", None)
-    if membership is not None:
+    # Verify whose membership the cache holds before trusting its moderator
+    # flag. The prefetch branch below has always checked `user_id`; this branch
+    # did not, which was safe only because exactly one board instance carried a
+    # stamp at a time. `get_board_roles` now stamps a whole batch of boards in a
+    # loop, so an unchecked fast path here would be a moderator-flag escalation
+    # waiting for its first caller. On the hot path the ids match and this costs
+    # nothing; on a mismatch we fall through to the scan and the live query,
+    # which are correct rather than fast (security-review, #1107).
+    if membership is not None and membership.user_id == user.id:
         return membership.is_moderator
     # _prefetched_memberships is loaded by get_board_for_user() — scan it first
     # before issuing a live query on every mutation request.

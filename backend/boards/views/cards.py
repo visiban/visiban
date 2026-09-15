@@ -605,19 +605,6 @@ class CardViewSet(viewsets.ModelViewSet):
         """
         board, role = self._board_and_role()
 
-        # Optimistic concurrency control is opt-in for backward compatibility:
-        # omitting `version` skips it. Coercing the value is input parsing, so
-        # the 400 stays here rather than becoming a domain error.
-        client_version = request.data.get("version")
-        if client_version is not None:
-            try:
-                client_version = int(client_version)
-            except (TypeError, ValueError):
-                return Response(
-                    {"detail": "version must be an integer."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
         def render(card, movement):
             # Re-fetch through _card_queryset so CardSerializer has every
             # prefetch populated — the instance the service holds was loaded for
@@ -646,7 +633,10 @@ class CardViewSet(viewsets.ModelViewSet):
             target_column_id=request.data.get("column_id"),
             target_swimlane_id=request.data.get("swimlane_id"),
             position=request.data.get("position", 0),
-            expected_version=client_version,
+            # Passed raw: the service coerces it, so the "version must be an
+            # integer" 400 lands after the role, lookup and assignment checks
+            # exactly as it did before the extraction.
+            expected_version=request.data.get("version"),
             force=request.query_params.get("force", "").lower() == "true",
             render=render,
         )

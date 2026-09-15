@@ -34,7 +34,7 @@ The lock order is a deadlock-avoidance contract, not an implementation detail: c
 
 Nothing under `boards/services/` imports `rest_framework`, reads a request, or builds a response. The view adapter keeps:
 
-- **Parsing.** `?force` becomes a `bool`, `version` becomes an `int | None`. The `400` for a non-integer `version` is input coercion, so it stays in the adapter.
+- **Parsing**, mostly. `?force` becomes a `bool`. The exception is `version`, which the adapter passes through raw: *when* the "version must be an integer" `400` is raised is part of the frozen contract — it comes after the role allow-list, the card lookup, and the assignment gate — so the coercion lives in the service. Parsing it in the adapter turns a `403` into a `400` for a caller who sent both a bad version and a request they were not allowed to make.
 - **Field validation.** Per the project rule that input is validated at the serializer boundary, `create_card` and `update_card` take a callable that performs the already-validated write — `serializer.save()` for the HTTP adapter. `CardSerializer`'s querysets are board-scoped, so a cross-board column, swimlane, label, or assignee id is already a `400` before the service is reached.
 - **Serialization.** Each function takes a `render` callable and invokes it *inside* the transaction, because the REST response body and the WebSocket payload are deliberately the same dict. Re-serializing in the adapter after commit would cost a second multi-query fetch and would let a concurrent writer land between the write and the read.
 
@@ -70,6 +70,14 @@ Resolving a role per board is an N+1 on any board that derives its role from a g
 
 `can_modify_others_content()` — the ownership gate — also lives in `permissions.py` rather than in the views package, so a service can call it without importing from `boards.views`.
 
+### The `role` parameter fails closed
+
+Every service function takes an optional `role`, so an adapter that has just resolved the role — `get_board_for_user()` does, as part of its own access check — does not pay for it twice. On a group-inherited board that second resolution is a real query.
+
+A parameter that carries authorization state is only safe if a wrong value cannot be believed, so both resolvers leave a memo on the board instance recording which role they resolved and for whom, and the service accepts a supplied role only when it matches that memo. Anything else is discarded, logged, and the role is derived from the database instead. Two mistakes are therefore impossible rather than merely discouraged: passing `"admin"` outright, and — the likelier one, now that `get_board_roles` returns a `{board_id: role}` dict — indexing that dict with the wrong board id. Both just cost the query the parameter existed to save.
+
+The memo is set by the resolvers alone and is never an input. A caller with no already-resolved role passes `None`, which is always correct.
+
 ## Write paths that remain divergent
 
 Two paths deliberately do **not** go through the card service. Both are documented divergences, not oversights.
@@ -94,4 +102,5 @@ Three things in this layer look like bugs and are contract. Do not "fix" them wi
 
 - `unarchive` broadcasts the WebSocket event `card.unarchived` but fires the hook event `card.restored`. Both names are independently frozen.
 - `card.archived` broadcasts only `{"card_uid": ...}` while `card.unarchived` broadcasts the whole card. A client only needs to drop an archived card from its view.
+- `update_card` and `delete_card` reject an archived card; `move_card` accepts one. The move endpoint has always read through the unfiltered manager, so archiving never froze a card's position — a restored card returns to wherever it was put.
 - The error bodies described above.

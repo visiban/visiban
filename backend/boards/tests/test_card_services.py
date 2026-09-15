@@ -17,14 +17,17 @@ from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from boards import hooks
 from boards.models import BoardMembership, Card, CardActivity, CardMovement
+from boards.permissions import get_board_role, get_board_roles
 from boards.services import cards as svc
 from boards.services.errors import (
     CardCreationNotAllowed, CardNotFound, ColumnNotFound, ForceNotPermitted,
-    MoveNotPermitted, NotPermitted, SwimlaneNotFound, UseMoveEndpoint,
-    VersionConflict, WeightLimitExceeded, WipHardBlocked, WipLimitExceeded,
+    InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
+    UseMoveEndpoint, VersionConflict, WeightLimitExceeded, WipHardBlocked,
+    WipLimitExceeded,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -114,6 +117,41 @@ class RoleAllowListTests(CardServiceTestBase):
         with self.assertRaises(NotPermitted):
             self._move(actor=outsider)
 
+    def test_a_forged_elevated_role_is_ignored(self):
+        """A supplied ``role`` is believed only if a resolver actually produced it.
+
+        The service accepts an already-resolved role so an adapter that has just
+        resolved it need not pay twice. That parameter has to fail closed, or it
+        is an authorization hole with a docstring for a lock: a viewer claiming
+        ``admin`` must still be refused.
+        """
+        with self.assertRaises(NotPermitted):
+            self._move(actor=self.viewer, role=BoardMembership.Role.ADMIN)
+
+    def test_a_role_resolved_for_another_board_is_ignored(self):
+        """The likelier mistake, now that ``get_board_roles`` returns a dict:
+        indexing it with the wrong board id."""
+        other_board = _make_board(self.viewer, name="Where they are admin")
+        roles = get_board_roles(self.viewer, [other_board])
+        self.assertEqual(roles[other_board.pk], BoardMembership.Role.ADMIN)
+        # Passing that admin role against *this* board must not be believed.
+        with self.assertRaises(NotPermitted):
+            self._move(actor=self.viewer, role=roles[other_board.pk])
+
+    def test_a_role_resolved_for_another_actor_is_ignored(self):
+        get_board_role(self.owner, self.board)  # stamps the board for the owner
+        with self.assertRaises(NotPermitted):
+            self._move(actor=self.viewer, role=BoardMembership.Role.ADMIN)
+
+    def test_a_correctly_resolved_role_is_used_as_supplied(self):
+        """The fast path must still work, or the parameter is pointless."""
+        self.card.created_by = self.member
+        self.card.save(update_fields=["created_by"])
+        role = get_board_role(self.member, self.board)
+        self.assertEqual(role, BoardMembership.Role.MEMBER)
+        result = self._move(actor=self.member, role=role)
+        self.assertEqual(result.card.column_id, self.col_b.pk)
+
     def test_viewer_cannot_create_update_archive_or_delete(self):
         with self.assertRaises(NotPermitted):
             svc.create_card(
@@ -131,6 +169,79 @@ class RoleAllowListTests(CardServiceTestBase):
             )
         with self.assertRaises(NotPermitted):
             svc.delete_card(actor=self.viewer, board=self.board, card=self.card)
+
+
+class RoleHintAcceptedOverHttpTests(TestCase):
+    """The view adapters' role must survive the fail-closed check.
+
+    The stamp comparison in ``_resolve_role`` is silent when it succeeds and
+    only logs when it rejects — and on an owner-owned board a rejection costs
+    zero extra queries, so no query budget would notice the fast path quietly
+    falling back to a fresh derivation on every single mutation. This asserts
+    the negative directly: a normal request must log no rejection.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
+        self._broadcast_patcher.start()
+        self.user = _make_user("hint_user")
+        self.board = _make_board(self.user)
+        self.col_a = _make_column(self.board, "A", 0)
+        self.col_b = _make_column(self.board, "B", 1)
+        self.lane = _make_swimlane(self.board, "L", 0)
+        self.card = _make_card(self.col_a, self.lane, title="Hinted")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
+
+    def _assert_no_rejection(self, fn):
+        with self.assertNoLogs("boards.services.cards", level="WARNING"):
+            resp = fn()
+        return resp
+
+    def test_move_accepts_the_adapters_role(self):
+        resp = self._assert_no_rejection(lambda: self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/",
+            {"column_id": self.col_b.pk, "swimlane_id": self.lane.pk, "position": 0},
+            format="json",
+        ))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_update_accepts_the_adapters_role(self):
+        resp = self._assert_no_rejection(lambda: self.client.patch(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/",
+            {"title": "renamed"}, format="json",
+        ))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_create_accepts_the_adapters_role(self):
+        self.col_a.allow_card_creation = True
+        self.col_a.save(update_fields=["allow_card_creation"])
+        resp = self._assert_no_rejection(lambda: self.client.post(
+            f"/api/v1/boards/{self.board.pk}/cards/",
+            {"title": "new", "column": self.col_a.pk, "swimlane": self.lane.pk},
+            format="json",
+        ))
+        self.assertEqual(resp.status_code, 201)
+
+    def test_archive_and_unarchive_accept_the_adapters_role(self):
+        base = f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/"
+        self.assertEqual(
+            self._assert_no_rejection(lambda: self.client.post(base + "archive/")).status_code,
+            200,
+        )
+        self.assertEqual(
+            self._assert_no_rejection(lambda: self.client.post(base + "unarchive/")).status_code,
+            200,
+        )
+
+    def test_destroy_accepts_the_adapters_role(self):
+        resp = self._assert_no_rejection(lambda: self.client.delete(
+            f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/"
+        ))
+        self.assertEqual(resp.status_code, 204)
 
 
 class OwnershipGateTests(CardServiceTestBase):
@@ -377,6 +488,37 @@ class VersionConflictTests(CardServiceTestBase):
         self._move(expected_version=None)
         self.card.refresh_from_db()
         self.assertEqual(self.card.column_id, self.col_b.pk)
+
+    def test_a_non_integer_version_is_rejected(self):
+        with self.assertRaises(InvalidVersion):
+            self._move(expected_version="not-a-number")
+
+    def test_a_numeric_string_version_is_accepted(self):
+        """The coercion is int(), so a JSON string of digits still works — a
+        client that round-trips the version as text keeps working."""
+        self.card.refresh_from_db()
+        self._move(expected_version=str(self.card.version))
+        self.card.refresh_from_db()
+        self.assertEqual(self.card.column_id, self.col_b.pk)
+
+    def test_role_and_lookup_are_checked_before_the_version_is_coerced(self):
+        """Ordering is contract, not taste.
+
+        A caller who fails the role allow-list, names a card that does not
+        exist, or fails the assignment gate must see *that* answer, even when
+        they also sent a malformed version. This is why the coercion lives in
+        the service rather than in the adapter.
+        """
+        with self.assertRaises(NotPermitted):
+            self._move(actor=self.viewer, expected_version="garbage")
+        with self.assertRaises(CardNotFound):
+            self._move(card_id=999999, expected_version="garbage")
+
+        self.card.assignee = self.owner
+        self.card.created_by = self.owner
+        self.card.save(update_fields=["assignee", "created_by"])
+        with self.assertRaises(MoveNotPermitted):
+            self._move(actor=self.member, expected_version="garbage")
 
     def test_move_bumps_the_version(self):
         before = Card.objects.get(pk=self.card.pk).version

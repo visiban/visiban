@@ -154,6 +154,23 @@ class SwimlaneNotFound(ObjectNotFound):
 # Concurrency
 # ---------------------------------------------------------------------------
 
+class InvalidVersion(CardServiceError):
+    """The supplied ``version`` is not an integer.
+
+    A coercion failure rather than a domain conflict, but it lives here — and
+    the coercion lives in the service — because *when* it is raised is part of
+    the frozen contract: the move endpoint reports it only after the role
+    allow-list, the card lookup and the assignment gate have passed. Parsing it
+    in the adapter instead would surface a 400 to a caller who should have seen
+    a 403 or a 404.
+    """
+
+    status = 400
+
+    def body(self) -> dict:
+        return {"detail": "version must be an integer."}
+
+
 class VersionConflict(CardServiceError):
     """The caller's ``version`` no longer matches the stored row.
 

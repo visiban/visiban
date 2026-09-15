@@ -20,7 +20,8 @@ from django.test.utils import CaptureQueriesContext
 from accounts.models import User
 from boards.models import Board, BoardMembership
 from boards.permissions import (
-    GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
+    GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, can_modify_others_content,
+    get_board_role, get_board_roles,
 )
 from groups.models import Group, GroupMembership
 
@@ -244,6 +245,39 @@ class GetBoardRolesParityTests(TestCase):
         self.assertEqual(
             get_board_roles(self.member, qs),
             {self.plain_board.pk: BoardMembership.Role.MEMBER},
+        )
+
+    def test_the_moderator_fast_path_checks_whose_membership_it_cached(self):
+        """``can_modify_others_content`` must not trust a cached membership
+        belonging to someone else.
+
+        ``get_board_roles`` stamps ``_cached_membership`` on every board in the
+        batch, so a board instance can easily be carrying user A's membership
+        when a later question is asked about user B. The moderator flag is an
+        entitlement, so believing the wrong row would be an escalation.
+        """
+        moderator = User.objects.create_user(username="roles_mod", password="x")
+        BoardMembership.objects.create(
+            board=self.plain_board, user=moderator,
+            role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        plain_member = User.objects.create_user(username="roles_plain", password="x")
+        BoardMembership.objects.create(
+            board=self.plain_board, user=plain_member,
+            role=BoardMembership.Role.MEMBER, is_moderator=False,
+        )
+
+        board = self._fresh(self.plain_board)
+        # Stamp the board with the moderator's membership...
+        self.assertTrue(can_modify_others_content(
+            board, get_board_role(moderator, board), moderator,
+        ))
+        # ...then ask about the non-moderator on that same instance.
+        self.assertFalse(
+            can_modify_others_content(
+                board, BoardMembership.Role.MEMBER, plain_member,
+            ),
+            "a cached membership belonging to another user was trusted",
         )
 
     def test_roles_are_never_read_from_another_users_rows(self):

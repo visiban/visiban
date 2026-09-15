@@ -219,6 +219,40 @@ class CardErrorBodyTests(TestCase):
         resp = self._move(self.owner, version="not-a-number")
         self._assert_body(resp, 400, {"detail": "version must be an integer."})
 
+    def test_a_malformed_version_does_not_mask_a_403_or_404(self):
+        """The version 400 is reported only after the role, lookup and
+        assignment checks pass.
+
+        A caller who sends a bad version *and* lacks permission must see the
+        permission answer. Pinned because the obvious refactor — parsing the
+        version in the view before calling the service — silently reorders
+        these and turns a 403 into a 400.
+        """
+        resp = self._move(self.viewer, version="not-a-number")
+        self._assert_body(resp, 403, {"detail": _DRF_DEFAULT_403})
+
+        resp = self._as(self.owner).post(
+            f"/api/v1/boards/{self.board.pk}/cards/999999/move/",
+            {"column_id": self.col_b.pk, "swimlane_id": self.lane.pk,
+             "position": 0, "version": "not-a-number"},
+            format="json",
+        )
+        self._assert_body(resp, 404, {"detail": "No Card matches the given query."})
+
+        self.card.assignee = self.owner
+        self.card.created_by = self.owner
+        self.card.save(update_fields=["assignee", "created_by"])
+        resp = self._move(self.member, version="not-a-number")
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(resp.json()["code"], "permission_denied")
+
+    def test_a_numeric_string_version_is_still_accepted(self):
+        """Coercion is `int()`, so a client sending the version as a JSON string
+        keeps working — required by the 1.0 compatibility contract."""
+        self.card.refresh_from_db()
+        resp = self._move(self.owner, version=str(self.card.version))
+        self.assertEqual(resp.status_code, 200)
+
     def test_move_version_conflict_body(self):
         self.card.refresh_from_db()
         stale = self.card.version + 5
