@@ -10,3 +10,10 @@ pytest-split
 # file's other test-only deps; requires pytest<10,>=9, already satisfied by
 # the unpinned `pytest` above.
 schemathesis==4.27.1
+# Drives the backend-diff-coverage CI job (#1076): reports coverage of only
+# the lines an MR changes, against the existing coverage.xml artifact — an
+# aggregate threshold can absorb an untested feature in a large codebase
+# without moving the total. Apache-2.0, no known CVEs as of 2026-09-15
+# (checked via OSV before adding — see the `dependency` gate note in the
+# #1076 MR). Pinned exact, matching this file's other test-only deps.
+diff-cover==10.5.1
