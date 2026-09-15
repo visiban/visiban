@@ -358,6 +358,14 @@ SPECTACULAR_SETTINGS = {
     "CONTACT": {"name": "Visiban", "url": "https://visiban.com"},
     "SERVE_INCLUDE_SCHEMA": False,  # exclude the schema endpoints themselves from the schema
     "COMPONENT_SPLIT_REQUEST": True,  # separate request/response schemas for write endpoints
+    # Documents the 401/403/404/429 error envelope on every operation that
+    # doesn't already declare one, so backend-schema-fuzz's
+    # response_schema_conformance check has something to validate against
+    # instead of silently skipping undocumented error responses (#1080).
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "visiban.schema_hooks.add_standard_error_responses",
+    ],
 }
 
 # CORS
