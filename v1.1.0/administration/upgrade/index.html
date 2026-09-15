@@ -16,7 +16,7 @@
         <link rel="prev" href="../secret-rotation/">
       
       
-        <link rel="next" href="../../maintainers/">
+        <link rel="next" href="../zero-downtime-upgrade/">
       
       
         
@@ -2343,6 +2343,8 @@
       
         
       
+        
+      
     
     
     
@@ -2965,6 +2967,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../zero-downtime-upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Zero-Downtime Upgrade Playbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3305,6 +3335,13 @@ procedure are in
 </div>
 <hr />
 <h2 id="multi-replica-deployments">Multi-replica deployments<a class="headerlink" href="#multi-replica-deployments" title="Permanent link">&para;</a></h2>
+<div class="admonition tip">
+<p class="admonition-title">Rolling a Helm deployment with zero downtime</p>
+<p>This section explains why running migrations separately from replica startup matters. For
+a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
+watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
+see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Running <code>migrate</code> inside the container startup command is unsafe when <code>backendReplicaCount &gt; 1</code>.</p>
