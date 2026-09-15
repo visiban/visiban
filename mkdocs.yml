@@ -121,4 +121,9 @@ nav:
     - Media Storage Security: administration/media-security.md
     - Secret Rotation: administration/secret-rotation.md
     - Upgrading: administration/upgrade.md
+  - Maintainers:
+    - maintainers/index.md
+    - CI Runners: maintainers/ci-runners.md
+    - Tokens and Rotation: maintainers/tokens-and-rotation.md
+    - Known CI Failures: maintainers/known-ci-failures.md
   - Changelog: changelog.md
