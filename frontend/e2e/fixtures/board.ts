@@ -111,6 +111,7 @@ export const CARD = {
   is_stale: false,
   archived_at: null,
   version: 1,
+  custom_field_values: [],
 }
 
 // A card that has been idle long enough to trigger the aging overlay
@@ -177,6 +178,7 @@ export const BOARD_FULL = {
   enforce_wip_hard: false,
   enforce_weight_limits: false,
   export_min_role: 'viewer' as const,
+  custom_field_definitions: [],
   is_starred: false,
   share_token: null,
   current_user_role: 'admin' as const,
