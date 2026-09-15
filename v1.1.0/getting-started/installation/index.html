@@ -1862,6 +1862,8 @@
       
         
       
+        
+      
     
     
     
@@ -2155,6 +2157,34 @@
     
   
     WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
   
 
     
@@ -3525,6 +3555,11 @@
 <td><code>MAX_UPLOAD_SIZE_BYTES</code></td>
 <td style="text-align: center;">No</td>
 <td>Maximum file size for card attachment uploads in bytes (default: <code>10485760</code> — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use.</td>
+</tr>
+<tr>
+<td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
+<td style="text-align: center;">No</td>
+<td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own — schedule <code>manage.py prune_board_events</code> or the <code>board_events</code> table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive.</td>
 </tr>
 </tbody>
 </table>

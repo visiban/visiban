@@ -1541,6 +1541,8 @@
       
         
       
+        
+      
     
     
     
@@ -1764,6 +1766,17 @@
     <span class="md-ellipsis">
       
         GET /api/v1/boards/{id}/full/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidevents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/events/
       
     </span>
   </a>
@@ -2555,6 +2568,34 @@
     
   
     WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
   
 
     
@@ -3808,6 +3849,13 @@
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
 <p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
 <p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing <code>id</code>, <code>name</code>, <code>parent</code> (parent group FK ID or <code>null</code>), <code>parent_name</code> (parent group display name or <code>null</code>), and <code>ancestors</code> (root-first <code>[{ id, name }]</code> chain). Without this parameter <code>group_detail</code> is <code>null</code>.</p>
+<h3 id="get-apiv1boardsidevents"><code>GET /api/v1/boards/{id}/events/</code><a class="headerlink" href="#get-apiv1boardsidevents" title="Permanent link">&para;</a></h3>
+<p>Board change feed — committed board mutations in ascending <code>id</code> order, so an out-of-process consumer can resume after a dropped WebSocket instead of re-fetching <code>/full/</code>. Added in 1.2.</p>
+<p><strong>Query parameters:</strong> <code>after</code> (cursor — the last event <code>id</code> processed; default <code>0</code>) and <code>limit</code> (<code>1</code>–<code>500</code>, default <code>100</code>). Both are validated, not clamped; an out-of-range or malformed value returns <code>400</code>.</p>
+<p><strong>Response:</strong> <code>{ "results": [{ id, event, data, actor_id, created_at }, ...], "next": &lt;int|null&gt; }</code>. <code>next</code> is the cursor for the following page, or <code>null</code> when the caller is caught up.</p>
+<p><strong>Permissions:</strong> any board role, the same gate as <code>/full/</code> and the WebSocket handshake — the feed replays events the caller could already have streamed. <code>is_moderator</code> is stripped from <code>member.*</code> payloads for roles below <code>admin</code>, exactly as the WebSocket consumer strips it.</p>
+<p><strong><code>410 Gone</code>:</strong> the cursor has aged out of the retention window (<code>BOARD_EVENT_RETENTION_DAYS</code>, default 30 days) and newer events exist. Re-sync via <code>/full/</code> and resume from the newest <code>event_id</code> seen after that.</p>
+<p>See <a href="../events/">Change Feed</a> for the full contract, retention, and the reconnect flow.</p>
 <h3 id="post-apiv1boardsidstar"><code>POST /api/v1/boards/{id}/star/</code><a class="headerlink" href="#post-apiv1boardsidstar" title="Permanent link">&para;</a></h3>
 <p>Star (favorite) a board. Returns <code>200 OK</code> with the updated board object (whether or not the board was already starred).</p>
 <p><strong>Permissions:</strong> requires authentication and board access (any role). Broadcasts <code>board.star_changed</code> to all board WebSocket subscribers.</p>

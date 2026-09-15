@@ -1541,6 +1541,8 @@
       
         
       
+        
+      
     
     
     
@@ -1837,6 +1839,34 @@
     
   
     WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
   
 
     
@@ -2932,6 +2962,10 @@
 <td>List unread notifications, mark as read, and get unread count</td>
 </tr>
 <tr>
+<td><a href="events/">Change Feed</a></td>
+<td>Durable, resumable feed of board mutations — replay what you missed with a cursor instead of re-fetching (since 1.2)</td>
+</tr>
+<tr>
 <td><a href="health/">Health Checks</a></td>
 <td>Liveness and readiness probes for K8s / uptime monitoring</td>
 </tr>
@@ -2967,9 +3001,9 @@
 </table>
 <h3 id="message-envelope">Message envelope<a class="headerlink" href="#message-envelope" title="Permanent link">&para;</a></h3>
 <p>All messages from the server use the following shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"event"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;event_type&gt;"</span><span class="p">,</span><span class="w"> </span><span class="nt">"data"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">"event_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">84213</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
-<p>The <code>data</code> object contains the serialized resource (card, column, swimlane, etc.) relevant to the event.</p>
+<p>The <code>data</code> object contains the serialized resource (card, column, swimlane, etc.) relevant to the event. <code>event_id</code> (since 1.2) is the frame's id in the <a href="events/">change feed</a> — keep the last one you processed and resume from it after a reconnect.</p>
 <h3 id="event-types">Event types<a class="headerlink" href="#event-types" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
