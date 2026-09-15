@@ -70,7 +70,7 @@ The transport validates the `Host` and `Origin` headers of every request against
 Every request to `/mcp` must carry a Visiban [Personal Access Token](../features/personal-access-tokens.md) in an `Authorization` header using the **`Bearer`** scheme:
 
 ```
-Authorization: Bearer vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2
+Authorization: Bearer vbn_0123456789abcdef0123456789abcdef01234567
 ```
 
 !!! warning "`Bearer` here, `Token` everywhere else"
