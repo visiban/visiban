@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import time
 
 import requests
@@ -30,6 +31,19 @@ from .serializers import (
     LensConnectionSerializer,
 )
 from .types import LensConfig, LensFilters
+
+logger = logging.getLogger(__name__)
+
+# Defense-in-depth beyond the providers.py normalization boundary (#1085): a
+# provider payload shape we didn't anticipate should degrade the board to the
+# stale copy, same as a LensError/RequestException, rather than 500ing. Bounded
+# by exception TYPE (not bare Exception) to the ones malformed provider data is
+# known to raise (non-string subscripted/keyed/`.lower()`d) — not by cause, so
+# an unrelated bug in provider_fn's call graph that happens to raise one of
+# these four common types is also caught here rather than surfacing as a 500.
+# We log with exc_info so that case is still triageable from the exception type
+# and traceback (never payload contents — see the log call below).
+_UNEXPECTED_PARSE_ERRORS = (TypeError, KeyError, AttributeError, ValueError)
 
 
 def _parse_filters(request) -> LensFilters:
@@ -414,7 +428,21 @@ class LensBoardView(APIView):
 
         try:
             data = provider_fn(token, conn.repo_slug, config, filters)
-        except (providers.LensError, requests.RequestException) as exc:
+        except (
+            providers.LensError,
+            requests.RequestException,
+            *_UNEXPECTED_PARSE_ERRORS,
+        ) as exc:
+            if isinstance(exc, _UNEXPECTED_PARSE_ERRORS):
+                # The provider sent us a shape normalization didn't expect (#1085).
+                # Never log payload contents/PII/tokens — exception type and the
+                # connection identity are enough to go find it.
+                logger.warning(
+                    "git_lens: unexpected error parsing provider response "
+                    "(conn_id=%s, provider=%s, exc_type=%s)",
+                    conn.pk, conn.provider, type(exc).__name__,
+                    exc_info=True,
+                )
             if entry is not None:
                 # Degrade to the last good copy instead of failing the board.
                 return _board_response(entry["payload"], request)
