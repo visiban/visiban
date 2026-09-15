@@ -1,0 +1,7 @@
+[
+  {
+    "iid": 100,
+    "title": "separator edge cases found by regression-check on #1094",
+    "description": "## Gates\n1. gate: perf-check — 0 findings\ngate: migration-check—n/a (no models.py touched)\n- gate: dependency —--bump-numpy to 1.2.3 (CVE fix)\n\nCloses #100\n"
+  }
+]

@@ -1,0 +1,27 @@
+[
+  {
+    "iid": 1,
+    "title": "well-formed ledger",
+    "description": "## Summary\n- does a thing\n\n## Gates\n<!-- machine-readable; one line per gate. Format: `gate: <name> — <outcome>` -->\n- gate: regression-check — 2 findings\n- gate: security-review — 0 findings\n- gate: rbac-check — 1 finding\n- gate: migration-check — n/a (no models.py changed)\n- gate: voc — skipped (no new user-facing surface)\n- gate: changelog — ran (`changelog.d/1.added.md`)\n\nCloses #1\n"
+  },
+  {
+    "iid": 2,
+    "title": "missing Gates section",
+    "description": "## Summary\n- a chore with no ledger at all\n\n## Test plan\n- [x] ran locally\n\nCloses #2\n"
+  },
+  {
+    "iid": 3,
+    "title": "mostly n/a lines, loose fenced format",
+    "description": "## Gates\n\n```\ngate: rbac-check       — n/a (no endpoint changed)\ngate: security-review  — n/a (no view/serializer/permission change)\ngate: perf-check       — n/a\ngate: regression-check — 3 findings\n```\n\nCloses #3\n"
+  },
+  {
+    "iid": 4,
+    "title": "skipped lines",
+    "description": "## Gates\n- gate: voc — skipped (user said skip VoC for this internal tool)\n- gate: architect — skipped (user said just do it)\n- gate: regression-check — 0 findings\n\nCloses #4\n"
+  },
+  {
+    "iid": 5,
+    "title": "malformed lines",
+    "description": "## Gates\n- gate: rbac-check —\n- gate: totally-unparseable-blob\n- gate: security-review — 4 findings\n\nCloses #5\n"
+  }
+]
