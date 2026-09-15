@@ -1925,6 +1925,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#write-tools-additionally-require-mcpwrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write tools additionally require mcp:write
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1999,6 +2010,94 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tool-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list_columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list_swimlanes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_swimlanes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list_cards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        list_cards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create_card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#move_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        move_card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        update_card
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#archive_card" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        archive_card
+      
+    </span>
+  </a>
   
 </li>
         
@@ -3134,11 +3233,11 @@
 
 
 <h1 id="mcp-server">MCP Server<a class="headerlink" href="#mcp-server" title="Permanent link">&para;</a></h1>
-<p>Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read your Visiban data.</p>
+<p>Visiban can expose its boards to AI agents over the <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a> (MCP). An MCP-compatible client — Claude, Copilot, or a custom agent — connects to <code>/mcp</code>, authenticates with a Personal Access Token, and calls tools that read and write your Visiban data.</p>
 <p>The feature is flag-gated: <code>/mcp</code> returns <code>404 Not Found</code> unless the server is started with <code>MCP_SERVER_ENABLED=true</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This is the Phase 1 (OSS core) surface. It is read-only and ships a single tool, <code>list_boards</code>.</p>
+<p>This is the Phase 1 (OSS core) surface: board discovery and full card CRUD. MCP resources (<code>board://</code>, <code>card://</code>) and a full setup guide are tracked separately.</p>
 </div>
 <hr />
 <h2 id="enabling-the-server">Enabling the server<a class="headerlink" href="#enabling-the-server" title="Permanent link">&para;</a></h2>
@@ -3233,6 +3332,12 @@
 <p>The reason is consent, not capability. A PAT is a credential a user is instructed to paste into an agent, and an agent is a fundamentally different kind of consumer from a shell script. Requiring a scope that can only have been chosen deliberately means no pre-existing token quietly becomes an agent credential because MCP was switched on.</p>
 <p>Scopes never widen access: an <code>mcp:read</code> token still sees exactly the boards its owner can see, with the same roles.</p>
 <p>A token intended for both an agent and a script needs both sets of scopes, e.g. <code>["read", "mcp:read"]</code>.</p>
+<h3 id="write-tools-additionally-require-mcpwrite">Write tools additionally require <code>mcp:write</code><a class="headerlink" href="#write-tools-additionally-require-mcpwrite" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p><code>mcp:read</code> opens a session and is enough to call every read tool below. Calling any <strong>write</strong> tool (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) additionally requires the <strong><code>mcp:write</code></strong> scope on the same token — non-hierarchically, exactly like every other scope pair: <code>mcp:read</code> does not grant <code>mcp:write</code>, and <code>mcp:write</code> alone does not even open a session (a token needs <code>mcp:read</code> to reach <code>/mcp</code> at all). A write-capable agent credential therefore needs <strong>both</strong>: <code>["mcp:read", "mcp:write"]</code>.</p>
+<p>Unlike a missing <code>mcp:read</code> (rejected at the transport, before any tool runs), a missing <code>mcp:write</code> is reported by the tool itself as a normal result — <code>{"error": {"code": "missing_scope", "detail": "..."}}</code> — not a <code>401</code>. The session is valid; only that one call was declined.</p>
 <h3 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3386,8 +3491,90 @@
 </table>
 <p>Group-inherited access reports the role inherited from the group.</p>
 <hr />
+<h3 id="tool-errors">Tool errors<a class="headerlink" href="#tool-errors" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A tool that can fail for a reason other than "your token can't reach <code>/mcp</code> at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as an ordinary result — never a <code>500</code>, and never an unstructured exception message. The result carries a top-level <code>error</code> key instead of the tool's normal payload:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
+</code></pre></div>
+<p>Every error has a <code>code</code> your agent can branch on. The common ones:</p>
+<table>
+<thead>
+<tr>
+<th><code>code</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>board_not_found</code></td>
+<td>The board id does not exist, or exists but you have no role on it (identical either way — Visiban never confirms a board id you cannot see).</td>
+</tr>
+<tr>
+<td><code>card_not_found</code></td>
+<td>Same, for a card id.</td>
+</tr>
+<tr>
+<td><code>permission_denied</code></td>
+<td>Your board role is <code>collaborator</code> or <code>viewer</code>; card writes require <code>admin</code> or <code>member</code>.</td>
+</tr>
+<tr>
+<td><code>missing_scope</code></td>
+<td>Your token lacks the <code>mcp:write</code> scope required for this tool — see above.</td>
+</tr>
+<tr>
+<td><code>validation_error</code></td>
+<td>A field failed validation — includes an <code>errors</code> object keyed by field name, e.g. an <code>assignee_email</code>/label name that does not resolve to a real board member/label.</td>
+</tr>
+<tr>
+<td><code>wip_limit_exceeded</code> / <code>wip_hard_blocked</code></td>
+<td>The target column is at its WIP limit. <code>move_card</code> never overrides either — there is no <code>force</code> option over MCP.</td>
+</tr>
+<tr>
+<td><code>weight_limit_exceeded</code></td>
+<td>The target column is at its weight limit.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="list_columns"><code>list_columns</code><a class="headerlink" href="#list_columns" title="Permanent link">&para;</a></h3>
+<p>Lists a board's columns, ordered by position. All board roles may call it.</p>
+<p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
+<p><strong>Returns:</strong> an array of <code>{id, name, position, color, wip_limit, card_count}</code> — <code>card_count</code> excludes archived cards.</p>
+<h3 id="list_swimlanes"><code>list_swimlanes</code><a class="headerlink" href="#list_swimlanes" title="Permanent link">&para;</a></h3>
+<p>Lists a board's swimlanes, ordered by position. All board roles may call it.</p>
+<p><strong>Arguments:</strong> <code>board_id</code> (integer, required).</p>
+<p><strong>Returns:</strong> an array of <code>{id, name, position, color, card_count, is_collapsed}</code>, plus <code>contact_email</code> for <code>admin</code>/<code>site_admin</code> callers only — a <code>collaborator</code>/<code>viewer</code> response simply omits that key, matching the same admin-only visibility the web UI already applies to swimlane contact info.</p>
+<h3 id="list_cards"><code>list_cards</code><a class="headerlink" href="#list_cards" title="Permanent link">&para;</a></h3>
+<p>Lists a board's cards, ordered by column then swimlane then position. All board roles may call it. Capped at 200 rows, like the REST card list endpoint.</p>
+<p><strong>Arguments:</strong> <code>board_id</code> (integer, required); <code>column_id</code>, <code>swimlane_id</code> (integers), <code>assignee</code> (email, case-insensitive), <code>priority</code>, <code>label</code> (name) — all optional filters, ANDed together; <code>include_archived</code> (boolean, default <code>false</code>).</p>
+<p><strong>Returns:</strong> an array of <code>{id, title, description, priority, assignee, labels, column, swimlane, due_date, position, created_at, updated_at}</code>. <code>assignee</code> is an email or <code>null</code>; <code>labels</code> is an array of names; <code>column</code>/<code>swimlane</code> are <code>{id, name}</code> objects so a result can be fed straight into <code>move_card</code>.</p>
+<h3 id="create_card"><code>create_card</code><a class="headerlink" href="#create_card" title="Permanent link">&para;</a></h3>
+<p>Creates a card, appended to the end of its column/swimlane cell (or inserted at <code>position</code> if given). Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>board_id</code>, <code>column_id</code>, <code>swimlane_id</code>, <code>title</code> (required); <code>description</code>, <code>priority</code> (default <code>"medium"</code>), <code>assignee_email</code>, <code>labels</code> (array of names), <code>due_date</code> (<code>YYYY-MM-DD</code>), <code>position</code> — all optional.</p>
+<p><strong>Returns:</strong> the created card, same shape as one row of <code>list_cards</code>. Writes a <code>CardMovement</code> record with no "from" column (matching how the REST API records card creation) and broadcasts <code>card.created</code> on the board's WebSocket channel.</p>
+<h3 id="move_card"><code>move_card</code><a class="headerlink" href="#move_card" title="Permanent link">&para;</a></h3>
+<p>Moves a card to a new column and/or swimlane and/or position. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required); <code>to_column_id</code>, <code>to_swimlane_id</code> — at least one required, the other defaults to the card's current value; <code>position</code> (default <code>0</code>).</p>
+<p><strong>Returns:</strong> <code>{"card": &lt;card&gt;, "movement": &lt;movement-or-null&gt;}</code>. <code>movement</code> is <code>null</code> for a pure position reorder within the same cell (no column/swimlane change); otherwise it carries <code>{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by}</code>. Enforces the board's WIP/weight limits exactly as the REST move endpoint does, with no override — a blocked move returns <code>wip_limit_exceeded</code>/<code>wip_hard_blocked</code>/<code>weight_limit_exceeded</code> rather than moving the card.</p>
+<h3 id="update_card"><code>update_card</code><a class="headerlink" href="#update_card" title="Permanent link">&para;</a></h3>
+<p>Updates one or more fields on a card. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required); any of <code>title</code>, <code>description</code>, <code>priority</code>, <code>assignee_email</code>, <code>labels</code>, <code>due_date</code> — omitted fields are left unchanged. <code>labels: []</code> clears every label; <code>assignee_email: ""</code> unassigns the card. Cannot change a card's column or swimlane — use <code>move_card</code>.</p>
+<p><strong>Returns:</strong> the updated card, same shape as <code>create_card</code>. Records a <code>CardActivity</code> audit entry per field that actually changed.</p>
+<h3 id="archive_card"><code>archive_card</code><a class="headerlink" href="#archive_card" title="Permanent link">&para;</a></h3>
+<p>Soft-deletes a card. Idempotent — archiving an already-archived card succeeds and returns its existing <code>archived_at</code>. Requires <code>admin</code> or <code>member</code> board role and the <code>mcp:write</code> scope.</p>
+<p><strong>Arguments:</strong> <code>card_id</code> (required).</p>
+<p><strong>Returns:</strong> <code>{"card_id": &lt;id&gt;, "archived_at": &lt;ISO 8601 timestamp&gt;}</code>.</p>
+<hr />
 <h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
-<p>Phase 1 (this release) covers connectivity, authentication, and board discovery. Card and board write tools, MCP resources, and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
+<p>Phase 1 covers connectivity, authentication, board discovery, and full card CRUD (this release). MCP resources (<code>board://</code>, <code>card://</code>) and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
 
 
 
