@@ -10,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 
 from accounts.models import User
 from accounts.permissions import TokenHasScope
@@ -262,6 +263,49 @@ class BoardViewSet(
             transaction.on_commit(_broadcast_star)
         return Response(self.get_serializer(board).data)
 
+    @extend_schema(
+        summary="Enable the board's public share link",
+        description="Generates a fresh token, replacing any existing one. Admin only.",
+        methods=["POST"],
+        request=inline_serializer(
+            name="ShareBoardRequest",
+            fields={
+                "expires_in_days": serializers.ChoiceField(
+                    choices=[7, 30, 90], required=False, allow_null=True,
+                    help_text="Omit or pass null for a link that never expires.",
+                ),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="ShareBoardResponse",
+                fields={
+                    "share_token": serializers.CharField(allow_null=True),
+                    "share_url": serializers.CharField(allow_null=True),
+                    "share_token_expires_at": serializers.DateTimeField(allow_null=True),
+                },
+            ),
+            400: OpenApiResponse(
+                description="`expires_in_days` was not an integer, or not one of 7/30/90.",
+                response=inline_serializer(name="ShareBoardBadRequest", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
+    @extend_schema(
+        summary="Revoke the board's public share link",
+        description="Clears the token, immediately invalidating any live share link. Admin only.",
+        methods=["DELETE"],
+        responses={
+            200: inline_serializer(
+                name="UnshareBoardResponse",
+                fields={
+                    "share_token": serializers.CharField(allow_null=True),
+                    "share_url": serializers.CharField(allow_null=True),
+                    "share_token_expires_at": serializers.DateTimeField(allow_null=True),
+                },
+            ),
+        },
+    )
     @action(detail=True, methods=["post", "delete"], url_path="share")
     def share(self, request, pk=None):
         """Enable or revoke the public share link for a board.
@@ -508,6 +552,36 @@ class BoardViewSet(
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        summary="Add a member to the board, or update an existing member's role",
+        description=(
+            "Creates a new BoardMembership (201) if `user_id` is not yet a board member, "
+            "or updates their role/moderator flag on an existing membership (200). Admin only."
+        ),
+        request=inline_serializer(
+            name="AddOrUpdateMemberRequest",
+            fields={
+                "user_id": serializers.IntegerField(),
+                "role": serializers.ChoiceField(choices=BoardMembership.Role.choices, required=False),
+                "is_moderator": serializers.BooleanField(
+                    required=False, allow_null=True,
+                    help_text="Grant/revoke the moderator entitlement. Only valid for member/admin roles.",
+                ),
+            },
+        ),
+        responses={
+            200: BoardMembershipSerializer,
+            201: BoardMembershipSerializer,
+            400: OpenApiResponse(
+                description="Moderator entitlement requested for a collaborator or viewer role.",
+                response=inline_serializer(name="AddMemberBadRequest", fields={"detail": serializers.CharField()}),
+            ),
+            403: OpenApiResponse(
+                description="Requester is not a board admin, or attempted to modify a site admin's membership.",
+                response=inline_serializer(name="AddMemberPermissionDenied", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
     @action(detail=True, methods=["post"])
     def members(self, request, pk=None):
         """Add or update a member's role on the board (admin only)."""
