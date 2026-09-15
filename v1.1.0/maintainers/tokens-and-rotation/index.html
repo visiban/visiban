@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/notifications/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/maintainers/tokens-and-rotation/">
       
       
-        <link rel="prev" href="../groups/">
+        <link rel="prev" href="../ci-runners/">
       
       
-        <link rel="next" href="../admin/">
+        <link rel="next" href="../known-ci-failures/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Notifications - Visiban</title>
+        <title>Tokens and Rotation - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#notifications-api" class="md-skip">
+        <a href="#tokens-and-rotation" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Notifications
+              Tokens and Rotation
             
           </span>
         </div>
@@ -288,13 +288,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -356,11 +354,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../maintainers/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -1506,8 +1506,6 @@
       
   
   
-    
-  
   
   
     
@@ -1545,23 +1543,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../api/" class="md-nav__link ">
               
   
   
@@ -1579,13 +1574,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1605,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
+      <a href="../../api/authentication/" class="md-nav__link">
         
   
   
@@ -1633,7 +1628,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../boards/" class="md-nav__link">
+      <a href="../../api/boards/" class="md-nav__link">
         
   
   
@@ -1661,7 +1656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cards/" class="md-nav__link">
+      <a href="../../api/cards/" class="md-nav__link">
         
   
   
@@ -1689,7 +1684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../api/groups/" class="md-nav__link">
         
   
   
@@ -1714,37 +1709,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
         
   
   
@@ -1760,76 +1728,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#get-apiv1notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/v1/notifications/
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#post-apiv1notificationsmark-read" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        POST /api/v1/notifications/mark-read/
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiv1notificationsunread-count" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/v1/notifications/unread-count/
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1842,7 +1740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../admin/" class="md-nav__link">
+      <a href="../../api/admin/" class="md-nav__link">
         
   
   
@@ -1870,7 +1768,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-lens/" class="md-nav__link">
+      <a href="../../api/git-lens/" class="md-nav__link">
         
   
   
@@ -1898,7 +1796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
+      <a href="../../api/mcp/" class="md-nav__link">
         
   
   
@@ -1926,7 +1824,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../websockets/" class="md-nav__link">
+      <a href="../../api/websockets/" class="md-nav__link">
         
   
   
@@ -1954,7 +1852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../health/" class="md-nav__link">
+      <a href="../../api/health/" class="md-nav__link">
         
   
   
@@ -1982,7 +1880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../version/" class="md-nav__link">
+      <a href="../../api/version/" class="md-nav__link">
         
   
   
@@ -2010,7 +1908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../openapi/" class="md-nav__link">
+      <a href="../../api/openapi/" class="md-nav__link">
         
   
   
@@ -2730,6 +2628,8 @@
       
   
   
+    
+  
   
   
     
@@ -2749,20 +2649,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../maintainers/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2780,13 +2683,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2806,7 +2709,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+      <a href="../ci-runners/" class="md-nav__link">
         
   
   
@@ -2831,10 +2734,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tokens and Rotation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2850,6 +2780,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#correction-the-github-release-ci-variable-is-gh_token-not-github_token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Correction: the GitHub-release CI variable is GH_TOKEN, not GITHUB_TOKEN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unresolved-two-pat-expiries-are-unknown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unresolved: two PAT expiries are unknown
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docs_deploy_token-historical-note-and-current-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DOCS_DEPLOY_TOKEN — historical note and current status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#minio-credentials-issue-141" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MinIO credentials (issue #141)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rotation-procedure-general" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rotation procedure (general)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2862,7 +2878,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+      <a href="../known-ci-failures/" class="md-nav__link">
         
   
   
@@ -2937,117 +2953,136 @@
   
 
 
-<h1 id="notifications-api">Notifications API<a class="headerlink" href="#notifications-api" title="Permanent link">&para;</a></h1>
-<p>Visiban creates notifications for board members when:</p>
-<ul>
-<li>A card is assigned to them (<code>notif_assigned</code>)</li>
-<li>They are @mentioned in a comment or card description (<code>notif_mentioned</code>)</li>
-<li>A card they own is moved to a different column or swimlane (<code>notif_card_moved</code>)</li>
-<li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>)</li>
-<li>They are invited to a board (<code>notif_board_invite</code>)</li>
-</ul>
-<p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
-<hr />
-<h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
-<h3 id="get-apiv1notifications"><code>GET /api/v1/notifications/</code><a class="headerlink" href="#get-apiv1notifications" title="Permanent link">&para;</a></h3>
-<p>List the 50 most recent <strong>unread</strong> notifications for the current user. Requires authentication.</p>
-<p>Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from <code>unread-count</code> below) — see #987.</p>
-<p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice assigned you to \"Fix login bug\""</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">},</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">]</span>
-</code></pre></div></p>
+<h1 id="tokens-and-rotation">Tokens and Rotation<a class="headerlink" href="#tokens-and-rotation" title="Permanent link">&para;</a></h1>
+<p>Every credential this project depends on operationally: what it's for, its scope, who owns
+it, where it's stored, and its expiry. <strong>Names and metadata only</strong> — this page must never
+contain an actual token, key, or secret value. If you're updating this page and about to
+paste a credential, stop and describe where it lives instead.</p>
+<h2 id="inventory">Inventory<a class="headerlink" href="#inventory" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
+<th>Credential</th>
+<th>Type / scope</th>
+<th>Owner</th>
+<th>Stored</th>
+<th>Used by</th>
+<th>Expiry</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>id</code></td>
-<td>integer</td>
-<td>Notification ID — used with <code>mark-read</code></td>
+<td>Mirror bot PAT</td>
+<td>GitLab PAT, Maintainer role on <code>visiban/visiban-enterprise</code></td>
+<td><code>visiban-mirror-bot</code> service account</td>
+<td>GitLab → Settings → Repository → Mirroring (push mirror URL for the OSS→enterprise mirror)</td>
+<td>Automatic push-mirror of every branch/tag from OSS to enterprise on every push</td>
+<td><strong>2027-03-10</strong></td>
 </tr>
 <tr>
-<td><code>verb</code></td>
-<td>string</td>
-<td>Human-readable description of the event</td>
+<td>GitHub push-mirror PAT (<code>visiban-gitlab-mirror</code>)</td>
+<td>GitHub PAT, scope <code>repo</code></td>
+<td>TBD — confirm current owner before rotating</td>
+<td>GitLab → Settings → Repository → Mirroring (push mirror URL for OSS→GitHub); <strong>also</strong> stored as the <code>GH_TOKEN</code> GitLab CI/CD variable (protected, masked)</td>
+<td>Push-mirrors OSS to <code>github.com/visiban/visiban</code>; <code>github-release</code> CI job (<code>gh release create</code>, which reads <code>GH_TOKEN</code> automatically — see correction below)</td>
+<td><strong>UNKNOWN</strong> — see below</td>
 </tr>
 <tr>
-<td><code>actor</code></td>
-<td>object / null</td>
-<td>User who triggered the notification (slim shape: <code>id</code>, <code>username</code>, <code>display_name</code>, <code>avatar_url</code>). <code>null</code> for system-generated notifications (e.g. stale-card alerts). Added in 1.1 (#1007).</td>
+<td>GHCR push PAT (<code>visiban-ghcr-push</code>)</td>
+<td>GitHub PAT, scope <code>write:packages</code></td>
+<td>TBD — confirm current owner before rotating</td>
+<td>GitLab CI/CD variable <code>GHCR_TOKEN</code> (masked), paired with <code>GHCR_USER</code> (masked)</td>
+<td><code>.kaniko-push-common</code> / <code>backend-docker-push</code>, <code>frontend-docker-push</code>, <code>ghcr-push-backend</code>, <code>ghcr-push-frontend</code> — pushes images to <code>ghcr.io/visiban/visiban/*</code></td>
+<td><strong>UNKNOWN</strong> — see below</td>
 </tr>
 <tr>
-<td><code>card_id</code></td>
-<td>integer / null</td>
-<td>ID of the related card (null if the card has been deleted)</td>
+<td><code>DOCS_DEPLOY_TOKEN</code></td>
+<td>GitLab token, <code>write_repository</code> scope</td>
+<td>TBD</td>
+<td>GitLab CI/CD variable (protected, masked)</td>
+<td><code>docs-deploy</code> job — <code>mike</code> pushes the versioned docs site to the <code>gh-pages</code> branch</td>
+<td>Not tracked here — see note below</td>
 </tr>
 <tr>
-<td><code>card_title</code></td>
-<td>string / null</td>
-<td>Card title at notification time (null if card deleted)</td>
-</tr>
-<tr>
-<td><code>board_id</code></td>
-<td>integer / null</td>
-<td>ID of the related board</td>
-</tr>
-<tr>
-<td><code>board_name</code></td>
-<td>string / null</td>
-<td>Board name (null if board deleted)</td>
-</tr>
-<tr>
-<td><code>action_type</code></td>
-<td>string</td>
-<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>. Use this for programmatic filtering or i18n instead of parsing <code>verb</code>.</td>
-</tr>
-<tr>
-<td><code>read</code></td>
-<td>boolean</td>
-<td>Always <code>false</code> — this endpoint only returns unread notifications</td>
-</tr>
-<tr>
-<td><code>created_at</code></td>
-<td>string</td>
-<td>ISO 8601 timestamp</td>
+<td>MinIO <code>AccessKey</code> / <code>SecretKey</code></td>
+<td>S3-compatible object storage credentials</td>
+<td>Runner infra owner</td>
+<td>Each self-hosted runner's local <code>config.toml</code> (<code>[runners.cache.s3]</code>), referenced via env interpolation; also present as GitLab CI/CD variables <code>MINIO_ACCESS_KEY</code> / <code>MINIO_SECRET_KEY</code> (masked, protected) alongside <code>MINIO_ENDPOINT</code> / <code>MINIO_BUCKET</code></td>
+<td>Distributed CI cache shared across runners (<code>.npm-cache</code>, pip cache templates in <code>.gitlab-ci.yml</code>)</td>
+<td>Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141)</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h3 id="post-apiv1notificationsmark-read"><code>POST /api/v1/notifications/mark-read/</code><a class="headerlink" href="#post-apiv1notificationsmark-read" title="Permanent link">&para;</a></h3>
-<p>Mark notifications as read. Requires authentication.</p>
-<p><strong>Mark specific notifications</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"ids"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div></p>
-<p><strong>Mark all unread notifications</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"all"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div></p>
-<p><strong>Response</strong> <code>{ "ok": true }</code></p>
-<hr />
-<h3 id="get-apiv1notificationsunread-count"><code>GET /api/v1/notifications/unread-count/</code><a class="headerlink" href="#get-apiv1notificationsunread-count" title="Permanent link">&para;</a></h3>
-<p>Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.</p>
-<p><strong>Response</strong> <code>{ "count": 5 }</code></p>
+<h2 id="correction-the-github-release-ci-variable-is-gh_token-not-github_token">Correction: the GitHub-release CI variable is <code>GH_TOKEN</code>, not <code>GITHUB_TOKEN</code><a class="headerlink" href="#correction-the-github-release-ci-variable-is-gh_token-not-github_token" title="Permanent link">&para;</a></h2>
+<p>Some earlier notes (including this page's source issue) refer to the GitHub release token as
+<code>GITHUB_TOKEN</code>. That name is wrong for this repo. Verified directly against
+<code>.gitlab-ci.yml</code>: the <code>github-release</code> job calls <code>gh release create</code> with no explicit
+<code>--token</code> flag, so the <code>gh</code> CLI picks up <code>GH_TOKEN</code> from the environment automatically. The
+GitLab CI/CD variable is named <code>GH_TOKEN</code> — confirmed present (<code>protected: true, masked:
+true</code>) via the project variables API, and there are zero references to <code>GITHUB_TOKEN</code>
+anywhere in <code>.gitlab-ci.yml</code>. If <code>github-release</code> ever fails with "set the <code>GH_TOKEN</code>
+environment variable", the variable <em>name</em> is correct — check instead whether the tag is
+protected (protected variables are only injected on protected branches/tags).</p>
+<h2 id="unresolved-two-pat-expiries-are-unknown">Unresolved: two PAT expiries are unknown<a class="headerlink" href="#unresolved-two-pat-expiries-are-unknown" title="Permanent link">&para;</a></h2>
+<p>The <code>visiban-gitlab-mirror</code> and <code>visiban-ghcr-push</code> GitHub PATs have no recorded expiry date
+anywhere in this project's documentation or memory. This is exactly the "credential with an
+unknown expiry is an outage with a start date nobody has written down" problem this page
+exists to close — and it is <strong>not closed yet</strong>. GitHub PAT expiry is only visible via GitHub's
+own token settings (<code>github.com/settings/tokens</code> for a classic PAT, or the fine-grained
+equivalent), which is not something obtainable from GitLab's API or this repository.</p>
+<p><strong>Action needed (human, on GitHub):</strong> whoever holds <code>visiban-gitlab-mirror</code> and
+<code>visiban-ghcr-push</code> must open GitHub → Settings → Developer settings → Personal access
+tokens, find both tokens, and record their expiry dates here. Until that happens, treat both
+as <strong>could expire at any time</strong> — a sudden <code>github-release</code> or GHCR push failure with an auth
+error is the first symptom, and by then it's already an incident. Do not let this line sit as
+long as the two memory notes below did (~5 months pending).</p>
+<h2 id="docs_deploy_token-historical-note-and-current-status"><code>DOCS_DEPLOY_TOKEN</code> — historical note and current status<a class="headerlink" href="#docs_deploy_token-historical-note-and-current-status" title="Permanent link">&para;</a></h2>
+<p>A memory note dated 2026-04-07 recorded <code>DOCS_DEPLOY_TOKEN</code> as mistakenly set to a GitHub
+PAT (<code>ghp_...</code>), which GitLab's git auth would reject when <code>mike</code> tries to push to
+<code>gh-pages</code>. As of this writing (2026-09-14), that is <strong>not</strong> the current failure mode: the
+<code>gh-pages</code> pipeline has completed successfully multiple times today, which requires
+<code>docs-deploy</code>'s <code>git remote set-url</code> + push step to have authenticated successfully — so
+whatever token is currently stored works for GitLab git auth. The project's
+<code>access_tokens</code> API returns no project access tokens for <code>visiban/visiban</code>, which means the
+current <code>DOCS_DEPLOY_TOKEN</code> is not a project access token registered on this project (it may
+be a personal or group access token instead). Its expiry is not visible from this project's
+API and is not currently recorded anywhere — worth doing the same GitHub-style expiry
+capture for it as a follow-up, since "working today" says nothing about "working next
+quarter."</p>
+<h2 id="minio-credentials-issue-141">MinIO credentials (issue #141)<a class="headerlink" href="#minio-credentials-issue-141" title="Permanent link">&para;</a></h2>
+<p>Issue <strong>#141</strong> ("MinIO creds hardcoded in runner <code>config.toml</code>") is <strong>closed</strong>. The current
+<code>.gitlab-ci.yml</code> cache-template comments document the fixed form: <code>config.toml</code> should
+reference <code>MINIO_ACCESS_KEY</code> / <code>MINIO_SECRET_KEY</code> / <code>MINIO_ENDPOINT</code> / <code>MINIO_BUCKET</code> via env
+interpolation rather than hardcoding values, and those four variables are now present as
+masked, protected GitLab CI/CD variables. This matches the issue's recommended fix. The
+MinIO instance is internal-only and the group runners are not internet-exposed, which is why
+this was tracked as low-priority rather than urgent. If you provision a new runner, confirm
+its <code>config.toml</code> follows the interpolated form — do not hardcode the values again.</p>
+<h2 id="rotation-procedure-general">Rotation procedure (general)<a class="headerlink" href="#rotation-procedure-general" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Generate the replacement credential at its source (GitHub token settings, GitLab access
+   token settings, or the MinIO admin console) — never reuse or extend an expiring token.</li>
+<li>Update the GitLab CI/CD variable (Settings → CI/CD → Variables) or the mirroring URL
+   (Settings → Repository → Mirroring), matching the "Stored" column above.</li>
+<li>Trigger the smallest job that exercises the credential to confirm it works before the old
+   one expires:<ul>
+<li><code>GH_TOKEN</code> / <code>github-release</code>: only runs on a version-tag pipeline, so test via a
+    pre-release tag or by re-running a past <code>github-release</code> job with the new variable
+    value.</li>
+<li><code>GHCR_TOKEN</code> / <code>GHCR_USER</code>: trigger the manual <code>ghcr-push-backend</code> or
+    <code>ghcr-push-frontend</code> job (CI/CD → Pipelines → play button on the deploy stage).</li>
+<li><code>DOCS_DEPLOY_TOKEN</code>: run the <code>docs-deploy</code> job manually on <code>main</code> with a
+    <code>DOCS_VERSION</code> set (see the job's comment block in <code>.gitlab-ci.yml</code>).</li>
+<li>Mirror bot PAT: push any commit to <code>main</code> and confirm it appears on
+    <code>visiban/visiban-enterprise</code> shortly after.</li>
+</ul>
+</li>
+<li>Record the new expiry in this page's inventory table in the same MR that rotates the
+   credential — do not leave the row stale.</li>
+<li>If a rotation fails partway, GitLab emails project maintainers after 3 consecutive mirror
+   failures; ensure at least one maintainer has notifications enabled so a missed rotation
+   doesn't go unnoticed for months.</li>
+</ol>
 
 
 

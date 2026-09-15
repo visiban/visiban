@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/notifications/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/maintainers/known-ci-failures/">
       
       
-        <link rel="prev" href="../groups/">
+        <link rel="prev" href="../tokens-and-rotation/">
       
       
-        <link rel="next" href="../admin/">
+        <link rel="next" href="../../changelog/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Notifications - Visiban</title>
+        <title>Known CI Failures - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#notifications-api" class="md-skip">
+        <a href="#known-ci-failures" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Notifications
+              Known CI Failures
             
           </span>
         </div>
@@ -288,13 +288,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -356,11 +354,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../maintainers/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -1506,8 +1506,6 @@
       
   
   
-    
-  
   
   
     
@@ -1545,23 +1543,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../api/" class="md-nav__link ">
               
   
   
@@ -1579,13 +1574,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1605,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
+      <a href="../../api/authentication/" class="md-nav__link">
         
   
   
@@ -1633,7 +1628,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../boards/" class="md-nav__link">
+      <a href="../../api/boards/" class="md-nav__link">
         
   
   
@@ -1661,7 +1656,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cards/" class="md-nav__link">
+      <a href="../../api/cards/" class="md-nav__link">
         
   
   
@@ -1689,7 +1684,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../api/groups/" class="md-nav__link">
         
   
   
@@ -1714,37 +1709,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
         
   
   
@@ -1760,76 +1728,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Endpoints">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#get-apiv1notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/v1/notifications/
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#post-apiv1notificationsmark-read" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        POST /api/v1/notifications/mark-read/
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#get-apiv1notificationsunread-count" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /api/v1/notifications/unread-count/
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1842,7 +1740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../admin/" class="md-nav__link">
+      <a href="../../api/admin/" class="md-nav__link">
         
   
   
@@ -1870,7 +1768,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../git-lens/" class="md-nav__link">
+      <a href="../../api/git-lens/" class="md-nav__link">
         
   
   
@@ -1898,7 +1796,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
+      <a href="../../api/mcp/" class="md-nav__link">
         
   
   
@@ -1926,7 +1824,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../websockets/" class="md-nav__link">
+      <a href="../../api/websockets/" class="md-nav__link">
         
   
   
@@ -1954,7 +1852,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../health/" class="md-nav__link">
+      <a href="../../api/health/" class="md-nav__link">
         
   
   
@@ -1982,7 +1880,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../version/" class="md-nav__link">
+      <a href="../../api/version/" class="md-nav__link">
         
   
   
@@ -2010,7 +1908,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../openapi/" class="md-nav__link">
+      <a href="../../api/openapi/" class="md-nav__link">
         
   
   
@@ -2730,6 +2628,8 @@
       
   
   
+    
+  
   
   
     
@@ -2749,20 +2649,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../maintainers/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2780,13 +2683,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2806,7 +2709,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/ci-runners/" class="md-nav__link">
+      <a href="../ci-runners/" class="md-nav__link">
         
   
   
@@ -2834,7 +2737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
+      <a href="../tokens-and-rotation/" class="md-nav__link">
         
   
   
@@ -2859,10 +2762,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2878,6 +2808,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#oidc-smoke-did-not-become-ready-within-240s" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        oidc-smoke: "did not become ready within 240s"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#docker-push-cannot-connect-to-the-docker-daemon-at-unixvarrundockersock" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker push: Cannot connect to the Docker daemon at unix:///var/run/docker.sock
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2937,117 +2920,64 @@
   
 
 
-<h1 id="notifications-api">Notifications API<a class="headerlink" href="#notifications-api" title="Permanent link">&para;</a></h1>
-<p>Visiban creates notifications for board members when:</p>
-<ul>
-<li>A card is assigned to them (<code>notif_assigned</code>)</li>
-<li>They are @mentioned in a comment or card description (<code>notif_mentioned</code>)</li>
-<li>A card they own is moved to a different column or swimlane (<code>notif_card_moved</code>)</li>
-<li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>)</li>
-<li>They are invited to a board (<code>notif_board_invite</code>)</li>
-</ul>
-<p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
-<hr />
-<h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
-<h3 id="get-apiv1notifications"><code>GET /api/v1/notifications/</code><a class="headerlink" href="#get-apiv1notifications" title="Permanent link">&para;</a></h3>
-<p>List the 50 most recent <strong>unread</strong> notifications for the current user. Requires authentication.</p>
-<p>Notifications referencing a board the requesting user no longer has access to are filtered from this list (and from <code>unread-count</code> below) — see #987.</p>
-<p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">[</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice assigned you to \"Fix login bug\""</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">      </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">      </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="p">},</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">    </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-15T09:41:22Z"</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">]</span>
-</code></pre></div></p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>id</code></td>
-<td>integer</td>
-<td>Notification ID — used with <code>mark-read</code></td>
-</tr>
-<tr>
-<td><code>verb</code></td>
-<td>string</td>
-<td>Human-readable description of the event</td>
-</tr>
-<tr>
-<td><code>actor</code></td>
-<td>object / null</td>
-<td>User who triggered the notification (slim shape: <code>id</code>, <code>username</code>, <code>display_name</code>, <code>avatar_url</code>). <code>null</code> for system-generated notifications (e.g. stale-card alerts). Added in 1.1 (#1007).</td>
-</tr>
-<tr>
-<td><code>card_id</code></td>
-<td>integer / null</td>
-<td>ID of the related card (null if the card has been deleted)</td>
-</tr>
-<tr>
-<td><code>card_title</code></td>
-<td>string / null</td>
-<td>Card title at notification time (null if card deleted)</td>
-</tr>
-<tr>
-<td><code>board_id</code></td>
-<td>integer / null</td>
-<td>ID of the related board</td>
-</tr>
-<tr>
-<td><code>board_name</code></td>
-<td>string / null</td>
-<td>Board name (null if board deleted)</td>
-</tr>
-<tr>
-<td><code>action_type</code></td>
-<td>string</td>
-<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>. Use this for programmatic filtering or i18n instead of parsing <code>verb</code>.</td>
-</tr>
-<tr>
-<td><code>read</code></td>
-<td>boolean</td>
-<td>Always <code>false</code> — this endpoint only returns unread notifications</td>
-</tr>
-<tr>
-<td><code>created_at</code></td>
-<td>string</td>
-<td>ISO 8601 timestamp</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="post-apiv1notificationsmark-read"><code>POST /api/v1/notifications/mark-read/</code><a class="headerlink" href="#post-apiv1notificationsmark-read" title="Permanent link">&para;</a></h3>
-<p>Mark notifications as read. Requires authentication.</p>
-<p><strong>Mark specific notifications</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"ids"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div></p>
-<p><strong>Mark all unread notifications</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"all"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
-</code></pre></div></p>
-<p><strong>Response</strong> <code>{ "ok": true }</code></p>
-<hr />
-<h3 id="get-apiv1notificationsunread-count"><code>GET /api/v1/notifications/unread-count/</code><a class="headerlink" href="#get-apiv1notificationsunread-count" title="Permanent link">&para;</a></h3>
-<p>Return the count of unread notifications for the current user. Used by the navbar bell badge. Requires authentication.</p>
-<p><strong>Response</strong> <code>{ "count": 5 }</code></p>
+<h1 id="known-ci-failures">Known CI Failures<a class="headerlink" href="#known-ci-failures" title="Permanent link">&para;</a></h1>
+<p>Failure signature → root cause → fix. Grep this page before re-deriving a diagnosis that's
+already been done once.</p>
+<h2 id="oidc-smoke-did-not-become-ready-within-240s"><code>oidc-smoke</code>: "did not become ready within 240s"<a class="headerlink" href="#oidc-smoke-did-not-become-ready-within-240s" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> <code>oidc-smoke</code> job fails with <code>Keycloak master realm ... did not become ready
+within 240s</code> (or whatever the current wait-timeout value is).</p>
+<p><strong>Root cause:</strong> this is <strong>not</strong> a slow boot, and raising the timeout will not fix it. GitLab's
+CI service DNS returns both an A record and an IPv6 ULA (<code>fd76::/8</code>) for the <code>keycloak</code>
+service alias, and glibc prefers IPv6. Reached over IPv6, Keycloak classifies the client as
+<em>external</em> — <code>SslRequired.EXTERNAL</code> only recognizes IPv4 private ranges as local — so the
+master realm's default <code>sslRequired=external</code> immediately refuses plain HTTP with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>403 {"error":"invalid_request","error_description":"HTTPS required"}
+</code></pre></div>
+<p>Keycloak's own service log shows <code>started in 17s</code>-ish <em>before</em> polling even begins — always
+check the service log (<code>CI_DEBUG_SERVICES: "true"</code> is already enabled on this job) before
+trusting a "timeout" at face value. Pinning <code>/etc/hosts</code> does not help; the resolver still
+returns both records.</p>
+<p><strong>Fix:</strong> address Keycloak by its resolved <strong>IPv4 literal</strong> (<code>getent ahostsv4 keycloak</code>),
+substituted into both <code>KEYCLOAK_BASE</code> and <code>OIDC_SERVER_URL</code> so the provisioner and Django
+agree on the issuer. This is already implemented in <code>scripts/oidc_provision.py</code> and
+<code>.gitlab-ci.yml</code>'s <code>oidc-smoke</code> job (see the <code>before_script</code> comment there) as of <strong>!853</strong>
+— <code>oidc-smoke</code> went from a ~5 minute failure to green in 1m36s. If this regresses, check
+that the IPv4-literal substitution wasn't reverted.</p>
+<p><strong>What hid this for six weeks:</strong> <code>_wait_for_url</code> in <code>scripts/oidc_provision.py</code> had a bare
+<code>except Exception: pass</code>, so every failure mode looked identical, and someone had already
+raised the timeout 120→240s on the (wrong) slow-boot assumption before the real cause was
+found.</p>
+<h2 id="docker-push-cannot-connect-to-the-docker-daemon-at-unixvarrundockersock">Docker push: <code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock</code><a class="headerlink" href="#docker-push-cannot-connect-to-the-docker-daemon-at-unixvarrundockersock" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> <code>backend-docker-push</code> or <code>frontend-docker-push</code> fails with this Docker daemon
+connection error.</p>
+<p><strong>Root cause (historical, pre-</strong>!852<strong>):</strong> these jobs ran <code>docker buildx</code> against a Docker
+socket mounted only by a specific self-hosted runner's <code>config.toml</code>. The jobs carried no
+<code>tags:</code>, so once that runner went stale (2026-07-18), the jobs silently scheduled onto a
+GitLab SaaS runner with no Docker socket at all.</p>
+<p><strong>Fix:</strong> the jobs were converted to <strong>kaniko</strong> in !852, which needs no Docker daemon and runs
+on any runner — this failure mode should no longer occur for amd64 pushes. If you see this
+error again, something has regressed the job definition back toward <code>docker buildx</code>; check
+<code>.gitlab-ci.yml</code>'s <code>.kaniko-push-common</code> template first. See
+<a href="../ci-runners/#docker-image-push-no-longer-needs-a-self-hosted-runner">CI Runners</a> for the
+full history, including the arm64 gap this conversion left open (<strong>#1084</strong>).</p>
+<h2 id="self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge">Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"<a class="headerlink" href="#self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> a job scheduled on a self-hosted NUC runner (e.g. <code>backend-test-git-lens</code>) is
+aborted before any script line runs, with a GitLab Runner message resembling <code>Possibly zombie
+container ... disconnected from network bridge</code> in the job trace.</p>
+<p><strong>Root cause:</strong> a transient Docker networking fault on the runner host itself — the
+container's network bridge connection was lost between container creation and script start.
+Not caused by the job's own script or test code.</p>
+<p><strong>Fix:</strong> retry the job. Observed once during the review of the change that added
+<code>backend-test-git-lens</code> to every backend MR pipeline (rather than only <code>git_lens</code>-touching
+ones) — it passed cleanly on retry with no code change. If this recurs frequently rather than
+as an isolated event, check the runner's health (<code>glab api
+"projects/visiban%2Fvisiban/runners?type=group_type"</code>, or a specific runner's
+<code>glab api "runners/&lt;id&gt;"</code>) before assuming it's a code regression — see
+<a href="../ci-runners/#inventory">CI Runners</a>.</p>
+<p><strong>Why this matters more now:</strong> <code>backend-test-git-lens</code> moved from running only on <code>git_lens</code>
+changes to running on every <code>backend-test-coverage</code> run, so the self-hosted runner is drawn
+on roughly 3x more often than before. A previously-rare transient failure mode becomes a
+more visible source of pipeline noise.</p>
 
 
 
