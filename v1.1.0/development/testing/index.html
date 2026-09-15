@@ -3260,9 +3260,11 @@ collision is two merge requests solving the same issue.</p>
 branch was created. Install it once per clone:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>scripts/setup-hooks.sh
 </code></pre></div>
-<p>This installs a <code>pre-push</code> hook (shared by every <code>scripts/wt</code> worktree of this clone,
-since hooks live in the git common dir — no need to re-run per worktree). Before each
-push, on a branch named <code>(feat|fix|chore|docs)/&lt;issue&gt;-...</code>, it:</p>
+<p>This installs a <code>pre-push</code> hook and a <code>pre-commit</code> hook (shared by every <code>scripts/wt</code>
+worktree of this clone, since hooks live in the git common dir — no need to re-run per
+worktree).</p>
+<p>Before each push, on a branch named <code>(feat|fix|chore|docs)/&lt;issue&gt;-...</code>, the <code>pre-push</code>
+hook:</p>
 <ul>
 <li><strong>Blocks the push</strong> if an <em>open</em> merge request already exists for that issue from a
   <em>different</em> source branch — naming the MR and branch</li>
@@ -3276,10 +3278,16 @@ push, on a branch named <code>(feat|fix|chore|docs)/&lt;issue&gt;-...</code>, it
 override a detected collision with:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">ALLOW_ISSUE_COLLISION</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>git<span class="w"> </span>push<span class="w"> </span>...
 </code></pre></div>
-<p><code>setup-hooks.sh</code> is idempotent and never clobbers a <code>pre-push</code> hook it doesn't manage
-(e.g. a hand-written lint hook) — it prints the line to add manually so the two can be
-chained instead. Run <code>scripts/check-issue-collision.sh --self-test</code> to exercise the
-check offline against stubbed forge responses.</p>
+<p>The <code>pre-commit</code> hook runs <code>scripts/gitleaks-precommit.sh</code>, blocking a commit that stages
+a hardcoded secret. It no-ops with a warning if <code>gitleaks</code> isn't installed locally — the
+merge-blocking <code>gitleaks-scan</code> CI job is the hard gate; this hook is just the earliest
+possible local catch. Install gitleaks with <code>brew install gitleaks</code> (or see
+<a href="https://github.com/gitleaks/gitleaks/releases">gitleaks releases</a>).</p>
+<p><code>setup-hooks.sh</code> is idempotent and never clobbers a hook it doesn't manage (e.g. a
+hand-written lint hook) for either <code>pre-push</code> or <code>pre-commit</code> — it prints the line to add
+manually so the two can be chained instead. Run <code>scripts/check-issue-collision.sh
+--self-test</code> to exercise the issue-collision check offline against stubbed forge
+responses.</p>
 <p>All four jobs must be green before a merge request can be merged.</p>
 
 
