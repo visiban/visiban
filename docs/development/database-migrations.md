@@ -268,6 +268,118 @@ without re-deriving it.
 
 ---
 
+## Constraint safety on populated tables
+
+Everything above is about how long a lock is held. This section is about a different
+failure: an operation that validates every existing row and **fails outright** if one of
+them does not comply. A migration that adds a `CheckConstraint`, makes an existing column
+`NOT NULL`, or turns on `unique=True` does not degrade gracefully when a row disagrees — the
+migration partially applies, the deploying pod's migrate step errors, health checks fail, and
+the deploy is stuck in a crash-loop until someone intervenes by hand. That is a worse outcome
+than a migration that simply refuses to run (#1098).
+
+The CI `migration-check` job also fails the pipeline for this:
+
+```bash
+cd backend
+python manage.py check_migration_constraint_safety
+```
+
+It is a second, independent scan alongside `check_migration_concurrency` — same syntactic
+AST approach, same job, different rule. The two overlap in which operations they watch but
+not in what they check: `check_migration_concurrency` asks "how long is the lock held",
+this one asks "can this fail against the data that is already there". A migration can pass
+one and fail the other. In particular, `AddConstraintNotValid` (the concurrency-safe half of
+the #1081 pattern) never fails against existing data — that is what `NOT VALID` means — but
+the `ValidateConstraint` that must follow it still scans the whole table and fails exactly
+the way a plain `AddConstraint` would. This check watches `ValidateConstraint`, not
+`AddConstraintNotValid`, for that reason.
+
+| Pattern | Flagged | Why |
+|---|---|---|
+| `migrations.AddConstraint` | yes | validates every row when applied |
+| `visiban.db_operations.ValidateConstraint` | yes | the deferred half of the NOT VALID pair still scans every row |
+| `AlterUniqueTogether` / `AlterIndexTogether` | yes | rebuilds the table's unique index, fails on any duplicate |
+| `AddField` with no `null=True` and no `default` | yes | Django cannot add the column to a populated table with nothing to put in existing rows |
+| `AlterField` with explicit `null=False` | yes | making an existing column NOT NULL fails if any row is still NULL |
+| `AddField` / `AlterField` with `unique=True` | yes, with one exception below | fails on any pre-existing duplicate value |
+| `AddField` with `unique=True` **and** `null=True` | **no** | PostgreSQL does not treat NULL as equal to NULL, so a unique index over a nullable brand-new column never rejects a pre-existing row — every one of them just gets NULL (`boards/0034_board_share_token`, `groups/0010_hash_group_invite_token` are this exact shape) |
+| `AddConstraintNotValid` on its own | **no** | `NOT VALID` defers the scan; nothing fails yet |
+| any of the above on a table created earlier in the same migration | **no** | a table with no rows cannot have a violating row — not an escape-hatch case, correct behavior |
+| any of the above under `SeparateDatabaseAndState(state_operations=...)` | **no** | state-only, emits no DDL |
+| `db_index=True` | **no** | a plain index never rejects a row — that risk is #1081's lock-duration concern, not a data-validity one |
+
+### The rule
+
+Any flagged operation must be preceded by a data-repair step — a `RunPython` (or `RunSQL`)
+that removes or fixes whatever rows would otherwise violate it. "Preceded" means one of two
+things:
+
+1. **Same migration** — an earlier element of the same migration's `operations` list is a
+   `RunPython` / `RunSQL` step. `boards/0018_add_stable_uids` and
+   `boards/0043_column_unique_name_per_board` are the worked examples already in the tree:
+   both backfill or deduplicate before the operation that would otherwise fail.
+2. **An adjacent migration in the same MR** — the migration's own `dependencies` names
+   another migration, in the same app, whose operations are themselves a repair step.
+   `accounts/0021_unique_username_ci` depends directly on
+   `accounts/0020_resolve_ci_username_collisions`, a dedicated `RunPython` migration that
+   renames every colliding username before the unique constraint is added. The check reads
+   the dependency graph to confirm this, not just the file in front of it.
+
+The scan does not verify a repair step touches the *right* rows — same coarseness
+`check_migration_concurrency` accepts for its own "is this actually concurrent" question —
+it only confirms one exists in the right place. Requiring *some* explicit repair step there
+is the point; auditing that the repair is correct is still a human review job.
+
+### The escape hatch
+
+Some operations are safe for reasons the scan cannot see — most commonly, a constraint whose
+default values make every pre-existing row comply without any repair step at all. Add an
+inline comment naming the reason:
+
+```python
+operations = [
+    # constraint-safe: verified against a prod snapshot — no row violates this today
+    migrations.AddConstraint(
+        model_name="card",
+        constraint=models.CheckConstraint(
+            condition=models.Q(position__gte=0), name="card_position_non_negative"
+        ),
+    ),
+]
+```
+
+Same convention as `# concurrency-exempt:` — the comment must sit on the operation's own
+line or within the four lines above it, and the reason after the colon is mandatory.
+
+`groups/0014_group_invite_link_used_at_constraint` is the real example this covers: its
+`CheckConstraint` requires `single_use=True OR used_at IS NULL`, and both columns were added
+by the immediately preceding migration with defaults of `False` / `NULL` — every
+pre-existing row already satisfies the constraint by construction, but that fact lives in a
+field default the scanner never inspects. It predates this check and is grandfathered by
+filename in `GRANDFATHERED` rather than commented in place, for the same reason #1081's
+fourteen are: the migration is already applied everywhere, and editing applied history to
+add a comment is a needless risk for a file nobody will hand-author again.
+`accounts/migrations/0002_user_display_name.py` is grandfathered alongside it — a genuinely
+unsafe `AddField`, but from `accounts`' second-ever migration, applied only ever against an
+empty `users` table on every install that has run it, including every fresh install today.
+
+### `--self-test`
+
+Every bespoke gate script ships a self-test that proves it still fires (#1093):
+
+```bash
+python manage.py check_migration_constraint_safety --self-test
+```
+
+It runs the scanner against known-bad and known-good fixture migrations built in memory —
+no files touched, no database, no real migration tree — and fails if a known-bad fixture is
+not caught or a known-good one is. CI runs it immediately before the real scan, in the same
+`migration-check` job, so a regression in the rule itself is caught before it has a chance to
+pass a real migration through undetected.
+
+---
+
 ## The pre-#1081 migrations — decision and reasoning
 
 Fourteen migrations predate this rule and build an index or constraint with a lock. #1081
