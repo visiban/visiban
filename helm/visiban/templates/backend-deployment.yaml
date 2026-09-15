@@ -12,6 +12,23 @@ spec:
       {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if not .Values.secret.existingSecret }}
+      annotations:
+        {{- /*
+        Rotating a value in the chart-managed Secret changes no field of this pod
+        template, so without this checksum `helm upgrade` would write the new
+        Secret and leave every running pod on the old value — and the `migrate`
+        init container, which only runs when a pod is CREATED, would never see
+        the rotation at all. This annotation is what makes #1038 blocker 2 hold
+        now that migrations run in the pod rather than in a hook Job that Helm
+        re-created on every release (#1117).
+
+        Omitted when secret.existingSecret is set: the chart does not render that
+        Secret's contents, so it has nothing to checksum, and an operator who
+        manages the Secret out of band restarts the Deployment out of band too.
+        */}}
+        checksum/secret: {{ include "visiban.secretData" . | sha256sum }}
+      {{- end }}
       labels:
         {{- include "visiban.backend.selectorLabels" . | nindent 8 }}
     spec:
@@ -40,10 +57,39 @@ spec:
           emptyDir: {}
         {{- end }}
       initContainers:
-        # Database migrations run in a separate Helm pre-install/pre-upgrade
-        # Job (templates/migrate-job.yaml) so only one pod migrates per release,
-        # regardless of backendReplicaCount. Running migrate here would race in
-        # HA deployments.
+        {{- /*
+        Database migrations (#1117). An init container, NOT a Helm
+        pre-install/pre-upgrade hook Job.
+
+        Helm runs pre-install hooks BEFORE it creates any release resource, so a
+        migrate hook on a fresh install resolved the bundled PostgreSQL Service
+        before that Service existed: every `helm install` with the chart's own
+        default values failed on "could not translate host name", unconditionally.
+        An init container runs after Helm has applied the entire release, retries
+        until the database answers, and reads the CURRENT runtime Secret — which
+        is also what lets the bootstrap hook Secret go away.
+
+        This runs before `bootstrap`, which needs migrated tables to exist, and
+        before the app container, so no pod serves traffic against a schema that
+        is still being changed.
+
+        The concurrency the hook Job was chosen to avoid is handled by the
+        command itself: `migrate_with_lock` serializes replicas on a
+        session-scoped PostgreSQL advisory lock held on a dedicated connection.
+        See backend/boards/management/commands/migrate_with_lock.py.
+        */}}
+        - name: migrate
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["python", "manage.py", "migrate_with_lock"]
+          env:
+            {{- include "visiban.backendEnv" . | nindent 12 }}
+            - name: VISIBAN_MIGRATE_CONNECT_TIMEOUT
+              value: {{ .Values.backend.migrate.connectTimeout | int | quote }}
+            - name: VISIBAN_MIGRATE_LOCK_TIMEOUT
+              value: {{ .Values.backend.migrate.lockTimeout | int | quote }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
         - name: collectstatic
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}

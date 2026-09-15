@@ -1,20 +1,20 @@
 {{/*
-Backend environment variables — shared by the backend Deployment and the
-pre-upgrade migrate Job. The Deployment reads from the runtime Secret
-(visiban.secretName); the migrate Job reads from the bootstrap hook Secret
-(visiban.bootstrapSecretName) so it picks up secret rotations applied in the
-same `helm upgrade` invocation.
+Backend environment variables — used by every container in the backend pod: the
+`migrate` and `bootstrap` init containers and the app container itself.
 
-Default invocation (Deployment): {{ include "visiban.backendEnv" . }}
-Migrate Job: {{ include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName" (include "visiban.bootstrapSecretName" .)) }}
+All of them read the RUNTIME Secret (visiban.secretName). Until #1117 there was
+a second, hook-managed "bootstrap" copy of that Secret, because migrations ran in
+a Helm pre-upgrade hook Job and Helm reconciles a plain Secret only after hooks
+complete — so the Job would otherwise have read the previous revision's values.
+Migrations now run as an init container in the backend pod, which Helm creates
+long after it has applied the Secret, so the one runtime Secret is the only
+source and there is nothing left to keep in sync.
+
+Invocation: {{ include "visiban.backendEnv" . }}
 */}}
 {{- define "visiban.backendEnv" -}}
-{{- include "visiban.backendEnvWithSecret" (dict "ctx" . "secretName" (include "visiban.secretName" .)) -}}
-{{- end }}
-
-{{- define "visiban.backendEnvWithSecret" -}}
-{{- $ctx := .ctx -}}
-{{- $secret := .secretName -}}
+{{- $ctx := . -}}
+{{- $secret := include "visiban.secretName" . -}}
 - name: DJANGO_SECRET_KEY
   valueFrom:
     secretKeyRef:

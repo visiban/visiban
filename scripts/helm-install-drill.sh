@@ -9,9 +9,12 @@
 # in CI had ever started this chart.
 #
 # What it asserts, in order:
-#   1. The release installs and rolls out — the migrate hook ran, both
-#      Deployments became available, and every probe passed. (Currently a
-#      two-phase install; see the #1117 note at that step.)
+#   1. ONE `helm install` of the chart's own defaults completes on a cluster with
+#      no pre-existing database — the documented quick-start path, end to end.
+#      This step is #1117's acceptance criterion: it used to require a two-phase
+#      `install --no-hooks` + `upgrade` workaround, because the migrate Job was a
+#      pre-install hook and Helm runs those before it creates the PostgreSQL it
+#      needs.
 #   2. `helm test` passes — the same hook operators run, so CI and operators
 #      verify one invariant rather than two drifting approximations of it.
 #   3. The one-time admin password is retrievable from the shared emptyDir, which
@@ -21,6 +24,12 @@
 #      fires, so the fail-closed path is asserted, not assumed.
 #   5. UPGRADE: rotating DJANGO_SECRET_KEY in a single `helm upgrade` succeeds —
 #      #1038 blocker 2 at runtime, on the path that actually broke.
+#   6. HA: scaling to three backend replicas rolls out, so the advisory lock in
+#      `manage.py migrate_with_lock` serializes concurrent migrate init
+#      containers instead of deadlocking them (#1117).
+#   7. `helm uninstall` removes everything the chart created — the property a
+#      hook-annotated PostgreSQL would have broken, and the reason #1117 was
+#      fixed with an init container rather than by hook-annotating the database.
 #
 # Images are BUILT FROM THE WORKING TREE and side-loaded into kind, not pulled
 # from a registry. The MR pipeline's image jobs are `--no-push`, so there is no
@@ -200,48 +209,26 @@ kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" --name "$CLUSTER"
 ok "cluster up, reachable, images side-loaded"
 
 # ---------------------------------------------------------------------------
-step "1. Install the release (two-phase — see #1117)"
+step "1. Install the release in ONE helm install (#1117)"
 # ---------------------------------------------------------------------------
-# WORKAROUND FOR #1117 — REMOVE WHEN THAT ISSUE CLOSES.
+# This is the whole point of #1117, so it is a single `helm install` of the
+# chart's own defaults against a cluster with no database — exactly the command
+# in docs/getting-started/kubernetes.md § 3, with no override that avoids the
+# path an operator actually takes.
 #
-# A single `helm install` CANNOT work with the bundled PostgreSQL: the migrate
-# Job is a pre-install hook, so Helm runs it before it creates the PostgreSQL
-# StatefulSet and Service, and it dies on "could not translate host name". That
-# is #1117 — a real, unconditional bug on the documented quick-start path, found
-# by the first run of this drill — and it is deliberately NOT fixed here, because
-# both candidate fixes reshape the chart's install ordering and need their own
-# architecture review.
-#
-# So this drill installs in two phases, which is what an operator hitting #1117
-# ends up doing by hand:
-#   phase 1  helm install --no-hooks  -> creates PostgreSQL, Valkey, both
-#            Deployments and the Secrets, running NO hooks. The backend pods
-#            crash-loop on their `bootstrap` init container (it needs migrated
-#            tables), which is expected and self-healing: init containers retry.
-#   phase 2  helm upgrade             -> the pre-upgrade migrate hook now has a
-#            database to reach, migrations apply, and the backend init sequence
-#            completes on its next retry.
-#
-# Everything after this step is the real contract and is asserted normally. What
-# is NOT covered while #1117 is open is the single-shot fresh install itself;
-# closing #1117 means deleting this block and restoring the one-liner.
+# It used to be a two-phase `install --no-hooks` + `upgrade` workaround: the
+# migrate Job was a `pre-install` hook, Helm runs pre-install hooks BEFORE it
+# creates any release resource, and so the hook resolved the bundled PostgreSQL
+# Service before that Service existed and died on "could not translate host
+# name". Migrations now run in the backend pod's `migrate` init container, which
+# starts after Helm has applied the entire release and retries until the database
+# answers. If this step ever needs a workaround again, that is the regression.
 # shellcheck disable=SC2046  # install_args is deliberately word-split
 helm install "$RELEASE" "$CHART" $(install_args) \
   --set-string secret.djangoSecretKey="$SECRET_KEY_A" \
-  --no-hooks \
-  || die "helm install --no-hooks failed — the chart cannot even be applied"
-ok "phase 1: release resources created (hooks skipped, #1117)"
-
-kubectl -n "$NAMESPACE" rollout status "statefulset/${RELEASE}-postgresql" --timeout=300s >/dev/null \
-  || die "the bundled PostgreSQL never became ready"
-ok "phase 1: PostgreSQL is accepting connections"
-
-# shellcheck disable=SC2046
-helm upgrade "$RELEASE" "$CHART" $(install_args) \
-  --set-string secret.djangoSecretKey="$SECRET_KEY_A" \
   --wait --timeout 10m \
-  || die "helm upgrade did not complete — the migrate hook failed or a Deployment never rolled out"
-ok "phase 2: migrate hook ran and both Deployments rolled out"
+  || die "a single 'helm install' of the chart defaults did not complete — this is #1117's acceptance criterion; check the backend pod's migrate init container"
+ok "one-shot fresh install completed"
 
 kubectl -n "$NAMESPACE" rollout status "deployment/${RELEASE}-visiban-backend"  --timeout=180s >/dev/null \
   || die "backend Deployment never became available"
@@ -278,8 +265,6 @@ step "4. NEGATIVE: the placeholder SECRET_KEY guard fails closed"
 # backend/visiban/settings.py at import time. Either one passing this install is
 # a regression — #1038 began with a live install running on the literal
 # placeholder key, which is session-forgery territory.
-# Unaffected by #1117: _validate.tpl fails at RENDER time, so this never reaches
-# the cluster and the two-phase workaround is irrelevant here.
 # shellcheck disable=SC2046
 if helm install "${RELEASE}-insecure" "$CHART" $(install_args) \
      --set-string secret.djangoSecretKey="change-me-in-production" \
@@ -295,17 +280,31 @@ helm uninstall "${RELEASE}-insecure" --namespace "$NAMESPACE" >/dev/null 2>&1 ||
 # ---------------------------------------------------------------------------
 step "5. UPGRADE: rotate DJANGO_SECRET_KEY in a single helm upgrade"
 # ---------------------------------------------------------------------------
-# #1038 blocker 2, at runtime. Before the bootstrap hook Secret existed, the
-# migrate Job ran as a pre-upgrade hook and therefore read the PREVIOUS
-# revision's Secret — so the new key was never in effect when migrations ran, and
-# once the app grew a boot guard the hook crash-looped. helm-structure-check.sh
-# asserts the hook weights statically; this proves the rotation actually works.
-# shellcheck disable=SC2046
+# #1038 blocker 2, at runtime — re-proved against the #1117 shape.
+#
+# It used to be carried by a hook-managed bootstrap Secret at a lower hook-weight
+# than the migrate Job, because a pre-upgrade hook otherwise read the PREVIOUS
+# revision's Secret. With migrations in the pod there is one Secret, and the
+# guarantee comes from two places instead: Helm applies a Secret before a
+# Deployment, and the pod template carries a checksum over the Secret's contents
+# so a rotation actually forces a rollout. Without that checksum this upgrade
+# would "succeed" while replacing no pod at all — which is why the assertion
+# below checks the ROLLOUT, not just helm's exit code.
+PODS_BEFORE="$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/component=backend \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | sort | tr '\n' ' ')"
+
+# shellcheck disable=SC2046  # install_args is deliberately word-split
 helm upgrade "$RELEASE" "$CHART" $(install_args) \
   --set-string secret.djangoSecretKey="$SECRET_KEY_B" \
   --wait --timeout 10m \
-  || die "helm upgrade with a rotated DJANGO_SECRET_KEY failed — the migrate hook is reading the previous-revision Secret (#1038)"
+  || die "helm upgrade with a rotated DJANGO_SECRET_KEY failed — the migrate init container could not start against the rotated Secret (#1038 blocker 2)"
 ok "secret rotation applied in one upgrade"
+
+PODS_AFTER="$(kubectl -n "$NAMESPACE" get pods -l app.kubernetes.io/component=backend \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | sort | tr '\n' ' ')"
+[ "$PODS_BEFORE" != "$PODS_AFTER" ] \
+  || die "the backend pods were not replaced by the rotation ($PODS_AFTER) — the checksum/secret pod-template annotation is missing or constant, so the running app and the migrate init container both keep the OLD key (#1038 blocker 2)"
+ok "the rotation replaced the backend pods, so the new key is actually in effect"
 
 ROTATED="$(kubectl -n "$NAMESPACE" get secret "${RELEASE}-visiban" \
   -o jsonpath='{.data.django-secret-key}' | base64 -d)"
@@ -317,5 +316,58 @@ helm test "$RELEASE" --namespace "$NAMESPACE" --timeout 5m \
   || die "helm test failed after the upgrade — the rotated release does not serve"
 ok "helm test passes after the upgrade"
 
+# ---------------------------------------------------------------------------
+step "6. HA: three backend replicas migrate without deadlocking"
+# ---------------------------------------------------------------------------
+# Migrations moved into the backend pod in #1117, so with backendReplicaCount > 1
+# every replica runs `manage.py migrate_with_lock` at the same time. The advisory
+# lock is what makes that safe; a lock taken on the wrong connection, or a
+# transaction-scoped one, shows up here as a rollout that never completes.
+#
+# Stated plainly, because a drill that oversells itself stops being read: the
+# schema is ALREADY migrated at this point, so what three concurrent replicas
+# exercise is the lock's acquire / wait / release path and the fact that a
+# waiting replica does eventually start — not concurrent DDL. Genuinely
+# concurrent DDL is covered by the backend unit tests against a real PostgreSQL
+# (backend/boards/tests/test_migrate_with_lock.py); running it here would need a
+# second full install and doubles the job's cluster time for the same signal.
+# shellcheck disable=SC2046
+helm upgrade "$RELEASE" "$CHART" $(install_args) \
+  --set-string secret.djangoSecretKey="$SECRET_KEY_B" \
+  --set backendReplicaCount=3 \
+  --wait --timeout 10m \
+  || die "the release did not roll out at backendReplicaCount=3 — concurrent migrate init containers are not being serialized correctly (#1117)"
+
+READY="$(kubectl -n "$NAMESPACE" get deployment "${RELEASE}-visiban-backend" -o jsonpath='{.status.readyReplicas}')"
+[ "${READY:-0}" = "3" ] \
+  || die "only ${READY:-0}/3 backend replicas became ready — a replica that lost the migration lock race never started"
+ok "3/3 backend replicas migrated and became ready"
+
+# ---------------------------------------------------------------------------
+step "7. helm uninstall removes everything the chart created"
+# ---------------------------------------------------------------------------
+# #1117 acceptance criterion 4, and the reason the fix is an init container
+# rather than a `pre-install` annotation on templates/postgresql.yaml. Helm does
+# not record hook resources in the release, so hook-annotating the PostgreSQL
+# StatefulSet, Service and Secret would have left all three running after an
+# uninstall — a worse surprise than the bug being fixed. This asserts the
+# property directly instead of trusting the reasoning.
+#
+# PVCs are deliberately excluded: the chart documents that it does NOT delete
+# them (data survives an uninstall on purpose), and this drill runs with
+# persistence disabled anyway.
+helm uninstall "$RELEASE" --namespace "$NAMESPACE" --wait --timeout 5m \
+  || die "helm uninstall failed"
+
+LEFTOVERS="$(kubectl -n "$NAMESPACE" get deploy,statefulset,svc,secret,job,configmap,networkpolicy,pdb \
+  -l "app.kubernetes.io/instance=${RELEASE}" \
+  -o name 2>/dev/null | grep -v '^$' || true)"
+if [ -n "$LEFTOVERS" ]; then
+  echo "  leftover objects:" >&2
+  echo "$LEFTOVERS" | sed 's/^/    /' >&2
+  die "helm uninstall left release-owned objects behind — something in the chart is annotated as a Helm hook, which Helm does not track in the release (#1117 acceptance criterion 4)"
+fi
+ok "uninstall left nothing behind"
+
 echo
-echo "PASSED: the chart installs, serves, fails closed on a placeholder key, and rotates secrets in place"
+echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, and uninstalls clean"

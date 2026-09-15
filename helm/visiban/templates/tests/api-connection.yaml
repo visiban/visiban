@@ -3,7 +3,7 @@
 
 Runs on demand via `helm test <release>` and is the operator-facing proof that a
 fresh install actually came up end to end. Reaching the backend's readiness
-endpoint means the pre-install migrate hook completed against the bootstrap
+endpoint means the pod's `migrate` init container completed against the runtime
 Secret, the render-time guards in _validate.tpl were satisfied by the supplied
 values, and daphne is serving. Probing the FRONTEND Service as well proves its
 nginx resolves the release-scoped backend upstream — nginx resolves a literal

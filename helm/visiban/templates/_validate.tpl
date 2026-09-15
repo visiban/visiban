@@ -1,7 +1,8 @@
 {{/*
 Render-time validation. Fires during `helm template`, `helm install`, and
 `helm upgrade` — before any resource is applied — so configuration errors
-surface immediately instead of as a hung migrate Job 90 seconds later.
+surface immediately instead of as a crash-looping migrate init container 90
+seconds later.
 
 Each block uses Helm's `fail` to stop rendering with a friendly, actionable
 message (copy-pasteable command + the exact `--set` flag). Soft warnings live

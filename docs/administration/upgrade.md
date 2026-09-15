@@ -201,6 +201,16 @@ Run migrations as a dedicated pre-deploy step before scaling up any application 
 
     Run this job to completion before applying the updated `Deployment`.
 
+    !!! tip "The Helm chart already handles this"
+        If you deploy with the bundled chart you do not need any of the above.
+        Each backend pod runs `python manage.py migrate_with_lock` as an init
+        container, which serializes concurrent replicas on a PostgreSQL advisory
+        lock: exactly one replica applies migrations, the others wait for it and
+        then start. The lock is session-scoped, so a pod killed mid-migration
+        releases it instead of blocking the next deploy. See
+        [Kubernetes (Helm)](../getting-started/kubernetes.md). The same command
+        works for hand-rolled manifests — use it in place of bare `migrate`.
+
 ---
 
 ## Rollback guidance

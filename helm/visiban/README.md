@@ -41,9 +41,9 @@ helm test visiban --namespace visiban --logs
 
 `helm test` probes the backend's liveness and readiness endpoints, then the same
 readiness endpoint *through the frontend's nginx*, then the SPA itself. Reaching
-readiness proves the migrate hook completed; reaching it through nginx proves the
-proxy upstream resolves. CI runs this identical hook, so an operator and the
-pipeline verify the same invariant.
+readiness proves the pod's `migrate` init container completed; reaching it through
+nginx proves the proxy upstream resolves. CI runs this identical hook, so an
+operator and the pipeline verify the same invariant.
 
 ## Values overlays
 
