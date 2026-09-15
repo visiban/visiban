@@ -19,9 +19,13 @@
 #   scripts/wt remove <issue|name>       Remove a worktree by issue # or name. Clears the
 #                                        issue's status::wip lock if one was applied.
 #   scripts/wt prune                     Remove worktrees whose branches were merged to
-#                                        the default branch and deleted on origin. Refuses
-#                                        to remove worktrees with uncommitted work. Clears
-#                                        each pruned worktree's status::wip lock.
+#                                        the default branch and deleted on origin —
+#                                        including a tip rewritten after its last push,
+#                                        a squash merge, or a default branch whose own
+#                                        history was rewritten after the merge landed.
+#                                        Refuses to remove worktrees with uncommitted
+#                                        work. Clears each pruned worktree's status::wip
+#                                        lock.
 #   scripts/wt stash [push|pop|apply|list|show|drop] [msg]
 #                                        Worktree-scoped stash. Plain `git stash` is NOT
 #                                        worktree-scoped (it's one shared stack for the
@@ -550,6 +554,68 @@ cmd_remove() {
   fi
 }
 
+# True (0) if GitLab has a MERGED MR from branch $1 onto $DEFAULT_BRANCH whose
+# head SHA is exactly $2. Scoped to $DEFAULT_BRANCH so a same-named branch
+# merged onto some other target (a release branch, a long-lived integration
+# branch, a mistakenly-retargeted MR) can't be mistaken for landed work here.
+# Every failure — glab offline, unauthenticated, unparseable output — is a 1,
+# so a lookup that cannot answer keeps the worktree rather than reaping it.
+merged_mr_has_sha() {
+  local branch="$1" tip="$2" enc enc_target
+  enc="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$branch" 2>/dev/null || true)"
+  [[ -n "$enc" ]] || return 1
+  enc_target="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$DEFAULT_BRANCH" 2>/dev/null || true)"
+  [[ -n "$enc_target" ]] || return 1
+  ( cd "$REPO_ROOT" && glab api "projects/:id/merge_requests?state=merged&source_branch=${enc}&target_branch=${enc_target}" 2>/dev/null ) \
+    | python3 -c '
+import json, sys
+try:
+    mrs = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any(isinstance(m, dict) and m.get("sha") == sys.argv[1] for m in mrs) else 1)
+' "$tip" 2>/dev/null
+}
+
+# How branch $1's work reached origin/$DEFAULT_BRANCH, or empty if that cannot
+# be shown. Always returns 0: callers read it through a command substitution
+# under `set -e`.
+#
+#   ancestor — the tip is in the default branch's history (a merge-commit or
+#              fast-forward merge).
+#   patch    — the tip was rewritten after its last push (an amend, a local
+#              rebase, a GitLab server-side rebase), so that SHA never reaches
+#              the default branch, but `git cherry` finds every one of the
+#              branch's patches already there.
+#   mr       — a GitLab MR from this branch merged with this exact head SHA.
+#              Covers a squash merge, whose one combined commit matches no
+#              single patch — and a default branch whose own history was
+#              rewritten (e.g. release-time compaction) after the merge
+#              landed, so the merge commit no longer appears there at all.
+#
+# The ancestor test alone kept every such branch forever with a false "commits
+# NOT in origin/$DEFAULT_BRANCH" warning.
+branch_merged_how() {
+  local branch="$1" cherry tip
+  if git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" "origin/$DEFAULT_BRANCH" 2>/dev/null; then
+    printf 'ancestor'; return 0
+  fi
+  # `+` marks a commit whose patch is NOT in the default branch. Matched with a
+  # pattern, not `printf | grep -q`: under pipefail grep's early exit can
+  # SIGPIPE the printf, and a negated failing pipeline would read as "no +
+  # lines" — a false prune.
+  cherry="$(git -C "$REPO_ROOT" cherry "origin/$DEFAULT_BRANCH" "$branch" 2>/dev/null || true)"
+  if [[ -n "$cherry" && $'\n'"$cherry" != *$'\n+'* ]]; then
+    printf 'patch'; return 0
+  fi
+  lock_available || return 0
+  tip="$(git -C "$REPO_ROOT" rev-parse --verify --quiet "$branch" 2>/dev/null || true)"
+  if [[ -n "$tip" ]] && merged_mr_has_sha "$branch" "$tip"; then
+    printf 'mr'
+  fi
+  return 0
+}
+
 cmd_prune() {
   local force="${1:-}"
   say "Fetching origin with --prune to discover deleted remote branches…"
@@ -572,10 +638,17 @@ cmd_prune() {
     if git -C "$REPO_ROOT" rev-parse --verify --quiet "origin/${branch}" >/dev/null; then
       dim "  $branch: still on origin — skipped"; kept=$((kept + 1)); continue
     fi
-    if ! git -C "$REPO_ROOT" merge-base --is-ancestor "$branch" "origin/$DEFAULT_BRANCH" 2>/dev/null; then
-      warn "  $branch: remote gone but commits NOT in origin/$DEFAULT_BRANCH — skipped (force-delete manually if intentional)"
+
+    local merged_how merged_note=""
+    merged_how="$(branch_merged_how "$branch")"
+    if [[ -z "$merged_how" ]]; then
+      warn "  $branch: remote gone but commits NOT in origin/$DEFAULT_BRANCH — skipped (inspect with 'git cherry origin/$DEFAULT_BRANCH $branch'; force-delete manually if intentional)"
       kept=$((kept + 1)); continue
     fi
+    case "$merged_how" in
+      patch) merged_note="; local tip rewritten after push, every patch already in $DEFAULT_BRANCH" ;;
+      mr)    merged_note="; merged MR head matches the local tip" ;;
+    esac
 
     local tracked_dirty unexpected_untracked
     tracked_dirty="$(git -C "$path" status --porcelain --untracked-files=no 2>/dev/null | wc -l | tr -d ' ')"
@@ -588,7 +661,7 @@ cmd_prune() {
     fi
 
     git -C "$REPO_ROOT" worktree remove --force "$path"
-    ok "  $branch: removed (merged to $DEFAULT_BRANCH, remote gone)"
+    ok "  $branch: removed (merged to $DEFAULT_BRANCH, remote gone${merged_note})"
     pruned=$((pruned + 1))
 
     local issue; issue="$(issue_from_branch "$branch")"
