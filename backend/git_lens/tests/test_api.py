@@ -134,7 +134,10 @@ class LensConnectionRBACTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_put_broadcasts_configured_event(self):
-        with patch("git_lens.views.broadcast_board_event") as mock_bcast:
+        # #1114: git_lens/views.py now calls record_board_event(), which defers
+        # the publish through the boards.broadcast module-global rather than a
+        # name git_lens/views.py imports directly.
+        with patch("boards.broadcast.broadcast_board_event") as mock_bcast:
             with self.captureOnCommitCallbacks(execute=True):
                 resp = self._client(self.owner).put(
                     self.url, {"provider": "gitlab", "repo_slug": "g/p"}, format="json"
@@ -149,11 +152,14 @@ class LensConnectionRBACTests(TestCase):
         LensConnection.objects.create(
             board=self.board, provider="gitlab", repo_slug="g/p", created_by=self.owner
         )
-        with patch("git_lens.views.broadcast_board_event") as mock_bcast:
+        with patch("boards.broadcast.broadcast_board_event") as mock_bcast:
             with self.captureOnCommitCallbacks(execute=True):
                 self._client(self.owner).delete(self.url)
         mock_bcast.assert_called_once_with(
-            self.board.id, "lens_connection.removed", {"board_id": self.board.id}
+            self.board.id,
+            "lens_connection.removed",
+            {"board_id": self.board.id},
+            event_id=mock_bcast.call_args[1]["event_id"],
         )
 
 
