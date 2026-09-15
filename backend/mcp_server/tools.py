@@ -6,11 +6,47 @@ an SDK API change is a one-file edit there rather than a rewrite of every tool
 (#511). Later tool waves (#512 CRUD, #513 resources) add functions here and
 register them there, and inherit authentication from the transport middleware
 without writing any auth code of their own.
+
+#512's six CRUD tools all reuse :mod:`boards.services.cards` for every write —
+the role allow-list, WIP/weight enforcement, the ``CardMovement`` audit trail
+and the deferred broadcast all live there, unchanged, exactly as the REST
+``CardViewSet`` uses them (see ``boards/views/cards.py``). Nothing here
+re-implements a card invariant; this module only translates MCP-shaped
+arguments (an email, a label name, a bare ``card_id``) into what the service
+functions and ``CardSerializer`` already expect, and translates the typed
+errors in :mod:`boards.services.errors` back into a structured dict a caller
+can branch on.
+
+Error contract
+--------------
+Every tool that can fail *domain-wise* (a bad board id, a role that may not
+write, a WIP limit, a validation failure) returns ``{"error": {"code": ...,
+...}}`` as an ordinary return value — it does not raise. Raising would still
+produce a `CallToolResult`, but FastMCP's generic exception handling collapses
+it to ``isError=True`` with only ``str(exception)`` as text, discarding every
+field (``wip_limit``, ``current_count``, ``current_version``, ...) a calling
+agent needs to act on the failure (verified empirically against the pinned
+SDK version; see the `-> list[dict] | dict` return annotation in server.py and
+its comment for why a *narrower* annotation is actively unsafe here). A tool's
+success payload is therefore ALWAYS a list or a plain dict that carries no
+top-level ``"error"`` key, and a failure is ALWAYS a dict with exactly that
+key — that split is the whole contract, and it is now part of the tools'
+public (agent-facing) shape, so do not change it without a major version bump.
 """
 from django.db.models import Count, Q
+from rest_framework.exceptions import ValidationError as _DRFValidationError
 
-from boards.models import Board
-from boards.permissions import GROUP_ANCESTOR_SELECT_RELATED, get_board_roles
+from accounts.models import User
+from boards.models import Board, BoardMembership, Card, Column, Label, Swimlane
+from boards.permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
+)
+from boards.serializers import CardSerializer, _card_queryset
+from boards.services import cards as card_services
+from boards.services.errors import (
+    BoardNotFound, CardNotFound, CardServiceError,
+)
+from boards.utils import _get_assignable_member_ids
 from groups.models import get_accessible_group_ids
 
 from .context import get_current_user
@@ -97,3 +133,538 @@ def list_boards():
             continue
         results.append(_serialize_board(board, role))
     return results
+
+
+# ---------------------------------------------------------------------------
+# Shared board/card resolution (#512)
+#
+# Every read and write tool below resolves a board (or a card, deriving its
+# board) and the caller's role on it before doing anything else. Centralized
+# here so the IDOR posture — "board/card does not exist" and "board/card
+# exists but the caller has no access" produce the IDENTICAL error — cannot
+# drift per tool, matching the pattern boards.services.cards._board_scoped()
+# already uses for column/swimlane lookups.
+# ---------------------------------------------------------------------------
+
+_ADMIN_ROLES = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+
+
+def _resolve_board(user, board_id):
+    """Resolve *board_id* for the current MCP caller.
+
+    Raises :class:`~boards.services.errors.BoardNotFound` both when the board
+    does not exist and when it exists but ``user`` has no role on it — a
+    probing client must not be able to tell those apart (IDOR).
+    """
+    try:
+        board = Board.objects.select_related(GROUP_ANCESTOR_SELECT_RELATED).get(pk=board_id)
+    except Board.DoesNotExist:
+        raise BoardNotFound() from None
+    role = get_board_role(user, board)
+    if role is None:
+        raise BoardNotFound() from None
+    return board, role
+
+
+def _resolve_board_for_card(user, card_id):
+    """Resolve a card's board and the caller's role on it, from ``card_id`` alone.
+
+    ``card_id`` is the only identifier ``move_card``/``update_card``/
+    ``archive_card`` take — there is no accompanying ``board_id`` a caller
+    could (correctly or maliciously) pair it with. The board is therefore
+    derived from the card row itself, never trusted from the caller, and the
+    same access check every other tool uses is applied to it (hard constraint,
+    #512: "resolve and authorize the board first, do not trust a caller-
+    supplied pairing").
+
+    Returns ``(board, role, card)`` — the card is already fetched here so
+    callers that don't need a row lock (``update_card``, ``archive_card``)
+    never issue a second query for it. ``move_card`` still re-fetches under
+    ``select_for_update()`` inside the service, as it must.
+
+    A nonexistent card and a card on a board the caller cannot see return the
+    identical error (reusing ``CardNotFound``, whose own docstring states this
+    same guarantee) so a client cannot use the response to enumerate ids on
+    boards it cannot see.
+    """
+    try:
+        card = Card.objects.select_related(
+            "board", f"board__{GROUP_ANCESTOR_SELECT_RELATED}",
+        ).get(pk=card_id)
+    except Card.DoesNotExist:
+        raise CardNotFound() from None
+    role = get_board_role(user, card.board)
+    if role is None:
+        raise CardNotFound() from None
+    return card.board, role, card
+
+
+# ---------------------------------------------------------------------------
+# Errors (#512)
+# ---------------------------------------------------------------------------
+
+class ValidationFailed(Exception):
+    """A translated MCP argument failed validation before reaching a service.
+
+    Carries a plain ``{field: [messages]}`` dict — the same shape DRF's
+    ``ValidationError`` normalizes to below — so ``_error_payload`` can render
+    both through one code path.
+    """
+
+    def __init__(self, errors):
+        self.errors = errors
+        super().__init__(str(errors))
+
+
+# Card-service error classes whose `.body()` carries no `code` key by design
+# (see boards/services/errors.py — the omission is a frozen REST contract for
+# some of these). MCP callers get a `code` on every error regardless, since
+# there is no HTTP status code for them to branch on instead; this table
+# supplies the ones already-coded errors don't need (their own `code` in
+# `.body()` wins via `setdefault` below).
+_ERROR_CODES = {
+    "NotPermitted": "permission_denied",
+    "BoardNotFound": "board_not_found",
+    "CardNotFound": "card_not_found",
+    "ColumnNotFound": "column_not_found",
+    "SwimlaneNotFound": "swimlane_not_found",
+    "CardCreationNotAllowed": "card_creation_not_allowed",
+    "InvalidVersion": "invalid_version",
+    "ForceNotPermitted": "force_not_permitted",
+}
+
+
+def _normalize_drf_errors(detail):
+    """Recursively turn DRF's ErrorDetail-laden validation detail into plain JSON.
+
+    ``ErrorDetail`` is a ``str`` subclass so it serializes fine on its own, but
+    nested dicts/lists of it are not automatically plain — normalizing here
+    means the MCP error payload is guaranteed built only of dict/list/str.
+    """
+    if isinstance(detail, dict):
+        return {k: _normalize_drf_errors(v) for k, v in detail.items()}
+    if isinstance(detail, list):
+        return [_normalize_drf_errors(v) for v in detail]
+    return str(detail)
+
+
+def _error_payload(exc):
+    """Render any caught tool-domain exception as the tools' one error shape.
+
+    See the module docstring's "Error contract" section — this is the single
+    place that shape is built, so every tool's failures look the same.
+    """
+    if isinstance(exc, _DRFValidationError):
+        return {"error": {"code": "validation_error", "errors": _normalize_drf_errors(exc.detail)}}
+    if isinstance(exc, ValidationFailed):
+        return {"error": {"code": "validation_error", "errors": exc.errors}}
+    body = dict(exc.body())
+    body.setdefault("code", _ERROR_CODES.get(type(exc).__name__, type(exc).__name__))
+    return {"error": body}
+
+
+# ---------------------------------------------------------------------------
+# Card field translation (#512)
+#
+# An MCP agent identifies a person by email and a label by name — it has no
+# reason to know Visiban's internal primary keys, and giving it one would leak
+# an internal identifier space to every connected agent for no benefit. This
+# is the one place that translates the agent-facing vocabulary into the
+# `assignee_id`/`label_ids` field names and ids `CardSerializer` expects, so
+# every write tool gets the same resolution rule and the same errors: an
+# unmatched name is a structured validation_error, never a raw
+# DoesNotExist/500.
+# ---------------------------------------------------------------------------
+
+def _translate_card_fields(board, *, title=None, description=None, priority=None,
+                            assignee_email=None, labels=None, due_date=None):
+    """Build a CardSerializer-shaped dict from MCP-facing arguments.
+
+    Only keys the caller actually supplied (non-``None``) are included, so
+    this doubles as the ``submitted`` mapping ``update_card`` passes to
+    ``boards.services.cards.update_card`` for its per-field activity diff.
+
+    ``labels=[]`` (an explicit empty list, as opposed to omitted/``None``)
+    clears every label — the same "empty means clear" convention
+    ``boards.services.custom_fields`` uses. ``assignee_email=""`` likewise
+    unassigns the card. Neither is exercised by ``create_card`` (there is
+    nothing to clear on a new card), only by ``update_card``.
+
+    Raises :class:`ValidationFailed` if an email or label name does not
+    resolve — never lets a bare ``DoesNotExist``/ambiguous-match escape.
+    ``assignee_email`` is never logged (PII); it appears only in the error
+    dict handed back to the caller who supplied it, which is not a log
+    statement.
+    """
+    data = {}
+    errors = {}
+
+    if title is not None:
+        data["title"] = title
+    if description is not None:
+        data["description"] = description
+    if priority is not None:
+        data["priority"] = priority
+    if due_date is not None:
+        data["due_date"] = due_date
+
+    if assignee_email is not None:
+        if assignee_email == "":
+            data["assignee_id"] = None
+        else:
+            # Scoped to assignable board members first (excludes viewers, per
+            # _get_assignable_member_ids' own rule), THEN matched by email —
+            # never a bare User.objects.get(email=...), which would be a
+            # cross-tenant IDOR risk: email is not unique on this model
+            # (Django's stock AbstractUser field), so an unscoped lookup could
+            # resolve to a user with no relationship to this board at all.
+            assignable_ids = _get_assignable_member_ids(board)
+            matches = list(User.objects.filter(pk__in=assignable_ids, email__iexact=assignee_email))
+            if len(matches) == 1:
+                data["assignee_id"] = matches[0].pk
+            elif len(matches) == 0:
+                errors["assignee_email"] = [
+                    "No assignable board member was found with this email address."
+                ]
+            else:
+                errors["assignee_email"] = [
+                    "Multiple board members share this email address; "
+                    "this card cannot be assigned unambiguously by email."
+                ]
+
+    if labels is not None:
+        if labels:
+            label_qs = list(Label.objects.filter(board=board, name__in=labels))
+            found_names = {label.name for label in label_qs}
+            missing = [name for name in labels if name not in found_names]
+            if missing:
+                errors["labels"] = [f"Unknown label(s) on this board: {', '.join(missing)}."]
+            else:
+                data["label_ids"] = [label.pk for label in label_qs]
+        else:
+            data["label_ids"] = []
+
+    if errors:
+        raise ValidationFailed(errors)
+    return data
+
+
+# ---------------------------------------------------------------------------
+# Card representation (#512)
+#
+# One function, reused by list_cards/create_card/update_card/move_card, so the
+# agent-facing card shape cannot drift between "a card I just listed" and "a
+# card I just wrote" — the same worry CardServiceError's module docstring
+# raises about REST response bodies, applied to the MCP side.
+# ---------------------------------------------------------------------------
+
+def _serialize_card(card):
+    return {
+        "id": card.id,
+        "title": card.title,
+        "description": card.description,
+        "priority": card.priority,
+        "assignee": card.assignee.email if card.assignee_id else None,
+        "labels": sorted(label.name for label in card.labels.all()),
+        "column": {"id": card.column_id, "name": card.column.name},
+        "swimlane": {"id": card.swimlane_id, "name": card.swimlane.name},
+        "due_date": card.due_date.isoformat() if card.due_date else None,
+        "position": card.position,
+        "created_at": card.created_at.isoformat(),
+        "updated_at": card.updated_at.isoformat(),
+    }
+
+
+def _refetch_and_serialize(card):
+    """Re-fetch *card* with every relation ``_serialize_card`` needs, then serialize.
+
+    The instance a caller holds right after a service call is not safe to
+    serialize directly: ``move_card`` fetches with only
+    ``select_related("column", "swimlane")`` (it needs no more to do the move
+    itself), and ``update_card``'s caller only has whatever
+    ``_resolve_board_for_card`` fetched (no ``assignee``/``labels`` prefetch at
+    all). Serializing either directly would cost 2-4 avoidable queries per
+    call — exactly the N+1 ``boards.views.cards._refetch_card_data`` exists to
+    avoid on the REST side (its own docstring: "the instance the service holds
+    ... would otherwise trigger ~7 extra queries"). Reusing ``_card_queryset``
+    here is the same fix applied the same way, once, rather than adding a
+    parallel prefetch chain that could drift from it.
+    """
+    return _serialize_card(_card_queryset(Card.objects.filter(pk=card.pk)).get())
+
+
+def _serialize_movement(movement):
+    if movement is None:
+        return None
+    return {
+        "id": movement.id,
+        "from_column": movement.from_column_name or None,
+        "to_column": movement.to_column_name or None,
+        "from_swimlane": movement.from_swimlane_name or None,
+        "to_swimlane": movement.to_swimlane_name or None,
+        "moved_at": movement.moved_at.isoformat(),
+        "moved_by": movement.moved_by.email if movement.moved_by_id else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Read tools (#512) — all board roles
+# ---------------------------------------------------------------------------
+
+def list_columns(*, board_id):
+    """List a board's columns, ordered by position.
+
+    Every board member (including collaborator/viewer) may call this — it is
+    a read of board structure, not of any per-role-restricted data.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+
+    columns = (
+        Column.objects.filter(board=board)
+        .annotate(_card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
+        .order_by("position")
+    )
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "position": c.position,
+            "color": c.color,
+            "wip_limit": c.wip_limit,
+            "card_count": c._card_count,
+        }
+        for c in columns
+    ]
+
+
+def list_swimlanes(*, board_id):
+    """List a board's swimlanes, ordered by position.
+
+    ``contact_email`` is admin/site_admin-only, matching
+    ``SwimlaneSerializer``/``SwimlaneAdminSerializer``'s existing split
+    (``boards/views/swimlanes.py::get_serializer_class``) — it is customer PII
+    stored on the swimlane, and a collaborator/viewer role sees the board
+    structure without it, exactly as they do over REST. The key is OMITTED
+    for those roles rather than sent empty: an empty string would be
+    indistinguishable from "no contact email on file" and would misinform the
+    caller rather than simply not tell it something.
+    """
+    user = get_current_user()
+    try:
+        board, role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+
+    can_see_contact_email = role in _ADMIN_ROLES
+    swimlanes = (
+        Swimlane.objects.filter(board=board)
+        .annotate(_card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
+        .order_by("position")
+    )
+    results = []
+    for s in swimlanes:
+        row = {
+            "id": s.id,
+            "name": s.name,
+            "position": s.position,
+            "color": s.color,
+            "card_count": s._card_count,
+            "is_collapsed": s.is_collapsed,
+        }
+        if can_see_contact_email:
+            row["contact_email"] = s.contact_email
+        results.append(row)
+    return results
+
+
+# Hard cap on list_cards rows, matching CardViewSet.list()'s existing
+# `_LIST_MAX_ROWS` (boards/views/cards.py) — targeted lookups must bound their
+# response the same way REST's do, not return an unbounded payload.
+_LIST_CARDS_MAX_ROWS = 200
+
+
+def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
+                priority=None, label=None, include_archived=False):
+    """List a board's cards, optionally filtered, ordered by board position.
+
+    All filters are optional and compose with AND. ``assignee`` matches by
+    email (case-insensitive), consistent with how ``create_card``/
+    ``update_card`` accept an assignee — never an internal user id.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+
+    qs = (
+        Card.objects.filter(board=board)
+        .select_related("column", "swimlane", "assignee")
+        .prefetch_related("labels")
+    )
+    if not include_archived:
+        qs = qs.filter(archived_at__isnull=True)
+    if column_id is not None:
+        qs = qs.filter(column_id=column_id)
+    if swimlane_id is not None:
+        qs = qs.filter(swimlane_id=swimlane_id)
+    if assignee is not None:
+        qs = qs.filter(assignee__email__iexact=assignee)
+    if priority is not None:
+        qs = qs.filter(priority=priority)
+    if label is not None:
+        # .distinct() guards against the label M2M join fan-out duplicating a
+        # card that has more than one label matching... it can't match more
+        # than one row for an exact `name=` filter (Label is unique per
+        # board+name), but stays for defense-in-depth and because it costs
+        # nothing extra with an already-selective board+name filter.
+        qs = qs.filter(labels__name=label).distinct()
+    qs = qs.order_by("column__position", "swimlane__position", "position")[:_LIST_CARDS_MAX_ROWS]
+    return [_serialize_card(card) for card in qs]
+
+
+# ---------------------------------------------------------------------------
+# Write tools (#512) — admin/member only; enforced by
+# boards.services.cards._require_mutation_role, not re-implemented here.
+# ---------------------------------------------------------------------------
+
+def create_card(*, board_id, column_id, swimlane_id, title, description=None,
+                 priority=None, assignee_email=None, labels=None, due_date=None,
+                 position=None):
+    """Create a card, appended to the end of its column/swimlane cell.
+
+    ``position`` composes two existing service entry points rather than
+    adding placement logic of its own: ``boards.services.cards.create_card``
+    always appends (the service decides where, not the caller — see its own
+    docstring), so an explicit initial position is honored with a follow-up
+    ``move_card`` call. That second call is a pure same-cell reorder (column
+    and swimlane both unchanged), which ``move_card``'s own docstring notes is
+    exempt from WIP/weight enforcement and writes no extra ``CardMovement``
+    row — so this never double-counts against a WIP limit or pollutes the
+    audit trail with a redundant movement.
+    """
+    user = get_current_user()
+    try:
+        board, role = _resolve_board(user, board_id)
+        data = _translate_card_fields(
+            board,
+            title=title,
+            description=description if description is not None else "",
+            priority=priority if priority is not None else Card.Priority.MEDIUM,
+            assignee_email=assignee_email,
+            labels=labels,
+            due_date=due_date,
+        )
+        data["column"] = column_id
+        data["swimlane"] = swimlane_id
+
+        serializer = CardSerializer(data=data, context={"board": board})
+        serializer.is_valid(raise_exception=True)
+
+        def save(position):
+            return serializer.save(board=board, created_by=user, position=position)
+
+        result = card_services.create_card(
+            actor=user, board=board, role=role,
+            column_id=column_id, swimlane_id=swimlane_id,
+            save=save, render=_refetch_and_serialize,
+        )
+        card = result.card
+
+        if position is not None and position != card.position:
+            move_result = card_services.move_card(
+                actor=user, board=board, role=role, card_id=card.id,
+                target_column_id=column_id, target_swimlane_id=swimlane_id,
+                position=position, render=lambda c, _movement: _refetch_and_serialize(c),
+            )
+            return move_result.payload
+        return result.payload
+    except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
+        return _error_payload(exc)
+
+
+def move_card(*, card_id, to_column_id=None, to_swimlane_id=None, position=0):
+    """Move a card to a new column, swimlane, and/or position.
+
+    At least one of ``to_column_id``/``to_swimlane_id`` is required; the other
+    defaults to the card's current value, matching how a client that only
+    wants to reorder within its current column calls the REST move endpoint
+    with an unchanged column/swimlane id.
+
+    WIP/weight limits are enforced exactly as they are over REST, with no
+    override: this tool never exposes ``force`` or ``version`` (optimistic
+    concurrency), so a blocked move always comes back as a structured
+    ``wip_limit_exceeded``/``wip_hard_blocked`` error rather than a 500.
+    """
+    user = get_current_user()
+    if to_column_id is None and to_swimlane_id is None:
+        return _error_payload(ValidationFailed({
+            "to_column_id": ["At least one of to_column_id or to_swimlane_id is required."],
+        }))
+    try:
+        board, role, card = _resolve_board_for_card(user, card_id)
+        target_column_id = to_column_id if to_column_id is not None else card.column_id
+        target_swimlane_id = to_swimlane_id if to_swimlane_id is not None else card.swimlane_id
+        result = card_services.move_card(
+            actor=user, board=board, role=role, card_id=card_id,
+            target_column_id=target_column_id, target_swimlane_id=target_swimlane_id,
+            position=position if position is not None else 0,
+            render=lambda c, m: {"card": _refetch_and_serialize(c), "movement": _serialize_movement(m)},
+        )
+        return result.payload
+    except CardServiceError as exc:
+        return _error_payload(exc)
+
+
+def update_card(*, card_id, title=None, description=None, priority=None,
+                 assignee_email=None, labels=None, due_date=None):
+    """Update one or more fields on a card.
+
+    Cannot change ``column``/``swimlane`` — use ``move_card``, which is the
+    only path that enforces WIP/weight limits and writes the movement audit
+    trail (see ``boards.services.errors.UseMoveEndpoint``). An omitted
+    (``None``) argument is left untouched; only ``labels=[]`` and
+    ``assignee_email=""`` are recognized as an explicit "clear" — see
+    ``_translate_card_fields``.
+    """
+    user = get_current_user()
+    try:
+        board, role, card = _resolve_board_for_card(user, card_id)
+        submitted = _translate_card_fields(
+            board, title=title, description=description, priority=priority,
+            assignee_email=assignee_email, labels=labels, due_date=due_date,
+        )
+        serializer = CardSerializer(card, data=submitted, partial=True, context={"board": board})
+        serializer.is_valid(raise_exception=True)
+
+        def apply():
+            serializer.save()
+
+        result = card_services.update_card(
+            actor=user, board=board, role=role, card=card,
+            submitted=submitted, apply=apply, render=_refetch_and_serialize,
+        )
+        return result.payload
+    except (CardServiceError, ValidationFailed, _DRFValidationError) as exc:
+        return _error_payload(exc)
+
+
+def archive_card(*, card_id):
+    """Soft-delete a card. Idempotent: archiving an already-archived card is a no-op."""
+    user = get_current_user()
+    try:
+        board, role, card = _resolve_board_for_card(user, card_id)
+        result = card_services.archive_card(
+            actor=user, board=board, role=role, card_id=card_id,
+            render=lambda c: {
+                "card_id": c.id,
+                "archived_at": c.archived_at.isoformat() if c.archived_at else None,
+            },
+        )
+        return result.payload
+    except CardServiceError as exc:
+        return _error_payload(exc)
