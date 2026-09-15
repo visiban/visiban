@@ -375,9 +375,10 @@ backend-test-coverage:
         path: backend/coverage.xml
     when: always
 
-# Checks that every model change has a corresponding migration file, and that no
+# Checks that every model change has a corresponding migration file, that no
 # migration builds an index or constraint in a way that takes ACCESS EXCLUSIVE on a
-# live table (#1081 — see docs/development/database-migrations.md).
+# live table (#1081), and that no migration adds a constraint a populated table could
+# already violate (#1098) — see docs/development/database-migrations.md.
 # Requires a Postgres service because makemigrations --check calls
 # check_consistent_history(), which connects to the DB to verify applied
 # migrations are consistent with the on-disk migration files.
@@ -410,6 +411,12 @@ migration-check:
     # Fails on a new AddIndex/AddConstraint that is not concurrent. The escape
     # hatch is an inline `# concurrency-exempt: <reason>` comment on the operation.
     - python manage.py check_migration_concurrency
+    # Proves the constraint-safety gate below still fires before trusting its "clean" verdict (#1093).
+    - python manage.py check_migration_constraint_safety --self-test
+    # Fails on a new AddConstraint/NOT NULL/unique-together that could crash-loop against
+    # pre-existing rows with no preceding repair step (#1098). The escape hatch is an
+    # inline `# constraint-safe: <reason>` comment on the operation.
+    - python manage.py check_migration_constraint_safety
 
 # Catches two branches cut off the same point on main each adding a migration
 # at the same next sequential number (e.g. both add 0042_...). Django applies
