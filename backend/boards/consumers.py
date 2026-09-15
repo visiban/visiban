@@ -2,8 +2,12 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import Board, BoardMembership
-from .permissions import get_board_role, SITE_ADMIN
+from .models import Board
+from .permissions import (
+    MODERATOR_BEARING_EVENTS,
+    ROLES_WITH_MODERATOR_VISIBILITY,
+    get_board_role,
+)
 
 # How often (in seconds) the server sends a keepalive ping to each client.
 # NATs and reverse proxies commonly drop idle WebSocket connections after
@@ -15,7 +19,11 @@ PING_INTERVAL = 30
 # REST surface already strips it via BoardMembershipSerializer.to_representation
 # (#920), but broadcasts are fan-out without per-subscriber filtering and the
 # serializer cannot know the recipient's role at send time.
-_ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
+#
+# Defined in boards.permissions since #1114 so this consumer and the change-feed
+# reader (BoardEventSerializer) apply one gate rather than two copies of it.
+# Re-exported under the old private name so nothing that reached for it breaks.
+_ROLES_WITH_MODERATOR_VISIBILITY = ROLES_WITH_MODERATOR_VISIBILITY
 
 
 class BoardConsumer(AsyncWebsocketConsumer):
@@ -82,8 +90,8 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # (#920); the broadcast surface needs the same gate here because it
         # has no per-subscriber filter at the serializer layer.
         if (
-            payload.get("event") in ("member.added", "member.updated")
-            and self._role not in _ROLES_WITH_MODERATOR_VISIBILITY
+            payload.get("event") in MODERATOR_BEARING_EVENTS
+            and self._role not in ROLES_WITH_MODERATOR_VISIBILITY
         ):
             data = payload.get("data") or {}
             if "is_moderator" in data:

@@ -195,8 +195,15 @@ def _fire_hooks(event, card_id, board_id, actor_id):
         )
 
 
-def _broadcast_after_commit(board_id, event, payload):
-    """Defer a board event until the transaction commits.
+def _broadcast_after_commit(board_id, event, payload, actor_id=None):
+    """Record the event in the board change feed and publish it after commit.
+
+    ``record_board_event`` writes the ``BoardEvent`` row synchronously — inside
+    whichever ``transaction.atomic()`` block the caller is in, which is the point
+    (#1114): the feed row and the mutation it describes commit or roll back as
+    one, and the deferred broadcast then publishes the committed row carrying its
+    id. This is why every call below sits inside the transaction rather than
+    after it.
 
     Reached through the ``broadcast`` *module object* rather than by importing
     the function directly: the test suite patches
@@ -205,9 +212,7 @@ def _broadcast_after_commit(board_id, event, payload):
     tests that patch only to suppress the channel layer would silently start
     broadcasting for real.
     """
-    transaction.on_commit(
-        lambda: _broadcast.broadcast_board_event(board_id, event, payload)
-    )
+    _broadcast.record_board_event(board_id, event, payload, actor_id=actor_id)
 
 
 def _board_scoped(model, pk, board, error):
@@ -268,7 +273,7 @@ def create_card(*, actor, board, column_id, swimlane_id, save, render, role=None
             notes="Card created",
         )
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.created", payload)
+        _broadcast_after_commit(board_id, "card.created", payload, actor.id)
         _fire_hooks("card.created", card.id, board_id, actor.id)
         if card.description:
             # Notify any @mentioned board members in the initial description.
@@ -430,7 +435,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
             CardActivity.objects.bulk_create(activities)
 
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.updated", payload)
+        _broadcast_after_commit(board_id, "card.updated", payload, actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
@@ -629,7 +634,7 @@ def move_card(
         payload = render(card, movement)
         # The WebSocket payload is the same dict as the REST body so a client can
         # update its movement history without re-polling /movements/.
-        _broadcast_after_commit(board_id, "card.moved", dict(payload))
+        _broadcast_after_commit(board_id, "card.moved", dict(payload), actor.id)
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 
@@ -707,7 +712,7 @@ def archive_card(*, actor, board, card_id, render, role=None):
             card.archived_at = timezone.now()
             card.save(update_fields=["archived_at"])
             _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
-            _broadcast_after_commit(board_id, "card.archived", {"card_uid": card_uid})
+            _broadcast_after_commit(board_id, "card.archived", {"card_uid": card_uid}, actor.id)
             _fire_hooks("card.archived", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=render(card))
 
@@ -744,7 +749,7 @@ def unarchive_card(*, actor, board, card_id, render, role=None):
         # captured before the callback is registered (#999), and reused as the
         # response rather than re-fetched (#1050).
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.unarchived", payload)
+        _broadcast_after_commit(board_id, "card.unarchived", payload, actor.id)
         _fire_hooks("card.restored", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
@@ -776,7 +781,7 @@ def delete_card(*, actor, board, card, role=None):
     card_id = card.pk
     with transaction.atomic():
         card.delete()
-        _broadcast_after_commit(board_id, "card.deleted", {"card_uid": card_uid})
+        _broadcast_after_commit(board_id, "card.deleted", {"card_uid": card_uid}, actor.id)
         # The id is still passed even though the row is gone, so a handler can
         # tell "deleted" apart from "never existed".
         _fire_hooks("card.deleted", card_id, board_id, actor.id)

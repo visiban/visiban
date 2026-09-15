@@ -68,6 +68,19 @@ Full board state — columns, swimlanes, cards, labels, members, `current_user_r
 
 **`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (parent group display name or `null`), and `ancestors` (root-first `[{ id, name }]` chain). Without this parameter `group_detail` is `null`.
 
+### `GET /api/v1/boards/{id}/events/`
+Board change feed — committed board mutations in ascending `id` order, so an out-of-process consumer can resume after a dropped WebSocket instead of re-fetching `/full/`. Added in 1.2.
+
+**Query parameters:** `after` (cursor — the last event `id` processed; default `0`) and `limit` (`1`–`500`, default `100`). Both are validated, not clamped; an out-of-range or malformed value returns `400`.
+
+**Response:** `{ "results": [{ id, event, data, actor_id, created_at }, ...], "next": <int|null> }`. `next` is the cursor for the following page, or `null` when the caller is caught up.
+
+**Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it.
+
+**`410 Gone`:** the cursor has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and newer events exist. Re-sync via `/full/` and resume from the newest `event_id` seen after that.
+
+See [Change Feed](events.md) for the full contract, retention, and the reconnect flow.
+
 ### `POST /api/v1/boards/{id}/star/`
 Star (favorite) a board. Returns `200 OK` with the updated board object (whether or not the board was already starred).
 

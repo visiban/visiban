@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from allauth.socialaccount.models import SocialToken
-from boards.broadcast import broadcast_board_event
+from boards.broadcast import record_board_event
 from boards.models import BoardMembership
 from boards.permissions import SITE_ADMIN
 from boards.views import get_board_for_user
@@ -285,10 +285,9 @@ class LensConnectionView(APIView):
             payload = LensConnectionSerializer(conn).data
             # Notify other connected board members so the Lens tab appears for them.
             board_id_int = board.id
-            transaction.on_commit(
-                lambda b=board_id_int, p=payload: broadcast_board_event(
-                    b, "lens_connection.configured", p
-                )
+            record_board_event(
+                board_id_int, "lens_connection.configured", payload,
+                actor_id=request.user.id,
             )
         return Response(payload)
 
@@ -298,10 +297,9 @@ class LensConnectionView(APIView):
         with transaction.atomic():
             LensConnection.objects.filter(board=board).delete()
             board_id_int = board.id
-            transaction.on_commit(
-                lambda b=board_id_int: broadcast_board_event(
-                    b, "lens_connection.removed", {"board_id": b}
-                )
+            record_board_event(
+                board_id_int, "lens_connection.removed", {"board_id": board_id_int},
+                actor_id=request.user.id,
             )
         return Response(status=204)
 

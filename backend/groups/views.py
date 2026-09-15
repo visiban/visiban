@@ -361,7 +361,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                     was the sole access path. Users who retain access via a direct
                     board membership or another group path are not evicted.
                     """
-                    from boards.broadcast import broadcast_board_event
+                    from boards.broadcast import record_board_event
                     from boards.models import Board as _Board
                     from boards.permissions import get_board_role as _get_role
                     from accounts.models import User as _User
@@ -389,7 +389,12 @@ class GroupViewSet(viewsets.ModelViewSet):
                         if board_obj is None:
                             continue
                         if _get_role(user_obj, board_obj) is None:
-                            broadcast_board_event(bid, "member.removed", {"user_id": uid})
+                            # This callback already runs post-commit — the role is
+                            # deliberately re-checked after the deletion has landed
+                            # — so the feed row gets its own short transaction
+                            # rather than joining one that is already closed.
+                            with transaction.atomic():
+                                record_board_event(bid, "member.removed", {"user_id": uid})
 
                 transaction.on_commit(_evict_stale_ws)
 
@@ -562,14 +567,21 @@ class GroupViewSet(viewsets.ModelViewSet):
             # identical regardless of which endpoint created the board. Deferred
             # with on_commit so subscribers never see a board that later rolls back.
             from boards.broadcast import broadcast_board_event as _broadcast_board_event
+            from boards.broadcast import persist_board_event as _persist_board_event
             from .broadcast import broadcast_group_event as _broadcast_group_event
             _board_id = board.id
             _board_event_payload = BoardSerializer(board, context={"request": request}).data
             _group_id = group.id
+            # Persisted inside this transaction (#1114); the board and group
+            # channels keep firing from one on_commit callback.
+            _event_id = _persist_board_event(
+                _board_id, "board.created", _board_event_payload,
+                actor_id=request.user.id,
+            )
             def _broadcast_created(
-                bid=_board_id, bd=_board_event_payload, gid=_group_id,
+                bid=_board_id, bd=_board_event_payload, gid=_group_id, eid=_event_id,
             ):
-                _broadcast_board_event(bid, "board.created", bd)
+                _broadcast_board_event(bid, "board.created", bd, event_id=eid)
                 # Powers live refresh of GroupDetail's boards list (#753).
                 _broadcast_group_event(gid, "board.created", bd)
             transaction.on_commit(_broadcast_created)

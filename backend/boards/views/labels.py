@@ -57,7 +57,7 @@ class LabelViewSet(viewsets.ModelViewSet):
             label = serializer.save(board=board)
             label_data = LabelSerializer(label).data
             board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.created", label_data))
+            _broadcast.record_board_event(board_id, "label.created", label_data, actor_id=self.request.user.id)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
@@ -67,7 +67,7 @@ class LabelViewSet(viewsets.ModelViewSet):
             label = serializer.save()
             label_data = LabelSerializer(label).data
             board_id = label.board_id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.updated", label_data))
+            _broadcast.record_board_event(board_id, "label.updated", label_data, actor_id=self.request.user.id)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -77,4 +77,4 @@ class LabelViewSet(viewsets.ModelViewSet):
         label_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "label.deleted", {"label_uid": label_uid}))
+            _broadcast.record_board_event(board_id, "label.deleted", {"label_uid": label_uid}, actor_id=self.request.user.id)

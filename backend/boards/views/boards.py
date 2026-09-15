@@ -5,12 +5,15 @@ import logging
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
+from drf_spectacular.utils import (
+    extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse,
+)
 
 from accounts.models import User
 from accounts.permissions import TokenHasScope
@@ -23,12 +26,12 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..models import (
-    BoardFavorite, BoardMembership, Notification, SavedFilter, Swimlane,
+    BoardEvent, BoardFavorite, BoardMembership, Notification, SavedFilter, Swimlane,
 )
 from ..permissions import get_board_role, SITE_ADMIN
 from ..serializers import (
-    BoardSerializer, BoardFullSerializer, BoardMembershipSerializer,
-    SavedFilterSerializer,
+    BoardSerializer, BoardEventSerializer, BoardFullSerializer,
+    BoardMembershipSerializer, SavedFilterSerializer,
 )
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import get_board_for_user, get_accessible_boards_queryset
@@ -38,6 +41,48 @@ from .import_export import BoardImportExportMixin
 logger = logging.getLogger(__name__)
 
 _EVT_BOARD_UPDATED = "board.updated"
+
+# Change-feed paging bounds (#1114). The ceiling exists so one request cannot ask
+# the server to serialize an unbounded slice of a busy board's history; a
+# consumer that wants more pages the cursor instead.
+_EVENTS_DEFAULT_LIMIT = 100
+_EVENTS_MAX_LIMIT = 500
+
+
+def _parse_events_cursor(raw):
+    """Coerce the ``after`` query param to a non-negative int, or 400.
+
+    Rejected rather than silently clamped: a client that sends a malformed
+    cursor has lost its place, and quietly restarting it from the beginning of
+    the feed would replay history it already processed without telling it.
+    """
+    if raw in (None, ""):
+        return 0
+    try:
+        after = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError({"after": "Must be an integer event id."}) from None
+    if after < 0:
+        raise ValidationError({"after": "Must not be negative."})
+    return after
+
+
+def _parse_events_limit(raw):
+    """Coerce the ``limit`` query param, or 400.
+
+    Out-of-range is an error rather than a clamp for the same reason: a consumer
+    that asked for 10000 and silently got 500 would read ``len(results) < limit``
+    as "caught up" and stop paging with events still unread.
+    """
+    if raw in (None, ""):
+        return _EVENTS_DEFAULT_LIMIT
+    try:
+        limit = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError({"limit": "Must be an integer."}) from None
+    if not 1 <= limit <= _EVENTS_MAX_LIMIT:
+        raise ValidationError({"limit": f"Must be between 1 and {_EVENTS_MAX_LIMIT}."})
+    return limit
 
 
 class BoardViewSet(
@@ -165,8 +210,14 @@ class BoardViewSet(
             # Group-scoped broadcast powers the boards-list live view (#753). Keyed
             # off the annotated row so the frontend can insert without a refetch.
             group_id = annotated.group_id
-            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id):
-                _broadcast.broadcast_board_event(bid, "board.created", bd)
+            # Persisted here rather than via record_board_event so the board and
+            # group channels keep firing from one on_commit callback (#753); the
+            # row still lands inside this transaction, which is what #1114 needs.
+            event_id = _broadcast.persist_board_event(
+                board_id, "board.created", board_data, actor_id=self.request.user.id,
+            )
+            def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+                _broadcast.broadcast_board_event(bid, "board.created", bd, event_id=eid)
                 if gid is not None:
                     _broadcast_group_event(gid, "board.created", bd)
             transaction.on_commit(_broadcast_created)
@@ -193,8 +244,11 @@ class BoardViewSet(
             annotated = self.get_queryset().get(pk=board_id)
             board_data = BoardSerializer(annotated, context={"request": self.request}).data
             group_id = annotated.group_id
-            def _broadcast_updated(bid=board_id, bd=board_data, gid=group_id):
-                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd)
+            event_id = _broadcast.persist_board_event(
+                board_id, _EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
+            )
+            def _broadcast_updated(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd, event_id=eid)
                 if gid is not None:
                     _broadcast_group_event(gid, "board.updated", bd)
             transaction.on_commit(_broadcast_updated)
@@ -221,8 +275,14 @@ class BoardViewSet(
             # All deletion events (card/column/swimlane/label/saved_filter)
             # carry only the *_uid; board.deleted matches that contract.
             payload = {"board_uid": board_uid}
-            def _broadcast_deleted(bid=board_id, gid=group_id, pl=payload):
-                _broadcast.broadcast_board_event(bid, "board.deleted", pl)
+            # The feed row survives the board it describes: BoardEvent.board_id is
+            # a plain integer, not a cascading FK, precisely so a consumer holding
+            # a cursor can still read the terminal board.deleted event (#1114).
+            event_id = _broadcast.persist_board_event(
+                board_id, "board.deleted", payload, actor_id=request.user.id,
+            )
+            def _broadcast_deleted(bid=board_id, gid=group_id, pl=payload, eid=event_id):
+                _broadcast.broadcast_board_event(bid, "board.deleted", pl, event_id=eid)
                 if gid is not None:
                     _broadcast_group_event(gid, "board.deleted", pl)
             transaction.on_commit(_broadcast_deleted)
@@ -251,8 +311,14 @@ class BoardViewSet(
             user_id = request.user.id
             star_payload = {"uid": board_uid, "user_id": user_id, "is_starred": is_starred}
 
+            event_id = _broadcast.persist_board_event(
+                board_id, "board.star_changed", star_payload, actor_id=user_id,
+            )
+
             def _broadcast_star() -> None:
-                _broadcast.broadcast_board_event(board_id, "board.star_changed", star_payload)
+                _broadcast.broadcast_board_event(
+                    board_id, "board.star_changed", star_payload, event_id=event_id
+                )
                 if group_id is not None:
                     # Also fan out to the group channel so the GroupDetail page
                     # updates the star indicator in real time without a refetch
@@ -370,8 +436,8 @@ class BoardViewSet(
             board_id = board.pk
             annotated = self.get_queryset().get(pk=board_id)
             board_summary = BoardSerializer(annotated, context={"request": request}).data
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(board_id, _EVT_BOARD_UPDATED, board_summary)
+            _broadcast.record_board_event(
+                board_id, _EVT_BOARD_UPDATED, board_summary, actor_id=request.user.id,
             )
         return Response(response_data)
 
@@ -407,11 +473,14 @@ class BoardViewSet(
             new_group_id = annotated.group_id
             # Single on_commit callback so subscribers on the old and new group
             # channels observe the move atomically (#753).
+            event_id = _broadcast.persist_board_event(
+                board_id, _EVT_BOARD_UPDATED, board_data, actor_id=request.user.id,
+            )
             def _broadcast_move(
                 bid=board_id, bd=board_data,
-                og=old_group_id, ng=new_group_id,
+                og=old_group_id, ng=new_group_id, eid=event_id,
             ):
-                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd)
+                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd, event_id=eid)
                 if og is not None and og != ng:
                     _broadcast_group_event(og, "board.deleted", {
                         "board_uid": bd.get("uid"), "board_id": bid,
@@ -434,6 +503,116 @@ class BoardViewSet(
         """
         board, role = get_board_for_user(pk, request.user)
         return Response(BoardFullSerializer(board, context={"request": request, "role": role}).data)
+
+    @extend_schema(
+        summary="Read the board's change feed",
+        description=(
+            "Returns committed board mutation events in ascending `id` order, so an "
+            "out-of-process consumer can resume after a dropped WebSocket instead of "
+            "re-fetching `/full/`. Each event is the payload that was broadcast, "
+            "verbatim.\n\n"
+            "Pass the last `id` you processed as `after`; WebSocket frames carry the "
+            "same value as `event_id`, so a client can hand the socket's last "
+            "`event_id` straight to this endpoint. `next` is the cursor for the "
+            "following page, or `null` when the caller is caught up.\n\n"
+            "Events outside the retention window are pruned. A cursor that no longer "
+            "exists while newer events do returns `410 Gone` — re-sync via `/full/` "
+            "and resume from the newest `event_id` seen after that."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="after", type=int, location=OpenApiParameter.QUERY, required=False,
+                description="Return events with an id strictly greater than this. Omit or 0 to start at the oldest retained event.",
+            ),
+            OpenApiParameter(
+                name="limit", type=int, location=OpenApiParameter.QUERY, required=False,
+                description=f"Maximum events to return (1–{_EVENTS_MAX_LIMIT}). Default {_EVENTS_DEFAULT_LIMIT}.",
+            ),
+        ],
+        responses={
+            200: inline_serializer(
+                name="BoardEventFeedPage",
+                fields={
+                    "results": BoardEventSerializer(many=True),
+                    "next": serializers.IntegerField(
+                        allow_null=True,
+                        help_text="Cursor for the next page, or null when caught up.",
+                    ),
+                },
+            ),
+            400: OpenApiResponse(description="`after` or `limit` is not a valid integer, or is out of range."),
+            410: OpenApiResponse(
+                description="The cursor has been pruned; the caller must re-sync via /full/.",
+                response=inline_serializer(
+                    name="BoardEventCursorExpired",
+                    fields={
+                        "detail": serializers.CharField(),
+                        "code": serializers.CharField(),
+                        "resync_url": serializers.CharField(),
+                    },
+                ),
+            ),
+        },
+    )
+    @action(detail=True, methods=["get"])
+    def events(self, request, pk=None):
+        """Return a page of this board's change feed (#1114).
+
+        Access is the board role, resolved by ``get_board_for_user`` — the same
+        gate as ``/full/`` and as the WebSocket handshake. That parity is the
+        point: the feed replays frames the caller could already have streamed, so
+        it must not become a way to read something the socket would not send. The
+        one place the two surfaces could diverge is ``is_moderator`` on
+        ``member.*`` payloads, and ``BoardEventSerializer`` closes it with the
+        same gate the consumer uses.
+
+        Cross-board reads are impossible by construction rather than by check:
+        every query is filtered on ``board_id`` first, so an ``after`` cursor
+        lifted from another board selects nothing of that board's — it is only
+        ever a number compared against this board's rows.
+        """
+        board, role = get_board_for_user(pk, request.user, slim=True)
+        after = _parse_events_cursor(request.query_params.get("after"))
+        limit = _parse_events_limit(request.query_params.get("limit"))
+
+        qs = BoardEvent.objects.filter(board_id=board.id)
+        if after:
+            qs = qs.filter(pk__gt=after)
+        rows = list(qs.order_by("id")[:limit])
+
+        # Retention check, deliberately ordered after the page fetch.
+        #
+        # A cursor is "expired" only when we cannot prove the caller missed
+        # nothing: their row is gone AND there are newer rows they might have
+        # skipped past. If the page came back empty the caller is caught up with
+        # everything retained, so nothing can have been missed beyond the cursor
+        # and a 410 would send an idle consumer to re-sync for no reason.
+        #
+        # Doing it this way needs no pruning watermark to be stored anywhere —
+        # it costs one extra indexed EXISTS, and only on a non-empty page.
+        if after and rows and not BoardEvent.objects.filter(board_id=board.id, pk=after).exists():
+            return Response(
+                {
+                    "detail": (
+                        "Event cursor is no longer available — it fell outside the "
+                        "retention window. Re-sync the board state and resume from the "
+                        "newest event id you see after that."
+                    ),
+                    "code": "cursor_expired",
+                    "resync_url": request.build_absolute_uri(
+                        reverse("board-full", kwargs={"pk": board.pk})
+                    ),
+                },
+                status=status.HTTP_410_GONE,
+            )
+
+        # `next` means "there is probably more", not "the newest id you hold".
+        # A full page may or may not be the last one; a short page definitely is.
+        next_cursor = rows[-1].pk if len(rows) == limit else None
+        return Response({
+            "results": BoardEventSerializer(rows, many=True, context={"role": role}).data,
+            "next": next_cursor,
+        })
 
     @action(detail=True, methods=["get", "post"], url_path="saved-filters")
     def saved_filters(self, request, pk=None):
@@ -514,10 +693,10 @@ class BoardViewSet(
                 # without receiving the state_json contents (which are that user's personal
                 # configuration and should not be pushed to all co-members on the board).
                 # The creating user receives the full payload via the HTTP response below.
-                transaction.on_commit(
-                    lambda: _broadcast.broadcast_board_event(
-                        board_id, "saved_filter.created", {"filter_id": filter_id, "user_id": user_id}
-                    )
+                _broadcast.record_board_event(
+                    board_id, "saved_filter.created",
+                    {"filter_id": filter_id, "user_id": user_id},
+                    actor_id=user_id,
                 )
         except IntegrityError:
             # unique_together violation — a filter with this name already exists.
@@ -545,10 +724,10 @@ class BoardViewSet(
         user_id = request.user.id
         with transaction.atomic():
             saved.delete()
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id, "saved_filter.deleted", {"filter_id": filter_id, "user_id": user_id}
-                )
+            _broadcast.record_board_event(
+                board_id, "saved_filter.deleted",
+                {"filter_id": filter_id, "user_id": user_id},
+                actor_id=user_id,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -639,7 +818,9 @@ class BoardViewSet(
             ).data
             board_id = board.id
             ws_event = "member.added" if created else "member.updated"
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, ws_event, membership_data))
+            # The stored payload still carries is_moderator; the feed strips it per
+            # reader role on read, exactly as the consumer does per subscriber (#978).
+            _broadcast.record_board_event(board_id, ws_event, membership_data, actor_id=request.user.id)
             # Notify the invited user when they are newly added (not on role updates).
             # Skipped if they added themselves or have opted out of board invite notifications.
             if created and target_user != request.user and target_user.notif_board_invite:
@@ -666,5 +847,5 @@ class BoardViewSet(
         removed_user_id = target_user.id
         with transaction.atomic():
             BoardMembership.objects.filter(board=board, user=target_user).delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "member.removed", {"user_id": removed_user_id}))
+            _broadcast.record_board_event(board_id, "member.removed", {"user_id": removed_user_id}, actor_id=request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
