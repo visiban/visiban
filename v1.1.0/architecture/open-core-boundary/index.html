@@ -3611,6 +3611,16 @@
 <td>✅ Implemented — <code>boards/hooks.py</code> + <code>boards/template_sync.py</code>, synced via <code>post_migrate</code> in <code>BoardsConfig.ready()</code></td>
 </tr>
 <tr>
+<td><code>CUSTOM_FIELD_VALIDATORS</code> list (<code>boards/hooks.py</code>)</td>
+<td>Enterprise per-type custom field validators (#371)</td>
+<td>✅ Implemented — <code>boards/hooks.py</code>, applied at the serializer boundary</td>
+</tr>
+<tr>
+<td><code>custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
+<td>Enterprise custom field change audit trail (#371)</td>
+<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code></td>
+</tr>
+<tr>
 <td><code>post_notification_created</code> signal</td>
 <td>Enterprise channel delivery (enterprise #34)</td>
 <td>Not yet implemented</td>

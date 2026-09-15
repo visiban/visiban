@@ -2036,6 +2036,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#custom-field-events-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom field events (since 1.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#card-events" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3467,6 +3478,40 @@
 <td><code>label.deleted</code></td>
 <td>Label deleted</td>
 <td><code>{ "label_uid": &lt;string&gt; }</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="custom-field-events-since-12">Custom field events (since 1.2)<a class="headerlink" href="#custom-field-events-since-12" title="Permanent link">&para;</a></h3>
+<p>Schema changes only. A change to a card's <strong>values</strong> arrives as <code>card.updated</code>, whose
+payload carries the card's <code>custom_field_values</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>custom_field.created</code></td>
+<td>New custom field definition created</td>
+<td>Full <code>CustomFieldDefinitionSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>custom_field.updated</code></td>
+<td>Definition renamed, retyped, or its choices/pinning changed</td>
+<td>Full <code>CustomFieldDefinitionSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>custom_field.deleted</code></td>
+<td>Definition deleted (and every card value with it)</td>
+<td><code>{ "custom_field_uid": &lt;string&gt; }</code></td>
+</tr>
+<tr>
+<td><code>custom_field.reordered</code></td>
+<td>Definition order changed</td>
+<td><code>{ "custom_fields": [&lt;CustomFieldDefinitionSerializer&gt;, ...] }</code> — all definitions in new order</td>
 </tr>
 </tbody>
 </table>

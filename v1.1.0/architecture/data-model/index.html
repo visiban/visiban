@@ -2231,6 +2231,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#customfielddefinition-customfieldvalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CustomFieldDefinition / CustomFieldValue
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#boardtemplate" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3248,6 +3259,29 @@
 <li><code>unarchived</code> — the card was restored from the archive</li>
 </ul>
 <p>History consumers can filter out system events to focus on workflow transitions.</p>
+<h3 id="customfielddefinition-customfieldvalue">CustomFieldDefinition / CustomFieldValue<a class="headerlink" href="#customfielddefinition-customfieldvalue" title="Permanent link">&para;</a></h3>
+<p>Per-board typed metadata on cards (#371), where a <code>Label</code> is an untyped tag. A
+<code>CustomFieldDefinition</code> is the board-scoped schema — a name, a <code>field_type</code> of <code>text</code> /
+<code>number</code> / <code>date</code> / <code>dropdown</code> / <code>checkbox</code>, and for dropdowns a <code>choices_json</code> list;
+a <code>CustomFieldValue</code> is one card's value for one definition, unique per
+<code>(card, field_definition)</code>.</p>
+<p>Three decisions worth knowing before changing either model:</p>
+<ul>
+<li><strong>One untyped <code>value</code> text column, not a column per type.</strong> Typed columns mean sparse
+  nulls and a schema migration every time a type is added. Casting and validation live at
+  the serializer boundary instead, and every value is normalized to a canonical string
+  (ISO dates, <code>"true"</code> / <code>"false"</code>) so equality comparisons need not know the type. Typed
+  columns are deferred to the enterprise analytics work that would actually need SUM/AVG.</li>
+<li><strong>EAV with a cap of 30 definitions per board</strong> (and 2 pinned to the card face). The
+  <code>/full/</code> endpoint reads every card and every value, so an uncapped field count is a
+  Cartesian blow-up; 500 cards × 30 fields is 15,000 value rows, which the prefetch loads
+  in one query. Neither cap is expressible as a database constraint — both are counts over
+  a board's rows — so they are enforced in the serializer, under a board row lock on write.</li>
+<li><strong>Clearing a field deletes its row</strong> rather than storing <code>""</code>, so "unset" has exactly one
+  representation.</li>
+</ul>
+<p><code>is_required</code> exists as a column but is <strong>not enforced</strong>; turning it on would make
+previously valid card writes fail, so it needs a release note, not a quiet change.</p>
 <h3 id="boardtemplate">BoardTemplate<a class="headerlink" href="#boardtemplate" title="Permanent link">&para;</a></h3>
 <p>Templates are pre-configured board layouts seeded via a data migration. They are not user-editable. When a user creates a board and selects a template, the template's columns are created and the user is prompted to name the first swimlane using the template's <code>lane_label</code> and <code>lane_placeholder</code>.</p>
 <h3 id="savedfilter">SavedFilter<a class="headerlink" href="#savedfilter" title="Permanent link">&para;</a></h3>
