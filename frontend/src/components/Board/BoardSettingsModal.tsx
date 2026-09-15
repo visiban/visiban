@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardMembership, CustomFieldDefinition, LensConnection, User } from "../../types";
+import type { BoardFull, BoardMembership, CardDensity, CustomFieldDefinition, LensConnection, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
@@ -11,7 +11,7 @@ import type { BoardRole } from "../../api/boards";
 import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
-import { Toggle } from "../Common/Toggle";
+import { Toggle, ToggleField } from "../Common/Toggle";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -35,6 +35,13 @@ interface Props {
   onToggleHiddenColumn?: (columnId: number) => void;
   onToggleHiddenSwimlane?: (swimlaneId: number) => void;
   onUpdateBoardSettings?: (patch: Record<string, unknown>) => void;
+  /** #974 — the current user's personal card-density override for this
+   *  board, or null when following the board admin's default. Gated
+   *  independently of `viewPrefs`/onToggleHidden* — density override and
+   *  column/swimlane visibility are unrelated personal-settings concerns
+   *  that happen to share this tab. */
+  cardDensityOverride?: CardDensity | null;
+  onSetCardDensityOverride?: (value: CardDensity | null) => void;
   /** Whether the issue board lens feature is enabled instance-wide. */
   gitLensEnabled?: boolean;
   /** The board's current lens connection, or null when none is configured. */
@@ -77,7 +84,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -98,6 +105,14 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
   const [stalenessWarningPct, setStalenessWarningPct] = useState(board.stale_warning_pct ?? 50);
   // Inline confirmation before enabling hard WIP mode — mirrors the member-removal confirm pattern.
   const [pendingHardWip, setPendingHardWip] = useState(false);
+
+  // #974 — remembers the last personal density the user picked, for this
+  // modal session only (NOT a separate persisted value from
+  // cardDensityOverride). Lets "Use my own" restore the prior selection if
+  // toggled off then back on without closing the modal, instead of
+  // resetting to the board default every time. Deliberately does not
+  // re-sync if cardDensityOverride changes from outside the modal while open.
+  const [lastPickedDensity, setLastPickedDensity] = useState<CardDensity | null>(cardDensityOverride);
 
   // #843 — per-board export threshold. Plain-English labels per UX spec; the
   // server validates on write and may reject unknown values.
@@ -1034,7 +1049,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   hide toggles (Labels / Due date / Assignee / Priority badge /
                   Last moved). New boards default to ``comfortable``; existing
                   boards were migrated to ``dense`` so they keep their pre-1.1
-                  visual until an admin chooses otherwise. */}
+                  visual until an admin chooses otherwise. #974 layers a
+                  per-user override (comfortable/standard/dense/follow-default)
+                  on top of this board default — see the toggle below. */}
               <section aria-labelledby="card-density-heading">
                 <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
                 {isAdmin && onUpdateBoardSettings ? (
@@ -1073,8 +1090,79 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                   </fieldset>
                 ) : (
                   <p className="text-sm text-fg-secondary">
-                    This board is set to <span className="font-medium text-fg capitalize">{board.card_density}</span>. Only board admins can change this setting.
+                    This board is set to <span className="font-medium text-fg capitalize">{board.card_density}</span> by default. Only board admins can change this — you can override it for your own view below.
                   </p>
+                )}
+
+                {/* #974 — per-user density override, layered on top of the
+                    board default above. Gated on its own callback prop,
+                    independent of the isAdmin/viewPrefs gates elsewhere in
+                    this tab: density override and column/swimlane
+                    visibility are unrelated personal-settings concerns that
+                    happen to share this section, and admins may want a
+                    personal view that differs from the team default they
+                    themselves set. */}
+                {onSetCardDensityOverride && (
+                  <div className="mt-3">
+                    <ToggleField
+                      checked={cardDensityOverride !== null}
+                      onChange={(next) => {
+                        if (next) {
+                          const initial = lastPickedDensity ?? board.card_density;
+                          setLastPickedDensity(initial);
+                          onSetCardDensityOverride(initial);
+                        } else {
+                          onSetCardDensityOverride(null);
+                        }
+                      }}
+                      label="Use my own density"
+                      labelSize="xs"
+                      description={
+                        cardDensityOverride !== null
+                          ? "Overriding the board default for your view only — stored in your browser."
+                          : "Following the board default for your view."
+                      }
+                    />
+
+                    {cardDensityOverride !== null && (
+                      <fieldset className="flex flex-col gap-2 mt-2 ml-6 border-l-2 border-line pl-4">
+                        <legend className="sr-only">Your personal density override</legend>
+                        {([
+                          { value: "comfortable", label: "Comfortable", description: "One urgency badge (carries the date when overdue or due soon), one primary label, assignee. Future due dates move to the hover peek. Best for new boards." },
+                          { value: "standard",    label: "Standard",    description: "Adds a standalone due-date pill for non-urgent dates, plus weight and attachment counts on the card face." },
+                          { value: "dense",       label: "Dense",       description: "Today's full layout — every metadata field, no urgency badge or peek required." },
+                        ] as const).map(({ value, label, description }) => {
+                          const checked = cardDensityOverride === value;
+                          return (
+                            <label
+                              key={value}
+                              className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-emphasis ${
+                                checked
+                                  ? "border-primary-emphasis bg-primary-emphasis/10"
+                                  : "border-line-strong hover:bg-surface-hover/40"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="personal-card-density"
+                                value={value}
+                                checked={checked}
+                                onChange={() => {
+                                  setLastPickedDensity(value);
+                                  onSetCardDensityOverride(value);
+                                }}
+                                className="sr-only"
+                              />
+                              <span className="flex-1">
+                                <span className="block text-sm text-fg font-medium">{label}</span>
+                                <span className="block text-xs text-fg-muted mt-0.5">{description}</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </fieldset>
+                    )}
+                  </div>
                 )}
               </section>
 
