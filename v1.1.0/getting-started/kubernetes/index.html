@@ -3261,12 +3261,27 @@ Pass one with <code>-f</code> rather than assembling a dozen <code>--set</code> 
 <a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.frontendUrl<span class="o">=</span>https://boards.example.com<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span>--set<span class="w"> </span>backend.settings.siteDomain<span class="o">=</span>boards.example.com
 </code></pre></div>
-<p>Release-time tasks run automatically:</p>
+<p>That single command is all a fresh install needs — including the bundled
+PostgreSQL, which the chart creates and waits for as part of the same release.</p>
+<p>Three init containers run in order inside each backend pod, before its
+application container starts:</p>
 <ol>
-<li><strong>migrate</strong> — applies database migrations. Runs as a Helm <code>pre-install</code> / <code>pre-upgrade</code> Job (<code>templates/migrate-job.yaml</code>) so only <strong>one</strong> pod migrates per release, regardless of <code>backendReplicaCount</code>. Inspect with <code>kubectl get jobs -l app.kubernetes.io/component=migrate</code> and <code>kubectl logs job/&lt;release&gt;-visiban-migrate</code>.</li>
-<li><strong>collectstatic</strong> (init container) — bundles Django static assets.</li>
-<li><strong>bootstrap</strong> (init container, first install only) — creates the initial admin account.</li>
+<li><strong>migrate</strong> — applies database migrations. It waits for the database to accept
+   connections, then takes a PostgreSQL advisory lock so that concurrent replicas
+   apply migrations one at a time; a replica that loses the race waits for the
+   winner rather than starting against a half-migrated schema. Inspect with
+   <code>kubectl logs -n visiban deploy/visiban-backend -c migrate</code>.</li>
+<li><strong>collectstatic</strong> — bundles Django static assets.</li>
+<li><strong>bootstrap</strong> (first install only) — creates the initial admin account.</li>
 </ol>
+<div class="admonition info">
+<p class="admonition-title">Tuning the migrate waits</p>
+<p><code>backend.migrate.connectTimeout</code> (default 300s) bounds the wait for the
+database to come up, and <code>backend.migrate.lockTimeout</code> (default 900s) bounds
+the wait for another replica's migration. Raise the second one if your
+migrations legitimately take longer than that to apply. Both fail with a
+named error rather than hanging.</p>
+</div>
 <h3 id="4-retrieve-the-admin-password">4. Retrieve the admin password<a class="headerlink" href="#4-retrieve-the-admin-password" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>deploy/visiban-backend<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>cat<span class="w"> </span>/run/visiban/admin_password
@@ -3464,9 +3479,11 @@ verify the same invariant.</p>
 <ul>
 <li>Ingress controller → frontend (port 80)</li>
 <li>Frontend (and the <code>helm test</code> probe) → backend (port 8000)</li>
-<li>Backend <strong>and the migrate Job</strong> → PostgreSQL (port 5432)</li>
-<li>Backend <strong>and the migrate Job</strong> → Valkey (port 6379)</li>
+<li>Backend → PostgreSQL (port 5432)</li>
+<li>Backend → Valkey (port 6379)</li>
 </ul>
+<p>The backend entry covers migrations too: they run as an init container of the
+backend pod and so carry the backend pod's labels.</p>
 <p>All other ingress to Visiban pods is denied.</p>
 <div class="admonition warning">
 <p class="admonition-title">Your CNI must <em>enforce</em> NetworkPolicy, not just accept it</p>
@@ -3485,8 +3502,8 @@ labels and check that it cannot reach the database.</p>
 <p>The policies name their allowed clients by <code>app.kubernetes.io/component</code>. If you
 add a workload that opens a PostgreSQL or Valkey connection, add its component to
 the allow-lists at the top of <code>templates/networkpolicy.yaml</code> — otherwise it is
-denied, and on a hook-phase workload that presents as an install that hangs
-rather than an error.</p>
+denied, and that usually presents as an install that hangs rather than as an
+error.</p>
 <h2 id="media-persistence">Media persistence<a class="headerlink" href="#media-persistence" title="Permanent link">&para;</a></h2>
 <p>User-uploaded attachments are stored on a PersistentVolumeClaim (5 Gi by default):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">backend</span><span class="p">:</span>
@@ -3540,10 +3557,10 @@ rather than an error.</p>
 <a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.1.0<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.1.0
 </code></pre></div>
-<p>Init containers run <code>migrate</code> before the new backend pod becomes ready, so migrations are applied automatically. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback procedures.</p>
+<p>Each new backend pod runs the <code>migrate</code> init container before its application container starts, so migrations are applied automatically and no pod serves traffic against a schema it has not migrated. See the <a href="../../administration/upgrade/">Upgrade guide</a> for version-specific notes and rollback procedures.</p>
 <div class="admonition note">
 <p class="admonition-title">Rotating <code>secret.djangoSecretKey</code> in-flight</p>
-<p>Since chart 0.2.0 the migrate Job reads from a hook-managed bootstrap Secret that lands ahead of the runtime Secret, so a <code>--set-string secret.djangoSecretKey=...</code> override applied during <code>helm upgrade</code> takes effect for that same upgrade. Earlier chart versions required patching the live Secret out of band before running <code>helm upgrade</code>.</p>
+<p>A <code>--set-string secret.djangoSecretKey=...</code> override applied during <code>helm upgrade</code> takes effect for that same upgrade. The backend pod template carries a checksum over the chart-managed Secret, so rotating any value in it replaces the running pods — which is what puts the new key in front of both the application and the <code>migrate</code> init container. Chart versions before 1.2 used a hook-managed bootstrap Secret to achieve the same thing for a separate migrate Job; that Job and that Secret are gone.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Always pin the image tag</p>
@@ -3563,7 +3580,7 @@ rather than an error.</p>
 <h2 id="uninstalling">Uninstalling<a class="headerlink" href="#uninstalling" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
 </code></pre></div>
-<p>This removes all Kubernetes resources created by the chart. <strong>PersistentVolumeClaims are not deleted</strong> — delete them manually if you want to remove all data:</p>
+<p>This removes all Kubernetes resources created by the chart — the chart declares no Helm install hooks, and hook resources are the ones Helm would leave behind. <strong>PersistentVolumeClaims are not deleted</strong> — delete them manually if you want to remove all data:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/instance<span class="o">=</span>visiban
 </code></pre></div>
 

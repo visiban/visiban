@@ -3386,6 +3386,17 @@ see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.<
 <a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">visiban-env</span>
 </code></pre></div>
 <p>Run this job to completion before applying the updated <code>Deployment</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">The Helm chart already handles this</p>
+<p>If you deploy with the bundled chart you do not need any of the above.
+Each backend pod runs <code>python manage.py migrate_with_lock</code> as an init
+container, which serializes concurrent replicas on a PostgreSQL advisory
+lock: exactly one replica applies migrations, the others wait for it and
+then start. The lock is session-scoped, so a pod killed mid-migration
+releases it instead of blocking the next deploy. See
+<a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a>. The same command
+works for hand-rolled manifests — use it in place of bare <code>migrate</code>.</p>
+</div>
 </div>
 </div>
 </div>
