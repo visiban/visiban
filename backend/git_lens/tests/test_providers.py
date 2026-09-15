@@ -78,6 +78,82 @@ class PivotTests(SimpleTestCase):
         self.assertEqual(swim[-1].label, "(unassigned)")
 
 
+class MalformedMilestoneMetadataTests(SimpleTestCase):
+    """#1085: a provider that sends a non-string milestone_due/milestone_state
+    must not crash normalization. ``_current_milestone`` slices milestone_due
+    and lower()s milestone_state, so an int/dict/None must all coerce cleanly
+    to ``None`` at the ``_github_issue``/``_gitlab_issue`` boundary rather than
+    propagating a value that blows up downstream."""
+
+    def test_github_int_milestone_due_and_state_coerced_to_none(self):
+        issue = providers._github_issue({
+            "number": 1, "title": "t", "html_url": "u", "state": "open",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_on": 20991231, "state": 7},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+        self.assertEqual(issue.milestone, "v1")
+
+    def test_github_dict_milestone_due_and_state_coerced_to_none(self):
+        issue = providers._github_issue({
+            "number": 1, "title": "t", "html_url": "u", "state": "open",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_on": {"iso": "2099-12-31"}, "state": {"x": 1}},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+
+    def test_github_null_milestone_due_and_state_stay_none(self):
+        issue = providers._github_issue({
+            "number": 1, "title": "t", "html_url": "u", "state": "open",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_on": None, "state": None},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+
+    def test_gitlab_int_milestone_due_and_state_coerced_to_none(self):
+        issue = providers._gitlab_issue({
+            "iid": 1, "title": "t", "web_url": "u", "state": "opened",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_date": 20991231, "state": 7},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+
+    def test_gitlab_dict_milestone_due_and_state_coerced_to_none(self):
+        issue = providers._gitlab_issue({
+            "iid": 1, "title": "t", "web_url": "u", "state": "opened",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_date": {"iso": "2099-12-31"}, "state": {"x": 1}},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+
+    def test_gitlab_null_milestone_due_and_state_stay_none(self):
+        issue = providers._gitlab_issue({
+            "iid": 1, "title": "t", "web_url": "u", "state": "opened",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_date": None, "state": None},
+        })
+        self.assertIsNone(issue.milestone_due)
+        self.assertIsNone(issue.milestone_state)
+
+    def test_current_milestone_does_not_crash_on_previously_malformed_input(self):
+        # End-to-end guard: feeding apply_pivot issues whose milestone metadata
+        # came from a malformed provider payload (now coerced to None) must not
+        # raise, and such a milestone is simply never marked current (no due date,
+        # no pipeline work counted for it in this non-pipeline dim).
+        issues = [providers._github_issue({
+            "number": 1, "title": "t", "html_url": "u", "state": "open",
+            "labels": [], "assignees": [],
+            "milestone": {"title": "v1", "due_on": 123, "state": {}},
+        })]
+        cols, swim, _ = providers.apply_pivot(issues, LensConfig("state", "milestone"))
+        self.assertFalse(any(s.is_current for s in swim))
+
+
 class GitHubFetchTests(SimpleTestCase):
     @patch("git_lens.providers.requests.get")
     def test_filters_pull_requests(self, mock_get):

@@ -154,7 +154,8 @@ List all Personal Access Tokens for the authenticated user.
     "prefix": "vbn_a3f2",
     "created_at": "2026-03-01T09:00:00Z",
     "last_used_at": "2026-03-24T14:22:00Z",
-    "expires_at": "2027-03-01T09:00:00Z"
+    "expires_at": "2027-03-01T09:00:00Z",
+    "scopes": ["read", "write"]
   },
   {
     "id": 2,
@@ -162,7 +163,8 @@ List all Personal Access Tokens for the authenticated user.
     "prefix": "vbn_9c1d",
     "created_at": "2026-03-10T11:30:00Z",
     "last_used_at": null,
-    "expires_at": null
+    "expires_at": null,
+    "scopes": null
   }
 ]
 ```
@@ -179,6 +181,7 @@ The response never includes the raw token value, only the first 8 characters (`p
 | `created_at` | datetime | ISO 8601 UTC timestamp of when the token was created. |
 | `last_used_at` | datetime \| null | ISO 8601 UTC timestamp of the most recent authenticated request, or `null` if never used. |
 | `expires_at` | datetime \| null | ISO 8601 UTC expiry, or `null` if the token does not expire. |
+| `scopes` | string[] \| null | The scopes this token carries. `null` for a token created before 1.2 — see [Scopes](#scopes) below. Added in 1.2. |
 
 ---
 
@@ -194,11 +197,13 @@ Create a new Personal Access Token.
 |---|---|---|---|
 | `name` | string | Yes | A label for the token (1–64 characters). |
 | `expires_at` | datetime | No | ISO 8601 expiry. Must be in the future and at most 1 year from now. Omit for a non-expiring token. |
+| `scopes` | string[] | No | Scopes to grant. Must be a non-empty subset of `read`, `write`, `admin`, `mcp:read`, `mcp:write`. Defaults to `["read", "write"]` when omitted. Added in 1.2. |
 
 ```json
 {
   "name": "CI deploy key",
-  "expires_at": "2027-03-01T09:00:00Z"
+  "expires_at": "2027-03-01T09:00:00Z",
+  "scopes": ["read", "write"]
 }
 ```
 
@@ -214,7 +219,8 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
   "token": "vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
   "created_at": "2026-03-24T15:00:00Z",
   "last_used_at": null,
-  "expires_at": "2027-03-01T09:00:00Z"
+  "expires_at": "2027-03-01T09:00:00Z",
+  "scopes": ["read", "write"]
 }
 ```
 
@@ -226,7 +232,9 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 | `400 Bad Request` | `expires_at` is in the past |
 | `400 Bad Request` | `expires_at` is more than 1 year from now |
 | `400 Bad Request` | User already has 10 active tokens |
+| `400 Bad Request` | `scopes` contains an unrecognized value, or is an empty list |
 | `401 Unauthorized` | Request is not authenticated |
+| `403 Forbidden` | The request was authenticated with a *scoped* PAT — scoped tokens cannot create tokens (see [Scopes](#scopes)) |
 
 ---
 
@@ -237,6 +245,8 @@ Mint a short-lived, single-use ticket for a WebSocket handshake. Added in 1.2.
 WebSocket upgrades cannot carry an `Authorization` header from a browser, and the session cookie is `SameSite=Lax` so it is not sent cross-origin. Token-authenticated clients — native, CLI, or a front end on another origin — use this endpoint to exchange the credential they already hold for a one-shot ticket, then pass it as the `ticket` query parameter on the upgrade. See [WebSocket API → Ticket authentication](websockets.md#ticket-authentication-since-12).
 
 **Permission:** Requires authentication. Accepts any supported credential — PAT, session token, or session cookie.
+
+A *scoped* PAT must hold `write`: minting a ticket is a `POST`, and the scope baseline is resolved from the path and method (see [Scopes](#scopes)). A `read`-only token therefore cannot open a WebSocket. Legacy tokens (created before 1.2, `scopes` unset) keep full authority here as everywhere else.
 
 **Request body:** none.
 
@@ -265,6 +275,7 @@ A ticket cannot be revoked once issued: logging out, or deleting the PAT it was 
 | Status | Reason |
 |---|---|
 | `401 Unauthorized` | Request is not authenticated |
+| `403 Forbidden` | The request was authenticated with a scoped PAT that does not hold `write` |
 | `405 Method Not Allowed` | Any method other than `POST` |
 | `429 Too Many Requests` | Per-user rate limit exceeded — back off rather than retrying immediately |
 
@@ -282,10 +293,69 @@ Revoke a Personal Access Token. The token is immediately invalidated and cannot 
 
 | Status | Reason |
 |---|---|
+| `403 Forbidden` | The request was authenticated with a *scoped* PAT — scoped tokens cannot revoke tokens |
 | `404 Not Found` | Token does not exist, or belongs to a different user |
 
 !!! note
     A missing token and a token owned by another user both return `404 Not Found` — not `403 Forbidden`. This prevents user enumeration (IDOR prevention).
+
+---
+
+## Scopes
+
+> **Added in 1.2**
+
+Every Personal Access Token created from 1.2 onward carries an explicit list of scopes. A request is authorized only if the token holds **every** scope that request requires.
+
+| Scope | Required for |
+|---|---|
+| `read` | Any `GET`, `HEAD` or `OPTIONS` request to the REST API |
+| `write` | Any `POST`, `PUT`, `PATCH` or `DELETE` request to the REST API |
+| `admin` | Any request to `/api/v1/admin/*`, **in addition to** the verb scope above |
+| `mcp:read` | Any request to the MCP transport at `/mcp` (see [MCP server](mcp.md)) |
+| `mcp:write` | Reserved for MCP write tools |
+
+### Non-hierarchical by design
+
+No scope implies any other. Concretely:
+
+- `admin` does not grant `read` or `write`
+- `write` does not grant `read`
+- neither `read` nor `write` grants `mcp:read`
+- `mcp:read` does not grant `mcp:write`
+
+Requirements **compose**. `GET /api/v1/admin/settings/` requires `{admin, read}`; `PATCH /api/v1/admin/settings/` requires `{admin, write}`.
+
+```bash
+# Fails with 403 — the token has `admin` but the request is also a read.
+curl -s https://your-instance.example.com/api/v1/admin/settings/ \
+  -H "Authorization: Token vbn_admin_scope_only"
+# {"detail": "This token is missing the required scope: read."}
+```
+
+### Resolution order
+
+For a request authenticated with a PAT:
+
+1. If the token has **no scopes recorded** (`scopes: null` — created before 1.2), it is allowed anywhere on the REST API, exactly as before 1.2. It is refused by `/mcp`.
+2. If the token's scope list is **empty** (`[]`), every request is refused. An empty list is an explicit grant of nothing, not a wildcard.
+3. Otherwise the token must hold every scope the endpoint requires, per the table above.
+
+### Error semantics
+
+A scope failure is **`403 Forbidden`**, never `401 Unauthorized`. The credential is valid; only its authority is insufficient, and no amount of re-authenticating will change that. Clients should not retry a `403` with fresh credentials.
+
+The `detail` message names the scope that was missing. It never echoes the scopes the token actually holds.
+
+### Tokens cannot mint tokens
+
+A scoped token cannot call `POST /api/v1/auth/tokens/` or `DELETE /api/v1/auth/tokens/{id}/`. If it could, a `read`-only token could issue itself an `admin` one and the scope model would mean nothing. A scoped token **may** list tokens (`GET`) if it holds `read`.
+
+Tokens created before 1.2 retain the old behavior here and can still mint and revoke.
+
+### Scopes never widen access
+
+A scope can only narrow what a token may do. Board membership, role, and site-administrator checks all still apply. An `admin`-scoped token on an account that is not a site administrator reaches no admin endpoint.
 
 ---
 

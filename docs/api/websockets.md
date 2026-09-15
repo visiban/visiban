@@ -46,7 +46,7 @@ A ticket **authenticates only**. Board and group membership is still resolved on
 
 ### 1. Obtain a ticket
 
-Call [`POST /api/v1/auth/ws-ticket/`](authentication.md#post-apiv1authws-ticket) with any supported REST credential — a PAT, a session token, or a session cookie.
+Call [`POST /api/v1/auth/ws-ticket/`](authentication.md#post-apiv1authws-ticket) with any supported REST credential — a PAT, a session token, or a session cookie. A scoped PAT must hold the `write` scope to mint a ticket; see [Authentication → ws-ticket](authentication.md#post-apiv1authws-ticket).
 
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/auth/ws-ticket/ \

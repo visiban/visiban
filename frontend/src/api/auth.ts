@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -63,8 +63,26 @@ export const searchUsers = (query: string) =>
 export const listTokens = () =>
   client.get<PersonalAccessToken[]>("/api/v1/auth/tokens/").then((r) => r.data);
 
-export const createToken = (name: string, expires_at?: string) =>
-  client.post<CreatedPersonalAccessToken>("/api/v1/auth/tokens/", { name, expires_at }).then((r) => r.data);
+/**
+ * Create a personal access token.
+ *
+ * `scopes` is omitted from the request body entirely when not supplied, so the
+ * backend applies its own default (read + write) rather than receiving an
+ * explicit `undefined`. Sending `scopes: null` would be wrong — null means
+ * "legacy, full authority" and no write path may request it.
+ */
+export const createToken = (
+  name: string,
+  expires_at?: string,
+  scopes?: PersonalAccessTokenScope[],
+) =>
+  client
+    .post<CreatedPersonalAccessToken>("/api/v1/auth/tokens/", {
+      name,
+      expires_at,
+      ...(scopes ? { scopes } : {}),
+    })
+    .then((r) => r.data);
 
 export const revokeToken = (id: number) =>
   client.delete(`/api/v1/auth/tokens/${id}/`);

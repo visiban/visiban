@@ -4,6 +4,7 @@ from rest_framework.routers import SimpleRouter
 from .views import (
     BoardViewSet, BoardTemplateListView,
     ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
+    CardQueryViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
     VersionView,
 )
@@ -15,6 +16,11 @@ from .views import (
 # manage.py invocation.
 router = SimpleRouter()
 router.register(r"boards", BoardViewSet, basename="board")
+# Top-level, cross-board card query endpoint (#1112) — list only, registered
+# alongside `boards` rather than nested under it since it spans boards. Distinct
+# from `boards_router`'s `boards/<board_pk>/cards/` (CardViewSet, basename
+# "board-card") below.
+router.register(r"cards", CardQueryViewSet, basename="card")
 
 boards_router = routers.NestedDefaultRouter(router, r"boards", lookup="board")
 boards_router.register(r"columns", ColumnViewSet, basename="board-column")

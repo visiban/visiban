@@ -328,6 +328,20 @@ class Card(models.Model):
             # then filter active cards (archived_at IS NULL). Avoids a full table scan
             # when enforcement is enabled and card moves are frequent.
             models.Index(fields=["board", "column", "archived_at"], name="card_board_col_archived_idx"),
+            # Supports the cross-board card query endpoint (#1112): filtering by
+            # board and ordering/cursoring on updated_at (?board=, ?updated_since=,
+            # cursor pagination on (updated_at, id)). Partial + descending because
+            # both existing card-list consumers (CardViewSet.get_queryset(),
+            # BoardFullSerializer.get_cards()) — and the dominant query shape on the
+            # new endpoint, since include_archived defaults off — filter out archived
+            # cards; indexing the (usually much smaller) active-card subset only keeps
+            # the index cheaper to build and maintain. Built CONCURRENTLY per #1081 —
+            # see the migration that adds this index.
+            models.Index(
+                fields=["board", "-updated_at"],
+                name="card_board_updated_idx",
+                condition=models.Q(archived_at__isnull=True),
+            ),
             # Trigram indexes for server-side card search (icontains on title and
             # description). pg_trgm supports ILIKE with leading wildcards — without
             # these a full sequential scan runs on every search request.

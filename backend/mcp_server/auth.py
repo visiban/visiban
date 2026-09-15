@@ -15,6 +15,8 @@ from asgiref.sync import sync_to_async
 
 from accounts.authentication import (
     InvalidPersonalAccessToken,
+    enforce_mcp_scope,
+    record_token_usage,
     resolve_personal_access_token,
 )
 
@@ -67,6 +69,24 @@ def _extract_bearer_token(scope):
     return None
 
 
+def _authenticate_and_authorize(raw_token):
+    """Resolve, scope-check, and stamp a PAT for an MCP request.
+
+    Synchronous on purpose — the caller sends this to the sync worker thread as
+    a single unit (see BearerAuthMiddleware).
+
+    Order matters. Identity is established first, then authority as a separate
+    question (#1110): a token that can read every board over REST is NOT
+    thereby authorized to drive an agent — it needs the mcp:read scope, and a
+    legacy (unscoped) token can never satisfy it. Usage is stamped last, so a
+    request denied for scope never records authority it did not exercise.
+    """
+    pat = resolve_personal_access_token(raw_token)
+    presented_scope = enforce_mcp_scope(pat)
+    record_token_usage(pat, presented_scope)
+    return pat
+
+
 class BearerAuthMiddleware:
     """Require a valid Visiban personal access token on every MCP request.
 
@@ -82,6 +102,13 @@ class BearerAuthMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
+            # Unreachable as currently wired: visiban/asgi.py's
+            # ProtocolTypeRouter dispatches websocket traffic to the Channels
+            # stack, so only "http" scopes ever reach this middleware. Kept as a
+            # guard rather than an assertion because the consequence of it
+            # becoming reachable would be an UNAUTHENTICATED pass-through — if
+            # /mcp is ever mounted somewhere that can see other protocol types,
+            # this branch must become a rejection, not a delegation.
             await self.app(scope, receive, send)
             return
 
@@ -91,12 +118,14 @@ class BearerAuthMiddleware:
             return
 
         try:
-            # resolve_personal_access_token touches the ORM (lookup plus the
-            # last_used_at write), so it must not run on the event loop.
-            # thread_sensitive=True keeps it on the single sync worker thread
-            # that shares Django's per-thread DB connection.
+            # One hop, not three: the lookup and the usage write both touch the
+            # ORM and so must leave the event loop, and thread_sensitive=True
+            # pins them to the single sync worker thread that shares Django's
+            # per-thread DB connection. Dispatching them separately would pay
+            # the scheduling cost twice per request for no benefit, so the whole
+            # resolve -> authorize -> record sequence goes over together.
             pat = await sync_to_async(
-                resolve_personal_access_token, thread_sensitive=True
+                _authenticate_and_authorize, thread_sensitive=True
             )(raw_token)
         except InvalidPersonalAccessToken as exc:
             # Never log the token itself, and do not log the username either —

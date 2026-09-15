@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
+from accounts.permissions import TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -32,6 +33,7 @@ class ServeMediaView(APIView):
         IsAuthenticated,
         MustNotHavePendingPasswordChange,
         MustNotHavePendingUsernameChange,
+        TokenHasScope,
     ]
 
     def get(self, request, path):

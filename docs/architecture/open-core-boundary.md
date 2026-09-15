@@ -168,9 +168,11 @@ A `VISIBAN_WEBHOOK_BACKEND` registration pattern must also be defined in OSS set
 
 ### PATs (OSS) vs service account tokens (Enterprise)
 
-OSS Personal Access Tokens are user-tied, carry the user's full access rights, and are limited to 10 per user. They are sufficient for small teams doing CI/CD automation.
+OSS Personal Access Tokens are user-tied and limited to 10 per user. Since 1.2 they also carry [scopes](../features/personal-access-tokens.md#scopes) (`read`, `write`, `admin`, `mcp:read`, `mcp:write`), so a token can be issued with less authority than its owner. They are sufficient for small teams doing CI/CD automation and for granting an AI agent least-privilege access.
 
-Enterprise service account tokens are not tied to a real user account. They support board-scoped permissions (read-only vs read-write) and are intended for strict security environments where personal-credential use in automation is prohibited.
+Scoped tokens moved into OSS with #1110 and are no longer an enterprise differentiator. The project's own test decides it: the MCP server is OSS, agent credentials are issued against OSS PATs, and least privilege for a credential a user is *told* to hand to an agent is necessary rather than premium. Withholding it would have meant shipping an OSS feature that can only be used unsafely.
+
+Enterprise service account tokens remain distinct on the axis that actually separates them: they are **not tied to a real user account**, so they survive offboarding, do not inherit a person's board memberships, and are intended for strict security environments where personal-credential use in automation is prohibited. Enterprise may also add **per-board** scoping; OSS scopes constrain the kind of operation, not the set of boards.
 
 **Boundary documentation:** see [Personal Access Tokens](../features/personal-access-tokens.md) for OSS PAT scope. The service-account distinction must be documented in the enterprise repo before enterprise #17 is implemented.
 
