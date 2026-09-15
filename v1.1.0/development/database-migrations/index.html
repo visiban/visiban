@@ -2471,6 +2471,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#constraint-safety-on-populated-tables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraint safety on populated tables
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Constraint safety on populated tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-rule_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The rule
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-escape-hatch_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The escape hatch
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-self-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --self-test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-pre-1081-migrations-decision-and-reasoning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3347,6 +3397,150 @@ reason after the colon is mandatory — a bare <code># concurrency-exempt:</code
 The reason is the point: it is what lets the next reader see why the lock was acceptable
 without re-deriving it.</p>
 <hr />
+<h2 id="constraint-safety-on-populated-tables">Constraint safety on populated tables<a class="headerlink" href="#constraint-safety-on-populated-tables" title="Permanent link">&para;</a></h2>
+<p>Everything above is about how long a lock is held. This section is about a different
+failure: an operation that validates every existing row and <strong>fails outright</strong> if one of
+them does not comply. A migration that adds a <code>CheckConstraint</code>, makes an existing column
+<code>NOT NULL</code>, or turns on <code>unique=True</code> does not degrade gracefully when a row disagrees — the
+migration partially applies, the deploying pod's migrate step errors, health checks fail, and
+the deploy is stuck in a crash-loop until someone intervenes by hand. That is a worse outcome
+than a migration that simply refuses to run (#1098).</p>
+<p>The CI <code>migration-check</code> job also fails the pipeline for this:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nb">cd</span><span class="w"> </span>backend
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety
+</code></pre></div>
+<p>It is a second, independent scan alongside <code>check_migration_concurrency</code> — same syntactic
+AST approach, same job, different rule. The two overlap in which operations they watch but
+not in what they check: <code>check_migration_concurrency</code> asks "how long is the lock held",
+this one asks "can this fail against the data that is already there". A migration can pass
+one and fail the other. In particular, <code>AddConstraintNotValid</code> (the concurrency-safe half of
+the #1081 pattern) never fails against existing data — that is what <code>NOT VALID</code> means — but
+the <code>ValidateConstraint</code> that must follow it still scans the whole table and fails exactly
+the way a plain <code>AddConstraint</code> would. This check watches <code>ValidateConstraint</code>, not
+<code>AddConstraintNotValid</code>, for that reason.</p>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Flagged</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>migrations.AddConstraint</code></td>
+<td>yes</td>
+<td>validates every row when applied</td>
+</tr>
+<tr>
+<td><code>visiban.db_operations.ValidateConstraint</code></td>
+<td>yes</td>
+<td>the deferred half of the NOT VALID pair still scans every row</td>
+</tr>
+<tr>
+<td><code>AlterUniqueTogether</code> / <code>AlterIndexTogether</code></td>
+<td>yes</td>
+<td>rebuilds the table's unique index, fails on any duplicate</td>
+</tr>
+<tr>
+<td><code>AddField</code> with no <code>null=True</code> and no <code>default</code></td>
+<td>yes</td>
+<td>Django cannot add the column to a populated table with nothing to put in existing rows</td>
+</tr>
+<tr>
+<td><code>AlterField</code> with explicit <code>null=False</code></td>
+<td>yes</td>
+<td>making an existing column NOT NULL fails if any row is still NULL</td>
+</tr>
+<tr>
+<td><code>AddField</code> / <code>AlterField</code> with <code>unique=True</code></td>
+<td>yes, with one exception below</td>
+<td>fails on any pre-existing duplicate value</td>
+</tr>
+<tr>
+<td><code>AddField</code> with <code>unique=True</code> <strong>and</strong> <code>null=True</code></td>
+<td><strong>no</strong></td>
+<td>PostgreSQL does not treat NULL as equal to NULL, so a unique index over a nullable brand-new column never rejects a pre-existing row — every one of them just gets NULL (<code>boards/0034_board_share_token</code>, <code>groups/0010_hash_group_invite_token</code> are this exact shape)</td>
+</tr>
+<tr>
+<td><code>AddConstraintNotValid</code> on its own</td>
+<td><strong>no</strong></td>
+<td><code>NOT VALID</code> defers the scan; nothing fails yet</td>
+</tr>
+<tr>
+<td>any of the above on a table created earlier in the same migration</td>
+<td><strong>no</strong></td>
+<td>a table with no rows cannot have a violating row — not an escape-hatch case, correct behavior</td>
+</tr>
+<tr>
+<td>any of the above under <code>SeparateDatabaseAndState(state_operations=...)</code></td>
+<td><strong>no</strong></td>
+<td>state-only, emits no DDL</td>
+</tr>
+<tr>
+<td><code>db_index=True</code></td>
+<td><strong>no</strong></td>
+<td>a plain index never rejects a row — that risk is #1081's lock-duration concern, not a data-validity one</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-rule_1">The rule<a class="headerlink" href="#the-rule_1" title="Permanent link">&para;</a></h3>
+<p>Any flagged operation must be preceded by a data-repair step — a <code>RunPython</code> (or <code>RunSQL</code>)
+that removes or fixes whatever rows would otherwise violate it. "Preceded" means one of two
+things:</p>
+<ol>
+<li><strong>Same migration</strong> — an earlier element of the same migration's <code>operations</code> list is a
+   <code>RunPython</code> / <code>RunSQL</code> step. <code>boards/0018_add_stable_uids</code> and
+   <code>boards/0043_column_unique_name_per_board</code> are the worked examples already in the tree:
+   both backfill or deduplicate before the operation that would otherwise fail.</li>
+<li><strong>An adjacent migration in the same MR</strong> — the migration's own <code>dependencies</code> names
+   another migration, in the same app, whose operations are themselves a repair step.
+   <code>accounts/0021_unique_username_ci</code> depends directly on
+   <code>accounts/0020_resolve_ci_username_collisions</code>, a dedicated <code>RunPython</code> migration that
+   renames every colliding username before the unique constraint is added. The check reads
+   the dependency graph to confirm this, not just the file in front of it.</li>
+</ol>
+<p>The scan does not verify a repair step touches the <em>right</em> rows — same coarseness
+<code>check_migration_concurrency</code> accepts for its own "is this actually concurrent" question —
+it only confirms one exists in the right place. Requiring <em>some</em> explicit repair step there
+is the point; auditing that the repair is correct is still a human review job.</p>
+<h3 id="the-escape-hatch_1">The escape hatch<a class="headerlink" href="#the-escape-hatch_1" title="Permanent link">&para;</a></h3>
+<p>Some operations are safe for reasons the scan cannot see — most commonly, a constraint whose
+default values make every pre-existing row comply without any repair step at all. Add an
+inline comment naming the reason:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">operations</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="c1"># constraint-safe: verified against a prod snapshot — no row violates this today</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">migrations</span><span class="o">.</span><span class="n">AddConstraint</span><span class="p">(</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>        <span class="n">model_name</span><span class="o">=</span><span class="s2">"card"</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="n">constraint</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">CheckConstraint</span><span class="p">(</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>            <span class="n">condition</span><span class="o">=</span><span class="n">models</span><span class="o">.</span><span class="n">Q</span><span class="p">(</span><span class="n">position__gte</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">"card_position_non_negative"</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        <span class="p">),</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="p">),</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">]</span>
+</code></pre></div>
+<p>Same convention as <code># concurrency-exempt:</code> — the comment must sit on the operation's own
+line or within the four lines above it, and the reason after the colon is mandatory.</p>
+<p><code>groups/0014_group_invite_link_used_at_constraint</code> is the real example this covers: its
+<code>CheckConstraint</code> requires <code>single_use=True OR used_at IS NULL</code>, and both columns were added
+by the immediately preceding migration with defaults of <code>False</code> / <code>NULL</code> — every
+pre-existing row already satisfies the constraint by construction, but that fact lives in a
+field default the scanner never inspects. It predates this check and is grandfathered by
+filename in <code>GRANDFATHERED</code> rather than commented in place, for the same reason #1081's
+fourteen are: the migration is already applied everywhere, and editing applied history to
+add a comment is a needless risk for a file nobody will hand-author again.
+<code>accounts/migrations/0002_user_display_name.py</code> is grandfathered alongside it — a genuinely
+unsafe <code>AddField</code>, but from <code>accounts</code>' second-ever migration, applied only ever against an
+empty <code>users</code> table on every install that has run it, including every fresh install today.</p>
+<h3 id="-self-test"><code>--self-test</code><a class="headerlink" href="#-self-test" title="Permanent link">&para;</a></h3>
+<p>Every bespoke gate script ships a self-test that proves it still fires (#1093):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>check_migration_constraint_safety<span class="w"> </span>--self-test
+</code></pre></div>
+<p>It runs the scanner against known-bad and known-good fixture migrations built in memory —
+no files touched, no database, no real migration tree — and fails if a known-bad fixture is
+not caught or a known-good one is. CI runs it immediately before the real scan, in the same
+<code>migration-check</code> job, so a regression in the rule itself is caught before it has a chance to
+pass a real migration through undetected.</p>
+<hr />
 <h2 id="the-pre-1081-migrations-decision-and-reasoning">The pre-#1081 migrations — decision and reasoning<a class="headerlink" href="#the-pre-1081-migrations-decision-and-reasoning" title="Permanent link">&para;</a></h2>
 <p>Fourteen migrations predate this rule and build an index or constraint with a lock. #1081
 originally named eight. The other six surfaced only as the check grew past <code>AddIndex</code> — three
@@ -3487,17 +3681,17 @@ before the instance serves any traffic: the lock is real and contended by nobody
 restoring a large pre-1.1 dump into a 1.2 binary and then running <code>migrate</code> to catch up — a
 deliberate, offline maintenance operation. For them the answer is not a code change but a
 procedure: build the index by hand first, then tell Django it is done.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># 1. Build the index concurrently, with the application still serving traffic.</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE INDEX CONCURRENTLY checklist_card_pos_idx</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s2">                         ON card_checklist_items (card_id, position);"</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># 2. Confirm it is valid — an interrupted CONCURRENTLY build leaves an INVALID index</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1">#    that serves no queries.</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"SELECT indisvalid FROM pg_index</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="s2">                         WHERE indexrelid = 'checklist_card_pos_idx'::regclass;"</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># 3. Record the migration as applied without re-running its DDL.</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>boards<span class="w"> </span><span class="m">0047</span><span class="w"> </span>--fake
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 1. Build the index concurrently, with the application still serving traffic.</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"CREATE INDEX CONCURRENTLY checklist_card_pos_idx</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="s2">                         ON card_checklist_items (card_id, position);"</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># 2. Confirm it is valid — an interrupted CONCURRENTLY build leaves an INVALID index</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">#    that serves no queries.</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>psql<span class="w"> </span><span class="s2">"</span><span class="nv">$DATABASE_URL</span><span class="s2">"</span><span class="w"> </span>-c<span class="w"> </span><span class="s2">"SELECT indisvalid FROM pg_index</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="s2">                         WHERE indexrelid = 'checklist_card_pos_idx'::regclass;"</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># 3. Record the migration as applied without re-running its DDL.</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>python<span class="w"> </span>manage.py<span class="w"> </span>migrate<span class="w"> </span>boards<span class="w"> </span><span class="m">0047</span><span class="w"> </span>--fake
 </code></pre></div>
 <p>Use the exact index name and definition from the migration — <code>--fake</code> tells Django the schema
 matches, and it is on you to make that true.</p>
