@@ -57,6 +57,11 @@ RENDER_ARGS=(
 RELEASE="visiban"
 FAILURES=0
 RENDERED=""
+# The chart directory that produced $RENDERED. Section 2 re-renders that SAME
+# chart with a rotated secret, so under --self-test it must follow the damaged
+# copy, not CHART_DIR — otherwise the fixture damages one chart while the check
+# reads another and reports a clean pass.
+CHART_UNDER_TEST="$CHART_DIR"
 
 fail() {
   echo "  ✗ FAIL: $*" >&2
@@ -74,6 +79,7 @@ section() {
 
 render() {
   local chart="$1" out="$2"
+  CHART_UNDER_TEST="$chart"
   if ! helm template "$RELEASE" "$chart" "${RENDER_ARGS[@]}" > "$out" 2>/tmp/helm-render-err.txt; then
     echo "ERROR: helm template failed for chart '$chart':" >&2
     cat /tmp/helm-render-err.txt >&2
@@ -89,107 +95,167 @@ doc() {
 }
 
 # ---------------------------------------------------------------------------
-# 1. Hook ordering — the bootstrap Secret must land before the migrate Job.
+# 1. Migrations run inside the backend pod, never from an install-phase hook.
 # ---------------------------------------------------------------------------
-# This ordering IS the #1038 fix. Helm reconciles a plain Secret only AFTER
-# hooks complete, so a migrate Job running as a pre-upgrade hook reads the
-# PREVIOUS revision's Secret — making DJANGO_SECRET_KEY rotation impossible in a
-# single `helm upgrade`, and crash-looping the migrate hook the moment the app
-# grew a boot guard that rejects the old value. The chart fixes it by rendering a
-# second, hook-managed copy of the Secret at a lower hook-weight. Nothing else
-# re-checks that the weights stayed in that order.
-check_hook_ordering() {
-  section "1. Hook ordering: bootstrap Secret before migrate Job"
+# This IS the #1117 fix. Helm runs pre-install hooks BEFORE it creates any
+# release resource, so a migrate Job annotated `pre-install` resolves the bundled
+# PostgreSQL Service before that Service exists: every `helm install` with the
+# chart's own default values failed on "could not translate host name",
+# unconditionally, on the documented quick-start path. `helm upgrade` hid it,
+# because PostgreSQL already existed from the previous revision.
+#
+# Two invariants, and the second is the one a refactor is most likely to undo:
+#
+#   a) NOTHING in the render carries an install/upgrade-phase hook annotation.
+#      This also happens to be the static proof that `helm uninstall` removes
+#      everything the chart created: hook resources are precisely what Helm does
+#      NOT record in the release, so a hook-annotated StatefulSet or Secret
+#      outlives the uninstall. `helm.sh/hook: test` is exempt — a test hook is
+#      instantiated only by `helm test` and is never part of an install.
+#
+#   b) The backend pod runs migrate in an init container, ordered before the
+#      `bootstrap` init container (which needs migrated tables) and therefore
+#      before the app container. Init-container order in a pod spec is list
+#      order, so this is a real ordering assertion, not a formality.
+MIGRATE_COMMAND="migrate_with_lock"
 
-  local secret_hook secret_weight job_hook job_weight
-  secret_hook="$(doc Secret 'bootstrap$' | yq '.metadata.annotations."helm.sh/hook" // "MISSING"')"
-  secret_weight="$(doc Secret 'bootstrap$' | yq '.metadata.annotations."helm.sh/hook-weight" // "MISSING"')"
-  job_hook="$(doc Job 'migrate$' | yq '.metadata.annotations."helm.sh/hook" // "MISSING"')"
-  job_weight="$(doc Job 'migrate$' | yq '.metadata.annotations."helm.sh/hook-weight" // "MISSING"')"
+check_migrate_placement() {
+  section "1. Migrations run in the backend pod, not in an install-phase hook"
 
-  if [ "$secret_hook" != "pre-install,pre-upgrade" ]; then
-    fail "bootstrap Secret hook is '$secret_hook', expected 'pre-install,pre-upgrade' (#1038)"
-  else
-    pass "bootstrap Secret is a pre-install,pre-upgrade hook"
+  # Every hook annotation in the render, with the document's kind and name, so a
+  # violation names the offending object rather than just its existence.
+  local hooks bad=0
+  hooks="$(yq 'select(.metadata.annotations."helm.sh/hook" != null)
+               | .kind + "/" + .metadata.name + " " + .metadata.annotations."helm.sh/hook"' "$RENDERED" \
+           | grep -vE '^(null|---)?$' || true)"
+  while IFS= read -r entry; do
+    [ -z "$entry" ] && continue
+    # Field 2 is the comma-joined hook list.
+    local phases="${entry##* }"
+    if [ "$phases" != "test" ]; then
+      fail "'$entry' is an install-phase Helm hook. Hooks run before Helm creates the release's own resources (so a database client cannot reach the bundled PostgreSQL on a fresh install, #1117) and are not tracked in the release (so 'helm uninstall' leaves them behind)"
+      bad=1
+    fi
+  done <<< "$hooks"
+  [ "$bad" -eq 0 ] && pass "no install-phase hooks — every resource is an ordinary, uninstallable release resource"
+
+  # Init container ORDER, read as a list so position is meaningful.
+  local init_cmds migrate_idx=-1 bootstrap_idx=-1 idx=0
+  init_cmds="$(doc Deployment 'backend$' \
+    | yq '.spec.template.spec.initContainers[] | (.command // []) | join(" ")')"
+
+  if [ -z "$init_cmds" ]; then
+    fail "backend Deployment declares no init containers — nothing applies migrations before the app container starts"
+    return
   fi
 
-  if [ "$job_hook" != "pre-install,pre-upgrade" ]; then
-    fail "migrate Job hook is '$job_hook', expected 'pre-install,pre-upgrade'"
+  while IFS= read -r cmd; do
+    case "$cmd" in
+      *"manage.py $MIGRATE_COMMAND"*) [ "$migrate_idx" -lt 0 ] && migrate_idx=$idx ;;
+      *"manage.py ensure_site_admin"*) [ "$bootstrap_idx" -lt 0 ] && bootstrap_idx=$idx ;;
+    esac
+    idx=$((idx + 1))
+  done <<< "$init_cmds"
+
+  if [ "$migrate_idx" -lt 0 ]; then
+    fail "no backend init container runs 'manage.py $MIGRATE_COMMAND' — with the migrate hook Job gone (#1117) nothing would apply migrations at all"
   else
-    pass "migrate Job is a pre-install,pre-upgrade hook"
+    pass "backend init container $migrate_idx runs 'manage.py $MIGRATE_COMMAND'"
   fi
 
-  if [ "$secret_weight" = "MISSING" ] || [ "$job_weight" = "MISSING" ]; then
-    fail "hook-weight missing (Secret='$secret_weight', Job='$job_weight') — Helm defaults both to 0 and the ordering becomes undefined"
-  elif [ "$secret_weight" -ge "$job_weight" ]; then
-    fail "bootstrap Secret hook-weight ($secret_weight) must be LESS than the migrate Job's ($job_weight), or the Job reads the previous-revision Secret and no in-place secret rotation is possible (#1038)"
+  if [ "$bootstrap_idx" -lt 0 ]; then
+    fail "no backend init container runs 'manage.py ensure_site_admin' — a fresh install would have no admin account to log in with"
+  elif [ "$migrate_idx" -ge 0 ] && [ "$migrate_idx" -gt "$bootstrap_idx" ]; then
+    fail "the migrate init container (position $migrate_idx) runs AFTER bootstrap (position $bootstrap_idx) — ensure_site_admin needs migrated tables and would crash-loop on every fresh install"
   else
-    pass "bootstrap Secret weight $secret_weight < migrate Job weight $job_weight"
-  fi
-
-  # before-hook-creation on the Job: a failed previous migration must not block
-  # the next attempt with an immutable, already-completed Job object.
-  local job_delete
-  job_delete="$(doc Job 'migrate$' | yq '.metadata.annotations."helm.sh/hook-delete-policy" // "MISSING"')"
-  if [[ "$job_delete" != *"before-hook-creation"* ]]; then
-    fail "migrate Job hook-delete-policy is '$job_delete' — without before-hook-creation a failed migration blocks every later upgrade"
-  else
-    pass "migrate Job is recreated on each release"
+    pass "migrate is ordered before the bootstrap init container"
   fi
 }
 
 # ---------------------------------------------------------------------------
-# 2. The migrate Job must read the BOOTSTRAP Secret, not the runtime one.
+# 2. A secret rotated in one `helm upgrade` reaches the pod that migrates.
 # ---------------------------------------------------------------------------
-# The weights in section 1 are necessary and not sufficient: a correctly-ordered
-# hook Secret that nothing references changes nothing. This is #1038 blocker 2's
-# other half, and it is one careless `include` away from regressing, because the
-# two secret names differ by a suffix.
-check_bootstrap_propagation() {
-  section "2. migrate Job reads the bootstrap Secret"
+# #1038 blocker 2, re-proved against the #1117 shape. It used to be guaranteed by
+# a hook-managed bootstrap Secret at a lower hook-weight than the migrate Job.
+# With migrations in the pod there is only ONE Secret, and two things have to
+# hold instead:
+#
+#   a) every container in the backend pod reads the chart's runtime Secret, so
+#      the value in effect is the one Helm has just applied (Helm applies a
+#      Secret before a Deployment); and
+#   b) the pod template carries a checksum over the Secret's contents, so that
+#      rotating a value actually CHANGES the pod template and forces a rollout.
+#      Without (b) `helm upgrade` writes the new Secret, no pod is replaced, the
+#      running app keeps the old key indefinitely, and the migrate init container
+#      — which only runs when a pod is created — never sees the rotation at all.
+#
+# (b) is asserted by rendering the chart TWICE with different secret values and
+# requiring the annotation to differ. A checksum that is present but constant
+# passes every single-render check and provides nothing.
+check_secret_rotation_reaches_migrate() {
+  section "2. A rotated Secret reaches the migrating pod"
 
-  local bootstrap_name refs
-  bootstrap_name="$(doc Secret 'bootstrap$' | yq '.metadata.name')"
-  if [ -z "$bootstrap_name" ] || [ "$bootstrap_name" = "null" ]; then
-    fail "no bootstrap Secret rendered"
+  local runtime_name refs
+  runtime_name="$(yq 'select(.kind == "Secret" and (.metadata.name | test("visiban$"))) | .metadata.name' "$RENDERED" | head -1)"
+  if [ -z "$runtime_name" ] || [ "$runtime_name" = "null" ]; then
+    fail "no chart-managed runtime Secret rendered"
     return
   fi
 
-  # Every secretKeyRef in the migrate Job's container env, deduplicated. The
-  # email password is allowed to come from elsewhere (backend.email.existingSecret
-  # is an operator-supplied Secret), so it is excluded by name rather than by
+  # Every secretKeyRef across the backend pod — app container AND init
+  # containers, since the migrate init container is now one of them. The email
+  # password is allowed to come from elsewhere (backend.email.existingSecret is
+  # an operator-supplied Secret), so it is excluded by name rather than by
   # position — an index-based check breaks the moment a variable is inserted.
-  refs="$(doc Job 'migrate$' \
-    | yq '[.spec.template.spec.containers[].env[]
+  # The parentheses around the two sources are load-bearing: yq binds `|` tighter
+  # than `,` inside a collect, so `[a, b | f]` filters only `b` and passes every
+  # env entry of `a` through raw. That is not a hypothetical — it is what this
+  # expression did on its first run, reporting 14 "violations" whose names were
+  # fragments of unrelated YAML.
+  refs="$(doc Deployment 'backend$' \
+    | yq '[(.spec.template.spec.containers[].env[], .spec.template.spec.initContainers[].env[])
            | select(.name != "EMAIL_HOST_PASSWORD")
            | .valueFrom.secretKeyRef.name] | map(select(. != null)) | unique | .[]')"
 
   if [ -z "$refs" ]; then
-    fail "migrate Job has no secretKeyRef env at all — it cannot reach the database"
+    fail "backend pod has no secretKeyRef env at all — it cannot reach the database"
     return
   fi
 
   local bad=0
   while IFS= read -r ref; do
     [ -z "$ref" ] && continue
-    if [ "$ref" != "$bootstrap_name" ]; then
-      fail "migrate Job reads Secret '$ref', expected the bootstrap hook Secret '$bootstrap_name' — a secret rotated in the same 'helm upgrade' would not be in effect when migrations run (#1038)"
+    if [ "$ref" != "$runtime_name" ]; then
+      fail "backend pod reads Secret '$ref', expected the chart's runtime Secret '$runtime_name' — anything else is either not reconciled before the pod starts or not deleted by 'helm uninstall'"
       bad=1
     fi
   done <<< "$refs"
-  [ "$bad" -eq 0 ] && pass "all migrate Job secret refs point at '$bootstrap_name'"
+  [ "$bad" -eq 0 ] && pass "all backend pod secret refs point at '$runtime_name'"
 
-  # And the runtime Deployment must NOT read the bootstrap Secret: it is deleted
-  # on hook success, so a Deployment bound to it would fail to start on the next
-  # pod reschedule, long after the deploy looked successful.
-  local dep_refs
-  dep_refs="$(doc Deployment 'backend$' \
-    | yq '[.spec.template.spec.containers[].env[], .spec.template.spec.initContainers[].env[]
-           | .valueFrom.secretKeyRef.name] | map(select(. != null)) | unique | .[]')"
-  if grep -qFx -- "$bootstrap_name" <<< "$dep_refs"; then
-    fail "backend Deployment references the bootstrap Secret '$bootstrap_name', which is deleted on hook success — the next pod reschedule would fail to start"
+  # (b) the checksum must exist AND vary with the secret contents.
+  local sum_a sum_b alt_rendered
+  sum_a="$(doc Deployment 'backend$' | yq '.spec.template.metadata.annotations."checksum/secret" // ""')"
+  if [ -z "$sum_a" ] || [ "$sum_a" = "null" ]; then
+    fail "backend pod template carries no checksum/secret annotation — rotating a secret would change no field of the pod template, so no pod is replaced and the migrate init container never re-runs with the new value (#1038 blocker 2)"
+    return
+  fi
+
+  alt_rendered="$(mktemp)"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" \
+        --set-string secret.djangoSecretKey=structure-check-ROTATED-key-value \
+        > "$alt_rendered" 2>/dev/null; then
+    fail "the rotation render failed — cannot prove the checksum varies"
+    rm -f "$alt_rendered"
+    return
+  fi
+  sum_b="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$")))
+               | .spec.template.metadata.annotations."checksum/secret" // ""' "$alt_rendered")"
+  rm -f "$alt_rendered"
+
+  if [ "$sum_a" = "$sum_b" ]; then
+    fail "checksum/secret is identical across two renders with DIFFERENT djangoSecretKey values — the annotation is constant, so it forces no rollout and buys nothing"
   else
-    pass "backend Deployment does not reference the ephemeral bootstrap Secret"
+    pass "checksum/secret changes when a secret value changes, so a rotation forces a rollout"
   fi
 }
 
@@ -225,7 +291,7 @@ check_env_contract() {
   local names
   names="$(yq 'select(.kind == "Deployment" or .kind == "Job")
                | select(.spec.template.metadata.labels."app.kubernetes.io/component"
-                        | . == "backend" or . == "migrate")
+                        | . == "backend")
                | .spec.template.spec.containers[].env[].name,
                  (.spec.template.spec.initContainers[]?.env[]?.name // "")' "$RENDERED" \
              | grep -vE '^(null|---)?$' | sort -u)"
@@ -410,7 +476,10 @@ check_transport_limits() {
 # so ADDING a template that talks to PostgreSQL or Valkey breaks isolation
 # without touching networkpolicy.yaml. That is precisely how the migrate Job was
 # omitted before #1116: on kind's default kindnetd the policies are admitted and
-# ignored, so it passed every gate, and on Calico the migrate hook hung.
+# ignored, so it passed every gate, and on Calico the migrate hook hung. (That
+# Job is gone as of #1117 — migrations run as an init container of the backend
+# pod, so they are covered by `backend` — but the omission shape it demonstrates
+# is exactly what this section exists to catch for the NEXT such template.)
 #
 # Not fixture-covered: the assertion is a set comparison over the real chart's
 # rendered workloads, and a fixture chart would have its own workload set —
@@ -464,9 +533,9 @@ check_netpol_coverage() {
   done <<< "$components"
   [ "$bad" -eq 0 ] && pass "every datastore-client component is allowed: $(tr '\n' ' ' <<< "$allowed")"
 
-  # Valkey's allow-list must match PostgreSQL's — the backend and the migrate Job
-  # both hold connections to each, and a policy pair that disagrees is a deploy
-  # that half-works.
+  # Valkey's allow-list must match PostgreSQL's — the backend pod holds
+  # connections to each, and a policy pair that disagrees is a deploy that
+  # half-works.
   local valkey_allowed
   valkey_allowed="$(yq 'select(.kind == "NetworkPolicy" and (.metadata.name | test("allow-backend-valkey$")))
                         | [.spec.ingress[].from[].podSelector.matchLabels."app.kubernetes.io/component"] | .[]' "$RENDERED" | sort -u)"
@@ -480,13 +549,13 @@ check_netpol_coverage() {
 # ---------------------------------------------------------------------------
 # 8. Every `manage.py <command>` the chart invokes must exist.
 # ---------------------------------------------------------------------------
-# The chart runs three Django management commands across the migrate Job and the
-# backend Deployment's init containers. Two are built into Django; the third,
-# `ensure_site_admin`, is Visiban's own. Renaming or moving it crash-loops the
-# `bootstrap` init container on EVERY deploy — no pod ever reaches Ready — and
-# nothing else in this repo connects the chart's string literal to the command
-# that has to answer it. The command name is not in any Python import graph, so
-# a rename tool will not catch it either.
+# The chart runs three Django management commands across the backend pod's init
+# containers and its app container. One is built into Django; the other two,
+# `migrate_with_lock` (#1117) and `ensure_site_admin`, are Visiban's own.
+# Renaming or moving either crash-loops an init container on EVERY deploy — no
+# pod ever reaches Ready — and nothing else in this repo connects the chart's
+# string literal to the command that has to answer it. The command name is not in
+# any Python import graph, so a rename tool will not catch it either.
 check_manage_commands() {
   section "8. manage.py commands named by the chart exist"
 
@@ -523,8 +592,8 @@ check_manage_commands() {
 }
 
 run_all_checks() {
-  check_hook_ordering
-  check_bootstrap_propagation
+  check_migrate_placement
+  check_secret_rotation_reaches_migrate
   check_env_contract
   check_nginx_upstream
   check_probe_paths
@@ -549,8 +618,22 @@ self_test() {
   # asserting on the exit code rather than on message text, so a reworded
   # failure message does not silently disarm the fixture.
   local fixtures=(
-    "1 hook ordering|templates/secret-bootstrap.yaml|s/\"helm.sh\/hook-weight\": \"-10\"/\"helm.sh\/hook-weight\": \"10\"/"
-    "2 bootstrap propagation|templates/migrate-job.yaml|s/visiban.bootstrapSecretName/visiban.secretName/"
+    # 1a: an install-phase hook comes back — #1117 verbatim. Re-annotating an
+    # existing hook is the cheapest faithful injection: it needs no newline in
+    # the replacement, which matters because BSD and busybox sed disagree about
+    # \n on the right-hand side and this file has to run on both.
+    "1 install-phase hook reintroduced|templates/tests/api-connection.yaml|s/helm.sh\/hook: test/helm.sh\/hook: pre-install/"
+    # 1b: nothing applies migrations any more.
+    "1 migrate init container has no command|templates/backend-deployment.yaml|/command: \[\"python\", \"manage.py\", \"migrate_with_lock\"\]/d"
+    # 1c: migrate ordered AFTER the bootstrap init container, which needs the
+    # tables migrate creates. Swapped via a temporary token so the two
+    # substitutions cannot chase each other on the same line.
+    "1 migrate ordered after bootstrap|templates/backend-deployment.yaml|s/\"migrate_with_lock\"]/\"ZZSWAP\"]/; s/\"ensure_site_admin\"]/\"migrate_with_lock\"]/; s/\"ZZSWAP\"]/\"ensure_site_admin\"]/"
+    # 2a: the backend pod stops reading the chart's own runtime Secret.
+    "2 backend reads a foreign Secret|templates/_backend-env.tpl|s/name: {{ \$secret }}/name: not-the-runtime-secret/"
+    # 2b: the checksum is present but constant, so it forces no rollout and a
+    # rotated secret never reaches a newly created pod.
+    "2 secret checksum frozen|templates/backend-deployment.yaml|s/| sha256sum }}/| trunc 0 }}/"
     "3 env var name drift (#1038 blocker 1)|templates/_backend-env.tpl|s/- name: OIDC_CLIENT_SECRET/- name: OIDC_SECRET/"
     "3 required env removed (#1038 blocker 3)|templates/_backend-env.tpl|/- name: EMAIL_BACKEND/,+1d"
     "4 nginx upstream|templates/frontend-configmap.yaml|s|http://{{ include \"visiban.fullname\" . }}-backend|http://backend|g"
@@ -574,6 +657,15 @@ self_test() {
     cp -R "$CHART_DIR" "$broken"
     sed -i.bak "$prog" "$broken/$file"
     rm -f "$broken/$file.bak"
+    # A fixture that changes nothing is a fixture that proves nothing — and an
+    # unanchored sed silently becomes one the moment the line it targets is
+    # reworded. Compare against the pristine copy rather than trusting sed's
+    # exit status, which is 0 for "no lines matched".
+    if diff -q "$CHART_DIR/$file" "$broken/$file" >/dev/null 2>&1; then
+      echo "  ✗ SELF-TEST FAIL: fixture '$name' changed nothing in $file — its sed program no longer matches" >&2
+      selftest_failures=$((selftest_failures + 1))
+      continue
+    fi
 
     # A fixture must RENDER and then FAIL the contract. A fixture that merely
     # breaks `helm template` proves nothing about this script — helm already
@@ -585,7 +677,10 @@ self_test() {
       continue
     fi
 
-    if ( RENDERED="$tmp/rendered.yaml"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ); then
+    # CHART_UNDER_TEST must follow the DAMAGED copy: section 2 re-renders it to
+    # prove the secret checksum varies, and pointing that re-render at the
+    # pristine chart would report a clean pass on a broken one.
+    if ( RENDERED="$tmp/rendered.yaml"; CHART_UNDER_TEST="$broken"; FAILURES=0; run_all_checks >/dev/null 2>&1; [ "$FAILURES" -eq 0 ] ); then
       echo "  ✗ SELF-TEST FAIL: '$name' was injected and the check still passed" >&2
       selftest_failures=$((selftest_failures + 1))
     else

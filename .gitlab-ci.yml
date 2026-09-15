@@ -868,14 +868,17 @@ helm-lint:
 # it cannot know whether the rendered manifests still honor the contract a
 # deploy depends on. That gap is what let #1038 ship: an OIDC env-var name
 # mismatch that silently disabled SSO, a hook-ordering bug that made SECRET_KEY
-# rotation impossible, and zero email wiring — all of them rendering green.
+# rotation impossible, and zero email wiring — all of them rendering green. It
+# is also what let #1117 ship: a pre-install migrate hook that could not reach
+# the database it was installed alongside.
 #
 # Two halves, both cluster-free and therefore always-on:
 #   kubeconform -strict       every rendered object validates against the real
 #                             Kubernetes API schema, unknown fields included
 #   helm-structure-check.sh   the runtime contract a refactor can silently break
-#                             (hook order, secret propagation, nginx upstream,
-#                             probe paths, transport limits, netpol coverage)
+#                             (migrate placement, secret rotation reaching the
+#                             migrating pod, nginx upstream, probe paths,
+#                             transport limits, netpol coverage)
 #
 # The runtime half lives in helm-install and helm-netpol below.
 
@@ -993,13 +996,17 @@ helm-template:
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
 
 helm-install:
-  # Boots the chart and asserts it SERVES: `helm install --wait` completes (so
-  # the migrate hook ran and both Deployments rolled out), `helm test` passes
-  # (the same hook operators run), the one-time admin password is retrievable
-  # from the shared emptyDir, a placeholder SECRET_KEY is REJECTED (the
-  # fail-closed guard is asserted, not assumed), and a DJANGO_SECRET_KEY
-  # rotation applied in a single `helm upgrade` takes effect — #1038 blocker 2
-  # on the path that actually broke. See scripts/helm-install-drill.sh.
+  # Boots the chart and asserts it SERVES. ONE `helm install --wait` of the
+  # chart's own defaults completes against a cluster with no pre-existing
+  # database (#1117's acceptance criterion — this needed a two-phase
+  # --no-hooks workaround while the migrate Job was a pre-install hook),
+  # `helm test` passes (the same hook operators run), the one-time admin
+  # password is retrievable from the shared emptyDir, a placeholder SECRET_KEY
+  # is REJECTED (the fail-closed guard is asserted, not assumed), a
+  # DJANGO_SECRET_KEY rotation applied in a single `helm upgrade` takes effect
+  # AND replaces the pods — #1038 blocker 2 on the path that actually broke —
+  # three replicas migrate without deadlocking on the advisory lock, and
+  # `helm uninstall` leaves nothing behind. See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
   rules:
@@ -1020,7 +1027,8 @@ helm-netpol:
   # IMPLEMENT NetworkPolicy — the chart's policies are admitted there and
   # silently ignored, so a policy selecting the wrong pods passes every other
   # gate in this file. That is exactly how the migrate Job came to be missing
-  # from the datastore allow-list (#1116).
+  # from the datastore allow-list (#1116) — that Job is gone as of #1117, but
+  # the omission shape it demonstrated outlives it.
   #
   # Separate rather than a flag on helm-install so the common deploy smoke test
   # stays fast and two unrelated failure modes stay uncoupled.

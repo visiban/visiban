@@ -9,15 +9,18 @@ this file. Keeping the list in one place at least makes the omission visible in
 a diff, and scripts/helm-structure-check.sh asserts every workload the chart
 renders is either in a list or deliberately absent from it.
 
-The `migrate` entry is not decorative. Before #1116 the PostgreSQL policy
-allowed only `component: backend`, while the pre-install/pre-upgrade migrate Job
-runs with `component: migrate` — so on any CNI that actually ENFORCES
-NetworkPolicy (Calico, Cilium; NOT kind's default kindnetd) every install with
+There used to be a second entry here, `migrate`, for the pre-install/pre-upgrade
+migrate Job — which ran as its own pod with `component: migrate` and was omitted
+from this list until #1116, so on any CNI that actually ENFORCES NetworkPolicy
+(Calico, Cilium; NOT kind's default kindnetd) every install with
 networkPolicy.enabled=true hung at the migrate hook until its backoffLimit was
-exhausted. The chart rendered, linted and installed clean on kindnetd the whole
-time.
+exhausted, while rendering, linting and installing clean on kindnetd throughout.
+
+#1117 removed that Job: migrations now run as the `migrate` init container of the
+backend pod, which carries the backend pod's labels, so `backend` already covers
+them. Adding `migrate` back would select nothing.
 */ -}}
-{{- $datastoreClients := list "backend" "migrate" }}
+{{- $datastoreClients := list "backend" }}
 {{- $backendClients := list "frontend" "test" }}
 # Default deny all ingress — pods must be explicitly allowed.
 apiVersion: networking.k8s.io/v1
@@ -78,7 +81,7 @@ spec:
           protocol: TCP
 {{- if .Values.postgresql.enabled }}
 ---
-# Allow backend + migrate → PostgreSQL (port 5432)
+# Allow the backend pod (app container and its migrate init container) → PostgreSQL
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -108,7 +111,7 @@ spec:
 {{- end }}
 {{- if .Values.valkey.enabled }}
 ---
-# Allow backend + migrate → Valkey (port 6379)
+# Allow the backend pod (app container and its migrate init container) → Valkey
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

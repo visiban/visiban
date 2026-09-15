@@ -86,6 +86,19 @@ backend:
       # Label shown on the login button (default: "SSO").
       providerName: "SSO"
 
+  # Database migrations. Applied by the `migrate` init container on the backend
+  # Deployment, which serializes concurrent replicas on a PostgreSQL advisory
+  # lock (`manage.py migrate_with_lock`). Both waits are bounded so a stuck
+  # deploy reports a named timeout instead of hanging silently.
+  migrate:
+    # Seconds to wait for the database to accept a connection. Covers a fresh
+    # `helm install`, where PostgreSQL is still being scheduled and initialized
+    # when this container first runs.
+    connectTimeout: 300
+    # Seconds to wait for another replica's in-flight migration to finish.
+    # Raise it if your migrations legitimately take longer than this to apply.
+    lockTimeout: 900
+
   # Persistent volume for user-uploaded media (attachments, avatars).
   mediaPersistence:
     enabled: true
