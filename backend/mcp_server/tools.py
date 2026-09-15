@@ -407,22 +407,69 @@ def _serialize_movement(movement):
     }
 
 
+def _serialize_label(label):
+    return {"id": label.id, "name": label.name, "color": label.color}
+
+
+# `actor`/`author` below are emails, matching the existing MCP-wide
+# convention `_serialize_card`'s `assignee` and `_serialize_movement`'s
+# `moved_by` already established (#512) — an MCP agent has no use for an
+# internal user id and no access to the web UI's username, so email is this
+# surface's one consistent way to reference a person (also how
+# `assignee_email` is ACCEPTED as an argument to create_card/update_card).
+# This is a real, already-flagged (security-review, #513) divergence from
+# REST: the same relations rendered through
+# `CardActivitySerializer`/`CardCommentSerializer` go through
+# `BoardUserSerializer`, whose own docstring says it deliberately withholds
+# email from board members other than themselves. Extending the established
+# MCP convention here — rather than making comments/activities the one
+# inconsistent field on this surface — was a deliberate call, not an
+# oversight; see the MR description's security findings section for the
+# tradeoff and the recommendation to revisit the whole family (`assignee`,
+# `moved_by`, `actor`, `author`) together in a follow-up.
+def _serialize_activity(activity):
+    return {
+        "id": activity.id,
+        "event_type": activity.event_type,
+        "from_value": activity.from_value,
+        "to_value": activity.to_value,
+        "actor": activity.actor.email if activity.actor_id else None,
+        "created_at": activity.created_at.isoformat(),
+    }
+
+
+def _serialize_comment(comment):
+    return {
+        "id": comment.id,
+        "body": comment.body,
+        "author": comment.author.email if comment.author_id else None,
+        "created_at": comment.created_at.isoformat(),
+        "updated_at": comment.updated_at.isoformat(),
+    }
+
+
+def _serialize_checklist_item(item):
+    return {
+        "id": item.id,
+        "text": item.text,
+        "is_checked": item.is_checked,
+        "position": item.position,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Read tools (#512) — all board roles
 # ---------------------------------------------------------------------------
 
-def list_columns(*, board_id):
-    """List a board's columns, ordered by position.
+def _columns_payload(board):
+    """Build the ``list_columns`` shape for an already-resolved *board*.
 
-    Every board member (including collaborator/viewer) may call this — it is
-    a read of board structure, not of any per-role-restricted data.
+    Split out of ``list_columns`` so ``board_snapshot`` (#513) can reuse the
+    identical query without re-resolving/re-authorizing the board a second
+    time — a board snapshot composes this, ``_swimlanes_payload``, and
+    ``_cards_payload`` on ONE resolved board rather than calling three public
+    tools that would each pay their own ``_resolve_board`` query.
     """
-    user = get_current_user()
-    try:
-        board, _role = _resolve_board(user, board_id)
-    except CardServiceError as exc:
-        return _error_payload(exc)
-
     columns = (
         Column.objects.filter(board=board)
         .annotate(_card_count=Count("cards", filter=Q(cards__archived_at__isnull=True)))
@@ -441,8 +488,22 @@ def list_columns(*, board_id):
     ]
 
 
-def list_swimlanes(*, board_id):
-    """List a board's swimlanes, ordered by position.
+def list_columns(*, board_id):
+    """List a board's columns, ordered by position.
+
+    Every board member (including collaborator/viewer) may call this — it is
+    a read of board structure, not of any per-role-restricted data.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+    return _columns_payload(board)
+
+
+def _swimlanes_payload(board, role):
+    """Build the ``list_swimlanes`` shape for an already-resolved *board*/*role*.
 
     ``contact_email`` is admin/site_admin-only, matching
     ``SwimlaneSerializer``/``SwimlaneAdminSerializer``'s existing split
@@ -451,14 +512,9 @@ def list_swimlanes(*, board_id):
     structure without it, exactly as they do over REST. The key is OMITTED
     for those roles rather than sent empty: an empty string would be
     indistinguishable from "no contact email on file" and would misinform the
-    caller rather than simply not tell it something.
+    caller rather than simply not tell it something. Split out of
+    ``list_swimlanes`` for the same reuse reason as ``_columns_payload``.
     """
-    user = get_current_user()
-    try:
-        board, role = _resolve_board(user, board_id)
-    except CardServiceError as exc:
-        return _error_payload(exc)
-
     can_see_contact_email = role in _ADMIN_ROLES
     swimlanes = (
         Swimlane.objects.filter(board=board)
@@ -481,26 +537,31 @@ def list_swimlanes(*, board_id):
     return results
 
 
+def list_swimlanes(*, board_id):
+    """List a board's swimlanes, ordered by position. See ``_swimlanes_payload``."""
+    user = get_current_user()
+    try:
+        board, role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+    return _swimlanes_payload(board, role)
+
+
 # Hard cap on list_cards rows, matching CardViewSet.list()'s existing
 # `_LIST_MAX_ROWS` (boards/views/cards.py) — targeted lookups must bound their
 # response the same way REST's do, not return an unbounded payload.
 _LIST_CARDS_MAX_ROWS = 200
 
 
-def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
-                priority=None, label=None, include_archived=False):
-    """List a board's cards, optionally filtered, ordered by board position.
+def _cards_payload(board, *, column_id=None, swimlane_id=None, assignee=None,
+                    priority=None, label=None, include_archived=False):
+    """Build the ``list_cards`` shape for an already-resolved *board*.
 
-    All filters are optional and compose with AND. ``assignee`` matches by
-    email (case-insensitive), consistent with how ``create_card``/
-    ``update_card`` accept an assignee — never an internal user id.
+    Split out of ``list_cards`` for the same reuse reason as
+    ``_columns_payload`` — ``board_snapshot`` calls this with no filters
+    (its own contract is "all active cards") without paying a second
+    ``_resolve_board`` query.
     """
-    user = get_current_user()
-    try:
-        board, _role = _resolve_board(user, board_id)
-    except CardServiceError as exc:
-        return _error_payload(exc)
-
     qs = (
         Card.objects.filter(board=board)
         .select_related("column", "swimlane", "assignee")
@@ -525,6 +586,25 @@ def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
         qs = qs.filter(labels__name=label).distinct()
     qs = qs.order_by("column__position", "swimlane__position", "position")[:_LIST_CARDS_MAX_ROWS]
     return [_serialize_card(card) for card in qs]
+
+
+def list_cards(*, board_id, column_id=None, swimlane_id=None, assignee=None,
+                priority=None, label=None, include_archived=False):
+    """List a board's cards, optionally filtered, ordered by board position.
+
+    All filters are optional and compose with AND. ``assignee`` matches by
+    email (case-insensitive), consistent with how ``create_card``/
+    ``update_card`` accept an assignee — never an internal user id.
+    """
+    user = get_current_user()
+    try:
+        board, _role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        return _error_payload(exc)
+    return _cards_payload(
+        board, column_id=column_id, swimlane_id=swimlane_id, assignee=assignee,
+        priority=priority, label=label, include_archived=include_archived,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -668,3 +748,116 @@ def archive_card(*, card_id):
         return result.payload
     except CardServiceError as exc:
         return _error_payload(exc)
+
+
+# ---------------------------------------------------------------------------
+# Resources (#513) — board:// and card://
+#
+# Unlike a tool, a FastMCP *resource* read has no structured-error return
+# path at all in the pinned SDK (mcp==1.30.0): FunctionResource.read()
+# (mcp/server/fastmcp/resources/types.py) treats ANY non-exception return
+# value — including a `{"error": ...}` dict, the tools' own convention above
+# — as the resource's successful content and JSON-serializes it verbatim.
+# There is no isError/structuredContent channel for resources. The only way
+# to signal failure is to raise, which FastMCP.read_resource() (mcp/server/
+# fastmcp/server.py) flattens to `ResourceError(str(exc))` — a single string
+# message with no separate `code` field, surfaced as one JSON-RPC-level
+# error for the `resources/read` call. Both functions below therefore raise
+# ValueError on a resolution failure instead of returning `_error_payload()`.
+#
+# That message is deliberately the SAME generic "not found" wording
+# `_resolve_board`/`_resolve_board_for_card` already produce for the
+# equivalent tool-facing error (`boards.services.errors.ObjectNotFound`),
+# whether the id does not exist or exists on a board the caller cannot see.
+# Issue #513's acceptance criteria literally ask for a non-member to get a
+# distinguishable "403" rather than the same response as a nonexistent card.
+# That is not implemented: architect review (see MR description) confirmed
+# this codebase's IDOR convention is deliberately uniform for exactly this
+# reason — `ObjectNotFound`'s own docstring says the API "never reveals that
+# an id the caller guessed exists on a board they cannot see" — and giving
+# the two cases different wording IS the enumeration oracle that convention
+# exists to close. It is also unimplementable literally: the SDK gives
+# resource reads exactly one failure channel with no structured code to hang
+# a 403-vs-404 distinction on in the first place.
+# ---------------------------------------------------------------------------
+
+def board_snapshot(*, board_id):
+    """Full read-only board snapshot for the ``board://{board_id}`` MCP resource.
+
+    Equivalent in content to ``GET /api/v1/boards/{id}/full/``
+    (``BoardFullSerializer``), but deliberately NOT built from that
+    serializer. Composed instead from ``_columns_payload``/
+    ``_swimlanes_payload``/``_cards_payload`` — the same query logic
+    ``list_columns``/``list_swimlanes``/``list_cards`` already use and are
+    already query-count-tested — resolving and authorizing the board exactly
+    ONCE rather than once per section. ``BoardFullSerializer`` also carries
+    several web-session-only fields (``share_token``, ``capabilities``,
+    ``is_starred``, ``members``, ``current_user_role``, ...) that have no
+    meaning for an AI agent reading board context; a share token in
+    particular is a bearer credential and must never appear in agent-facing
+    output, so an explicit allow-list (this function's return shape) is used
+    rather than trimming a deny-list that could silently leak the next field
+    BoardFullSerializer grows.
+    """
+    user = get_current_user()
+    try:
+        board, role = _resolve_board(user, board_id)
+    except CardServiceError as exc:
+        raise ValueError(exc.body()["detail"]) from None
+
+    return {
+        "id": board.id,
+        "name": board.name,
+        "description": board.description,
+        "created_at": board.created_at.isoformat(),
+        "updated_at": board.updated_at.isoformat(),
+        "columns": _columns_payload(board),
+        "swimlanes": _swimlanes_payload(board, role),
+        "cards": _cards_payload(board),
+        "labels": [_serialize_label(label) for label in board.labels.all()],
+    }
+
+
+def card_detail(*, card_id):
+    """Card detail + full audit history for the ``card://{card_id}`` MCP resource.
+
+    RBAC is enforced by ``_resolve_board_for_card`` — the same resolver every
+    write tool uses — so board membership is required exactly as it is for
+    ``move_card``/``update_card``/``archive_card``; see the module-level
+    comment above for why its failure is raised rather than returned.
+
+    Movements and checklist items come from ``_card_queryset``'s shared
+    prefetch chain (no extra query — the same one ``list_cards`` and the
+    REST card endpoints use). Activities and comments are NOT part of that
+    chain (it is built for listing many cards on a board at once, and most
+    board reads never need a card's full comment/activity history), so they
+    are fetched here as two additional queries scoped to this one card —
+    matching the exact ``select_related`` shape the REST
+    ``activities``/``comments`` actions already use
+    (``boards/views/cards.py``) — each covered by an existing
+    ``(card, ...)`` index (see ``CardActivity``/``CardComment`` Meta.indexes),
+    so this is a fixed five-query read for one card, never an N+1 over many.
+    """
+    user = get_current_user()
+    try:
+        _board, _role, card = _resolve_board_for_card(user, card_id)
+    except CardServiceError as exc:
+        raise ValueError(exc.body()["detail"]) from None
+
+    # Re-fetch with the shared prefetch chain so labels/checklist_items/
+    # movements are already loaded rather than queried lazily one at a time.
+    card = _card_queryset(Card.objects.filter(pk=card.pk)).get()
+
+    data = _serialize_card(card)
+    data["archived_at"] = card.archived_at.isoformat() if card.archived_at else None
+    data["movements"] = [_serialize_movement(m) for m in card.movements.all()]
+    data["checklist_items"] = [_serialize_checklist_item(i) for i in card.checklist_items.all()]
+    data["activities"] = [
+        _serialize_activity(a)
+        for a in card.activities.select_related("actor").order_by("-created_at")
+    ]
+    data["comments"] = [
+        _serialize_comment(c)
+        for c in card.comments.select_related("author").order_by("created_at")
+    ]
+    return data
