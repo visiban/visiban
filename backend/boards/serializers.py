@@ -1,8 +1,12 @@
 import datetime
+import decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models as _db_models
 from django.db.models import Prefetch
+from django.utils.dateparse import parse_date
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts.models import User
@@ -12,7 +16,8 @@ from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILI
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, SavedFilter,
+    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CustomFieldDefinition,
+    CustomFieldValue, SavedFilter,
 )
 
 
@@ -176,6 +181,415 @@ class LabelSerializer(serializers.ModelSerializer):
         read_only_fields = ["uid"]
 
 
+# ---------------------------------------------------------------------------
+# Custom fields (#371)
+#
+# Validation of every custom field value happens here, at the serializer
+# boundary, and nowhere else: the model stores one untyped text column, and the
+# service layer that writes it is handed values that are already legal. That
+# split is the project rule ("validate at the boundary, not in views or
+# models"), and it is what lets a value be typed at all.
+# ---------------------------------------------------------------------------
+
+def assert_definition_caps(board, *, instance=None, show_on_card=False):
+    """Enforce the two per-board custom field caps, or raise ``ValidationError``.
+
+    Neither cap is expressible as a database constraint — both are counts over
+    a board's rows — so this is the single place that knows them. It is called
+    from :class:`CustomFieldDefinitionSerializer.validate` (so a violation is a
+    400 with a field-shaped body) **and** from the viewset inside its
+    board-row-locked transaction (so two concurrent creates cannot both observe
+    a count of 29 and land a 31st field). One rule, two call sites, no second
+    copy to drift.
+
+    ``instance`` excludes the row being updated from both counts, so re-saving
+    an already-pinned field does not count itself as the third pin.
+    """
+    siblings = CustomFieldDefinition.objects.filter(board=board)
+    if instance is not None and instance.pk is not None:
+        siblings = siblings.exclude(pk=instance.pk)
+    if instance is None or instance.pk is None:
+        if siblings.count() >= CustomFieldDefinition.MAX_PER_BOARD:
+            raise serializers.ValidationError({
+                "detail": (
+                    f"A board may define at most "
+                    f"{CustomFieldDefinition.MAX_PER_BOARD} custom fields."
+                )
+            })
+    if show_on_card:
+        pinned = siblings.filter(show_on_card=True).count()
+        if pinned >= CustomFieldDefinition.MAX_PINNED_PER_BOARD:
+            raise serializers.ValidationError({
+                "show_on_card": (
+                    f"At most {CustomFieldDefinition.MAX_PINNED_PER_BOARD} custom "
+                    "fields can be shown on the card face."
+                )
+            })
+
+
+class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
+    """The board-scoped schema half of a custom field.
+
+    ``position`` is read-only: it is assigned on create (append to the end) and
+    changed only through the ``reorder`` action, which does the two-pass update
+    that ``unique_together(board, position)`` requires. Letting a plain PATCH
+    set it would make a unique violation the client's problem to untangle.
+
+    ``choices_json`` is exposed as ``choices`` — the column name records the
+    storage decision (a JSON list on the definition, not a separate table); the
+    API does not need to repeat it.
+    """
+
+    choices = serializers.JSONField(source="choices_json", required=False)
+
+    class Meta:
+        model = CustomFieldDefinition
+        fields = [
+            "id", "uid", "name", "field_type", "choices", "position",
+            "show_on_card", "is_required", "help_text", "created_at",
+        ]
+        read_only_fields = ["id", "uid", "position", "created_at"]
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Name cannot be blank.")
+        return name
+
+    def validate(self, attrs):
+        """Cross-field rules: dropdown choices, and the two per-board caps.
+
+        Reads through to the instance for fields the caller did not submit, so
+        a PATCH that only flips ``show_on_card`` is still checked against the
+        field's actual type rather than against a default.
+        """
+        instance = self.instance
+        field_type = attrs.get(
+            "field_type",
+            instance.field_type if instance else CustomFieldDefinition.FieldType.TEXT,
+        )
+        choices_submitted = "choices_json" in attrs
+        choices = attrs.get(
+            "choices_json", instance.choices_json if instance else []
+        )
+
+        if field_type == CustomFieldDefinition.FieldType.DROPDOWN:
+            if not isinstance(choices, list) or not choices:
+                raise serializers.ValidationError({
+                    "choices": "A dropdown field needs at least one choice."
+                })
+            cleaned = []
+            for choice in choices:
+                if not isinstance(choice, str) or not choice.strip():
+                    raise serializers.ValidationError({
+                        "choices": "Every choice must be a non-empty string."
+                    })
+                cleaned.append(choice.strip())
+            if len(set(cleaned)) != len(cleaned):
+                raise serializers.ValidationError({
+                    "choices": "Choices must be unique."
+                })
+            if len(cleaned) > 100:
+                raise serializers.ValidationError({
+                    "choices": "A dropdown field may have at most 100 choices."
+                })
+            attrs["choices_json"] = cleaned
+        elif choices_submitted and choices:
+            # Not a silent discard: a client sending choices for a checkbox has
+            # misunderstood something, and a 400 says so while an empty list
+            # written behind their back would not.
+            raise serializers.ValidationError({
+                "choices": "Only a dropdown field can have choices."
+            })
+        else:
+            attrs["choices_json"] = []
+
+        board = self.context.get("board") or (instance.board if instance else None)
+        if board is not None:
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = CustomFieldDefinition.objects.filter(board=board, name=name)
+                if instance is not None and instance.pk is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A custom field with this name already exists on this board."
+                    })
+            assert_definition_caps(
+                board,
+                instance=instance,
+                show_on_card=attrs.get(
+                    "show_on_card",
+                    instance.show_on_card if instance else False,
+                ),
+            )
+        return attrs
+
+
+class CustomFieldValueSerializer(serializers.ModelSerializer):
+    """Read representation of one card's value for one definition.
+
+    Deliberately thin: it carries the definition's **id** and not its name or
+    type, because the board's full definition list already reaches the client
+    on board load (``BoardFullSerializer.custom_field_definitions``). Inlining
+    the schema on every value would repeat it once per card per field.
+    """
+
+    class Meta:
+        model = CustomFieldValue
+        fields = ["field_definition", "value"]
+        read_only_fields = fields
+
+
+def _normalize_custom_field_value(definition, raw):
+    """Cast and validate one submitted value for *definition*.
+
+    Returns the string to store; ``""`` means "clear this field". Raises
+    ``serializers.ValidationError`` for anything the type does not accept.
+
+    Every type funnels through one text column, so this is the only thing
+    standing between "number" meaning a number and it meaning whatever the
+    client typed. Values are normalized to a canonical string form (ISO dates,
+    ``"true"``/``"false"``) so that equality comparisons — the change diff in
+    the service, and any future value filter — do not have to know the type.
+    """
+    T = CustomFieldDefinition.FieldType
+    if raw is None:
+        return ""
+    if isinstance(raw, bool):
+        # Checked before the str() below: str(True) is "True", which would then
+        # have to be special-cased in every branch.
+        if definition.field_type != T.CHECKBOX:
+            raise serializers.ValidationError(
+                f"'{definition.name}' does not accept a boolean."
+            )
+        return "true" if raw else "false"
+    if isinstance(raw, (list, dict)):
+        raise serializers.ValidationError(
+            f"'{definition.name}' expects a single value."
+        )
+
+    text = str(raw).strip()
+    if text == "":
+        return ""
+
+    if len(text) > CustomFieldDefinition.MAX_VALUE_LENGTH:
+        raise serializers.ValidationError(
+            f"'{definition.name}' value is longer than "
+            f"{CustomFieldDefinition.MAX_VALUE_LENGTH} characters."
+        )
+
+    if definition.field_type == T.NUMBER:
+        try:
+            parsed = decimal.Decimal(text)
+        except (decimal.InvalidOperation, ValueError):
+            raise serializers.ValidationError(
+                f"'{definition.name}' must be a number."
+            ) from None
+        if not parsed.is_finite():
+            # Decimal accepts "NaN" and "Infinity"; neither is a number a user
+            # can have meant, and both compare in surprising ways.
+            raise serializers.ValidationError(
+                f"'{definition.name}' must be a finite number."
+            )
+        return text
+
+    if definition.field_type == T.DATE:
+        try:
+            parsed_date = parse_date(text)
+        except ValueError:
+            # parse_date returns None for a string that is not date-shaped, but
+            # raises for one that is well-formed and impossible ("2026-13-01").
+            parsed_date = None
+        if parsed_date is None:
+            raise serializers.ValidationError(
+                f"'{definition.name}' must be a date in YYYY-MM-DD format."
+            )
+        return text
+
+    if definition.field_type == T.CHECKBOX:
+        lowered = text.lower()
+        if lowered in ("true", "1", "yes"):
+            return "true"
+        if lowered in ("false", "0", "no"):
+            return "false"
+        raise serializers.ValidationError(
+            f"'{definition.name}' must be true or false."
+        )
+
+    if definition.field_type == T.DROPDOWN:
+        if text not in (definition.choices_json or []):
+            # Note this is also what makes a value referencing a since-removed
+            # choice unwritable while leaving the already-stored value readable
+            # — the history stays honest, the next write has to be valid.
+            raise serializers.ValidationError(
+                f"'{text}' is not a choice for '{definition.name}'."
+            )
+        return text
+
+    return text
+
+
+def _run_custom_field_validator_hooks(definition, value):
+    """Apply :data:`boards.hooks.CUSTOM_FIELD_VALIDATORS` to a normalized value.
+
+    Read off the module object on every call, never bound at import time, so an
+    enterprise ``AppConfig.ready()`` that appends to the list is honored — the
+    stability guarantee in ``boards/hooks.py``.
+    """
+    from . import hooks as _hooks
+
+    for validator in _hooks.CUSTOM_FIELD_VALIDATORS:
+        try:
+            replacement = validator(definition, value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages)) from None
+        if replacement is not None:
+            value = replacement
+    return value
+
+
+@extend_schema_field({
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "field_definition": {
+                "type": "integer",
+                "description": "CustomFieldDefinition id, scoped to the card's board.",
+            },
+            "value": {
+                "type": "string",
+                "description": (
+                    "Value as a string; empty string clears the field. Numbers as "
+                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false'."
+                ),
+            },
+        },
+        "required": ["field_definition", "value"],
+    },
+})
+class CustomFieldValuesField(serializers.Field):
+    """The ``custom_field_values`` field on :class:`CardSerializer`.
+
+    The ``extend_schema_field`` above is not decoration: a bare
+    ``serializers.Field`` has no type drf-spectacular can infer, so without it
+    the generated OpenAPI schema describes this as a plain ``string`` and a
+    client generated from that schema rejects every card (#1108 was the same
+    class of bug).
+
+    One field rather than the read/write pair used for labels (``labels`` +
+    ``label_ids``) because the payload shape is the same in both directions:
+    a list of ``{"field_definition": <id>, "value": "<string>"}``. A client can
+    therefore round-trip the representation it was given, which the 1.0
+    backward-compatibility contract effectively requires of anything embedded
+    in the card body.
+
+    A write names only the fields it wants to change; unnamed fields are left
+    alone. Sending ``""`` or ``null`` for a field clears it.
+
+    Definitions are resolved **scoped to the card's board**, so a definition id
+    belonging to another board is a 400 and never a silent cross-board write
+    (IDOR). The board comes from serializer context, and a serializer built
+    without it rejects every id rather than falling back to an unscoped lookup
+    — the same fail-closed posture as ``label_ids`` and ``assignee_id``.
+    """
+
+    # No braces in these strings: DRF runs every message through str.format(),
+    # so a literal "{field_definition, value}" is read as a format field and
+    # raises KeyError instead of reporting the validation error.
+    default_error_messages = {
+        "not_a_list": (
+            "Expected a list of objects, each with a field_definition and a value."
+        ),
+        "not_an_object": (
+            "Each entry must be an object with a field_definition and a value."
+        ),
+        "no_board": (
+            "Custom field values cannot be resolved without board context."
+        ),
+    }
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("required", False)
+        super().__init__(**kwargs)
+
+    def to_representation(self, value):
+        # `value` is the reverse related manager. .all() reads the prefetch
+        # cache populated by _card_queryset(); .filter()/.order_by() here would
+        # bypass it and issue one query per card.
+        return [
+            {"field_definition": row.field_definition_id, "value": row.value}
+            for row in value.all()
+        ]
+
+    def to_internal_value(self, data):
+        if not isinstance(data, list):
+            self.fail("not_a_list")
+        if len(data) > CustomFieldDefinition.MAX_PER_BOARD:
+            # A board can never have more than MAX_PER_BOARD definitions, so a
+            # longer list cannot be legitimate. Rejected on length before the
+            # per-entry loop so an oversized payload costs one comparison rather
+            # than a walk over tens of thousands of entries and an `IN` clause
+            # of the same size.
+            raise serializers.ValidationError(
+                f"At most {CustomFieldDefinition.MAX_PER_BOARD} custom field "
+                "values can be set in one request."
+            )
+        board = self.context.get("board")
+        if board is None:
+            self.fail("no_board")
+
+        wanted = {}
+        for entry in data:
+            if not isinstance(entry, dict) or "field_definition" not in entry:
+                self.fail("not_an_object")
+            try:
+                definition_id = int(entry["field_definition"])
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    f"Invalid field_definition: {entry['field_definition']!r}."
+                ) from None
+            if definition_id in wanted:
+                raise serializers.ValidationError(
+                    f"Field {definition_id} appears more than once."
+                )
+            wanted[definition_id] = entry.get("value")
+
+        if not wanted:
+            return []
+
+        # One query for the whole submitted set, scoped to the board. An id on
+        # another board simply is not in the result, so it reports as unknown
+        # rather than confirming that it exists somewhere the caller cannot see.
+        definitions = {
+            definition.pk: definition
+            for definition in CustomFieldDefinition.objects.filter(
+                board=board, pk__in=wanted
+            )
+        }
+        missing = sorted(set(wanted) - set(definitions))
+        if missing:
+            raise serializers.ValidationError(
+                "Unknown custom field(s) for this board: "
+                + ", ".join(str(pk) for pk in missing)
+                + "."
+            )
+
+        pairs = []
+        for definition_id, raw in wanted.items():
+            definition = definitions[definition_id]
+            value = _normalize_custom_field_value(definition, raw)
+            value = _run_custom_field_validator_hooks(definition, value)
+            pairs.append((definition, value))
+        return pairs
+
+
 class CardMovementSerializer(serializers.ModelSerializer):
     # allow_null=True (#1108): moved_by is a SET_NULL FK — a movement made by
     # a since-deleted user must still serialize, and the schema must document
@@ -296,6 +710,19 @@ def _card_queryset(qs, stale_cutoff=None):
                     "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane"
                 ).order_by("-moved_at"),
             ),
+            # Custom field values (#371). One query for the whole page, with the
+            # definition joined so CardSerializer never resolves a per-row FK,
+            # and ordered by the definition's display position so the client
+            # renders them in board order without sorting. Ordering lives here
+            # rather than on CustomFieldValue.Meta so only this read path pays
+            # for the join. EAV makes the row count cards x fields, which is
+            # why the field count is capped at 30 per board.
+            Prefetch(
+                "custom_field_values",
+                queryset=CustomFieldValue.objects.select_related(
+                    "field_definition"
+                ).order_by("field_definition__position", "field_definition_id"),
+            ),
         )
     )
     if stale_cutoff is not None:
@@ -330,6 +757,8 @@ class CardSerializer(serializers.ModelSerializer):
     created_by = BoardUserSerializer(read_only=True)
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
+    # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).
+    custom_field_values = CustomFieldValuesField()
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -371,9 +800,49 @@ class CardSerializer(serializers.ModelSerializer):
             "assignee", "assignee_id", "labels", "label_ids", "due_date",
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
-            "is_stale", "archived_at", "version",
+            "is_stale", "archived_at", "version", "custom_field_values",
         ]
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
+
+    # -- custom field values -------------------------------------------------
+    #
+    # Popped out of validated_data and applied after the row exists, because
+    # they live in their own table and a create has no PK to hang them off
+    # until super() has run. Both paths run inside the card service's
+    # transaction (the service calls save() from within it), so a failure here
+    # rolls the card write back with them, and the service's deferred
+    # `card.updated` / `card.created` broadcast already reflects them — the
+    # payload is re-rendered through _card_queryset() after this returns.
+
+    def create(self, validated_data):
+        pairs = validated_data.pop("custom_field_values", None)
+        card = super().create(validated_data)
+        self._apply_custom_field_values(card, pairs)
+        return card
+
+    def update(self, instance, validated_data):
+        pairs = validated_data.pop("custom_field_values", None)
+        card = super().update(instance, validated_data)
+        self._apply_custom_field_values(card, pairs)
+        return card
+
+    def _apply_custom_field_values(self, card, pairs):
+        if not pairs:
+            return
+        from .services.custom_fields import apply_custom_field_values
+
+        request = self.context.get("request")
+        actor = getattr(request, "user", None) if request else None
+        apply_custom_field_values(
+            card=card,
+            pairs=pairs,
+            actor=actor if getattr(actor, "is_authenticated", False) else None,
+        )
+        # Drop the prefetch cache this serializer instance was built with: it
+        # was loaded before the write and would render the pre-edit values back
+        # to the client.
+        if hasattr(card, "_prefetched_objects_cache"):
+            card._prefetched_objects_cache.pop("custom_field_values", None)
 
     def get_last_moved_at(self, obj) -> datetime.datetime | None:
         # Use .all() not .first() — .first() bypasses the prefetch cache and
@@ -624,12 +1093,17 @@ class BoardFullSerializer(serializers.ModelSerializer):
     share_token = serializers.SerializerMethodField()
     share_token_expires_at = serializers.SerializerMethodField()
     capabilities = serializers.SerializerMethodField()
+    # The board's custom field schema, shipped with the board so the client can
+    # render and edit values without a second round trip (#371). Read-only here:
+    # definitions are managed through /boards/{id}/custom-fields/, which is
+    # admin-gated, while /full/ is readable by every role.
+    custom_field_definitions = CustomFieldDefinitionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Board
         fields = [
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
-            "cards", "labels", "members", "staleness_threshold_days", "stale_warning_pct",
+            "cards", "labels", "members", "custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]

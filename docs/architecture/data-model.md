@@ -155,6 +155,32 @@ The `notif_*` boolean fields store per-user notification preferences. Each flag 
 
 History consumers can filter out system events to focus on workflow transitions.
 
+### CustomFieldDefinition / CustomFieldValue
+
+Per-board typed metadata on cards (#371), where a `Label` is an untyped tag. A
+`CustomFieldDefinition` is the board-scoped schema — a name, a `field_type` of `text` /
+`number` / `date` / `dropdown` / `checkbox`, and for dropdowns a `choices_json` list;
+a `CustomFieldValue` is one card's value for one definition, unique per
+`(card, field_definition)`.
+
+Three decisions worth knowing before changing either model:
+
+- **One untyped `value` text column, not a column per type.** Typed columns mean sparse
+  nulls and a schema migration every time a type is added. Casting and validation live at
+  the serializer boundary instead, and every value is normalized to a canonical string
+  (ISO dates, `"true"` / `"false"`) so equality comparisons need not know the type. Typed
+  columns are deferred to the enterprise analytics work that would actually need SUM/AVG.
+- **EAV with a cap of 30 definitions per board** (and 2 pinned to the card face). The
+  `/full/` endpoint reads every card and every value, so an uncapped field count is a
+  Cartesian blow-up; 500 cards × 30 fields is 15,000 value rows, which the prefetch loads
+  in one query. Neither cap is expressible as a database constraint — both are counts over
+  a board's rows — so they are enforced in the serializer, under a board row lock on write.
+- **Clearing a field deletes its row** rather than storing `""`, so "unset" has exactly one
+  representation.
+
+`is_required` exists as a column but is **not enforced**; turning it on would make
+previously valid card writes fail, so it needs a release note, not a quiet change.
+
 ### BoardTemplate
 
 Templates are pre-configured board layouts seeded via a data migration. They are not user-editable. When a user creates a board and selects a template, the template's columns are created and the user is prompted to name the first swimlane using the template's `lane_label` and `lane_placeholder`.

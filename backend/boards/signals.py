@@ -1,8 +1,30 @@
 from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.dispatch import Signal, receiver
 
 from accounts.models import User
 from .models import CardMovement, Card, Notification
+
+# Custom field value change signal (#371) — an OSS extension point for the
+# enterprise field-change audit trail, which is out of scope for this repo.
+#
+# sender:           boards.models.CustomFieldValue
+# card:             the Card whose value changed
+# field_definition: the CustomFieldDefinition it belongs to
+# old_value:        the previous stored value, "" when the field was unset
+# new_value:        the new stored value, "" when the field was cleared
+# actor:            the User who made the change, or None for a non-HTTP caller
+#
+# Sent from ``boards.services.custom_fields.apply_custom_field_values`` inside
+# the card-mutation transaction, once per value that actually changed — a
+# submitted value identical to the stored one sends nothing. Receivers run
+# inside that transaction, so a receiver that raises rolls the card update back;
+# a receiver that must not be able to do that should defer its own work with
+# ``transaction.on_commit``.
+#
+# Stability: this signal's name and keyword arguments are part of the 1.0+
+# extension surface. Arguments may be added; none may be removed or renamed
+# without a major version bump.
+custom_field_value_changed = Signal()
 
 
 @receiver(post_save, sender=CardMovement)

@@ -32,7 +32,7 @@ from visiban.permissions import (
 from visiban.pagination import CardQueryCursorPagination
 
 from ..models import Card
-from ..serializers import LabelSerializer, _card_queryset
+from ..serializers import CustomFieldValueSerializer, LabelSerializer, _card_queryset
 from ._helpers import get_accessible_boards_queryset
 
 
@@ -71,6 +71,13 @@ class CardQuerySerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     assignee = BoardUserSerializer(read_only=True)
     created_by = BoardUserSerializer(read_only=True)
+    # Read-only here, unlike on CardSerializer: this endpoint has no write path
+    # at all, so there is nothing to validate a submitted value against. Present
+    # rather than omitted because CardQuerySerializerFieldParityTests requires
+    # this field set to stay in step with CardSerializer's readable fields —
+    # values carry no exposure a reader of the card does not already have, and
+    # _card_queryset() already prefetches them, so this costs no extra query.
+    custom_field_values = CustomFieldValueSerializer(many=True, read_only=True)
     last_moved_at = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
@@ -84,7 +91,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "priority", "assignee", "labels", "due_date", "weight", "position",
             "created_by", "created_at", "updated_at", "last_moved_at",
             "attachment_count", "checklist_total", "checklist_done",
-            "is_stale", "archived_at", "version",
+            "is_stale", "archived_at", "version", "custom_field_values",
         ]
         read_only_fields = fields
 
