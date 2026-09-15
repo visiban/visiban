@@ -145,6 +145,12 @@ the authoring rules.
 
 ## Multi-replica deployments
 
+!!! tip "Rolling a Helm deployment with zero downtime"
+    This section explains why running migrations separately from replica startup matters. For
+    a full step-by-step rolling-upgrade procedure on Helm/Kubernetes — pre-upgrade checklist,
+    watching the migrate hook Job, verifying a partial rollout, and rolling back mid-upgrade —
+    see the [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md).
+
 !!! warning
     Running `migrate` inside the container startup command is unsafe when `backendReplicaCount > 1`.
 
