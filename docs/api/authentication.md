@@ -49,7 +49,7 @@ Pass the token in the `Authorization` header using the `Token` scheme.
 
 !!! note
     Visiban uses the prefix `Token`, not `Bearer`. This applies to both session tokens and Personal Access Tokens. For PATs the full header looks like:
-    `Authorization: Token vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`
+    `Authorization: Token vbn_0123456789abcdef0123456789abcdef01234567`
 
     The one exception is the [MCP server](mcp.md) at `/mcp`, which requires the `Bearer` scheme because the Model Context Protocol specification mandates it. The two schemes are scoped to their own transports and are not interchangeable, but they resolve the same Personal Access Token records — revoking a token revokes it for both.
 
@@ -130,7 +130,7 @@ This deletes the token server-side. Any further requests with it will receive `4
 
 Personal Access Tokens (PATs) are named, long-lived tokens tied to a user account. They are intended for scripts, CI pipelines, and third-party integrations where a session login is not practical.
 
-**Token format:** `vbn_` prefix + 40 hex characters, e.g. `vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2`.
+**Token format:** `vbn_` prefix + 40 hex characters, e.g. `vbn_0123456789abcdef0123456789abcdef01234567`.
 
 The raw token value is shown **once** at creation and never again — Visiban stores only a SHA-256 hash.
 
@@ -151,7 +151,7 @@ List all Personal Access Tokens for the authenticated user.
   {
     "id": 1,
     "name": "CI deploy key",
-    "prefix": "vbn_a3f2",
+    "prefix": "vbn_0123",
     "created_at": "2026-03-01T09:00:00Z",
     "last_used_at": "2026-03-24T14:22:00Z",
     "expires_at": "2027-03-01T09:00:00Z",
@@ -215,8 +215,8 @@ The response includes a one-time `token` field containing the raw `vbn_` value. 
 {
   "id": 3,
   "name": "CI deploy key",
-  "prefix": "vbn_a3f2",
-  "token": "vbn_a3f2e1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+  "prefix": "vbn_0123",
+  "token": "vbn_0123456789abcdef0123456789abcdef01234567",
   "created_at": "2026-03-24T15:00:00Z",
   "last_used_at": null,
   "expires_at": "2027-03-01T09:00:00Z",
