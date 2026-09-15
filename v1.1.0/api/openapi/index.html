@@ -2045,6 +2045,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adding-annotations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3021,15 +3032,35 @@
 </code></pre></div>
 <h2 id="ci-validation">CI validation<a class="headerlink" href="#ci-validation" title="Permanent link">&para;</a></h2>
 <p>The CI pipeline runs <code>manage.py spectacular --validate</code> on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.</p>
+<p><strong>Not yet enforced: <code>--fail-on-warn</code>.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1108">#1108</a> proposed also running <code>--fail-on-warn</code> in CI so the schema cannot regress by acquiring a new warning (as opposed to <code>--validate</code> alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly <code>@action</code>/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve <code>board_pk</code>-scoped path parameter types without a request. Flipping <code>--fail-on-warn</code> on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean <code>--validate --fail-on-warn</code> run as informative, not a merge gate.</p>
+<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
+<p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
+<p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the Second Chair front end and the MCP server's REST-client package (#511) are the two known cases — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>
 <h2 id="adding-annotations">Adding annotations<a class="headerlink" href="#adding-annotations" title="Permanent link">&para;</a></h2>
-<p>For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use <code>@extend_schema</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">drf_spectacular.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">extend_schema</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">summary</span><span class="o">=</span><span class="s2">"Move a card to a different column or swimlane"</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"post"</span><span class="p">])</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">...</span>
+<p>For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use <code>@extend_schema</code> — see <code>CardViewSet.move</code>, <code>.comments</code>, and <code>.checklist</code> in <code>backend/boards/views/cards.py</code>, <code>ColumnViewSet.reorder</code> / <code>SwimlaneViewSet.reorder</code>, and <code>BoardViewSet.share</code> / <code>.members</code> for worked examples covering inline request/response serializers, per-HTTP-method overrides on a single multi-method action, and documented error responses (#1108):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">drf_spectacular.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">extend_schema</span><span class="p">,</span> <span class="n">inline_serializer</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">serializers</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nd">@extend_schema</span><span class="p">(</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Move a card to a different column or swimlane"</span><span class="p">,</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">request</span><span class="o">=</span><span class="n">inline_serializer</span><span class="p">(</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">"CardMoveRequest"</span><span class="p">,</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">fields</span><span class="o">=</span><span class="p">{</span><span class="s2">"column_id"</span><span class="p">:</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">(),</span> <span class="o">...</span><span class="p">},</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="p">),</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">inline_serializer</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"CardMoveResponse"</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})},</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"post"</span><span class="p">])</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="o">...</span>
 </code></pre></div>
+<p>When a <code>@action</code> accepts more than one HTTP method with different shapes per method (e.g. <code>GET</code> returns a list, <code>POST</code> returns a single created object), stack multiple <code>@extend_schema</code> calls with <code>methods=[...]</code> rather than trying to describe both in one block:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"GET"</span><span class="p">],</span> <span class="n">responses</span><span class="o">=</span><span class="n">CardCommentSerializer</span><span class="p">(</span><span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"POST"</span><span class="p">],</span> <span class="n">request</span><span class="o">=</span><span class="n">CardCommentSerializer</span><span class="p">,</span> <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">201</span><span class="p">:</span> <span class="n">CardCommentSerializer</span><span class="p">})</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"get"</span><span class="p">,</span> <span class="s2">"post"</span><span class="p">])</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">comments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>A <code>SerializerMethodField</code> that can return <code>None</code>, or a manually-declared nested serializer field on a nullable FK (e.g. <code>BoardUserSerializer(read_only=True)</code> on a <code>null=True</code> relation), must say so explicitly — add a <code>-&gt; SomeType | None</code> return type hint to the <code>get_*</code> method, or pass <code>allow_null=True</code> to the nested field — otherwise drf-spectacular documents it as always-present and a generated client will reject the very responses the API actually sends (#1108; see <code>CardSerializer.get_last_moved_at</code>, <code>.assignee</code>, and <code>CardMovementSerializer.moved_by</code> in <code>backend/boards/serializers.py</code>).</p>
 <p>See the <a href="https://drf-spectacular.readthedocs.io/en/latest/customization.html">drf-spectacular docs</a> for full customization options.</p>
 
 
