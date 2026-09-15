@@ -105,6 +105,7 @@ nav:
     - Data Model: architecture/data-model.md
     - Deployment: architecture/deployment.md
     - Scaling: architecture/scaling.md
+    - Service Layer: architecture/service-layer.md
     - Open-Core Boundary: architecture/open-core-boundary.md
     - API Versioning: architecture/api-versioning.md
     - Technology Decisions: architecture/decisions.md

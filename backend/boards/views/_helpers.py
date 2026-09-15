@@ -13,7 +13,11 @@ from django.db.models import Prefetch, Q
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
-from ..permissions import get_board_role, SITE_ADMIN
+from ..permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
+    can_modify_others_content as _can_modify_others_content,  # noqa: F401
+    get_board_role,
+)
 from ..serializers import CardSerializer, _card_queryset
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
 
@@ -74,7 +78,10 @@ def get_board_for_user(board_id, user, *, slim=False):
     """
     queryset = Board.objects.select_related(
         "owner",
-        "group__parent__parent__parent__parent__parent__parent",
+        # Shared with get_board_roles() rather than spelled out here, so a
+        # change to _GROUP_TRAVERSAL_MAX_DEPTH cannot leave one copy of the
+        # ancestor chain shorter than the ladder that walks it (#1107).
+        GROUP_ANCESTOR_SELECT_RELATED,
     )
     if not slim:
         queryset = queryset.prefetch_related(
@@ -107,39 +114,12 @@ def get_board_for_user(board_id, user, *, slim=False):
     return board, role
 
 
-def _can_modify_others_content(board, role, user):
-    """Return True if the user may delete/archive content created by other users.
-
-    Admins, site admins, and board owners always can. Members with the
-    is_moderator flag can. Regular members and collaborators cannot.
-
-    Uses the cached membership from get_board_role() when available to
-    avoid a redundant database query.
-
-    Note: board admins unconditionally return True here — they can edit or
-    delete any card on the board regardless of who created it. This is
-    intentional; the role table says "Member (own) / Admin (any)" for edit.
-    """
-    if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-        return True
-    if board.owner_id == user.id:
-        return True
-    membership = getattr(board, "_cached_membership", None)
-    if membership is not None:
-        return membership.is_moderator
-    # _prefetched_memberships is loaded by get_board_for_user() — scan it first
-    # before issuing a live query on every mutation request.
-    prefetched = getattr(board, "_prefetched_memberships", None)
-    if prefetched is not None:
-        for m in prefetched:
-            if m.user_id == user.id:
-                return m.is_moderator
-        return False
-    try:
-        membership = BoardMembership.objects.get(board=board, user=user)
-        return membership.is_moderator
-    except BoardMembership.DoesNotExist:
-        return False
+# _can_modify_others_content moved to boards.permissions.can_modify_others_content
+# in #1107 so boards.services can call it without importing from the views
+# package (which would invert the layering and risk an import cycle). It is
+# imported above under its original private name so every existing caller in
+# this package — and boards.views.__init__'s re-export, which tests patch —
+# keeps working unchanged.
 
 
 def _refetched_card_data(card, request, board, *, member_ids=None, assignable_ids=None, labels_qs=None):

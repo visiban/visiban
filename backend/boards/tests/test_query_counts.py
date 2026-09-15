@@ -12,7 +12,14 @@ budget immediately on any realistic board.
 
 Budgets are set at 2× the measured minimum to absorb minor framework overhead
 while still catching any N+1 regression.
+
+The exception is `CardMutationQueryCountTests` (the write paths, added in
+#1107), which uses `measured + 3` instead. Those tests have to catch a
+*constant* regression rather than a row-scaling one, and a 2× budget would let
+a doubling through — see that class's own docstring.
 """
+from unittest.mock import patch
+
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -849,4 +856,213 @@ class NotificationUnreadCountQueryCountTests(TestCase):
             baseline, scaled,
             f"notifications/unread-count/ query count grew from {baseline} to {scaled} — "
             "regression vs constant target (#1015).",
+        )
+
+
+class CardMutationQueryCountTests(TestCase):
+    """Query budgets for the card *write* paths (#1107).
+
+    Every other class in this file budgets a read endpoint. Before #1107 no
+    mutation path had a budget at all, which made that issue's "query-count
+    guards on move/update do not regress" criterion unverifiable — there was
+    nothing to regress against.
+
+    These budgets are deliberately tighter than the 2x convention used for the
+    read endpoints above. A read budget only has to catch an N+1 that scales
+    with row count; these have to catch a *constant* regression — one extra
+    `get_board_role()` walk, one re-serialization of the response payload, one
+    lost prefetch — introduced while relocating the invariants into
+    `boards.services.cards`. A doubling would sail through a 2x budget.
+
+    Each budget is `measured + 3`. If a legitimate change moves one of these,
+    re-measure and move the number in the same commit, with the reason — do
+    not widen it to make a red test pass.
+
+    The fixture is deliberately an **owner-owned** board (the convention used
+    by `_make_board` throughout this file). On an owner-owned, explicitly-
+    membered, or site-admin board `get_board_role()` resolves with zero
+    queries — from the owner check or the `_prefetched_memberships` cache that
+    `get_board_for_user()` populates. Only the group-inherited path costs a
+    real `GroupMembership` query, so a *duplicated* role resolution would be
+    invisible on this fixture — which is why the service accepts the role its
+    adapter already resolved instead of re-deriving it (#1107).
+    """
+
+    # Measured on the fixture below, then +3 for framework headroom.
+    BUDGET_CREATE = 34              # measured 31
+    BUDGET_UPDATE = 29              # measured 26
+    BUDGET_MOVE_COLUMN_CHANGE = 27  # measured 24
+    BUDGET_MOVE_REORDER = 22        # measured 19
+    BUDGET_ARCHIVE = 19             # measured 16
+    BUDGET_UNARCHIVE = 19           # measured 16
+    BUDGET_DESTROY = 22             # measured 19 (FK cascade deletes)
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
+        self._broadcast_patcher.start()
+
+        self.user = User.objects.create_user(username="u_mutate", password="x")
+        self.board = _make_board(self.user)
+        self.col_a = Column.objects.create(
+            board=self.board, name="A", position=0, allow_card_creation=True,
+        )
+        self.col_b = Column.objects.create(board=self.board, name="B", position=1)
+        self.lane = Swimlane.objects.create(board=self.board, name="L", position=0)
+        self.label = Label.objects.create(board=self.board, name="l", color="#000")
+
+        # Several cards per cell so a per-row regression in the source-cell
+        # compaction or target-cell shift shows up as growth, not noise.
+        self.cards = [
+            Card.objects.create(
+                board=self.board, column=self.col_a, swimlane=self.lane,
+                title=f"a{i}", created_by=self.user, position=i,
+            )
+            for i in range(5)
+        ]
+        for i in range(5):
+            Card.objects.create(
+                board=self.board, column=self.col_b, swimlane=self.lane,
+                title=f"b{i}", created_by=self.user, position=i,
+            )
+        self.card = self.cards[0]
+
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
+
+    # ── helpers ───────────────────────────────────────────────────────────
+
+    def _card_url(self, suffix=""):
+        return f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/{suffix}"
+
+    def _assert_budget(self, ctx, budget, label, expected_status, actual_status):
+        self.assertEqual(
+            actual_status, expected_status,
+            f"{label} returned {actual_status}, expected {expected_status} — "
+            "the budget below is meaningless unless the request succeeded.",
+        )
+        self.assertLessEqual(
+            len(ctx), budget,
+            f"{label} used {len(ctx)} queries — budget is {budget}. "
+            "A constant query regression was introduced; find the duplicated "
+            "role resolution, re-serialization, or lost prefetch rather than "
+            "raising the budget.",
+        )
+
+    # ── one budget per write path ─────────────────────────────────────────
+
+    def test_create_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(
+                f"/api/v1/boards/{self.board.id}/cards/",
+                {"title": "new", "column": self.col_a.id, "swimlane": self.lane.id,
+                 "label_ids": [self.label.id]},
+                format="json",
+            )
+        self._assert_budget(ctx, self.BUDGET_CREATE, "POST cards/", 201, r.status_code)
+
+    def test_update_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.patch(
+                self._card_url(),
+                {"title": "renamed", "priority": "high", "label_ids": [self.label.id]},
+                format="json",
+            )
+        self._assert_budget(ctx, self.BUDGET_UPDATE, "PATCH cards/{id}/", 200, r.status_code)
+
+    def test_move_column_change_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(
+                self._card_url("move/"),
+                {"column_id": self.col_b.id, "swimlane_id": self.lane.id, "position": 0},
+                format="json",
+            )
+        self._assert_budget(
+            ctx, self.BUDGET_MOVE_COLUMN_CHANGE, "POST move/ (column change)", 200, r.status_code,
+        )
+
+    def test_move_pure_reorder_within_query_budget(self):
+        """A reorder inside one cell skips source compaction, the WIP/weight
+        checks, and the CardMovement write — it must stay cheaper than a
+        column change, not merely within the same budget."""
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(
+                self._card_url("move/"),
+                {"column_id": self.col_a.id, "swimlane_id": self.lane.id, "position": 3},
+                format="json",
+            )
+        self._assert_budget(
+            ctx, self.BUDGET_MOVE_REORDER, "POST move/ (pure reorder)", 200, r.status_code,
+        )
+
+    def test_archive_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(self._card_url("archive/"))
+        self._assert_budget(ctx, self.BUDGET_ARCHIVE, "POST archive/", 200, r.status_code)
+
+    def test_unarchive_within_query_budget(self):
+        self.client.post(self._card_url("archive/"))
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(self._card_url("unarchive/"))
+        self._assert_budget(ctx, self.BUDGET_UNARCHIVE, "POST unarchive/", 200, r.status_code)
+
+    def test_destroy_within_query_budget(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.delete(self._card_url())
+        self._assert_budget(ctx, self.BUDGET_DESTROY, "DELETE cards/{id}/", 204, r.status_code)
+
+    # ── scaling guards ────────────────────────────────────────────────────
+
+    def test_move_query_count_constant_across_cell_size(self):
+        """Source compaction and target shift are single bulk UPDATEs.
+
+        Adding cards to both the source and target cell must not change the
+        query count — a per-row `save()` loop in either would show up here.
+        """
+        def _move_back_and_forth():
+            self.client.post(
+                self._card_url("move/"),
+                {"column_id": self.col_b.id, "swimlane_id": self.lane.id, "position": 0},
+                format="json",
+            )
+            self.client.post(
+                self._card_url("move/"),
+                {"column_id": self.col_a.id, "swimlane_id": self.lane.id, "position": 0},
+                format="json",
+            )
+
+        baseline = _query_count(_move_back_and_forth)
+        for i in range(20):
+            Card.objects.create(
+                board=self.board, column=self.col_a, swimlane=self.lane,
+                title=f"extra_a{i}", created_by=self.user, position=100 + i,
+            )
+            Card.objects.create(
+                board=self.board, column=self.col_b, swimlane=self.lane,
+                title=f"extra_b{i}", created_by=self.user, position=100 + i,
+            )
+        scaled = _query_count(_move_back_and_forth)
+        self.assertEqual(
+            baseline, scaled,
+            f"move/ query count grew from {baseline} to {scaled} when the source and "
+            "target cells were filled — the position compaction or shift regressed "
+            "from a bulk UPDATE to a per-row loop.",
+        )
+
+    def test_update_query_count_constant_across_label_count(self):
+        """The label-change activity entry builds its name map from the
+        already-prefetched labels, so more labels must not mean more queries."""
+        def _patch_title():
+            self.client.patch(self._card_url(), {"title": f"t{id(object())}"}, format="json")
+
+        baseline = _query_count(_patch_title)
+        extra = [Label.objects.create(board=self.board, name=f"l{i}", color="#111") for i in range(10)]
+        self.card.labels.set(extra)
+        scaled = _query_count(_patch_title)
+        self.assertEqual(
+            baseline, scaled,
+            f"PATCH cards/{{id}}/ query count grew from {baseline} to {scaled} when the "
+            "card gained labels — the activity-diff label lookup regressed to a live query.",
         )
