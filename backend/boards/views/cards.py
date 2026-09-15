@@ -7,12 +7,11 @@ from urllib.parse import urlencode
 
 import django_filters
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q, Sum, Window, prefetch_related_objects
+from django.db.models import Count, Prefetch, Q, Window
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from drf_spectacular.utils import (
@@ -28,12 +27,13 @@ from visiban.permissions import (
 )
 
 from .. import broadcast as _broadcast
-from .. import hooks
-from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids, notify_new_mentions
+from ..services import cards as card_services
+from ..services.errors import CardServiceError
+from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
-    CardChecklist, CardComment, CardMovement, Column, Label,
-    Notification, Swimlane,
+    CardChecklist, CardComment, CardMovement, Label,
+    Notification,
 )
 from ..permissions import SITE_ADMIN
 from ..serializers import (
@@ -304,76 +304,49 @@ class CardViewSet(viewsets.ModelViewSet):
         ctx["_board_labels_qs"] = bc["labels_qs"]
         return ctx
 
+    def handle_exception(self, exc):
+        """Translate a card-service domain error into its frozen HTTP response.
+
+        One clause covers every mutation action because each error in
+        ``boards.services.errors`` carries the exact status and body its
+        endpoint returned before the service extraction (#1107).
+
+        This deliberately does not go through a DRF ``APIException``: DRF's
+        ``_get_error_details`` coerces every value in an exception detail to a
+        string, which would turn ``current_count``, ``wip_limit``,
+        ``card_weight`` and ``current_version`` into strings and break the
+        clients that compare them numerically.
+        """
+        if isinstance(exc, CardServiceError):
+            return Response(exc.body(), status=exc.status)
+        return super().handle_exception(exc)
+
     def perform_create(self, serializer):
         board, role = self._board_and_role()
-        # Allow-list: only member, admin, or site_admin may create cards.
-        # A block-list (VIEWER, COLLABORATOR) would silently allow any future
-        # role added to the system — the allow-list is the safe default.
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied(_PERM_DENIED)
-        column = get_object_or_404(Column, pk=serializer.validated_data["column"].pk, board=board)
-        if not column.allow_card_creation:
-            raise ValidationError({"column": "Card creation is not allowed in this column."})
-        swimlane = get_object_or_404(Swimlane, pk=serializer.validated_data["swimlane"].pk, board=board)
-        with transaction.atomic():
-            # Lock the target column row before reading the cell's card count so
-            # two concurrent creates in the same (column, swimlane) cell cannot
-            # both observe the same max position and assign a duplicate. Matches
-            # the column-row lock used by the move action's WIP check (#1050).
-            Column.objects.select_for_update().get(pk=column.pk)
-            max_pos = Card.objects.filter(board=board, column=column, swimlane=swimlane).count()
-            card = serializer.save(board=board, created_by=self.request.user, position=max_pos)
-            CardMovement.objects.create(
-                card=card,
-                from_column=None,
-                from_column_name="",
-                from_column_uid="",
-                from_swimlane=None,
-                from_swimlane_name="",
-                from_swimlane_uid="",
-                to_column=column,
-                to_column_name=column.name,
-                to_column_uid=column.uid,
-                to_swimlane=swimlane,
-                to_swimlane_name=swimlane.name,
-                to_swimlane_uid=swimlane.uid,
-                moved_by=self.request.user,
-                notes="Card created",
-            )
-            card_data = self._refetch_card_data(card)
-            # Read board.id into a local before deferring: the on_commit closure
-            # should capture the plain int, not the ORM instance (matches every
-            # other broadcast site in this module).
-            board_id = board.id
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.created", card_data))
-            if hooks.CARD_MUTATION_HOOKS:
-                _h_cid, _h_bid, _h_aid = card.id, board_id, self.request.user.id
-                transaction.on_commit(lambda: [h("card.created", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
-            if card.description:
-                # Notify any @mentioned board members in the initial description.
-                # Captured in local vars to avoid closure mutation after the lambda is registered.
-                _card, _actor, _desc = card, self.request.user, card.description
-                transaction.on_commit(lambda: notify_new_mentions(_card, _actor, "", _desc))
+        card_services.create_card(
+            actor=self.request.user,
+            board=board,
+            role=role,
+            column_id=serializer.validated_data["column"].pk,
+            swimlane_id=serializer.validated_data["swimlane"].pk,
+            # The serializer stays the validation and persistence mechanism —
+            # its querysets are board-scoped, so a cross-board column, swimlane,
+            # label or assignee id is already a 400 by the time we get here. The
+            # service decides *where in the cell* the card lands.
+            save=lambda position: serializer.save(
+                board=board, created_by=self.request.user, position=position,
+            ),
+            render=self._refetch_card_data,
+        )
+        # No return value: DRF's CreateModelMixin renders the 201 body from
+        # serializer.data, exactly as it did before. The service's rendered
+        # payload is the broadcast payload.
 
     def perform_destroy(self, instance):
         board, role = self._board_and_role()
-        # Allow-list: same pattern as perform_create — safer than block-list.
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied(_PERM_DENIED)
-        # Ownership gate: members may only delete cards they created, unless
-        # they have the moderator entitlement (#362).
-        if instance.created_by_id != self.request.user.id:
-            if not _can_modify_others_content(board, role, self.request.user):
-                raise PermissionDenied("You can only delete cards you created.")
-        board_id = instance.board_id
-        card_uid = instance.uid
-        card_id = instance.pk
-        with transaction.atomic():
-            instance.delete()
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.deleted", {"card_uid": card_uid}))
-            if hooks.CARD_MUTATION_HOOKS:
-                _h_cid, _h_bid, _h_aid = card_id, board_id, self.request.user.id
-                transaction.on_commit(lambda: [h("card.deleted", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
+        card_services.delete_card(
+            actor=self.request.user, board=board, role=role, card=instance,
+        )
 
     @action(detail=True, methods=["get"], url_path="status")
     def card_status(self, request, board_pk=None, pk=None):
@@ -394,6 +367,24 @@ class CardViewSet(viewsets.ModelViewSet):
         card = get_object_or_404(Card.objects.filter(board=board), pk=pk)
         return Response({"archived": card.archived_at is not None})
 
+    def _plain_card_payload(self, card):
+        """Serialize a card with the bare context the archive actions have always used.
+
+        Deliberately *not* ``_refetch_card_data``: that path also threads the
+        per-request member-id / assignable-id / label caches into the serializer
+        context, which would change this response's query count. Switching these
+        two actions onto the cached path is a worthwhile change, but a separate
+        and separately measured one — not a side effect of the #1107 extraction.
+
+        ``board`` is the instance already fetched by ``_board_and_role()``, which
+        avoids a deferred ``card.board`` FK hit since board is not in
+        ``select_related`` here.
+        """
+        return CardSerializer(
+            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+            context={"request": self.request, "board": self._board()},
+        ).data
+
     @action(detail=True, methods=["post"])
     def archive(self, request, board_pk=None, pk=None):
         """Soft-delete a card by setting archived_at to now.
@@ -401,133 +392,31 @@ class CardViewSet(viewsets.ModelViewSet):
         Member+ role required — same boundary as edit/delete. The card is
         removed from the active board view; analytics counts it only for the
         period it was active (entry -> archive timestamp).
+
+        Archiving an already-archived card is a no-op that still returns the
+        card, which is why the service reads it through the unfiltered manager.
         """
         board, role = self._board_and_role()
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied
-        # Use the unfiltered manager so archiving an already-archived card is
-        # a no-op rather than a 404.
-        # select_related avoids extra queries when accessing card.column.name
-        # and card.swimlane.name in the CardMovement creation below.
-        card = get_object_or_404(
-            Card.objects.select_related("column", "swimlane"),
-            pk=pk, board=board,
+        result = card_services.archive_card(
+            actor=request.user, board=board, role=role, card_id=pk,
+            render=self._plain_card_payload,
         )
-        # Ownership gate: members may only archive cards they created (#362).
-        if card.created_by_id != request.user.id:
-            if not _can_modify_others_content(board, role, request.user):
-                raise PermissionDenied("You can only archive cards you created.")
-        if card.archived_at is None:
-            board_id = card.board_id
-            card_uid = card.uid
-            with transaction.atomic():
-                card.archived_at = timezone.now()
-                card.save(update_fields=["archived_at"])
-                # Record an archive event in movement history so the audit trail
-                # is complete and cycle-time calculations can use archived_at as
-                # the terminal timestamp. from/to columns are both the current
-                # column (position hasn't changed — just the archive state).
-                CardMovement.objects.create(
-                    card=card,
-                    from_column=card.column,
-                    from_column_name=card.column.name if card.column else "",
-                    from_column_uid=card.column.uid if card.column else "",
-                    to_column=card.column,
-                    to_column_name=card.column.name if card.column else "",
-                    to_column_uid=card.column.uid if card.column else "",
-                    from_swimlane=card.swimlane,
-                    from_swimlane_name=card.swimlane.name if card.swimlane else "",
-                    from_swimlane_uid=card.swimlane.uid if card.swimlane else "",
-                    to_swimlane=card.swimlane,
-                    to_swimlane_name=card.swimlane.name if card.swimlane else "",
-                    to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
-                    moved_by=request.user,
-                    movement_type=CardMovement.MovementType.ARCHIVED,
-                )
-                transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.archived", {"card_uid": card_uid}))
-                if hooks.CARD_MUTATION_HOOKS:
-                    _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
-                    transaction.on_commit(lambda: [h("card.archived", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
-        return Response(CardSerializer(
-            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-            # Use the board already fetched by _board_and_role() — avoids a
-            # deferred card.board FK hit since board is not in select_related here.
-            context={"request": request, "board": board},
-        ).data)
+        return Response(result.payload)
 
     @action(detail=True, methods=["post"])
     def unarchive(self, request, board_pk=None, pk=None):
         """Restore a card by clearing archived_at.
 
         The card re-enters its original column/swimlane position. Because
-        get_queryset() filters out archived cards, we bypass it here and
-        query the raw manager directly.
+        get_queryset() filters out archived cards, the service reads the raw
+        manager directly.
         """
         board, role = self._board_and_role()
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied
-        # select_related avoids extra queries when accessing card.column.name
-        # and card.swimlane.name in the CardMovement creation below.
-        card = get_object_or_404(
-            Card.objects.select_related("column", "swimlane"),
-            pk=pk, board=board,
+        result = card_services.unarchive_card(
+            actor=request.user, board=board, role=role, card_id=pk,
+            render=self._plain_card_payload,
         )
-        # Ownership gate: members may only unarchive cards they created (#362).
-        if card.created_by_id != request.user.id:
-            if not _can_modify_others_content(board, role, request.user):
-                raise PermissionDenied("You can only restore cards you created.")
-        if card.archived_at is not None:
-            board_id = card.board_id
-            with transaction.atomic():
-                card.archived_at = None
-                card.save(update_fields=["archived_at"])
-                # Record a restore event so the audit trail captures when a card
-                # re-entered the active board. This is a companion to the ARCHIVED
-                # movement and uses the same from/to pattern (card stays in its
-                # column; only archived_at changes).
-                CardMovement.objects.create(
-                    card=card,
-                    from_column=card.column,
-                    from_column_name=card.column.name if card.column else "",
-                    from_column_uid=card.column.uid if card.column else "",
-                    to_column=card.column,
-                    to_column_name=card.column.name if card.column else "",
-                    to_column_uid=card.column.uid if card.column else "",
-                    from_swimlane=card.swimlane,
-                    from_swimlane_name=card.swimlane.name if card.swimlane else "",
-                    from_swimlane_uid=card.swimlane.uid if card.swimlane else "",
-                    to_swimlane=card.swimlane,
-                    to_swimlane_name=card.swimlane.name if card.swimlane else "",
-                    to_swimlane_uid=card.swimlane.uid if card.swimlane else "",
-                    moved_by=request.user,
-                    movement_type=CardMovement.MovementType.UNARCHIVED,
-                )
-                # Serialize INSIDE the atomic block so ``card_data`` is a plain
-                # dict captured before the lambda is registered (#999).
-                # The closure now matches the pattern used by every other
-                # broadcast site — integer ``board_id`` and pre-built dict
-                # only, no ORM instance carried into ``transaction.on_commit``.
-                card_data = CardSerializer(
-                    _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-                    context={"request": request, "board": board},
-                ).data
-                transaction.on_commit(
-                    lambda: _broadcast.broadcast_board_event(board_id, "card.unarchived", card_data)
-                )
-                if hooks.CARD_MUTATION_HOOKS:
-                    _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
-                    transaction.on_commit(lambda: [h("card.restored", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
-            # Reuse the dict already built inside the atomic block — re-running
-            # _card_queryset() here would be a second identical ~5-query fetch of
-            # the same row (#1050).
-            return Response(card_data)
-        # No-op path: card was not archived. One fetch to return current state.
-        return Response(CardSerializer(
-            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-            # Use the board already fetched by _board_and_role() — avoids a
-            # deferred card.board FK hit since board is not in select_related here.
-            context={"request": request, "board": board},
-        ).data)
+        return Response(result.payload)
 
     _ARCHIVED_PAGE_SIZE = 50
 
@@ -578,169 +467,42 @@ class CardViewSet(viewsets.ModelViewSet):
         })
 
     def update(self, request, *args, **kwargs):
-        """Update card fields and record a CardActivity entry for each changed field.
+        """Update card fields, recording a CardActivity entry per changed field.
 
-        A snapshot of mutable fields is taken before the save, then compared
-        afterwards to determine which fields actually changed. Only fields present
-        in the request body are considered for title/description (to avoid spurious
-        activity entries when a partial PATCH omits them). Label changes are
-        expressed as a single activity entry listing added (+) and removed (-)
-        names. A Notification is created for the new assignee when the assignee
-        changes to someone other than the current user.
-
-        The entire sequence (card save -> activity creation -> notification creation
-        -> on_commit broadcast registration) runs inside a single atomic block so
-        that a failure at any step rolls back all side-effects rather than leaving
-        the card saved but with a missing activity trail or notification.
+        The invariants — role allow-list, ownership gate, the #1106 rejection of
+        a column/swimlane change, the activity diff, the assignee notification,
+        the version bump and the deferred broadcast — all live in
+        ``boards.services.cards.update_card``. This method parses the request and
+        hands the serializer down as the validated-write callable.
         """
         board, role = self._board_and_role()
-        # Allow-list: same pattern as perform_create — safer than block-list.
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied
+        # Checked before get_object() so that a caller without the role gets 403
+        # rather than 404 on a card that does not exist. The rule still lives in
+        # the service; only the ordering is the adapter's concern.
+        card_services.require_mutation_role(actor=request.user, board=board, role=role)
         partial = kwargs.pop("partial", False)
         card = self.get_object()
-        # Ownership gate: members may only edit cards they created, unless
-        # they have the moderator entitlement (#362). Mirrors the check in
-        # perform_destroy, archive, and unarchive.
-        if card.created_by_id != request.user.id:
-            if not _can_modify_others_content(board, role, request.user):
-                if "assignee_id" in request.data:
-                    raise PermissionDenied(
-                        "Assigning cards requires Moderator or Admin access — ask a board admin."
-                    )
-                raise PermissionDenied("You can only edit cards you created.")
-        # Reject a PATCH/PUT that changes `column` or `swimlane` — same-board or
-        # cross-board (#1106). Either bypasses WIP/weight enforcement and the
-        # CardMovement audit trail, which only POST .../move/ evaluates. Echoing
-        # back the card's *current* value is still accepted so a PUT client that
-        # round-trips the full representation it was given keeps working
-        # (required by the 1.0 backward-compatibility contract). Comparing the
-        # raw request value as a string (rather than deferring to the
-        # serializer) avoids ever needing to tell the client whether a foreign
-        # id it guessed happens to exist on another board. `None` is left to
-        # the serializer's own "may not be null" validation below rather than
-        # treated as a no-op here, since column/swimlane are non-nullable FKs
-        # and current_id can therefore never legitimately be None (security-review).
-        # isinstance-guarded because request.data need not be a dict (e.g. a
-        # top-level JSON list) — without the guard, `.get()` on a non-dict
-        # would raise AttributeError instead of the normal 400 the serializer
-        # gives for a malformed body.
-        if isinstance(request.data, dict):
-            for field_name, current_id in (("column", card.column_id), ("swimlane", card.swimlane_id)):
-                if field_name in request.data:
-                    raw_value = request.data.get(field_name)
-                    if raw_value is not None and str(raw_value) != str(current_id):
-                        return Response(
-                            {
-                                "code": "use_move_endpoint",
-                                "detail": (
-                                    f"Changing a card's {field_name} via PATCH/PUT is not allowed — "
-                                    "it bypasses WIP/weight limits and the movement audit trail. "
-                                    f"Use POST /api/v1/boards/{board.pk}/cards/{card.pk}/move/ instead."
-                                ),
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-        with transaction.atomic():
-            # Snapshot before update
-            old_title = card.title
-            old_priority = card.priority
-            old_weight = card.weight
-            old_assignee_id = card.assignee_id
-            old_assignee_name = card.assignee.username if card.assignee else "Unassigned"
-            old_description = card.description
-            old_label_ids = {label.id for label in card.labels.all()}
-            old_due_date = card.due_date.isoformat() if card.due_date else ""
 
+        # request.data need not be a dict (a top-level JSON list, say). Normalize
+        # so the service can test field presence with `in`; a non-dict body then
+        # fails the serializer's own validation below, exactly as before.
+        submitted = request.data if isinstance(request.data, dict) else {}
+
+        def apply():
             serializer = self.get_serializer(card, data=request.data, partial=partial)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
-            # OCC: bump version on every mutation so stale clients detect conflicts.
-            Card.objects.filter(pk=card.pk).update(version=F("version") + 1)
-            # Only reload version — scoping fields= prevents clearing the labels
-            # prefetch cache, which would cause card.labels.all() below to re-query.
-            card.refresh_from_db(fields=["version"])
-            # Re-prefetch labels since perform_update may have changed the M2M.
-            prefetch_related_objects([card], "labels")
 
-            activities = []
-            ET = CardActivity.EventType
-
-            if old_title != card.title and "title" in request.data:
-                activities.append(CardActivity(
-                    card=card, event_type=ET.TITLE_CHANGE,
-                    from_value=old_title, to_value=card.title, actor=request.user,
-                ))
-            if old_priority != card.priority:
-                activities.append(CardActivity(
-                    card=card, event_type=ET.PRIORITY_CHANGE,
-                    from_value=old_priority, to_value=card.priority, actor=request.user,
-                ))
-            if old_weight != card.weight:
-                activities.append(CardActivity(
-                    card=card, event_type=ET.WEIGHT_CHANGE,
-                    from_value=str(old_weight), to_value=str(card.weight), actor=request.user,
-                ))
-            if old_assignee_id != card.assignee_id:
-                new_name = card.assignee.username if card.assignee else "Unassigned"
-                activities.append(CardActivity(
-                    card=card, event_type=ET.ASSIGNEE_CHANGE,
-                    from_value=old_assignee_name, to_value=new_name, actor=request.user,
-                ))
-                # Notify new assignee if they have not opted out of assignment notifications.
-                if card.assignee and card.assignee != request.user and card.assignee.notif_card_assigned:
-                    Notification.objects.create(
-                        recipient=card.assignee,
-                        actor=request.user,
-                        action_type=Notification.ActionType.ASSIGNED,
-                        verb=f"You were assigned to \"{card.title}\"",
-                        card=card,
-                        board=card.board,
-                    )
-            if old_description != card.description and "description" in request.data:
-                activities.append(CardActivity(
-                    card=card, event_type=ET.DESCRIPTION_CHANGE,
-                    from_value="", to_value="", actor=request.user,
-                ))
-                # Notify newly @mentioned board members; deferred so the updated
-                # description is already committed when notifications are created.
-                _card, _actor, _old, _new = card, request.user, old_description, card.description
-                transaction.on_commit(lambda: notify_new_mentions(_card, _actor, _old, _new))
-            new_label_ids = {label.id for label in card.labels.all()}
-            if old_label_ids != new_label_ids:
-                added = new_label_ids - old_label_ids
-                removed = old_label_ids - new_label_ids
-                parts = []
-                # Build a name map from the in-memory labels already loaded by
-                # prefetch_related_objects() above — avoids two live DB queries.
-                label_name_by_id = {lbl.id: lbl.name for lbl in card.labels.all()}
-                if added:
-                    names = [label_name_by_id[lid] for lid in added if lid in label_name_by_id]
-                    parts.append(f"+{', '.join(names)}")
-                if removed:
-                    names = [label_name_by_id[lid] for lid in removed if lid in label_name_by_id]
-                    parts.append(f"-{', '.join(names)}")
-                activities.append(CardActivity(
-                    card=card, event_type=ET.LABEL_CHANGE,
-                    from_value="", to_value=", ".join(parts), actor=request.user,
-                ))
-            new_due_date = card.due_date.isoformat() if card.due_date else ""
-            if old_due_date != new_due_date:
-                activities.append(CardActivity(
-                    card=card, event_type=ET.DUE_DATE_CHANGE,
-                    from_value=old_due_date, to_value=new_due_date, actor=request.user,
-                ))
-
-            if activities:
-                CardActivity.objects.bulk_create(activities)
-
-            board_id = card.board_id
-            card_data = self._refetch_card_data(card)
-            transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
-            if hooks.CARD_MUTATION_HOOKS:
-                _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
-                transaction.on_commit(lambda: [h("card.updated", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
-        return Response(card_data)
+        result = card_services.update_card(
+            actor=request.user,
+            board=board,
+            role=role,
+            card=card,
+            submitted=submitted,
+            apply=apply,
+            render=self._refetch_card_data,
+        )
+        return Response(result.payload)
 
     @extend_schema(
         summary="Move a card to a new column, swimlane, or position",
@@ -827,43 +589,25 @@ class CardViewSet(viewsets.ModelViewSet):
         },
     )
     @action(detail=True, methods=["post"])
-    @transaction.atomic
     def move(self, request, board_pk=None, pk=None):
-        """Move a card to a new column/swimlane/position, creating a CardMovement record."""
+        """Move a card to a new column/swimlane/position, creating a CardMovement.
+
+        Every invariant — the row locks and their order, WIP soft/hard and weight
+        enforcement, the force-override authorization, OCC, source-cell
+        compaction and target-cell shift — lives in
+        ``boards.services.cards.move_card``, which also owns the transaction.
+        This method only parses the request body and query string.
+
+        Note there is no ``@transaction.atomic`` here any more: the service opens
+        the transaction, and it must be the one to do so because the card row is
+        read under ``select_for_update()`` as its first statement. Nothing in
+        this method may issue a locking or mutating query before the call.
+        """
         board, role = self._board_and_role()
-        # Allow-list: same pattern as perform_create — safer than block-list.
-        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
-            raise PermissionDenied
-        card = get_object_or_404(
-            Card.objects.select_for_update().select_related("column", "swimlane"),
-            pk=pk, board=board,
-        )
 
-        # Ownership/assignment gate: any member may move unassigned cards or
-        # cards they created. The assignee of a card may also move it (they own
-        # the work). Moving a card assigned to a different user and not created
-        # by the requestor requires Moderator or Admin access.
-        if (
-            card.assignee_id is not None
-            and card.created_by_id != request.user.id
-            and card.assignee_id != request.user.id
-            and not _can_modify_others_content(board, role, request.user)
-        ):
-            return Response(
-                {
-                    "code": "permission_denied",
-                    "detail": (
-                        "Moving a card assigned to another member requires "
-                        "Moderator or Admin access — ask a board admin."
-                    ),
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Optimistic concurrency control — reject stale writes.  Clients send
-        # the version they have; if it doesn't match the DB, another user has
-        # modified the card since the client last fetched it.  The check is
-        # optional for backward compatibility: omitting version skips OCC.
+        # Optimistic concurrency control is opt-in for backward compatibility:
+        # omitting `version` skips it. Coercing the value is input parsing, so
+        # the 400 stays here rather than becoming a domain error.
         client_version = request.data.get("version")
         if client_version is not None:
             try:
@@ -873,198 +617,40 @@ class CardViewSet(viewsets.ModelViewSet):
                     {"detail": "version must be an integer."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if card.version != client_version:
-                return Response(
-                    {
-                        "code": "version_conflict",
-                        "detail": "This card was modified by another user. Please refresh and try again.",
-                        "current_version": card.version,
-                    },
-                    status=status.HTTP_409_CONFLICT,
-                )
 
-        target_column_id = request.data.get("column_id")
-        target_swimlane_id = request.data.get("swimlane_id")
-        new_position = request.data.get("position", 0)
+        def render(card, movement):
+            # Re-fetch through _card_queryset so CardSerializer has every
+            # prefetch populated — the instance the service holds was loaded for
+            # locking and would otherwise trigger ~7 extra queries.
+            data = {
+                "card": CardSerializer(
+                    _card_queryset(Card.objects.filter(pk=card.pk)).get(),
+                    context={"request": request, "board": board},
+                ).data
+            }
+            if movement is not None:
+                # Re-fetch with FK relations loaded so CardMovementSerializer does
+                # not issue separate queries for moved_by, card.uid and card.title.
+                movement = CardMovement.objects.select_related(
+                    "moved_by", "card", "from_column", "to_column",
+                    "from_swimlane", "to_swimlane",
+                ).get(pk=movement.pk)
+                data["movement"] = CardMovementSerializer(movement).data
+            return data
 
-        target_column = get_object_or_404(Column, pk=target_column_id, board=board)
-        target_swimlane = get_object_or_404(Swimlane, pk=target_swimlane_id, board=board)
-
-        column_changed = card.column_id != target_column.pk
-        swimlane_changed = card.swimlane_id != target_swimlane.pk
-
-        # Lock the target column row once before both limit checks to prevent
-        # concurrent moves from racing past either check. A single lock covers
-        # both WIP and weight enforcement; acquiring it twice on the same row
-        # would be a redundant round-trip.
-        wip_enforced = board.enforce_wip_limits or board.enforce_wip_hard
-        if column_changed and (
-            (wip_enforced and target_column.wip_limit is not None)
-            or (board.enforce_weight_limits and target_column.weight_limit is not None)
-        ):
-            Column.objects.select_for_update().get(pk=target_column.pk)
-
-        # WIP limit enforcement — only checked when the card is entering a different
-        # column (pure swimlane moves within the same column also count). Pure
-        # position reorders within the same column+swimlane are exempt.
-        #
-        # Hard mode (enforce_wip_hard) is independent of soft enforcement
-        # (enforce_wip_limits): it activates even when soft mode is off, and no
-        # force-override is accepted — not even from board admins. Hard mode
-        # must be checked BEFORE the ?force param is evaluated so the admin
-        # override path cannot be entered when hard mode is active.
-        if wip_enforced and column_changed and target_column.wip_limit is not None:
-            wip_count = (
-                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
-                .exclude(pk=card.pk)
-                .count()
-            )
-            if wip_count >= target_column.wip_limit:
-                if board.enforce_wip_hard:
-                    # Hard block: no bypass for any role. Return before reading
-                    # the ?force param so the force path is never reachable.
-                    return Response(
-                        {
-                            "detail": "WIP limit enforced — move blocked.",
-                            "code": "wip_hard_blocked",
-                            "column_name": target_column.name,
-                            "current_count": wip_count,
-                            "wip_limit": target_column.wip_limit,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-                force = request.query_params.get("force", "").lower() == "true"
-                if force:
-                    # Only board admins and site admins may force past the limit.
-                    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-                        return Response(
-                            {"detail": "Only board admins can override a WIP limit."},
-                            status=status.HTTP_403_FORBIDDEN,
-                        )
-                    # Admin with force=true — fall through and allow the move.
-                else:
-                    return Response(
-                        {
-                            "code": "wip_limit_exceeded",
-                            "column_name": target_column.name,
-                            "current_count": wip_count,
-                            "wip_limit": target_column.wip_limit,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-
-        # Weight limit enforcement — same pattern as WIP: checked only on column
-        # change, skipped for pure reorders. Column row already locked above.
-        if board.enforce_weight_limits and column_changed and target_column.weight_limit is not None:
-            current_weight = (
-                Card.objects.filter(board=board, column=target_column, archived_at__isnull=True)
-                .exclude(pk=card.pk)
-                .aggregate(total=Sum("weight"))["total"]
-            ) or 0
-            if current_weight + card.weight > target_column.weight_limit:
-                force = request.query_params.get("force", "").lower() == "true"
-                if force:
-                    if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-                        return Response(
-                            {"detail": "Only board admins can override a weight limit."},
-                            status=status.HTTP_403_FORBIDDEN,
-                        )
-                    # Admin with force=true — fall through and allow the move.
-                else:
-                    return Response(
-                        {
-                            "code": "weight_limit_exceeded",
-                            "column_name": target_column.name,
-                            "current_weight": current_weight,
-                            "weight_limit": target_column.weight_limit,
-                            "card_weight": card.weight,
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
-
-        movement = None
-        if column_changed or swimlane_changed:
-            movement = CardMovement.objects.create(
-                card=card,
-                from_column=card.column,
-                from_column_name=card.column.name,
-                from_column_uid=card.column.uid,
-                to_column=target_column,
-                to_column_name=target_column.name,
-                to_column_uid=target_column.uid,
-                from_swimlane=card.swimlane,
-                from_swimlane_name=card.swimlane.name,
-                from_swimlane_uid=card.swimlane.uid,
-                to_swimlane=target_swimlane,
-                to_swimlane_name=target_swimlane.name,
-                to_swimlane_uid=target_swimlane.uid,
-                moved_by=request.user,
-            )
-
-        # Lock cards in affected cells to prevent deadlocks from concurrent moves.
-        # select_for_update with consistent ordering ensures transactions wait
-        # rather than deadlock when bulk operations fire parallel requests.
-        if column_changed or swimlane_changed:
-            # Lock source cell cards, then compact the gap left by the moved card.
-            # Using a single bulk UPDATE (decrement positions after the moved card)
-            # instead of a per-row save() loop avoids O(N) queries when the source
-            # cell is large.  Positions are always kept compact by this endpoint so
-            # a simple -1 decrement is equivalent to a full renumber.
-            list(Card.objects.filter(
-                board=board, column=card.column, swimlane=card.swimlane
-            ).exclude(pk=card.pk).order_by("pk").select_for_update())
-            Card.objects.filter(
-                board=board, column=card.column, swimlane=card.swimlane,
-                archived_at__isnull=True,
-            ).exclude(pk=card.pk).filter(position__gt=card.position).update(
-                position=F("position") - 1
-            )
-
-        # Lock target cell cards, then shift to make room
-        list(Card.objects.filter(
-            board=board, column=target_column, swimlane=target_swimlane
-        ).exclude(pk=card.pk).order_by("pk").select_for_update())
-        Card.objects.filter(
-            board=board, column=target_column, swimlane=target_swimlane
-        ).exclude(pk=card.pk).filter(position__gte=new_position).update(
-            position=F("position") + 1
+        result = card_services.move_card(
+            actor=request.user,
+            board=board,
+            role=role,
+            card_id=pk,
+            target_column_id=request.data.get("column_id"),
+            target_swimlane_id=request.data.get("swimlane_id"),
+            position=request.data.get("position", 0),
+            expected_version=client_version,
+            force=request.query_params.get("force", "").lower() == "true",
+            render=render,
         )
-
-        card.column = target_column
-        card.swimlane = target_swimlane
-        card.position = new_position
-        card.version = F("version") + 1
-        card.save(update_fields=["column", "swimlane", "position", "version"])
-        card.refresh_from_db(fields=["version"])
-
-        # Re-fetch the card through _card_queryset so CardSerializer has all
-        # prefetches populated — the card instance at this point is bare (loaded
-        # by get_object_or_404 earlier) and would trigger ~7 extra queries.
-        card_data = CardSerializer(
-            _card_queryset(Card.objects.filter(pk=card.pk)).get(),
-            context={"request": request, "board": board},
-        ).data
-        response_data = {"card": card_data}
-        if movement:
-            # Re-fetch movement with its FK relations loaded so CardMovementSerializer
-            # does not issue a separate query for moved_by, card.uid, and card.title.
-            movement = CardMovement.objects.select_related(
-                "moved_by", "card", "from_column", "to_column", "from_swimlane", "to_swimlane"
-            ).get(pk=movement.pk)
-            response_data["movement"] = CardMovementSerializer(movement).data
-
-        # Broadcast the same shape as the REST response so WS clients can update
-        # movement history without re-polling /movements/.
-        broadcast_data = dict(response_data)
-        # Read board.id into a local before deferring: the on_commit closure
-        # should capture the plain int, not the ORM instance (matches every
-        # other broadcast site in this module).
-        board_id = board.id
-        transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "card.moved", broadcast_data))
-        if hooks.CARD_MUTATION_HOOKS:
-            _h_cid, _h_bid, _h_aid = card.id, board_id, request.user.id
-            transaction.on_commit(lambda: [h("card.moved", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
-        return Response(response_data)
+        return Response(result.payload)
 
     @action(detail=True, methods=["get"])
     def movements(self, request, board_pk=None, pk=None):
