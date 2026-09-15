@@ -32,13 +32,14 @@ from ..services.errors import CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
     BoardMembership, Card, CardActivity, CardAttachment,
-    CardChecklist, CardComment, CardMovement, Label,
+    CardChecklist, CardComment, CardMovement, CardRelation, Label,
     Notification,
 )
 from ..permissions import SITE_ADMIN
 from ..serializers import (
     CardSerializer, CardMovementSerializer, CardCommentSerializer,
     CardActivitySerializer, CardAttachmentSerializer, CardChecklistSerializer,
+    CardRelationCreateSerializer, CardRelationSerializer,
     CardTimelineEntrySerializer,
     _card_queryset,
 )
@@ -1169,3 +1170,183 @@ class CardViewSet(viewsets.ModelViewSet):
             board_id = board.id
             _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(serializer.data)
+
+    # -- card relations (#449) ----------------------------------------------
+
+    def _resolve_relations(self, card):
+        """Return ``card``'s relations as view rows, resolved to its point of view.
+
+        The model stores one canonical direction per relation (see
+        ``CardRelation``), so the same row reads as "blocks" from one end and
+        "blocked by" from the other. This is where that resolution happens:
+        rows where ``card`` is ``from_card`` read forwards, rows where it is
+        ``to_card`` read backwards, and the symmetric types read the same
+        either way.
+
+        Two queries total, each with the neighbor card joined — the join is
+        what keeps ``LinkedCardSerializer`` from resolving a FK per row.
+        Archived neighbors are deliberately included; they are flagged rather
+        than hidden so a relation left dangling by an archive is visible enough
+        to delete.
+        """
+        outgoing = card.outgoing_relations.select_related("to_card")
+        incoming = card.incoming_relations.select_related("from_card")
+        rows = []
+        for rel in outgoing:
+            rows.append({
+                "id": rel.id,
+                "relation_type": rel.relation_type,
+                "direction": rel.relation_type,
+                "card": rel.to_card,
+                "created_at": rel.created_at,
+            })
+        for rel in incoming:
+            rows.append({
+                "id": rel.id,
+                "relation_type": rel.relation_type,
+                # A symmetric type reads identically from either end, so only
+                # the asymmetric ones get an inverted direction label.
+                "direction": (
+                    rel.relation_type
+                    if rel.relation_type in CardRelation.SYMMETRIC_TYPES
+                    else "blocked_by"
+                ),
+                "card": rel.from_card,
+                "created_at": rel.created_at,
+            })
+        # Stable, meaningful order: what blocks me first (it is the thing I can
+        # act on), then what I block, then loose associations. Sorting in
+        # Python rather than SQL because the two directions come from two
+        # queries and the rank is a property of the resolved row, not the row
+        # on disk.
+        rank = {"blocked_by": 0, "blocks": 1}
+        rows.sort(key=lambda r: (rank.get(r["direction"], 2), r["created_at"], r["id"]))
+        return rows
+
+    @extend_schema(
+        methods=["GET"],
+        responses={200: CardRelationSerializer(many=True)},
+        description=(
+            "List this card's relations, resolved to this card's point of view "
+            "(`blocks`, `blocked_by`, `relates_to`)."
+        ),
+    )
+    @extend_schema(
+        methods=["POST"],
+        request=CardRelationCreateSerializer,
+        responses={201: CardRelationSerializer},
+        description=(
+            "Link this card to another card on the same board. Minimum role: "
+            "collaborator. Cross-board targets, self-relations, duplicates and "
+            "mutual blocks are rejected with 400."
+        ),
+    )
+    @action(detail=True, methods=["get", "post"], url_path="relations")
+    def relations(self, request, board_pk=None, pk=None):
+        """List this card's relations, or link it to another card on the board."""
+        board, role = self._board_and_role()
+        # Object-level authorization: `board=board` scopes the lookup to a board
+        # this user was already resolved onto by _board_and_role(), so a card
+        # PK from another board 404s instead of being operated on (IDOR).
+        card = get_object_or_404(Card, pk=pk, board=board)
+
+        if request.method == "GET":
+            return Response(
+                CardRelationSerializer(self._resolve_relations(card), many=True).data
+            )
+
+        # Allow-list: collaborator, member, admin, and site_admin may link
+        # cards; only viewers are blocked. An allow-list rather than a
+        # block-list means any future role must be granted access explicitly
+        # rather than inheriting it silently. Matches the checklist actions.
+        if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied(_PERM_DENIED)
+
+        # `board` in context is the second half of the IDOR gate: it scopes the
+        # `to_card` queryset to this board, so the *target* card is verified to
+        # belong to a board this user is a member of, not just the card in the
+        # URL. Without it a member of board A could link to an arbitrary card on
+        # board B and read back its id, title and column.
+        serializer = CardRelationCreateSerializer(
+            data=request.data, context={"board": board, "from_card": card},
+        )
+        serializer.is_valid(raise_exception=True)
+        from_card = serializer.validated_data["from_card"]
+        to_card = serializer.validated_data["to_card"]
+
+        with transaction.atomic():
+            relation = CardRelation.objects.create(
+                from_card=from_card,
+                to_card=to_card,
+                relation_type=serializer.validated_data["relation_type"],
+                created_by=request.user,
+            )
+            self._broadcast_relation_change(board, from_card, to_card, request)
+
+        # Serialize from the requesting card's point of view, which may be
+        # either end of the row once a symmetric type has been normalized.
+        rows = [r for r in self._resolve_relations(card) if r["id"] == relation.id]
+        return Response(
+            CardRelationSerializer(rows[0]).data, status=status.HTTP_201_CREATED
+        )
+
+    @extend_schema(
+        responses={204: OpenApiResponse(description="Relation removed.")},
+        description=(
+            "Remove a relation. The relation must involve this card at one end. "
+            "Minimum role: collaborator."
+        ),
+    )
+    @action(detail=True, methods=["delete"], url_path="relations/(?P<relation_pk>[^/.]+)")
+    def relation_detail(self, request, board_pk=None, pk=None, relation_pk=None):
+        """Delete one relation, from either end of it."""
+        board, role = self._board_and_role()
+        if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+            raise PermissionDenied(_PERM_DENIED)
+        card = get_object_or_404(Card, pk=pk, board=board)
+        # The Q() is the object-level authorization for the relation itself:
+        # without it, any relation PK on the instance could be deleted through
+        # any card the user can reach. A relation is deletable from *either*
+        # end because both cards display it, and the permission to unlink is
+        # the same permission from both sides.
+        relation = get_object_or_404(
+            CardRelation.objects.select_related("from_card", "to_card"),
+            Q(from_card=card) | Q(to_card=card),
+            pk=relation_pk,
+        )
+        from_card, to_card = relation.from_card, relation.to_card
+
+        with transaction.atomic():
+            relation.delete()
+            self._broadcast_relation_change(board, from_card, to_card, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _broadcast_relation_change(self, board, from_card, to_card, request):
+        """Publish ``card.updated`` for BOTH ends of a relation (#449).
+
+        A relation change is one write that alters two cards: the blocked card's
+        `blocker_count` moves, and both cards' Relations lists do. The board
+        store applies `card.updated` by replacing the card with that id
+        wholesale, so a single frame structurally cannot update two cards, and a
+        partial `{id, blocker_count}` payload would wipe every other field of
+        that card in every connected client. Hence two frames, each carrying a
+        complete re-serialized card.
+
+        Both go through ``record_board_event`` inside the caller's
+        ``transaction.atomic()``: each feed row and its deferred publish commit
+        or roll back with the relation write, so a rolled-back relation
+        broadcasts nothing. Two feed rows is the correct count for the
+        resumable cursor (#1114), not waste — a client resuming past only one
+        of them would hold the other card stale forever.
+
+        The cards are re-fetched through ``_card_queryset`` by
+        ``_refetch_card_data``, so each payload's ``blocker_count`` reflects
+        the row just written rather than the pre-write prefetch cache.
+        """
+        for card in (from_card, to_card):
+            _broadcast.record_board_event(
+                board.id,
+                _EVT_CARD_UPDATED,
+                self._refetch_card_data(card),
+                actor_id=request.user.id,
+            )

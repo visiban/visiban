@@ -42,6 +42,7 @@ const archivedCard: Card = {
   last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
   is_stale: false, archived_at: '2024-02-01T00:00:00Z', version: 1,
   custom_field_values: [],
+  blocker_count: 0,
 }
 
 const makePage = (cards: Card[], total?: number): ArchivedCardsPage => ({
