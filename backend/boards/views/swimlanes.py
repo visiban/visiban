@@ -3,11 +3,12 @@
 from django.db import transaction
 from django.db.models import Max
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from accounts.permissions import TokenHasScope
 from visiban.permissions import (
@@ -154,6 +155,22 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, "swimlane.updated", swimlane_data))
         return Response(self.get_serializer(swimlane).data)
 
+    @extend_schema(
+        summary="Reorder swimlanes",
+        description="Admin only. Accepts the full set of swimlane IDs in the desired order and returns the reordered list.",
+        request=inline_serializer(
+            name="SwimlaneReorderRequest",
+            fields={
+                "order": serializers.ListField(
+                    child=serializers.IntegerField(),
+                    help_text="Swimlane IDs for this board, in the desired display order.",
+                ),
+            },
+        ),
+        # Always the public serializer regardless of caller role — contact_email/notes
+        # (admin-only fields) are never included in the reorder response or broadcast.
+        responses=SwimlaneSerializer(many=True),
+    )
     @action(detail=False, methods=["post"])
     def reorder(self, request, board_pk=None):
         """Reorder swimlanes by accepting a list of swimlane IDs in the desired order (admin only)."""

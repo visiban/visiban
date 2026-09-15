@@ -124,7 +124,10 @@ class LabelSerializer(serializers.ModelSerializer):
 
 
 class CardMovementSerializer(serializers.ModelSerializer):
-    moved_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1108): moved_by is a SET_NULL FK — a movement made by
+    # a since-deleted user must still serialize, and the schema must document
+    # that `moved_by` can be null rather than defaulting to always-object.
+    moved_by = BoardUserSerializer(read_only=True, allow_null=True)
     # card_uid / card_title allow board-level history consumers to identify
     # which card a movement belongs to without a secondary fetch.
     # source="card.*" is safe because the board-level movements queryset
@@ -252,7 +255,10 @@ class CardSerializer(serializers.ModelSerializer):
     label_ids = serializers.PrimaryKeyRelatedField(
         many=True, write_only=True, queryset=Label.objects.all(), source="labels", required=False
     )
-    assignee = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1108): Card.assignee is nullable (unassigned cards are
+    # the common case) — without it drf-spectacular documents this field as
+    # always an object, which is wrong for every unassigned card in the response.
+    assignee = BoardUserSerializer(read_only=True, allow_null=True)
     assignee_id = serializers.PrimaryKeyRelatedField(
         # Fail closed: the queryset is re-scoped to the board's assignable members
         # in __init__ when `board` is in context. Defaulting to none() (not all())
@@ -316,23 +322,27 @@ class CardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
 
-    def get_last_moved_at(self, obj):
+    def get_last_moved_at(self, obj) -> datetime.datetime | None:
         # Use .all() not .first() — .first() bypasses the prefetch cache and
         # issues a new query with ORDER BY + LIMIT 1 for every card.
+        # Return type is annotated (#1108): a never-moved card returns None,
+        # and without the hint drf-spectacular defaulted this to a
+        # non-nullable "string", producing a schema that a strict client
+        # (e.g. a generated TS type) would reject on every unmoved card.
         movements = obj.movements.all()
         return movements[0].moved_at if movements else None
 
-    def get_attachment_count(self, obj):
+    def get_attachment_count(self, obj) -> int:
         # len() on a prefetched relation uses the in-memory cache; .count() does not.
         return len(obj.attachments.all())
 
-    def get_checklist_total(self, obj):
+    def get_checklist_total(self, obj) -> int:
         return len(obj.checklist_items.all())
 
-    def get_checklist_done(self, obj):
+    def get_checklist_done(self, obj) -> int:
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
 
-    def get_is_stale(self, obj):
+    def get_is_stale(self, obj) -> bool:
         # Fast path: use the queryset-level annotation when it was pre-computed
         # by _card_queryset(stale_cutoff=...) — avoids a timezone.now() call per
         # card and mirrors the per-row fallback exactly (#669).

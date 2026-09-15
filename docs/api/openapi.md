@@ -55,17 +55,45 @@ kubectl port-forward svc/<release-name>-backend 8000:8000
 
 The CI pipeline runs `manage.py spectacular --validate` on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.
 
+**Not yet enforced: `--fail-on-warn`.** [#1108](https://gitlab.com/visiban/visiban/-/issues/1108) proposed also running `--fail-on-warn` in CI so the schema cannot regress by acquiring a new warning (as opposed to `--validate` alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly `@action`/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve `board_pk`-scoped path parameter types without a request. Flipping `--fail-on-warn` on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean `--validate --fail-on-warn` run as informative, not a merge gate.
+
+## Versioning
+
+The schema is generated live from whatever code is deployed — `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme the REST API itself uses (see [`docs/api/authentication.md`](authentication.md) for the versioning contract those endpoints follow).
+
+There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the Second Chair front end and the MCP server's REST-client package (#511) are the two known cases — must fetch `/api/schema/` from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (`scripts/release.sh`) rather than a schema-accuracy fix.
+
 ## Adding annotations
 
-For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use `@extend_schema`:
+For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use `@extend_schema` — see `CardViewSet.move`, `.comments`, and `.checklist` in `backend/boards/views/cards.py`, `ColumnViewSet.reorder` / `SwimlaneViewSet.reorder`, and `BoardViewSet.share` / `.members` for worked examples covering inline request/response serializers, per-HTTP-method overrides on a single multi-method action, and documented error responses (#1108):
 
 ```python
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 
-@extend_schema(summary="Move a card to a different column or swimlane")
+@extend_schema(
+    summary="Move a card to a different column or swimlane",
+    request=inline_serializer(
+        name="CardMoveRequest",
+        fields={"column_id": serializers.IntegerField(), ...},
+    ),
+    responses={200: inline_serializer(name="CardMoveResponse", fields={...})},
+)
 @action(detail=True, methods=["post"])
 def move(self, request, ...):
     ...
 ```
+
+When a `@action` accepts more than one HTTP method with different shapes per method (e.g. `GET` returns a list, `POST` returns a single created object), stack multiple `@extend_schema` calls with `methods=[...]` rather than trying to describe both in one block:
+
+```python
+@extend_schema(methods=["GET"], responses=CardCommentSerializer(many=True))
+@extend_schema(methods=["POST"], request=CardCommentSerializer, responses={201: CardCommentSerializer})
+@action(detail=True, methods=["get", "post"])
+def comments(self, request, ...):
+    ...
+```
+
+A `SerializerMethodField` that can return `None`, or a manually-declared nested serializer field on a nullable FK (e.g. `BoardUserSerializer(read_only=True)` on a `null=True` relation), must say so explicitly — add a `-> SomeType | None` return type hint to the `get_*` method, or pass `allow_null=True` to the nested field — otherwise drf-spectacular documents it as always-present and a generated client will reject the very responses the API actually sends (#1108; see `CardSerializer.get_last_moved_at`, `.assignee`, and `CardMovementSerializer.moved_by` in `backend/boards/serializers.py`).
 
 See the [drf-spectacular docs](https://drf-spectacular.readthedocs.io/en/latest/customization.html) for full customization options.

@@ -10,11 +10,14 @@ from django.db import transaction
 from django.db.models import Count, F, Prefetch, Q, Sum, Window, prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import (
+    extend_schema, inline_serializer, OpenApiParameter, OpenApiResponse, OpenApiTypes,
+)
 
 from django.conf import settings as django_settings
 from accounts.models import User, get_uploads_enabled
@@ -739,6 +742,90 @@ class CardViewSet(viewsets.ModelViewSet):
                 transaction.on_commit(lambda: [h("card.updated", _h_cid, _h_bid, _h_aid) for h in hooks.CARD_MUTATION_HOOKS])
         return Response(card_data)
 
+    @extend_schema(
+        summary="Move a card to a new column, swimlane, or position",
+        description=(
+            "Moves a card, creating a CardMovement audit record when the column or "
+            "swimlane changes. Enforces per-column WIP/weight limits and optimistic "
+            "concurrency control (OCC) via the optional `version` field. This is the "
+            "only endpoint that may change a card's `column`/`swimlane` — PATCH/PUT on "
+            "the card detail endpoint rejects such changes with `use_move_endpoint`."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="force",
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Board admins/site admins only: pass `true` to override a soft "
+                    "WIP or weight limit (`wip_limit_exceeded` / `weight_limit_exceeded`). "
+                    "Ignored — the move is always blocked — when the board's hard WIP "
+                    "mode (`wip_hard_blocked`) is active."
+                ),
+            ),
+        ],
+        request=inline_serializer(
+            name="CardMoveRequest",
+            fields={
+                "column_id": serializers.IntegerField(),
+                "swimlane_id": serializers.IntegerField(),
+                "position": serializers.IntegerField(
+                    required=False, default=0,
+                    help_text="Zero-based target index within the destination column/swimlane cell.",
+                ),
+                "version": serializers.IntegerField(
+                    required=False, allow_null=True,
+                    help_text="OCC version the client last observed; omit to skip the conflict check.",
+                ),
+            },
+        ),
+        responses={
+            200: inline_serializer(
+                name="CardMoveResponse",
+                fields={
+                    "card": CardSerializer(),
+                    "movement": CardMovementSerializer(required=False),
+                },
+            ),
+            400: OpenApiResponse(
+                description="`version` was supplied but was not an integer.",
+                response=inline_serializer(name="CardMoveVersionTypeError", fields={"detail": serializers.CharField()}),
+            ),
+            403: OpenApiResponse(
+                description=(
+                    "Moving a card assigned to another member requires Moderator/Admin "
+                    "access (`permission_denied`), or a non-admin attempted to force past "
+                    "a WIP/weight limit."
+                ),
+                response=inline_serializer(
+                    name="CardMovePermissionDenied",
+                    fields={"code": serializers.CharField(required=False), "detail": serializers.CharField()},
+                ),
+            ),
+            409: OpenApiResponse(
+                description=(
+                    "`version_conflict` — the card was modified since the client's version; "
+                    "`wip_limit_exceeded` / `wip_hard_blocked` — target column is at its WIP "
+                    "limit; `weight_limit_exceeded` — target column is at its weight limit."
+                ),
+                response=inline_serializer(
+                    name="CardMoveConflict",
+                    fields={
+                        "code": serializers.CharField(),
+                        "detail": serializers.CharField(required=False),
+                        "current_version": serializers.IntegerField(required=False),
+                        "column_name": serializers.CharField(required=False),
+                        "current_count": serializers.IntegerField(required=False),
+                        "wip_limit": serializers.IntegerField(required=False),
+                        "current_weight": serializers.IntegerField(required=False),
+                        "weight_limit": serializers.IntegerField(required=False),
+                        "card_weight": serializers.IntegerField(required=False),
+                    },
+                ),
+            ),
+        },
+    )
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def move(self, request, board_pk=None, pk=None):
@@ -1186,6 +1273,24 @@ class CardViewSet(viewsets.ModelViewSet):
             "results": serializer.data,
         })
 
+    @extend_schema(
+        summary="List comments on a card",
+        methods=["GET"],
+        responses=CardCommentSerializer(many=True),
+    )
+    @extend_schema(
+        summary="Add a comment on a card",
+        description="Also parses @mentions in the comment body and notifies mentioned board members.",
+        methods=["POST"],
+        request=CardCommentSerializer,
+        responses={
+            201: CardCommentSerializer,
+            403: OpenApiResponse(
+                description="Viewers cannot comment (collaborators and above may).",
+                response=inline_serializer(name="CommentViewerDenied", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
     @action(detail=True, methods=["post", "get"])
     def comments(self, request, board_pk=None, pk=None):
         """List or add comments on a card; POST also handles @mention notifications."""
@@ -1374,6 +1479,24 @@ class CardViewSet(viewsets.ModelViewSet):
             transaction.on_commit(lambda: _broadcast.broadcast_board_event(board_id, _EVT_CARD_UPDATED, card_data))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        summary="List checklist items on a card",
+        methods=["GET"],
+        responses=CardChecklistSerializer(many=True),
+    )
+    @extend_schema(
+        summary="Add a checklist item to a card",
+        description="`position` is assigned server-side (appended to the end); any client-supplied value is ignored.",
+        methods=["POST"],
+        request=CardChecklistSerializer,
+        responses={
+            201: CardChecklistSerializer,
+            403: OpenApiResponse(
+                description="Viewers cannot add checklist items.",
+                response=inline_serializer(name="ChecklistViewerDenied", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
     @action(detail=True, methods=["get", "post"], url_path="checklist")
     def checklist(self, request, board_pk=None, pk=None):
         """List checklist items on a card or add a new one."""
