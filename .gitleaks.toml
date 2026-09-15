@@ -1,0 +1,43 @@
+# gitleaks configuration for Visiban.
+#
+# Extends the upstream default ruleset (the maintained set of provider/key
+# patterns) and adds ONLY a small, documented allowlist for values that look
+# secret-shaped but are never real credentials. Each entry carries the reason
+# it is safe so the allowlist stays auditable and does not quietly mask a real
+# leak. Built from an actual `gitleaks dir .` run against this tree — every
+# entry below corresponds to a real finding, not a speculative exemption.
+#
+# Run locally:  gitleaks dir . --config .gitleaks.toml
+title = "Visiban gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Visiban false-positive allowlist — doc examples and test fixtures, never real secrets"
+
+# Path-scoped: files that structurally contain high-entropy or token-shaped
+# strings which are documentation examples, test fixtures, or generated
+# artifacts, not secrets.
+paths = [
+  # npm lockfiles carry sha512-/integrity checksum values on every dependency.
+  '''(^|/)package-lock\.json$''',
+  # Example env file exists precisely to show placeholder values
+  # (DJANGO_SECRET_KEY=change-me-in-production, REDIS_PASSWORD=change-me-in-production).
+  '''\.env\.example$''',
+  # API reference docs — every page under docs/api/ shows example curl
+  # requests with `Authorization: Bearer <token>` headers and example
+  # raw_token/share_token response fields (docs/api/authentication.md,
+  # docs/api/admin.md, docs/api/boards.md, docs/api/cards.md,
+  # docs/api/websockets.md). Documentation, not credentials.
+  '''(^|/)docs/api/.*\.md$''',
+  # Personal-access-token feature doc — walks through minting and using a
+  # token, so it necessarily shows an example token value in curl headers.
+  '''(^|/)docs/features/personal-access-tokens\.md$''',
+  # Frontend test fixtures for the access-tokens and admin/API-auth UI —
+  # mock token strings (e.g. `vbn_...`, `test-key-abc123`) asserted against
+  # in the test, never a real credential.
+  '''(^|/)frontend/src/test/accessTokensTab\.test\.tsx$''',
+  '''(^|/)frontend/src/test/adminPage\.test\.tsx$''',
+  '''(^|/)frontend/src/test/apiAuth\.test\.ts$''',
+]

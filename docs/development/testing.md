@@ -236,9 +236,12 @@ branch was created. Install it once per clone:
 scripts/setup-hooks.sh
 ```
 
-This installs a `pre-push` hook (shared by every `scripts/wt` worktree of this clone,
-since hooks live in the git common dir — no need to re-run per worktree). Before each
-push, on a branch named `(feat|fix|chore|docs)/<issue>-...`, it:
+This installs a `pre-push` hook and a `pre-commit` hook (shared by every `scripts/wt`
+worktree of this clone, since hooks live in the git common dir — no need to re-run per
+worktree).
+
+Before each push, on a branch named `(feat|fix|chore|docs)/<issue>-...`, the `pre-push`
+hook:
 
 - **Blocks the push** if an *open* merge request already exists for that issue from a
   *different* source branch — naming the MR and branch
@@ -255,9 +258,16 @@ override a detected collision with:
 ALLOW_ISSUE_COLLISION=1 git push ...
 ```
 
-`setup-hooks.sh` is idempotent and never clobbers a `pre-push` hook it doesn't manage
-(e.g. a hand-written lint hook) — it prints the line to add manually so the two can be
-chained instead. Run `scripts/check-issue-collision.sh --self-test` to exercise the
-check offline against stubbed forge responses.
+The `pre-commit` hook runs `scripts/gitleaks-precommit.sh`, blocking a commit that stages
+a hardcoded secret. It no-ops with a warning if `gitleaks` isn't installed locally — the
+merge-blocking `gitleaks-scan` CI job is the hard gate; this hook is just the earliest
+possible local catch. Install gitleaks with `brew install gitleaks` (or see
+[gitleaks releases](https://github.com/gitleaks/gitleaks/releases)).
+
+`setup-hooks.sh` is idempotent and never clobbers a hook it doesn't manage (e.g. a
+hand-written lint hook) for either `pre-push` or `pre-commit` — it prints the line to add
+manually so the two can be chained instead. Run `scripts/check-issue-collision.sh
+--self-test` to exercise the issue-collision check offline against stubbed forge
+responses.
 
 All four jobs must be green before a merge request can be merged.
