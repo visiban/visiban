@@ -219,6 +219,11 @@ Before committing a new spec:
 - Backend tests run in the `test-backend` job on every MR
 - Frontend unit tests run in `test-frontend`
 - Playwright E2E runs in `e2e-test` — requires the Vite dev server build to succeed first
+- `backend-schema-validate` checks the generated OpenAPI document is well-formed;
+  `backend-schema-fuzz` goes further and fuzzes a real, running instance with
+  [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match
+  its declared schema — see [`docs/api/openapi.md`](../api/openapi.md#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz).
+  Currently non-blocking (`allow_failure: true`) while its baseline is triaged (#1120)
 - The `changelog-check` job blocks the pipeline if no fragment is added under `changelog.d/`
 
 ## Git hooks
