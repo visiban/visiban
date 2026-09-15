@@ -40,6 +40,7 @@ const fakeBoard: BoardPublic = {
       checklist_total: 0,
       checklist_done: 0,
       is_stale: false,
+      blocker_count: 0,
     },
   ],
 }

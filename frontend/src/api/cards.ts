@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationType, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -101,6 +101,34 @@ export const updateChecklistItem = (boardId: number, cardId: number, itemId: num
 
 export const deleteChecklistItem = (boardId: number, cardId: number, itemId: number) =>
   client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/checklist/${itemId}/`);
+
+// Relations (#449)
+//
+// Fetched on demand rather than riding on the board payload: a card carries
+// only the scalar `blocker_count`, so the full list costs one request when the
+// detail panel opens instead of an array on every card of every board load.
+// Each row is resolved to `cardId`'s point of view — the same relation reads as
+// `blocks` from one end and `blocked_by` from the other.
+export const getCardRelations = (boardId: number, cardId: number) =>
+  client.get<CardRelation[]>(`/api/v1/boards/${boardId}/cards/${cardId}/relations/`).then((r) => r.data);
+
+export const addCardRelation = (
+  boardId: number,
+  cardId: number,
+  toCard: number,
+  relationType: CardRelationType,
+) =>
+  client
+    .post<CardRelation>(`/api/v1/boards/${boardId}/cards/${cardId}/relations/`, {
+      to_card: toCard,
+      relation_type: relationType,
+    })
+    .then((r) => r.data);
+
+// Deletable from either end — both cards display the relation, so both can
+// unlink it. `relationId` is the id returned by getCardRelations().
+export const deleteCardRelation = (boardId: number, cardId: number, relationId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/cards/${cardId}/relations/${relationId}/`);
 
 export const searchCards = (boardId: number, query: string, signal?: AbortSignal): Promise<Card[]> =>
   client.get<Card[]>(`/api/v1/boards/${boardId}/cards/`, { params: { search: query }, signal })

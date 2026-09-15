@@ -32,7 +32,9 @@ from visiban.permissions import (
 from visiban.pagination import CardQueryCursorPagination
 
 from ..models import Card
-from ..serializers import CustomFieldValueSerializer, LabelSerializer, _card_queryset
+from ..serializers import (
+    CustomFieldValueSerializer, LabelSerializer, _blocker_count, _card_queryset,
+)
 from ._helpers import get_accessible_boards_queryset
 
 
@@ -83,6 +85,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
+    blocker_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -92,6 +95,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "created_by", "created_at", "updated_at", "last_moved_at",
             "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
+            "blocker_count",
         ]
         read_only_fields = fields
 
@@ -109,6 +113,14 @@ class CardQuerySerializer(serializers.ModelSerializer):
 
     def get_checklist_done(self, obj):
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+
+    def get_blocker_count(self, obj):
+        # Present because CardQuerySerializerFieldParityTests requires this
+        # field set to stay in step with CardSerializer's readable fields.
+        # _card_queryset() prefetches active_blockers, so this costs no query;
+        # the scalar discloses nothing a reader of the card does not already
+        # have, since relations are same-board only (#449).
+        return _blocker_count(obj)
 
     def get_is_stale(self, obj):
         # No SQL-level stale_cutoff annotation here (unlike _card_queryset()'s
