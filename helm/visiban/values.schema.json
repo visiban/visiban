@@ -1,0 +1,285 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Visiban Helm chart values",
+  "description": "Structural contract for the Visiban chart's values (#1116). The ROOT is additionalProperties:false on purpose: Helm silently accepts a values key no template reads, so a wrong or invented top-level key -- a typo, or a name lifted from another chart's docs -- used to change nothing on the pod while the operator believed it was applied. That failure is indistinguishable from the setting having no effect, and it fails identically for the next wrong key. Blocks the chart hands wholesale to a subchart or to toYaml (global, backend.resources, frontend.resources, ingress.annotations, postgresql, valkey) stay OPEN, because the chart is not the authority on what is valid inside them. No key is 'required': values.yaml supplies a default for everything the chart reads, and the render-time guards in templates/_validate.tpl own the cross-field rules a JSON Schema cannot express (placeholder SECRET_KEY, placeholder allowedHosts, smtp-without-a-From-address).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "description": "Values shared with the bundled subcharts. Open by design -- Helm's global block is a cross-chart channel, not something this chart can enumerate.",
+      "type": "object"
+    },
+    "nameOverride": {
+      "description": "Override the chart name used in resource names and labels.",
+      "type": "string"
+    },
+    "fullnameOverride": {
+      "description": "Override the full release-scoped resource name prefix.",
+      "type": "string"
+    },
+    "backendReplicaCount": {
+      "description": "Number of backend (Django/daphne) replicas. >1 also enables pod anti-affinity and a PodDisruptionBudget.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "frontendReplicaCount": {
+      "description": "Number of frontend (nginx) replicas. >1 also enables a PodDisruptionBudget.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string" },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] },
+            "tag": {
+              "description": "Image tag. Must be a pinned tag -- 'latest' is rejected so an operator cannot end up with two replicas on different builds (#542).",
+              "type": "string",
+              "not": { "const": "latest" }
+            }
+          }
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "debug": {
+              "description": "Django DEBUG. A string, not a boolean: it is passed through to an env var and django-environ parses the string.",
+              "type": "string"
+            },
+            "allowedHosts": { "type": "string" },
+            "corsAllowedOrigins": { "type": "string" },
+            "frontendUrl": { "type": "string" },
+            "siteDomain": { "type": "string" },
+            "forceInsecureCookies": { "type": "boolean" },
+            "adminAllowedIPs": { "type": "string" },
+            "emailVerification": { "type": "string", "enum": ["optional", "mandatory", "none"] },
+            "maxUploadSizeBytes": {
+              "description": "MAX_UPLOAD_SIZE_BYTES. Both transport limits (nginx client_max_body_size, ingress proxy-body-size) are derived from this plus 10 MB of framing headroom.",
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "email": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "backend": { "type": "string", "enum": ["smtp", "console", "locmem"] },
+            "host": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "user": { "type": "string" },
+            "useTls": { "type": "boolean" },
+            "fromAddress": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "passwordKey": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "oauth": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "google": { "$ref": "#/definitions/oauthProvider" },
+            "github": { "$ref": "#/definitions/oauthProvider" },
+            "gitlab": { "$ref": "#/definitions/oauthProvider" },
+            "oidc": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "serverUrl": { "type": "string" },
+                "clientId": { "type": "string" },
+                "clientSecret": { "type": "string" },
+                "providerName": { "type": "string" }
+              }
+            }
+          }
+        },
+        "mediaPersistence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "size": { "type": "string" },
+            "storageClassName": { "type": "string" },
+            "accessModes": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"] }
+            }
+          }
+        },
+        "resources": {
+          "description": "Passed through with toYaml. Open: the chart is not the authority on the ResourceRequirements schema.",
+          "type": "object"
+        }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string" },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] },
+            "tag": { "type": "string", "not": { "const": "latest" } }
+          }
+        },
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "resources": {
+          "description": "Passed through with toYaml. Open, as backend.resources.",
+          "type": "object"
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "className": { "type": "string" },
+        "annotations": {
+          "description": "Merged after the chart's derived proxy-body-size annotation, so an operator entry of the same name wins. Open: arbitrary controller annotations are the point.",
+          "type": "object"
+        },
+        "host": { "type": "string" },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "secretName": { "type": "string" }
+          }
+        }
+      }
+    },
+    "secret": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "djangoSecretKey": { "type": "string" }
+      }
+    },
+    "postgresql": {
+      "description": "OPEN, deliberately. This block is shared with the bitnami/postgresql subchart, which reads far more keys than this chart does -- closing it would reject every legitimate subchart value. The keys listed below are the ones VISIBAN's own templates read; they are typed so a wrong type still fails, while unknown keys pass through to the subchart.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Use an in-cluster PostgreSQL (either the bundled StatefulSet or the subchart). false requires externalDatabase.",
+          "type": "boolean"
+        },
+        "subchartEnabled": {
+          "description": "Deploy the bitnami/postgresql subchart instead of the chart's own StatefulSet.",
+          "type": "boolean"
+        },
+        "image": { "type": "string" },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "database": { "type": "string" },
+            "username": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "primary": {
+          "type": "object",
+          "properties": {
+            "persistence": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "size": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "database": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" }
+      }
+    },
+    "valkey": {
+      "description": "OPEN, deliberately -- shared with the bitnami/valkey subchart. Same reasoning as postgresql.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
+    "externalRedis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string" },
+        "cacheUrl": { "type": "string" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "description": "Requires a CNI that ENFORCES NetworkPolicy (Calico, Cilium). kind's default kindnetd admits the objects and ignores them.",
+          "type": "boolean"
+        }
+      }
+    },
+    "tests": {
+      "description": "The `helm test` connection probe (templates/tests/api-connection.yaml).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" }
+          }
+        },
+        "retries": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "definitions": {
+    "oauthProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clientId": { "type": "string" },
+        "clientSecret": { "type": "string" }
+      }
+    }
+  }
+}

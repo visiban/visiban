@@ -1,0 +1,72 @@
+# Development / evaluation overlay.
+#
+# A single-node, no-TLS, throw-away install: everything in-cluster, emails to
+# stdout, no persistence to leave behind. Do NOT use this for anything holding
+# real data — it runs the bundled PostgreSQL with the chart's placeholder
+# password and disables secure cookies.
+#
+# Usage:
+#   helm install visiban ./helm/visiban -f helm/visiban/values-dev.yaml \
+#     --set-string secret.djangoSecretKey="$(python3 -c 'import secrets;print(secrets.token_hex(50))')" \
+#     --set backend.settings.allowedHosts=visiban.localtest.me \
+#     --set backend.settings.corsAllowedOrigins=http://visiban.localtest.me \
+#     --set backend.settings.frontendUrl=http://visiban.localtest.me \
+#     --set backend.settings.siteDomain=visiban.localtest.me \
+#     --set ingress.host=visiban.localtest.me
+#
+# CI lints this file (helm-lint), so a values key it names that no template
+# reads fails the pipeline rather than silently doing nothing.
+
+backendReplicaCount: 1
+frontendReplicaCount: 1
+
+backend:
+  settings:
+    debug: "true"
+    # No TLS in front of a dev install, so secure cookies would never be sent
+    # back and every login would silently fail.
+    forceInsecureCookies: true
+    emailVerification: "none"
+  email:
+    # Writes messages to the pod log instead of sending them — password reset
+    # and verification links are read with `kubectl logs`.
+    backend: "console"
+  # Attachments live for the lifetime of the pod. Nothing here is worth a PVC.
+  mediaPersistence:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  tls:
+    enabled: false
+
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      enabled: false
+
+valkey:
+  enabled: true
+
+# Off: a dev cluster (kind, minikube, Docker Desktop) usually runs a CNI that
+# does not enforce NetworkPolicy, so enabling it here would give the false
+# impression the policies are being applied. See values-prod.yaml.
+networkPolicy:
+  enabled: false

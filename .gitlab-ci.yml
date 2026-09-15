@@ -700,20 +700,39 @@ oidc-smoke:
 
 # ─── Helm — lint ─────────────────────────────────────────────────────────────
 #
-# Validates the Helm chart renders without errors against the default values.
+# Validates the Helm chart renders without errors, AND that its values conform
+# to helm/visiban/values.schema.json. The schema is the load-bearing half:
+# Helm silently accepts a values key no template reads, so before #1116 an
+# invented or misspelled key changed nothing on the pod while the operator
+# believed it was applied — indistinguishable from the setting having no effect.
+#
+# Every shipped overlay is linted separately. Linting the defaults alone would
+# leave values-dev.yaml and values-prod.yaml uncovered, and the schema is the
+# only thing that catches an unused key in them. Each overlay gets the minimum
+# extra --set it needs to RENDER, so a schema violation is the only thing that
+# can fail here.
+#
 # Dependency tarballs are committed under helm/visiban/charts/ so no network
 # access is required. Runs on any change to the chart or values, and always
 # on main so a bad chart never reaches the deploy stage undetected.
+
+.rules-helm: &rules-helm
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &helm-paths
+        - helm/**/*
+        - scripts/helm-structure-check.sh
+        - scripts/helm-install-drill.sh
+        - scripts/helm-netpol-drill.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 helm-lint:
   stage: lint
   image:
     name: alpine/helm:3.16.4
     entrypoint: [""]
-  rules:
-    - changes:
-        - helm/**/*
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  <<: *rules-helm
   variables:
     # Render-time validation in templates/_validate.tpl refuses to render the
     # chart while values.yaml still carries placeholder secrets / hosts. CI
@@ -726,6 +745,194 @@ helm-lint:
   script:
     - helm lint helm/visiban -f helm/visiban/values.yaml $HELM_CI_OVERRIDES
     - helm template visiban helm/visiban -f helm/visiban/values.yaml $HELM_CI_OVERRIDES > /dev/null
+    # Overlays (#1116). values-prod.yaml selects the smtp email backend, which
+    # _validate.tpl refuses to render without a real From: address.
+    - helm lint helm/visiban -f helm/visiban/values-dev.yaml $HELM_CI_OVERRIDES
+    - |
+      helm lint helm/visiban -f helm/visiban/values-prod.yaml \
+        --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+        --set backend.settings.allowedHosts=ci.visiban.local \
+        --set backend.email.fromAddress=noreply@visiban.local \
+        --set backend.email.host=smtp.visiban.local
+
+# ─── Helm — template (deploy contract) ───────────────────────────────────────
+#
+# Static deploy-contract gate (#1116). `helm lint` proves the templates PARSE;
+# it cannot know whether the rendered manifests still honor the contract a
+# deploy depends on. That gap is what let #1038 ship: an OIDC env-var name
+# mismatch that silently disabled SSO, a hook-ordering bug that made SECRET_KEY
+# rotation impossible, and zero email wiring — all of them rendering green.
+#
+# Two halves, both cluster-free and therefore always-on:
+#   kubeconform -strict       every rendered object validates against the real
+#                             Kubernetes API schema, unknown fields included
+#   helm-structure-check.sh   the runtime contract a refactor can silently break
+#                             (hook order, secret propagation, nginx upstream,
+#                             probe paths, transport limits, netpol coverage)
+#
+# The runtime half lives in helm-install and helm-netpol below.
+
+helm-template:
+  stage: lint
+  image:
+    name: alpine/helm:3.16.4
+    entrypoint: [""]
+  <<: *rules-helm
+  variables:
+    KUBECONFORM_VERSION: "0.6.7"
+    YQ_VERSION: "4.44.3"
+  before_script:
+    - apk add --no-cache bash curl tar findutils grep sed
+    - curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar -xz -C /usr/local/bin kubeconform
+    - curl -sSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"
+    - chmod +x /usr/local/bin/yq
+  script:
+    # Render the way a real deploy is shaped — a pinned tag, NetworkPolicies on
+    # (they are off by default, and section 7 of the structure check needs them)
+    # and OIDC configured, since the OIDC env block is behind a conditional and
+    # is exactly where #1038's blocker 1 lived.
+    - |
+      helm template visiban helm/visiban \
+        --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+        --set backend.settings.allowedHosts=ci.visiban.local \
+        --set backend.email.backend=console \
+        --set networkPolicy.enabled=true \
+        --set backend.oauth.oidc.serverUrl=https://idp.ci.local/realms/visiban \
+        > /tmp/rendered.yaml
+    # -ignore-missing-schemas: no CRDs are rendered today, but the flag keeps a
+    # future ServiceMonitor/PrometheusRule from turning this into a hard red
+    # while every core kind stays validated.
+    - kubeconform -strict -summary -ignore-missing-schemas /tmp/rendered.yaml
+    # Both shipped overlays get the same treatment — a values file that renders
+    # an invalid object is a values file nobody can install.
+    - |
+      helm template visiban helm/visiban -f helm/visiban/values-dev.yaml \
+        --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+        --set backend.settings.allowedHosts=ci.visiban.local \
+        > /tmp/rendered-dev.yaml
+    - kubeconform -strict -summary -ignore-missing-schemas /tmp/rendered-dev.yaml
+    - |
+      helm template visiban helm/visiban -f helm/visiban/values-prod.yaml \
+        --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+        --set backend.settings.allowedHosts=ci.visiban.local \
+        --set backend.email.fromAddress=noreply@visiban.local \
+        --set backend.email.host=smtp.visiban.local \
+        > /tmp/rendered-prod.yaml
+    - kubeconform -strict -summary -ignore-missing-schemas /tmp/rendered-prod.yaml
+    # Self-test FIRST (#1093). This gate's failure mode is a GREEN pipeline over
+    # a chart that no longer holds the contract, so "it passed" is not evidence
+    # that it can still fail. The fixtures replay the #1038 shapes.
+    - bash scripts/helm-structure-check.sh --self-test helm/visiban
+    - bash scripts/helm-structure-check.sh helm/visiban
+
+# ─── Helm — runtime drills (kind) ────────────────────────────────────────────
+#
+# The half helm-template cannot reach: actually BOOT the chart (#1116).
+#
+# Both jobs build the backend and frontend images from the working tree and
+# side-load them into kind. They deliberately do NOT pull a published image:
+# the MR-time *-docker-build jobs run kaniko with --no-push, so there is no
+# per-commit image to pull, and drilling the HEAD chart against the last
+# RELEASED image would mean a red here is version skew rather than a deploy
+# regression — which is how a drill earns a reputation for crying wolf and
+# stops being read.
+#
+# kind needs a Docker daemon, so these two are the only jobs in this file that
+# use docker:dind. That is not a reversal of the kaniko decision for image
+# builds (which stands, and is about pushing images without privileged mode) —
+# there is simply no way to run a Kubernetes cluster in CI without one.
+#
+# Not `interruptible`: a rebased push must not abort a half-provisioned cluster
+# and leak it into the dind daemon.
+
+.helm-drill-base: &helm-drill-base
+  stage: test
+  interruptible: false
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "/certs/client"
+    KIND_VERSION: "0.24.0"
+    KUBECTL_VERSION: "1.31.2"
+    HELM_VERSION: "3.16.4"
+    # Calico is only used by helm-netpol, but it lives HERE on purpose. A
+    # job-level `variables:` REPLACES an anchored one rather than merging into
+    # it, so giving helm-netpol its own block to hold CALICO_VERSION silently
+    # dropped every variable above — the tool URLs became ".../v/kind-linux-amd64",
+    # 404'd to a small HTML page, and `tar` failed with "invalid magic" nine
+    # seconds in. One shared block is the fix; do not re-split it.
+    CALICO_VERSION: "v3.28.2"
+    # kind writes a kubeconfig pointing at 127.0.0.1. The API server actually
+    # runs inside the dind SERVICE container, which is a different container
+    # from this job, so the drills retarget the kubeconfig at this hostname.
+    APISERVER_HOST: "docker"
+  before_script:
+    - apk add --no-cache bash curl
+    # Fail loudly on an empty version rather than downloading a 404 page and
+    # letting `tar` report "invalid magic" from three commands later.
+    - |
+      for v in KIND_VERSION KUBECTL_VERSION HELM_VERSION; do
+        eval "val=\${$v}"
+        [ -n "$val" ] || { echo "ERROR: $v is empty — a variables: merge clobber?"; exit 1; }
+      done
+    - curl -fsSLo /usr/local/bin/kind "https://kind.sigs.k8s.io/dl/v${KIND_VERSION}/kind-linux-amd64" && chmod +x /usr/local/bin/kind
+    - curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" && chmod +x /usr/local/bin/kubectl
+    - curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
+    - kind version && kubectl version --client=true 2>/dev/null | head -1 && helm version --short
+    - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
+
+helm-install:
+  # Boots the chart and asserts it SERVES: `helm install --wait` completes (so
+  # the migrate hook ran and both Deployments rolled out), `helm test` passes
+  # (the same hook operators run), the one-time admin password is retrievable
+  # from the shared emptyDir, a placeholder SECRET_KEY is REJECTED (the
+  # fail-closed guard is asserted, not assumed), and a DJANGO_SECRET_KEY
+  # rotation applied in a single `helm upgrade` takes effect — #1038 blocker 2
+  # on the path that actually broke. See scripts/helm-install-drill.sh.
+  <<: *helm-drill-base
+  timeout: 40m
+  rules:
+    # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
+    # manifests or base images is a signal, not a hard red.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *helm-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *helm-paths
+  script:
+    - bash scripts/helm-install-drill.sh
+
+helm-netpol:
+  # NetworkPolicy ENFORCEMENT drill. A SEPARATE cluster from helm-install, with
+  # disableDefaultCNI + Calico, because kind's default kindnetd DOES NOT
+  # IMPLEMENT NetworkPolicy — the chart's policies are admitted there and
+  # silently ignored, so a policy selecting the wrong pods passes every other
+  # gate in this file. That is exactly how the migrate Job came to be missing
+  # from the datastore allow-list (#1116).
+  #
+  # Separate rather than a flag on helm-install so the common deploy smoke test
+  # stays fast and two unrelated failure modes stay uncoupled.
+  #
+  # Scoped to the whole chart, not just networkpolicy.yaml: the policies name
+  # their clients by `app.kubernetes.io/component`, so ADDING a template that
+  # opens a datastore connection breaks isolation without touching the policy
+  # file itself.
+  <<: *helm-drill-base
+  timeout: 45m
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: *helm-paths
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *helm-paths
+  script:
+    - bash scripts/helm-netpol-drill.sh
 
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
@@ -1326,6 +1533,73 @@ frontend-docker-push:
         --snapshot-mode=redo \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
         $(destinations frontend)
+
+# ─── Helm — publish chart to GHCR (release tags) ─────────────────────────────
+#
+# The chart is the deployment path docs/getting-started/kubernetes.md recommends
+# for production, and until #1116 it was published nowhere: operators had to
+# `git clone` the repo to install it. The backend and frontend images already go
+# to ghcr.io/visiban/visiban on a release tag; the chart now goes with them, as
+# an OCI artifact, so `helm install oci://ghcr.io/visiban/charts/visiban` works.
+#
+# Cosign-signed keyless (Sigstore via SIGSTORE_ID_TOKEN), so an operator can
+# `cosign verify` the chart they pull rather than trusting the registry.
+#
+# Credentials: GHCR_USER + GHCR_TOKEN (the existing `visiban-ghcr-push` PAT,
+# scope write:packages). Missing credentials FAIL this job rather than skipping
+# it — a release that silently ships no chart is the failure mode this job
+# exists to prevent.
+
+helm-publish:
+  stage: deploy
+  image:
+    name: alpine/helm:3.16.4
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  before_script:
+    - apk add --no-cache bash curl
+    # Pinned and checksum-verified: an unpinned signing tool is a supply-chain
+    # hole in the job whose whole purpose is supply-chain provenance.
+    - |
+      COSIGN_VERSION=2.4.3
+      COSIGN_SHA256=caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708
+      curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" -o /usr/local/bin/cosign
+      echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+      chmod +x /usr/local/bin/cosign
+  script:
+    - |
+      if [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot publish the Helm chart."
+        echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging."
+        exit 1
+      fi
+    # The chart's appVersion must match the tag being released. A chart that
+    # ships pointing at the previous release's images is #1038's root cause
+    # (a chart two minor versions stale), and it is invisible until someone
+    # installs it.
+    - |
+      APP_VERSION="$(helm show chart helm/visiban | awk '/^appVersion:/{print $2}' | tr -d '"')"
+      TAG_VERSION="${CI_COMMIT_TAG#v}"
+      if [ "$APP_VERSION" != "$TAG_VERSION" ]; then
+        echo "ERROR: Chart.yaml appVersion ($APP_VERSION) does not match the release tag ($TAG_VERSION)."
+        echo "Bump appVersion in helm/visiban/Chart.yaml before tagging."
+        exit 1
+      fi
+      echo "appVersion check passed: $APP_VERSION"
+    - helm registry login ghcr.io -u "$GHCR_USER" -p "$GHCR_TOKEN"
+    - helm package helm/visiban --destination /tmp
+    - |
+      CHART_FILE="$(ls /tmp/visiban-*.tgz)"
+      CHART_NAME="$(helm show chart helm/visiban | awk '/^name:/{print $2}')"
+      helm push "$CHART_FILE" "oci://ghcr.io/visiban/charts" 2>&1 | tee /tmp/helm-push.log
+      # Sign the by-digest reference `helm push` reports, not the tag — a tag can
+      # be moved, a digest cannot.
+      CHART_DIGEST="$(awk '/Digest: /{print $2}' /tmp/helm-push.log)"
+      cosign sign --yes "ghcr.io/visiban/charts/${CHART_NAME}@${CHART_DIGEST}"
 
 # ─── GHCR manual push ─────────────────────────────────────────────────────────
 #

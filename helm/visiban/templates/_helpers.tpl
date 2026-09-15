@@ -143,3 +143,39 @@ oidc-client-secret: {{ .Values.backend.oauth.oidc.clientSecret | quote }}
 {{ .Values.backend.email.passwordKey | default "email-password" }}: {{ .Values.backend.email.password | quote }}
 {{- end }}
 {{- end }}
+
+{{/*
+Transport body limit, in whole megabytes (#1116).
+
+The edge must accept a request that the APPLICATION is still willing to reject
+itself — otherwise an over-cap upload dies at nginx or the ingress controller
+with a bare 413 and Django never sees it, so the user gets no message naming the
+real limit. Derived from backend.settings.maxUploadSizeBytes (the value wired
+into MAX_UPLOAD_SIZE_BYTES) plus 10 MB of multipart-framing headroom, so raising
+the application cap raises both transport limits with it and the two cannot
+drift apart.
+
+Consumed by templates/frontend-configmap.yaml (client_max_body_size) and
+templates/ingress.yaml (nginx.ingress.kubernetes.io/proxy-body-size).
+scripts/helm-structure-check.sh asserts both rendered limits clear the app cap.
+*/}}
+{{- define "visiban.transportBodyLimitMB" -}}
+{{- $bytes := .Values.backend.settings.maxUploadSizeBytes | int -}}
+{{- $mb := div $bytes 1048576 -}}
+{{- if gt (mod $bytes 1048576) 0 -}}
+{{- $mb = add1 $mb -}}
+{{- end -}}
+{{- add $mb 10 -}}
+{{- end }}
+
+{{/*
+Frontend selector as a kubectl `-l` argument: comma-joined key=value pairs.
+
+visiban.frontend.selectorLabels emits YAML (`key: value`, one per line), which
+is correct inside a manifest and produces a broken, three-line shell command
+when interpolated into `kubectl get pods -l "..."` in NOTES.txt — the first
+thing the chart tells an operator to run.
+*/}}
+{{- define "visiban.frontend.selectorArg" -}}
+app.kubernetes.io/name={{ include "visiban.name" . }},app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=frontend
+{{- end }}

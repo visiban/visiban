@@ -1,4 +1,24 @@
 {{- if .Values.networkPolicy.enabled }}
+{{- /*
+Datastore client allow-lists (#1116).
+
+These are declared ONCE, here, and consumed by every policy below, because the
+policies name their allowed clients by `app.kubernetes.io/component` — so adding
+a template that opens a datastore connection breaks isolation without touching
+this file. Keeping the list in one place at least makes the omission visible in
+a diff, and scripts/helm-structure-check.sh asserts every workload the chart
+renders is either in a list or deliberately absent from it.
+
+The `migrate` entry is not decorative. Before #1116 the PostgreSQL policy
+allowed only `component: backend`, while the pre-install/pre-upgrade migrate Job
+runs with `component: migrate` — so on any CNI that actually ENFORCES
+NetworkPolicy (Calico, Cilium; NOT kind's default kindnetd) every install with
+networkPolicy.enabled=true hung at the migrate hook until its backoffLimit was
+exhausted. The chart rendered, linted and installed clean on kindnetd the whole
+time.
+*/ -}}
+{{- $datastoreClients := list "backend" "migrate" }}
+{{- $backendClients := list "frontend" "test" }}
 # Default deny all ingress — pods must be explicitly allowed.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -31,7 +51,7 @@ spec:
         - port: 80
           protocol: TCP
 ---
-# Allow frontend → backend (port 8000)
+# Allow frontend (and the `helm test` probe) → backend (port 8000)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -46,15 +66,19 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- range $component := $backendClients }}
         - podSelector:
             matchLabels:
-              {{- include "visiban.frontend.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/name: {{ include "visiban.name" $ }}
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+              app.kubernetes.io/component: {{ $component }}
+        {{- end }}
       ports:
         - port: 8000
           protocol: TCP
----
 {{- if .Values.postgresql.enabled }}
-# Allow backend → PostgreSQL (port 5432)
+---
+# Allow backend + migrate → PostgreSQL (port 5432)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -71,16 +95,20 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- range $component := $datastoreClients }}
         - podSelector:
             matchLabels:
-              {{- include "visiban.backend.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/name: {{ include "visiban.name" $ }}
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+              app.kubernetes.io/component: {{ $component }}
+        {{- end }}
       ports:
         - port: 5432
           protocol: TCP
 {{- end }}
----
 {{- if .Values.valkey.enabled }}
-# Allow backend → Valkey (port 6379)
+---
+# Allow backend + migrate → Valkey (port 6379)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -96,9 +124,13 @@ spec:
     - Ingress
   ingress:
     - from:
+        {{- range $component := $datastoreClients }}
         - podSelector:
             matchLabels:
-              {{- include "visiban.backend.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/name: {{ include "visiban.name" $ }}
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+              app.kubernetes.io/component: {{ $component }}
+        {{- end }}
       ports:
         - port: 6379
           protocol: TCP

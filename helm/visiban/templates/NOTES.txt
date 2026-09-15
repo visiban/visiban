@@ -4,7 +4,7 @@ Visiban has been deployed!
 {{- if .Values.ingress.enabled }}
   http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
 {{- else }}
-  export POD=$(kubectl get pods -l "{{ include "visiban.frontend.selectorLabels" . }}" -o jsonpath="{.items[0].metadata.name}")
+  export POD=$(kubectl get pods -n {{ .Release.Namespace }} -l "{{ include "visiban.frontend.selectorArg" . }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl port-forward $POD 8080:80
   # Then open http://localhost:8080
 {{- end }}

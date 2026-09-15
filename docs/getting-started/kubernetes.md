@@ -18,13 +18,35 @@ Deploy Visiban to a Kubernetes cluster using the bundled Helm chart.
 
 ## Quick start
 
-### 1. Clone and update dependencies
+### 1. Get the chart
+
+Since 1.2 the chart is published as a signed OCI artifact, so a clone is only
+needed if you want to modify it:
+
+```bash
+# Verify the signature first (optional but recommended)
+cosign verify ghcr.io/visiban/charts/visiban:<version> \
+  --certificate-identity-regexp 'gitlab\.com/visiban/visiban' \
+  --certificate-oidc-issuer https://gitlab.com
+
+helm show values oci://ghcr.io/visiban/charts/visiban
+```
+
+Every `helm install helm/visiban` below also works as
+`helm install oci://ghcr.io/visiban/charts/visiban`.
+
+To work from a checkout instead:
 
 ```bash
 git clone https://github.com/visiban/visiban.git
 cd visiban
 helm dependency update helm/visiban
 ```
+
+!!! tip "Start from an overlay"
+    `helm/visiban/values-dev.yaml` and `helm/visiban/values-prod.yaml` carry the
+    evaluation and production shapes respectively, and both are linted in CI.
+    Pass one with `-f` rather than assembling a dozen `--set` flags by hand.
 
 ### 2. Create a secrets file
 
@@ -103,6 +125,27 @@ The password is generated once and written to an emptyDir volume. Copy it, then 
     Change this password immediately after first login. See [First Boot](first-boot.md).
 
 ### 5. Verify
+
+```bash
+helm test visiban --namespace visiban --logs
+```
+
+`helm test` is the chart's own end-to-end probe. It checks, in order, the
+backend's liveness endpoint, its readiness endpoint, that same readiness
+endpoint *through the frontend's nginx*, and the SPA itself. Each step
+distinguishes a different failure:
+
+| Step fails | What it means |
+|---|---|
+| liveness | The backend container is not running — check the init containers |
+| readiness | It runs but cannot reach PostgreSQL or Valkey |
+| through nginx | The frontend cannot resolve its backend upstream |
+| SPA | nginx proxies correctly but serves no bundle |
+
+CI runs this identical hook (`helm-install`), so your install and the pipeline
+verify the same invariant.
+
+Lower-level checks, if you need them:
 
 ```bash
 # Pods should be Running
@@ -238,11 +281,34 @@ helm install visiban helm/visiban \
 This creates policies that allow:
 
 - Ingress controller → frontend (port 80)
-- Frontend → backend (port 8000)
-- Backend → PostgreSQL (port 5432)
-- Backend → Valkey (port 6379)
+- Frontend (and the `helm test` probe) → backend (port 8000)
+- Backend **and the migrate Job** → PostgreSQL (port 5432)
+- Backend **and the migrate Job** → Valkey (port 6379)
 
-All other ingress to Visiban pods is denied. Requires a CNI plugin that supports `NetworkPolicy` (Calico, Cilium, Weave, etc.).
+All other ingress to Visiban pods is denied.
+
+!!! warning "Your CNI must *enforce* NetworkPolicy, not just accept it"
+    Requires Calico, Cilium, or a managed equivalent. A CNI that does not
+    implement NetworkPolicy — including **kind's default `kindnetd`** — will
+    admit these objects, list them under `kubectl get netpol`, and then ignore
+    them completely. There is no warning and no error. A clean install on such a
+    cluster is not evidence that the policies work.
+
+    Confirm enforcement rather than assuming it: run a pod with no Visiban
+    labels and check that it cannot reach the database.
+
+    ```bash
+    kubectl run netpol-probe -n visiban --rm -i --restart=Never \
+      --image=busybox:1.36 -- nc -z -w 5 visiban-postgresql 5432
+    ```
+
+    This must **fail**. If it succeeds, your policies are not being enforced.
+
+The policies name their allowed clients by `app.kubernetes.io/component`. If you
+add a workload that opens a PostgreSQL or Valkey connection, add its component to
+the allow-lists at the top of `templates/networkpolicy.yaml` — otherwise it is
+denied, and on a hook-phase workload that presents as an install that hangs
+rather than an error.
 
 ## Media persistence
 
