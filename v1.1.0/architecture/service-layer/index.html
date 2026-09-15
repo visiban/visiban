@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/architecture/overview/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/architecture/service-layer/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../scaling/">
       
       
-        <link rel="next" href="../data-model/">
+        <link rel="next" href="../open-core-boundary/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Overview - Visiban</title>
+        <title>Service Layer - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-overview" class="md-skip">
+        <a href="#service-layer" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Service Layer
             
           </span>
         </div>
@@ -2032,37 +2032,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../overview/" class="md-nav__link">
         
   
   
@@ -2078,103 +2051,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#system-components" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System components
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tech-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tech stack
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#django-apps" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Django apps
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#request-lifecycle-rest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Request lifecycle (REST)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#websocket-lifecycle" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WebSocket lifecycle
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cicd-pipeline" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI/CD pipeline
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#frontend-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Frontend architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2268,10 +2144,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../service-layer/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2287,6 +2190,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-layer-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the layer exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-service-function-owns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What a service function owns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-stays-in-the-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What stays in the view
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Roles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-role-parameter-fails-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The role parameter fails closed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#write-paths-that-remain-divergent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Write paths that remain divergent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-to-this-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding to this layer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frozen-asymmetries" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frozen asymmetries
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2994,169 +3022,126 @@
   
 
 
-<h1 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h1>
-<h2 id="system-components">System components<a class="headerlink" href="#system-components" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌─────────────────────────────────────────────────────┐
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│                     Browser                         │
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│              React 19 + TypeScript SPA              │
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│         Vite dev server / Nginx (production)        │
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└──────────────────────┬──────────────────────────────┘
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                       │ HTTP / REST JSON
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                       │ WebSocket (ws://)
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>┌──────────────────────▼──────────────────────────────┐
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│           Django 5 + DRF  (daphne ASGI)             │
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│   accounts/   boards/   groups/                     │
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   django-allauth   dj-rest-auth   channels          │
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└────────────┬────────────────────────┬───────────────┘
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>             │ psycopg2               │ channels-redis
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>┌────────────▼────────────┐ ┌─────────▼───────────────┐
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│      PostgreSQL 17      │ │        Valkey 8          │
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  (primary data store)   │ │(WebSocket channel layer)│
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└─────────────────────────┘ └─────────────────────────┘
-</code></pre></div>
-<h2 id="tech-stack">Tech stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h2>
+<h1 id="service-layer">Service Layer<a class="headerlink" href="#service-layer" title="Permanent link">&para;</a></h1>
+<p>Board mutations that carry invariants live in <code>backend/boards/services/</code>, not in the DRF views that expose them over HTTP.</p>
+<h2 id="why-the-layer-exists">Why the layer exists<a class="headerlink" href="#why-the-layer-exists" title="Permanent link">&para;</a></h2>
+<p>Until Visiban 1.2 every card state transition was implemented inline in <code>CardViewSet</code>. That was fine while the REST API was the only writer. It stopped being fine as soon as a second consumer appeared, because an invariant that lives inside an HTTP handler can only be reached by making an HTTP request — so any second code path has to either re-implement the rules or skip them.</p>
+<p>Both failure modes had already happened:</p>
+<ul>
+<li>The MCP tool scaffold carried its own copy of the board-role precedence ladder, with a comment saying it "must be kept in step with" the original. Nothing enforced that.</li>
+<li>A <code>PATCH</code> that changed a card's <code>column</code> bypassed WIP enforcement and the movement audit trail entirely, because only the move endpoint evaluated them.</li>
+</ul>
+<p>The API now has several writers in view — a second front end, MCP write tools, import, and webhooks — so the invariants need a home that is not a request handler.</p>
+<h2 id="what-a-service-function-owns">What a service function owns<a class="headerlink" href="#what-a-service-function-owns" title="Permanent link">&para;</a></h2>
+<p>For one state transition:</p>
 <table>
 <thead>
 <tr>
-<th>Layer</th>
-<th>Technology</th>
+<th>Concern</th>
+<th>Example</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Backend</td>
-<td>Python 3.12, Django 5, Django REST Framework</td>
+<td>Role allow-list</td>
+<td>only <code>member</code>, <code>admin</code>, <code>site_admin</code> may mutate a card</td>
 </tr>
 <tr>
-<td>ASGI server</td>
-<td>daphne (required for WebSocket support)</td>
+<td>Ownership / assignment gate</td>
+<td>a member may edit only cards they created, unless they hold the moderator entitlement</td>
 </tr>
 <tr>
-<td>Database</td>
-<td>PostgreSQL 17</td>
+<td>Optimistic concurrency</td>
+<td>compare the caller's <code>version</code> against the stored row</td>
 </tr>
 <tr>
-<td>Cache / Pub-Sub</td>
-<td>Valkey 8 (Docker Compose and Helm — Bitnami subchart)</td>
+<td>Row locks, in a fixed order</td>
+<td>card row → target column row → source cell rows by pk → target cell rows by pk</td>
 </tr>
 <tr>
-<td>Real-time</td>
-<td>Django Channels 4, channels-redis</td>
+<td>Limit enforcement</td>
+<td>WIP soft, WIP hard, weight, and the <code>force</code> override authorization</td>
 </tr>
 <tr>
-<td>Auth</td>
-<td>django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth</td>
+<td>Audit trail</td>
+<td>the <code>CardMovement</code> row and the <code>CardActivity</code> diff</td>
 </tr>
 <tr>
-<td>Frontend</td>
-<td>React 19, TypeScript, Vite, Tailwind CSS 3</td>
+<td>The transaction</td>
+<td>one <code>atomic()</code> block per transition</td>
 </tr>
 <tr>
-<td>Drag &amp; Drop</td>
-<td>@dnd-kit/core + @dnd-kit/sortable</td>
-</tr>
-<tr>
-<td>CI/CD</td>
-<td>GitLab CI (Ruff, ESLint, pytest, Vitest, Semgrep SAST, pip-audit, kaniko)</td>
-</tr>
-<tr>
-<td>Infra</td>
-<td>Docker Compose, Nginx, Helm (Kubernetes)</td>
+<td>Deferred side effects</td>
+<td>the <code>transaction.on_commit()</code> WebSocket broadcast and <code>CARD_MUTATION_HOOKS</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="django-apps">Django apps<a class="headerlink" href="#django-apps" title="Permanent link">&para;</a></h2>
+<p>The lock order is a deadlock-avoidance contract, not an implementation detail: concurrent moves queue behind each other only because every caller takes the same locks in the same sequence.</p>
+<h2 id="what-stays-in-the-view">What stays in the view<a class="headerlink" href="#what-stays-in-the-view" title="Permanent link">&para;</a></h2>
+<p>Nothing under <code>boards/services/</code> imports <code>rest_framework</code>, reads a request, or builds a response. The view adapter keeps:</p>
+<ul>
+<li><strong>Parsing</strong>, mostly. <code>?force</code> becomes a <code>bool</code>. The exception is <code>version</code>, which the adapter passes through raw: <em>when</em> the "version must be an integer" <code>400</code> is raised is part of the frozen contract — it comes after the role allow-list, the card lookup, and the assignment gate — so the coercion lives in the service. Parsing it in the adapter turns a <code>403</code> into a <code>400</code> for a caller who sent both a bad version and a request they were not allowed to make.</li>
+<li><strong>Field validation.</strong> Per the project rule that input is validated at the serializer boundary, <code>create_card</code> and <code>update_card</code> take a callable that performs the already-validated write — <code>serializer.save()</code> for the HTTP adapter. <code>CardSerializer</code>'s querysets are board-scoped, so a cross-board column, swimlane, label, or assignee id is already a <code>400</code> before the service is reached.</li>
+<li><strong>Serialization.</strong> Each function takes a <code>render</code> callable and invokes it <em>inside</em> the transaction, because the REST response body and the WebSocket payload are deliberately the same dict. Re-serializing in the adapter after commit would cost a second multi-query fetch and would let a concurrent writer land between the write and the read.</li>
+</ul>
+<p>That last point is the one place the boundary is a compromise rather than a clean cut, and it is deliberate: the service stays serializer-agnostic, and the adapter decides what a payload looks like.</p>
+<h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
+<p><code>boards/services/errors.py</code> holds one class per failure mode, each carrying the exact HTTP status and response body its endpoint returned before the extraction. A view adapter is therefore a single clause:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">handle_exception</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc</span><span class="p">):</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">CardServiceError</span><span class="p">):</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">exc</span><span class="o">.</span><span class="n">body</span><span class="p">(),</span> <span class="n">status</span><span class="o">=</span><span class="n">exc</span><span class="o">.</span><span class="n">status</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">handle_exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</code></pre></div>
+<p>The bodies live in that module, rather than being reassembled in the views, because they are a frozen contract and one home for them is the only way to keep them frozen. The card API returns five mutually incompatible <code>409</code>/<code>403</code> shapes — <code>wip_limit_exceeded</code> and <code>weight_limit_exceeded</code> carry no <code>detail</code> key at all, <code>wip_hard_blocked</code> carries both <code>detail</code> and <code>code</code>, and the move assignee gate is the only <code>403</code> in the card API with a <code>code</code>. The web client reads those field names directly, so converging the shapes needs a major version bump. <code>backend/boards/tests/test_card_error_bodies.py</code> pins every one by exact dictionary equality.</p>
+<p>Note that the adapter does <strong>not</strong> wrap these in a DRF <code>APIException</code>. DRF coerces every value in an exception detail to a string, which would turn <code>current_count</code>, <code>wip_limit</code>, <code>card_weight</code>, and <code>current_version</code> into strings and break clients that compare them numerically.</p>
+<p><code>boards/services/errors.py</code> is <strong>not</strong> an extension point and carries no stability guarantee — unlike <code>boards/hooks.py</code>. The hierarchy is expected to change when the error bodies are converged.</p>
+<h2 id="roles">Roles<a class="headerlink" href="#roles" title="Permanent link">&para;</a></h2>
+<p><code>boards/permissions.py</code> exposes two resolvers over one shared precedence ladder:</p>
 <table>
 <thead>
 <tr>
-<th>App</th>
-<th>Responsibility</th>
+<th>Function</th>
+<th>Use</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>accounts</code></td>
-<td>Custom <code>User</code> model, <code>SiteSetting</code> (registration mode, uploads toggle), <code>PersonalAccessToken</code>, <code>InviteLink</code>, notification preferences, password change, auth provider list</td>
+<td><code>get_board_role(user, board)</code></td>
+<td>one board</td>
 </tr>
 <tr>
-<td><code>boards</code></td>
-<td>Boards, columns, swimlanes, labels, cards, movements, comments, attachments, checklists</td>
-</tr>
-<tr>
-<td><code>groups</code></td>
-<td>Group hierarchy, group memberships, invite links</td>
+<td><code>get_board_roles(user, boards)</code></td>
+<td>a list of boards, in a fixed two queries</td>
 </tr>
 </tbody>
 </table>
-<h2 id="request-lifecycle-rest">Request lifecycle (REST)<a class="headerlink" href="#request-lifecycle-rest" title="Permanent link">&para;</a></h2>
+<p>Resolving a role per board is an N+1 on any board that derives its role from a group, which is why the bulk form exists — and why re-implementing the ladder to dodge that N+1 is what produced the MCP fork. Both resolvers now delegate to the same private helpers; only the way they <em>load</em> memberships differs. Boards passed to <code>get_board_roles</code> must be loaded with <code>GROUP_ANCESTOR_SELECT_RELATED</code> applied, or the ancestor walk reintroduces the N+1 one level down.</p>
+<p><code>can_modify_others_content()</code> — the ownership gate — also lives in <code>permissions.py</code> rather than in the views package, so a service can call it without importing from <code>boards.views</code>.</p>
+<h3 id="the-role-parameter-fails-closed">The <code>role</code> parameter fails closed<a class="headerlink" href="#the-role-parameter-fails-closed" title="Permanent link">&para;</a></h3>
+<p>Every service function takes an optional <code>role</code>, so an adapter that has just resolved the role — <code>get_board_for_user()</code> does, as part of its own access check — does not pay for it twice. On a group-inherited board that second resolution is a real query.</p>
+<p>A parameter that carries authorization state is only safe if a wrong value cannot be believed, so both resolvers leave a memo on the board instance recording which role they resolved and for whom, and the service accepts a supplied role only when it matches that memo. Anything else is discarded, logged, and the role is derived from the database instead. Two mistakes are therefore impossible rather than merely discouraged: passing <code>"admin"</code> outright, and — the likelier one, now that <code>get_board_roles</code> returns a <code>{board_id: role}</code> dict — indexing that dict with the wrong board id. Both just cost the query the parameter existed to save.</p>
+<p>The memo is set by the resolvers alone and is never an input. A caller with no already-resolved role passes <code>None</code>, which is always correct.</p>
+<h2 id="write-paths-that-remain-divergent">Write paths that remain divergent<a class="headerlink" href="#write-paths-that-remain-divergent" title="Permanent link">&para;</a></h2>
+<p>Two paths deliberately do <strong>not</strong> go through the card service. Both are documented divergences, not oversights.</p>
+<p><strong>Import / export</strong> (<code>boards/views/import_export.py</code>) creates cards with <code>bulk_create</code> into a board it has just created. It does not enforce WIP or weight limits, does not compact positions, writes one <code>board.created</code> broadcast instead of per-card events, and fires no card mutation hooks. Calling a per-card service in a loop would mean O(n) round trips and a row lock per card on a 500-card import. There is a second reason to leave it alone: <code>bulk_create</code> does not emit <code>post_save</code>, so importing movement history does not notify assignees — routing import through a service that creates <code>CardMovement</code> rows individually would send a notification per imported movement.</p>
+<p><strong>Django admin</strong> (<code>boards/admin.py</code>, <code>CardAdmin.save_model</code>) broadcasts card events but skips the version bump, the <code>CardMovement</code> audit trail, WIP and weight enforcement, the board-level RBAC check, and the hooks. An admin moving a card between columns therefore leaves no audit trail. This is the strongest candidate to migrate next — it is a single call site.</p>
+<h2 id="adding-to-this-layer">Adding to this layer<a class="headerlink" href="#adding-to-this-layer" title="Permanent link">&para;</a></h2>
+<p>Swimlane and column reorder and the other structural mutations are slated to follow in this package, which is why <code>boards/services/</code> is a package rather than a single module. When adding a transition:</p>
 <ol>
-<li>Browser sends REST request with session cookie</li>
-<li>DRF authenticates via <code>SessionAuthentication</code></li>
-<li>View calls <code>get_board_role()</code> or <code>_require_group_admin()</code> to resolve the caller's effective role</li>
-<li>Queryset filtering restricts results to accessible boards/groups</li>
-<li>Response serialized and returned as JSON</li>
+<li>Put the invariants in a service function; leave parsing, validation, and rendering to the caller.</li>
+<li>Add a class to <code>errors.py</code> for each new failure mode — never build a response body in a view.</li>
+<li>Reach <code>broadcast</code> and <code>hooks</code> through the <strong>module object</strong> (<code>from .. import broadcast as _broadcast</code>). The test suite patches <code>boards.broadcast.broadcast_board_event</code> at its source module, and a direct-name import binds a reference the patch cannot reach — so tests that patch only to suppress the channel layer would silently start broadcasting for real.</li>
+<li>Register hook callbacks by reading <code>hooks.CARD_MUTATION_HOOKS</code> inside the <code>on_commit</code> callback. Enterprise code appends to that list in place; a copy taken at import time would miss late registrations, and rebinding the attribute would drop every enterprise handler.</li>
+<li>Add a query budget to <code>CardMutationQueryCountTests</code>. Mutation budgets are <code>measured + 3</code>, tighter than the 2× used for read endpoints, because they have to catch a constant regression rather than a row-scaling one.</li>
 </ol>
-<h2 id="websocket-lifecycle">WebSocket lifecycle<a class="headerlink" href="#websocket-lifecycle" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Frontend opens <code>ws://{host}/ws/boards/{board_id}/</code> on page load</li>
-<li><code>AuthMiddlewareStack</code> authenticates the connection via the session cookie; unauthenticated connections are closed with code 4001</li>
-<li>On connect, the consumer joins the <code>board_{id}</code> channel group</li>
-<li>Any mutation (card move, update, delete) calls <code>broadcast_board_event()</code> which publishes to Valkey</li>
-<li>Valkey fans the event out to all consumers in the group</li>
-<li>Each consumer forwards the event to its WebSocket client</li>
-<li>The <code>useBoardSocket</code> React hook applies the event to local state</li>
-</ol>
-<h2 id="cicd-pipeline">CI/CD pipeline<a class="headerlink" href="#cicd-pipeline" title="Permanent link">&para;</a></h2>
-<p>GitLab CI runs on every push, MR, and version tag. The pipeline validates code quality, runs tests, scans for vulnerabilities, and — on merges to <code>main</code> and version tags — deploys Docker images and the docs site.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>┌─────────────────────────────────────────────────────────────┐
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>│                     GitLab CI Pipeline                      │
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                                                             │
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>│  lint                                                       │
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>│  │  backend-lint    (Ruff + CodeClimate report)             │
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>│  │  frontend-lint   (ESLint + tsc --noEmit)                 │
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│  │  changelog-check (CHANGELOG.md [Unreleased] must update) │
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>│                                                             │
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│  test                                                       │
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│  │  backend-test          (Django tests, 90% coverage)      │
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│  │  frontend-test         (Vitest)                          │
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>│  │  migration-check       (makemigrations --check)          │
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>│  │  backend-docker-build  (kaniko, MR only)                 │
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>│  │  frontend-docker-build (kaniko, MR only)                 │
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>│                                                             │
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>│  security (MR only)                                         │
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>│  │  backend-dep-scan   (pip-audit / OSV)                    │
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>│  │  frontend-dep-scan  (npm audit)                          │
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>│  │  secret-detection   (detect-secrets)                     │
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>│  │  semgrep-sast       (GitLab SAST component)              │
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>│                                                             │
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>│  deploy                                                     │
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>│  │  docker-push-backend   (main branch — pushes :latest     │
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>│  │  docker-push-frontend   and :&lt;sha&gt; to registry)          │
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>│  │  docs-deploy           (version tags only — mike deploy  │
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>│  │                         to gh-pages; stable → "latest",  │
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>│  │                         pre-release → "next" alias)      │
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>└─────────────────────────────────────────────────────────────┘
-</code></pre></div>
-<p>Key design decisions:</p>
+<h2 id="frozen-asymmetries">Frozen asymmetries<a class="headerlink" href="#frozen-asymmetries" title="Permanent link">&para;</a></h2>
+<p>Three things in this layer look like bugs and are contract. Do not "fix" them without a major version bump:</p>
 <ul>
-<li><strong>Test and build stages run in parallel</strong> — Docker image builds (kaniko) don't depend on test results, so they share the <code>test</code> stage to avoid sequential waiting.</li>
-<li><strong>Security jobs are non-blocking</strong> — <code>allow_failure: true</code> so they surface warnings without gating merges.</li>
-<li><strong>Kaniko for Docker builds</strong> — no Docker-in-Docker or privileged mode needed, runs natively on Kubernetes runners.</li>
-<li><strong>Auto-retry on infrastructure failures</strong> — runner system failures and stuck pods are retried up to 2 times automatically.</li>
-<li><strong>Docs versioned with mike</strong> — each release tag publishes a frozen snapshot to docs.visiban.com; stable releases update the <code>latest</code> alias, pre-releases update <code>next</code>.</li>
+<li><code>unarchive</code> broadcasts the WebSocket event <code>card.unarchived</code> but fires the hook event <code>card.restored</code>. Both names are independently frozen.</li>
+<li><code>card.archived</code> broadcasts only <code>{"card_uid": ...}</code> while <code>card.unarchived</code> broadcasts the whole card. A client only needs to drop an archived card from its view.</li>
+<li><code>update_card</code> and <code>delete_card</code> reject an archived card; <code>move_card</code> accepts one. The move endpoint has always read through the unfiltered manager, so archiving never froze a card's position — a restored card returns to wherever it was put.</li>
+<li>The error bodies described above.</li>
 </ul>
-<h2 id="frontend-architecture">Frontend architecture<a class="headerlink" href="#frontend-architecture" title="Permanent link">&para;</a></h2>
-<p>The SPA is a single <code>App.tsx</code> with React Router v7 routes:</p>
-<ul>
-<li><code>/</code> — Dashboard (boards + group tree)</li>
-<li><code>/groups/:id</code> — Group detail (members, boards, subgroups)</li>
-<li><code>/boards/:id</code> — Board view (DnD kanban grid)</li>
-<li><code>/settings</code> — User settings (profile, locale, appearance, notifications, security)</li>
-<li><code>/join/:token</code> — Invite link landing page</li>
-<li><code>/share/:token</code> — Public read-only board view (no authentication required)</li>
-<li><code>/admin</code> — Site administration panel (site admins only)</li>
-</ul>
-<p>State is local React state with optimistic updates on drag-and-drop. No global state library.</p>
 
 
 
