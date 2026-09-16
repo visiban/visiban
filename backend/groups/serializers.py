@@ -8,6 +8,20 @@ class GroupLabelSerializer(serializers.ModelSerializer):
         model = GroupLabel
         fields = ["id", "name", "color"]
 
+    def validate_name(self, value):
+        # ``group`` isn't a serializer field — it's injected via serializer.save(group=group)
+        # after validation — so DRF can't auto-generate a UniqueTogetherValidator for the
+        # model's (group, name) constraint. Without this, a colliding name reaches the DB
+        # and surfaces as an uncaught IntegrityError / 500 (#1120) instead of a clean 400.
+        group = self.context.get("group")
+        if group is not None:
+            qs = GroupLabel.objects.filter(group=group, name=value)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError("A label with this name already exists in this group.")
+        return value
+
 
 class GroupBriefSerializer(serializers.ModelSerializer):
     """Minimal Group payload for inline expansion on other resources (#817).

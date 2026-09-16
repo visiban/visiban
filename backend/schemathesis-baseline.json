@@ -129,15 +129,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "dc9de3",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema3/properties/avatar_url/format",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "0e667b",
       "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/activities/",
       "check": "response_schema_conformance",
@@ -161,15 +152,6 @@
       "check": "response_schema_conformance",
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema2/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "a71845",
-      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/comments/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/avatar_url/format",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -246,15 +228,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "d74c1e",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/avatar_url/format",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "c32635",
       "operation": "GET /api/v1/boards/{id}/analytics/",
       "check": "response_schema_conformance",
@@ -309,15 +282,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "4de69e",
-      "operation": "GET /api/v1/boards/{id}/full/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/avatar_url/format",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "0a9a4c",
       "operation": "GET /api/v1/boards/{id}/movements/",
       "check": "response_schema_conformance",
@@ -341,15 +305,6 @@
       "check": "response_schema_conformance",
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "9b67c9",
-      "operation": "GET /api/v1/cards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema4/properties/avatar_url/format",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -1061,15 +1016,6 @@
       "check": "response_schema_conformance",
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f8e1db",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/avatar_url/format",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },

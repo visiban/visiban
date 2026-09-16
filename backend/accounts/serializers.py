@@ -1,9 +1,33 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import PAT_SCOPES, PersonalAccessToken, User, get_uploads_enabled
 from .forms import VisibanPasswordResetForm
+
+
+@extend_schema_field({
+    "type": "string",
+    "maxLength": 200,
+})
+class AvatarUrlField(serializers.CharField):
+    """``avatar_url`` with the ``format: uri`` constraint dropped from its schema.
+
+    ``User.avatar_url`` is ``models.URLField(blank=True)`` — an empty string is
+    a valid "no avatar set" value, not just an absent one. A plain
+    ``serializers.URLField`` mapping declares ``format: uri`` regardless of
+    ``allow_blank`` (drf-spectacular derives it from the field's attached
+    ``URLValidator``, independently of the ``@extend_schema_field`` override
+    above — subclassing ``URLField`` and only overriding the *declared* schema
+    still leaves the *validator* in place, which re-adds ``format`` from the
+    other direction), which is a JSON Schema violation for `""` (schemathesis
+    correctly flags it, #1120). Subclassing ``CharField`` instead avoids
+    attaching that validator in the first place; avatar URLs are populated
+    from OAuth providers, not hand-typed, so strict URL-syntax validation on
+    write isn't load-bearing here.
+    """
+
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -35,6 +59,8 @@ class PublicUserSerializer(serializers.ModelSerializer):
     regardless of whether they share a board with the result.
     """
 
+    avatar_url = AvatarUrlField(allow_blank=True, required=False)
+
     class Meta:
         model = User
         fields = ["id", "username", "display_name", "avatar_url"]
@@ -51,6 +77,8 @@ class BoardUserSerializer(serializers.ModelSerializer):
     be able to read these fields for other users via the board API.
     """
 
+    avatar_url = AvatarUrlField(allow_blank=True, required=False)
+
     class Meta:
         model = User
         fields = ["id", "username", "display_name", "avatar_url"]
@@ -58,6 +86,7 @@ class BoardUserSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
+    avatar_url = AvatarUrlField(allow_blank=True, required=False)
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
     # __init__ rather than at class level to avoid a premature import of
     # boards.models during test collection (app registry may not be ready when
