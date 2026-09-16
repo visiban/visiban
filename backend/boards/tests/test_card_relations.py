@@ -289,7 +289,10 @@ class CardRelationValidationTests(_RelationTestBase):
 
 class CardRelationRbacTests(_RelationTestBase):
     def _client_for(self, role):
-        user = _make_user(f"rel_{role}")
+        # Username left to the factory's auto-increment: two callers may ask for
+        # the same role in one test (see the cross-user ownership test below),
+        # and a role-derived username would collide on `unique_username_ci`.
+        user = _make_user()
         _make_membership(self.board, user, role)
         client = APIClient()
         client.force_authenticate(user)
@@ -312,12 +315,70 @@ class CardRelationRbacTests(_RelationTestBase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.data), 1)
 
-    def test_collaborator_and_member_may_create(self):
-        for role in ("collaborator", "member"):
+    def test_collaborator_cannot_create(self):
+        """One tier stricter than checklist items, deliberately.
+
+        A checklist item annotates the card it is on; a relation changes how a
+        *different* card reads for the whole board. Collaborators have
+        read-only access to card state, and this is card state.
+        """
+        r = self._link(self.card_a, self.card_b, client=self._client_for("collaborator"))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(CardRelation.objects.count(), 0)
+
+    def test_collaborator_cannot_delete(self):
+        relation_id = self._link(self.card_a, self.card_b).data["id"]
+        r = self._client_for("collaborator").delete(self._url(self.card_a, relation_id))
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(CardRelation.objects.count(), 1)
+
+    def test_collaborator_may_still_read_relations(self):
+        self._link(self.card_a, self.card_b)
+        r = self._client_for("collaborator").get(self._url(self.card_a))
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(r.data), 1)
+
+    def test_member_and_admin_may_create_and_delete(self):
+        for role in ("member", "admin"):
             with self.subTest(role=role):
                 CardRelation.objects.all().delete()
-                r = self._link(self.card_a, self.card_b, client=self._client_for(role))
-                self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+                client = self._client_for(role)
+                created = self._link(self.card_a, self.card_b, client=client)
+                self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+                removed = client.delete(self._url(self.card_a, created.data["id"]))
+                self.assertEqual(removed.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_site_admin_may_create_and_delete_without_membership(self):
+        """Pins the SITE_ADMIN branch of the allow-list.
+
+        A site admin has no BoardMembership row here; the role resolves through
+        `can_access_all_content` in get_board_role(). Asserted rather than
+        trusted, so a future reordering of that precedence ladder fails here.
+        """
+        site_admin = _make_user("rel_site_admin", can_access_all_content=True)
+        client = APIClient()
+        client.force_authenticate(site_admin)
+        created = self._link(self.card_a, self.card_b, client=client)
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        removed = client.delete(self._url(self.card_a, created.data["id"]))
+        self.assertEqual(removed.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_a_member_may_remove_a_relation_another_member_created(self):
+        """Relations are shared board objects, not per-creator content.
+
+        Deliberate: unlike checklist items there is no ownership gate. A member
+        can already retitle, reassign and move both endpoint cards, so
+        withholding "unlink them" would be an arbitrary line — and `created_by`
+        names who drew the link, not who owns either card, so "your own
+        relation" is not a coherent notion here. `created_by` is for
+        attribution, not authorization.
+        """
+        author = self._client_for("member")
+        relation_id = self._link(self.card_a, self.card_b, client=author).data["id"]
+        other = self._client_for("member")
+        r = other.delete(self._url(self.card_a, relation_id))
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(CardRelation.objects.count(), 0)
 
     def test_non_member_gets_403(self):
         outsider = _make_user("rel_outsider")
@@ -534,6 +595,77 @@ class CardRelationBroadcastTests(_RelationTestBase):
         self.assertEqual(self.broadcast.call_count, 0)
 
 
+class CardRelationPeerBroadcastTests(_RelationTestBase):
+    """Archiving, restoring or deleting a blocker moves the OTHER card's count.
+
+    That other card gets no frame from the archive/delete event itself — those
+    carry only the acted-on card's uid — so without an explicit peer broadcast
+    every connected client keeps rendering a blocked indicator for a blocker
+    that is no longer on the board.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self._broadcast_patcher.stop()
+        self.broadcast = patch("boards.broadcast.broadcast_board_event").start()
+        self.addCleanup(patch.stopall)
+        # card_a blocks card_b.
+        with self.captureOnCommitCallbacks(execute=True):
+            self._link(self.card_a, self.card_b)
+        self.broadcast.reset_mock()
+
+    def _payload_for(self, card_id):
+        for call in self.broadcast.call_args_list:
+            if call.args[1] == "card.updated" and call.args[2].get("id") == card_id:
+                return call.args[2]
+        return None
+
+    def test_archiving_the_blocker_tells_the_blocked_card(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/archive/"
+            )
+        payload = self._payload_for(self.card_b.id)
+        self.assertIsNotNone(payload, "no card.updated for the blocked card")
+        self.assertEqual(payload["blocker_count"], 0)
+
+    def test_restoring_the_blocker_tells_the_blocked_card(self):
+        self.client.post(f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/archive/")
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/unarchive/"
+            )
+        payload = self._payload_for(self.card_b.id)
+        self.assertIsNotNone(payload, "no card.updated for the re-blocked card")
+        self.assertEqual(payload["blocker_count"], 1)
+
+    def test_deleting_the_blocker_tells_the_blocked_card(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.delete(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/"
+            )
+        payload = self._payload_for(self.card_b.id)
+        self.assertIsNotNone(payload, "no card.updated for the blocked card")
+        self.assertEqual(payload["blocker_count"], 0)
+
+    def test_archiving_an_unrelated_card_broadcasts_no_peer_updates(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_c.id}/archive/"
+            )
+        updates = [c for c in self.broadcast.call_args_list if c.args[1] == "card.updated"]
+        self.assertEqual(updates, [])
+
+    def test_archiving_the_blocked_card_does_not_broadcast_for_its_blocker(self):
+        """Direction matters: card_b blocks nothing, so nothing follows it."""
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_b.id}/archive/"
+            )
+        self.assertIsNone(self._payload_for(self.card_a.id))
+
+
 class CardRelationBroadcastCommitTests(TransactionTestCase):
     """The publish must be deferred until the transaction commits.
 
@@ -620,6 +752,53 @@ class CardRelationExposureTests(_RelationTestBase):
         r = self.anon.get(self._url(self.card_a))
         self.assertIn(
             r.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
+
+
+class CardRelationPeerBroadcastQueryCountTests(_RelationTestBase):
+    """Archiving a card that blocks many others must cost ONE query per peer.
+
+    Every peer needs its own `card.updated` frame, and each frame is one
+    `BoardEvent` row — that INSERT is irreducible, and it is what the #1114
+    resumable cursor reads. What is *not* irreducible is the rendering: one
+    `_card_queryset` pass per peer would be roughly seven queries each. They
+    are rendered in a single batched pass instead, so the marginal cost of a
+    peer is exactly the one INSERT. This test is what stops that regressing
+    back to a per-peer render.
+    """
+
+    def _archive_query_count(self, card):
+        url = f"/api/v1/boards/{self.board.id}/cards/{card.id}/archive/"
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(url)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return len(ctx)
+
+    def test_archive_cost_is_flat_in_the_number_of_blocked_cards(self):
+        # Blocker with one blocked card.
+        one_target = _make_card(self.col, self.lane, title="blocks one", position=10)
+        blocked = _make_card(self.col, self.lane, title="blocked", position=11)
+        CardRelation.objects.create(
+            from_card=one_target, to_card=blocked, relation_type=T.BLOCKS,
+        )
+        few = self._archive_query_count(one_target)
+
+        # Blocker with eight blocked cards.
+        many_target = _make_card(self.col, self.lane, title="blocks many", position=20)
+        for i in range(8):
+            other = _make_card(self.col, self.lane, title=f"b{i}", position=30 + i)
+            CardRelation.objects.create(
+                from_card=many_target, to_card=other, relation_type=T.BLOCKS,
+            )
+        many = self._archive_query_count(many_target)
+
+        # Seven more peers may cost seven more feed-row INSERTs and nothing
+        # else. A per-peer render would make this roughly seven times larger.
+        self.assertEqual(
+            many - few, 7,
+            f"archiving cost {few} queries with 1 blocked card and {many} with 8 "
+            f"— {many - few} extra for 7 extra peers, expected 7. The peer "
+            "broadcast is rendering one card at a time again.",
         )
 
 

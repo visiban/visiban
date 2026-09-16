@@ -74,13 +74,18 @@ it. There is no confirmation step — the relation is trivially re-addable.
 | Role | View relations | Add / remove |
 |---|---|---|
 | Viewer | Yes | No |
-| Collaborator | Yes | Yes |
+| Collaborator | Yes | No |
 | Member | Yes | Yes |
 | Admin | Yes | Yes |
 
-A relation changes how a card reads on the board for everyone, so adding and
-removing requires at least the Collaborator role. Viewers see relations but no
-controls.
+A relation changes how a *different* card reads on the board for everyone, so
+adding and removing requires at least the Member role — one tier stricter than
+comments, attachments, and checklist items, which collaborators can edit.
+Viewers and collaborators see relations but no controls.
+
+Any member can remove any relation, including one someone else created. A member
+can already edit both of the cards a relation links, so restricting the unlink to
+its author would not protect anything.
 
 ---
 

@@ -12,6 +12,14 @@ import RelationCardPicker from "./RelationCardPicker";
 interface Props {
   board: BoardFull;
   card: Card;
+  /**
+   * Member and above — deliberately `canEdit`, not `canComment`. A relation
+   * changes how a *different* card reads for the whole board, so it sits on
+   * the card-state side of the line rather than the annotation side that
+   * collaborators get. This must stay in step with the backend allow-list on
+   * the relations endpoints; the two are asserted separately, so a change to
+   * one without the other shows up as a control the API then refuses.
+   */
   canEdit: boolean;
   /**
    * Called with +1 / -1 when an incoming, non-archived `blocks` relation is
@@ -186,7 +194,7 @@ export default function CardRelationsSection({
                   Failed to load relations.
                   <button
                     onClick={load}
-                    className="text-xs text-info hover:text-info font-medium ml-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                    className="text-xs text-info hover:underline font-medium ml-2 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
                   >
                     Retry
                   </button>

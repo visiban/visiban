@@ -223,6 +223,8 @@ describe("GlobalCommandPalette — board mode (inside BoardProvider)", () => {
         is_stale: false,
         archived_at: null,
         version: 1,
+        custom_field_values: [],
+        blocker_count: 0,
       },
     ],
     columns: [{ id: 10, uid: "col-10", name: "In Progress" } as never],

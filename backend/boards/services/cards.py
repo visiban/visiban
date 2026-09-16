@@ -60,8 +60,8 @@ from django.utils import timezone
 from .. import broadcast as _broadcast
 from .. import hooks
 from ..models import (
-    BoardMembership, Card, CardActivity, CardMovement, Column, Notification,
-    Swimlane,
+    BoardMembership, Card, CardActivity, CardMovement, CardRelation, Column,
+    Notification, Swimlane,
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..utils import notify_new_mentions
@@ -213,6 +213,56 @@ def _broadcast_after_commit(board_id, event, payload, actor_id=None):
     broadcasting for real.
     """
     _broadcast.record_board_event(board_id, event, payload, actor_id=actor_id)
+
+
+def _blocked_peer_ids(card):
+    """Ids of the cards ``card`` actively blocks (#449).
+
+    Archiving, restoring or deleting a card silently changes the *other* card's
+    ``blocker_count``, because ``_active_blockers_prefetch()`` only counts
+    blockers that are still on the board. Those peers need their own
+    ``card.updated`` frame or every connected client keeps rendering a blocked
+    indicator for a blocker that is gone.
+
+    Call this **before** a hard delete — the relation rows cascade away with
+    the card, so afterwards there is nothing left to read.
+    """
+    return list(
+        card.outgoing_relations.filter(
+            relation_type=CardRelation.Type.BLOCKS
+        ).values_list("to_card_id", flat=True)
+    )
+
+
+def _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many=None):
+    """Publish ``card.updated`` for each card whose blocker_count just moved.
+
+    Reuses ``card.updated`` rather than inventing an event type: the payload is
+    a complete card and the board store already replaces a card wholesale by id.
+
+    ``render`` is the caller's card-rendering callback, so this module still
+    builds no response and imports no serializer — the same layering rule the
+    rest of this file follows. It is optional at the call sites that did not
+    previously take one; without it the peer broadcast is skipped rather than
+    the mutation failing, since a stale indicator is a lesser fault than a
+    500 on delete.
+
+    ``render_many`` is the batched form of the same callback. When the caller
+    supplies it, every peer is rendered in one prefetch pass instead of one per
+    peer — the difference between a constant cost and ``7 x N`` queries on a
+    card that blocks N others, which is unbounded. ``render`` is kept as the
+    fallback for a caller that has no batched form.
+    """
+    if not peer_ids:
+        return
+    if render_many is not None:
+        payloads = render_many(peer_ids)
+    elif render is not None:
+        payloads = [render(peer) for peer in Card.objects.filter(pk__in=peer_ids)]
+    else:
+        return
+    for payload in payloads:
+        _broadcast_after_commit(board_id, "card.updated", payload, actor.id)
 
 
 def _board_scoped(model, pk, board, error):
@@ -686,7 +736,7 @@ def _archive_movement(card, actor, movement_type):
     )
 
 
-def archive_card(*, actor, board, card_id, render, role=None):
+def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
     """Soft-delete a card by stamping ``archived_at``.
 
     Member+ role required — the same boundary as edit and delete. Archiving an
@@ -708,16 +758,21 @@ def archive_card(*, actor, board, card_id, render, role=None):
     if card.archived_at is None:
         board_id = card.board_id
         card_uid = card.uid
+        peer_ids = _blocked_peer_ids(card)
         with transaction.atomic():
             card.archived_at = timezone.now()
             card.save(update_fields=["archived_at"])
             _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
             _broadcast_after_commit(board_id, "card.archived", {"card_uid": card_uid}, actor.id)
+            # Archiving a blocker drops its targets' blocker_count (#449).
+            # Rendered after the save so each peer payload reflects the new
+            # state, and inside the transaction so it rolls back with it.
+            _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
             _fire_hooks("card.archived", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=render(card))
 
 
-def unarchive_card(*, actor, board, card_id, render, role=None):
+def unarchive_card(*, actor, board, card_id, render, role=None, render_many=None):
     """Restore a card by clearing ``archived_at``.
 
     The card re-enters its original column/swimlane position. Restoring a card
@@ -741,6 +796,7 @@ def unarchive_card(*, actor, board, card_id, render, role=None):
         return CardMutationResult(card=card, payload=render(card))
 
     board_id = card.board_id
+    peer_ids = _blocked_peer_ids(card)
     with transaction.atomic():
         card.archived_at = None
         card.save(update_fields=["archived_at"])
@@ -750,6 +806,9 @@ def unarchive_card(*, actor, board, card_id, render, role=None):
         # response rather than re-fetched (#1050).
         payload = render(card)
         _broadcast_after_commit(board_id, "card.unarchived", payload, actor.id)
+        # Restoring a blocker puts its targets back into a blocked state (#449)
+        # — the mirror of the archive case above.
+        _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
         _fire_hooks("card.restored", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
@@ -758,7 +817,7 @@ def unarchive_card(*, actor, board, card_id, render, role=None):
 # delete
 # ---------------------------------------------------------------------------
 
-def delete_card(*, actor, board, card, role=None):
+def delete_card(*, actor, board, card, role=None, render=None, render_many=None):
     """Hard-delete a card.
 
     Takes the ``Card`` rather than an id because no row lock is needed and the
@@ -779,9 +838,13 @@ def delete_card(*, actor, board, card, role=None):
     board_id = card.board_id
     card_uid = card.uid
     card_id = card.pk
+    # Read before the delete: the relation rows CASCADE away with the card, so
+    # after it there is nothing left to tell us whose blocker_count moved (#449).
+    peer_ids = _blocked_peer_ids(card)
     with transaction.atomic():
         card.delete()
         _broadcast_after_commit(board_id, "card.deleted", {"card_uid": card_uid}, actor.id)
+        _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
         # The id is still passed even though the row is gone, so a handler can
         # tell "deleted" apart from "never existed".
         _fire_hooks("card.deleted", card_id, board_id, actor.id)

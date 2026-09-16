@@ -609,7 +609,11 @@ blocker does **not** count toward `blocker_count`.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/relations/`
 
-Link this card to another card on the same board. **Minimum role: Collaborator.**
+Link this card to another card on the same board. **Minimum role: Member.**
+
+One tier stricter than the checklist and comment endpoints, which admit
+collaborators: a relation changes how a *different* card reads for everyone on
+the board, and collaborators have read-only access to card state.
 
 **Request** `{ "to_card": 88, "direction": "blocked_by" }`
 
@@ -646,12 +650,13 @@ permitted.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/`
 
-Remove a relation. **Minimum role: Collaborator.** Returns `204`.
+Remove a relation. **Minimum role: Member.** Returns `204`.
 
 The relation must involve the card in the URL at one end or the other; a
 relation between two unrelated cards returns `404`. Either end may delete —
 both cards display the relation, so the permission to unlink is the same from
-both sides.
+both sides. There is no per-creator restriction: a member can already edit both
+endpoint cards, so `created_by` is recorded for attribution, not authorization.
 
 ### Real-time
 
