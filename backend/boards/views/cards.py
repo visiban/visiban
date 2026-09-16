@@ -1264,8 +1264,8 @@ class CardViewSet(viewsets.ModelViewSet):
         responses={201: CardRelationSerializer},
         description=(
             "Link this card to another card on the same board. Minimum role: "
-            "collaborator. Cross-board targets, self-relations, duplicates and "
-            "mutual blocks are rejected with 400."
+            "member. Cross-board targets, self-relations, duplicates and "
+            "mutual blocks are rejected with 400, each carrying a `code`."
         ),
     )
     @action(detail=True, methods=["get", "post"], url_path="relations")
@@ -1382,8 +1382,8 @@ class CardViewSet(viewsets.ModelViewSet):
     @extend_schema(
         responses={204: OpenApiResponse(description="Relation removed.")},
         description=(
-            "Remove a relation. The relation must involve this card at one end. "
-            "Minimum role: collaborator."
+            "Remove a relation. The relation must involve this card at one end; "
+            "either end may remove it. Minimum role: member."
         ),
     )
     @action(detail=True, methods=["delete"], url_path="relations/(?P<relation_pk>[^/.]+)")

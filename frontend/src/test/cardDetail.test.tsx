@@ -67,9 +67,10 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
+const mockGetCardRelations = getCardRelations as ReturnType<typeof vi.fn>
 const mockUpdateChecklistItem = updateChecklistItem as ReturnType<typeof vi.fn>
 const mockDeleteChecklistItem = deleteChecklistItem as ReturnType<typeof vi.fn>
 
@@ -280,6 +281,50 @@ describe('CardDetail', () => {
     await waitFor(() => {
       expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { weight: 2 })
     })
+  })
+
+  it('discards unsaved edits when remounted for a different card (#449)', () => {
+    // BoardView passes `key={selectedCard.id}`, so opening a different card
+    // from a relation row remounts rather than re-renders. That matters
+    // because `localCard` is seeded from a useState initializer with no
+    // prop-sync effect — without the remount, card B's panel would show card
+    // A's title, weight and labels while B's data loaded.
+    const cardA = makeCard({ id: 1, title: 'Card A' })
+    const cardB = makeCard({ id: 2, title: 'Card B' })
+    const props = defaultProps()
+
+    const { rerender } = render(<CardDetail key={cardA.id} {...props} card={cardA} />)
+    fireEvent.change(screen.getByDisplayValue('Card A'), {
+      target: { value: 'Unsaved edit' },
+    })
+    expect(screen.getByDisplayValue('Unsaved edit')).toBeInTheDocument()
+
+    rerender(<CardDetail key={cardB.id} {...props} card={cardB} />)
+
+    expect(screen.queryByDisplayValue('Unsaved edit')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Card B')).toBeInTheDocument()
+  })
+
+  it('renders the relations section between Weight and Checklist (#449)', async () => {
+    render(<CardDetail {...defaultProps()} />)
+    const relations = await screen.findByRole('button', { name: /Relations/ })
+    expect(relations).toBeInTheDocument()
+
+    // Order matters: Relations closes the classification arc (priority,
+    // labels, custom fields, weight) before the contents arc (checklist,
+    // attachments) opens. Compare DOM position rather than trusting the JSX.
+    const checklist = screen.getByText('Checklist')
+    expect(
+      relations.compareDocumentPosition(checklist) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('does not render the relations section for a viewer with no relations', async () => {
+    const props = defaultProps()
+    props.board = makeBoard({ current_user_role: 'viewer' })
+    render(<CardDetail {...props} />)
+    await waitFor(() => expect(mockGetCardRelations).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: /Relations/ })).not.toBeInTheDocument()
   })
 
   it('renders checklist section', () => {

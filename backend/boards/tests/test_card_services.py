@@ -20,7 +20,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from boards import hooks
-from boards.models import BoardMembership, Card, CardActivity, CardMovement
+from boards.models import BoardMembership, Card, CardActivity, CardMovement, CardRelation
 from boards.permissions import get_board_role, get_board_roles
 from boards.services import cards as svc
 from boards.services.errors import (
@@ -926,3 +926,92 @@ class SideEffectTests(CardServiceTestBase):
         after = {c.pk: c.position for c in Card.objects.all()}
         self.assertEqual(before, after)
         self.assertTrue(others)  # fixture sanity
+
+
+class BlockedPeerBroadcastTests(CardServiceTestBase):
+    """Archiving, restoring or deleting a blocker must tell the blocked card (#449).
+
+    Covered here at the service layer, not only through the HTTP tests in
+    ``test_card_relations``, because the whole point of this module is that a
+    non-HTTP caller gets the same behavior. The peer broadcast is the part
+    most easily lost: it hangs off three write paths that existed long before
+    relations did.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.target = _make_card(self.col_a, self.lane, title="Target", position=9)
+        CardRelation.objects.create(
+            from_card=self.card, to_card=self.target,
+            relation_type=CardRelation.Type.BLOCKS, created_by=self.owner,
+        )
+
+    def _events(self):
+        return [call.args[1] for call in self.broadcast.call_args_list]
+
+    def test_archiving_a_blocker_publishes_card_updated_for_the_blocked_card(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.archive_card(
+                actor=self.owner, board=self.board, card_id=self.card.pk, render=_render,
+            )
+        self.assertEqual(self._events(), ["card.archived", "card.updated"])
+        self.assertEqual(self.broadcast.call_args_list[1].args[2]["id"], self.target.pk)
+
+    def test_restoring_a_blocker_publishes_card_updated_for_the_blocked_card(self):
+        svc.archive_card(
+            actor=self.owner, board=self.board, card_id=self.card.pk, render=_render,
+        )
+        self.broadcast.reset_mock()
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.unarchive_card(
+                actor=self.owner, board=self.board, card_id=self.card.pk, render=_render,
+            )
+        self.assertEqual(self._events(), ["card.unarchived", "card.updated"])
+        self.assertEqual(self.broadcast.call_args_list[1].args[2]["id"], self.target.pk)
+
+    def test_deleting_a_blocker_publishes_card_updated_for_the_blocked_card(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.delete_card(
+                actor=self.owner, board=self.board, card=self.card, render=_render,
+            )
+        self.assertEqual(self._events(), ["card.deleted", "card.updated"])
+
+    def test_render_many_wins_over_the_per_card_fallback_for_peers(self):
+        """The batched renderer is the entire reason the peer broadcast is not
+        an N+1 — if the fallback were taken instead, the cost would scale with
+        the number of blocked cards."""
+        batched, single = [], []
+
+        def render_many(ids):
+            batched.append(sorted(ids))
+            return [{"id": i} for i in ids]
+
+        def render(card, movement=None):
+            single.append(card.pk)
+            return _render(card, movement)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.archive_card(
+                actor=self.owner, board=self.board, card_id=self.card.pk,
+                render=render, render_many=render_many,
+            )
+
+        self.assertEqual(batched, [[self.target.pk]])
+        # `render` is still used for the acted-on card's own return payload,
+        # never for the peers.
+        self.assertEqual(single, [self.card.pk])
+
+    def test_omitting_both_renderers_skips_the_peer_frame_without_raising(self):
+        """`delete_card` defaults both to None. No caller omits both today, but
+        the signature allows it, and a stale indicator is the accepted lesser
+        fault — it must not 500."""
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.delete_card(actor=self.owner, board=self.board, card=self.card)
+        self.assertEqual(self._events(), ["card.deleted"])
+
+    def test_a_card_that_blocks_nothing_publishes_no_peer_frame(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            svc.archive_card(
+                actor=self.owner, board=self.board, card_id=self.target.pk, render=_render,
+            )
+        self.assertEqual(self._events(), ["card.archived"])
