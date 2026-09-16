@@ -2536,6 +2536,40 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diff-coverage-1076" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diff coverage (#1076)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diff coverage (#1076)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#diff-coverage-escape-hatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diff coverage escape hatch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3375,6 +3409,34 @@
   Currently non-blocking (<code>allow_failure: true</code>) while its baseline is triaged (#1120)</li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
+<h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>
+<p><code>backend-test-coverage</code> and <code>frontend-test</code>'s vitest thresholds gate the <em>aggregate</em>
+coverage of the whole codebase. That number moves slowly — a large, well-tested
+codebase can absorb a fully untested new feature and barely notice. <code>backend-diff-coverage</code>
+and <code>frontend-diff-coverage</code> close that gap: they run only on MR pipelines (there's no
+diff to measure on <code>main</code>) and use <a href="https://github.com/Bachmann1234/diff_cover"><code>diff-cover</code></a>
+to measure coverage of only the lines the MR actually adds or changes, against the same
+<code>coverage.xml</code> / <code>cobertura-coverage.xml</code> the aggregate jobs already produce — no test
+re-run. Both are blocking at <strong>80% of changed lines</strong> and print the uncovered line numbers
+in the job log (<code>--show-uncovered</code>), not just a percentage.</p>
+<p>Excluded from the diff denominator on both sides: backend <code>*/migrations/*</code> and <code>manage.py</code>
+(schema, not behavior — see the <code>backend-diff-coverage</code> job comment in <code>.gitlab-ci.yml</code> for
+why the aggregate run <em>does</em> count migrations but the diff gate doesn't), and frontend
+<code>src/test/*</code>, <code>*.test.*</code>, <code>*.spec.*</code> (already excluded from the coverage report itself by
+<code>vitest.config.ts</code>'s <code>coverage.exclude</code>; the CI job's <code>--exclude</code> is belt-and-suspenders).
+Generated files, if any are ever introduced, should be added to the same exclude list.</p>
+<h4 id="diff-coverage-escape-hatch">Diff coverage escape hatch<a class="headerlink" href="#diff-coverage-escape-hatch" title="Permanent link">&para;</a></h4>
+<p>An MR can legitimately fail this gate without meaning "add more tests" — a pure refactor
+that only moves lines, or a vendored file with no realistic local test. When that happens:</p>
+<ol>
+<li>Say so explicitly in the MR description (a line under a <code>## Notes</code> heading is enough:
+   <em>"backend-diff-coverage fails on moved-but-unchanged lines in <code>foo.py</code>; no new
+   behavior to test."</em>).</li>
+<li>A reviewer confirms the reasoning and re-runs the job manually with an adjusted
+   understanding, or approves the MR with the failing job explicitly acknowledged.</li>
+</ol>
+<p>The override is always visible in the MR discussion and job history — never silence the
+gate by weakening the threshold or broadening <code>--exclude</code> to route around a single MR.</p>
 <h2 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">&para;</a></h2>
 <p><code>scripts/wt</code> (see its <code>--help</code>) applies a <code>status::wip</code> GitLab label when you create a
 worktree with <code>wt new</code>/<code>wt claim</code>, so a parallel agent or teammate doesn't grab the same
