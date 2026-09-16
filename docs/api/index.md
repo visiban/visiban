@@ -90,6 +90,30 @@ Operators and integrators may treat the `/api/v1/` surface as stable for the lif
 - Dates are ISO 8601 strings: `"2026-04-01"`
 - Permission errors return `403 Forbidden`; missing resources return `404 Not Found`
 
+### Maintenance mode (503)
+
+> **Added in 1.2**
+
+While a site admin has [maintenance mode](admin.md#maintenance-mode) turned on, **any**
+non-safe-method request (anything other than `GET`, `HEAD`, `OPTIONS`, `TRACE`) from a non-site-admin
+caller — on any endpoint documented in this reference — is rejected with `503 Service Unavailable`:
+
+```json
+{ "code": "maintenance_mode", "detail": "Upgrading to 1.2 — back by 14:00 UTC." }
+```
+
+The response carries `Retry-After: 120` so clients back off rather than retry immediately.
+`detail` is the operator's configured notice, or a built-in default when they left it blank.
+Reads keep working, and site admins keep full read/write access regardless of how they
+authenticate (session cookie or personal access token).
+
+A small set of endpoints stay writable even during maintenance — mainly login, logout, the
+password-reset/forced-change flows, the admin API itself, and the health probes. See
+[Maintenance mode → endpoints that stay writable](admin.md#maintenance-mode) for the exact list.
+MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`) return an equivalent
+`{"error": {"code": "maintenance_mode", "detail": "..."}}` result instead of a 503 — see
+[MCP Server](mcp.md#tool-errors).
+
 ### URL path style
 
 Path segments use `kebab-case` (e.g. `/auth/change-password/`, `/boards/<id>/saved-filters/`, `/boards/<id>/move-group/`). This is the canonical style and the convention you should rely on when writing new integrations.

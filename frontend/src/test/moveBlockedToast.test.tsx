@@ -212,3 +212,66 @@ describe('MoveBlockedToast — permission_denied variant', () => {
     expect(alert.className).toContain('border-warning')
   })
 })
+
+describe('MoveBlockedToast — maintenance mode (#783)', () => {
+  const maintenanceError: MoveBlockedError = {
+    code: 'maintenance_mode',
+    detail: 'Upgrading to v1.3 — back by 3:00 PM UTC.',
+  }
+
+  it('shows the operator notice verbatim', () => {
+    render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/Move blocked/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Upgrading to v1\.3 — back by 3:00 PM UTC\./)
+    ).toBeInTheDocument()
+  })
+
+  it('offers no admin override — there is nothing to override', () => {
+    // Unlike a WIP limit, maintenance mode has no force-through path for any
+    // role, so the override link must be absent even when isAdmin is true.
+    render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/Move anyway/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the warning glyph rather than the hard-block glyph', () => {
+    // frontend/CLAUDE.md reserves ⛔ for wip_hard_blocked alone.
+    const { container } = render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(container.textContent).toContain('⚠')
+    expect(container.textContent).not.toContain('⛔')
+  })
+
+  it('is still dismissible', () => {
+    const onDismiss = vi.fn()
+    render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={onDismiss}
+      />
+    )
+    expect(screen.getByLabelText('Dismiss')).toBeInTheDocument()
+  })
+})

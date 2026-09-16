@@ -101,10 +101,13 @@ vi.mock('../components/Board/ColumnHeader', () => ({
   ),
 }))
 // SwimlaneRow mock renders name + focus/exit buttons so focus tests can fire onFocus/onExitFocus via click.
+// data-can-edit surfaces the canEdit prop (#783 — maintenance mode folds into the
+// existing per-board write gate) so tests can assert on it without rendering the
+// real SwimlaneRow tree.
 vi.mock('../components/Board/SwimlaneRow', () => ({
-  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean }) => {
+  default: ({ swimlane, onFocus, onExitFocus, isFocused, compact, canEdit }: { swimlane: { id: number; name: string }; onFocus?: (id: number) => void; onExitFocus?: () => void; isFocused?: boolean; compact?: boolean; canEdit?: boolean }) => {
     return (
-      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)}>
+      <div data-testid={`swim-${swimlane.id}`} data-focused={String(isFocused ?? false)} data-compact={String(compact ?? false)} data-can-edit={String(canEdit ?? false)}>
         {swimlane.name}
         <button data-testid={`focus-btn-${swimlane.id}`} onClick={() => onFocus?.(swimlane.id)}>Focus</button>
         <button data-testid={`exit-focus-btn-${swimlane.id}`} onClick={() => onExitFocus?.()}>ExitFocusMock</button>
@@ -1428,6 +1431,41 @@ describe('BoardView', () => {
       expect(screen.getByText('Delete column?')).toBeInTheDocument()
       expect(screen.queryByLabelText(/Type .* to confirm deletion/i)).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // #783 — maintenance mode folds into the existing canEdit gate
+  // ---------------------------------------------------------------------------
+  describe('maintenance mode (#783)', () => {
+    it('canEdit is unaffected when currentUser is not in maintenance mode', () => {
+      render(<BoardView currentUser={fakeUser} />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'true')
+    })
+
+    it('canEdit defaults to open when no currentUser is supplied at all', () => {
+      // Some call sites render BoardView with currentUser=null; the maintenance
+      // gate must not throw on a missing user and must not block editing.
+      render(<BoardView currentUser={null} />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'true')
+    })
+
+    it('canEdit turns false for a board admin while the instance is in maintenance mode', () => {
+      const blockedAdmin = { ...fakeUser, maintenance_mode: true, is_site_admin: false }
+      render(<BoardView currentUser={blockedAdmin} />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'false')
+    })
+
+    it('site admins stay canEdit=true during maintenance mode (mirrors the server-side exemption)', () => {
+      const exemptSiteAdmin = { ...fakeUser, maintenance_mode: true, is_site_admin: true }
+      render(<BoardView currentUser={exemptSiteAdmin} />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'true')
+    })
+
+    it('canEdit stays false for a viewer regardless of maintenance mode (unrelated gate still applies)', () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
+      render(<BoardView currentUser={fakeUser} />)
+      expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'false')
     })
   })
 })

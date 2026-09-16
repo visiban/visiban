@@ -119,6 +119,7 @@ nav:
     - Configuration: administration/configuration.md
     - Site Admins: administration/site-admins.md
     - Admin Panel: administration/admin-panel.md
+    - Maintenance Mode: administration/maintenance-mode.md
     - Authentication: administration/authentication.md
     - Demo Data: administration/demo-data.md
     - Django Admin: administration/django-admin.md

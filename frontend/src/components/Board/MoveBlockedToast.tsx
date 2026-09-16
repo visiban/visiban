@@ -11,7 +11,7 @@ function toastBody(error: MoveBlockedError): string {
   if (error.code === "version_conflict") {
     return "This card was modified by another user while you were dragging it. The board has been refreshed.";
   }
-  if (error.code === "permission_denied") {
+  if (error.code === "permission_denied" || error.code === "maintenance_mode") {
     return error.detail;
   }
   if (error.code === "wip_limit_exceeded" || error.code === "wip_hard_blocked") {
@@ -25,12 +25,18 @@ function toastBody(error: MoveBlockedError): string {
 function toastTitle(error: MoveBlockedError): string {
   if (error.code === "version_conflict") return "Card was updated";
   if (error.code === "permission_denied") return "Cannot move this card";
+  if (error.code === "maintenance_mode") return "Move blocked";
   if (error.code === "wip_hard_blocked") return "Column at capacity — no exceptions";
   return error.code === "wip_limit_exceeded" ? "WIP limit reached" : "Weight limit reached";
 }
 
 export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }: Props) {
   const hardBlocked = error.code === "wip_hard_blocked" || error.code === "permission_denied";
+  // maintenance_mode has no override for anyone — a site admin never sees this
+  // toast at all, since their own writes succeed — but it keeps the ⚠ glyph:
+  // per frontend/CLAUDE.md, ⛔ is reserved for wip_hard_blocked, so the
+  // no-override condition and the severity glyph are tracked separately.
+  const noOverride = hardBlocked || error.code === "maintenance_mode";
   const versionConflict = error.code === "version_conflict";
   return (
     <div
@@ -42,7 +48,7 @@ export default function MoveBlockedToast({ error, isAdmin, onForce, onDismiss }:
         <p>
           <span className="font-medium">{toastTitle(error)}</span> — {toastBody(error)}
         </p>
-        {versionConflict ? null : hardBlocked ? (
+        {versionConflict ? null : noOverride ? (
           // Hard mode: no override possible for any role.
           // wip_hard_blocked shows a column-specific resolution hint; permission_denied
           // has no actionable hint beyond the body text already shown.

@@ -90,6 +90,8 @@ const regularUser: User = {
 const fakeSettings: SiteSettings = {
   registration_mode: 'open',
   uploads_enabled: true,
+  maintenance_mode: false,
+  maintenance_message: '',
 }
 
 const fakeAdminUsers: AdminUser[] = [
@@ -180,7 +182,10 @@ describe('AdminPage — Settings tab', () => {
   })
 
   it('calls patchAdminSettings when mode is changed', async () => {
-    mockPatchAdminSettings.mockResolvedValue({ registration_mode: 'closed' })
+    // Spread the full fixture: the mock is untyped (bare vi.fn()), so a partial
+    // object here silently sets every other setting to undefined once
+    // SettingsTab does setSettings(updated).
+    mockPatchAdminSettings.mockResolvedValue({ ...fakeSettings, registration_mode: 'closed' })
     renderAdminPage()
     await waitFor(() => screen.getByText('Closed'))
     fireEvent.click(screen.getByText('Closed'))
@@ -442,5 +447,153 @@ describe('admin API — api/auth.ts', () => {
     expect(typeof mod.createAdminInviteLink).toBe('function')
     expect(typeof mod.deactivateAdminUser).toBe('function')
     expect(typeof mod.revokeAdminInviteLink).toBe('function')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests: maintenance mode (#783)
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — maintenance mode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
+  })
+
+  it('renders the toggle and the message field', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByLabelText(/Message/)).toBeInTheDocument()
+  })
+
+  it('tells the admin they are exempt', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    expect(
+      screen.getByText(/Site admins are exempt and keep full read\/write access/)
+    ).toBeInTheDocument()
+  })
+
+  it('prompts for confirmation before enabling, and does not save yet', async () => {
+    // Enabling is instance-wide and takes effect immediately for every user.
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+
+    await waitFor(() => screen.getByText(/All non-admin users will immediately lose write access/))
+    expect(mockPatchAdminSettings).not.toHaveBeenCalled()
+  })
+
+  it('keeps the toggle mounted and unflipped while confirming', async () => {
+    // The confirm strip appears below the toggle rather than replacing it,
+    // matching the two existing inline-confirm instances in BoardSettingsModal.
+    // The toggle is never optimistically flipped, so Cancel has nothing to revert.
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+
+    await waitFor(() => screen.getByText('Confirm'))
+    const toggle = screen.getByLabelText('Maintenance mode')
+    expect(toggle).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('saves when the confirmation is accepted', async () => {
+    mockPatchAdminSettings.mockResolvedValue({ ...fakeSettings, maintenance_mode: true })
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+    await waitFor(() => screen.getByText('Confirm'))
+    fireEvent.click(screen.getByText('Confirm'))
+
+    await waitFor(() => {
+      expect(mockPatchAdminSettings).toHaveBeenCalledWith({ maintenance_mode: true })
+    })
+  })
+
+  it('cancelling leaves the toggle off and saves nothing', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+    await waitFor(() => screen.getByText('Cancel'))
+    fireEvent.click(screen.getByText('Cancel'))
+
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
+    expect(mockPatchAdminSettings).not.toHaveBeenCalled()
+  })
+
+  it('turning maintenance mode off needs no confirmation', async () => {
+    // Disabling only restores normal service — there is nothing to warn about.
+    mockGetAdminSettings.mockResolvedValue({ ...fakeSettings, maintenance_mode: true })
+    mockPatchAdminSettings.mockResolvedValue({ ...fakeSettings, maintenance_mode: false })
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+
+    await waitFor(() => {
+      expect(mockPatchAdminSettings).toHaveBeenCalledWith({ maintenance_mode: false })
+    })
+  })
+
+  it('saves the notice on blur, not on every keystroke', async () => {
+    mockPatchAdminSettings.mockResolvedValue({ ...fakeSettings, maintenance_message: 'Back by 5.' })
+    renderAdminPage()
+    const field = await waitFor(() => screen.getByLabelText(/Message/))
+
+    fireEvent.change(field, { target: { value: 'Back by 5.' } })
+    expect(mockPatchAdminSettings).not.toHaveBeenCalled()
+
+    fireEvent.blur(field)
+    await waitFor(() => {
+      expect(mockPatchAdminSettings).toHaveBeenCalledWith({ maintenance_message: 'Back by 5.' })
+    })
+  })
+
+  it('does not save on blur when the notice is unchanged', async () => {
+    renderAdminPage()
+    const field = await waitFor(() => screen.getByLabelText(/Message/))
+    fireEvent.blur(field)
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    expect(mockPatchAdminSettings).not.toHaveBeenCalled()
+  })
+
+  it('prompts for an ETA in the placeholder', async () => {
+    // A notice with no end time is the top persona complaint.
+    renderAdminPage()
+    const field = await waitFor(() => screen.getByLabelText(/Message/))
+    expect(field).toHaveAttribute('placeholder', expect.stringContaining('expect service back by'))
+  })
+
+  it('shows a live character count against the 1000-character cap', async () => {
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText(/Message/))
+    expect(screen.getByText('0/1000')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/Message/), { target: { value: 'abc' } })
+    expect(screen.getByText('3/1000')).toBeInTheDocument()
+  })
+
+  it('clamps the notice at the cap the serializer enforces', async () => {
+    renderAdminPage()
+    const field = await waitFor(() => screen.getByLabelText(/Message/))
+    fireEvent.change(field, { target: { value: 'x'.repeat(1200) } })
+    expect((field as HTMLTextAreaElement).value).toHaveLength(1000)
+    expect(screen.getByText('1000/1000')).toBeInTheDocument()
+  })
+
+  it('rolls the toggle back when the save fails', async () => {
+    mockPatchAdminSettings.mockRejectedValue(new Error('boom'))
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Maintenance mode'))
+    fireEvent.click(screen.getByLabelText('Maintenance mode'))
+    await waitFor(() => screen.getByText('Confirm'))
+    fireEvent.click(screen.getByText('Confirm'))
+
+    await waitFor(() => screen.getByText('Failed to save settings.'))
+    expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
   })
 })

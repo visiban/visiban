@@ -24,6 +24,26 @@ Changes take effect immediately with no restart required. Existing user sessions
 
 Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.
 
+### Maintenance mode
+
+> **Added in 1.2**
+
+Puts the whole instance into **read-only mode** while you run an upgrade or a migration. It is
+off by default.
+
+| Control | Effect |
+|---|---|
+| **Maintenance mode** toggle | When on, every write from a non-admin is rejected with `503 Service Unavailable`. Reads keep working. |
+| **Message** | Plain-text notice (max 1000 characters) shown to everyone while maintenance mode is on. Leave it blank to use the built-in default. |
+
+Site admins are exempt and keep full read/write access — signed in through the browser or
+using a personal access token — but still see the notice. The setting lives in the database,
+so it survives a restart, and it takes effect immediately for every worker.
+
+See [Maintenance Mode](maintenance-mode.md) for the full runbook: what everyone else sees, the
+exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
+known limitation on tabs left open in the background.
+
 ## Users tab
 
 Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.

@@ -15,7 +15,13 @@ if not settings.MCP_SERVER_ENABLED:  # pragma: no cover - exercised only in the 
 
 from django.utils import timezone
 
-from accounts.models import SCOPE_MCP_READ, SCOPE_MCP_WRITE, PersonalAccessToken
+from accounts.models import (
+    SCOPE_MCP_READ,
+    SCOPE_MCP_WRITE,
+    PersonalAccessToken,
+    SiteSetting,
+    invalidate_maintenance_mode_cache,
+)
 from boards.models import (
     BoardMembership, Card, CardActivity, CardMovement,
 )
@@ -437,3 +443,86 @@ class ArchiveCardTests(CrudToolsTestCase):
     def test_card_not_found_for_nonexistent_card(self):
         result = self._call("archive_card", self.write_token, card_id=999999)
         self.assertEqual(result["error"]["code"], "card_not_found")
+
+
+class MaintenanceModeTests(CrudToolsTestCase):
+    """Maintenance mode must reach MCP writes too (#783).
+
+    ``/mcp`` is mounted outside Django's handler by ``McpPathRouter``, so
+    ``MaintenanceModeMiddleware`` never sees these requests — the block is
+    enforced in ``mcp_server.server._require_maintenance_off`` instead. Without
+    these tests nothing would catch the mount drifting back under, or a new
+    write tool being added that forgets the gate.
+    """
+
+    def setUp(self):
+        super().setUp()
+        invalidate_maintenance_mode_cache()
+        self.addCleanup(invalidate_maintenance_mode_cache)
+
+    def _set_maintenance(self, active, message=""):
+        s = SiteSetting.get()
+        s.maintenance_mode = active
+        s.maintenance_message = message
+        s.save(update_fields=["maintenance_mode", "maintenance_message"])
+
+    def test_create_card_blocked_during_maintenance(self):
+        self._set_maintenance(True, "Migrating the database.")
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id,
+            title="Should not exist",
+        )
+        self.assertEqual(result["error"]["code"], "maintenance_mode")
+        self.assertEqual(result["error"]["detail"], "Migrating the database.")
+        self.assertFalse(Card.objects.filter(title="Should not exist").exists())
+
+    def test_every_write_tool_is_gated(self):
+        """Pins the whole write surface, not just the one tool a test picked."""
+        card = _make_card(self.column, self.swimlane, title="Untouched")
+        self._set_maintenance(True)
+        calls = {
+            "create_card": dict(
+                board_id=self.board.id, column_id=self.column.id,
+                swimlane_id=self.swimlane.id, title="Nope",
+            ),
+            "move_card": dict(card_id=card.id, to_column_id=self.other_column.id),
+            "update_card": dict(card_id=card.id, title="Renamed"),
+            "archive_card": dict(card_id=card.id),
+        }
+        for name, arguments in calls.items():
+            with self.subTest(tool=name):
+                result = self._call(name, self.write_token, **arguments)
+                self.assertEqual(result["error"]["code"], "maintenance_mode")
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Untouched")
+        self.assertIsNone(card.archived_at)
+        self.assertEqual(card.column_id, self.column.id)
+
+    def test_read_tools_still_work_during_maintenance(self):
+        self._set_maintenance(True)
+        result = self._call("list_columns", self.write_token, board_id=self.board.id)
+        self.assertNotIn("error", result if isinstance(result, dict) else {})
+
+    def test_site_admin_pat_is_exempt(self):
+        """Matches the REST rule exactly — the same admin PAT must not be
+        honored over one transport and refused over the other."""
+        self.user.is_site_admin = True
+        self.user.save(update_fields=["is_site_admin"])
+        self._set_maintenance(True)
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="Admin card",
+        )
+        self.assertNotIn("error", result)
+        self.assertTrue(Card.objects.filter(title="Admin card").exists())
+
+    def test_writes_resume_when_maintenance_is_turned_off(self):
+        self._set_maintenance(True)
+        self._set_maintenance(False)
+        result = self._call(
+            "create_card", self.write_token, board_id=self.board.id,
+            column_id=self.column.id, swimlane_id=self.swimlane.id, title="After",
+        )
+        self.assertNotIn("error", result)
+        self.assertTrue(Card.objects.filter(title="After").exists())

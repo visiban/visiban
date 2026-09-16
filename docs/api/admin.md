@@ -13,13 +13,20 @@ Return the current instance-wide settings.
 
 **Response**
 ```json
-{ "registration_mode": "open", "uploads_enabled": true }
+{
+  "registration_mode": "open",
+  "uploads_enabled": true,
+  "maintenance_mode": false,
+  "maintenance_message": ""
+}
 ```
 
 | Field | Type | Description |
 |---|---|---|
 | `registration_mode` | `"open"` / `"invite_only"` / `"closed"` | Controls who can self-register |
 | `uploads_enabled` | boolean | When `false`, attachment uploads are blocked for all users |
+| `maintenance_mode` | boolean | When `true`, non-admin write requests are rejected with `503`. Defaults to `false`. Added in 1.2. |
+| `maintenance_message` | string | Plain-text notice shown while maintenance mode is active. Max 1000 characters. Blank means "use the built-in default". Added in 1.2. |
 
 ### `PATCH /api/v1/admin/settings/`
 Update site settings. All fields are optional.
@@ -30,6 +37,58 @@ Update site settings. All fields are optional.
 ```
 
 Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.
+
+---
+
+## Maintenance mode
+
+> **Added in 1.2**
+
+Turning `maintenance_mode` on puts the whole instance into read-only mode, for the duration
+of an upgrade or a migration.
+
+```bash
+curl -X PATCH https://visiban.example.com/api/v1/admin/settings/ \
+  -H "Authorization: Token vbn_…" \
+  -H "Content-Type: application/json" \
+  -d '{"maintenance_mode": true, "maintenance_message": "Upgrading to 1.2 — back by 14:00 UTC."}'
+```
+
+While it is active:
+
+- **Reads keep working.** `GET`, `HEAD`, `OPTIONS` and `TRACE` are never blocked — maintenance
+  mode is read-only mode, not an outage.
+- **Writes from non-admins are rejected** with `503 Service Unavailable`:
+
+  ```json
+  { "code": "maintenance_mode", "detail": "Upgrading to 1.2 — back by 14:00 UTC." }
+  ```
+
+  The response carries `Retry-After: 120` so clients back off rather than retry immediately.
+  `detail` is the operator's message, or the built-in default when that message is blank.
+- **Site admins are exempt** and keep full read/write access, whether they authenticate with a
+  session cookie or a personal access token.
+- **`GET /api/v1/auth/user/`** reports `maintenance_mode` and `maintenance_message` so a client
+  can show the notice. When `maintenance_mode` is `true`, `maintenance_message` is always
+  non-empty. Same shape as [`GET /api/v1/auth/me/`](authentication.md#get-apiv1authme) — both
+  are served by `CurrentUserSerializer`.
+
+!!! warning "Endpoints that stay writable"
+    `/api/v1/admin/`, `/api/v1/auth/login/`, `/api/v1/auth/logout/`, the password reset and
+    forced-change endpoints, and `/api/v1/auth/ws-ticket/` continue to accept writes, as do
+    `/admin/` and `/api/health/`. The **only** exempt paths under `/accounts/` are the SSO login
+    round trip — `/accounts/<provider>/login/` and `/accounts/<provider>/login/callback/` — so a
+    signed-out SSO-only admin can still sign back in. Every other `/accounts/` write (signup,
+    email management, password change, 3rd-party connect/disconnect) is **not** exempt. These are
+    the recovery path: a maintenance mode you cannot switch off is an outage. Self-registration,
+    profile updates and token creation are likewise **not** exempt and are blocked like any other
+    write.
+
+The state is stored on the `SiteSetting` singleton, so it survives a restart, and the cache is
+invalidated on save, so a change reaches every worker immediately rather than after the 60s TTL.
+
+MCP write tools (`create_card`, `move_card`, `update_card`, `archive_card`) are blocked too, and
+return `{"error": {"code": "maintenance_mode", "detail": "…"}}`. MCP read tools keep working.
 
 ---
 

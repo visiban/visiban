@@ -9,7 +9,8 @@ export type MoveBlockedError =
   | { code: "wip_hard_blocked"; column_name: string; current_count: number; wip_limit: number }
   | { code: "weight_limit_exceeded"; column_name: string; current_weight: number; weight_limit: number; card_weight: number }
   | { code: "version_conflict"; detail: string; current_version: number }
-  | { code: "permission_denied"; detail: string };
+  | { code: "permission_denied"; detail: string }
+  | { code: "maintenance_mode"; detail: string };
 
 interface PendingMove {
   cardId: number;
@@ -117,6 +118,15 @@ export function useBoard() {
       if (axiosErr?.response?.status === 403) {
         const data = axiosErr.response.data as { code?: string; detail?: string };
         setMoveError({ code: "permission_denied", detail: data?.detail ?? "You do not have permission to move this card." });
+      } else if (axiosErr?.response?.status === 503) {
+        // The instance went read-only mid-drag (#783). Without this branch the
+        // card silently snaps back with no explanation at all — the optimistic
+        // update makes the move look like it succeeded right up until it
+        // vanishes.
+        const data = axiosErr.response.data as { code?: string; detail?: string };
+        if (data?.code === "maintenance_mode") {
+          setMoveError({ code: "maintenance_mode", detail: data.detail ?? "Maintenance mode is active." });
+        }
       } else if (axiosErr?.response?.status === 409) {
         const data = axiosErr.response.data as MoveBlockedError;
         if (data?.code === "version_conflict") {
@@ -163,6 +173,11 @@ export function useBoard() {
       setBoard((b) => b ? { ...b, cards: prev } : b);
       // Surface any structured error so the user knows the override failed
       // (e.g. a server error or unexpected 409) rather than silently reverting.
+      // This generic pass-through already covers the maintenance_mode 503
+      // (#783) — its body carries the same {code, detail} shape — so no
+      // dedicated branch is added here. Reachable only in the narrow case where
+      // maintenance mode is switched on between a blocked move and the
+      // operator's override of it.
       const axiosErr = err as { response?: { status?: number; data?: unknown } };
       if (axiosErr?.response?.data) {
         const data = axiosErr.response.data as MoveBlockedError;
