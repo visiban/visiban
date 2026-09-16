@@ -16,6 +16,7 @@ from boards.permissions import get_board_role
 from .adapter import invalidate_registration_mode_cache
 from .models import InviteLink, MAX_ACTIVE_INVITE_LINKS, SiteSetting, invalidate_uploads_enabled_cache
 from .permissions import IsSiteAdmin, TokenHasScope
+from .validators import UsernameFormatValidator
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -102,7 +103,7 @@ class AdminUserSerializer(drf_serializers.ModelSerializer):
 
 class AdminCreateUserSerializer(drf_serializers.Serializer):
     """Validates the payload for admin-created accounts."""
-    username = drf_serializers.CharField(max_length=150)
+    username = drf_serializers.CharField(max_length=150, validators=[UsernameFormatValidator()])
     email = drf_serializers.EmailField()
     password = drf_serializers.CharField(min_length=12, write_only=True)
     force_password_reset = drf_serializers.BooleanField(default=True)

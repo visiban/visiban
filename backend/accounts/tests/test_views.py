@@ -125,6 +125,20 @@ class UserDetailsFlagExposureTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("avatar_url", r.json())
 
+    def test_astral_plane_username_is_a_clean_400(self):
+        # #1120: backend-schema-fuzz PATCHed this endpoint with a username
+        # containing an astral-plane code point (outside the Basic
+        # Multilingual Plane). Python's `\w` — and so Django's own
+        # UnicodeUsernameValidator — accepts it, but the JSON Schema
+        # conformance check (and the JS frontend, which is UTF-16 internally)
+        # does not, so the stored value broke every subsequent response
+        # embedding that user. Must now be rejected at write time.
+        r = self.client.patch("/api/v1/auth/user/", {"username": "Ìx\U00017521"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", r.json())
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "carol")
+
 
 class ChangePasswordViewTests(TestCase):
     def setUp(self):

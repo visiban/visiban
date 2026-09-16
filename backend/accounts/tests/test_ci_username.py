@@ -60,6 +60,12 @@ class ChooseUsernameViewTests(TestCase):
         resp = self.client.post("/api/v1/auth/choose-username/", {"username": "bad name!"})
         self.assertEqual(resp.status_code, 400)
 
+    def test_astral_plane_username_rejected(self):
+        # #1120: matches PATCH /api/v1/auth/user/'s rejection (see
+        # accounts/tests/test_views.py) — same shared validator.
+        resp = self.client.post("/api/v1/auth/choose-username/", {"username": "Ìx\U00017521"})
+        self.assertEqual(resp.status_code, 400)
+
     def test_unauthenticated_returns_401(self):
         self.client.force_authenticate(None)
         resp = self.client.post("/api/v1/auth/choose-username/", {"username": "test"})
@@ -137,6 +143,18 @@ class AdminCreateUserCIUsernameTests(TestCase):
     def test_admin_create_user_rejects_ci_duplicate(self):
         resp = self.client.post("/api/v1/admin/users/", {
             "username": "existing",
+            "email": "new@example.com",
+            "password": "testpass12345!",
+            "force_password_reset": True,
+        })
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("username", resp.data)
+
+    def test_admin_create_user_rejects_astral_plane_username(self):
+        # #1120: AdminCreateUserSerializer previously had no charset check at
+        # all on username — matches the shared validator used everywhere else.
+        resp = self.client.post("/api/v1/admin/users/", {
+            "username": "Ìx\U00017521",
             "email": "new@example.com",
             "password": "testpass12345!",
             "force_password_reset": True,

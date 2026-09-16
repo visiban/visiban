@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from .models import PAT_SCOPES, PersonalAccessToken, User, get_uploads_enabled
 from .forms import VisibanPasswordResetForm
+from .validators import UsernameFormatValidator
 
 
 @extend_schema_field({
@@ -39,6 +40,7 @@ class RegistrationSerializer(RegisterSerializer):
     username = serializers.CharField(
         max_length=150,
         required=False,
+        validators=[UsernameFormatValidator()],
     )
 
 
@@ -94,6 +96,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # The auto-generated `username` field already carries the model's
+        # UnicodeUsernameValidator, which accepts astral-plane code points
+        # (#1120) — append the extra BMP restriction rather than replacing
+        # the field, so its other auto-derived behavior (max_length,
+        # uniqueness) is untouched.
+        self.fields["username"].validators.append(UsernameFormatValidator())
         # After super().__init__ the fields BindingDict is built; we can now
         # replace the auto-generated read-only FK field with a writable one.
         from boards.models import Board  # deferred to avoid startup ordering issues

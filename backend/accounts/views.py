@@ -33,6 +33,7 @@ from .models import (
     get_registration_mode,
 )
 from .invite_utils import InviteTokenError, validate_invite_token, consume_invite_token
+from .validators import is_valid_username_format
 from .serializers import (
     CurrentUserSerializer,
     PersonalAccessTokenCreateSerializer,
@@ -317,8 +318,10 @@ class ChooseUsernameView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Django's default username validator: letters, digits, @/./+/-/_
-        if not re.match(r"^[\w.@+-]+$", username):
+        # Shared with every other username-writing endpoint (#1120) — see
+        # accounts/validators.py for why this is stricter than Django's own
+        # UnicodeUsernameValidator.
+        if not is_valid_username_format(username):
             return Response(
                 {"detail": "Username may only contain letters, digits, and @/./+/-/_ characters."},
                 status=status.HTTP_400_BAD_REQUEST,

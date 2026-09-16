@@ -118,6 +118,21 @@ class RegistrationEndpointToggleTests(TestCase):
         self.assertIn(r.status_code, [status.HTTP_201_CREATED, status.HTTP_204_NO_CONTENT])
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
 
+    def test_registration_rejects_astral_plane_username(self):
+        # #1120: RegistrationSerializer.username previously had no charset
+        # check at all (unlike self-profile PATCH, which at least inherited
+        # the model's own, too-permissive validator) — matches the shared
+        # validator used everywhere else a username is written.
+        r = self.client.post("/api/v1/auth/registration/", {
+            "username": "Ìx\U00017521",
+            "email": "astral@example.com",
+            "password1": "Sup3rS3cr3t!xyz",
+            "password2": "Sup3rS3cr3t!xyz",
+        })
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", r.data)
+        self.assertFalse(User.objects.filter(email="astral@example.com").exists())
+
 
 class SiteSettingSingletonTests(TestCase):
     def test_get_creates_singleton(self):
