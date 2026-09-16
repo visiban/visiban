@@ -628,6 +628,10 @@ const REGISTRATION_MODE_OPTIONS: { value: RegistrationMode; label: string; descr
   },
 ];
 
+const MAINTENANCE_MESSAGE_MAX = 1000;
+// 90% of the cap, matching the 500/450 precedent in CreateGroupModal.
+const MAINTENANCE_MESSAGE_WARN = 900;
+
 function SettingsTab() {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -635,6 +639,13 @@ function SettingsTab() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Local buffer for the notice so typing does not PATCH on every keystroke;
+  // it is written back on blur, like the paired numeric settings fields.
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  // Turning maintenance mode ON is instance-wide and takes effect instantly for
+  // every user, so it goes through the inline-confirmation pattern. Turning it
+  // OFF just restores normal service and needs no confirmation.
+  const [confirmingEnable, setConfirmingEnable] = useState(false);
 
   useEffect(() => {
     return () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) };
@@ -646,6 +657,15 @@ function SettingsTab() {
       .catch(() => setError("Failed to load settings."))
       .finally(() => setLoading(false));
   }, []);
+
+  // Re-seed the local buffer whenever the server's value changes — on first
+  // load, and after a save returns the canonical value. Depending on the field
+  // rather than the whole settings object keeps an unrelated settings change
+  // (a registration mode flip, say) from discarding an in-progress edit.
+  const serverMaintenanceMessage = settings?.maintenance_message;
+  useEffect(() => {
+    if (serverMaintenanceMessage !== undefined) setMaintenanceMessage(serverMaintenanceMessage);
+  }, [serverMaintenanceMessage]);
 
   const handleChange = async (mode: RegistrationMode) => {
     if (!settings || saving) return;
@@ -689,6 +709,66 @@ function SettingsTab() {
       setSaving(false);
     }
   };
+
+  const handleMaintenanceToggle = async (next: boolean) => {
+    if (!settings || saving) return;
+    const prev = settings.maintenance_mode;
+    setSettings((s) => s ? { ...s, maintenance_mode: next } : s);
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const updated = await patchAdminSettings({ maintenance_mode: next });
+      setSettings(updated);
+      setSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setSettings((s) => s ? { ...s, maintenance_mode: prev } : s);
+      setError("Failed to save settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMaintenanceToggleClick = (next: boolean) => {
+    if (!next) {
+      void handleMaintenanceToggle(false);
+      return;
+    }
+    // Deliberately does NOT flip the toggle optimistically first: Cancel then
+    // has nothing to revert, so the control never visibly flickers on and back
+    // off for a change that was never made.
+    setConfirmingEnable(true);
+  };
+
+  const handleMaintenanceMessageBlur = async () => {
+    if (!settings || saving) return;
+    if (maintenanceMessage === settings.maintenance_message) return;
+    const prev = settings.maintenance_message;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const updated = await patchAdminSettings({ maintenance_message: maintenanceMessage });
+      setSettings(updated);
+      setSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setMaintenanceMessage(prev);
+      setError("Failed to save settings.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const messageCountColor =
+    maintenanceMessage.length > MAINTENANCE_MESSAGE_MAX
+      ? "text-danger"
+      : maintenanceMessage.length >= MAINTENANCE_MESSAGE_WARN
+        ? "text-warning"
+        : "text-fg-muted";
 
   if (loading) {
     return <div className="text-fg-tertiary text-sm">Loading…</div>;
@@ -758,6 +838,85 @@ function SettingsTab() {
             disabled={saving}
             aria-label="File uploads"
           />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
+          Maintenance
+        </p>
+        <div className="flex flex-col gap-3 px-4 py-3 rounded-lg border border-line bg-surface">
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="block text-sm font-medium text-fg">Maintenance mode</span>
+                <span className="block text-xs text-fg-muted">
+                  Block writes for all non-admin users; reads keep working. Site admins are exempt and keep full read/write access.
+                </span>
+              </div>
+              <Toggle
+                checked={settings?.maintenance_mode ?? false}
+                onChange={handleMaintenanceToggleClick}
+                disabled={saving}
+                aria-label="Maintenance mode"
+              />
+            </div>
+            {/* The toggle stays mounted while confirming and the prompt appears
+                below it, matching the two existing inline-confirm instances in
+                BoardSettingsModal. Swapping the row out would be a third visual
+                treatment of one documented pattern. */}
+            {confirmingEnable && (
+              <div className="mt-1.5 flex items-center gap-2 text-xs">
+                <span className="text-fg-tertiary">
+                  Enable maintenance mode? All non-admin users will immediately lose write access.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setConfirmingEnable(false); void handleMaintenanceToggle(true); }}
+                  className="text-danger hover:text-danger font-medium transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingEnable(false)}
+                  className="text-fg-tertiary hover:text-fg transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-3 border-t border-line-subtle">
+            <div className="flex items-center justify-between mb-1">
+              <label
+                htmlFor="maintenance-message"
+                className="block text-xs font-medium text-fg-tertiary uppercase tracking-wide"
+              >
+                Message <span className="text-fg-faint">(optional)</span>
+              </label>
+              <span className={`text-xs ${messageCountColor}`}>
+                {maintenanceMessage.length}/{MAINTENANCE_MESSAGE_MAX}
+              </span>
+            </div>
+            <textarea
+              id="maintenance-message"
+              rows={3}
+              value={maintenanceMessage}
+              onChange={(e) => setMaintenanceMessage(e.target.value.slice(0, MAINTENANCE_MESSAGE_MAX))}
+              onBlur={handleMaintenanceMessageBlur}
+              disabled={saving}
+              placeholder="e.g. Upgrading to v1.3 — expect service back by 3:00 PM UTC."
+              className="w-full bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent placeholder-fg-muted resize-none transition"
+            />
+            <p className="text-xs text-fg-muted mt-1">
+              Shown to all users while maintenance mode is on. Mentioning when you expect to finish helps people plan around the interruption.
+            </p>
+            <p className="text-xs text-fg-muted mt-1">
+              Leave blank to show the default: &ldquo;Visiban is in maintenance mode. You can still read boards and cards, but changes are temporarily disabled. Please try again shortly.&rdquo;
+            </p>
+          </div>
         </div>
       </div>
 

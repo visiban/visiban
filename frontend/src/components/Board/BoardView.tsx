@@ -277,7 +277,18 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const onCardArchived = removeCard;
   const onCardUnarchived = onCardAdded;
   const isAdmin = board.current_user_role === "admin" || board.current_user_role === "site_admin";
-  const canEdit = isAdmin || board.current_user_role === "member";
+  // While the instance is in maintenance mode (#783) every write this user
+  // could attempt would come back 503, so fold it into the existing per-board
+  // write gate rather than bolting a second one alongside it. Routing it
+  // through canEdit means every affordance already gated on "you may edit this
+  // board" — drag handles, add-card cells, kebabs, inline editors — turns off
+  // together, so people are not invited to compose work that cannot be saved.
+  // Site admins are exempt server-side and so are exempt here; their writes
+  // genuinely still succeed.
+  const blockedByMaintenance =
+    (currentUser?.maintenance_mode ?? false) && !(currentUser?.is_site_admin ?? false);
+  const canEdit =
+    !blockedByMaintenance && (isAdmin || board.current_user_role === "member");
   // #843 — mirror of the backend per-board export gate. Owner / site_admin
   // always bypass; everyone else must meet ``board.export_min_role``. When
   // the threshold flips via WebSocket, the Export button re-evaluates on

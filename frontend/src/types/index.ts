@@ -59,6 +59,19 @@ export interface User {
    * second round-trip. See git_lens app.
    */
   git_lens_enabled?: boolean;
+  /**
+   * Whether the instance is in maintenance mode. Reflects
+   * SiteSetting.maintenance_mode. While true, every non-admin write is
+   * rejected with 503; site admins are exempt but still see the notice.
+   */
+  maintenance_mode?: boolean;
+  /**
+   * The notice to show while maintenance_mode is true. Guaranteed non-empty by
+   * the server whenever maintenance_mode is true — it substitutes a built-in
+   * default for a blank operator message — so the client needs no fallback
+   * string of its own. Plain text: render as a text node, never as HTML.
+   */
+  maintenance_message?: string;
 }
 
 /** A scope a personal access token can carry. Strictly non-hierarchical — no
@@ -492,6 +505,10 @@ export type RegistrationMode = "open" | "invite_only" | "closed";
 export interface SiteSettings {
   registration_mode: RegistrationMode;
   uploads_enabled: boolean;
+  /** When true, non-admin writes are rejected instance-wide with 503. */
+  maintenance_mode: boolean;
+  /** Operator-supplied plain-text notice; blank means "use the built-in default". */
+  maintenance_message: string;
 }
 
 export interface OwnedBoardSummary {

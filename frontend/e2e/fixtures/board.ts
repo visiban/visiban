@@ -44,6 +44,8 @@ export const USER = {
   theme: 'system' as const,
   default_board_id: null,
   uploads_enabled: false,
+  maintenance_mode: false,
+  maintenance_message: '',
 }
 
 export const COLUMN_TODO = {

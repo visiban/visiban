@@ -22,10 +22,10 @@ from django.conf import settings
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
-from accounts.models import SCOPE_MCP_WRITE
+from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_maintenance_state
 
 from . import tools
-from .context import get_current_scopes
+from .context import get_current_scopes, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,50 @@ def _require_write_scope():
             "detail": f"This action requires the '{SCOPE_MCP_WRITE}' scope on the presented token.",
         }}
     return None
+
+
+def _require_maintenance_off():
+    """Return a structured denial dict while maintenance mode is on, else None.
+
+    WHY THIS EXISTS SEPARATELY FROM THE HTTP MIDDLEWARE: ``/mcp`` is mounted by
+    ``McpPathRouter`` *outside* Django's WSGI/ASGI handler (see
+    ``mcp_server.asgi_mount``), so ``MaintenanceModeMiddleware`` never sees an
+    MCP request. Without this check, enabling maintenance mode would stop every
+    human and every REST client but leave MCP agents writing cards into the
+    database the operator is in the middle of migrating — the single scenario
+    the feature exists to prevent.
+
+    Site admins are exempt, matching ``MaintenanceModeMiddleware`` exactly. The
+    acceptance criterion is that admins retain full read/write during
+    maintenance, and it would be incoherent for the same admin PAT to be
+    honored over REST and refused over MCP — an operator debugging why their
+    migration script half-works does not need that puzzle. Non-admin agents are
+    frozen, which is the case that matters: it is what stops a fleet of bots
+    writing cards into the database an operator is mid-migration on.
+    """
+    active, message = get_maintenance_state()
+    if not active:
+        return None
+    if getattr(get_current_user(), "is_site_admin", False):
+        return None
+    return {"error": {
+        "code": "maintenance_mode",
+        "detail": get_maintenance_message(message),
+    }}
+
+
+async def _deny_write():
+    """Run every gate a write tool must pass; return a denial dict or None.
+
+    Both gates run through this one helper so a future write tool cannot
+    accidentally pick up the scope check and miss the maintenance check. The
+    maintenance check is wrapped in ``sync_to_async`` because it reads the
+    Django cache (and, on a cold cache, the database), which is blocking.
+    """
+    denial = _require_write_scope()
+    if denial is not None:
+        return denial
+    return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
 
 
 def _build_transport_security():
@@ -219,7 +263,7 @@ def build_mcp_server():
         due_date: str | None = None,
         position: int | None = None,
     ) -> _TOOL_OUTPUT:
-        denial = _require_write_scope()
+        denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.create_card, thread_sensitive=True)(
@@ -242,7 +286,7 @@ def build_mcp_server():
         to_swimlane_id: int | None = None,
         position: int = 0,
     ) -> _TOOL_OUTPUT:
-        denial = _require_write_scope()
+        denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.move_card, thread_sensitive=True)(
@@ -267,7 +311,7 @@ def build_mcp_server():
         labels: list[str] | None = None,
         due_date: str | None = None,
     ) -> _TOOL_OUTPUT:
-        denial = _require_write_scope()
+        denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.update_card, thread_sensitive=True)(
@@ -283,7 +327,7 @@ def build_mcp_server():
         ),
     )
     async def archive_card(card_id: int) -> _TOOL_OUTPUT:
-        denial = _require_write_scope()
+        denial = await _deny_write()
         if denial is not None:
             return denial
         return await sync_to_async(tools.archive_card, thread_sensitive=True)(card_id=card_id)

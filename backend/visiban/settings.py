@@ -140,6 +140,19 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Instance-wide read-only mode (#783). Must come AFTER
+    # AuthenticationMiddleware, because the site-admin exemption reads
+    # request.user, and is placed ahead of the allauth/session bookkeeping
+    # below so a request that is about to be rejected does not first do that
+    # work.
+    #
+    # Note that during maintenance a write that would also have failed CSRF
+    # gets 503 rather than 403: CSRF is enforced in CsrfViewMiddleware's
+    # process_view hook, which runs after every middleware's pre-view phase,
+    # and this middleware short-circuits before that. Harmless — both are
+    # refusals — but do not "fix" the ordering on the assumption that moving
+    # this earlier or later changes it. It does not.
+    "visiban.middleware.MaintenanceModeMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",

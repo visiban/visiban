@@ -14,7 +14,14 @@ from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
 from .adapter import invalidate_registration_mode_cache
-from .models import InviteLink, MAX_ACTIVE_INVITE_LINKS, SiteSetting, invalidate_uploads_enabled_cache
+from .models import (
+    InviteLink,
+    MAINTENANCE_MESSAGE_MAX_LENGTH,
+    MAX_ACTIVE_INVITE_LINKS,
+    SiteSetting,
+    invalidate_maintenance_mode_cache,
+    invalidate_uploads_enabled_cache,
+)
 from .permissions import IsSiteAdmin, TokenHasScope
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
@@ -53,6 +60,18 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         choices=SiteSetting.RegistrationMode.choices,
     )
     uploads_enabled = drf_serializers.BooleanField(required=False)
+    maintenance_mode = drf_serializers.BooleanField(required=False)
+    # Validated at the serializer boundary (never in the view or model), per the
+    # project's input-validation rule. `allow_blank` is required because blank
+    # is a meaningful value here: it means "use the built-in default notice".
+    # max_length bounds what an operator can push into every user's banner and
+    # into every 503 body on the instance.
+    maintenance_message = drf_serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=MAINTENANCE_MESSAGE_MAX_LENGTH,
+        trim_whitespace=True,
+    )
 
 
 class OwnedBoardSummarySerializer(drf_serializers.Serializer):
@@ -219,11 +238,17 @@ class AdminSettingsView(APIView):
             setting.uploads_enabled = validated["uploads_enabled"]
             update_fields.append("uploads_enabled")
 
+        for field in ("maintenance_mode", "maintenance_message"):
+            if field in validated:
+                setattr(setting, field, validated[field])
+                update_fields.append(field)
+
         if update_fields:
             setting.save(update_fields=update_fields)
             # Flush caches so changes take effect immediately.
             invalidate_registration_mode_cache()
             invalidate_uploads_enabled_cache()
+            invalidate_maintenance_mode_cache()
 
         return Response(SiteSettingSerializer(setting).data)
 
