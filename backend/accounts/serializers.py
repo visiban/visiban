@@ -191,7 +191,7 @@ class CurrentUserSerializer(UserSerializer):
             self._cached_maintenance_state = get_maintenance_state()
         return self._cached_maintenance_state
 
-    def get_maintenance_mode(self, obj):
+    def get_maintenance_mode(self, obj) -> bool:
         active, _ = self._maintenance_state()
         return active
 
