@@ -23,6 +23,7 @@ Grouped by the thing that can break:
 """
 
 import json
+import threading
 from unittest.mock import patch
 
 from django.db import connection, transaction
@@ -882,3 +883,106 @@ class CardRelationQueryCountTests(TestCase):
             q for q in ctx.captured_queries if "card_relations" in q["sql"]
         ]
         self.assertEqual(len(relation_queries), 1)
+
+
+class CardRelationConcurrencyTests(TransactionTestCase):
+    """Two concurrent opposite-direction POSTs must not both create a block.
+
+    This is the one invariant `unique_together` cannot cover: (A, B, blocks)
+    and (B, A, blocks) are different tuples and both satisfy it. The
+    mutual-block guard is an `.exists()` read, so without a lock each request
+    misses the other's uncommitted insert and both commit — producing exactly
+    the state `CardRelation`'s docstring says cannot exist. The pk-ordered
+    `SELECT FOR UPDATE` in the view is the only thing preventing it.
+
+    Skipped on SQLite, which has no SELECT FOR UPDATE and serializes writers at
+    the database level, so the race cannot arise there — the test would pass
+    without exercising the lock. CI runs the backend against PostgreSQL, so
+    this does run for real there.
+
+    `TransactionTestCase` because the lock has to be visible across threads,
+    which a savepoint-wrapped `TestCase` transaction is not — same reasoning as
+    `groups/tests/test_group_invite_single_use.py`.
+    """
+
+    def setUp(self):
+        if connection.vendor == "sqlite":
+            self.skipTest(
+                "SQLite does not support concurrent writes or SELECT FOR UPDATE; "
+                "this test requires PostgreSQL."
+            )
+        self.owner = _make_user("rel_race_owner")
+        self.board = _make_board(self.owner)
+        self.col = _make_column(self.board)
+        self.lane = _make_swimlane(self.board)
+        self.card_a = _make_card(self.col, self.lane, title="A")
+        self.card_b = _make_card(self.col, self.lane, title="B", position=1)
+
+    def test_only_one_of_two_opposite_direction_requests_succeeds(self):
+        results = []
+        barrier = threading.Barrier(2)
+
+        def attempt(from_id, to_id):
+            client = APIClient()
+            client.force_authenticate(self.owner)
+            barrier.wait()  # Both threads reach the lock simultaneously.
+            r = client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{from_id}/relations/",
+                {"to_card": to_id, "direction": "blocks"},
+                format="json",
+            )
+            results.append(r.status_code)
+            # Release thread-local DB connection. Without this,
+            # TransactionTestCase.teardown_databases() fails with
+            # "database is being accessed by other users" on DROP.
+            from django.db import connections as _conns
+            _conns.close_all()
+
+        with patch("boards.broadcast.broadcast_board_event"):
+            t1 = threading.Thread(target=attempt, args=(self.card_a.id, self.card_b.id))
+            t2 = threading.Thread(target=attempt, args=(self.card_b.id, self.card_a.id))
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+
+        success_count = sum(1 for s in results if s == status.HTTP_201_CREATED)
+        self.assertEqual(success_count, 1, f"Expected exactly 1 success, got: {results}")
+        self.assertEqual(
+            CardRelation.objects.filter(relation_type=T.BLOCKS).count(), 1,
+            "a mutual block committed — the row lock did not serialize the two "
+            "opposite-direction requests",
+        )
+
+    def test_only_one_of_two_identical_requests_succeeds(self):
+        """The duplicate race, same mechanism. The loser must get a 400, never
+        an unhandled IntegrityError 500."""
+        results = []
+        barrier = threading.Barrier(2)
+
+        def attempt():
+            client = APIClient()
+            client.force_authenticate(self.owner)
+            barrier.wait()
+            r = client.post(
+                f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/relations/",
+                {"to_card": self.card_b.id, "direction": "blocks"},
+                format="json",
+            )
+            results.append(r.status_code)
+            from django.db import connections as _conns
+            _conns.close_all()
+
+        with patch("boards.broadcast.broadcast_board_event"):
+            threads = [threading.Thread(target=attempt) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        self.assertEqual(
+            sorted(results),
+            [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST],
+            f"expected one 201 and one 400, got: {results}",
+        )
+        self.assertEqual(CardRelation.objects.count(), 1)

@@ -219,6 +219,10 @@ Delete a card. Requires member or above.
 
 > **Ownership gate:** Members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
+Deleting a card also deletes its [relations](#relations-since-12). Broadcasts
+`card.deleted`, plus `card.updated` for every card this one was actively
+blocking, whose `blocker_count` drops as a result.
+
 ---
 
 ## Archive
@@ -232,7 +236,7 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 
 **Response** — full card object with `archived_at` set.
 
-Broadcasts `card.archived` to all board WebSocket subscribers.
+Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
@@ -241,7 +245,7 @@ Unarchive a card. Clears `archived_at`; the card re-enters its original column a
 
 **Response** — full card object with `archived_at: null`.
 
-Broadcasts `card.unarchived` to all board WebSocket subscribers.
+Broadcasts `card.unarchived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `GET /api/v1/boards/{board_id}/cards/archived/`
 List all archived cards for the board, newest archived first. Available to all board members including viewers.
@@ -546,7 +550,7 @@ Delete an attachment. **Minimum role: Collaborator.** Collaborators may only del
 
 ---
 
-## Relations *(since 1.2)*
+## Relations (since 1.2)
 
 Typed links between two cards **on the same board**. The board stores one
 canonical direction per relation and derives the inverse at read time, so

@@ -265,6 +265,34 @@ describe('CardRelationsSection — add flow', () => {
     expect(await screen.findByText('Provision cluster')).toBeInTheDocument()
   })
 
+  it('clamps arrow-key navigation at both ends of the list', async () => {
+    // The clamp arithmetic is exactly the kind of off-by-one that regresses
+    // silently: a single-option list cannot catch it.
+    const second = makeCard({ id: 43, title: 'Provision database' })
+    mockSearch.mockResolvedValue([candidate, second])
+    await openPicker()
+
+    await userEvent.type(screen.getByRole('combobox'), 'prov')
+    await screen.findByRole('option', { name: /Provision cluster/ })
+
+    // Three downs on a two-item list must rest on the last item, not run off.
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
+    expect(screen.getByRole('option', { name: /Provision database/ })).toHaveAttribute('aria-selected', 'true')
+
+    // Three ups must rest on the first, not go negative.
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{ArrowUp}')
+    expect(screen.getByRole('option', { name: /Provision cluster/ })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('does not commit free text on Enter with nothing highlighted', async () => {
+    mockSearch.mockResolvedValue([candidate])
+    await openPicker()
+    await userEvent.type(screen.getByRole('combobox'), 'prov')
+    await screen.findByRole('option', { name: /Provision cluster/ })
+    await userEvent.keyboard('{Enter}')
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
   it('sends the chosen direction', async () => {
     mockSearch.mockResolvedValue([candidate])
     mockAdd.mockResolvedValue(makeRelation({ id: 901, direction: 'relates_to', relation_type: 'relates_to', card: { id: 42, uid: 'u42', title: 'Provision cluster', column: 11, archived: false } }))

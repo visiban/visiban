@@ -17,7 +17,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import (
-    Board, BoardMembership, Card, Column, Label, Swimlane,
+    Board, BoardMembership, Card, CardRelation, Column, Label, Swimlane,
 )
 
 URL = "/api/v1/cards/"
@@ -464,3 +464,45 @@ class CardQuerySerializerFieldParityTests(TestCase):
             missing, set(),
             f"CardQuerySerializer is missing fields CardSerializer exposes: {missing}",
         )
+
+
+class CardQueryBlockerCountValueTests(TestCase):
+    """`blocker_count` must be correct here, not merely present (#449).
+
+    ``CardQuerySerializerFieldParityTests`` asserts the field *name* is in step
+    with CardSerializer. It cannot catch a wiring mistake: this endpoint keeps
+    its own queryset, so a lost prefetch or a wrong direction would leave the
+    field present and silently always zero, and parity would still pass.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="bc_owner", password="x")
+        self.board, self.col, self.swim = _make_board(self.owner)
+        self.blocker = _make_card(
+            self.board, self.col, self.swim, self.owner, title="Blocker",
+        )
+        self.blocked = _make_card(
+            self.board, self.col, self.swim, self.owner, title="Blocked", position=1,
+        )
+        CardRelation.objects.create(
+            from_card=self.blocker, to_card=self.blocked,
+            relation_type=CardRelation.Type.BLOCKS, created_by=self.owner,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _row(self, card):
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        return next(c for c in r.data["results"] if c["id"] == card.id)
+
+    def test_blocked_card_reports_its_blocker(self):
+        self.assertEqual(self._row(self.blocked)["blocker_count"], 1)
+
+    def test_blocking_card_is_not_itself_reported_as_blocked(self):
+        self.assertEqual(self._row(self.blocker)["blocker_count"], 0)
+
+    def test_archived_blocker_does_not_count(self):
+        self.blocker.archived_at = timezone.now()
+        self.blocker.save(update_fields=["archived_at"])
+        self.assertEqual(self._row(self.blocked)["blocker_count"], 0)
