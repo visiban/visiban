@@ -16,7 +16,7 @@
         <link rel="prev" href="../site-admins/">
       
       
-        <link rel="next" href="../authentication/">
+        <link rel="next" href="../maintenance-mode/">
       
       
         
@@ -2435,6 +2435,8 @@
       
         
       
+        
+      
     
     
     
@@ -2648,6 +2650,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#maintenance-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Maintenance mode
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2818,6 +2831,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3283,6 +3324,36 @@
 </tbody>
 </table>
 <p>Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.</p>
+<h3 id="maintenance-mode">Maintenance mode<a class="headerlink" href="#maintenance-mode" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Puts the whole instance into <strong>read-only mode</strong> while you run an upgrade or a migration. It is
+off by default.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Maintenance mode</strong> toggle</td>
+<td>When on, every write from a non-admin is rejected with <code>503 Service Unavailable</code>. Reads keep working.</td>
+</tr>
+<tr>
+<td><strong>Message</strong></td>
+<td>Plain-text notice (max 1000 characters) shown to everyone while maintenance mode is on. Leave it blank to use the built-in default.</td>
+</tr>
+</tbody>
+</table>
+<p>Site admins are exempt and keep full read/write access — signed in through the browser or
+using a personal access token — but still see the notice. The setting lives in the database,
+so it survives a restart, and it takes effect immediately for every worker.</p>
+<p>See <a href="../maintenance-mode/">Maintenance Mode</a> for the full runbook: what everyone else sees, the
+exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
+known limitation on tabs left open in the background.</p>
 <h2 id="users-tab">Users tab<a class="headerlink" href="#users-tab" title="Permanent link">&para;</a></h2>
 <p>Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.</p>
 <h3 id="user-status-badges">User status badges<a class="headerlink" href="#user-status-badges" title="Permanent link">&para;</a></h3>

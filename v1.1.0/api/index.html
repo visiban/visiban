@@ -2438,6 +2438,8 @@
       
         
       
+        
+      
     
     
     
@@ -2563,6 +2565,34 @@
     
   
     Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
   
 
     
@@ -3184,6 +3214,25 @@
 <li>Dates are ISO 8601 strings: <code>"2026-04-01"</code></li>
 <li>Permission errors return <code>403 Forbidden</code>; missing resources return <code>404 Not Found</code></li>
 </ul>
+<h3 id="maintenance-mode-503">Maintenance mode (503)<a class="headerlink" href="#maintenance-mode-503" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>While a site admin has <a href="admin/#maintenance-mode">maintenance mode</a> turned on, <strong>any</strong>
+non-safe-method request (anything other than <code>GET</code>, <code>HEAD</code>, <code>OPTIONS</code>, <code>TRACE</code>) from a non-site-admin
+caller — on any endpoint documented in this reference — is rejected with <code>503 Service Unavailable</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"maintenance_mode"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Upgrading to 1.2 — back by 14:00 UTC."</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>The response carries <code>Retry-After: 120</code> so clients back off rather than retry immediately.
+<code>detail</code> is the operator's configured notice, or a built-in default when they left it blank.
+Reads keep working, and site admins keep full read/write access regardless of how they
+authenticate (session cookie or personal access token).</p>
+<p>A small set of endpoints stay writable even during maintenance — mainly login, logout, the
+password-reset/forced-change flows, the admin API itself, and the health probes. See
+<a href="admin/#maintenance-mode">Maintenance mode → endpoints that stay writable</a> for the exact list.
+MCP write tools (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) return an equivalent
+<code>{"error": {"code": "maintenance_mode", "detail": "..."}}</code> result instead of a 503 — see
+<a href="mcp/#tool-errors">MCP Server</a>.</p>
 <h3 id="url-path-style">URL path style<a class="headerlink" href="#url-path-style" title="Permanent link">&para;</a></h3>
 <p>Path segments use <code>kebab-case</code> (e.g. <code>/auth/change-password/</code>, <code>/boards/&lt;id&gt;/saved-filters/</code>, <code>/boards/&lt;id&gt;/move-group/</code>). This is the canonical style and the convention you should rely on when writing new integrations.</p>
 <p>One legacy endpoint still accepts a <code>snake_case</code> alias for backward compatibility:</p>

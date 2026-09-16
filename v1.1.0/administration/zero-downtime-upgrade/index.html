@@ -2435,6 +2435,8 @@
       
         
       
+        
+      
     
     
     
@@ -2563,6 +2565,34 @@
     
   
     Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
   
 
     
@@ -3347,6 +3377,15 @@ are true for the release you're upgrading to:</p>
 <p>A maintenance window, for this deployment shape, means: scale <code>backendReplicaCount</code> to the
 values that stop traffic (or put the ingress in maintenance mode), run <code>helm upgrade</code>, confirm
 <code>helm test</code> is green, then scale back up.</p>
+<div class="admonition tip">
+<p class="admonition-title">A softer option: Visiban's own maintenance mode</p>
+<p>If your reason for a window is "stop people writing while I migrate" rather than "stop all
+traffic", Visiban's built-in <a href="../maintenance-mode/">maintenance mode</a> is usually a better fit
+than scaling to zero. It rejects every non-admin write with <code>503</code> while leaving reads — and
+your own admin access — working, and it shows users a notice you write. Turn it on before
+you migrate and off afterwards. It does not replace a window for the cases listed above,
+where the concern is the schema change itself rather than concurrent writes.</p>
+</div>
 <hr />
 <h2 id="4-rollback">4. Rollback<a class="headerlink" href="#4-rollback" title="Permanent link">&para;</a></h2>
 <h3 id="the-migrate-job-failed-2-step-1">The migrate Job failed (§2 Step 1)<a class="headerlink" href="#the-migrate-job-failed-2-step-1" title="Permanent link">&para;</a></h3>

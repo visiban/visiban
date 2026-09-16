@@ -2435,6 +2435,8 @@
       
         
       
+        
+      
     
     
     
@@ -2563,6 +2565,34 @@
     
   
     Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
   
 
     
@@ -3344,6 +3374,14 @@
 <hr />
 <h2 id="standard-upgrade-steps">Standard upgrade steps<a class="headerlink" href="#standard-upgrade-steps" title="Permanent link">&para;</a></h2>
 <p>These steps apply to a single-server Docker Compose deployment.</p>
+<div class="admonition tip">
+<p class="admonition-title">Optional: freeze writes for the duration</p>
+<p>These steps are safe to run with the instance live — that's the whole point of the
+zero-downtime migration rules below. If you'd still rather nobody move a card while you
+migrate, turn on <a href="../maintenance-mode/">maintenance mode</a> before step 1 and off again after
+step 5. It rejects non-admin writes with <code>503</code> while leaving reads, and your own admin
+access, working throughout.</p>
+</div>
 <h3 id="1-back-up-the-database">1. Back up the database<a class="headerlink" href="#1-back-up-the-database" title="Permanent link">&para;</a></h3>
 <p>Always take a snapshot before upgrading. If a migration fails partway through, you will need this to recover.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
@@ -3561,6 +3599,11 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <hr />
 <h2 id="release-specific-upgrade-notes">Release-specific upgrade notes<a class="headerlink" href="#release-specific-upgrade-notes" title="Permanent link">&para;</a></h2>
 <h3 id="upgrading-to-12x">Upgrading to 1.2.x<a class="headerlink" href="#upgrading-to-12x" title="Permanent link">&para;</a></h3>
+<p>Migration <code>accounts/0027_maintenance_mode</code> adds two nullable-by-default columns
+(<code>maintenance_mode</code>, <code>maintenance_message</code>) to the <code>site_settings</code> singleton for the new
+<a href="../maintenance-mode/">maintenance mode</a> feature. It is a plain <code>AddField</code> migration — no index,
+no constraint, no data backfill — and <code>maintenance_mode</code> defaults to <code>False</code>, so an existing
+install behaves exactly as before until an operator deliberately turns it on.</p>
 <div class="admonition warning">
 <p class="admonition-title">Helm values are now schema-validated — an unknown key fails the upgrade</p>
 <p>Chart 0.4.0 ships <code>values.schema.json</code> with <code>additionalProperties: false</code> on

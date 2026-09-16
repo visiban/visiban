@@ -2964,6 +2964,8 @@
       
         
       
+        
+      
     
     
     
@@ -3089,6 +3091,34 @@
     
   
     Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
   
 
     
@@ -4120,8 +4150,14 @@ can detect the condition and call this endpoint programmatically.</p>
 <h2 id="user-profile">User profile<a class="headerlink" href="#user-profile" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1authme"><code>GET /api/v1/auth/me/</code><a class="headerlink" href="#get-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Returns the authenticated user's profile.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>GET /api/v1/auth/user/</code> (dj-rest-auth's built-in endpoint, and the one the bundled SPA
+actually bootstraps from) returns the identical shape — both are served by
+<code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
+</div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4145,6 +4181,16 @@ can detect the condition and call this endpoint programmatically.</p>
 <td><code>uploads_enabled</code></td>
 <td>boolean</td>
 <td>Instance-wide setting reflecting whether file attachment uploads are currently permitted. When <code>false</code>, the attachment UI is hidden and upload attempts return <code>403</code>.</td>
+</tr>
+<tr>
+<td><code>maintenance_mode</code></td>
+<td>boolean</td>
+<td>Instance-wide setting reflecting whether the instance is in read-only maintenance mode. When <code>true</code>, non-admin writes return <code>503</code> — see <a href="../admin/#maintenance-mode">Maintenance mode</a>. Read-only. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>maintenance_message</code></td>
+<td>string</td>
+<td>The notice to show while <code>maintenance_mode</code> is <code>true</code>. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and <code>""</code> otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>theme</code></td>

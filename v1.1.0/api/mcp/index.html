@@ -2790,6 +2790,8 @@
       
         
       
+        
+      
     
     
     
@@ -2915,6 +2917,34 @@
     
   
     Admin Panel
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Maintenance Mode
   
 
     
@@ -3639,6 +3669,10 @@
 <tr>
 <td><code>missing_scope</code></td>
 <td>Your token lacks the <code>mcp:write</code> scope required for this tool — see above.</td>
+</tr>
+<tr>
+<td><code>maintenance_mode</code></td>
+<td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>) keep working regardless. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>validation_error</code></td>
