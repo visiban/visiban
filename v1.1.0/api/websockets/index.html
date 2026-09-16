@@ -802,6 +802,8 @@
       
         
       
+        
+      
     
     
     
@@ -983,6 +985,34 @@
     
   
     Custom Fields
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
   
 
     
@@ -1392,7 +1422,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_20" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_21" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1414,14 +1444,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_20" id="__nav_3_20_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_21" id="__nav_3_21_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_20_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_20">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_21">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3562,7 +3592,7 @@ payload carries the card's <code>custom_field_values</code>.</p>
 </tr>
 <tr>
 <td><code>card.updated</code></td>
-<td>Card fields edited, comment added/deleted, attachment added/deleted, checklist changed</td>
+<td>Card fields edited, comment added/deleted, attachment added/deleted, checklist changed, <a href="../cards/#relations-since-12">relation</a> added/removed</td>
 <td>Full <code>CardSerializer</code> object</td>
 </tr>
 <tr>
@@ -3587,6 +3617,20 @@ payload carries the card's <code>custom_field_values</code>.</p>
 </tr>
 </tbody>
 </table>
+<div class="admonition note">
+<p class="admonition-title">One change can publish several card frames (since 1.2)</p>
+<p>A relation change alters two cards, so adding or removing one publishes
+<strong>two</strong> <code>card.updated</code> frames — one per card at each end — rather than a
+single frame describing the relation. Each carries a complete card.</p>
+<p>For the same reason, archiving, restoring or deleting a card also publishes
+a <code>card.updated</code> frame for every card it was actively blocking, alongside
+that card's own <code>card.archived</code> / <code>card.unarchived</code> / <code>card.deleted</code> frame:
+an archived blocker stops counting toward its targets' <code>blocker_count</code>, and
+without those frames a client would keep rendering a blocked indicator for
+a blocker that is no longer on the board.</p>
+<p>A client that applies <code>card.updated</code> by replacing the card with that id
+needs no special handling for either case.</p>
+</div>
 <h3 id="member-events">Member events<a class="headerlink" href="#member-events" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

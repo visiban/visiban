@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/administration/zero-downtime-upgrade/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/card-relations/">
       
       
-        <link rel="prev" href="../upgrade/">
+        <link rel="prev" href="../custom-fields/">
       
       
-        <link rel="next" href="../../maintainers/">
+        <link rel="next" href="../analytics/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Zero-Downtime Upgrade Playbook - Visiban</title>
+        <title>Card Relations - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#zero-downtime-upgrade-playbook" class="md-skip">
+        <a href="#card-relations" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Zero-Downtime Upgrade Playbook
+              Card Relations
             
           </span>
         </div>
@@ -266,11 +266,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../features/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -332,13 +334,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
           
   
   
@@ -755,6 +755,8 @@
       
   
   
+    
+  
   
   
     
@@ -808,20 +810,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../features/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -839,13 +844,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -865,7 +870,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/board/" class="md-nav__link">
+      <a href="../board/" class="md-nav__link">
         
   
   
@@ -893,7 +898,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-archiving/" class="md-nav__link">
+      <a href="../card-archiving/" class="md-nav__link">
         
   
   
@@ -921,7 +926,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-descriptions/" class="md-nav__link">
+      <a href="../card-descriptions/" class="md-nav__link">
         
   
   
@@ -949,7 +954,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/saved-filters/" class="md-nav__link">
+      <a href="../saved-filters/" class="md-nav__link">
         
   
   
@@ -977,7 +982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/custom-fields/" class="md-nav__link">
+      <a href="../custom-fields/" class="md-nav__link">
         
   
   
@@ -1002,10 +1007,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../features/card-relations/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Card Relations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1021,6 +1053,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-blocked-indicator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The blocked indicator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#viewing-and-editing-relations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Viewing and editing relations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Viewing and editing relations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adding-a-relation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding a relation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-a-relation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing a relation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permissions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-time-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-time behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1033,7 +1179,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/analytics/" class="md-nav__link">
+      <a href="../analytics/" class="md-nav__link">
         
   
   
@@ -1061,7 +1207,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/notifications/" class="md-nav__link">
+      <a href="../notifications/" class="md-nav__link">
         
   
   
@@ -1089,7 +1235,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/realtime/" class="md-nav__link">
+      <a href="../realtime/" class="md-nav__link">
         
   
   
@@ -1117,7 +1263,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-history/" class="md-nav__link">
+      <a href="../card-history/" class="md-nav__link">
         
   
   
@@ -1145,7 +1291,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/stable-uids/" class="md-nav__link">
+      <a href="../stable-uids/" class="md-nav__link">
         
   
   
@@ -1173,7 +1319,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/groups/" class="md-nav__link">
+      <a href="../groups/" class="md-nav__link">
         
   
   
@@ -1201,7 +1347,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/navigation/" class="md-nav__link">
+      <a href="../navigation/" class="md-nav__link">
         
   
   
@@ -1229,7 +1375,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+      <a href="../keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1257,7 +1403,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/appearance/" class="md-nav__link">
+      <a href="../appearance/" class="md-nav__link">
         
   
   
@@ -1285,7 +1431,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+      <a href="../personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1313,7 +1459,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/permissions/" class="md-nav__link">
+      <a href="../permissions/" class="md-nav__link">
         
   
   
@@ -1341,7 +1487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/feature-toggles/" class="md-nav__link">
+      <a href="../feature-toggles/" class="md-nav__link">
         
   
   
@@ -1369,7 +1515,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/issue-board-lens/" class="md-nav__link">
+      <a href="../issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1415,10 +1561,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1426,7 +1575,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../features/rbac/" class="md-nav__link ">
+            <a href="../rbac/" class="md-nav__link ">
               
   
   
@@ -1444,7 +1593,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_21" id="__nav_3_21_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_21" id="__nav_3_21_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1470,7 +1619,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/roles/" class="md-nav__link">
+      <a href="../rbac/roles/" class="md-nav__link">
         
   
   
@@ -1498,7 +1647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+      <a href="../rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1526,7 +1675,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/managing/" class="md-nav__link">
+      <a href="../rbac/managing/" class="md-nav__link">
         
   
   
@@ -2404,8 +2553,6 @@
       
   
   
-    
-  
   
   
     
@@ -2439,23 +2586,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../administration/" class="md-nav__link ">
               
   
   
@@ -2473,13 +2617,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2499,7 +2643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../configuration/" class="md-nav__link">
+      <a href="../../administration/configuration/" class="md-nav__link">
         
   
   
@@ -2527,7 +2671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../site-admins/" class="md-nav__link">
+      <a href="../../administration/site-admins/" class="md-nav__link">
         
   
   
@@ -2555,7 +2699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../admin-panel/" class="md-nav__link">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
         
   
   
@@ -2583,7 +2727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
+      <a href="../../administration/authentication/" class="md-nav__link">
         
   
   
@@ -2611,7 +2755,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../demo-data/" class="md-nav__link">
+      <a href="../../administration/demo-data/" class="md-nav__link">
         
   
   
@@ -2639,7 +2783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../django-admin/" class="md-nav__link">
+      <a href="../../administration/django-admin/" class="md-nav__link">
         
   
   
@@ -2667,7 +2811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../media-security/" class="md-nav__link">
+      <a href="../../administration/media-security/" class="md-nav__link">
         
   
   
@@ -2695,7 +2839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../secret-rotation/" class="md-nav__link">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
         
   
   
@@ -2723,7 +2867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../upgrade/" class="md-nav__link">
+      <a href="../../administration/upgrade/" class="md-nav__link">
         
   
   
@@ -2748,37 +2892,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Zero-Downtime Upgrade Playbook
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -2794,159 +2911,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-pre-upgrade-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Pre-upgrade checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-the-rolling-upgrade" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. The rolling upgrade
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. The rolling upgrade">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#step-1-run-helm-upgrade" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 1 — Run helm upgrade
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-2-watch-the-migrate-job" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 2 — Watch the migrate Job
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-3-verify-a-partial-rollout-before-letting-it-finish" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3 — Verify a partial rollout before letting it finish
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#step-4-verify-the-full-rollout" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4 — Verify the full rollout
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-when-this-playbook-doesnt-apply" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. When this playbook doesn't apply
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-rollback" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Rollback
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="4. Rollback">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-migrate-job-failed-2-step-1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The migrate Job failed (§2 Step 1)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#the-rollout-itself-is-unhealthy-2-step-3-or-4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The rollout itself is unhealthy (§2 Step 3 or 4)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#related-pages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Related pages
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3170,227 +3134,143 @@
   
 
 
-<h1 id="zero-downtime-upgrade-playbook">Zero-Downtime Upgrade Playbook<a class="headerlink" href="#zero-downtime-upgrade-playbook" title="Permanent link">&para;</a></h1>
-<div class="admonition tip">
-<p class="admonition-title">Docker Compose or a single server?</p>
-<p>This playbook is for a <strong>Helm / Kubernetes</strong> deployment with more than one backend
-replica. If you run Visiban with Docker Compose on a single host, follow the
-<a href="../upgrade/#standard-upgrade-steps">Standard upgrade steps</a> in the main upgrade guide
-instead — that path already applies while the old container keeps serving traffic
-during migration, but there is no second replica to roll traffic across.</p>
-</div>
-<p>This page walks through a <strong>1.x → 1.(x+1) minor or patch</strong> upgrade of a multi-replica Helm
-deployment with no downtime window: pre-flight checks, the rolling deploy itself, and how to
-roll back if something goes wrong mid-rollout. It assumes the install path in
-<a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a> and a <code>backendReplicaCount</code> of 2 or
-more (the <code>values-prod.yaml</code> overlay default).</p>
-<p><strong>Out of scope:</strong> major version upgrades (<code>1.x → 2.0</code>) — those are covered per-release in the
-<a href="../upgrade/#release-specific-upgrade-notes">Release-specific upgrade notes</a> — and
-multi-region coordination.</p>
-<p>The migration-safety rules this playbook relies on — nullable-first columns, add-then-drop
-column removal, add+copy+drop renames, concurrently-built indexes — are the same rules every
-Visiban code change follows. They are documented in full in
-<a href="../upgrade/#zero-downtime-migration-rules">Zero-downtime migration rules</a> and enforced on every
-migration by the <code>migration-check</code> CI job (see
-<a href="../../development/database-migrations/">Database migrations</a>). The release contract behind
-them — never remove a field, never rename an env var, never change a WebSocket event shape —
-is written down in the project's
-<a href="https://gitlab.com/visiban/visiban/-/blob/main/CLAUDE.md#backward-compatibility--always-on-from-10">Backward compatibility rules</a>.
-This playbook does not restate any of that; it is the operator-facing procedure that those
-rules make possible.</p>
+<h1 id="card-relations">Card Relations<a class="headerlink" href="#card-relations" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Link two cards on the same board to record that one depends on the other. A card
+that something is waiting on carries a red indicator on the board, so you can see
+what is stuck without opening anything.</p>
+<p>Three relation directions are available:</p>
+<table>
+<thead>
+<tr>
+<th>Direction</th>
+<th>Meaning</th>
+<th>Affects the board indicator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Blocked by</strong></td>
+<td>The other card has to land before this one can move</td>
+<td>Yes — on this card</td>
+</tr>
+<tr>
+<td><strong>Blocks</strong></td>
+<td>This card has to land before the other one can move</td>
+<td>Yes — on the other card</td>
+</tr>
+<tr>
+<td><strong>Relates to</strong></td>
+<td>The two cards are associated, with no ordering implied</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Blocks</strong> and <strong>Blocked by</strong> are the same link seen from opposite ends. Record
+"A is blocked by B" and card B automatically shows "Blocks A" — there is nothing
+to keep in sync by hand.</p>
 <hr />
-<h2 id="1-pre-upgrade-checklist">1. Pre-upgrade checklist<a class="headerlink" href="#1-pre-upgrade-checklist" title="Permanent link">&para;</a></h2>
-<p>Work through this before touching the cluster.</p>
+<h2 id="the-blocked-indicator">The blocked indicator<a class="headerlink" href="#the-blocked-indicator" title="Permanent link">&para;</a></h2>
+<p>A card with at least one unfinished blocker shows a red ⊖ glyph at the start of
+its metadata row. With more than one blocker, the count appears next to it.</p>
+<p>The indicator appears at <strong>every card density</strong> and in both the Compact and
+Expanded card layouts, because seeing blocked work while scanning a column is the
+point of the feature. Hovering shows the exact count ("Blocked by 2 cards").</p>
+<p>Only <strong>Blocked by</strong> relations count. A card that blocks other cards is not itself
+blocked, and <strong>Relates to</strong> never contributes.</p>
+<p>Blockers that have been <strong>archived</strong> stop counting — an archived card is not on
+the board, so it cannot be what is holding work up. The relation itself is kept
+and shown in the card detail panel (struck through, marked <em>Archived</em>) so you can
+see why and remove it.</p>
+<hr />
+<h2 id="viewing-and-editing-relations">Viewing and editing relations<a class="headerlink" href="#viewing-and-editing-relations" title="Permanent link">&para;</a></h2>
+<p>Open a card and find the <strong>Relations</strong> section in the <em>Details</em> tab, between
+Weight and Checklist. It groups links under <strong>Blocked by</strong>, <strong>Blocks</strong>, and
+<strong>Relates to</strong>, in that order — what you are waiting on first.</p>
+<p>Each row shows the linked card's title and the column it is currently sitting in,
+which usually answers "is my blocker done yet?" without another click. Click a
+title to open that card; the panel switches to it.</p>
+<p>The section starts expanded when the card has any relations and collapsed when it
+has none.</p>
+<h3 id="adding-a-relation">Adding a relation<a class="headerlink" href="#adding-a-relation" title="Permanent link">&para;</a></h3>
 <ol>
-<li>
-<p><strong>Read the changelog for every version between your current release and the target.</strong>
-   Pay particular attention to <code>changed</code> and <code>security</code> entries — <code>added</code> entries are
-   additive by definition and rarely affect an upgrade, but <code>changed</code> covers behavior shifts
-   (an env var default, a WebSocket payload addition, a Helm values key) and <code>security</code>
-   entries sometimes carry a required post-upgrade action, like the <code>find_cross_board_cards</code>
-   command in the <a href="../upgrade/#upgrading-to-12x">1.2 data-integrity note</a>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># From a checkout at the target tag</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>git<span class="w"> </span>log<span class="w"> </span>--oneline<span class="w"> </span>v&lt;current&gt;..v&lt;target&gt;<span class="w"> </span>--<span class="w"> </span>changelog.d/
-</code></pre></div>
-</li>
-<li>
-<p><strong>Check the version-specific notes for a maintenance-window warning.</strong> The
-   <a href="../upgrade/#version-compatibility-quick-reference">compatibility quick-reference</a> and the
-   per-version notes under
-   <a href="../upgrade/#release-specific-upgrade-notes">Release-specific upgrade notes</a> call out every
-   release that has ever required stopping backends first (<code>groups/0012</code>, <code>boards/0005</code>).
-   None have since 1.0 shipped — every 1.x migration is additive-only by the rule above — but
-   confirm the target release before assuming that holds for yours too. If a maintenance
-   window is called for, stop here and follow that note instead of this playbook.</p>
-</li>
-<li>
-<p><strong>Scan the target release's migration files yourself</strong> if you want a second signal beyond
-   the changelog, or if you're upgrading across several versions at once:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>diff<span class="w"> </span>v&lt;current&gt;..v&lt;target&gt;<span class="w"> </span>--<span class="w"> </span><span class="s1">'backend/*/migrations/*.py'</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-E<span class="w"> </span><span class="s1">'^\+.*(RemoveField|DeleteModel|migrations\.RunSQL|AlterField.*null=False)'</span>
-</code></pre></div>
-<p>A hit here doesn't necessarily mean a maintenance window is required — Visiban's own
-column-removal and rename rules span <em>multiple releases</em> precisely so that no single
-upgrade needs one — but it tells you which release finishes a rename or drop that a
-prior release started, so you know what changes shape.</p>
-</li>
-<li>
-<p><strong>Verify your most recent backup is current and restorable.</strong> This playbook's rollback
-   procedure (§4) covers rolling back a <em>deployment</em> — reverting to the previous image and,
-   where possible, the previous migration. It does not recover data lost to an irreversible
-   migration (a column or table drop). Take a fresh backup immediately before upgrading:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>postgresql<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--<span class="w"> </span>pg_dump<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>visiban<span class="w"> </span>&gt;<span class="w"> </span>visiban-backup-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d%H%M%S<span class="k">)</span>.sql
-</code></pre></div>
-<p>If you use an external managed PostgreSQL instance instead of the bundled StatefulSet,
-use your provider's snapshot mechanism instead.</p>
-</li>
-<li>
-<p><strong>Confirm the current rollout is healthy before starting a new one.</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>--watch<span class="o">=</span><span class="nb">false</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend
-</code></pre></div>
-<p>Starting a rolling upgrade on top of an already-degraded deployment makes it much harder
-to tell a pre-existing problem from a new one once you start verifying half-rolled state
-in step 3 below.</p>
-</li>
+<li>Click <strong>+ Add relation</strong>.</li>
+<li>Pick the direction — <strong>Blocked by</strong> (the default), <strong>Blocks</strong>, or <strong>Relates to</strong>.</li>
+<li>Type at least two characters to search the board's cards, and pick one.</li>
 </ol>
+<p>The picker stays open after each link so you can add several in a row. Cards that
+cannot be linked — the card itself, and anything already linked in a way that
+would conflict — are left out of the results.</p>
+<h3 id="removing-a-relation">Removing a relation<a class="headerlink" href="#removing-a-relation" title="Permanent link">&para;</a></h3>
+<p>Hover a relation row and click <strong>✕</strong>. Either card can remove the link; both show
+it. There is no confirmation step — the relation is trivially re-addable.</p>
 <hr />
-<h2 id="2-the-rolling-upgrade">2. The rolling upgrade<a class="headerlink" href="#2-the-rolling-upgrade" title="Permanent link">&para;</a></h2>
-<p>These steps assume the release name <code>visiban</code> in namespace <code>visiban</code>, matching the
-<a href="../../getting-started/kubernetes/">Kubernetes install guide</a>. Substitute your own release
-name throughout.</p>
-<h3 id="step-1-run-helm-upgrade">Step 1 — Run <code>helm upgrade</code><a class="headerlink" href="#step-1-run-helm-upgrade" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>--namespace<span class="w"> </span>visiban<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>-f<span class="w"> </span>helm/visiban/values.secret.yaml<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span>v1.2.0<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span>v1.2.0
-</code></pre></div>
-<p>Two things happen automatically, in order, before any backend pod is touched:</p>
-<ol>
-<li>The <strong>migrate Job</strong> runs as a Helm <code>pre-upgrade</code> hook
-   (<code>helm/visiban/templates/migrate-job.yaml</code>) and must complete before Helm proceeds. Only
-   this one Job runs <code>manage.py migrate</code> — the backend Deployment's own init containers only
-   run <code>collectstatic</code> and <code>ensure_site_admin</code>, so replicas never race each other to apply
-   migrations. If the Job fails, Helm aborts the release and <strong>no backend or frontend pod is
-   touched</strong> — the previous version keeps serving traffic untouched. See §4 if this happens.</li>
-<li>Once the migrate Job succeeds, Helm applies the updated <code>Deployment</code> manifests for
-   <code>backend</code> and <code>frontend</code>, which starts a standard Kubernetes rolling update.</li>
-</ol>
-<p>Because the schema after step 1 is safe for both the old and new backend code to read (that's
-the whole point of the <a href="../upgrade/#zero-downtime-migration-rules">zero-downtime migration rules</a>),
-old pods keep serving correctly for as long as step 2 takes to finish.</p>
-<h3 id="step-2-watch-the-migrate-job">Step 2 — Watch the migrate Job<a class="headerlink" href="#step-2-watch-the-migrate-job" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>migrate
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>job/visiban-migrate
-</code></pre></div>
-<p>Confirm it exited <code>0</code> before assuming the rollout is progressing — <code>helm upgrade</code> returns as
-soon as the hook Job and the Deployment update are both <em>applied</em>, not once pods are actually
-<code>Ready</code>, so a slow terminal doesn't mean anything is wrong yet.</p>
-<h3 id="step-3-verify-a-partial-rollout-before-letting-it-finish">Step 3 — Verify a partial rollout before letting it finish<a class="headerlink" href="#step-3-verify-a-partial-rollout-before-letting-it-finish" title="Permanent link">&para;</a></h3>
-<p>The backend <code>Deployment</code> has no custom <code>strategy:</code>, so it uses Kubernetes' default
-<code>RollingUpdate</code> (<code>maxUnavailable: 25%</code>, <code>maxSurge: 25%</code>) — at <code>backendReplicaCount: 2</code> that
-is effectively one pod replaced at a time. To check the new image's health on a subset of
-replicas before the rest follow, pause the rollout right after triggering it and resume once
-you're satisfied:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Immediately after step 1, before the new pods finish starting:</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>pause<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Give the controller a moment to bring up the pods it had already started, then check them</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span>-o<span class="w"> </span>custom-columns<span class="o">=</span>NAME:.metadata.name,IMAGE:.spec.containers<span class="o">[</span><span class="m">0</span><span class="o">]</span>.image,READY:.status.containerStatuses<span class="o">[</span><span class="m">0</span><span class="o">]</span>.ready
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Check readiness directly against a new pod</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>&lt;new-pod-name&gt;<span class="w"> </span>--<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/health/readiness/').read().decode())"</span>
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">This checkpoint is approximate, not a guaranteed 50%</p>
-<p><code>kubectl rollout pause</code> stops the controller from replacing <em>further</em> pods, but it can't
-retroactively undo replacements already in flight when you run it — at low replica counts
-(2–4, which covers most self-hosted installs) the window between <code>helm upgrade</code> returning
-and your <code>pause</code> command landing is often enough for one pod to already be mid-replacement.
-Treat this as "verify on however many new pods are up so far," not as a precise 50/50
-canary gate. A true gated canary needs a progressive-delivery controller (e.g. Argo
-Rollouts), which is out of scope here.</p>
-</div>
-<p>If the new pods look healthy, resume the rollout to completion:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>resume<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-</code></pre></div>
-<p>If they don't — crash-looping, failing readiness, error logs — stop and go to §4 instead of
-resuming.</p>
-<h3 id="step-4-verify-the-full-rollout">Step 4 — Verify the full rollout<a class="headerlink" href="#step-4-verify-the-full-rollout" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>helm<span class="w"> </span><span class="nb">test</span><span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban<span class="w"> </span>--logs
-</code></pre></div>
-<p>This runs the same liveness → readiness → readiness-through-nginx → SPA probe chain used in
-CI (see <a href="../../getting-started/kubernetes/#5-verify">Kubernetes (Helm) § Verify</a>). A green
-<code>helm test</code> here is the same invariant a fresh install checks, run against the upgraded
-release.</p>
+<h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>View relations</th>
+<th>Add / remove</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Viewer</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Collaborator</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Member</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>A relation changes how a <em>different</em> card reads on the board for everyone, so
+adding and removing requires at least the Member role — one tier stricter than
+comments, attachments, and checklist items, which collaborators can edit.
+Viewers and collaborators see relations but no controls.</p>
+<p>Any member can remove any relation, including one someone else created. A member
+can already edit both of the cards a relation links, so restricting the unlink to
+its author would not protect anything.</p>
 <hr />
-<h2 id="3-when-this-playbook-doesnt-apply">3. When this playbook doesn't apply<a class="headerlink" href="#3-when-this-playbook-doesnt-apply" title="Permanent link">&para;</a></h2>
-<p>Stop and use a maintenance window instead of the rolling procedure above when any of these
-are true for the release you're upgrading to:</p>
+<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The changelog or version-specific upgrade notes call out a required maintenance window
-  (search for "Maintenance window required" under
-  <a href="../upgrade/#release-specific-upgrade-notes">Release-specific upgrade notes</a> — every
-  instance so far has been a pre-1.0 → 1.0 migration, not a 1.x → 1.x one).</li>
-<li>Your migration scan in checklist step 3 surfaces a <code>RemoveField</code>, <code>DeleteModel</code>, or raw
-  <code>DROP</code> that the changelog doesn't explain — treat an unexplained destructive operation as a
-  reason to ask before upgrading, not a reason to skip the question.</li>
-<li>You are skipping multiple minor versions in one upgrade and haven't confirmed that none of
-  the intermediate releases required a window. <code>manage.py migrate</code> will apply the whole chain
-  in sequence regardless, but a window requirement three versions back still applies to you.</li>
+<li><strong>Same board only.</strong> Relations cannot span boards.</li>
+<li><strong>A card cannot be linked to itself.</strong></li>
+<li><strong>Two cards cannot block each other.</strong> Longer chains (A blocks B blocks C
+  blocks A) are not detected and are permitted.</li>
+<li><strong>Relations are not carried by board export or import.</strong> A board exported and
+  re-imported loses its relations.</li>
+<li><strong>Blockers are not cleared automatically.</strong> Moving a blocking card to a done
+  column does not remove the relation or the indicator — archive the card, or
+  remove the relation, when the dependency is resolved.</li>
 </ul>
-<p>A maintenance window, for this deployment shape, means: scale <code>backendReplicaCount</code> to the
-values that stop traffic (or put the ingress in maintenance mode), run <code>helm upgrade</code>, confirm
-<code>helm test</code> is green, then scale back up.</p>
 <hr />
-<h2 id="4-rollback">4. Rollback<a class="headerlink" href="#4-rollback" title="Permanent link">&para;</a></h2>
-<h3 id="the-migrate-job-failed-2-step-1">The migrate Job failed (§2 Step 1)<a class="headerlink" href="#the-migrate-job-failed-2-step-1" title="Permanent link">&para;</a></h3>
-<p>Nothing was touched — the previous <code>Deployment</code> revision is still running and still serving
-traffic, since the hook Job runs and must succeed before Helm applies the new Deployment spec.
-Read the Job's logs (<code>kubectl logs -n visiban job/visiban-migrate</code>), fix the underlying cause,
-and re-run <code>helm upgrade</code> — the Job is recreated fresh on every attempt
-(<code>hook-delete-policy: before-hook-creation</code>), so a failed previous attempt doesn't block a
-retry.</p>
-<p>If the migration itself was mid-way through an irreversible operation when it failed (rare,
-since Visiban's rules keep every 1.x migration additive), see
-<a href="../upgrade/#rollback-guidance">Rollback guidance</a> in the main upgrade page for which
-operations can be reversed with <code>manage.py migrate &lt;app&gt; &lt;previous_migration&gt;</code> and which
-require restoring the backup taken in checklist step 4.</p>
-<h3 id="the-rollout-itself-is-unhealthy-2-step-3-or-4">The rollout itself is unhealthy (§2 Step 3 or 4)<a class="headerlink" href="#the-rollout-itself-is-unhealthy-2-step-3-or-4" title="Permanent link">&para;</a></h3>
-<p>The schema is already forward-compatible with the old code — that's what made the rolling
-upgrade safe to start — so reverting the <em>Deployment</em> is enough; there is no matching
-migration rollback to perform.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>undo<span class="w"> </span>deployment/visiban-frontend<span class="w"> </span>-n<span class="w"> </span>visiban
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>kubectl<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/visiban-backend<span class="w"> </span>-n<span class="w"> </span>visiban
-</code></pre></div>
-<p>If you paused the rollout (§2 Step 3) and are aborting rather than resuming, undo first —
-<code>rollout undo</code> works on a paused rollout and un-pauses it as part of reverting.</p>
-<p>For a full return to the previous release, including Helm's own record of values used:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>helm<span class="w"> </span><span class="nb">history</span><span class="w"> </span>visiban<span class="w"> </span>--namespace<span class="w"> </span>visiban
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>helm<span class="w"> </span>rollback<span class="w"> </span>visiban<span class="w"> </span>&lt;previous-revision&gt;<span class="w"> </span>--namespace<span class="w"> </span>visiban
-</code></pre></div>
-<p><code>helm rollback</code> does <strong>not</strong> re-run the migrate Job — the schema stays at whatever the failed
-upgrade left it at, which is safe precisely because that schema was built to be readable by
-both versions. It only reverts the Deployment/ConfigMap/Secret objects to their prior values.</p>
+<h2 id="real-time-behavior">Real-time behavior<a class="headerlink" href="#real-time-behavior" title="Permanent link">&para;</a></h2>
+<p>Adding or removing a relation updates both cards for everyone viewing the board
+immediately, over the same WebSocket channel as every other card change. See
+<a href="../realtime/">Real-time Updates</a>.</p>
+<p>Relations are visible on <strong>public share links</strong> only as the blocked indicator —
+anonymous visitors see that a card is blocked and by how many cards, but not the
+relation list, who created it, or when.</p>
 <hr />
-<h2 id="related-pages">Related pages<a class="headerlink" href="#related-pages" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="../upgrade/">Upgrading Visiban</a> — Docker Compose upgrade steps, the full zero-downtime
-  migration rules, version-compatibility reference, and release-specific notes</li>
-<li><a href="../../development/database-migrations/">Database migrations</a> — index and constraint
-  concurrency rules and the <code>migration-check</code> CI enforcement</li>
-<li><a href="../../getting-started/kubernetes/">Kubernetes (Helm)</a> — install, scaling, and the
-  <code>backendReplicaCount</code> / <code>helm test</code> mechanics this playbook builds on</li>
-<li>An HA reference architecture guide (multiple replicas, shared Postgres/Valkey, WebSocket
-  sticky sessions, failure modes) is planned but not yet published — this playbook will link
-  to it once it lands.</li>
-</ul>
+<h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../api/cards/#relations-since-12">Cards API → Relations</a> for the
+<code>blocker_count</code> field and the relation endpoints.</p>
 
 
 
