@@ -872,7 +872,8 @@ Returns a read-only board payload identified by its UUID share token. No authent
       "last_moved_at": "2026-03-25T14:30:00Z",
       "checklist_total": 3,
       "checklist_done": 1,
-      "is_stale": false
+      "is_stale": false,
+      "blocker_count": 1
     }
   ],
   "labels": [
@@ -893,3 +894,5 @@ Response fields:
 | `labels` | array | Label objects |
 
 Card objects in the public payload use `uid` as the identifier (not `id`) and do not include a database `id`. The `assignee` field contains `display_name` only; email, username, and avatar are omitted. Comments and checklist item text are not included; only `checklist_total` and `checklist_done` counts are present. The `is_stale` field is `true` when the card has not moved within the board's `staleness_threshold_days` window.
+
+`blocker_count` (since 1.2) is the number of active cards blocking this one — see [Card relations](cards.md#relations-since-12). The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.

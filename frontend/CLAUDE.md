@@ -87,6 +87,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Footer layout: `flex items-center justify-end gap-3` — always `gap-3`, never `gap-2`
 - **Fixed-height tabbed modals** — when a modal contains tabs with variable content height, give the panel a fixed height (`h-[85vh] max-h-[640px] min-h-0`) rather than only a max-height. This prevents layout jumping between tabs. The scrollable content region uses `overflow-y-auto flex-1` and the panel uses `flex flex-col`. Never use `max-h` alone on a tabbed modal panel.
 - **Inline confirmation for destructive toggles** — for settings toggles that have immediate, board-wide, non-reversible effects (e.g. enabling hard WIP enforcement), show an inline confirmation row before committing the change. On toggle click, replace the toggle row with a text prompt + Confirm + Cancel text buttons at `text-xs` scale (reuse the member-removal confirm pattern in `BoardSettingsModal`). On Cancel, revert the toggle. Do not use a modal-within-modal or a danger-zone text input for toggle-level confirmations.
+- **Escape priority inside the card detail panel** — any dropdown, picker, or popover rendered inside `CardDetail` must register `useEscapeStack` at a priority **above 30**. **Never use `useDropdownEscape`** there: it registers at 25, below the panel's own close handler at 30, so Escape would dismiss the entire panel instead of the control. Allocated so far: `30` panel close · `35` archive/delete confirm · `36` move popover · `37` relation picker. Claim the next free integer and record it in this list.
 
 ## Badges and labels
 
@@ -212,6 +213,17 @@ Each board has an admin-controlled `card_density` setting that drives how much m
   - **The personal radio group is a distinct `name` (`personal-card-density`) from the admin group's (`card-density`)** so the two native radio sets never collide, and is conditionally rendered (not just visually hidden) when the toggle is off, matching the personal Columns/Swimlanes section's own conditional-render pattern in the same tab.
   - **Gate the personal-override UI on `onSetCardDensityOverride` alone** — never couple it to `isAdmin` or to the `viewPrefs`/hidden-column gate. Density override and column/swimlane visibility are unrelated personal settings that happen to share this tab; admins get both the board radio and their own personal toggle, since an admin may want a personal view that differs from the team default they set.
 
+**Card-face blocked indicator (#449) — the one card-face signal with no density gate.** When `blocker_count > 0`, `CardItem` renders a danger-toned glyph as the **first** element of the metadata row, outside the `!compact` branch and outside every density conditional.
+
+- **No density gate, and outside `!compact`.** The checklist badge has no gate either, and blocked-ness is more actionable than checklist progress. `comfortable` is the default for every board created since 1.1, so gating it out there would remove the whole-board scan signal — the entire point of the feature — from most boards.
+- **First in the row.** The metadata row is `overflow-hidden` with no wrap at rest, so it clips right-to-left: anything placed after a variable-width neighbor (a long label pill, `⚑ 12d late`, a `max-w-[10rem]` custom-field chip) can be cut off on a narrow column. Leading position also keeps every blocked card's marker in one x-gutter, which is what makes a top-to-bottom column scan work.
+- **Inline SVG with `currentColor`, never an emoji.** `⛔`/`🚫` paint in their own fixed color and would ignore `text-danger`, so the badge would stop tracking the theme. The neutral `📎`/`✓` badges get away with it; a danger signal does not.
+- **Icon always, numeral only above 1.** At one blocker the numeral repeats what the icon says. The exact count always appears in `aria-label` and `title`.
+- **`role="img"` + `aria-label` are required, not optional.** At a count of 1 the element contains no text node, so without them it has no accessible name at all. `title` is retained for the sighted hover tooltip only — it is not a reliable accessible name.
+- **Tone only — no fill, no border.** It is therefore not a pill and creates no third exception to the filled-pill rule in § Badges and labels. The precedent is the urgency badge, not the label or custom-field chip.
+- **`blocker_count` must be in `arePropsEqual` and in `hasMetadata`.** Without the first, the memo swallows the WebSocket update and the badge never appears; without the second, a card whose only metadata is "blocked" drops the whole metadata row.
+- Never duplicate it into `CardPeekPopover` — the peek carries metrics *hidden* at low density, and nothing is hidden here.
+
 ## Cards
 
 - Container: `bg-surface rounded-lg border p-2.5 cursor-grab`
@@ -289,6 +301,8 @@ Represent selection state on the container:
 - Transition: `transition-colors duration-150`
 
 Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted mt-0.5` for the description line below it.
+
+**Compact / chip-style radio groups** — a 2-4 option inline segmented choice (e.g. the relation-type picker in `RelationCardPicker`) may use `rounded` instead of `rounded-lg` on the option container, matching its smaller `px-2 py-1 text-xs` chip sizing. The `rounded-lg` guidance above assumes the larger card-with-description-line layout (e.g. the export format choice). Both variants keep the same selected/unselected token pair and the same `focus-within:ring-2 focus-within:ring-primary-emphasis` treatment — only the corner radius and text sizing shrink. A chip row also takes `flex-wrap`: three short chips fit at 320px today, but a longer translation or a fourth option would clip silently without it, and there is no action button to push the overflow onto.
 
 The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
 
@@ -389,6 +403,10 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 - Consistent pattern: centered icon (muted, `text-fg-faint`) + heading (`text-fg-tertiary`) + optional CTA button
 - No one-off inline empty messages with different styling
+- **Card-detail sub-sections are the exception — use the one-line form, not the centered icon.** The centered-icon pattern is page/panel-level; inside the 540px card detail panel it visually out-weighs its own section header. Every sub-section there uses:
+  - empty — `No {noun} yet.` · `text-xs text-fg-faint italic`
+  - loading — `Loading {noun}…` · `text-sm text-fg-tertiary`, **no spinner** (the panel already fires several fetches without one, and a spinner inside a 20px sub-section is more motion than signal)
+  - error — `Failed to load {noun}.` · `text-sm text-danger`, with a `Retry` text button **only when that section is the sole path to an action the user needs** (e.g. Relations is the only way to remove a stale relation, so a dead-end failure would block the user's only remedy)
 
 ## Typography
 
@@ -430,7 +448,17 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 
 - Admin-only nav items and UI elements must be **hidden entirely** for non-admin users — never greyed out or rendered with reduced opacity. Use `{user.is_site_admin && ...}` (or the equivalent condition) to omit the element from the DOM entirely.
 - Never use `disabled` or `opacity-50` to signal lack of permission for a navigation link — if the user cannot access it, it should not be visible at all.
+- **Card-detail sub-section gating.** The collapsible sub-sections in `CardDetail` (Custom fields, Relations, Checklist, Attachments) follow one three-way rule, all outcomes being *omit from the DOM*: **board-config-gated** — the board has nothing to show (no custom field definitions): omit the section and its divider; **permission + empty** — a reader with no rows: omit the section and its divider; **permission + non-empty** — a reader with rows: render the rows read-only with every control omitted, never disabled. **Never render a header that a resolving fetch will then remove** — render nothing until the data is in; a section that appears late is better than one that appears and vanishes.
+- **Permission + load-error is treated the same as permission + empty: omit.** A reader has no remedy for a failed fetch — no retry worth offering, nothing to act on — so a dead error message is worse than silence, and the section stays absent. This is deliberate, not an oversight in the rule above. A future sub-section that genuinely needs a reader-visible retry is a new exception to argue for, not an extension of this one.
+- **Collapsing hides rows, never controls.** A sub-section that collapses itself when empty must keep its add affordance outside the collapse gate, or creating the first item would require expanding a section that looks empty. It must also expand itself when an item is added, or the new row lands in a hidden list and reads as a silent failure.
 - **Permission-gated and context-gated are distinct reasons to hide, with the same outcome: omit from the DOM.** *Permission-gated* — the user's role forbids the action (admin-only delete, site-admin nav). *Context-gated* — the action is valid for this user but meaningless in the current surface (e.g. the "Refresh board" affordance on `ConnectionStatus` is omitted on the group page, which has no single board to refresh). In both cases render nothing rather than a disabled/greyed affordance; do not show users a control they cannot act on, regardless of *why* they cannot.
+
+## Swapping the open card (#449)
+
+- The only sanctioned way to open a different card from inside `CardDetail` is `window.dispatchEvent(new CustomEvent("visiban:open-card", { detail: { cardId } }))`. `BoardView` owns the listener; no new props, no reaching into board state.
+- **Panels replace, never stack.** Stacking card detail panels would create an unbounded Escape / z-index / focus-trap chain with no precedent anywhere in the app. Replacement is what the breadcrumb, the `?card=` deep link, and the command palette already do.
+- **Every `<CardDetail>` mount site must carry `key={selectedCard.id}`.** The component seeds `localCard` and its collapsible-section state from `useState(card)` initializers with no prop-sync effect, and its fetch effects key on the card id. Without the key, swapping cards renders the previous card's title, weight, labels, and relations while the new card's data loads — a silent stale-state bug.
+- **Never render a navigation affordance to an archived card.** `visiban:open-card` resolves against the board's active cards and silently no-ops, so an archived row renders its title as a `<span>`, not a `<button>`.
 
 ## Long URL display fields
 

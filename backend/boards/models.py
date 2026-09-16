@@ -901,3 +901,100 @@ class CustomFieldValue(models.Model):
 
     def __str__(self):
         return f"{self.card_id} / {self.field_definition_id}"
+
+
+class CardRelation(models.Model):
+    """A typed, directional link between two cards on the same board (#449).
+
+    **Why one canonical direction rather than two mirrored rows or a symmetric
+    M2M:** "A blocks B" and "B is blocked by A" are the same fact stated from
+    two ends. Storing both would make every write a two-row transaction and
+    leave the pair free to drift out of sync; storing one and deriving the
+    inverse at read time makes the inverse unrepresentable-as-wrong. The
+    serializer resolves direction by asking which side of the row the card in
+    hand sits on: rows reached through ``outgoing_relations`` read forwards
+    ("blocks"), rows reached through ``incoming_relations`` read backwards
+    ("blocked by").
+
+    **Why same-board only:** enforced in the view, not here — Django's
+    ``CheckConstraint`` cannot span a join, so ``from_card.board_id ==
+    to_card.board_id`` has no database-level expression. Cross-board relations
+    are deferred, and admitting one would leak the existence and title of a
+    card on a board the requesting user may not be a member of.
+
+    **Cycles:** self-relations are rejected by ``cardrel_no_self_relation``
+    below and direct two-cycles (A blocks B while B blocks A) by the
+    serializer. Longer cycles (A→B→C→A) are deliberately NOT detected: that
+    needs an unbounded graph walk on the write path against the busiest table
+    in the schema, and nothing in v1 consumes the graph as an ordering — the
+    only readers are a count and a list, both of which render correctly in a
+    cycle. Revisit if "auto-clear when the blocker resolves" ever lands, where
+    a cycle becomes a livelock rather than a curiosity.
+    """
+
+    class Type(models.TextChoices):
+        """Relation types. ``duplicates`` is deferred — do not add it here
+        without also adding it to ``SYMMETRIC_TYPES`` below if it is symmetric."""
+        BLOCKS = "blocks", "Blocks"
+        RELATES_TO = "relates_to", "Relates to"
+
+    #: Types whose meaning does not depend on which end you read them from.
+    #: These are normalized at write time (lower card id becomes ``from_card``)
+    #: so that ``unique_together`` actually dedupes them — without the
+    #: normalization, (A, B, relates_to) and (B, A, relates_to) are two distinct
+    #: rows that both satisfy the constraint, and a card ends up listing the
+    #: same neighbor twice because two people added it from opposite ends.
+    SYMMETRIC_TYPES = frozenset({Type.RELATES_TO})
+
+    from_card = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="outgoing_relations"
+    )
+    to_card = models.ForeignKey(
+        Card, on_delete=models.CASCADE, related_name="incoming_relations"
+    )
+    relation_type = models.CharField(max_length=20, choices=Type.choices)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_card_relations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "card_relations"
+        unique_together = [("from_card", "to_card", "relation_type")]
+        indexes = [
+            # Serves the blocker_count prefetch, which is always
+            # `WHERE to_card_id IN (...) AND relation_type = 'blocks'`.
+            # `to_card` leads so the IN() drives the scan; `relation_type`
+            # trails so the blocks-only filter is satisfied from the index.
+            #
+            # There is deliberately NO index on `from_card` alone: the
+            # unique_together above already creates a composite unique index
+            # with `from_card` leading, which Postgres uses for `from_card`
+            # lookups. A second one would be dead weight on every write.
+            models.Index(
+                fields=["to_card", "relation_type"], name="cardrel_to_type_idx"
+            ),
+        ]
+        constraints = [
+            # A card cannot block or relate to itself. Declared at the database
+            # level rather than left to the serializer because it is the one
+            # invariant here that gets materially harder to add later: on a
+            # populated table it needs AddConstraintNotValid + ValidateConstraint
+            # plus a cleanup migration for whatever rows slipped through. On a
+            # table created in the same migration it is free.
+            #
+            # ``condition=`` rather than ``check=``: the latter is deprecated in
+            # Django 5.1+ and removed in 6.0. The older ``check=`` spelling still
+            # in ``groups/models.py`` predates the deprecation.
+            models.CheckConstraint(
+                condition=~models.Q(from_card=models.F("to_card")),
+                name="cardrel_no_self_relation",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.from_card_id} {self.relation_type} {self.to_card_id}"

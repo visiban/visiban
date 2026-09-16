@@ -112,6 +112,7 @@ export const CARD = {
   archived_at: null,
   version: 1,
   custom_field_values: [],
+  blocker_count: 0,
 }
 
 // A card that has been idle long enough to trigger the aging overlay

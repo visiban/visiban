@@ -208,6 +208,57 @@ export interface CustomFieldValue {
   value: string;
 }
 
+/** One end of a card relation, as returned by `getCardRelations()` (#449). */
+export interface RelatedCardRef {
+  id: number;
+  uid: string;
+  title: string;
+  /** Column id, so the caller can show where the linked card currently sits. */
+  column: number;
+  /**
+   * True when the linked card has been archived. Such a relation is still
+   * listed (flagged) rather than hidden, so a link left dangling by an archive
+   * is visible enough to remove. Archived blockers do NOT count toward
+   * `Card.blocker_count`.
+   */
+  archived: boolean;
+}
+
+/** The two relation types storable in v1. `duplicates` is deferred. */
+export type CardRelationType = 'blocks' | 'relates_to';
+
+/**
+ * A relation stated from the point of view of one card. This — not
+ * `CardRelationType` — is what the create endpoint takes, because "X blocks
+ * this card" has to be expressible from this card's panel.
+ */
+export type CardRelationDirection = 'blocks' | 'blocked_by' | 'relates_to';
+
+/**
+ * A relation resolved to the point of view of the card it was fetched for
+ * (#449). The backend stores one canonical direction per relation and derives
+ * the inverse at read time, so the same relation `id` appears as `blocks` from
+ * one card and `blocked_by` from the other.
+ */
+export interface CardRelation {
+  id: number;
+  relation_type: CardRelationType;
+  direction: CardRelationDirection;
+  card: RelatedCardRef;
+  created_at: string;
+}
+
+/**
+ * Machine-checkable `code` slugs on a 400 from the relations endpoint. The
+ * frontend maps these to copy rather than string-matching `detail`.
+ */
+export type CardRelationErrorCode =
+  | 'self_relation'
+  | 'cross_board'
+  | 'archived_card'
+  | 'relation_exists'
+  | 'relation_cycle';
+
 export interface CardChecklistItem {
   id: number;
   text: string;
@@ -249,6 +300,16 @@ export interface Card {
   archived_at: string | null;
   version: number;
   custom_field_values: CustomFieldValue[];
+  /**
+   * Number of active (non-archived) cards blocking this one (#449). Drives the
+   * card-face blocked indicator. Only the `blocks` relation type counts, and
+   * only in the direction where this card is the blocked end — `relates_to`
+   * never contributes. The relation *list* is deliberately not on this
+   * interface: it is served by `getCardRelations()` when the detail panel
+   * opens, so a board payload carries one integer per card rather than an
+   * array.
+   */
+  blocker_count: number;
 }
 
 export interface Notification {
@@ -597,6 +658,14 @@ export interface PublicCard {
   assignee: PublicAssignee | null;
   last_moved_at: string | null;
   is_stale: boolean;
+  /**
+   * Same blocked signal as on `Card` (#449). The count is safe on an anonymous
+   * payload because relations are same-board only, so every blocker is a card
+   * this response already carries. The relation rows are not exposed here —
+   * they carry actor identity and timestamps that the public serializer's
+   * whitelist excludes.
+   */
+  blocker_count: number;
 }
 
 export interface BoardPublic {

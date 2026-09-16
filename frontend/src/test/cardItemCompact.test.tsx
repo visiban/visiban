@@ -48,6 +48,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     checklist_done: 0,
     is_stale: false,
     custom_field_values: [],
+    blocker_count: 0,
     archived_at: null,
     version: 1,
     ...overrides,
@@ -69,6 +70,15 @@ describe('CardItem — compact vs expanded rendering', () => {
     const titleEl = container.querySelector('p.line-clamp-2')
     expect(titleEl).toBeInTheDocument()
     expect(titleEl).toHaveTextContent('Test Card Title')
+  })
+
+  // --- Blocked indicator (#449) ---
+
+  it('renders the blocked indicator in the compact per-user layout', () => {
+    // The badge sits outside the `!compact` branch on purpose: compact keeps
+    // only the universal signals, and "cannot move at all" is one of them.
+    render(<CardItem density="comfortable" card={makeCard({ blocker_count: 2 })} compact />)
+    expect(screen.getByLabelText('Blocked by 2 cards')).toBeInTheDocument()
   })
 
   // --- Padding ---

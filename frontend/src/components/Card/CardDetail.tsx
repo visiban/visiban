@@ -18,6 +18,7 @@ import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
+import CardRelationsSection from "./CardRelationsSection";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
 
 interface Props {
@@ -756,6 +757,34 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               </div>
 
               <div className="border-t border-line" />
+
+              {/* Relations (#449) — the last thing that is *about* the card
+                  rather than *inside* it, so it closes the classification arc
+                  (priority/labels/custom fields/weight) before the contents arc
+                  (checklist/attachments) opens. The section renders its own
+                  trailing divider, and renders nothing at all for a reader with
+                  no relations to read. */}
+              <CardRelationsSection
+                board={board}
+                card={localCard}
+                canEdit={canEdit}
+                // Panel-local only — deliberately does NOT push up to
+                // `onUpdated`. The board store is updated by the authoritative
+                // `card.updated` frame the server broadcasts for both ends of
+                // the relation. Pushing `localCard` instead would write a stale
+                // card: it is seeded at mount and never re-synced, so any
+                // field changed by someone else while the panel was open (a
+                // move, a retitle) would be silently reverted by adding a
+                // relation. The count is taken from the updater's argument
+                // rather than the render closure so two rapid clicks cannot
+                // both read the same pre-click value.
+                onBlockerCountChange={(delta) =>
+                  setLocalCard((c) => ({
+                    ...c,
+                    blocker_count: Math.max(0, c.blocker_count + delta),
+                  }))
+                }
+              />
 
               {/* Checklist */}
               <div>

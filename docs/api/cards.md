@@ -135,6 +135,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
 | `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
+| `blocker_count` | integer | yes | no | Number of active cards blocking this one — see [Relations](#relations-since-12). Counts only the `blocks` relation type, only where this card is the blocked end, and only where the blocking card is not archived. `relates_to` never contributes. The relation list itself is not on the card payload; fetch it from the relations endpoint. |
 
 **Example response**
 
@@ -165,7 +166,8 @@ The following fields are returned for every card object in this endpoint, `POST 
   "custom_field_values": [
     { "field_definition": 12, "value": "raid10" },
     { "field_definition": 13, "value": "4" }
-  ]
+  ],
+  "blocker_count": 1
 }
 ```
 
@@ -217,6 +219,10 @@ Delete a card. Requires member or above.
 
 > **Ownership gate:** Members may only delete cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
+Deleting a card also deletes its [relations](#relations-since-12). Broadcasts
+`card.deleted`, plus `card.updated` for every card this one was actively
+blocking, whose `blocker_count` drops as a result.
+
 ---
 
 ## Archive
@@ -230,7 +236,7 @@ If the card is already archived this is a no-op — `200 OK` is returned with th
 
 **Response** — full card object with `archived_at` set.
 
-Broadcasts `card.archived` to all board WebSocket subscribers.
+Broadcasts `card.archived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `POST /api/v1/boards/{board_id}/cards/{id}/unarchive/`
 Unarchive a card. Clears `archived_at`; the card re-enters its original column and swimlane at its original position. **Minimum role: Member.**
@@ -239,7 +245,7 @@ Unarchive a card. Clears `archived_at`; the card re-enters its original column a
 
 **Response** — full card object with `archived_at: null`.
 
-Broadcasts `card.unarchived` to all board WebSocket subscribers.
+Broadcasts `card.unarchived` to all board WebSocket subscribers. Also broadcasts `card.updated` for every card this one was actively blocking, whose [`blocker_count`](#relations-since-12) changes when it leaves (or rejoins) the board.
 
 ### `GET /api/v1/boards/{board_id}/cards/archived/`
 List all archived cards for the board, newest archived first. Available to all board members including viewers.
@@ -541,6 +547,127 @@ The server validates both the declared `Content-Type` and the file's magic bytes
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/attachments/{attachment_id}/`
 Delete an attachment. **Minimum role: Collaborator.** Collaborators may only delete their own attachments. Members with the `is_moderator` entitlement (or admin role) may delete any attachment. Collaborators cannot delete others' attachments regardless of `is_moderator`.
+
+---
+
+## Relations (since 1.2)
+
+Typed links between two cards **on the same board**. The board stores one
+canonical direction per relation and derives the inverse at read time, so
+"A blocks B" and "B is blocked by A" are the same row read from two ends —
+they cannot drift apart.
+
+Relation types:
+
+| `relation_type` | Meaning | Symmetric |
+|---|---|---|
+| `blocks` | The card this row was created from blocks the other card | no |
+| `relates_to` | The two cards are associated, with no ordering implied | yes |
+
+`relates_to` is stored in a canonical order (lower card id first), so adding
+the same pair from either end is the same relation and the second attempt is
+rejected as a duplicate.
+
+Cross-board relations are not supported. A `to_card` on another board is
+rejected with `400` and the response discloses nothing about that card.
+
+### `GET /api/v1/boards/{board_id}/cards/{id}/relations/`
+
+List this card's relations, each resolved to **this card's** point of view.
+Any board role may read.
+
+Ordered: `blocked_by` first, then `blocks`, then `relates_to`; oldest first
+within each group.
+
+**Response**
+
+```json
+[
+  {
+    "id": 42,
+    "relation_type": "blocks",
+    "direction": "blocked_by",
+    "card": {
+      "id": 88,
+      "uid": "9f2c1a7b3d4e5f60",
+      "title": "Provision the staging cluster",
+      "column": 2,
+      "archived": false
+    },
+    "created_at": "2026-09-15T11:02:31Z"
+  }
+]
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Relation PK — pass to the delete endpoint |
+| `relation_type` | string | `blocks` or `relates_to` — the stored type |
+| `direction` | string | `blocks`, `blocked_by`, or `relates_to` — the type as read from the card in the URL |
+| `card` | object | The card at the other end — `{ id, uid, title, column, archived }` |
+| `created_at` | string | ISO 8601 timestamp of when the relation was created |
+
+`card.archived` is `true` when the linked card has been archived. Such a
+relation is still listed so it can be found and removed, but an archived
+blocker does **not** count toward `blocker_count`.
+
+### `POST /api/v1/boards/{board_id}/cards/{id}/relations/`
+
+Link this card to another card on the same board. **Minimum role: Member.**
+
+One tier stricter than the checklist and comment endpoints, which admit
+collaborators: a relation changes how a *different* card reads for everyone on
+the board, and collaborators have read-only access to card state.
+
+**Request** `{ "to_card": 88, "direction": "blocked_by" }`
+
+| Field | Type | Description |
+|---|---|---|
+| `to_card` | integer | PK of the card at the other end. Must be on this board and not archived. |
+| `direction` | string | `blocks`, `blocked_by`, or `relates_to` — stated from the point of view of the card in the URL. |
+
+The request names a **direction**, not a storage layout. `blocked_by` records
+"the other card blocks this one", so both readings are creatable from the same
+card without the client needing to know which end is stored as `from_card`.
+`relates_to` is normalized by card id, so sending it from either end produces
+the same row.
+
+Returns `201` with the same object shape as the list endpoint, resolved to the
+card in the URL.
+
+**Rejected with `400`.** The body carries a top-level `code` alongside `detail`,
+so a client branches on the code rather than string-matching the message
+(DRF returns both as single-item lists):
+
+| `code` | Condition |
+|---|---|
+| `self_relation` | `to_card` is the card in the URL (also enforced by a database check constraint) |
+| `cross_board` | `to_card` is on another board, or does not exist — deliberately the same answer either way, so the endpoint cannot be used to probe for cards on boards the caller cannot see |
+| `archived_card` | `to_card` is archived. Existing relations to a card archived later are kept and flagged, but a new one is refused |
+| `relation_exists` | The same relation already exists, including the same fact stated from the other end |
+| `relation_cycle` | `to_card` already blocks this card — two cards cannot block each other |
+
+An unknown `direction` is rejected as an ordinary field error on `direction`.
+
+Cycles longer than two hops (A → B → C → A) are **not** detected and are
+permitted.
+
+### `DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/`
+
+Remove a relation. **Minimum role: Member.** Returns `204`.
+
+The relation must involve the card in the URL at one end or the other; a
+relation between two unrelated cards returns `404`. Either end may delete —
+both cards display the relation, so the permission to unlink is the same from
+both sides. There is no per-creator restriction: a member can already edit both
+endpoint cards, so `created_by` is recorded for attribution, not authorization.
+
+### Real-time
+
+Adding or removing a relation publishes **two** `card.updated` events on the
+board channel — one per card at each end — because both cards' relation lists,
+and the blocked card's `blocker_count`, change together. Each event carries a
+complete card payload. See [WebSockets](websockets.md).
 
 ---
 

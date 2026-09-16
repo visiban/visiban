@@ -34,6 +34,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     last_moved_at: null, attachment_count: 3, checklist_total: 5, checklist_done: 2,
     is_stale: false, archived_at: null, version: 1,
     custom_field_values: [],
+    blocker_count: 0,
     ...overrides,
   }
 }
@@ -193,6 +194,62 @@ describe('CardItem — card_density (#961)', () => {
         <CardItem card={makeCard({ last_moved_at: TWELVE_HOURS_AGO })} density="dense" />,
       )
       expect(container.querySelector('[title="Recently moved"]')).toBeInTheDocument()
+    })
+  })
+
+  // ---- blocked indicator (#449) ----
+
+  describe('blocked indicator', () => {
+    it.each(['comfortable', 'standard', 'dense'] as const)(
+      'renders at %s density — blocked-ness is never density-gated',
+      (density) => {
+        render(<CardItem card={makeCard({ blocker_count: 1 })} density={density} />)
+        expect(screen.getByLabelText('Blocked by 1 card')).toBeInTheDocument()
+      },
+    )
+
+    it('is absent when the card has no blockers', () => {
+      render(<CardItem card={makeCard({ blocker_count: 0 })} density="dense" />)
+      expect(screen.queryByLabelText(/^Blocked by/)).not.toBeInTheDocument()
+    })
+
+    it('shows no numeral at a single blocker', () => {
+      render(<CardItem card={makeCard({ blocker_count: 1 })} density="dense" />)
+      expect(screen.getByLabelText('Blocked by 1 card')).toHaveTextContent('')
+    })
+
+    it('shows the count above one, and pluralizes without "(s)"', () => {
+      render(<CardItem card={makeCard({ blocker_count: 3 })} density="dense" />)
+      const badge = screen.getByLabelText('Blocked by 3 cards')
+      expect(badge).toHaveTextContent('3')
+    })
+
+    it('uses the danger token, not a raw hex', () => {
+      render(<CardItem card={makeCard({ blocker_count: 2 })} density="dense" />)
+      expect(screen.getByLabelText('Blocked by 2 cards')).toHaveClass('text-danger')
+    })
+
+    it('renders the metadata row for a card whose only metadata is being blocked', () => {
+      // hasMetadata gates the whole row; without blocker_count in it the badge
+      // would vanish on exactly the sparse cards that most need it.
+      render(
+        <CardItem
+          card={makeCard({
+            blocker_count: 1, labels: [], assignee: null, checklist_total: 0,
+            checklist_done: 0, attachment_count: 0, weight: 1, description: '',
+          })}
+          density="comfortable"
+        />,
+      )
+      expect(screen.getByLabelText('Blocked by 1 card')).toBeInTheDocument()
+    })
+
+    it('is the first element in the metadata row so it cannot be clipped', () => {
+      const { container } = render(
+        <CardItem card={makeCard({ blocker_count: 2 })} density="dense" />,
+      )
+      const row = container.querySelector('.flex.items-center.gap-1.mt-1\\.5')
+      expect(row?.firstElementChild).toHaveAttribute('aria-label', 'Blocked by 2 cards')
     })
   })
 

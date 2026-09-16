@@ -16,8 +16,8 @@ from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILI
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CustomFieldDefinition,
-    CustomFieldValue, SavedFilter,
+    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardRelation,
+    CustomFieldDefinition, CustomFieldValue, SavedFilter,
 )
 
 
@@ -641,6 +641,175 @@ class CardChecklistSerializer(serializers.ModelSerializer):
         fields = ["id", "text", "is_checked", "position", "created_by"]
 
 
+class LinkedCardSerializer(serializers.ModelSerializer):
+    """The other end of a card relation, rendered as a compact reference (#449).
+
+    Deliberately not ``CardSerializer``: a relation row needs just enough to
+    render a clickable line in the Relations list, and nesting the full card
+    would pull labels, assignee, checklist counts and custom field values for
+    every neighbor — and would recurse, since a full card carries its own
+    ``blocker_count``.
+
+    ``archived`` is surfaced rather than the relation being hidden, because a
+    relation outlives its target's archiving. Suppressing it would leave a
+    dangling row the user can neither see nor delete; showing it flagged is
+    what makes it actionable. Note this is the one place an archived card's
+    title reaches a client that did not ask for archived cards — acceptable
+    because the requester is already a member of the board the card is on, and
+    the relation is the reference that makes it discoverable.
+    """
+
+    archived = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Card
+        fields = ["id", "uid", "title", "column", "archived"]
+
+    def get_archived(self, obj) -> bool:
+        return obj.archived_at is not None
+
+
+class CardRelationSerializer(serializers.Serializer):
+    """One relation, resolved relative to the card being viewed (#449).
+
+    The model stores a single canonical direction (see ``CardRelation``); this
+    serializer turns that row into the sentence the viewer needs. Given the
+    card in hand, ``direction`` is:
+
+    * ``blocks``     — this card blocks ``card`` (row reached via ``outgoing_relations``)
+    * ``blocked_by`` — ``card`` blocks this card  (row reached via ``incoming_relations``)
+    * ``relates_to`` — symmetric; reads the same from either end
+
+    Read-only and hand-rolled rather than a ``ModelSerializer``: the output
+    shape is a *view* of the row (the neighbor card, not the FK pair), so
+    there are no model fields to map, and writes go through
+    ``CardRelationCreateSerializer`` instead.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    relation_type = serializers.CharField(read_only=True)
+    direction = serializers.CharField(read_only=True)
+    card = LinkedCardSerializer(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+
+
+class CardRelationCreateSerializer(serializers.Serializer):
+    """Validate a new relation between the card in context and another card (#449).
+
+    The request names a **direction**, not a storage layout: ``blocks``,
+    ``blocked_by`` or ``relates_to``, always read from the point of view of the
+    card in the URL. The serializer maps that onto the single canonical row the
+    model stores, deciding which card becomes ``from_card``. Without
+    ``blocked_by`` the panel could only ever say "this card blocks X" — "X
+    blocks this card" would need the client to post to X's endpoint instead,
+    which it has no reason to know about.
+
+    Every invariant that is not a database constraint lives here rather than in
+    the view or the model, per the project's "validate at the boundary" rule, so
+    each fails as a readable 400 instead of an IntegrityError 500.
+
+    ``to_card`` is resolved by hand against a board-scoped queryset rather than
+    declared as a ``PrimaryKeyRelatedField`` — the field's own "invalid pk"
+    error cannot carry a top-level ``code``, and these four failures are
+    distinct, machine-checkable outcomes a client needs to branch on rather
+    than string-match (the ``code``/``detail`` shape follows #1115). The lookup
+    **fails closed**: without ``board`` in context nothing matches and every id
+    is rejected, rather than falling back to ``Card.objects.all()``. That is the
+    IDOR gate — checking only the card in the URL would let a member of board A
+    attach a relation to an arbitrary card on board B and learn its id, title
+    and column from the response.
+    """
+
+    to_card = serializers.IntegerField()
+    direction = serializers.ChoiceField(
+        choices=["blocks", "blocked_by", "relates_to"]
+    )
+
+    @staticmethod
+    def _fail(code, detail):
+        # Top-level `code` + `detail`, the shape BoardSerializer.validate()
+        # established for machine-checkable 400s (#1115). DRF coerces both into
+        # single-item lists, so a client reads `"self_relation" in body["code"]`.
+        raise serializers.ValidationError({"code": code, "detail": detail})
+
+    def validate(self, attrs):
+        board = self.context.get("board")
+        from_card = self.context.get("from_card")
+        if board is None or from_card is None:
+            raise serializers.ValidationError(
+                "Relations cannot be resolved without board and card context."
+            )
+
+        target_id = attrs["to_card"]
+        direction = attrs["direction"]
+
+        if target_id == from_card.pk:
+            # Also enforced by the cardrel_no_self_relation check constraint;
+            # caught here so the client gets a 400 it can render rather than a
+            # 500 from the database.
+            self._fail("self_relation", "A card cannot be related to itself.")
+
+        target = Card.objects.filter(board=board, pk=target_id).first()
+        if target is None:
+            # A card on another board and a card that does not exist at all are
+            # deliberately the same answer. Distinguishing them would confirm
+            # the existence of a card the caller cannot see — the same
+            # IDOR-safe posture ObjectNotFound documents in services/errors.py.
+            self._fail(
+                "cross_board",
+                "That card is not on this board. Relations can only link "
+                "cards on the same board.",
+            )
+        if target.archived_at is not None:
+            # Existing relations survive their target being archived (they are
+            # listed and flagged so they can be removed); a *new* link to a
+            # card that is not on the board would be dead on arrival.
+            self._fail(
+                "archived_card",
+                "That card is archived and cannot be linked.",
+            )
+
+        # Map the requested direction onto the one row the model stores.
+        if direction == "blocked_by":
+            relation_type, low, high = CardRelation.Type.BLOCKS, target, from_card
+        elif direction == "blocks":
+            relation_type, low, high = CardRelation.Type.BLOCKS, from_card, target
+        else:
+            relation_type, low, high = CardRelation.Type.RELATES_TO, from_card, target
+            # Symmetric types are stored in a canonical order (lower card id
+            # first) so unique_together dedupes them. Without this, two people
+            # adding "relates to" from opposite ends create two rows that both
+            # satisfy the constraint, and each card lists the other twice.
+            if low.pk > high.pk:
+                low, high = high, low
+
+        if CardRelation.objects.filter(
+            from_card=low, to_card=high, relation_type=relation_type
+        ).exists():
+            self._fail("relation_exists", "That relation already exists.")
+
+        # Reject a direct two-cycle for the asymmetric types: "A blocks B" while
+        # "B blocks A" is a logical contradiction and the UI has no coherent way
+        # to render it. Longer cycles (A -> B -> C -> A) are deliberately not
+        # detected — see the CardRelation docstring for why.
+        #
+        # The message does not echo the card title back: it is user-controlled
+        # text, and the client already knows which card the request named.
+        if relation_type not in CardRelation.SYMMETRIC_TYPES and CardRelation.objects.filter(
+            from_card=high, to_card=low, relation_type=relation_type
+        ).exists():
+            self._fail(
+                "relation_cycle",
+                "Those two cards would block each other. Remove the existing "
+                "relation first.",
+            )
+
+        attrs["from_card"] = low
+        attrs["to_card"] = high
+        attrs["relation_type"] = relation_type
+        return attrs
+
+
 def _annotate_is_stale(qs, stale_cutoff):
     """Annotate the queryset with ``_is_stale_annotated`` at the SQL level.
 
@@ -676,6 +845,76 @@ def _annotate_is_stale(qs, stale_cutoff):
             output_field=_db_models.BooleanField(),
         )
     )
+
+
+def _active_blockers_prefetch():
+    """Return the Prefetch that feeds ``blocker_count`` (#449).
+
+    Loads, into ``card.active_blockers``, the relations in which this card is
+    the *blocked* end (``to_card``) and the blocking card is still on the
+    board.
+
+    Three deliberate choices, each of which the obvious alternative gets wrong:
+
+    * **Filtered in SQL, not in Python.** ``relation_type`` is pinned here so
+      ``get_blocker_count`` is a bare ``len()``. Filtering the relation type in
+      the serializer instead would need every relation row loaded just to throw
+      the ``relates_to`` ones away.
+    * **``from_card__archived_at__isnull=True``.** A relation survives its
+      blocker being archived — ``Card`` has no default manager that hides
+      archived rows, so the row is still there and still counts unless it is
+      excluded. Without this, a card renders as blocked by a card that is not
+      on the board, which the user has no way to act on. Archived blockers are
+      still returned by the relations endpoint, flagged, so the relation can be
+      found and deleted.
+    * **Only ``id`` and ``to_card_id`` are loaded.** Everything the caller needs
+      is the row count. Note the consequence: reading any other field on a
+      parked row — ``relation_type``, ``created_by``, and ``from_card``
+      especially, whose id is not even loaded — costs one query per row. If you
+      ever need more than ``len()`` here, widen this ``only()`` deliberately
+      rather than letting a deferred field do it silently.
+    * **``to_attr``.** Parks the result on a plain list attribute, so
+      ``len()`` cannot silently fall through to a fresh COUNT(*) the way
+      ``obj.incoming_relations.all()`` would on a queryset that was never
+      prefetched. Missing the prefetch becomes an AttributeError, not an N+1.
+
+    Shared by ``_card_queryset`` and ``PublicBoardSerializer.get_cards`` so the
+    authenticated and anonymous share-link read paths cannot drift on which
+    blockers count — the same reason ``_annotate_is_stale`` is shared (#926).
+    """
+    return Prefetch(
+        "incoming_relations",
+        queryset=CardRelation.objects.filter(
+            relation_type=CardRelation.Type.BLOCKS,
+            from_card__archived_at__isnull=True,
+        ).only("id", "to_card_id"),
+        to_attr="active_blockers",
+    )
+
+
+def _blocker_count(card) -> int:
+    """Number of active cards blocking ``card`` (#449).
+
+    Reads the ``active_blockers`` list parked by
+    :func:`_active_blockers_prefetch`. ``len()`` on that list is one Python
+    operation; ``card.incoming_relations.filter(...).count()`` would issue a
+    fresh COUNT(*) **per card**, which on ``/full/`` is exactly the N+1 the
+    prefetch exists to prevent.
+
+    The cold path — a card serialized from a queryset built without the
+    prefetch — falls back to a real query rather than raising, because a
+    single-card response can afford one query and a 500 here would be worse
+    than a slow row. It is kept narrow on purpose: every list path goes through
+    ``_card_queryset``, so if this fallback ever starts firing in bulk, the
+    ``*_budget_scales_with_cards`` guards in ``test_query_counts.py`` fail.
+    """
+    blockers = getattr(card, "active_blockers", None)
+    if blockers is not None:
+        return len(blockers)
+    return card.incoming_relations.filter(
+        relation_type=CardRelation.Type.BLOCKS,
+        from_card__archived_at__isnull=True,
+    ).count()
 
 
 def _card_queryset(qs, stale_cutoff=None):
@@ -723,6 +962,13 @@ def _card_queryset(qs, stale_cutoff=None):
                     "field_definition"
                 ).order_by("field_definition__position", "field_definition_id"),
             ),
+            # Card relations (#449). One query for the whole page, feeding the
+            # scalar `blocker_count` on the card face. Only the *blocked*
+            # direction is loaded: the full relation list is served by
+            # GET /cards/<pk>/relations/ rather than riding on every card in
+            # the board payload, so there is deliberately no
+            # `outgoing_relations` prefetch here.
+            _active_blockers_prefetch(),
         )
     )
     if stale_cutoff is not None:
@@ -792,6 +1038,7 @@ class CardSerializer(serializers.ModelSerializer):
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
+    blocker_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -801,6 +1048,7 @@ class CardSerializer(serializers.ModelSerializer):
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
+            "blocker_count",
         ]
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
 
@@ -857,6 +1105,9 @@ class CardSerializer(serializers.ModelSerializer):
     def get_attachment_count(self, obj) -> int:
         # len() on a prefetched relation uses the in-memory cache; .count() does not.
         return len(obj.attachments.all())
+
+    def get_blocker_count(self, obj) -> int:
+        return _blocker_count(obj)
 
     def get_checklist_total(self, obj) -> int:
         return len(obj.checklist_items.all())
@@ -1531,14 +1782,24 @@ class PublicCardSerializer(serializers.ModelSerializer):
     checklist_done = serializers.SerializerMethodField()
     last_moved_at = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
+    blocker_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
+        # `blocker_count` is included but the relation *list* deliberately is
+        # not (#449). The count discloses nothing new: relations are
+        # same-board-only, so every blocker is itself a card this payload
+        # already serves in full, and the count is a derived fact over data
+        # that is on the wire regardless. The relation rows are a different
+        # matter — CardRelation carries `created_by` and `created_at`, and this
+        # serializer is a deliberate whitelist that excludes actor identity and
+        # timestamps (#926, #371). Anonymous visitors get the blocked signal,
+        # not who created the link or when.
         fields = [
             "uid", "column", "swimlane", "title", "priority", "labels",
             "due_date", "weight", "position",
             "checklist_total", "checklist_done", "assignee",
-            "last_moved_at", "is_stale",
+            "last_moved_at", "is_stale", "blocker_count",
         ]
 
     def get_checklist_total(self, obj):
@@ -1547,6 +1808,11 @@ class PublicCardSerializer(serializers.ModelSerializer):
 
     def get_checklist_done(self, obj):
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+
+    def get_blocker_count(self, obj) -> int:
+        # Same helper as CardSerializer so the authenticated and anonymous
+        # boards cannot disagree about which blockers count (#449).
+        return _blocker_count(obj)
 
     def get_last_moved_at(self, obj):
         # movements are prefetched ordered by -moved_at; index [0] is the most recent.
@@ -1599,6 +1865,11 @@ class PublicBoardSerializer(serializers.ModelSerializer):
                 # Ordered newest-first so index [0] gives the most recent movement,
                 # matching the logic in get_last_moved_at / get_is_stale.
                 Prefetch("movements", queryset=CardMovement.objects.order_by("-moved_at")),
+                # Shared with _card_queryset so the public board's blocked
+                # indicator matches the authenticated one exactly (#449).
+                # Without this the public path would issue one COUNT(*) per
+                # card through _blocker_count's cold-path fallback.
+                _active_blockers_prefetch(),
             )
         )
         # Annotate is_stale at the SQL level so PublicCardSerializer.get_is_stale()

@@ -498,10 +498,19 @@ class CardListRowCapTests(TestCase):
 class CardListQueryCountTests(TestCase):
     """Assert that the card list endpoint does not produce N+1 queries as card count grows.
 
-    The bound is deliberately generous (≤ 12) to accommodate Django's session
+    The bound is deliberately generous (≤ 14) to accommodate Django's session
     lookup, board membership check, and the handful of JOINs the ORM emits for
     select_related/prefetch_related — while still catching any regression that
     adds per-card queries.
+
+    NOTE: this class is an older duplicate of
+    ``test_query_counts.py::CardListQueryCountTests``, which budgets the same
+    endpoint against the documented ``measured x 2`` convention and additionally
+    pins that the count does not grow with card count. Keep the two numbers in
+    step — #449 raised the ceiling here from 12 to 14 after the
+    ``active_blockers`` prefetch added one constant query to ``_card_queryset``,
+    and the pre-#449 measurement was sitting exactly on the old ceiling. If you
+    change one budget, grep for the other.
     """
 
     def setUp(self):
@@ -521,10 +530,10 @@ class CardListQueryCountTests(TestCase):
             CardChecklist.objects.create(card=card, text="todo", is_checked=(i % 2 == 0), position=0)
 
     def test_card_list_query_count_bounded(self):
-        """Card list for 10 cards must complete in ≤ 12 queries regardless of card count.
+        """Card list for 10 cards must complete in ≤ 14 queries regardless of card count.
 
         The prefetch + select_related on CardViewSet.get_queryset() should reduce
-        the query count to a small constant (currently 8).  The ceiling of 12 gives
+        the query count to a small constant (currently 13).  The ceiling of 14 gives
         headroom for minor schema changes while still catching N+1 regressions.
         """
         from django.test.utils import CaptureQueriesContext
@@ -540,8 +549,8 @@ class CardListQueryCountTests(TestCase):
         self.assertEqual(len(results), 10)
         self.assertLessEqual(
             len(ctx.captured_queries),
-            12,
-            f"Expected ≤ 12 queries for a 10-card board, got {len(ctx.captured_queries)}",
+            14,
+            f"Expected ≤ 14 queries for a 10-card board, got {len(ctx.captured_queries)}",
         )
 
 

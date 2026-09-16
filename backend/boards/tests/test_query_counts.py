@@ -90,8 +90,13 @@ def _query_count(fn):
 class CardListQueryCountTests(TestCase):
     """GET /api/boards/{id}/cards/ must not issue per-card queries."""
 
-    # 5 fixed queries (auth, board, cards+prefetches) × 2 headroom = 10; round up to 12.
-    BUDGET = 12
+    # 6 fixed queries (auth, board, cards+prefetches) × 2 headroom = 12; round up to 14.
+    #
+    # Was 5 fixed / budget 12 before #449, which added the `active_blockers`
+    # prefetch to `_card_queryset()`. That is one more query for the whole
+    # page, not one per card — `test_card_list_budget_scales_with_cards` below
+    # is what pins the difference, and it is unchanged.
+    BUDGET = 14
 
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="x")
@@ -896,13 +901,34 @@ class CardMutationQueryCountTests(TestCase):
     # cost that does not scale with the number of cards or fields. The numbers
     # are moved here rather than absorbed into the existing headroom, so the
     # budgets keep catching the *next* regression at the same tightness.
-    BUDGET_CREATE = 36              # measured 33 (was 31 pre-#371)
-    BUDGET_UPDATE = 31              # measured 28 (was 26 pre-#371)
-    BUDGET_MOVE_COLUMN_CHANGE = 28  # measured 25 (was 24 pre-#371)
-    BUDGET_MOVE_REORDER = 23        # measured 20 (was 19 pre-#371)
-    BUDGET_ARCHIVE = 20             # measured 17 (was 16 pre-#371)
-    BUDGET_UNARCHIVE = 20           # measured 17 (was 16 pre-#371)
-    BUDGET_DESTROY = 24             # measured 21 (was 19 pre-#371; FK cascade deletes)
+    #
+    # Re-measured again for #449 (card relations). Two sources, both constant
+    # and both row-independent: every re-render of a card through
+    # `_card_queryset()` gained the `active_blockers` prefetch (and these paths
+    # render a card more than once — once for the response, once for the
+    # deferred broadcast payload), and the cascade delete gained the
+    # `card_relations` table. Moved here rather than absorbed into the existing
+    # headroom so the budgets keep catching the *next* regression at the same
+    # `measured + 3` tightness.
+    BUDGET_CREATE = 39              # measured 36 (was 33 pre-#449, 31 pre-#371)
+    BUDGET_UPDATE = 34              # measured 31 (was 28 pre-#449, 26 pre-#371)
+    BUDGET_MOVE_COLUMN_CHANGE = 30  # measured 27 (was 25 pre-#449, 24 pre-#371)
+    BUDGET_MOVE_REORDER = 25        # measured 22 (was 20 pre-#449, 19 pre-#371)
+    # Archive, unarchive and destroy each carry one further query: the lookup
+    # of the cards this one actively blocks, whose blocker_count moves when it
+    # leaves the board and which therefore need their own `card.updated` frame
+    # (#449). One query for the set, and the frames themselves are rendered in
+    # a single batched pass, so the cost does not scale with how many cards
+    # this one blocks — `CardRelationPeerBroadcastQueryCountTests` below pins
+    # that separately.
+    BUDGET_ARCHIVE = 23             # measured 20 (was 19 pre-peer-broadcast, 17 pre-#449)
+    BUDGET_UNARCHIVE = 23           # measured 20 (was 19 pre-peer-broadcast, 17 pre-#449)
+    BUDGET_DESTROY = 28             # measured 25 (was 24 pre-peer-broadcast, 21 pre-#449; FK cascade deletes)
+    # Relation write paths (#449). Both re-render BOTH endpoint cards for the
+    # two `card.updated` broadcasts, but in one batched `_card_queryset` pass —
+    # these budgets are what stops that quietly becoming two passes again.
+    BUDGET_RELATION_CREATE = 27     # measured 24
+    BUDGET_RELATION_DELETE = 23     # measured 20
 
     def setUp(self):
         self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
@@ -1019,6 +1045,37 @@ class CardMutationQueryCountTests(TestCase):
         with CaptureQueriesContext(connection) as ctx:
             r = self.client.delete(self._card_url())
         self._assert_budget(ctx, self.BUDGET_DESTROY, "DELETE cards/{id}/", 204, r.status_code)
+
+    def _relations_url(self, card, relation_id=None):
+        base = f"/api/v1/boards/{self.board.id}/cards/{card.id}/relations/"
+        return base if relation_id is None else f"{base}{relation_id}/"
+
+    def test_relation_create_within_query_budget(self):
+        """Both endpoint cards are re-rendered for the two broadcasts — in ONE
+        batched `_card_queryset` pass. Two passes would sail past this."""
+        other = self.cards[1]
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.post(
+                self._relations_url(self.card),
+                {"to_card": other.id, "direction": "blocked_by"},
+                format="json",
+            )
+        self._assert_budget(
+            ctx, self.BUDGET_RELATION_CREATE, "POST relations/", 201, r.status_code,
+        )
+
+    def test_relation_delete_within_query_budget(self):
+        other = self.cards[1]
+        relation_id = self.client.post(
+            self._relations_url(self.card),
+            {"to_card": other.id, "direction": "blocked_by"},
+            format="json",
+        ).data["id"]
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.delete(self._relations_url(self.card, relation_id))
+        self._assert_budget(
+            ctx, self.BUDGET_RELATION_DELETE, "DELETE relations/{id}/", 204, r.status_code,
+        )
 
     # ── scaling guards ────────────────────────────────────────────────────
 

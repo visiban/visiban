@@ -163,11 +163,27 @@ payload carries the card's `custom_field_values`.
 | Event | Trigger | `data` shape |
 |---|---|---|
 | `card.created` | New card created | Full `CardSerializer` object |
-| `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed | Full `CardSerializer` object |
+| `card.updated` | Card fields edited, comment added/deleted, attachment added/deleted, checklist changed, [relation](cards.md#relations-since-12) added/removed | Full `CardSerializer` object |
 | `card.deleted` | Card deleted | `{ "card_uid": <string> }` |
 | `card.moved` | Card moved to a different column or swimlane | `{ "card": <CardSerializer>, "movement": <CardMovementSerializer> }` — the `movement` object also carries `card_uid` and `card_title` so board-level consumers can identify the card without a second fetch |
 | `card.archived` | Card archived | `{ "card_uid": <string> }` |
 | `card.unarchived` | Card restored from archive | Full `CardSerializer` object |
+
+!!! note "One change can publish several card frames (since 1.2)"
+
+    A relation change alters two cards, so adding or removing one publishes
+    **two** `card.updated` frames — one per card at each end — rather than a
+    single frame describing the relation. Each carries a complete card.
+
+    For the same reason, archiving, restoring or deleting a card also publishes
+    a `card.updated` frame for every card it was actively blocking, alongside
+    that card's own `card.archived` / `card.unarchived` / `card.deleted` frame:
+    an archived blocker stops counting toward its targets' `blocker_count`, and
+    without those frames a client would keep rendering a blocked indicator for
+    a blocker that is no longer on the board.
+
+    A client that applies `card.updated` by replacing the card with that id
+    needs no special handling for either case.
 
 ### Member events
 
