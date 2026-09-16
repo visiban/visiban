@@ -373,6 +373,8 @@ backend-test-coverage:
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage.xml
+    paths:
+      - backend/coverage.xml
     when: always
 
 # Diff coverage (MR only) — #1076.
@@ -1154,6 +1156,8 @@ frontend-test:
       coverage_report:
         coverage_format: cobertura
         path: frontend/coverage/cobertura-coverage.xml
+    paths:
+      - frontend/coverage/cobertura-coverage.xml
     when: always
 
 # Diff coverage (MR only) — #1076. Same rationale as backend-diff-coverage
