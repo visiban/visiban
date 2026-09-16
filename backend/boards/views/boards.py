@@ -4,7 +4,7 @@ import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -639,7 +639,10 @@ class BoardViewSet(
             return Response(SavedFilterSerializer(qs, many=True).data)
 
         # POST — create a new saved filter for this user on this board.
-        name = (request.data.get("name") or "").strip()
+        name = request.data.get("name")
+        if not isinstance(name, str):
+            return Response({"detail": "name must be a string."}, status=status.HTTP_400_BAD_REQUEST)
+        name = name.strip()
         if not name:
             return Response({"detail": "name is required."}, status=status.HTTP_400_BAD_REQUEST)
         if len(name) > 100:

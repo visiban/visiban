@@ -223,7 +223,9 @@ Before committing a new spec:
   `backend-schema-fuzz` goes further and fuzzes a real, running instance with
   [schemathesis](https://schemathesis.readthedocs.io/) to catch a response that doesn't match
   its declared schema — see [`docs/api/openapi.md`](../api/openapi.md#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz).
-  Currently non-blocking (`allow_failure: true`) while its baseline is triaged (#1120)
+  Blocking (`allow_failure: false`) as of #1120; a handful of already-tracked
+  schema-accuracy gaps (#1119, #1123, #1124) are recorded as scoped, justified entries in
+  `backend/schemathesis-baseline.json` rather than blocking on them landing first
 - The `changelog-check` job blocks the pipeline if no fragment is added under `changelog.d/`
 
 ### Diff coverage (#1076)

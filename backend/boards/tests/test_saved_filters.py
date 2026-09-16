@@ -103,6 +103,12 @@ class SavedFilterListCreateTests(TestCase):
         r = self.client.post(self.url, {"name": "   ", "state_json": SIMPLE_STATE}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_non_string_name_returns_400(self):
+        # Regression (#1120 schema-fuzz): a bool/int/list name used to reach
+        # `.strip()` unguarded and crash with AttributeError instead of 400.
+        r = self.client.post(self.url, {"name": True, "state_json": SIMPLE_STATE}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_create_name_too_long_returns_400(self):
         long_name = "x" * 101
         r = self.client.post(self.url, {"name": long_name, "state_json": SIMPLE_STATE}, format="json")

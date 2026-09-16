@@ -8,8 +8,23 @@ re-exports them from the appropriate submodule.
 
 import logging
 
-from django.shortcuts import get_object_or_404
+# rest_framework.generics.get_object_or_404, NOT django.shortcuts' — DRF's
+# wrapper additionally catches TypeError/ValueError/ValidationError and
+# re-raises them as Http404 (see rest_framework/generics.py). Every pk here
+# comes straight from a URL path segment, and board_id in particular is an
+# IntegerField pk: a non-numeric board_pk (e.g. schemathesis fuzzing the
+# path) hits django.shortcuts.get_object_or_404 with a raw, uncaught
+# ValueError -> unhandled 500 instead of the documented 404 (#1120 baseline
+# finding — every nested board-resource viewset routes board_pk resolution
+# through this one function, so fixing it here was the single highest-yield
+# fix for that finding).
+from rest_framework.generics import get_object_or_404
+import datetime
+
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Prefetch, Q
+from django_filters import DateTimeFilter, NumberFilter
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
@@ -22,6 +37,66 @@ from ..serializers import CardSerializer, _card_queryset
 from ..utils import _get_effective_member_ids, _get_assignable_member_ids
 
 logger = logging.getLogger(__name__)
+
+# 64-bit signed integer bounds — every id-backed model in this codebase is a
+# plain AutoField/BigAutoField pk, and both SQLite's integer parameter
+# binding and Postgres's bigint are 64-bit. No real id is ever outside this
+# range, so bounding a NumberFilter to it is a pure robustness fix.
+_INT64_MIN = -(2**63)
+_INT64_MAX = 2**63 - 1
+
+
+class BoundedIdFilter(NumberFilter):
+    """A NumberFilter for an id/pk field, bounded to the 64-bit integer range.
+
+    ``django_filters.NumberFilter``'s own default max validator
+    (``MaxValueValidator(1e50)``) is far looser than what the database can
+    actually store: a filter value outside the 64-bit range (e.g.
+    ``?column=1.03e34``) reaches the DB driver's parameter binding and raises
+    ``OverflowError``, uncaught, as an unhandled 500 instead of the
+    documented 400 — a `backend-schema-fuzz` CI job baseline finding (#1120).
+    Use this in place of a bare ``NumberFilter`` for any filter whose
+    ``field_name`` targets an id/pk column.
+    """
+
+    def get_max_validator(self):
+        return MaxValueValidator(_INT64_MAX)
+
+    @property
+    def field(self):
+        built = super().field
+        if not any(isinstance(v, MinValueValidator) for v in built.validators):
+            built.validators.append(MinValueValidator(_INT64_MIN))
+        return built
+
+
+# Postgres rejects a timestamptz UTC offset of 16 hours or more ("time zone
+# displacement out of range"); Python's datetime accepts up to 24 hours.
+_PG_MAX_UTC_OFFSET = datetime.timedelta(hours=16)
+
+
+def _validate_pg_utc_offset(value):
+    offset = value.utcoffset() if value is not None else None
+    if offset is not None and abs(offset) >= _PG_MAX_UTC_OFFSET:
+        raise ValidationError("UTC offset must be less than 16 hours.", code="invalid")
+
+
+class BoundedDateTimeFilter(DateTimeFilter):
+    """A DateTimeFilter that rejects UTC offsets Postgres cannot store.
+
+    An ISO-8601 value like ``2026-01-01T00:00:00+17:52`` parses fine in Python
+    but reaches Postgres as an out-of-range time zone displacement, raising an
+    uncaught ``DataError`` as an unhandled 500 instead of a 400 — a
+    `backend-schema-fuzz` CI job finding (#1120), the datetime counterpart of
+    ``BoundedIdFilter``.
+    """
+
+    @property
+    def field(self):
+        built = super().field
+        if _validate_pg_utc_offset not in built.validators:
+            built.validators.append(_validate_pg_utc_offset)
+        return built
 
 
 def get_accessible_boards_queryset(user):

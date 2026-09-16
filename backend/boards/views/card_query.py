@@ -35,7 +35,7 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, LabelSerializer, _blocker_count, _card_queryset,
 )
-from ._helpers import get_accessible_boards_queryset
+from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
 
 # ---------------------------------------------------------------------------
@@ -99,22 +99,28 @@ class CardQuerySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_last_moved_at(self, obj):
+    def get_last_moved_at(self, obj) -> datetime.datetime | None:
         # Use .all() not .first() — .first() bypasses the prefetch cache and
         # issues a new query with ORDER BY + LIMIT 1 for every card.
+        # Return type is annotated (#1120, same pattern as CardSerializer's
+        # #1108 fix): a never-moved card returns None, and without the hint
+        # drf-spectacular defaulted this to a non-nullable "string" here too
+        # — this serializer duplicates CardSerializer's method fields (see
+        # the class docstring) but was added after #1108 and didn't inherit
+        # its type hints.
         movements = obj.movements.all()
         return movements[0].moved_at if movements else None
 
-    def get_attachment_count(self, obj):
+    def get_attachment_count(self, obj) -> int:
         return len(obj.attachments.all())
 
-    def get_checklist_total(self, obj):
+    def get_checklist_total(self, obj) -> int:
         return len(obj.checklist_items.all())
 
-    def get_checklist_done(self, obj):
+    def get_checklist_done(self, obj) -> int:
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
 
-    def get_blocker_count(self, obj):
+    def get_blocker_count(self, obj) -> int:
         # Present because CardQuerySerializerFieldParityTests requires this
         # field set to stay in step with CardSerializer's readable fields.
         # _card_queryset() prefetches active_blockers, so this costs no query;
@@ -122,7 +128,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # have, since relations are same-board only (#449).
         return _blocker_count(obj)
 
-    def get_is_stale(self, obj):
+    def get_is_stale(self, obj) -> bool:
         # No SQL-level stale_cutoff annotation here (unlike _card_queryset()'s
         # stale_cutoff= param): that annotation applies ONE cutoff to every row,
         # which is correct only when every card belongs to the same board. A
@@ -171,15 +177,19 @@ class CardQueryFilter(django_filters.FilterSet):
     URL and has no incremental-sync use case).
     """
 
-    board = django_filters.NumberFilter(field_name="board_id")
-    swimlane = django_filters.NumberFilter(field_name="swimlane_id")
-    column = django_filters.NumberFilter(field_name="column_id")
-    assignee = django_filters.NumberFilter(field_name="assignee_id")
-    label = django_filters.NumberFilter(field_name="labels__id")
+    # BoundedIdFilter, not a bare NumberFilter (#1120) — see its docstring in
+    # ._helpers: an out-of-64-bit-range id value (e.g. ?column=1.03e34)
+    # crashes with an uncaught OverflowError otherwise.
+    board = BoundedIdFilter(field_name="board_id")
+    swimlane = BoundedIdFilter(field_name="swimlane_id")
+    column = BoundedIdFilter(field_name="column_id")
+    assignee = BoundedIdFilter(field_name="assignee_id")
+    label = BoundedIdFilter(field_name="labels__id")
     priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
     due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
     due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
-    updated_since = django_filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
+    # BoundedDateTimeFilter (#1120): an out-of-range UTC offset otherwise 500s on Postgres.
+    updated_since = BoundedDateTimeFilter(field_name="updated_at", lookup_expr="gte")
 
     # include_archived is intentionally NOT a FilterSet field: django-filter's
     # method= filters only run when the query param is present, so they can't

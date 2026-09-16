@@ -465,6 +465,20 @@ class CardFilterTests(TestCase):
         self.assertNotIn("Future card", titles)
         self.assertNotIn("High priority", titles)  # no due date
 
+    def test_filter_column_out_of_int64_range_400s(self):
+        """An id filter value outside the 64-bit range must 400, never 500 (#1120).
+
+        `column`/`swimlane`/`assignee` are `BoundedIdFilter`s, not bare
+        `NumberFilter`s — see boards/views/_helpers.py's docstring. Found by
+        `backend-schema-fuzz`'s negative-data fuzzing.
+        """
+        r = self.client.get(self._url(), {"column": "1.0268205282963762e+34"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_filter_assignee_negative_out_of_int64_range_400s(self):
+        r = self.client.get(self._url(), {"assignee": "-1.7976931348623157e+308"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
 
 class CardListRowCapTests(TestCase):
     """Assert CardViewSet.list caps the response at _LIST_MAX_ROWS (#791).

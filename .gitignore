@@ -54,6 +54,12 @@ frontend/.playwright/
 backend/.coverage
 backend/htmlcov/
 
+# schemathesis local run cache (backend-schema-fuzz, #1120) — not the
+# committed baseline file (backend/schemathesis-baseline.json), which is
+# tracked deliberately
+backend/.schemathesis/
+backend/schemathesis-report/
+
 # SonarQube analysis cache
 .sonar/
 

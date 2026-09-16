@@ -224,3 +224,58 @@ class CardMoveTests(TestCase):
         # The col_a→col_b movement now has to_column=null (FK nulled), name preserved
         move = next(m for m in movements if m["to_column"] is None and m["to_column_name"] == col_b_name)
         self.assertEqual(move["to_column_name"], col_b_name)
+
+
+class CardMoveNonObjectBodyTests(TestCase):
+    """A JSON body that isn't an object must 400, never 500 (#1120).
+
+    `move()` reads `request.data.get("column_id")` etc. without first checking
+    the parsed body is a mapping. A body that's valid JSON but not a JSON
+    *object* — a bare number, string, array, `null`, or bool — makes every
+    `.get()` call raise `AttributeError`, uncaught, as an unhandled 500.
+    Found by the `backend-schema-fuzz` CI job's negative-data fuzzing.
+    """
+
+    def setUp(self):
+        self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
+        self._broadcast_patcher.start()
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_authenticate(self.user)
+
+        self.board = _make_board(self.user)
+        col = Column.objects.create(board=self.board, name="Backlog", position=0)
+        swim = Swimlane.objects.create(board=self.board, name="Acme", position=0)
+        self.card = Card.objects.create(
+            board=self.board, column=col, swimlane=swim,
+            title="Test Card", created_by=self.user, position=0,
+        )
+
+    def tearDown(self):
+        self._broadcast_patcher.stop()
+
+    def _move_url(self):
+        return f"/api/v1/boards/{self.board.pk}/cards/{self.card.pk}/move/"
+
+    def _post_raw_json(self, body):
+        import json
+        return self.client.post(
+            self._move_url(), data=json.dumps(body), content_type="application/json",
+        )
+
+    def test_bare_number_body_400s(self):
+        resp = self._post_raw_json(-15840000000000.0)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bare_string_body_400s(self):
+        resp = self._post_raw_json("not an object")
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bare_array_body_400s(self):
+        resp = self._post_raw_json([1, 2, 3])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_null_body_400s(self):
+        resp = self._post_raw_json(None)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

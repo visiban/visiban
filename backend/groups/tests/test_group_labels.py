@@ -73,6 +73,32 @@ class GroupLabelsTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(GroupLabel.objects.filter(group=self.group, name="Sneaky").exists())
 
+    def test_create_group_label_duplicate_name_rejected(self):
+        """A second label with the same name in the same group is a clean 400,
+        not an uncaught IntegrityError (#1120: (group, name) is a DB-level
+        unique_together the serializer can't see, since `group` is injected
+        via serializer.save(group=group) rather than being a serializer field)."""
+        GroupLabel.objects.create(group=self.group, name="Bug", color="#FF0000")
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/labels/",
+            {"name": "Bug", "color": "#00FF00"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+        self.assertEqual(GroupLabel.objects.filter(group=self.group, name="Bug").count(), 1)
+
+    def test_create_group_label_same_name_different_group_allowed(self):
+        """The uniqueness check is scoped to the group, not global."""
+        other_group = _make_group(self.admin, name="Other Group")
+        GroupLabel.objects.create(group=other_group, name="Bug", color="#FF0000")
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/labels/",
+            {"name": "Bug", "color": "#00FF00"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
     # ------------------------------------------------------------------
     # PATCH /api/groups/<id>/labels/<label_id>/
     # ------------------------------------------------------------------
@@ -89,6 +115,29 @@ class GroupLabelsTests(TestCase):
         label.refresh_from_db()
         self.assertEqual(label.name, "New")
         self.assertEqual(label.color, "#222222")
+
+    def test_update_group_label_duplicate_name_rejected(self):
+        """Renaming a label to collide with a sibling in the same group is a 400."""
+        GroupLabel.objects.create(group=self.group, name="Bug", color="#FF0000")
+        other = GroupLabel.objects.create(group=self.group, name="Feature", color="#00FF00")
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f"/api/v1/groups/{self.group.id}/labels/{other.id}/",
+            {"name": "Bug"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        other.refresh_from_db()
+        self.assertEqual(other.name, "Feature")
+
+    def test_update_group_label_same_name_allowed(self):
+        """PATCHing a label with its own current name is not a self-collision."""
+        label = GroupLabel.objects.create(group=self.group, name="Bug", color="#FF0000")
+        self.client.force_authenticate(self.admin)
+        r = self.client.patch(
+            f"/api/v1/groups/{self.group.id}/labels/{label.id}/",
+            {"name": "Bug", "color": "#123456"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_update_group_label_non_admin_rejected(self):
         """Non-admin members cannot update group labels."""

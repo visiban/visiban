@@ -524,19 +524,109 @@ backend-schema-validate:
 # direct requirement of #1080: provision_fuzz_token refuses to mint a token
 # for any user carrying is_superuser/is_site_admin/can_access_all_content.
 #
-# Non-blocking for one release (allow_failure: true) to establish a baseline
-# without turning every unrelated MR red on day one — this is #1080's own
-# phased plan, not a bug. Findings from the first baseline run were triaged
-# and filed individually rather than fixed in the same branch that adds the
-# job, to stay out of the way of the concurrent views/serializers work in
-# #1114 and #371:
-#   - #1119 — Group/GroupDetail serializer fields declared string, return
-#     int/bool/null (same class of bug as #1108's CardSerializer fixes)
-#   - #1120 — triage the remaining baseline findings (undocumented
-#     content-type/status-code noise from version-prefix path fuzzing,
-#     operations schemathesis can't reach without seeded path-parameter
-#     examples) and flip this job to allow_failure: false, per #1080
-#     acceptance criterion 3 ("blocking by end of 1.2").
+# Blocking (allow_failure: false) as of #1120 — #1080's own phased plan
+# (baseline non-blocking for one release, #1080 acceptance criterion 3: "blocking
+# by end of 1.2"). What the baseline found and how each point was resolved:
+#
+#   - Undocumented 404s from version-prefix fuzzing: negative testing mutated
+#     the literal `v1` URL segment because drf-spectacular's catch-all
+#     `re_path(r"^api/v(?!1/)[\w]+/", ...)` (visiban/urls.py) synthesized a
+#     malformed path template (`/api/v{var}[\w]/`, literal regex syntax
+#     leaking into the OpenAPI path) for `UnsupportedVersionView` — schemathesis
+#     dutifully fuzzed that literal template into URLs that never matched the
+#     real regex, landing on Django's HTML 404 debug page instead of a JSON
+#     response. Fixed by excluding the view from the schema entirely
+#     (`@extend_schema(exclude=True)`) — it's an internal safety net, not a
+#     documented operation, so the honest fix is to stop describing it, not to
+#     carve around it with --exclude-path-regex.
+#   - A second, more serious bug the same investigation turned up: any
+#     board-scoped nested route (`board_pk` and friends — untyped string path
+#     segments, not `<int:...>`-typed) crashed with an unhandled 500 on a
+#     non-numeric value, because `boards/views/_helpers.py` and six other view
+#     modules resolved them with `django.shortcuts.get_object_or_404`, which
+#     doesn't catch the ORM's `ValueError` the way `rest_framework.generics`'s
+#     version does. Fixed by swapping the import in all seven files (defends
+#     any lookup driven by a request body/query value, e.g. `move-group`'s
+#     `group_id`, not just a URL path segment). A second, independent fix
+#     landed on main while this branch was in flight (board-pk-nonnumeric-404):
+#     `lookup_value_regex = r"\d+"` on the six board-scoped viewsets, so a
+#     non-numeric id now fails to match the URL pattern at all rather than
+#     reaching the view — closes the same hole at the routing layer, which is
+#     the more correct fix for anything registered through a router. That
+#     routing-level fix has its own side effect, though: an URL matching
+#     *nothing* is resolved by Django itself, before any view runs — the
+#     *technical* 404 debug page under `DEBUG=True` (true of this job),
+#     reintroducing the exact "HTML instead of JSON" noise from the point
+#     above, now for the entire board-resource route family instead of just
+#     the version segment. `ApiNotFoundView` (visiban/urls.py, registered
+#     dead last) closes that: it makes sure *something* always matches under
+#     `/api/v1/`, so Django's resolver never has to render the fallback
+#     itself. It also required a genuine design decision, not just a copy of
+#     `UnsupportedVersionView`'s auth-gating: `/api/v1/` mixes authenticated
+#     and deliberately public routes (the anonymous email-confirmation
+#     redirect), so the catch-all cannot require auth — an anonymous caller
+#     who garbles a public path's URL must still get a plain 404, not a 401
+#     (a real regression this branch's own test suite caught:
+#     accounts/tests/test_email_confirm.py's `..._returns_404_from_router`).
+#     A follow-up verification run found the catch-all's own pattern
+#     (`^api/v1/.*$`) still fell through to Django's raw response for a path
+#     containing a literal embedded newline byte — `.` doesn't match `\n`.
+#     `re.DOTALL` isn't available here: an inline `(?s)` flag in the pattern
+#     string makes Django's own reverse-resolution machinery raise
+#     `ValueError: Non-reversible reg-exp portion: '(?s'` on every request
+#     (found the hard way — the first attempt 500'd everything), and
+#     `re_path()` doesn't accept a pre-compiled DOTALL pattern either — its
+#     system checks call `.startswith(...)` on `_regex`, assuming a string.
+#     Fixed with `[\s\S]*` instead of `.*` (a character class always
+#     matches `\n`, no flag needed).
+#   - 72 operations reachable only via 404 (random path-parameter ids never
+#     matching seeded rows): `backend/schemathesis_hooks.py`, loaded via
+#     SCHEMATHESIS_HOOKS below, is a `map_path_parameters` hook that substitutes
+#     real ids pulled from `seed_demo_data`'s board/cards/columns/swimlanes/
+#     labels/members at hook-load time. `--generation-database` (hypothesis's
+#     own example-replay cache) and `--phases stateful` (schemathesis's
+#     OpenAPI-`links`/Location-header-based chaining — this schema declares no
+#     links, and no Visiban view sets a Location header on create) were both
+#     investigated and ruled out; a path-parameter hook against real seeded
+#     rows is what this schemathesis version actually supports for this. Some
+#     resource families have no seeded row at all (groups, custom-fields,
+#     saved-filters, attachments, group invite-links/labels) and still 404 —
+#     tracked as #1125 rather than blocking this flip on extending
+#     seed_demo_data's committed sample-boards/ export.
+#   - 12 admin-only operations returned only 403: expected — #1080 requires
+#     provision_fuzz_token to refuse an admin/superuser account, so this job's
+#     token can never reach `/api/v1/admin/*`. Accepted as documented residual
+#     scope rather than adding a second admin-scoped pass: only 9 operations
+#     sit behind IsSiteAdmin (accounts/admin_views.py's `_ADMIN_PERMISSIONS`),
+#     all with dedicated coverage already (accounts/tests/test_admin_api.py,
+#     test_invite_links.py, test_pat_scopes.py) — a second full fuzz pass for
+#     that surface is disproportionate to what's actually gated.
+#
+# Reaching real 200-path responses (the seeding above) also let negative-data
+# fuzzing reach two more unhandled 500s: CardViewSet.move and
+# GroupViewSet.transfer_ownership both read `request.data.get(...)` without
+# checking the parsed body is a JSON object first, so a bare number/string/
+# array/null/bool body raised AttributeError. Both fixed with an
+# isinstance(request.data, dict) guard. This is a repeatable pattern — a grep
+# for `request.data.get(` across boards/views and groups/views turns up ~30
+# more call sites with the same shape — so a future run's randomness finding
+# another instance is a real, open possibility, not fully closed by this
+# branch; each one found gets the same fix, following this precedent.
+#
+# Reaching real 200-path responses (the seeding above) surfaced the exact bug
+# class #1108 fixed on CardSerializer and #1119 is tracking for Group/
+# GroupDetail on several more serializers (Board, BoardFull, BoardUser,
+# CurrentUser — filed as #1123) and a separate, structural gap: most write
+# endpoints' 400 validation-error response isn't documented in the schema at
+# all (filed as #1124). Neither is a CI-config fix, so both are recorded as
+# scoped, justified baseline entries in backend/schemathesis-baseline.json
+# (schemathesis's own "accepted known failures" mechanism — matched by
+# operation + check + failure-class + schema-path/status-code, never by the
+# random value schemathesis generated, so the file doesn't need touching every
+# run) rather than blocking this flip on #1119/#1123/#1124 landing first.
+# Closing any of those three issues should prune its entries
+# (`st run ... --baseline PATH --baseline-update --baseline-prune`) so the job
+# starts catching a regression in that area again.
 #
 # Scoped to the file classes #1080 names (views/, serializers.py, urls.py)
 # plus always on main, so a schema-shape change gets checked before merge
@@ -546,7 +636,12 @@ backend-schema-fuzz:
   stage: test
   needs: []
   image: python:3.12-slim
-  allow_failure: true
+  allow_failure: false
+  # Baseline identities include the *check name*, and one failure class can come
+  # from more than one check: an empty-body response trips MissingContentType under
+  # content_type_conformance AND under response_schema_conformance (which bundles it
+  # with MalformedJson). Baseline both identities or the finding still fails the job
+  # deterministically — this is not flakiness, so there is no retry here (#1120).
   rules:
     - changes:
         - backend/**/views/**/*
@@ -571,6 +666,16 @@ backend-schema-fuzz:
     # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
     # never to job output — see the command's docstring.
     VISIBAN_FUZZ_TOKEN_FILE: "/tmp/visiban_fuzz_token"
+    # Loaded automatically by `st run` (schemathesis/core/hooks.py's
+    # load_from_env) — a file path (not a bare module name) so it loads
+    # correctly regardless of script:'s cwd; see schemathesis_hooks.py's own
+    # sys.path handling for why that matters here specifically.
+    SCHEMATHESIS_HOOKS: "backend/schemathesis_hooks.py"
+    # `st run` is itself a Python process; a bare "Segmentation fault (core
+    # dumped)" with no Python-level traceback (seen once on this branch,
+    # !892) is otherwise undiagnosable from the CI log alone. Cheap and
+    # inert on every normal run — only fires on an actual native-level crash.
+    PYTHONFAULTHANDLER: "1"
   cache:
     - key:
         prefix: "pip"
@@ -602,14 +707,20 @@ backend-schema-fuzz:
       done
     - cd ..
   script:
+    # The two email-confirm endpoints only 302 to the SPA at FRONTEND_URL, which
+    # does not run in this job — following that redirect is a "Connection refused"
+    # NonFatalError, and any NonFatalError exits `st run` 1. Their redirect
+    # behavior is covered by accounts/tests/test_email_confirm.py instead.
     - |
       st run http://localhost:8000/api/schema/ \
         -H "Authorization: Token $(cat ${VISIBAN_FUZZ_TOKEN_FILE})" \
+        --exclude-path-regex 'confirm-email' \
         --checks response_schema_conformance,status_code_conformance,content_type_conformance \
         --phases examples,fuzzing \
         --max-examples 10 \
         --max-time 600 \
         --workers 4 \
+        --baseline backend/schemathesis-baseline.json \
         --report junit \
         --report-junit-path schemathesis-junit.xml \
         --no-color

@@ -297,6 +297,51 @@ class CardQueryFilterTests(TestCase):
         self.assertIn("Archived", titles)
 
 
+class CardQueryFilterOverflowTests(TestCase):
+    """An id filter value outside the 64-bit integer range must 400, never 500 (#1120).
+
+    ``board``/``swimlane``/``column``/``assignee``/``label`` are
+    ``BoundedIdFilter``s (``boards/views/_helpers.py``) rather than bare
+    ``django_filters.NumberFilter``s — the default only bounds to 1e50, which
+    is far looser than what the DB driver can actually bind (SQLite/Postgres
+    are both 64-bit), so an out-of-range value used to reach the DB layer and
+    raise an uncaught ``OverflowError``. Found by `backend-schema-fuzz`'s
+    negative-data fuzzing.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u", password="x")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_huge_positive_column_value_400s(self):
+        r = self.client.get(URL, {"column": "1.0268205282963762e+34"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_huge_negative_board_value_400s(self):
+        r = self.client.get(URL, {"board": "-1.7976931348623157e+308"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_in_range_value_still_works(self):
+        _make_card(self.board, self.col, self.swim, self.user, title="Card")
+        r = self.client.get(URL, {"column": self.col.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual([c["title"] for c in r.data["results"]], ["Card"])
+
+    def test_updated_since_out_of_range_utc_offset_400s(self):
+        # Postgres rejects a >=16h offset with DataError; SQLite would not, so
+        # this asserts the filter-level validation rather than the DB crash.
+        r = self.client.get(URL, {"updated_since": "0232-03-12T00:58:04+17:52"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_updated_since_max_valid_utc_offset_still_works(self):
+        _make_card(self.board, self.col, self.swim, self.user, title="Card")
+        r = self.client.get(URL, {"updated_since": "2000-01-01T00:00:00-15:59"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual([c["title"] for c in r.data["results"]], ["Card"])
+
+
 class CardQueryOrderingTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="x")
@@ -506,3 +551,28 @@ class CardQueryBlockerCountValueTests(TestCase):
         self.blocker.archived_at = timezone.now()
         self.blocker.save(update_fields=["archived_at"])
         self.assertEqual(self._row(self.blocked)["blocker_count"], 0)
+
+
+class CardQuerySchemaTypeTests(TestCase):
+    """Guards SerializerMethodField return-type hints against schema drift.
+
+    drf-spectacular infers a method field's OpenAPI type from its Python
+    return-type hint and silently falls back to "string" when the hint is
+    missing (same class of bug get_last_moved_at's docstring above already
+    documents for this file). A missing hint on an int-returning method
+    mismatches the real response but breaks nothing any test hitting the live
+    endpoint would catch — only the schema-fuzz job's response-vs-schema
+    conformance check did (#1120), against blocker_count specifically.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from drf_spectacular.generators import SchemaGenerator
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+
+    def test_blocker_count_schema_type_is_integer(self):
+        card_query_schema = self.schema["components"]["schemas"]["CardQuery"]
+        self.assertEqual(
+            card_query_schema["properties"]["blocker_count"]["type"], "integer",
+        )

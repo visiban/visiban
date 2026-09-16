@@ -4,9 +4,10 @@ import datetime
 
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
-from rest_framework import status, viewsets
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers as drf_serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
@@ -682,6 +683,17 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="transfer-ownership")
     def transfer_ownership(self, request, pk=None):
         from rest_framework.exceptions import PermissionDenied
+        # A JSON body that parses to a non-mapping (a bare number/string/array/
+        # null/bool — valid JSON, just not a JSON *object*) makes
+        # `request.data.get(...)` below raise AttributeError, uncaught, as an
+        # unhandled 500 instead of the documented 400 (#1120 baseline finding
+        # — same class as CardViewSet.move's fix, found separately by
+        # schemathesis's negative-data fuzzing on this endpoint).
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         group = self.get_object()
 
         # Only current owner can transfer
@@ -840,7 +852,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         # POST — create a label (admin only)
         _require_group_admin(request.user, group)
-        serializer = GroupLabelSerializer(data=request.data)
+        serializer = GroupLabelSerializer(data=request.data, context={"group": group})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             label = serializer.save(group=group)
@@ -876,7 +888,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         # PATCH — update name/color
-        serializer = GroupLabelSerializer(label, data=request.data, partial=True)
+        serializer = GroupLabelSerializer(label, data=request.data, partial=True, context={"group": group})
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             serializer.save()
@@ -919,6 +931,18 @@ class GroupViewSet(viewsets.ModelViewSet):
     # Favorites (star / unstar)
     # ------------------------------------------------------------------
 
+    @extend_schema(
+        # Deliberately lean — {"starred": bool} rather than the full Group shape,
+        # unlike BoardViewSet.star which re-serializes the whole board. Without
+        # this override drf-spectacular infers the viewset's GroupSerializer for
+        # every action, which schemathesis correctly flags as a schema violation
+        # (#1120: "board_count" is a required property, ...).
+        responses={
+            200: inline_serializer("GroupStarred", {"starred": drf_serializers.BooleanField()}),
+            201: inline_serializer("GroupStarredCreated", {"starred": drf_serializers.BooleanField()}),
+            204: None,
+        },
+    )
     @action(detail=True, methods=["post", "delete"], url_path="star")
     def star(self, request, pk=None):
         group = self.get_object()

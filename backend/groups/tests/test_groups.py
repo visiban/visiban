@@ -866,12 +866,28 @@ class GroupStarMembershipTests(TestCase):
         self.assertIn(r.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
     def test_member_can_star_group(self):
-        """A member of the group can star it."""
+        """A member of the group can star it.
+
+        The response is deliberately the lean {"starred": bool} shape, not a
+        full Group — #1120: an undeclared response schema was inferred as
+        GroupSerializer, and schemathesis correctly flagged the mismatch.
+        """
         member = User.objects.create_user(username="member_star", password="pass")
         GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
         self.client.force_authenticate(member)
         r = self.client.post(f"/api/v1/groups/{self.group.id}/star/")
         self.assertIn(r.status_code, [status.HTTP_200_OK, status.HTTP_201_CREATED])
+        self.assertEqual(r.json(), {"starred": True})
+
+    def test_member_can_unstar_group(self):
+        """DELETE unstars and returns 204 with no body."""
+        member = User.objects.create_user(username="unstar_member", password="pass")
+        GroupMembership.objects.create(group=self.group, user=member, role=GroupMembership.Role.MEMBER)
+        self.client.force_authenticate(member)
+        self.client.post(f"/api/v1/groups/{self.group.id}/star/")
+        r = self.client.delete(f"/api/v1/groups/{self.group.id}/star/")
+        self.assertEqual(r.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(r.content)
 
 
 class CanAccessAllContentBypassTests(TestCase):
