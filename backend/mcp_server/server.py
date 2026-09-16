@@ -6,14 +6,20 @@ when the MCP spec or SDK churns (the spec is young — transport rev 2025-03-26)
 the blast radius is this file (#511).
 
 Later waves register their tools here too:
-    #512 CRUD tools, #513 resources — add a ``@_mcp.tool()`` wrapper that
-    delegates to a plain function in ``tools.py``. Session-level authentication
-    (identity, and the baseline ``mcp:read`` scope every request needs) is
-    already handled by the transport middleware and needs no per-tool code.
+    #512 CRUD tools — add a ``@mcp.tool()`` wrapper that delegates to a plain
+    function in ``tools.py``. Session-level authentication (identity, and the
+    baseline ``mcp:read`` scope every request needs) is already handled by
+    the transport middleware and needs no per-tool code.
 
     #512 additions: a WRITE tool is a narrower case than that comment
     originally covered, and does need one extra per-tool line — see
     ``_require_write_scope`` below and its docstring for why.
+
+    #513 resources — a *resource* (``board://``, ``card://``) is registered
+    with ``@mcp.resource("scheme://{param}")`` instead, not ``@mcp.tool()``:
+    the SDK treats the two as distinct registries with different failure
+    semantics (see tools.py's "Resources (#513)" section for the structured-
+    error-vs-raise distinction this forces).
 """
 import logging
 
@@ -195,6 +201,44 @@ def build_mcp_server():
             assignee=assignee, priority=priority, label=label,
             include_archived=include_archived,
         )
+
+    # ── Resources (#513) — board:// and card://, all board roles ──
+    #
+    # Registered as templates (a `{param}` placeholder in the URI) rather
+    # than tools: an agent reads one of these to load a whole board or card's
+    # context in a single round trip instead of chaining several list_*
+    # calls. The parameter name must match the URI placeholder exactly
+    # (`board_id`/`card_id`) — FastMCP.resource() raises at registration time
+    # otherwise. See tools.py's "Resources (#513)" section for why these
+    # raise ValueError on failure instead of returning `{"error": ...}` like
+    # the tools above: resource reads have no structured-error channel here.
+
+    @mcp.resource(
+        "board://{board_id}",
+        name="board",
+        mime_type="application/json",
+        description=(
+            "Full read-only board snapshot: metadata, columns, swimlanes, "
+            "active cards, and labels — equivalent to list_columns + "
+            "list_swimlanes + list_cards in one read. All board roles may "
+            "read it."
+        ),
+    )
+    async def board_resource(board_id: int) -> dict:
+        return await sync_to_async(tools.board_snapshot, thread_sensitive=True)(board_id=board_id)
+
+    @mcp.resource(
+        "card://{card_id}",
+        name="card",
+        mime_type="application/json",
+        description=(
+            "Card detail plus full audit history: movements, activities, "
+            "comments, and checklist items. Requires membership on the "
+            "card's board."
+        ),
+    )
+    async def card_resource(card_id: int) -> dict:
+        return await sync_to_async(tools.card_detail, thread_sensitive=True)(card_id=card_id)
 
     # ── Write tools (#512) — admin/member only (enforced in the service
     # layer); additionally require the mcp:write scope (enforced here, see
