@@ -1252,6 +1252,69 @@
       "signature": "x-bundled/schema1/properties/subgroup_count/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "596834",
+      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ab3ef3",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "63918d",
+      "operation": "GET /api/v1/cards/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "6ba086",
+      "operation": "POST /api/v1/boards/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4a036f",
+      "operation": "PATCH /api/v1/auth/user/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b1d535",
+      "operation": "POST /api/v1/groups/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "7973b6",
+      "operation": "POST /api/v1/groups/{id}/boards/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
     }
   ]
 }

@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from django.test import TestCase
 
 from accounts.models import PersonalAccessToken
-from boards.models import Board, BoardMembership, CardChecklist, CardComment, Label
+from boards.models import BoardMembership, CardChecklist, CardComment, Label
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane, _make_user
 
 

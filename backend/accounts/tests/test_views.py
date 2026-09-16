@@ -114,6 +114,17 @@ class UserDetailsFlagExposureTests(TestCase):
         self.assertEqual(r.json()["first_name"], "Carol")
         self.assertTrue(r.json()["git_lens_enabled"])
 
+    def test_avatar_url_over_max_length_is_a_clean_400(self):
+        # #1120: AvatarUrlField (accounts/serializers.py) declares its OpenAPI
+        # schema's maxLength directly rather than via ModelSerializer
+        # auto-generation, since it also overrides the field type to drop
+        # `format: uri`. The actual DRF `max_length` kwarg has to be set to
+        # match, or an overlong value skips validation and hits Postgres's
+        # `character varying(200)` column directly as an uncaught DataError.
+        r = self.client.patch("/api/v1/auth/user/", {"avatar_url": "x" * 201})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("avatar_url", r.json())
+
 
 class ChangePasswordViewTests(TestCase):
     def setUp(self):

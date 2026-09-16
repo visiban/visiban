@@ -59,7 +59,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
     regardless of whether they share a board with the result.
     """
 
-    avatar_url = AvatarUrlField(allow_blank=True, required=False)
+    avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
 
     class Meta:
         model = User
@@ -77,7 +77,7 @@ class BoardUserSerializer(serializers.ModelSerializer):
     be able to read these fields for other users via the board API.
     """
 
-    avatar_url = AvatarUrlField(allow_blank=True, required=False)
+    avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
 
     class Meta:
         model = User
@@ -86,7 +86,7 @@ class BoardUserSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
-    avatar_url = AvatarUrlField(allow_blank=True, required=False)
+    avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
     # __init__ rather than at class level to avoid a premature import of
     # boards.models during test collection (app registry may not be ready when
