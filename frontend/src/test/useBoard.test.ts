@@ -580,3 +580,76 @@ describe('useBoard', () => {
     expect(result.current.board!.labels).toHaveLength(0)
   })
 })
+
+describe('useBoard — maintenance mode (#783)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockNavigate.mockClear()
+  })
+
+  it('moveCard explains a 503 instead of silently reverting', async () => {
+    // Without this branch the optimistic move makes the drag look like it
+    // succeeded, then the card snaps back with no message at all.
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: {
+        status: 503,
+        data: { code: 'maintenance_mode', detail: 'Back by 14:00 UTC.' },
+      },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    expect(result.current.board!.cards[0].column).toBe(10)
+    expect(result.current.moveError).toEqual({
+      code: 'maintenance_mode',
+      detail: 'Back by 14:00 UTC.',
+    })
+  })
+
+  it('falls back to generic copy when the 503 carries no detail', async () => {
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: { status: 503, data: { code: 'maintenance_mode' } },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    expect(result.current.moveError).toEqual({
+      code: 'maintenance_mode',
+      detail: 'Maintenance mode is active.',
+    })
+  })
+
+  it('ignores a 503 that is not a maintenance response', async () => {
+    // A proxy or an overloaded backend also returns 503; claiming maintenance
+    // mode for those would be a lie. Roll back, but say nothing specific.
+    const board = makeBoard()
+    mockGetBoardFull.mockResolvedValue(board)
+    mockMoveCard.mockRejectedValue({
+      response: { status: 503, data: '<html>502 Bad Gateway</html>' },
+    })
+
+    const { result } = renderHook(() => useBoard())
+    await waitFor(() => expect(result.current.board).not.toBeNull())
+
+    await act(async () => {
+      await result.current.moveCard(100, 11, 20, 0)
+    })
+
+    expect(result.current.board!.cards[0].column).toBe(10)
+    expect(result.current.moveError).toBeNull()
+  })
+})

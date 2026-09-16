@@ -102,4 +102,72 @@ describe('API client', () => {
       expect(result.headers['X-CSRFToken']).toBeUndefined()
     })
   })
+
+  describe('response interceptor — maintenance mode (#783)', () => {
+    async function runRejection(response: unknown) {
+      const client = await getClient()
+      const handlers = (client.interceptors.response as unknown as {
+        handlers: Array<{ rejected?: (e: unknown) => unknown }>
+      }).handlers
+      const error = { response }
+      for (const h of handlers) {
+        if (h.rejected) {
+          try {
+            await h.rejected(error)
+          } catch {
+            // The interceptor re-rejects by design; the side effect is what we assert.
+          }
+        }
+      }
+    }
+
+    it('dispatches maintenance:active with the notice on a maintenance 503', async () => {
+      const received: string[] = []
+      const listener = (e: Event) =>
+        received.push((e as CustomEvent<{ message: string }>).detail.message)
+      window.addEventListener('auth:maintenanceBlocked', listener)
+
+      await runRejection({
+        status: 503,
+        data: { code: 'maintenance_mode', detail: 'Back by 14:00 UTC.' },
+      })
+
+      window.removeEventListener('auth:maintenanceBlocked', listener)
+      expect(received).toEqual(['Back by 14:00 UTC.'])
+    })
+
+    it('ignores a 503 that is not a maintenance response', async () => {
+      // A proxy or an overloaded backend also returns 503; showing a
+      // maintenance banner for those would be a lie.
+      let fired = false
+      const listener = () => { fired = true }
+      window.addEventListener('auth:maintenanceBlocked', listener)
+
+      await runRejection({ status: 503, data: '<html>502 Bad Gateway</html>' })
+
+      window.removeEventListener('auth:maintenanceBlocked', listener)
+      expect(fired).toBe(false)
+    })
+
+    it('does not dispatch maintenance:active for other status codes', async () => {
+      let fired = false
+      const listener = () => { fired = true }
+      window.addEventListener('auth:maintenanceBlocked', listener)
+
+      await runRejection({ status: 403, data: { code: 'permission_denied' } })
+
+      window.removeEventListener('auth:maintenanceBlocked', listener)
+      expect(fired).toBe(false)
+    })
+
+    it('still re-rejects so callers keep their own error handling', async () => {
+      const client = await getClient()
+      const handlers = (client.interceptors.response as unknown as {
+        handlers: Array<{ rejected?: (e: unknown) => unknown }>
+      }).handlers
+      const error = { response: { status: 503, data: { code: 'maintenance_mode', detail: 'x' } } }
+      const rejected = handlers.find((h) => h.rejected)?.rejected
+      await expect(rejected?.(error)).rejects.toBe(error)
+    })
+  })
 })

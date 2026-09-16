@@ -24,6 +24,65 @@ Changes take effect immediately with no restart required. Existing user sessions
 
 Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.
 
+### Maintenance mode
+
+Puts the whole instance into **read-only mode** while you run an upgrade or a migration. It is
+off by default.
+
+| Control | Effect |
+|---|---|
+| **Maintenance mode** toggle | When on, every write from a non-admin is rejected with `503 Service Unavailable`. Reads keep working. |
+| **Notice** | Plain-text message (max 1000 characters) shown to everyone while maintenance mode is on. Leave it blank to use the built-in default. |
+
+While maintenance mode is on:
+
+- **People can still read.** Boards, cards, comments and history all stay visible. This is a
+  read-only mode, not an outage, so nobody loses access to information they need mid-incident.
+- **Writes are blocked** — creating, editing, moving, archiving and deleting all fail with a
+  `maintenance_mode` error. This covers the REST API and the MCP write tools alike.
+- **Site admins are exempt** and keep full read/write access, whether they are signed in through
+  the browser or using a personal access token. Admins still see the notice, so they can tell at
+  a glance that the instance is not in its normal state.
+- **The notice is shown to every signed-in user** until you turn maintenance mode back off.
+
+The setting lives in the database, so it survives a restart, and it takes effect immediately —
+there is no need to restart the service or wait for a cache to expire.
+
+!!! tip "Put an end time in the notice"
+    A notice with no ETA is the one people find most frustrating: "changes are disabled" with no
+    sense of for how long reads as either trivial or alarming, depending on the reader. Say when
+    you expect to be finished — for example, *"Upgrading to 1.2 — back by 14:00 UTC."*
+
+!!! warning "You cannot lock yourself out"
+    Signing in, signing out, password reset, the forced password/username change flows, SSO
+    callbacks, the health probes and the whole admin API stay writable while maintenance mode is
+    on. Turning it back off is always reachable, even from a signed-out browser. Self-registration,
+    profile edits and token creation are **not** exempt — they are blocked like any other write.
+    To stop new sign-ups specifically, use [Registration mode](#registration-mode) instead.
+
+#### Turning maintenance mode off from the shell
+
+If the web UI is unreachable — a broken ingress, a bad deploy — maintenance mode can be cleared
+from any container with database access:
+
+```bash
+# Show the current state
+python manage.py maintenance_mode
+
+# Turn it on, with a notice
+python manage.py maintenance_mode --on --message "Upgrading to 1.3 — back by 14:00 UTC."
+
+# Turn it back off
+python manage.py maintenance_mode --off
+```
+
+Changes take effect immediately, exactly as they do from the admin panel. Maintenance mode is
+also editable from the [Django admin](django-admin.md) as a second break-glass route.
+
+See [Maintenance mode](../api/admin.md#maintenance-mode) for the API, and the
+[Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md) for when a maintenance window is
+needed at all — most 1.x upgrades do not need one.
+
 ## Users tab
 
 Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.

@@ -210,6 +210,15 @@ A maintenance window, for this deployment shape, means: scale `backendReplicaCou
 values that stop traffic (or put the ingress in maintenance mode), run `helm upgrade`, confirm
 `helm test` is green, then scale back up.
 
+!!! tip "A softer option: Visiban's own maintenance mode"
+    If your reason for a window is "stop people writing while I migrate" rather than "stop all
+    traffic", Visiban's built-in
+    [maintenance mode](admin-panel.md#maintenance-mode) is usually a better fit than scaling to
+    zero. It rejects every non-admin write with `503` while leaving reads — and your own admin
+    access — working, and it shows users a notice you write. Turn it on before you migrate and
+    off afterwards. It does not replace a window for the cases listed above, where the concern is
+    the schema change itself rather than concurrent writes.
+
 ---
 
 ## 4. Rollback

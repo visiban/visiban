@@ -3,6 +3,7 @@ import secrets
 
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
+from django.core.validators import MaxLengthValidator
 from django.db import models
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower
@@ -53,6 +54,21 @@ REGISTRATION_MODE_CACHE_TTL = 60  # seconds
 UPLOADS_ENABLED_CACHE_KEY = "site_setting_uploads_enabled"
 UPLOADS_ENABLED_CACHE_TTL = 60  # seconds
 
+# Single source of truth for the notice length cap, shared by the model
+# validator and the admin serializer so the two can never disagree.
+MAINTENANCE_MESSAGE_MAX_LENGTH = 1000
+
+MAINTENANCE_CACHE_KEY = "site_setting_maintenance"
+MAINTENANCE_CACHE_TTL = 60  # seconds
+
+# Shown to users when maintenance mode is on and the operator left the message
+# blank. Kept here (not in the middleware) so the API 503 body and the SPA
+# banner can never drift apart.
+DEFAULT_MAINTENANCE_MESSAGE = (
+    "Visiban is in maintenance mode. You can still read boards and cards, "
+    "but changes are temporarily disabled. Please try again shortly."
+)
+
 
 def get_registration_mode() -> str:
     """Return registration_mode, using a short-lived cache to avoid a DB hit on every request."""
@@ -84,6 +100,41 @@ def invalidate_uploads_enabled_cache():
     cache.delete(UPLOADS_ENABLED_CACHE_KEY)
 
 
+def get_maintenance_state() -> tuple[bool, str]:
+    """Return ``(active, message)`` for instance-wide maintenance mode.
+
+    WHY this is cached: ``MaintenanceModeMiddleware`` consults this on *every*
+    request, not just writes. An uncached read would add one ``SiteSetting``
+    query to every single request the instance serves — a permanent,
+    always-on cost paid by the 99.99% of installs that never turn maintenance
+    mode on. The 60s TTL is the ceiling only when nothing writes; the real
+    propagation path is ``SiteSetting.save()`` → ``invalidate_maintenance_mode_cache()``,
+    which is instant because production runs a shared Valkey/Redis cache, so
+    every worker sees the flip at once. That is what satisfies the issue's
+    "no restart required" requirement.
+
+    The tuple is cached as a unit rather than as two keys so a reader can never
+    observe a half-updated state (mode flipped on, message still the old one).
+    """
+    cached = cache.get(MAINTENANCE_CACHE_KEY)
+    if cached is not None:
+        return cached
+    setting = SiteSetting.get()
+    value = (setting.maintenance_mode, setting.maintenance_message)
+    cache.set(MAINTENANCE_CACHE_KEY, value, MAINTENANCE_CACHE_TTL)
+    return value
+
+
+def get_maintenance_message(message: str = "") -> str:
+    """Return the operator's notice, falling back to the built-in default."""
+    return message.strip() or DEFAULT_MAINTENANCE_MESSAGE
+
+
+def invalidate_maintenance_mode_cache():
+    """Evict the cached maintenance state so the next read hits the DB."""
+    cache.delete(MAINTENANCE_CACHE_KEY)
+
+
 class SiteSetting(models.Model):
     """Singleton model for instance-wide configuration. Always access via SiteSetting.get()."""
 
@@ -102,6 +153,26 @@ class SiteSetting(models.Model):
         default=True,
         help_text="When False, attachment uploads are disabled for all users.",
     )
+    # Defaults to False so that an existing install upgrading to this release
+    # behaves exactly as it did before — the 503 write-block is unreachable
+    # until an operator deliberately turns it on. Both columns are defaulted
+    # (never NOT NULL without a default) per the zero-downtime migration rule.
+    maintenance_mode = models.BooleanField(
+        default=False,
+        help_text="When True, non-admin write requests are rejected with 503 and all users see a maintenance notice.",
+    )
+    # The 1000-character cap is also declared on the admin serializer, which is
+    # where API input is validated. It is repeated here as a model validator
+    # because the serializer is not the only write path: Django admin registers
+    # SiteSetting with no custom ModelForm, and management commands and shell
+    # sessions write the field directly. Without this, those paths could store
+    # an unbounded notice that then lands in every 503 body on the instance.
+    maintenance_message = models.TextField(
+        blank=True,
+        default="",
+        validators=[MaxLengthValidator(MAINTENANCE_MESSAGE_MAX_LENGTH)],
+        help_text="Plain-text notice shown to users while maintenance mode is active. Blank uses the built-in default.",
+    )
 
     class Meta:
         db_table = "site_settings"
@@ -114,6 +185,7 @@ class SiteSetting(models.Model):
         # waiting for the TTL to expire.
         invalidate_registration_mode_cache()
         invalidate_uploads_enabled_cache()
+        invalidate_maintenance_mode_cache()
 
     @classmethod
     def get(cls):

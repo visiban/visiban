@@ -13,6 +13,7 @@ import BoardView from "./components/Board/BoardView";
 import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
+import MaintenanceBanner from "./components/Common/MaintenanceBanner";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
@@ -125,6 +126,17 @@ export default function App() {
                   onMobileClose={() => setMobileMenuOpen(false)}
                 />
                 <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+                  {/* Instance-wide maintenance notice (#783). First child of the
+                      content column so it sits above every route and above the
+                      mobile nav, outside any scroll container — it must never
+                      scroll away. Spans the content column, not the viewport,
+                      matching the other full-width banners. */}
+                  {user.maintenance_mode && (
+                    <MaintenanceBanner
+                      message={user.maintenance_message ?? ""}
+                      isSiteAdmin={user.is_site_admin}
+                    />
+                  )}
                   {/* Mobile navigation bar — visible below lg breakpoint only */}
                   <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
                     <button

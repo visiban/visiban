@@ -239,3 +239,48 @@ describe('App', () => {
     expect(screen.getByTestId('navbar')).toBeInTheDocument()
   })
 })
+
+describe('App — maintenance banner (#783)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('shows the notice to a signed-in user while maintenance mode is on', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, maintenance_mode: true, maintenance_message: 'Back by 14:00 UTC.' },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByText('Maintenance mode is active.')).toBeInTheDocument()
+    expect(screen.getByText('Back by 14:00 UTC.')).toBeInTheDocument()
+  })
+
+  it('shows nothing when maintenance mode is off', () => {
+    mockUseAuth.mockReturnValue({
+      user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.queryByText('Maintenance mode is active.')).not.toBeInTheDocument()
+  })
+
+  it('still shows the notice to a site admin, who is exempt from the block', () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        ...fakeUser,
+        is_site_admin: true,
+        maintenance_mode: true,
+        maintenance_message: 'Back by 14:00 UTC.',
+      },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByText('Maintenance mode is active.')).toBeInTheDocument()
+    expect(screen.getByText('You have full access as a site admin.')).toBeInTheDocument()
+  })
+
+  it('does not render on the unauthenticated login page', () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter><App /></MemoryRouter>)
+    expect(screen.queryByText('Maintenance mode is active.')).not.toBeInTheDocument()
+  })
+})

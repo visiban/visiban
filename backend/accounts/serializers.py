@@ -3,7 +3,14 @@ from dj_rest_auth.serializers import PasswordResetSerializer
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import PAT_SCOPES, PersonalAccessToken, User, get_uploads_enabled
+from .models import (
+    PAT_SCOPES,
+    PersonalAccessToken,
+    User,
+    get_maintenance_message,
+    get_maintenance_state,
+    get_uploads_enabled,
+)
 from .forms import VisibanPasswordResetForm
 from .validators import UsernameFormatValidator
 
@@ -154,6 +161,17 @@ class CurrentUserSerializer(UserSerializer):
     # hide the lens entry point. Read from settings (no DB hit), so it stays on
     # CurrentUserSerializer rather than the embedded UserSerializer.
     git_lens_enabled = serializers.SerializerMethodField()
+    # Maintenance mode (#783). Lives here for the same reason uploads_enabled
+    # does: the SPA bootstraps from GET /auth/user/, so this is where an
+    # instance-wide flag reaches it without adding a SiteSetting read to every
+    # embedded assignee/member object in a board payload.
+    #
+    # maintenance_message is always populated when maintenance_mode is True —
+    # the built-in default is substituted server-side for a blank operator
+    # message — so the client never has to carry a fallback string of its own
+    # and the banner can never render empty.
+    maintenance_mode = serializers.SerializerMethodField()
+    maintenance_message = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj):
         return get_uploads_enabled()
@@ -163,11 +181,36 @@ class CurrentUserSerializer(UserSerializer):
 
         return getattr(settings, "GIT_LENS_ENABLED", False)
 
+    def _maintenance_state(self):
+        """Read the cached state once per serialization, not once per field.
+
+        Two SerializerMethodFields need the same tuple; without this they would
+        each issue their own cache round trip for an identical answer.
+        """
+        if not hasattr(self, "_cached_maintenance_state"):
+            self._cached_maintenance_state = get_maintenance_state()
+        return self._cached_maintenance_state
+
+    def get_maintenance_mode(self, obj):
+        active, _ = self._maintenance_state()
+        return active
+
+    def get_maintenance_message(self, obj):
+        active, message = self._maintenance_state()
+        return get_maintenance_message(message) if active else ""
+
     class Meta(UserSerializer.Meta):
-        fields = UserSerializer.Meta.fields + ["uploads_enabled", "git_lens_enabled"]
+        fields = UserSerializer.Meta.fields + [
+            "uploads_enabled",
+            "git_lens_enabled",
+            "maintenance_mode",
+            "maintenance_message",
+        ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
             "uploads_enabled",
             "git_lens_enabled",
+            "maintenance_mode",
+            "maintenance_message",
         ]
 
 
