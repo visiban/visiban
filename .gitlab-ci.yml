@@ -637,18 +637,11 @@ backend-schema-fuzz:
   needs: []
   image: python:3.12-slim
   allow_failure: false
-  # Overrides the global script_failure exclusion above (#1120 fix-mr investigation,
-  # 2026-09-16): schemathesis 4.27.1's Baseline.match() lazily builds its lookup
-  # index on first use per `st run` process, and reproduced locally (~1 in 3 runs,
-  # even at --workers 1) failing on an operation whose exact
-  # (operation, check, failure class, signature) identity IS present in
-  # backend/schemathesis-baseline.json and matches on a clean rerun — a tool-level
-  # race, not a code or baseline-content defect. A real regression is deterministic
-  # and will still fail every retry; only this specific flake is masked.
-  retry:
-    max: 2
-    when:
-      - script_failure
+  # Baseline identities include the *check name*, and one failure class can come
+  # from more than one check: an empty-body response trips MissingContentType under
+  # content_type_conformance AND under response_schema_conformance (which bundles it
+  # with MalformedJson). Baseline both identities or the finding still fails the job
+  # deterministically — this is not flakiness, so there is no retry here (#1120).
   rules:
     - changes:
         - backend/**/views/**/*
@@ -709,9 +702,14 @@ backend-schema-fuzz:
       done
     - cd ..
   script:
+    # The two email-confirm endpoints only 302 to the SPA at FRONTEND_URL, which
+    # does not run in this job — following that redirect is a "Connection refused"
+    # NonFatalError, and any NonFatalError exits `st run` 1. Their redirect
+    # behavior is covered by accounts/tests/test_email_confirm.py instead.
     - |
       st run http://localhost:8000/api/schema/ \
         -H "Authorization: Token $(cat ${VISIBAN_FUZZ_TOKEN_FILE})" \
+        --exclude-path-regex 'confirm-email' \
         --checks response_schema_conformance,status_code_conformance,content_type_conformance \
         --phases examples,fuzzing \
         --max-examples 10 \

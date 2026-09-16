@@ -12,6 +12,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "8b0fa0",
+      "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
+      "check": "response_schema_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
       "id": "285c31",
       "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
       "check": "response_schema_conformance",
@@ -26,15 +35,6 @@
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "200",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "43632e",
-      "operation": "GET /accounts/confirm-email/{key}/",
-      "check": "content_type_conformance",
-      "failure": "UndefinedContentType",
-      "signature": "text/html; charset=utf-8",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -939,6 +939,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "635704",
+      "operation": "POST /api/v1/boards/{id}/members/",
+      "check": "response_schema_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
       "id": "b170f2",
       "operation": "POST /api/v1/boards/{id}/members/",
       "check": "response_schema_conformance",
@@ -960,6 +969,15 @@
       "id": "12ae3c",
       "operation": "POST /api/v1/boards/{id}/share/",
       "check": "content_type_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "af8bd8",
+      "operation": "POST /api/v1/boards/{id}/share/",
+      "check": "response_schema_conformance",
       "failure": "MissingContentType",
       "signature": "",
       "first_seen": "2026-09-16",

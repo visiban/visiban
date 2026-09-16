@@ -2,4 +2,5 @@ Fixed two more unhandled `500`s and a schema-accuracy gap the now-blocking `back
 
 - `POST`/`PATCH /api/v1/groups/{id}/labels/...` crashed with an uncaught `IntegrityError` on a duplicate label name within the same group — the `(group, name)` uniqueness constraint isn't visible to DRF's automatic validator because `group` is injected after validation rather than being a serializer field. Now returns a clean `400`.
 - `POST /api/v1/groups/{id}/star/` documented the full `Group` response shape but actually returns a lean `{"starred": bool}` (by design, to avoid re-serializing the whole group) — the OpenAPI schema now matches.
+- `GET /api/v1/cards/?updated_since=` crashed with an uncaught `DataError` on PostgreSQL when the timestamp carried a UTC offset of 16 hours or more (valid ISO 8601, but out of range for `timestamptz`). Now returns a clean `400`.
 - `avatar_url` (on `BoardUser`, `CurrentUser`, and the user-search response) was documented as `format: uri`, which a blank avatar (a valid, common value) fails — corrected to a plain string field, since fixing the underlying schema was less fragile than baselining every endpoint that happens to embed a user.

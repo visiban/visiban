@@ -45,7 +45,7 @@ page; treat it as opaque.
 | `?priority=<value>` | Filter by priority (`low`, `medium`, `high`, `urgent`) |
 | `?due_before=<YYYY-MM-DD>` | Cards with a due date on or before this date (ISO 8601) |
 | `?due_after=<YYYY-MM-DD>` | Cards with a due date on or after this date (ISO 8601) |
-| `?updated_since=<ISO 8601 datetime>` | Cards updated at or after this timestamp — the incremental-sync filter |
+| `?updated_since=<ISO 8601 datetime>` | Cards updated at or after this timestamp — the incremental-sync filter. A UTC offset of 16 hours or more returns `400` |
 | `?include_archived=true` | Include archived cards. Omit or `false` to exclude them (the default, matching the endpoints below) |
 | `?search=<q>` | Filter by title and description (partial, case-insensitive) |
 | `?ordering=<field>` | Sort results. Allowed values: `updated_at` (default: `-updated_at`, i.e. most recently updated first), `-updated_at`, `created_at`, `-created_at`. Every value is a 2-tuple with an `id` tiebreaker under the hood, so cursor pagination stays stable when many cards share the same timestamp. An unrecognized value falls back to the default rather than erroring. `due_date` is deliberately not an ordering option — it is nullable, and a nullable cursor field can silently skip or duplicate rows across a page boundary. |

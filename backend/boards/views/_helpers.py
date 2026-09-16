@@ -19,9 +19,12 @@ import logging
 # through this one function, so fixing it here was the single highest-yield
 # fix for that finding).
 from rest_framework.generics import get_object_or_404
+import datetime
+
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Prefetch, Q
-from django_filters import NumberFilter
+from django_filters import DateTimeFilter, NumberFilter
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
@@ -64,6 +67,35 @@ class BoundedIdFilter(NumberFilter):
         built = super().field
         if not any(isinstance(v, MinValueValidator) for v in built.validators):
             built.validators.append(MinValueValidator(_INT64_MIN))
+        return built
+
+
+# Postgres rejects a timestamptz UTC offset of 16 hours or more ("time zone
+# displacement out of range"); Python's datetime accepts up to 24 hours.
+_PG_MAX_UTC_OFFSET = datetime.timedelta(hours=16)
+
+
+def _validate_pg_utc_offset(value):
+    offset = value.utcoffset() if value is not None else None
+    if offset is not None and abs(offset) >= _PG_MAX_UTC_OFFSET:
+        raise ValidationError("UTC offset must be less than 16 hours.", code="invalid")
+
+
+class BoundedDateTimeFilter(DateTimeFilter):
+    """A DateTimeFilter that rejects UTC offsets Postgres cannot store.
+
+    An ISO-8601 value like ``2026-01-01T00:00:00+17:52`` parses fine in Python
+    but reaches Postgres as an out-of-range time zone displacement, raising an
+    uncaught ``DataError`` as an unhandled 500 instead of a 400 — a
+    `backend-schema-fuzz` CI job finding (#1120), the datetime counterpart of
+    ``BoundedIdFilter``.
+    """
+
+    @property
+    def field(self):
+        built = super().field
+        if _validate_pg_utc_offset not in built.validators:
+            built.validators.append(_validate_pg_utc_offset)
         return built
 
 

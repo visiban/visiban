@@ -329,6 +329,18 @@ class CardQueryFilterOverflowTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual([c["title"] for c in r.data["results"]], ["Card"])
 
+    def test_updated_since_out_of_range_utc_offset_400s(self):
+        # Postgres rejects a >=16h offset with DataError; SQLite would not, so
+        # this asserts the filter-level validation rather than the DB crash.
+        r = self.client.get(URL, {"updated_since": "0232-03-12T00:58:04+17:52"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_updated_since_max_valid_utc_offset_still_works(self):
+        _make_card(self.board, self.col, self.swim, self.user, title="Card")
+        r = self.client.get(URL, {"updated_since": "2000-01-01T00:00:00-15:59"})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual([c["title"] for c in r.data["results"]], ["Card"])
+
 
 class CardQueryOrderingTests(TestCase):
     def setUp(self):

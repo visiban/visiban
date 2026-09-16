@@ -35,7 +35,7 @@ from ..models import Card
 from ..serializers import (
     CustomFieldValueSerializer, LabelSerializer, _blocker_count, _card_queryset,
 )
-from ._helpers import BoundedIdFilter, get_accessible_boards_queryset
+from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
 
 # ---------------------------------------------------------------------------
@@ -188,7 +188,8 @@ class CardQueryFilter(django_filters.FilterSet):
     priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
     due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
     due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
-    updated_since = django_filters.DateTimeFilter(field_name="updated_at", lookup_expr="gte")
+    # BoundedDateTimeFilter (#1120): an out-of-range UTC offset otherwise 500s on Postgres.
+    updated_since = BoundedDateTimeFilter(field_name="updated_at", lookup_expr="gte")
 
     # include_archived is intentionally NOT a FilterSet field: django-filter's
     # method= filters only run when the query param is present, so they can't
