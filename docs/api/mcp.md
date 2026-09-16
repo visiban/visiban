@@ -225,6 +225,7 @@ Every error has a `code` your agent can branch on. The common ones:
 | `card_not_found` | Same, for a card id. |
 | `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. |
 | `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
+| `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee_email`/label name that does not resolve to a real board member/label. |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. `move_card` never overrides either — there is no `force` option over MCP. |
 | `weight_limit_exceeded` | The target column is at its weight limit. |

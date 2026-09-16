@@ -25,8 +25,8 @@ Return the current instance-wide settings.
 |---|---|---|
 | `registration_mode` | `"open"` / `"invite_only"` / `"closed"` | Controls who can self-register |
 | `uploads_enabled` | boolean | When `false`, attachment uploads are blocked for all users |
-| `maintenance_mode` | boolean | When `true`, non-admin write requests are rejected with `503`. Defaults to `false` |
-| `maintenance_message` | string | Plain-text notice shown while maintenance mode is active. Max 1000 characters. Blank means "use the built-in default" |
+| `maintenance_mode` | boolean | When `true`, non-admin write requests are rejected with `503`. Defaults to `false`. Added in 1.2. |
+| `maintenance_message` | string | Plain-text notice shown while maintenance mode is active. Max 1000 characters. Blank means "use the built-in default". Added in 1.2. |
 
 ### `PATCH /api/v1/admin/settings/`
 Update site settings. All fields are optional.
@@ -41,6 +41,8 @@ Changes take effect within approximately 60 seconds (server-side cache TTL) — 
 ---
 
 ## Maintenance mode
+
+> **Added in 1.2**
 
 Turning `maintenance_mode` on puts the whole instance into read-only mode, for the duration
 of an upgrade or a migration.
@@ -68,14 +70,19 @@ While it is active:
   session cookie or a personal access token.
 - **`GET /api/v1/auth/user/`** reports `maintenance_mode` and `maintenance_message` so a client
   can show the notice. When `maintenance_mode` is `true`, `maintenance_message` is always
-  non-empty.
+  non-empty. Same shape as [`GET /api/v1/auth/me/`](authentication.md#get-apiv1authme) — both
+  are served by `CurrentUserSerializer`.
 
 !!! warning "Endpoints that stay writable"
     `/api/v1/admin/`, `/api/v1/auth/login/`, `/api/v1/auth/logout/`, the password reset and
-    forced-change endpoints, `/api/v1/auth/ws-ticket/`, `/accounts/` (SSO callbacks),
-    `/admin/` and `/api/health/` continue to accept writes. They are the recovery path: a
-    maintenance mode you cannot switch off is an outage. Self-registration, profile updates and
-    token creation are **not** exempt and are blocked like any other write.
+    forced-change endpoints, and `/api/v1/auth/ws-ticket/` continue to accept writes, as do
+    `/admin/` and `/api/health/`. The **only** exempt paths under `/accounts/` are the SSO login
+    round trip — `/accounts/<provider>/login/` and `/accounts/<provider>/login/callback/` — so a
+    signed-out SSO-only admin can still sign back in. Every other `/accounts/` write (signup,
+    email management, password change, 3rd-party connect/disconnect) is **not** exempt. These are
+    the recovery path: a maintenance mode you cannot switch off is an outage. Self-registration,
+    profile updates and token creation are likewise **not** exempt and are blocked like any other
+    write.
 
 The state is stored on the `SiteSetting` singleton, so it survives a restart, and the cache is
 invalidated on save, so a change reaches every worker immediately rather than after the 60s TTL.

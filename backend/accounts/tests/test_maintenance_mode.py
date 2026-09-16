@@ -22,6 +22,7 @@ instance.
 from io import StringIO
 from unittest import mock
 
+from django.core.exceptions import ValidationError
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 from rest_framework import status
@@ -33,6 +34,7 @@ from accounts.models import (
     PersonalAccessToken,
     SiteSetting,
     User,
+    get_maintenance_message,
     get_maintenance_state,
     invalidate_maintenance_mode_cache,
 )
@@ -146,6 +148,22 @@ class WriteBlockingTests(MaintenanceModeBaseTest):
         self.assertEqual(patched.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         deleted = self.client.delete(detail_url)
         self.assertEqual(deleted.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def test_put_is_blocked_too(self):
+        """PUT is a write like PATCH/DELETE — SAFE_METHODS excludes it deliberately."""
+        self.client.force_authenticate(self.member)
+        created = self.client.post(self._cards_url(), self._card_payload(), format="json")
+        card_id = created.json()["id"]
+        _set_maintenance(True)
+        detail_url = f"{self._cards_url()}{card_id}/"
+        r = self.client.put(detail_url, self._card_payload("Replaced"), format="json")
+        self.assertEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    def test_options_is_never_blocked(self):
+        """OPTIONS is in SAFE_METHODS — a preflight/introspection request must never 503."""
+        _set_maintenance(True)
+        r = self.client.options(self._cards_url())
+        self.assertNotEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
 
     def test_anonymous_write_is_blocked(self):
         _set_maintenance(True)
@@ -371,6 +389,47 @@ class ExemptPathTests(MaintenanceModeBaseTest):
             )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    def test_every_enumerated_exempt_prefix_stays_writable(self):
+        """Direct unit coverage of _is_exempt_path over the whole enumerated list.
+
+        The list in visiban.middleware is deliberately enumerated rather than
+        prefix-globbed, and each entry carries its own recovery-path or
+        break-glass justification. A representative sub-path under every entry
+        must resolve exempt, or a future edit that silently drops one goes
+        unnoticed until an operator is locked out mid-incident.
+        """
+        exempt_paths = (
+            "/api/v1/admin/settings/",
+            "/api/v1/auth/login/",
+            "/api/v1/auth/logout/",
+            "/api/v1/auth/password/reset/",
+            "/api/v1/auth/password/change/",
+            "/api/v1/auth/change-password/",
+            "/api/v1/auth/choose-username/",
+            "/api/v1/auth/ws-ticket/",
+            "/admin/login/",
+            "/api/health/liveness/",
+        )
+        for path in exempt_paths:
+            with self.subTest(path=path):
+                self.assertTrue(_is_exempt_path(path), f"{path} must stay writable during maintenance")
+
+    def test_admin_prefix_trailing_slash_is_not_satisfied_by_a_lookalike_path(self):
+        """Guards the exact regression the trailing-slash comment in middleware.py calls out.
+
+        `/api/v1/admin/` must not be satisfiable by a future `/api/v1/administrators/`
+        endpoint — str.startswith() would otherwise match the shorter prefix.
+        """
+        self.assertFalse(_is_exempt_path("/api/v1/administrators/"))
+        self.assertFalse(_is_exempt_path("/api/v1/administrators/1/"))
+
+    def test_logout_is_reachable_during_maintenance(self):
+        """Nobody should be trapped in a session they cannot end."""
+        _set_maintenance(True)
+        self.client.force_authenticate(self.member)
+        r = self.client.post("/api/v1/auth/logout/")
+        self.assertNotEqual(r.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+
 
 class AllauthPathTests(MaintenanceModeBaseTest):
     """allauth mounts its whole tree at /accounts/, so only SSO login is exempt.
@@ -529,6 +588,87 @@ class CurrentUserSerializerTests(MaintenanceModeBaseTest):
         self.client.force_authenticate(self.admin)
         body = self.client.get("/api/v1/auth/user/").json()
         self.assertTrue(body["maintenance_mode"])
+
+
+class MaintenanceStateHelperTests(MaintenanceModeBaseTest):
+    """Direct unit coverage of the cache-fronting helpers in accounts.models.
+
+    MaintenanceModeMiddleware consults get_maintenance_state() on every
+    request, so the cache-hit path is the hot path for every install on
+    earth, on or off. A regression here silently turns back into a
+    per-request SiteSetting query, which is the exact cost #783 was written
+    to avoid.
+    """
+
+    def test_cache_miss_reads_the_database_and_populates_the_cache(self):
+        _set_maintenance(True, "From the DB.")
+        invalidate_maintenance_mode_cache()  # force a miss regardless of _set_maintenance's own save()
+        with mock.patch(
+            "accounts.models.SiteSetting.get", wraps=SiteSetting.get
+        ) as spy:
+            result = get_maintenance_state()
+            self.assertEqual(spy.call_count, 1)
+        self.assertEqual(result, (True, "From the DB."))
+
+    def test_cache_hit_never_touches_the_database(self):
+        _set_maintenance(True, "Cached.")
+        get_maintenance_state()  # first call populates the cache
+        with mock.patch(
+            "accounts.models.SiteSetting.get",
+            side_effect=AssertionError("cache hit must not read SiteSetting"),
+        ):
+            result = get_maintenance_state()
+        self.assertEqual(result, (True, "Cached."))
+
+    def test_get_maintenance_message_returns_default_for_empty_string(self):
+        self.assertEqual(get_maintenance_message(""), DEFAULT_MAINTENANCE_MESSAGE)
+
+    def test_get_maintenance_message_returns_default_for_whitespace_only(self):
+        self.assertEqual(get_maintenance_message("   \n\t  "), DEFAULT_MAINTENANCE_MESSAGE)
+
+    def test_get_maintenance_message_strips_surrounding_whitespace_from_a_real_message(self):
+        """The stored value may carry incidental whitespace; the served notice must not."""
+        self.assertEqual(get_maintenance_message("  Back at 5pm.  "), "Back at 5pm.")
+
+    def test_get_maintenance_message_passes_through_a_real_message_unchanged(self):
+        self.assertEqual(get_maintenance_message("Back at 5pm."), "Back at 5pm.")
+
+
+class SiteSettingModelValidationTests(MaintenanceModeBaseTest):
+    """The MaxLengthValidator on SiteSetting.maintenance_message is model-level,
+    not just serializer-level — Django admin and management commands/shell
+    sessions write the field directly and never go through the serializer.
+    """
+
+    def test_full_clean_rejects_a_message_over_the_cap(self):
+        setting = SiteSetting.get()
+        setting.maintenance_message = "x" * (MAINTENANCE_MESSAGE_MAX_LENGTH + 1)
+        with self.assertRaises(ValidationError):
+            setting.full_clean()
+
+    def test_full_clean_accepts_a_message_exactly_at_the_cap(self):
+        setting = SiteSetting.get()
+        setting.maintenance_message = "x" * MAINTENANCE_MESSAGE_MAX_LENGTH
+        setting.full_clean()  # must not raise
+
+    def test_full_clean_accepts_a_blank_message(self):
+        setting = SiteSetting.get()
+        setting.maintenance_message = ""
+        setting.full_clean()  # must not raise
+
+    def test_save_does_not_enforce_the_validator(self):
+        """.save() never calls full_clean() in Django — only a direct field write
+        (management command, shell, Django admin ModelForm) enforces the cap, and
+        each of those paths is responsible for calling full_clean()/is_valid()
+        itself. This pins that .save() alone is not where the cap is enforced,
+        so a future refactor that removes the command's own truncation call
+        would not be silently protected by the model.
+        """
+        setting = SiteSetting.get()
+        setting.maintenance_message = "x" * (MAINTENANCE_MESSAGE_MAX_LENGTH + 1)
+        setting.save(update_fields=["maintenance_message"])  # does not raise
+        setting.refresh_from_db()
+        self.assertEqual(len(setting.maintenance_message), MAINTENANCE_MESSAGE_MAX_LENGTH + 1)
 
 
 class ManagementCommandTests(MaintenanceModeBaseTest):
