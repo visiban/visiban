@@ -21,6 +21,13 @@ Skipping minor versions (e.g. 1.0 → 1.2 directly) is supported — run all int
 
 These steps apply to a single-server Docker Compose deployment.
 
+!!! tip "Optional: freeze writes for the duration"
+    These steps are safe to run with the instance live — that's the whole point of the
+    zero-downtime migration rules below. If you'd still rather nobody move a card while you
+    migrate, turn on [maintenance mode](maintenance-mode.md) before step 1 and off again after
+    step 5. It rejects non-admin writes with `503` while leaving reads, and your own admin
+    access, working throughout.
+
 ### 1. Back up the database
 
 Always take a snapshot before upgrading. If a migration fails partway through, you will need this to recover.
@@ -268,6 +275,12 @@ After rolling back, restart the backend container with the previous image versio
 ## Release-specific upgrade notes
 
 ### Upgrading to 1.2.x
+
+Migration `accounts/0027_maintenance_mode` adds two nullable-by-default columns
+(`maintenance_mode`, `maintenance_message`) to the `site_settings` singleton for the new
+[maintenance mode](maintenance-mode.md) feature. It is a plain `AddField` migration — no index,
+no constraint, no data backfill — and `maintenance_mode` defaults to `False`, so an existing
+install behaves exactly as before until an operator deliberately turns it on.
 
 !!! warning "Helm values are now schema-validated — an unknown key fails the upgrade"
     Chart 0.4.0 ships `values.schema.json` with `additionalProperties: false` on
