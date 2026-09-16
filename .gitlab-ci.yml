@@ -373,7 +373,54 @@ backend-test-coverage:
       coverage_report:
         coverage_format: cobertura
         path: backend/coverage.xml
+    paths:
+      - backend/coverage.xml
     when: always
+
+# Diff coverage (MR only) — #1076.
+#
+# The aggregate --fail-under=90 above measures the whole codebase, not the
+# change. With 500+ backend test files already in the tree, that aggregate
+# has enough inertia to absorb a fully untested new view or method and stay
+# green. This job instead measures coverage of only the lines this MR adds
+# or modifies, using diff-cover against the coverage.xml produced above — no
+# test re-run, just a second report over the same data.
+#
+# Threshold starts at 80% of changed lines, blocking. Escape hatch: an MR
+# that legitimately cannot meet it (a pure refactor with moved lines, a
+# vendored file) says so in its description and a reviewer overrides by
+# approving with the failing job acknowledged — see
+# docs/development/testing.md#diff-coverage-escape-hatch. The override is
+# always visible in the MR/job history, never silent.
+#
+# migrations/ is excluded because .coveragerc does NOT omit it from the
+# aggregate run (Django imports every migration to build the test DB, so
+# migration lines legitimately count toward the 90% number) — but a line
+# diff-cover would flag as "uncovered" in a migration is nearly always
+# schema, not behavior, and re-litigating that here would just train
+# reviewers to override the gate instead of reading it.
+backend-diff-coverage:
+  extends: .pip-cache
+  stage: test
+  needs: [backend-test-coverage]
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - requirements*.txt
+        - .gitlab-ci.yml
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --quiet diff-cover
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+  script:
+    - cd backend
+    - diff-cover coverage.xml
+        --compare-branch=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+        --fail-under=80
+        --show-uncovered
+        --exclude "*/migrations/*" "manage.py"
 
 # Checks that every model change has a corresponding migration file, that no
 # migration builds an index or constraint in a way that takes ACCESS EXCLUSIVE on a
@@ -1109,7 +1156,41 @@ frontend-test:
       coverage_report:
         coverage_format: cobertura
         path: frontend/coverage/cobertura-coverage.xml
+    paths:
+      - frontend/coverage/cobertura-coverage.xml
     when: always
+
+# Diff coverage (MR only) — #1076. Same rationale as backend-diff-coverage
+# above: vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
+# the whole frontend and can absorb an untested new component. This job
+# reuses frontend-test's existing cobertura-coverage.xml — diff-cover reads
+# Cobertura XML natively, so no new vitest reporter (e.g. lcov) is needed.
+#
+# src/test/ is already excluded from the coverage report itself (see
+# vitest.config.ts's coverage.exclude), so those files never appear as
+# "uncovered" here; the --exclude below is belt-and-suspenders per #1076's
+# acceptance criteria and guards against a future reporter config change.
+#
+# Threshold starts at 80% of changed lines, blocking. Same escape hatch as
+# the backend job — see docs/development/testing.md#diff-coverage-escape-hatch.
+frontend-diff-coverage:
+  stage: test
+  needs: [frontend-test]
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - frontend/**/*
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - pip install --quiet diff-cover
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+  script:
+    - diff-cover frontend/coverage/cobertura-coverage.xml
+        --compare-branch=origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+        --fail-under=80
+        --show-uncovered
+        --exclude "frontend/src/test/*" "frontend/src/**/*.test.*" "frontend/src/**/*.spec.*"
 
 # ─── Frontend — E2E (Playwright) ─────────────────────────────────────────────
 #

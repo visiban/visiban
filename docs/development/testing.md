@@ -226,6 +226,39 @@ Before committing a new spec:
   Currently non-blocking (`allow_failure: true`) while its baseline is triaged (#1120)
 - The `changelog-check` job blocks the pipeline if no fragment is added under `changelog.d/`
 
+### Diff coverage (#1076)
+
+`backend-test-coverage` and `frontend-test`'s vitest thresholds gate the *aggregate*
+coverage of the whole codebase. That number moves slowly — a large, well-tested
+codebase can absorb a fully untested new feature and barely notice. `backend-diff-coverage`
+and `frontend-diff-coverage` close that gap: they run only on MR pipelines (there's no
+diff to measure on `main`) and use [`diff-cover`](https://github.com/Bachmann1234/diff_cover)
+to measure coverage of only the lines the MR actually adds or changes, against the same
+`coverage.xml` / `cobertura-coverage.xml` the aggregate jobs already produce — no test
+re-run. Both are blocking at **80% of changed lines** and print the uncovered line numbers
+in the job log (`--show-uncovered`), not just a percentage.
+
+Excluded from the diff denominator on both sides: backend `*/migrations/*` and `manage.py`
+(schema, not behavior — see the `backend-diff-coverage` job comment in `.gitlab-ci.yml` for
+why the aggregate run *does* count migrations but the diff gate doesn't), and frontend
+`src/test/*`, `*.test.*`, `*.spec.*` (already excluded from the coverage report itself by
+`vitest.config.ts`'s `coverage.exclude`; the CI job's `--exclude` is belt-and-suspenders).
+Generated files, if any are ever introduced, should be added to the same exclude list.
+
+#### Diff coverage escape hatch
+
+An MR can legitimately fail this gate without meaning "add more tests" — a pure refactor
+that only moves lines, or a vendored file with no realistic local test. When that happens:
+
+1. Say so explicitly in the MR description (a line under a `## Notes` heading is enough:
+   *"backend-diff-coverage fails on moved-but-unchanged lines in `foo.py`; no new
+   behavior to test."*).
+2. A reviewer confirms the reasoning and re-runs the job manually with an adjusted
+   understanding, or approves the MR with the failing job explicitly acknowledged.
+
+The override is always visible in the MR discussion and job history — never silence the
+gate by weakening the threshold or broadening `--exclude` to route around a single MR.
+
 ## Git hooks
 
 `scripts/wt` (see its `--help`) applies a `status::wip` GitLab label when you create a
