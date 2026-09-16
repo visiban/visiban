@@ -2137,6 +2137,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resources
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#boardboard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        board://{board_id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cardcard_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        card://{card_id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-errors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource errors
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#roadmap" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3267,7 +3317,7 @@
 <p>The feature is flag-gated: <code>/mcp</code> returns <code>404 Not Found</code> unless the server is started with <code>MCP_SERVER_ENABLED=true</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This is the Phase 1 (OSS core) surface: board discovery and full card CRUD. MCP resources (<code>board://</code>, <code>card://</code>) and a full setup guide are tracked separately.</p>
+<p>This is the Phase 1 (OSS core) surface: board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources below. A full setup guide is tracked separately.</p>
 </div>
 <hr />
 <h2 id="enabling-the-server">Enabling the server<a class="headerlink" href="#enabling-the-server" title="Permanent link">&para;</a></h2>
@@ -3603,8 +3653,121 @@
 <p><strong>Arguments:</strong> <code>card_id</code> (required).</p>
 <p><strong>Returns:</strong> <code>{"card_id": &lt;id&gt;, "archived_at": &lt;ISO 8601 timestamp&gt;}</code>.</p>
 <hr />
+<h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>A <strong>resource</strong> is MCP's second kind of server capability, alongside a tool. Where a tool is invoked with <code>tools/call</code> and takes arguments an agent chooses per call, a resource is addressed by a URI and read with <code>resources/read</code> — it exists so an agent can load a whole board's or card's context in a single round trip, instead of chaining several <code>list_*</code> tool calls together. Visiban registers two resource templates: <code>board://{board_id}</code> and <code>card://{card_id}</code>.</p>
+<p>Like every other endpoint under <code>/mcp</code>, reading a resource requires the <code>mcp:read</code> scope. Neither resource needs <code>mcp:write</code> — both are read-only.</p>
+<p><code>/mcp</code> also now sends <code>Access-Control-*</code> headers — including a response to preflight <code>OPTIONS</code> requests — for origins listed in <code>CORS_ALLOWED_ORIGINS</code>, the same setting already used by the REST API and the WebSocket, so a browser-based MCP client can reach the server directly.</p>
+<h3 id="boardboard_id"><code>board://{board_id}</code><a class="headerlink" href="#boardboard_id" title="Permanent link">&para;</a></h3>
+<p>A full read-only board snapshot: metadata, columns, swimlanes, active cards, and labels — equivalent to calling <code>list_columns</code> + <code>list_swimlanes</code> + <code>list_cards</code> and merging the results, but resolves and authorizes the board once instead of three times. All board roles may read it. Mime type <code>application/json</code>.</p>
+<p><strong>Returns:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>Board primary key.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Board name.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Board description; empty string when unset.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp.</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>string</td>
+<td>ISO 8601 timestamp.</td>
+</tr>
+<tr>
+<td><code>columns</code></td>
+<td>array</td>
+<td>Same shape as <code>list_columns</code>'s return above.</td>
+</tr>
+<tr>
+<td><code>swimlanes</code></td>
+<td>array</td>
+<td>Same shape as <code>list_swimlanes</code>'s return above, including the admin/site_admin-only <code>contact_email</code> rule.</td>
+</tr>
+<tr>
+<td><code>cards</code></td>
+<td>array</td>
+<td>Same shape as <code>list_cards</code>'s return above, unfiltered and excluding archived cards.</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td>array</td>
+<td><code>{id, name, color}</code> objects, one per label defined on the board.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>board://{board_id}</code> deliberately omits every web-session-only field the REST board detail response carries — <code>share_token</code>, <code>capabilities</code>, <code>is_starred</code>, <code>members</code>, <code>current_user_role</code>. These have no meaning for an AI agent reading board context, and a share token in particular is a bearer credential that must never appear in agent-facing output.</p>
+</div>
+<h3 id="cardcard_id"><code>card://{card_id}</code><a class="headerlink" href="#cardcard_id" title="Permanent link">&para;</a></h3>
+<p>Card detail plus full audit history. Requires board membership — any role, including <code>collaborator</code>/<code>viewer</code>. Mime type <code>application/json</code>.</p>
+<p><strong>Returns:</strong> the same fields as one row of <code>list_cards</code>, plus:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>archived_at</code></td>
+<td>string or <code>null</code></td>
+<td>ISO 8601 timestamp, or <code>null</code> if the card is not archived.</td>
+</tr>
+<tr>
+<td><code>movements</code></td>
+<td>array</td>
+<td><code>{id, from_column, to_column, from_swimlane, to_swimlane, moved_at, moved_by}</code> objects — same shape as <code>move_card</code>'s <code>movement</code> above.</td>
+</tr>
+<tr>
+<td><code>checklist_items</code></td>
+<td>array</td>
+<td><code>{id, text, is_checked, position}</code> objects.</td>
+</tr>
+<tr>
+<td><code>activities</code></td>
+<td>array</td>
+<td><code>{id, event_type, from_value, to_value, actor, created_at}</code> objects, newest first.</td>
+</tr>
+<tr>
+<td><code>comments</code></td>
+<td>array</td>
+<td><code>{id, body, author, created_at, updated_at}</code> objects, oldest first.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="resource-errors">Resource errors<a class="headerlink" href="#resource-errors" title="Permanent link">&para;</a></h3>
+<p>Resources fail differently from tools. A tool that cannot complete returns a structured <code>{"error": {"code": ...}}</code> result (see <a href="#tool-errors">Tool errors</a> above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like <code>No Board matches the given query.</code> or <code>No Card matches the given query.</code></p>
+<p>That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the <code>board_not_found</code>/<code>card_not_found</code> tool error codes already document above. There is no way to distinguish the two cases from the response, by design.</p>
+<hr />
 <h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
-<p>Phase 1 covers connectivity, authentication, board discovery, and full card CRUD (this release). MCP resources (<code>board://</code>, <code>card://</code>) and a full setup guide are tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
+<p>Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
 
 
 
