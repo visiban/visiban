@@ -54,6 +54,7 @@ import { getLensConnection } from "../../api/gitLens";
 import type { LensConnection } from "../../types";
 import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
+import { useCardDensityOverride } from "../../hooks/useCardDensityOverride";
 import LensToolbar from "./Lens/LensToolbar";
 import { lensFilterActiveCount } from "./Lens/lensDims";
 import { useBoardPan } from "../../hooks/useBoardPan";
@@ -295,6 +296,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   const validSwimlaneIds = useMemo(() => new Set(board.swimlanes.map((s) => s.id)), [board.swimlanes]);
   const { prefs: viewPrefs, toggleHiddenColumn, toggleCollapsedColumn, expandAllColumns, collapseAllColumns, toggleHiddenSwimlane, toggleCollapsedSwimlane, collapseAllSwimlanes, expandAllSwimlanes, setSwimlaneColumnWidth, setColumnWidth, setSwimlaneHeight } = useViewPrefs(board.id, validColumnIds, validSwimlaneIds);
   const [cardLayout, setCardLayout] = useCardLayoutPref();
+  // #974 — per-user override of the board admin's card_density default,
+  // layered on top of it (never mutates board.card_density itself, so an
+  // admin flipping the board setting never stomps a user's personal
+  // choice). Resolved once here and fed through the same `density` prop
+  // that already flows down to SwimlaneRow -> BoardCell -> CardItem.
+  const [cardDensityOverride, setCardDensityOverride] = useCardDensityOverride(board.id);
+  const effectiveCardDensity = cardDensityOverride ?? board.card_density;
   // useCardLayoutPref's setter only accepts a direct value, so keyboard
   // handlers (registered outside cardLayout's dep array) read the latest
   // layout through this ref to avoid closing over a stale value.
@@ -2151,7 +2159,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       onFocus={enterFocus}
                       onExitFocus={exitFocus}
                       isFocused={focusedSwimlaneId === swimlane.id}
-                      density={board.card_density}
+                      density={effectiveCardDensity}
                       userTimezone={userTimezone}
                       userDateFormat={userDateFormat}
                       compact={cardLayout === "compact"}
@@ -2208,7 +2216,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </div>{/* end flex-row wrapper */}
 
         <DragOverlay>
-          {activeCard && <CardItem card={activeCard} overlay density={board.card_density} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} customFieldDefinitions={board.custom_field_definitions} />}
+          {activeCard && <CardItem card={activeCard} overlay density={effectiveCardDensity} userTimezone={userTimezone} userDateFormat={userDateFormat} compact={cardLayout === "compact"} staleness_threshold_days={board.staleness_threshold_days ?? 14} stale_warning_pct={board.stale_warning_pct ?? 50} customFieldDefinitions={board.custom_field_definitions} />}
           {activeColumn && (
             <div className="px-3 py-3 border border-info bg-surface rounded shadow-xl opacity-90 overflow-hidden" style={{ width: colWidths.get(activeColumn.id) ?? DEFAULT_COL_WIDTH }}>
               <div className="flex items-center gap-2 min-w-0">
@@ -2292,6 +2300,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onToggleHiddenSwimlane={toggleHiddenSwimlane}
           onBoardDeleted={onBoardDeleted}
           onUpdateBoardSettings={onUpdateBoardSettings}
+          cardDensityOverride={cardDensityOverride}
+          onSetCardDensityOverride={setCardDensityOverride}
           gitLensEnabled={gitLensEnabled}
           lensConnection={lensConnection}
           onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}

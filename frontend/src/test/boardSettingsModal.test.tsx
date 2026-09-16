@@ -638,8 +638,157 @@ describe('BoardSettingsModal — Card density radio', () => {
       />,
     )
     expect(screen.queryByRole('radio', { name: /Comfortable/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/Only board admins can change this setting/i)).toBeInTheDocument()
+    expect(screen.getByText(/Only board admins can change this/i)).toBeInTheDocument()
     expect(screen.getByText(/dense/i)).toBeInTheDocument()
+  })
+})
+
+// ─── Display tab → Per-user density override (#974) ────────────────────────
+
+describe('BoardSettingsModal — personal density override', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('does not render the "Use my own density" toggle when onSetCardDensityOverride is omitted', () => {
+    render(
+      <BoardSettingsModal
+        board={fakeBoard}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText(/Use my own density/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the toggle for non-admins too, without the admin radio group', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'dense', current_user_role: 'viewer' }}
+        isAdmin={false}
+        onClose={vi.fn()}
+        initialTab="display"
+        cardDensityOverride={null}
+        onSetCardDensityOverride={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('radio', { name: /^Comfortable/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/Use my own density/i)).toBeInTheDocument()
+  })
+
+  it('personal radio group is hidden until the toggle is switched on, and follows the board default copy when off', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'standard' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+        cardDensityOverride={null}
+        onSetCardDensityOverride={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/Following the board default for your view/i)).toBeInTheDocument()
+    // Two "Comfortable" radios would exist once the personal group renders (admin + personal);
+    // with the toggle off, only the admin one is present.
+    expect(screen.getAllByRole('radio', { name: /^Comfortable/i })).toHaveLength(1)
+  })
+
+  it('switching the toggle on seeds the personal radio from the board default and calls onSetCardDensityOverride', async () => {
+    const onSetOverride = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'standard' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+        cardDensityOverride={null}
+        onSetCardDensityOverride={onSetOverride}
+      />,
+    )
+    await user.click(screen.getByRole('switch', { name: /Use my own density/i }))
+    expect(onSetOverride).toHaveBeenCalledWith('standard')
+  })
+
+  it('renders the personal radio group with the override selected and reflects the overriding copy', () => {
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'dense' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+        cardDensityOverride="comfortable"
+        onSetCardDensityOverride={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/Overriding the board default for your view only/i)).toBeInTheDocument()
+    const personalComfortable = screen.getAllByRole('radio', { name: /^Comfortable/i })[1]
+    expect(personalComfortable).toBeChecked()
+  })
+
+  it('picking a personal density radio calls onSetCardDensityOverride without touching onUpdateBoardSettings', async () => {
+    const onUpdateBoard = vi.fn()
+    const onSetOverride = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'dense' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={onUpdateBoard}
+        cardDensityOverride="comfortable"
+        onSetCardDensityOverride={onSetOverride}
+      />,
+    )
+    const denseRadios = screen.getAllByRole('radio', { name: /^Dense/i })
+    await user.click(denseRadios[1]) // [0] is the admin board-default radio, [1] the personal one
+    expect(onSetOverride).toHaveBeenCalledWith('dense')
+    expect(onUpdateBoard).not.toHaveBeenCalled()
+  })
+
+  it('switching the toggle off resets to following the board default', async () => {
+    const onSetOverride = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'dense' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={vi.fn()}
+        cardDensityOverride="comfortable"
+        onSetCardDensityOverride={onSetOverride}
+      />,
+    )
+    await user.click(screen.getByRole('switch', { name: /Use my own density/i }))
+    expect(onSetOverride).toHaveBeenCalledWith(null)
+  })
+
+  it('admin flipping the board default does not touch the personal override callback', async () => {
+    const onUpdateBoard = vi.fn()
+    const onSetOverride = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <BoardSettingsModal
+        board={{ ...fakeBoard, card_density: 'standard' }}
+        isAdmin={true}
+        onClose={vi.fn()}
+        initialTab="display"
+        onUpdateBoardSettings={onUpdateBoard}
+        cardDensityOverride="comfortable"
+        onSetCardDensityOverride={onSetOverride}
+      />,
+    )
+    const denseRadios = screen.getAllByRole('radio', { name: /^Dense/i })
+    await user.click(denseRadios[0]) // the admin board-default radio
+    expect(onUpdateBoard).toHaveBeenCalledWith({ card_density: 'dense' })
+    expect(onSetOverride).not.toHaveBeenCalled()
   })
 })
 

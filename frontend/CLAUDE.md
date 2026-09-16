@@ -205,6 +205,12 @@ Each board has an admin-controlled `card_density` setting that drives how much m
 - The hover peek (`CardPeekPopover`) renders the hidden metrics as a single muted line — `Weight 5 · 3 attachments · Moved 2d ago`. **Never stack them into multiple rows** — that recreates the wall-of-icons we just removed from the card face.
 - Per-user per-field hide toggles (the prior `hideLabels` / `hideDueDate` / `hideAssignee` / `hidePriority` / `hideLastMoved` checkboxes in Board Settings → Display) are removed in 1.1. Density is the single knob; legacy localStorage values for those keys are silently ignored.
 - The Board Settings *Display* tab gives admins a radio group (Comfortable / Standard / Dense) with a one-line description of each tier. Non-admins see a read-only line stating the current density.
+- **Per-user density override, layered on the board default (#974).** Every user (admin or not) can additionally set a personal density that overrides the board admin's `card_density` for their own view only, via a "Use my own density" toggle beneath the admin radio in Board Settings → Display. Rules:
+  - **Storage is board-scoped, not global**: `useCardDensityOverride` (`frontend/src/hooks/useCardDensityOverride.ts`) persists to `board:{boardId}:card-density-override`, holding one of `comfortable` / `standard` / `dense`. Absence of the key — not a stored `null` — means "follow board default"; toggling the override off calls `localStorage.removeItem`. A global `user:prefs:*` key would be wrong here because "follow board default" only has meaning relative to *this* board's admin setting.
+  - **Resolution happens once, in `BoardView`**: `effectiveCardDensity = cardDensityOverride ?? board.card_density` is computed a single time and passed through the *same* `density` prop that already flows `BoardView` → `SwimlaneRow` → `BoardCell` → `CardItem` (and the drag-overlay `CardItem`). Never read `board.card_density` directly at a card-rendering call site again — always the resolved value — or a density change ends up half-applied (e.g. dense card face but a comfortable-computed row height).
+  - **The admin's board-level radio and the personal toggle+radio are separate, non-stomping storage locations by construction** — writing one never touches the other. An admin changing the board default does not clear any user's personal override, including the admin's own.
+  - **The personal radio group is a distinct `name` (`personal-card-density`) from the admin group's (`card-density`)** so the two native radio sets never collide, and is conditionally rendered (not just visually hidden) when the toggle is off, matching the personal Columns/Swimlanes section's own conditional-render pattern in the same tab.
+  - **Gate the personal-override UI on `onSetCardDensityOverride` alone** — never couple it to `isAdmin` or to the `viewPrefs`/hidden-column gate. Density override and column/swimlane visibility are unrelated personal settings that happen to share this tab; admins get both the board radio and their own personal toggle, since an admin may want a personal view that differs from the team default they set.
 
 ## Cards
 
@@ -285,6 +291,16 @@ Represent selection state on the container:
 Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted mt-0.5` for the description line below it.
 
 The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
+
+## Subordinate settings blocks (toggle/checkbox-gated)
+
+When a block of settings is only relevant while a toggle or checkbox directly above it is on (e.g. the Rules tab's Hard-WIP-mode options gated by "Enforce WIP limits", or the Display tab's personal density radio group gated by "Use my own density"), indent and rule off that block with exactly:
+
+```
+ml-6 border-l-2 border-line pl-4
+```
+
+**Do not invent a per-instance variant** — no custom border color (`border-line-strong`), no opacity modifier (`border-line-strong/40`), no different indent/padding pairing. This is the one sanctioned treatment for "a settings block that visually belongs to the control above it," established by the Rules tab's Hard-WIP-mode block (`BoardSettingsModal.tsx`) and reused as-is by the Display tab's personal density override block. `RoleTooltip`'s `pl-3 border-l-2 border-line` is a pre-existing, unrelated exception (tooltip content formatting, not a gated settings block) — do not treat it as a third variant to reconcile against.
 
 ## Native checkbox and radio accent
 
