@@ -694,87 +694,119 @@ class CardRelationSerializer(serializers.Serializer):
 
 
 class CardRelationCreateSerializer(serializers.Serializer):
-    """Validate a new relation from the card in context to another card (#449).
+    """Validate a new relation between the card in context and another card (#449).
+
+    The request names a **direction**, not a storage layout: ``blocks``,
+    ``blocked_by`` or ``relates_to``, always read from the point of view of the
+    card in the URL. The serializer maps that onto the single canonical row the
+    model stores, deciding which card becomes ``from_card``. Without
+    ``blocked_by`` the panel could only ever say "this card blocks X" — "X
+    blocks this card" would need the client to post to X's endpoint instead,
+    which it has no reason to know about.
 
     Every invariant that is not a database constraint lives here rather than in
-    the view or the model, per the project's "validate at the boundary" rule —
-    so each one fails as a 400 with a readable message instead of surfacing as
-    an IntegrityError 500.
+    the view or the model, per the project's "validate at the boundary" rule, so
+    each fails as a readable 400 instead of an IntegrityError 500.
 
-    ``to_card`` is resolved against a queryset scoped to the *current board*,
-    and that queryset **fails closed**: built without ``board`` in context it
-    matches nothing and rejects every id, rather than falling back to
-    ``Card.objects.all()``. This is the IDOR gate. Checking only the card in
-    the URL would let a member of board A attach a relation to an arbitrary
-    card on board B and learn its id, title and column from the response —
-    which is also why cross-board ids are rejected outright rather than
-    silently ignored. Same fail-closed posture as ``assignee_id`` and
-    ``column`` on CardSerializer (#1050, #1106).
+    ``to_card`` is resolved by hand against a board-scoped queryset rather than
+    declared as a ``PrimaryKeyRelatedField`` — the field's own "invalid pk"
+    error cannot carry a top-level ``code``, and these four failures are
+    distinct, machine-checkable outcomes a client needs to branch on rather
+    than string-match (the ``code``/``detail`` shape follows #1115). The lookup
+    **fails closed**: without ``board`` in context nothing matches and every id
+    is rejected, rather than falling back to ``Card.objects.all()``. That is the
+    IDOR gate — checking only the card in the URL would let a member of board A
+    attach a relation to an arbitrary card on board B and learn its id, title
+    and column from the response.
     """
 
-    to_card = serializers.PrimaryKeyRelatedField(queryset=Card.objects.none())
-    relation_type = serializers.ChoiceField(choices=CardRelation.Type.choices)
+    to_card = serializers.IntegerField()
+    direction = serializers.ChoiceField(
+        choices=["blocks", "blocked_by", "relates_to"]
+    )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        board = self.context.get("board")
-        if board:
-            # Archived cards are excluded as relation *targets*: a brand-new
-            # relation to a card that is not on the board is dead on arrival.
-            # Existing relations to a card archived later are kept and flagged
-            # instead — see LinkedCardSerializer.archived.
-            self.fields["to_card"].queryset = Card.objects.filter(
-                board=board, archived_at__isnull=True
-            )
+    @staticmethod
+    def _fail(code, detail):
+        # Top-level `code` + `detail`, the shape BoardSerializer.validate()
+        # established for machine-checkable 400s (#1115). DRF coerces both into
+        # single-item lists, so a client reads `"self_relation" in body["code"]`.
+        raise serializers.ValidationError({"code": code, "detail": detail})
 
     def validate(self, attrs):
+        board = self.context.get("board")
         from_card = self.context.get("from_card")
-        if from_card is None:
+        if board is None or from_card is None:
             raise serializers.ValidationError(
-                "Relations cannot be resolved without the originating card."
+                "Relations cannot be resolved without board and card context."
             )
-        to_card = attrs["to_card"]
-        relation_type = attrs["relation_type"]
 
-        if to_card.pk == from_card.pk:
+        target_id = attrs["to_card"]
+        direction = attrs["direction"]
+
+        if target_id == from_card.pk:
             # Also enforced by the cardrel_no_self_relation check constraint;
             # caught here so the client gets a 400 it can render rather than a
             # 500 from the database.
-            raise serializers.ValidationError(
-                "A card cannot be related to itself."
+            self._fail("self_relation", "A card cannot be related to itself.")
+
+        target = Card.objects.filter(board=board, pk=target_id).first()
+        if target is None:
+            # A card on another board and a card that does not exist at all are
+            # deliberately the same answer. Distinguishing them would confirm
+            # the existence of a card the caller cannot see — the same
+            # IDOR-safe posture ObjectNotFound documents in services/errors.py.
+            self._fail(
+                "cross_board",
+                "That card is not on this board. Relations can only link "
+                "cards on the same board.",
+            )
+        if target.archived_at is not None:
+            # Existing relations survive their target being archived (they are
+            # listed and flagged so they can be removed); a *new* link to a
+            # card that is not on the board would be dead on arrival.
+            self._fail(
+                "archived_card",
+                "That card is archived and cannot be linked.",
             )
 
-        # Symmetric types are stored in a canonical order (lower id first) so
-        # unique_together dedupes them. Without this, two people adding
-        # "relates to" from opposite ends create two rows that both satisfy the
-        # constraint, and each card lists the other twice.
-        if relation_type in CardRelation.SYMMETRIC_TYPES and from_card.pk > to_card.pk:
-            from_card, to_card = to_card, from_card
+        # Map the requested direction onto the one row the model stores.
+        if direction == "blocked_by":
+            relation_type, low, high = CardRelation.Type.BLOCKS, target, from_card
+        elif direction == "blocks":
+            relation_type, low, high = CardRelation.Type.BLOCKS, from_card, target
+        else:
+            relation_type, low, high = CardRelation.Type.RELATES_TO, from_card, target
+            # Symmetric types are stored in a canonical order (lower card id
+            # first) so unique_together dedupes them. Without this, two people
+            # adding "relates to" from opposite ends create two rows that both
+            # satisfy the constraint, and each card lists the other twice.
+            if low.pk > high.pk:
+                low, high = high, low
 
         if CardRelation.objects.filter(
-            from_card=from_card, to_card=to_card, relation_type=relation_type
+            from_card=low, to_card=high, relation_type=relation_type
         ).exists():
-            raise serializers.ValidationError(
-                "That relation already exists."
-            )
+            self._fail("relation_exists", "That relation already exists.")
 
         # Reject a direct two-cycle for the asymmetric types: "A blocks B" while
         # "B blocks A" is a logical contradiction and the UI has no coherent way
-        # to render it. Longer cycles (A→B→C→A) are deliberately not detected —
-        # see the CardRelation docstring for why.
+        # to render it. Longer cycles (A -> B -> C -> A) are deliberately not
+        # detected — see the CardRelation docstring for why.
+        #
+        # The message does not echo the card title back: it is user-controlled
+        # text, and the client already knows which card the request named.
         if relation_type not in CardRelation.SYMMETRIC_TYPES and CardRelation.objects.filter(
-            from_card=to_card, to_card=from_card, relation_type=relation_type
+            from_card=high, to_card=low, relation_type=relation_type
         ).exists():
-            # The message deliberately does not echo the card title back: it is
-            # user-controlled text, and the client already knows which card the
-            # request named.
-            raise serializers.ValidationError(
-                "That card already blocks this one — two cards cannot block "
-                "each other. Remove the existing relation first."
+            self._fail(
+                "relation_cycle",
+                "Those two cards would block each other. Remove the existing "
+                "relation first.",
             )
 
-        attrs["from_card"] = from_card
-        attrs["to_card"] = to_card
+        attrs["from_card"] = low
+        attrs["to_card"] = high
+        attrs["relation_type"] = relation_type
         return attrs
 
 

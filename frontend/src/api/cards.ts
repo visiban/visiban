@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationType, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -112,16 +112,20 @@ export const deleteChecklistItem = (boardId: number, cardId: number, itemId: num
 export const getCardRelations = (boardId: number, cardId: number) =>
   client.get<CardRelation[]>(`/api/v1/boards/${boardId}/cards/${cardId}/relations/`).then((r) => r.data);
 
+// `direction` is stated from `cardId`'s point of view — `blocked_by` records
+// "the other card blocks this one". The server decides which end is stored as
+// `from_card` and normalizes `relates_to` by card id, so the caller never has
+// to know the storage layout.
 export const addCardRelation = (
   boardId: number,
   cardId: number,
   toCard: number,
-  relationType: CardRelationType,
+  direction: CardRelationDirection,
 ) =>
   client
     .post<CardRelation>(`/api/v1/boards/${boardId}/cards/${cardId}/relations/`, {
       to_card: toCard,
-      relation_type: relationType,
+      direction,
     })
     .then((r) => r.data);
 

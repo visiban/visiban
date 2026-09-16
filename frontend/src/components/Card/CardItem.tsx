@@ -75,6 +75,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.checklist_total !== next.card.checklist_total ||
     prev.card.checklist_done !== next.card.checklist_done ||
     prev.card.is_stale !== next.card.is_stale ||
+    prev.card.blocker_count !== next.card.blocker_count ||
     prev.card.archived_at !== next.card.archived_at ||
     prev.card.assignee?.id !== next.card.assignee?.id ||
     prev.card.labels.length !== next.card.labels.length ||
@@ -294,7 +295,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     !!movedLabel ||
     !!urgency ||
     (showPriorityBadge && card.priority !== "low") ||
-    hasVisibleCustomFieldChips;
+    hasVisibleCustomFieldChips ||
+    card.blocker_count > 0;
 
   return (
     <>
@@ -367,6 +369,45 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
 
         {hasMetadata && (
           <div className="flex items-center gap-1 mt-1.5 overflow-hidden group-hover:overflow-visible group-hover:flex-wrap">
+            {/* Blocked indicator (#449) — FIRST in the row, and deliberately
+                outside the `!compact` branch and every density gate.
+
+                Position: the row clips right-to-left (`overflow-hidden` with no
+                wrap at rest), so anything after a variable-width neighbour can
+                be cut off on a narrow column. Leading position also puts every
+                blocked card's marker in the same x-gutter, which is what makes
+                a top-to-bottom column scan work.
+
+                No density gate: the checklist badge below has none either, and
+                blocked-ness is more actionable than checklist progress.
+                `comfortable` is the default for boards created since 1.1, so
+                gating it out there would mean the board-scan signal — the whole
+                point of the feature — is missing on most boards.
+
+                Inline SVG rather than an emoji: ⛔/🚫 render in their own fixed
+                color and would ignore `text-danger`, so the badge would stop
+                tracking the theme. The neutral 📎/✓ badges get away with it; a
+                danger signal cannot.
+
+                Icon always, numeral only above 1 — at 1 the numeral repeats
+                what the icon already says, and the exact count is always in the
+                accessible name. `role="img"` + `aria-label` is required: at a
+                count of 1 there is no text node, so without it the element has
+                no accessible name at all. */}
+            {card.blocker_count > 0 && (
+              <span
+                role="img"
+                aria-label={card.blocker_count === 1 ? "Blocked by 1 card" : `Blocked by ${card.blocker_count} cards`}
+                title={card.blocker_count === 1 ? "Blocked by 1 card" : `Blocked by ${card.blocker_count} cards`}
+                className="inline-flex items-center gap-0.5 text-xs font-semibold text-danger shrink-0"
+              >
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                </svg>
+                {card.blocker_count > 1 && card.blocker_count}
+              </span>
+            )}
+
             {/* The non-compact (per-user layout) branch shows the full density-driven
                 metadata row. compact (single-line layout) keeps only the universal
                 bits — urgency badge, recently-moved dot, priority badge, assignee —

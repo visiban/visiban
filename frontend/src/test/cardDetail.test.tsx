@@ -17,6 +17,10 @@ vi.mock('../api/cards', () => ({
   addChecklistItem: vi.fn(),
   updateChecklistItem: vi.fn(),
   deleteChecklistItem: vi.fn(),
+  getCardRelations: vi.fn().mockResolvedValue([]),
+  addCardRelation: vi.fn(),
+  deleteCardRelation: vi.fn(),
+  searchCards: vi.fn().mockResolvedValue([]),
 }))
 
 vi.mock('../api/boards', () => ({
