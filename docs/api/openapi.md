@@ -85,13 +85,32 @@ operation already declares — the card-mutation 409s (`WipLimitExceeded`, `Vers
 etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
 `@extend_schema` blocks from #1108 still win.
 
-**Non-blocking for now.** Per #1080's own phased plan, the job runs with `allow_failure: true`
-for one release to establish a baseline without turning every unrelated MR red on day one.
-Its first-run findings were triaged and filed as [#1119](https://gitlab.com/visiban/visiban/-/issues/1119)
-(a `Group`/`GroupDetail` serializer type-accuracy bug, same class as #1108's `CardSerializer`
-fixes) and [#1120](https://gitlab.com/visiban/visiban/-/issues/1120) (triage the remaining
-noise and flip the job to blocking — tracked for 1.2). See the `backend-schema-fuzz` job
-comment in `.gitlab-ci.yml` for the full list.
+**Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's
+`SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for
+`board_pk`/`id`/etc. on nested board-resource routes — otherwise a randomly-generated id
+almost never matches a seeded row, and schemathesis never exercises the operation's real
+200-path logic. Resource families `seed_demo_data` doesn't create yet (groups, custom fields,
+saved filters, attachments, group invite-links/labels) aren't seeded and still 404 under
+fuzzing — tracked as [#1125](https://gitlab.com/visiban/visiban/-/issues/1125).
+
+**Enforced (`allow_failure: false`) as of [#1120](https://gitlab.com/visiban/visiban/-/issues/1120).**
+Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.
+That baseline's findings were triaged in #1120: version-prefix fuzzing noise and an unhandled
+500 on non-numeric board-scoped path parameters were fixed outright (see the `backend-schema-fuzz`
+job comment in `.gitlab-ci.yml` for the mechanism); admin-only 403s were accepted as documented
+residual scope (only 9 operations sit behind `IsSiteAdmin`, all separately covered by
+`accounts/tests/test_admin_api.py` and friends). Seeding real ids for reachability (above) then
+surfaced the schema-accuracy bug #1108 fixed on `CardSerializer` and #1119 is tracking for
+`Group`/`GroupDetail` on several more serializers — filed as
+[#1123](https://gitlab.com/visiban/visiban/-/issues/1123) — plus a structural gap where most
+write endpoints' `400` validation-error response isn't documented at all — filed as
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124). Neither blocks this flip: both are
+recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
+([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
+operation + check + failure class, not by the random value generated, so it doesn't need
+touching on every run) alongside #1119's still-open findings. Closing #1119/#1123/#1124 should
+prune the corresponding entries (`st run ... --baseline-update --baseline-prune`) so the job
+resumes catching regressions in that area.
 
 ## Versioning
 

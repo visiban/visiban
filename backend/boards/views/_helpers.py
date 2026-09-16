@@ -8,11 +8,54 @@ re-exports them from the appropriate submodule.
 
 import logging
 
-from django.shortcuts import get_object_or_404
+# rest_framework.generics.get_object_or_404, NOT django.shortcuts' — DRF's
+# wrapper additionally catches TypeError/ValueError/ValidationError and
+# re-raises them as Http404 (see rest_framework/generics.py). Every pk here
+# comes straight from a URL path segment, and board_id in particular is an
+# IntegerField pk: a non-numeric board_pk (e.g. schemathesis fuzzing the
+# path) hits django.shortcuts.get_object_or_404 with a raw, uncaught
+# ValueError -> unhandled 500 instead of the documented 404 (#1120 baseline
+# finding — every nested board-resource viewset routes board_pk resolution
+# through this one function, so fixing it here was the single highest-yield
+# fix for that finding).
+from rest_framework.generics import get_object_or_404
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db.models import Prefetch, Q
+from django_filters import NumberFilter
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
+
+# 64-bit signed integer bounds — every id-backed model in this codebase is a
+# plain AutoField/BigAutoField pk, and both SQLite's integer parameter
+# binding and Postgres's bigint are 64-bit. No real id is ever outside this
+# range, so bounding a NumberFilter to it is a pure robustness fix.
+_INT64_MIN = -(2**63)
+_INT64_MAX = 2**63 - 1
+
+
+class BoundedIdFilter(NumberFilter):
+    """A NumberFilter for an id/pk field, bounded to the 64-bit integer range.
+
+    ``django_filters.NumberFilter``'s own default max validator
+    (``MaxValueValidator(1e50)``) is far looser than what the database can
+    actually store: a filter value outside the 64-bit range (e.g.
+    ``?column=1.03e34``) reaches the DB driver's parameter binding and raises
+    ``OverflowError``, uncaught, as an unhandled 500 instead of the
+    documented 400 — a `backend-schema-fuzz` CI job baseline finding (#1120).
+    Use this in place of a bare ``NumberFilter`` for any filter whose
+    ``field_name`` targets an id/pk column.
+    """
+
+    def get_max_validator(self):
+        return MaxValueValidator(_INT64_MAX)
+
+    @property
+    def field(self):
+        built = super().field
+        if not any(isinstance(v, MinValueValidator) for v in built.validators):
+            built.validators.append(MinValueValidator(_INT64_MIN))
+        return built
 from ..permissions import (
     GROUP_ANCESTOR_SELECT_RELATED,
     can_modify_others_content as _can_modify_others_content,  # noqa: F401

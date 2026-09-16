@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 import django_filters
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Count, Prefetch, Q, Window
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -43,7 +43,9 @@ from ..serializers import (
     CardTimelineEntrySerializer,
     _card_queryset,
 )
-from ._helpers import get_board_for_user, _can_modify_others_content, _refetched_card_data
+from ._helpers import (
+    BoundedIdFilter, get_board_for_user, _can_modify_others_content, _refetched_card_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -177,10 +179,13 @@ class CardFilter(django_filters.FilterSet):
     """django-filters FilterSet for cards; supports priority, assignee, column, swimlane, and due-date filters."""
 
     priority = django_filters.CharFilter(field_name="priority", lookup_expr="exact")
-    assignee = django_filters.NumberFilter(field_name="assignee__id")
+    # BoundedIdFilter, not a bare NumberFilter (#1120) — see its docstring:
+    # an out-of-64-bit-range id value crashes with an uncaught OverflowError
+    # otherwise.
+    assignee = BoundedIdFilter(field_name="assignee__id")
     unassigned = django_filters.BooleanFilter(field_name="assignee", lookup_expr="isnull")
-    column = django_filters.NumberFilter(field_name="column__id")
-    swimlane = django_filters.NumberFilter(field_name="swimlane__id")
+    column = BoundedIdFilter(field_name="column__id")
+    swimlane = BoundedIdFilter(field_name="swimlane__id")
     due_before = django_filters.DateFilter(field_name="due_date", lookup_expr="lte")
     due_after = django_filters.DateFilter(field_name="due_date", lookup_expr="gte")
     overdue = django_filters.BooleanFilter(method="filter_overdue")
@@ -637,6 +642,18 @@ class CardViewSet(viewsets.ModelViewSet):
         read under ``select_for_update()`` as its first statement. Nothing in
         this method may issue a locking or mutating query before the call.
         """
+        # A JSON body that parses to a non-mapping (a bare number/string/array/
+        # null/bool — valid JSON, just not a JSON *object*) makes every
+        # `request.data.get(...)` below raise AttributeError, uncaught, as an
+        # unhandled 500 instead of the documented 400 (#1120 baseline finding —
+        # schemathesis's negative-data fuzzing sends exactly this). DRF has no
+        # built-in "request body must be an object" check for a bare
+        # `request.data.get()` call the way a serializer's `is_valid()` would.
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         board, role = self._board_and_role()
 
         def render(card, movement):

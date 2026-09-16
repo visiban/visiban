@@ -4,7 +4,7 @@ import datetime
 
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -682,6 +682,17 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="transfer-ownership")
     def transfer_ownership(self, request, pk=None):
         from rest_framework.exceptions import PermissionDenied
+        # A JSON body that parses to a non-mapping (a bare number/string/array/
+        # null/bool — valid JSON, just not a JSON *object*) makes
+        # `request.data.get(...)` below raise AttributeError, uncaught, as an
+        # unhandled 500 instead of the documented 400 (#1120 baseline finding
+        # — same class as CardViewSet.move's fix, found separately by
+        # schemathesis's negative-data fuzzing on this endpoint).
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         group = self.get_object()
 
         # Only current owner can transfer

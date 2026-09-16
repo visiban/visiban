@@ -297,6 +297,39 @@ class CardQueryFilterTests(TestCase):
         self.assertIn("Archived", titles)
 
 
+class CardQueryFilterOverflowTests(TestCase):
+    """An id filter value outside the 64-bit integer range must 400, never 500 (#1120).
+
+    ``board``/``swimlane``/``column``/``assignee``/``label`` are
+    ``BoundedIdFilter``s (``boards/views/_helpers.py``) rather than bare
+    ``django_filters.NumberFilter``s — the default only bounds to 1e50, which
+    is far looser than what the DB driver can actually bind (SQLite/Postgres
+    are both 64-bit), so an out-of-range value used to reach the DB layer and
+    raise an uncaught ``OverflowError``. Found by `backend-schema-fuzz`'s
+    negative-data fuzzing.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u", password="x")
+        self.board, self.col, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_huge_positive_column_value_400s(self):
+        r = self.client.get(URL, {"column": "1.0268205282963762e+34"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_huge_negative_board_value_400s(self):
+        r = self.client.get(URL, {"board": "-1.7976931348623157e+308"})
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_in_range_value_still_works(self):
+        _make_card(self.board, self.col, self.swim, self.user, title="Card")
+        r = self.client.get(URL, {"column": self.col.id})
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertEqual([c["title"] for c in r.data["results"]], ["Card"])
+
+
 class CardQueryOrderingTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="x")

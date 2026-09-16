@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from dj_rest_auth.views import UserDetailsView
 from dj_rest_auth.registration.views import VerifyEmailView
+from drf_spectacular.utils import extend_schema
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from accounts.permissions import TokenHasScope
 from accounts.views import (
@@ -34,6 +35,20 @@ class UnsupportedVersionView(APIView):
     """
     permission_classes = [IsAuthenticated, TokenHasScope]
 
+    # Excluded from the OpenAPI schema (#1120): the catch-all re_path below
+    # uses an unnamed regex group (`[\w]+` with a negative lookahead), which
+    # drf-spectacular cannot turn into a clean path parameter — it synthesizes
+    # a malformed template (`/api/v{var}[\w]/`, literal regex syntax leaking
+    # into the "path") rather than raising. schemathesis then dutifully fuzzed
+    # that literal template, producing nonsense URLs like `/api/v0[\w]/` that
+    # never matched the real regex and landed on Django's own HTML 404 page
+    # instead of a JSON response — undocumented-content-type / undocumented-
+    # status-code noise with no bearing on the real API contract. This view
+    # is an internal safety net, not a documented operation API consumers are
+    # meant to call, so excluding it from the schema is the correct fix (not
+    # a CI-side --exclude-path-regex workaround): it stops describing a
+    # "path" that was never accurate to begin with.
+    @extend_schema(exclude=True)
     def _unsupported(self, request, *args, **kwargs):
         return Response(
             {"detail": "Unsupported API version. Use /api/v1/."},
@@ -47,6 +62,55 @@ class UnsupportedVersionView(APIView):
     delete = _unsupported
     head = _unsupported
     options = _unsupported
+
+
+class ApiNotFoundView(APIView):
+    """JSON 404 for any /api/v1/... path that doesn't match a real route (#1120).
+
+    Registered dead last — after boards/accounts/groups urls, the conditional
+    git_lens include, and the enterprise extension point below — so it only
+    ever catches a genuinely unmatched path, never shadows a real one.
+
+    Why this exists: a separate fix (board-pk-nonnumeric-404, merged just
+    ahead of this branch) constrained the board-scoped viewsets'
+    ``lookup_value_regex`` to digits so a non-numeric id no longer reaches
+    ``get_object_or_404`` and crashes with a 500 — it now simply fails to
+    match any URL pattern. But when NOTHING in ``urlpatterns`` matches,
+    Django's own resolver renders the response itself, before any view
+    (DRF's or otherwise) ever runs — the *technical* 404 debug page when
+    ``DEBUG=True`` (true of the backend-schema-fuzz CI job, same as
+    backend-schema-validate's), a bare ``django 404.html`` otherwise — and
+    critically, ``handler404`` is a Django setting for the DEBUG=False case
+    only, so pointing it at a JSON view would not fix this in this job's own
+    config. The only way to guarantee a JSON response for every /api/v1/ 404
+    regardless of DEBUG is to make sure *something* always matches — same
+    pattern as ``UnsupportedVersionView`` above, generalized to every
+    versioned path instead of just the version segment itself.
+
+    No auth requirement — unlike ``UnsupportedVersionView``, which gates on
+    auth because it discloses something (that a caller found an
+    unsupported-but-live version prefix). This view fires for a path that
+    matched *nothing*, real or otherwise, and `/api/v1/` mixes authenticated
+    and deliberately public routes (e.g. the anonymous email-confirmation
+    redirect) — an anonymous caller who mistypes or garbles one of those
+    public paths must still get a plain 404, not a 401 that both breaks the
+    public flow and discloses "this unmatched shape needs auth" as if it
+    were meaningful. A 404 for a route that doesn't exist needs no
+    authorization check: there is nothing to be authorized for.
+    """
+    permission_classes = []
+
+    @extend_schema(exclude=True)
+    def _not_found(self, request, *args, **kwargs):
+        return Response({"detail": "Not found."}, status=404)
+
+    get = _not_found
+    post = _not_found
+    put = _not_found
+    patch = _not_found
+    delete = _not_found
+    head = _not_found
+    options = _not_found
 
 
 urlpatterns = [
@@ -164,3 +228,26 @@ try:
     urlpatterns += enterprise_urlpatterns
 except ImportError:
     pass
+
+# Must be genuinely last — after every include() above and the enterprise
+# extension point — so it only ever catches a path nothing else claimed.
+# See ApiNotFoundView's docstring for why this exists.
+# `[\s\S]*`, not `.*` — plain `.` doesn't match `\n`, so a path containing a
+# literal newline byte (e.g. a fuzzer-generated group/user id with an
+# embedded `%0A`) failed to match this pattern too and fell all the way
+# through to Django's raw, unmatched-URL response: the exact HTML-not-JSON
+# bug this view exists to close, just for a narrower trigger (#1120, found
+# by an independent verification run after the initial fix). The fix is not
+# `re.DOTALL`: an inline `(?s)` flag in the pattern *string* makes Django's
+# own URL reverse-resolution machinery (`django.utils.regex_helper.
+# normalize()`, which runs on every URLconf load, not just an actual
+# `reverse()` call) raise `ValueError: Non-reversible reg-exp portion: '(?s'`
+# — and `re_path()` does not accept a pre-compiled pattern with the flag set
+# programmatically either: `RegexPattern` stores whatever it's given as
+# `self._regex` unchanged and Django's own system checks
+# (`_check_pattern_startswith_slash`) call `.startswith(...)` on it,
+# assuming a plain string. `[\s\S]` (any whitespace-or-not character) is a
+# character class, not `.`, so it always matches `\n` with no flag needed —
+# both failure modes above were discovered the hard way trying the other two
+# approaches first.
+urlpatterns += [re_path(r"^api/v1/[\s\S]*$", ApiNotFoundView.as_view())]

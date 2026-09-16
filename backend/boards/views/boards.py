@@ -4,7 +4,7 @@ import logging
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, OuterRef, Q
-from django.shortcuts import get_object_or_404
+from rest_framework.generics import get_object_or_404
 from django.urls import reverse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action

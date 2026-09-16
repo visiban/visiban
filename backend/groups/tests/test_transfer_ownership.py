@@ -147,3 +147,38 @@ class TransferOwnershipTests(TestCase):
             "confirmation": "wrong",
         })
         mock_broadcast.assert_not_called()
+
+
+class TransferOwnershipNonObjectBodyTests(TestCase):
+    """A JSON body that isn't an object must 400, never 500 (#1120).
+
+    `transfer_ownership` reads `request.data.get("new_owner_id")` etc.
+    without first checking the parsed body is a mapping. A body that's valid
+    JSON but not a JSON *object* — a bare number, string, array, `null`, or
+    bool — made every `.get()` call raise `AttributeError`, uncaught, as an
+    unhandled 500. Found by the `backend-schema-fuzz` CI job's negative-data
+    fuzzing (same class as CardViewSet.move's fix).
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.group = _make_group(self.owner, "Group")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+        self.url = f"/api/v1/groups/{self.group.id}/transfer-ownership/"
+
+    def _post_raw_json(self, body):
+        import json
+        return self.client.post(self.url, data=json.dumps(body), content_type="application/json")
+
+    def test_bare_number_body_400s(self):
+        resp = self._post_raw_json(-9464115)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_bare_array_body_400s(self):
+        resp = self._post_raw_json([1, 2, 3])
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_null_body_400s(self):
+        resp = self._post_raw_json(None)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)

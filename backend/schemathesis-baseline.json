@@ -1,0 +1,1311 @@
+{
+  "format_version": 1,
+  "schemathesis_version": "4.27.1",
+  "entries": [
+    {
+      "id": "8fe22c",
+      "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
+      "check": "content_type_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "285c31",
+      "operation": "DELETE /api/v1/boards/{id}/saved-filters/{filter_pk}/",
+      "check": "response_schema_conformance",
+      "failure": "MalformedJson",
+      "signature": "JSON deserialization error",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0420cf",
+      "operation": "DELETE /api/v1/boards/{id}/star/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "200",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "43632e",
+      "operation": "GET /accounts/confirm-email/{key}/",
+      "check": "content_type_conformance",
+      "failure": "UndefinedContentType",
+      "signature": "text/html; charset=utf-8",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0c80f2",
+      "operation": "GET /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a85a47",
+      "operation": "GET /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/has_usable_password/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d533f6",
+      "operation": "GET /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "576792",
+      "operation": "GET /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/card_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0f9c62",
+      "operation": "GET /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/group_detail/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "1efbd9",
+      "operation": "GET /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/group_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "cb471d",
+      "operation": "GET /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "357ec8",
+      "operation": "GET /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "bdda6a",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/archived/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "6137bc",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/assignee/anyOf",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "dc9de3",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema3/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0e667b",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/activities/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "bc559d",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/attachments/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "639865",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/checklist/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a71845",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/comments/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "01d9c8",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/movements/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "34bc47",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/status/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "5da266",
+      "operation": "GET /api/v1/boards/{board_pk}/cards/{id}/timeline/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "5d4429",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/card_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "175fe7",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_detail/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "e1608a",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4cd994",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "6af748",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d74c1e",
+      "operation": "GET /api/v1/boards/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "c32635",
+      "operation": "GET /api/v1/boards/{id}/analytics/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d2f3d8",
+      "operation": "GET /api/v1/boards/{id}/export/",
+      "check": "content_type_conformance",
+      "failure": "UndefinedContentType",
+      "signature": "text/csv",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "27e040",
+      "operation": "GET /api/v1/boards/{id}/full/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_detail/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "e2038c",
+      "operation": "GET /api/v1/boards/{id}/full/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "936e84",
+      "operation": "GET /api/v1/boards/{id}/full/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "fe705c",
+      "operation": "GET /api/v1/boards/{id}/full/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4de69e",
+      "operation": "GET /api/v1/boards/{id}/full/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0a9a4c",
+      "operation": "GET /api/v1/boards/{id}/movements/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "af605c",
+      "operation": "GET /api/v1/boards/{id}/saved-filters/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "3c0458",
+      "operation": "GET /api/v1/boards/{id}/summary/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "9b67c9",
+      "operation": "GET /api/v1/cards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema4/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "60ee3f",
+      "operation": "GET /api/v1/cards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema4/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f59bc0",
+      "operation": "GET /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a3a1d9",
+      "operation": "GET /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "5434b0",
+      "operation": "GET /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b54061",
+      "operation": "GET /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/parent_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "9f5969",
+      "operation": "GET /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "c1a303",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/ancestors/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "be140b",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "1cb8a0",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "3227bd",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "558bba",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/parent_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "2b4adf",
+      "operation": "GET /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "9ffdfc",
+      "operation": "GET /api/v1/groups/{id}/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "6a878e",
+      "operation": "GET /api/v1/groups/{id}/descendant-boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "07e72b",
+      "operation": "GET /api/v1/groups/{id}/invite-links/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "97139a",
+      "operation": "GET /api/v1/groups/{id}/labels/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f22498",
+      "operation": "GET /api/v1/groups/{id}/members/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "82598d",
+      "operation": "GET /api/v1/groups/{id}/subgroups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "09011b",
+      "operation": "GET /media/{path}",
+      "check": "content_type_conformance",
+      "failure": "UndefinedContentType",
+      "signature": "text/html; charset=utf-8",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4e32be",
+      "operation": "PATCH /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "217abc",
+      "operation": "PATCH /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/has_usable_password/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "21673e",
+      "operation": "PATCH /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "33451d",
+      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "2e786b",
+      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f8a70c",
+      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema3/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "cd9316",
+      "operation": "PATCH /api/v1/boards/{board_pk}/columns/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d51e52",
+      "operation": "PATCH /api/v1/boards/{board_pk}/labels/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "e57a1d",
+      "operation": "PATCH /api/v1/boards/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ac103b",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "19016f",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ebd93a",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4d9c57",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "1eb14e",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4e7c08",
+      "operation": "PATCH /api/v1/groups/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "fb9770",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b64f14",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ea9ec1",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "de768f",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/parent_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "03491f",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "22faf7",
+      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "902232",
+      "operation": "POST /api/v1/auth/change-password/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4def95",
+      "operation": "POST /api/v1/auth/choose-username/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "00a0be",
+      "operation": "POST /api/v1/auth/login/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f484a8",
+      "operation": "POST /api/v1/auth/password/change/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "9fd87c",
+      "operation": "POST /api/v1/auth/password/reset/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "required",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "82842c",
+      "operation": "POST /api/v1/auth/password/reset/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "67dbfa",
+      "operation": "POST /api/v1/auth/password/reset/confirm/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "57531f",
+      "operation": "POST /api/v1/auth/registration/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "72c48f",
+      "operation": "POST /api/v1/auth/registration/resend-email/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "200",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f065c1",
+      "operation": "POST /api/v1/auth/registration/resend-email/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "239333",
+      "operation": "POST /api/v1/auth/registration/verify-email/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a9fe64",
+      "operation": "POST /api/v1/auth/ws-ticket/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "201",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "7d34c9",
+      "operation": "POST /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/card_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "927eda",
+      "operation": "POST /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_detail/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b03f96",
+      "operation": "POST /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b322fa",
+      "operation": "POST /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "8a5f68",
+      "operation": "POST /api/v1/boards/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ffe633",
+      "operation": "POST /api/v1/boards/import/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "2fab81",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "84bf52",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/attachments/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d7b774",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/checklist/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "98a156",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/comments/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0831fb",
+      "operation": "POST /api/v1/boards/{board_pk}/columns/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "61871d",
+      "operation": "POST /api/v1/boards/{board_pk}/columns/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a23064",
+      "operation": "POST /api/v1/boards/{board_pk}/custom-fields/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ebb12e",
+      "operation": "POST /api/v1/boards/{board_pk}/custom-fields/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "7a9d35",
+      "operation": "POST /api/v1/boards/{board_pk}/labels/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "8fc3e8",
+      "operation": "POST /api/v1/boards/{board_pk}/swimlanes/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "89c4c9",
+      "operation": "POST /api/v1/boards/{board_pk}/swimlanes/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "54c327",
+      "operation": "POST /api/v1/boards/{id}/members/",
+      "check": "content_type_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b170f2",
+      "operation": "POST /api/v1/boards/{id}/members/",
+      "check": "response_schema_conformance",
+      "failure": "MalformedJson",
+      "signature": "JSON deserialization error",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "1dc638",
+      "operation": "POST /api/v1/boards/{id}/saved-filters/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "12ae3c",
+      "operation": "POST /api/v1/boards/{id}/share/",
+      "check": "content_type_conformance",
+      "failure": "MissingContentType",
+      "signature": "",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "c81604",
+      "operation": "POST /api/v1/boards/{id}/share/",
+      "check": "response_schema_conformance",
+      "failure": "MalformedJson",
+      "signature": "JSON deserialization error",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "84b523",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/card_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "191d5a",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_detail/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0ab0f0",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/group_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0e38db",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "e78d8a",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "f8e1db",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema2/properties/avatar_url/format",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "0897ff",
+      "operation": "POST /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "638279",
+      "operation": "POST /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "61010b",
+      "operation": "POST /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "8395c2",
+      "operation": "POST /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/parent_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "952ecf",
+      "operation": "POST /api/v1/groups/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "7f2373",
+      "operation": "POST /api/v1/groups/{id}/boards/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "201",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "67c227",
+      "operation": "POST /api/v1/groups/{id}/invite-links/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "201",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "da6e23",
+      "operation": "POST /api/v1/groups/{id}/invite-links/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "30504f",
+      "operation": "POST /api/v1/groups/{id}/labels/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "201",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "aaa589",
+      "operation": "POST /api/v1/groups/{id}/labels/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "3e4a67",
+      "operation": "POST /api/v1/groups/{id}/star/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "201",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "37645b",
+      "operation": "POST /api/v1/groups/{id}/transfer-ownership/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "b6ba39",
+      "operation": "PUT /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "7f8b95",
+      "operation": "PUT /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/has_usable_password/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "2123cb",
+      "operation": "PUT /api/v1/auth/user/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "67e4f1",
+      "operation": "PUT /api/v1/auth/user/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "339dfe",
+      "operation": "PUT /api/v1/boards/{board_pk}/cards/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ad6283",
+      "operation": "PUT /api/v1/boards/{board_pk}/columns/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "e2741b",
+      "operation": "PUT /api/v1/boards/{board_pk}/labels/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "414410",
+      "operation": "PUT /api/v1/boards/{board_pk}/swimlanes/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "6ad048",
+      "operation": "PUT /api/v1/boards/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "98c195",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/board_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "a10dd5",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/is_starred/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "c6bebd",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/member_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "d52715",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/parent_name/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    },
+    {
+      "id": "8674f6",
+      "operation": "PUT /api/v1/groups/{id}/",
+      "check": "response_schema_conformance",
+      "failure": "JsonSchemaError",
+      "signature": "x-bundled/schema1/properties/subgroup_count/type",
+      "first_seen": "2026-09-16",
+      "last_seen": "2026-09-16"
+    }
+  ]
+}
