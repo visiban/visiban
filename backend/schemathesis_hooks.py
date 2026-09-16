@@ -74,7 +74,24 @@ def _load_real_ids():
     reseed) degrades gracefully to `None`, which `map_path_parameters` below
     treats as "leave whatever schemathesis generated" rather than crashing the
     whole fuzz run over one missing fixture.
+
+    `_query_real_ids()` is only ever called from here, in whichever thread `st run`
+    happens to import this module in. `--workers` runs the fuzzing phase itself
+    on a `WorkerPool` of threads (see `schemathesis/engine/run/unit/_pool.py`), so
+    the connection this query opens would otherwise sit open, thread-pinned per
+    Django's per-thread connection handling, for the run's full `--max-time` —
+    same hazard as an ORM call from a spawned thread in a test (see this repo's
+    backend-test-conventions doc), just with a `st run` process instead of pytest.
     """
+    from django.db import connections
+
+    try:
+        return _query_real_ids()
+    finally:
+        connections.close_all()
+
+
+def _query_real_ids():
     from boards.models import Board, BoardMembership, Card
 
     ids = {

@@ -671,6 +671,11 @@ backend-schema-fuzz:
     # correctly regardless of script:'s cwd; see schemathesis_hooks.py's own
     # sys.path handling for why that matters here specifically.
     SCHEMATHESIS_HOOKS: "backend/schemathesis_hooks.py"
+    # `st run` is itself a Python process; a bare "Segmentation fault (core
+    # dumped)" with no Python-level traceback (seen once on this branch,
+    # !892) is otherwise undiagnosable from the CI log alone. Cheap and
+    # inert on every normal run — only fires on an actual native-level crash.
+    PYTHONFAULTHANDLER: "1"
   cache:
     - key:
         prefix: "pip"
