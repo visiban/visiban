@@ -3436,7 +3436,9 @@
   <code>backend-schema-fuzz</code> goes further and fuzzes a real, running instance with
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
   its declared schema — see <a href="../../api/openapi/#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz"><code>docs/api/openapi.md</code></a>.
-  Currently non-blocking (<code>allow_failure: true</code>) while its baseline is triaged (#1120)</li>
+  Blocking (<code>allow_failure: false</code>) as of #1120; a handful of already-tracked
+  schema-accuracy gaps (#1119, #1123, #1124) are recorded as scoped, justified entries in
+  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first</li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>

@@ -3224,13 +3224,31 @@ against instead of silently skipping an undocumented one. It never overwrites a 
 operation already declares — the card-mutation 409s (<code>WipLimitExceeded</code>, <code>VersionConflict</code>,
 etc. — see <code>boards/services/errors.py</code>) and the move/comments/checklist/share/members
 <code>@extend_schema</code> blocks from #1108 still win.</p>
-<p><strong>Non-blocking for now.</strong> Per #1080's own phased plan, the job runs with <code>allow_failure: true</code>
-for one release to establish a baseline without turning every unrelated MR red on day one.
-Its first-run findings were triaged and filed as <a href="https://gitlab.com/visiban/visiban/-/issues/1119">#1119</a>
-(a <code>Group</code>/<code>GroupDetail</code> serializer type-accuracy bug, same class as #1108's <code>CardSerializer</code>
-fixes) and <a href="https://gitlab.com/visiban/visiban/-/issues/1120">#1120</a> (triage the remaining
-noise and flip the job to blocking — tracked for 1.2). See the <code>backend-schema-fuzz</code> job
-comment in <code>.gitlab-ci.yml</code> for the full list.</p>
+<p><strong>Path-parameter seeding.</strong> <code>backend/schemathesis_hooks.py</code>, loaded via the job's
+<code>SCHEMATHESIS_HOOKS</code> variable, substitutes real ids pulled from <code>seed_demo_data</code>'s board for
+<code>board_pk</code>/<code>id</code>/etc. on nested board-resource routes — otherwise a randomly-generated id
+almost never matches a seeded row, and schemathesis never exercises the operation's real
+200-path logic. Resource families <code>seed_demo_data</code> doesn't create yet (groups, custom fields,
+saved filters, attachments, group invite-links/labels) aren't seeded and still 404 under
+fuzzing — tracked as <a href="https://gitlab.com/visiban/visiban/-/issues/1125">#1125</a>.</p>
+<p><strong>Enforced (<code>allow_failure: false</code>) as of <a href="https://gitlab.com/visiban/visiban/-/issues/1120">#1120</a>.</strong>
+Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.
+That baseline's findings were triaged in #1120: version-prefix fuzzing noise and an unhandled
+500 on non-numeric board-scoped path parameters were fixed outright (see the <code>backend-schema-fuzz</code>
+job comment in <code>.gitlab-ci.yml</code> for the mechanism); admin-only 403s were accepted as documented
+residual scope (only 9 operations sit behind <code>IsSiteAdmin</code>, all separately covered by
+<code>accounts/tests/test_admin_api.py</code> and friends). Seeding real ids for reachability (above) then
+surfaced the schema-accuracy bug #1108 fixed on <code>CardSerializer</code> and #1119 is tracking for
+<code>Group</code>/<code>GroupDetail</code> on several more serializers — filed as
+<a href="https://gitlab.com/visiban/visiban/-/issues/1123">#1123</a> — plus a structural gap where most
+write endpoints' <code>400</code> validation-error response isn't documented at all — filed as
+<a href="https://gitlab.com/visiban/visiban/-/issues/1124">#1124</a>. Neither blocks this flip: both are
+recorded as scoped, justified entries in <code>backend/schemathesis-baseline.json</code>
+(<a href="https://schemathesis.readthedocs.io/">schemathesis's baseline mechanism</a> — matched by
+operation + check + failure class, not by the random value generated, so it doesn't need
+touching on every run) alongside #1119's still-open findings. Closing #1119/#1123/#1124 should
+prune the corresponding entries (<code>st run ... --baseline-update --baseline-prune</code>) so the job
+resumes catching regressions in that area.</p>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
 <p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the Second Chair front end and the MCP server's REST-client package (#511) are the two known cases — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>
