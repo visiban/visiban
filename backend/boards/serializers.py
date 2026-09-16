@@ -867,6 +867,12 @@ def _active_blockers_prefetch():
       on the board, which the user has no way to act on. Archived blockers are
       still returned by the relations endpoint, flagged, so the relation can be
       found and deleted.
+    * **Only ``id`` and ``to_card_id`` are loaded.** Everything the caller needs
+      is the row count. Note the consequence: reading any other field on a
+      parked row — ``relation_type``, ``created_by``, and ``from_card``
+      especially, whose id is not even loaded — costs one query per row. If you
+      ever need more than ``len()`` here, widen this ``only()`` deliberately
+      rather than letting a deferred field do it silently.
     * **``to_attr``.** Parks the result on a plain list attribute, so
       ``len()`` cannot silently fall through to a fresh COUNT(*) the way
       ``obj.incoming_relations.all()`` would on a queryset that was never

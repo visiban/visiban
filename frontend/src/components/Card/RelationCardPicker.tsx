@@ -107,7 +107,10 @@ export default function RelationCardPicker({
     <div className="bg-sunken border border-primary-soft rounded p-2.5 flex flex-col gap-2">
       {/* Native radios inside labels: one tab stop for the group, and arrow-key
           navigation comes free from the browser. */}
-      <div className="flex gap-1" role="radiogroup" aria-label="Relation type">
+      {/* flex-wrap, not a fixed row: three chips fit at 320px today, but a
+          longer translation or a fourth direction would silently clip rather
+          than wrap without it. */}
+      <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Relation type">
         {DIRECTIONS.map((d) => (
           <label
             key={d}

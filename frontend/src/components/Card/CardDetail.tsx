@@ -768,11 +768,22 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 board={board}
                 card={localCard}
                 canEdit={canEdit}
-                onBlockerCountChange={(delta) => {
-                  const next = Math.max(0, localCard.blocker_count + delta);
-                  setLocalCard((c) => ({ ...c, blocker_count: next }));
-                  onUpdated({ ...localCard, blocker_count: next });
-                }}
+                // Panel-local only — deliberately does NOT push up to
+                // `onUpdated`. The board store is updated by the authoritative
+                // `card.updated` frame the server broadcasts for both ends of
+                // the relation. Pushing `localCard` instead would write a stale
+                // card: it is seeded at mount and never re-synced, so any
+                // field changed by someone else while the panel was open (a
+                // move, a retitle) would be silently reverted by adding a
+                // relation. The count is taken from the updater's argument
+                // rather than the render closure so two rapid clicks cannot
+                // both read the same pre-click value.
+                onBlockerCountChange={(delta) =>
+                  setLocalCard((c) => ({
+                    ...c,
+                    blocker_count: Math.max(0, c.blocker_count + delta),
+                  }))
+                }
               />
 
               {/* Checklist */}

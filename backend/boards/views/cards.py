@@ -6,7 +6,7 @@ import os
 from urllib.parse import urlencode
 
 import django_filters
-from django.db import transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Count, Prefetch, Q, Window
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status, viewsets
@@ -273,6 +273,28 @@ class CardViewSet(viewsets.ModelViewSet):
             labels_qs=bc["labels_qs"],
         )
 
+    def _batch_card_payloads(self, card_ids):
+        """Serialize several cards in ONE prefetch pass (#449).
+
+        `_refetch_card_data` runs the whole `_card_queryset` chain per call, so
+        rendering N cards one at a time costs 7N queries. The chain costs the
+        same for an N-row queryset as for a one-row one, so anything that has to
+        render a set of cards — the peer cards whose blocker_count moves when a
+        card is archived or deleted — goes through here instead.
+        """
+        bc = self._board_context()
+        ctx = {
+            "request": self.request,
+            "board": bc["board"],
+            "_member_ids": bc["member_ids"],
+            "_assignable_member_ids": bc["assignable_ids"],
+            "_board_labels_qs": bc["labels_qs"],
+        }
+        return [
+            CardSerializer(c, context=ctx).data
+            for c in _card_queryset(Card.objects.filter(pk__in=list(card_ids)))
+        ]
+
     def get_queryset(self):
         # Exclude archived cards from all standard list/detail endpoints.
         # Archived cards are accessible via the separate /archived/ action.
@@ -350,6 +372,10 @@ class CardViewSet(viewsets.ModelViewSet):
         board, role = self._board_and_role()
         card_services.delete_card(
             actor=self.request.user, board=board, role=role, card=instance,
+            # Lets the service publish card.updated for any card this one was
+            # blocking, whose blocker_count drops when the relations cascade
+            # away (#449).
+            render_many=self._batch_card_payloads,
         )
 
     @action(detail=True, methods=["get"], url_path="status")
@@ -404,6 +430,9 @@ class CardViewSet(viewsets.ModelViewSet):
         result = card_services.archive_card(
             actor=request.user, board=board, role=role, card_id=pk,
             render=self._plain_card_payload,
+            # Archiving a blocker drops its targets' blocker_count, so those
+            # cards need their own card.updated frames (#449) — batched.
+            render_many=self._batch_card_payloads,
         )
         return Response(result.payload)
 
@@ -419,6 +448,7 @@ class CardViewSet(viewsets.ModelViewSet):
         result = card_services.unarchive_card(
             actor=request.user, board=board, role=role, card_id=pk,
             render=self._plain_card_payload,
+            render_many=self._batch_card_payloads,
         )
         return Response(result.payload)
 
@@ -1255,11 +1285,28 @@ class CardViewSet(viewsets.ModelViewSet):
                 CardRelationSerializer(self._resolve_relations(card), many=True).data
             )
 
-        # Allow-list: collaborator, member, admin, and site_admin may link
-        # cards; only viewers are blocked. An allow-list rather than a
+        # Allow-list: member, admin and site_admin may link cards. Viewers and
+        # **collaborators** are both blocked. An allow-list rather than a
         # block-list means any future role must be granted access explicitly
-        # rather than inheriting it silently. Matches the checklist actions.
-        if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+        # rather than inheriting it silently.
+        #
+        # Deliberately one tier stricter than the checklist actions in this
+        # same file, which admit collaborators. A checklist item is an
+        # annotation *on* a card; a relation changes how a *different* card
+        # reads for everyone on the board, because `blocker_count` renders on
+        # every viewer's card face. The role docs describe collaborators as
+        # having read-only access to cards themselves — they annotate, they do
+        # not change card state — and a relation falls on the card-state side
+        # of that line.
+        #
+        # This is also the reversible direction. Loosening a permission later
+        # is backward compatible; tightening one is a breaking change for
+        # anyone who had come to rely on it. Starting at member and relaxing to
+        # collaborator later if that proves wrong costs nothing; the reverse
+        # would need a major version. Keep this in step with `canEdit` in
+        # frontend/src/components/Card/CardDetail.tsx, which gates the UI on
+        # exactly this set.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied(_PERM_DENIED)
 
         # `board` in context is the second half of the IDOR gate: it scopes the
@@ -1270,20 +1317,62 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardRelationCreateSerializer(
             data=request.data, context={"board": board, "from_card": card},
         )
-        serializer.is_valid(raise_exception=True)
-        # from_card/to_card come back resolved and ordered by the serializer:
-        # a `blocked_by` request inverts them, and a `relates_to` request is
-        # normalized by card id. The view stores what it is handed.
-        from_card = serializer.validated_data["from_card"]
-        to_card = serializer.validated_data["to_card"]
 
+        # Validation runs INSIDE the transaction, behind a row lock on both
+        # endpoint cards. The duplicate and mutual-block guards in the
+        # serializer are `.exists()` reads, and under READ COMMITTED two
+        # concurrent opposite-direction requests would each miss the other's
+        # uncommitted insert and both commit — producing exactly the A-blocks-B
+        # -and-B-blocks-A state the model docstring says cannot exist.
+        # `unique_together` does not backstop that: (A, B, blocks) and
+        # (B, A, blocks) are two different tuples.
+        #
+        # Locking is ordered by pk so two requests naming the same pair in
+        # opposite directions queue instead of deadlocking, and it is
+        # board-scoped so it can only ever lock rows the caller already has
+        # access to. On a backend without SELECT FOR UPDATE (SQLite, used by
+        # the test harness) it is skipped — SQLite serializes writers at the
+        # database level, so the race it guards against cannot occur there.
+        # A ValidationError raised in here rolls back an empty transaction and
+        # still reaches DRF as a 400.
         with transaction.atomic():
-            relation = CardRelation.objects.create(
-                from_card=from_card,
-                to_card=to_card,
-                relation_type=serializer.validated_data["relation_type"],
-                created_by=request.user,
-            )
+            if connection.features.has_select_for_update:
+                lock_ids = {card.pk}
+                raw_target = request.data.get("to_card")
+                try:
+                    lock_ids.add(int(raw_target))
+                except (TypeError, ValueError):
+                    # Not a usable id — the serializer will reject it in a
+                    # moment; locking only the card in the URL is enough.
+                    pass
+                list(
+                    Card.objects.select_for_update()
+                    .filter(board=board, pk__in=sorted(lock_ids))
+                    .order_by("pk")
+                )
+
+            serializer.is_valid(raise_exception=True)
+            # from_card/to_card come back resolved and ordered by the
+            # serializer: a `blocked_by` request inverts them, and a
+            # `relates_to` request is normalized by card id. The view stores
+            # what it is handed.
+            from_card = serializer.validated_data["from_card"]
+            to_card = serializer.validated_data["to_card"]
+
+            try:
+                relation = CardRelation.objects.create(
+                    from_card=from_card,
+                    to_card=to_card,
+                    relation_type=serializer.validated_data["relation_type"],
+                    created_by=request.user,
+                )
+            except IntegrityError:
+                # Belt and braces for the same race on a backend where the lock
+                # above was skipped: the unique constraint caught it, so report
+                # it the way the serializer would have rather than as a 500.
+                raise serializers.ValidationError(
+                    {"code": "relation_exists", "detail": "That relation already exists."}
+                ) from None
             self._broadcast_relation_change(board, from_card, to_card, request)
 
         # Serialize from the requesting card's point of view, which may be
@@ -1304,7 +1393,8 @@ class CardViewSet(viewsets.ModelViewSet):
     def relation_detail(self, request, board_pk=None, pk=None, relation_pk=None):
         """Delete one relation, from either end of it."""
         board, role = self._board_and_role()
-        if role not in (BoardMembership.Role.COLLABORATOR, BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
+        # Same allow-list as creating one — see the reasoning there.
+        if role not in (BoardMembership.Role.MEMBER, BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied(_PERM_DENIED)
         card = get_object_or_404(Card, pk=pk, board=board)
         # The Q() is the object-level authorization for the relation itself:
@@ -1312,6 +1402,17 @@ class CardViewSet(viewsets.ModelViewSet):
         # any card the user can reach. A relation is deletable from *either*
         # end because both cards display it, and the permission to unlink is
         # the same permission from both sides.
+        #
+        # There is deliberately **no** per-creator ownership gate here, unlike
+        # `checklist_item` above. That gate exists because collaborators can
+        # add checklist items and should not edit each other's; relations are
+        # member-and-above only, and a member can already retitle, reassign and
+        # move any card on the board. Withholding "unlink these two cards" from
+        # someone who can rewrite both of them would be an arbitrary line. A
+        # relation is also two-sided — `created_by` names who drew the link,
+        # not who owns either endpoint — so "your own relation" is not a
+        # coherent notion the way "your own comment" is. `created_by` is
+        # retained for attribution and audit, not for authorization.
         relation = get_object_or_404(
             CardRelation.objects.select_related("from_card", "to_card"),
             Q(from_card=card) | Q(to_card=card),
@@ -1342,14 +1443,35 @@ class CardViewSet(viewsets.ModelViewSet):
         resumable cursor (#1114), not waste — a client resuming past only one
         of them would hold the other card stale forever.
 
-        The cards are re-fetched through ``_card_queryset`` by
-        ``_refetch_card_data``, so each payload's ``blocker_count`` reflects
-        the row just written rather than the pre-write prefetch cache.
+        Both cards are re-fetched in **one** ``_card_queryset`` pass rather than
+        one per card: the prefetch chain costs the same for a two-row queryset
+        as for a one-row one, so calling ``_refetch_card_data`` twice would
+        duplicate the whole seven-query chain for nothing. The fetch happens
+        after the relation row is written and inside the caller's transaction,
+        so each payload's ``blocker_count`` reflects the write rather than a
+        pre-write cache.
         """
-        for card in (from_card, to_card):
+        bc = self._board_context()
+        by_id = {
+            c.pk: c
+            for c in _card_queryset(Card.objects.filter(pk__in=[from_card.pk, to_card.pk]))
+        }
+        for card_pk in (from_card.pk, to_card.pk):
+            refetched = by_id.get(card_pk)
+            if refetched is None:
+                continue
             _broadcast.record_board_event(
                 board.id,
                 _EVT_CARD_UPDATED,
-                self._refetch_card_data(card),
+                CardSerializer(
+                    refetched,
+                    context={
+                        "request": request,
+                        "board": bc["board"],
+                        "_member_ids": bc["member_ids"],
+                        "_assignable_member_ids": bc["assignable_ids"],
+                        "_board_labels_qs": bc["labels_qs"],
+                    },
+                ).data,
                 actor_id=request.user.id,
             )
