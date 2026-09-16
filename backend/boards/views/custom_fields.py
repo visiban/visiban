@@ -40,6 +40,9 @@ from ._helpers import get_board_for_user
 class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
     """CRUD for a board's custom field definitions; writes require admin role."""
 
+    # See BoardViewSet.lookup_value_regex — same fix, own `pk` segment.
+    lookup_value_regex = r"\d+"
+
     # Explicitly enumerate the global default permission chain (#989/#1050) so an
     # accidental change to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth
     # gate from this viewset without a visible diff here.

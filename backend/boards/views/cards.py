@@ -202,6 +202,9 @@ class CardFilter(django_filters.FilterSet):
 class CardViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for cards on a board; viewers cannot create/edit/delete."""
 
+    # See BoardViewSet.lookup_value_regex — same fix, own `pk` segment.
+    lookup_value_regex = r"\d+"
+
     # Explicitly enumerate the global default permission chain (#989/#1050) so an
     # accidental change to DEFAULT_PERMISSION_CLASSES cannot silently drop the auth
     # gate from this viewset without a visible diff here.
@@ -915,7 +918,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 ])
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["delete"], url_path="comments/(?P<comment_pk>[^/.]+)")
+    @action(detail=True, methods=["delete"], url_path=r"comments/(?P<comment_pk>[0-9]+)")
     def delete_comment(self, request, board_pk=None, pk=None, comment_pk=None):
         """Delete a comment. Non-moderator members and collaborators may only delete their own."""
         board, role = self._board_and_role()
@@ -1025,7 +1028,7 @@ class CardViewSet(viewsets.ModelViewSet):
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["delete"], url_path="attachments/(?P<attachment_pk>[^/.]+)")
+    @action(detail=True, methods=["delete"], url_path=r"attachments/(?P<attachment_pk>[0-9]+)")
     def delete_attachment(self, request, board_pk=None, pk=None, attachment_pk=None):
         """Delete an attachment and its underlying file from storage."""
         board, role = self._board_and_role()
@@ -1117,7 +1120,7 @@ class CardViewSet(viewsets.ModelViewSet):
             _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["patch", "delete"], url_path="checklist/(?P<item_pk>[^/.]+)")
+    @action(detail=True, methods=["patch", "delete"], url_path=r"checklist/(?P<item_pk>[0-9]+)")
     def checklist_item(self, request, board_pk=None, pk=None, item_pk=None):
         """Update (PATCH) or delete a single checklist item."""
         board, role = self._board_and_role()
