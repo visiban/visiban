@@ -611,20 +611,38 @@ blocker does **not** count toward `blocker_count`.
 
 Link this card to another card on the same board. **Minimum role: Collaborator.**
 
-**Request** `{ "to_card": 88, "relation_type": "blocks" }`
+**Request** `{ "to_card": 88, "direction": "blocked_by" }`
 
-Returns `201` with the same object shape as the list endpoint.
+| Field | Type | Description |
+|---|---|---|
+| `to_card` | integer | PK of the card at the other end. Must be on this board and not archived. |
+| `direction` | string | `blocks`, `blocked_by`, or `relates_to` — stated from the point of view of the card in the URL. |
 
-**Rejected with `400`:**
+The request names a **direction**, not a storage layout. `blocked_by` records
+"the other card blocks this one", so both readings are creatable from the same
+card without the client needing to know which end is stored as `from_card`.
+`relates_to` is normalized by card id, so sending it from either end produces
+the same row.
 
-| Condition | Reason |
+Returns `201` with the same object shape as the list endpoint, resolved to the
+card in the URL.
+
+**Rejected with `400`.** The body carries a top-level `code` alongside `detail`,
+so a client branches on the code rather than string-matching the message
+(DRF returns both as single-item lists):
+
+| `code` | Condition |
 |---|---|
-| `to_card` is this card | A card cannot be related to itself (also enforced by a database check constraint) |
-| `to_card` is on another board | Cross-board relations are not supported |
-| `to_card` is archived | A new link to a card that is not on the board would be dead on arrival |
-| The relation already exists | Same `from_card`, `to_card` and `relation_type` |
-| `to_card` already blocks this card | Two cards cannot block each other |
-| `relation_type` is not `blocks` or `relates_to` | Unknown type |
+| `self_relation` | `to_card` is the card in the URL (also enforced by a database check constraint) |
+| `cross_board` | `to_card` is on another board, or does not exist — deliberately the same answer either way, so the endpoint cannot be used to probe for cards on boards the caller cannot see |
+| `archived_card` | `to_card` is archived. Existing relations to a card archived later are kept and flagged, but a new one is refused |
+| `relation_exists` | The same relation already exists, including the same fact stated from the other end |
+| `relation_cycle` | `to_card` already blocks this card — two cards cannot block each other |
+
+An unknown `direction` is rejected as an ordinary field error on `direction`.
+
+Cycles longer than two hops (A → B → C → A) are **not** detected and are
+permitted.
 
 ### `DELETE /api/v1/boards/{board_id}/cards/{id}/relations/{relation_id}/`
 

@@ -18,6 +18,7 @@ import RichTextEditor from "./RichTextEditor";
 import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
+import CardRelationsSection from "./CardRelationsSection";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
 
 interface Props {
@@ -756,6 +757,23 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
               </div>
 
               <div className="border-t border-line" />
+
+              {/* Relations (#449) — the last thing that is *about* the card
+                  rather than *inside* it, so it closes the classification arc
+                  (priority/labels/custom fields/weight) before the contents arc
+                  (checklist/attachments) opens. The section renders its own
+                  trailing divider, and renders nothing at all for a reader with
+                  no relations to read. */}
+              <CardRelationsSection
+                board={board}
+                card={localCard}
+                canEdit={canEdit}
+                onBlockerCountChange={(delta) => {
+                  const next = Math.max(0, localCard.blocker_count + delta);
+                  setLocalCard((c) => ({ ...c, blocker_count: next }));
+                  onUpdated({ ...localCard, blocker_count: next });
+                }}
+              />
 
               {/* Checklist */}
               <div>

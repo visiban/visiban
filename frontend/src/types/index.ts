@@ -228,6 +228,13 @@ export interface RelatedCardRef {
 export type CardRelationType = 'blocks' | 'relates_to';
 
 /**
+ * A relation stated from the point of view of one card. This — not
+ * `CardRelationType` — is what the create endpoint takes, because "X blocks
+ * this card" has to be expressible from this card's panel.
+ */
+export type CardRelationDirection = 'blocks' | 'blocked_by' | 'relates_to';
+
+/**
  * A relation resolved to the point of view of the card it was fetched for
  * (#449). The backend stores one canonical direction per relation and derives
  * the inverse at read time, so the same relation `id` appears as `blocks` from
@@ -236,10 +243,21 @@ export type CardRelationType = 'blocks' | 'relates_to';
 export interface CardRelation {
   id: number;
   relation_type: CardRelationType;
-  direction: 'blocks' | 'blocked_by' | 'relates_to';
+  direction: CardRelationDirection;
   card: RelatedCardRef;
   created_at: string;
 }
+
+/**
+ * Machine-checkable `code` slugs on a 400 from the relations endpoint. The
+ * frontend maps these to copy rather than string-matching `detail`.
+ */
+export type CardRelationErrorCode =
+  | 'self_relation'
+  | 'cross_board'
+  | 'archived_card'
+  | 'relation_exists'
+  | 'relation_cycle';
 
 export interface CardChecklistItem {
   id: number;

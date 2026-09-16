@@ -1260,7 +1260,7 @@ class CardViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_PERM_DENIED)
 
         # `board` in context is the second half of the IDOR gate: it scopes the
-        # `to_card` queryset to this board, so the *target* card is verified to
+        # `to_card` lookup to this board, so the *target* card is verified to
         # belong to a board this user is a member of, not just the card in the
         # URL. Without it a member of board A could link to an arbitrary card on
         # board B and read back its id, title and column.
@@ -1268,6 +1268,9 @@ class CardViewSet(viewsets.ModelViewSet):
             data=request.data, context={"board": board, "from_card": card},
         )
         serializer.is_valid(raise_exception=True)
+        # from_card/to_card come back resolved and ordered by the serializer:
+        # a `blocked_by` request inverts them, and a `relates_to` request is
+        # normalized by card id. The view stores what it is handed.
         from_card = serializer.validated_data["from_card"]
         to_card = serializer.validated_data["to_card"]
 

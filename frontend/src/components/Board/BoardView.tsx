@@ -1620,6 +1620,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         </SectionErrorBoundary>
         {selectedCard && (
           <CardDetail
+            // Remount on card change (#449). CardDetail seeds localCard and its
+            // collapsible-section state from useState(card) initializers with no
+            // prop-sync effect, so without a key, opening a different card from
+            // a relation row would render the previous card's title, weight and
+            // relations while the new card's data loads.
+            key={selectedCard.id}
             card={selectedCard}
             board={board}
             onClose={() => setSelectedCard(null)}
@@ -2250,6 +2256,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       {selectedCard && (
         <SectionErrorBoundary section="Card detail">
           <CardDetail
+            // Remount on card change (#449). CardDetail seeds localCard and its
+            // collapsible-section state from useState(card) initializers with no
+            // prop-sync effect, so without a key, opening a different card from
+            // a relation row would render the previous card's title, weight and
+            // relations while the new card's data loads.
+            key={selectedCard.id}
             card={selectedCard}
             board={board}
             onClose={() => setSelectedCard(null)}

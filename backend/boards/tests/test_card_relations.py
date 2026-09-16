@@ -65,12 +65,21 @@ class _RelationTestBase(TestCase):
         base = f"/api/v1/boards/{self.board.id}/cards/{card.id}/relations/"
         return base if relation_id is None else f"{base}{relation_id}/"
 
-    def _link(self, from_card, to_card, relation_type=T.BLOCKS, client=None):
+    def _link(self, from_card, to_card, direction="blocks", client=None):
+        """POST a relation from ``from_card``'s point of view.
+
+        ``direction`` is what the API takes — "blocks", "blocked_by" or
+        "relates_to" — not the stored ``relation_type``.
+        """
         return (client or self.client).post(
             self._url(from_card),
-            {"to_card": to_card.id, "relation_type": relation_type},
+            {"to_card": to_card.id, "direction": direction},
             format="json",
         )
+
+    def _codes(self, response):
+        """The machine-checkable `code` slugs on a 400 body (#1115 shape)."""
+        return response.data.get("code", [])
 
 
 class CardRelationCrudTests(_RelationTestBase):
@@ -120,7 +129,7 @@ class CardRelationCrudTests(_RelationTestBase):
         self.assertEqual(CardRelation.objects.count(), 0)
 
     def test_relates_to_reads_the_same_from_both_ends(self):
-        self._link(self.card_a, self.card_b, T.RELATES_TO)
+        self._link(self.card_a, self.card_b, "relates_to")
         from_a = self.client.get(self._url(self.card_a)).data
         from_b = self.client.get(self._url(self.card_b)).data
         self.assertEqual(from_a[0]["direction"], "relates_to")
@@ -129,14 +138,52 @@ class CardRelationCrudTests(_RelationTestBase):
         self.assertEqual(from_b[0]["card"]["id"], self.card_a.id)
 
     def test_list_orders_blocked_by_before_blocks_before_relates_to(self):
-        self._link(self.card_a, self.card_b, T.RELATES_TO)  # relates_to
-        self._link(self.card_a, self.card_c, T.BLOCKS)      # a blocks c
-        self._link(self.card_b, self.card_a, T.BLOCKS)      # a blocked by b
+        self._link(self.card_a, self.card_b, "relates_to")  # relates_to
+        self._link(self.card_a, self.card_c, "blocks")      # a blocks c
+        self._link(self.card_b, self.card_a, "blocks")      # a blocked by b
         directions = [r["direction"] for r in self.client.get(self._url(self.card_a)).data]
         self.assertEqual(directions, ["blocked_by", "blocks", "relates_to"])
 
     def test_empty_list_for_card_with_no_relations(self):
         self.assertEqual(self.client.get(self._url(self.card_a)).data, [])
+
+    def test_blocked_by_inverts_the_stored_row(self):
+        """"X blocks this card" must be expressible from this card's panel.
+
+        The request names a direction; the serializer decides which card
+        becomes `from_card`. Without this, the only way to record "A is blocked
+        by B" would be to POST to B's endpoint.
+        """
+        r = self._link(self.card_a, self.card_b, "blocked_by")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(r.data["direction"], "blocked_by")
+        self.assertEqual(r.data["card"]["id"], self.card_b.id)
+
+        relation = CardRelation.objects.get()
+        self.assertEqual(relation.from_card_id, self.card_b.id)
+        self.assertEqual(relation.to_card_id, self.card_a.id)
+        self.assertEqual(relation.relation_type, T.BLOCKS)
+
+    def test_blocked_by_and_blocks_are_the_same_relation_from_two_ends(self):
+        self._link(self.card_a, self.card_b, "blocked_by")
+        from_b = self.client.get(self._url(self.card_b)).data
+        self.assertEqual(from_b[0]["direction"], "blocks")
+        self.assertEqual(from_b[0]["card"]["id"], self.card_a.id)
+
+    def test_blocked_by_raises_this_cards_blocker_count(self):
+        self._link(self.card_a, self.card_b, "blocked_by")
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+        by_id = {c["id"]: c for c in r.data["cards"]}
+        self.assertEqual(by_id[self.card_a.id]["blocker_count"], 1)
+        self.assertEqual(by_id[self.card_b.id]["blocker_count"], 0)
+
+    def test_blocked_by_duplicate_of_an_existing_blocks_is_rejected(self):
+        """The same fact stated from the other end is still the same row."""
+        self._link(self.card_a, self.card_b, "blocks")
+        r = self._link(self.card_b, self.card_a, "blocked_by")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("relation_exists", self._codes(r))
+        self.assertEqual(CardRelation.objects.count(), 1)
 
     def test_relation_records_its_creator(self):
         relation_id = self._link(self.card_a, self.card_b).data["id"]
@@ -149,6 +196,7 @@ class CardRelationValidationTests(_RelationTestBase):
     def test_self_relation_rejected_with_400(self):
         r = self._link(self.card_a, self.card_a)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("self_relation", self._codes(r))
         self.assertEqual(CardRelation.objects.count(), 0)
 
     def test_self_relation_also_rejected_by_the_database(self):
@@ -168,6 +216,7 @@ class CardRelationValidationTests(_RelationTestBase):
         self._link(self.card_a, self.card_b)
         r = self._link(self.card_a, self.card_b)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("relation_exists", self._codes(r))
         self.assertEqual(CardRelation.objects.count(), 1)
 
     def test_unique_constraint_enforced_by_the_database(self):
@@ -181,9 +230,9 @@ class CardRelationValidationTests(_RelationTestBase):
 
     def test_same_pair_may_hold_different_relation_types(self):
         """unique_together includes relation_type, so blocks + relates_to coexist."""
-        self.assertEqual(self._link(self.card_a, self.card_b, T.BLOCKS).status_code, 201)
+        self.assertEqual(self._link(self.card_a, self.card_b, "blocks").status_code, 201)
         self.assertEqual(
-            self._link(self.card_a, self.card_b, T.RELATES_TO).status_code, 201
+            self._link(self.card_a, self.card_b, "relates_to").status_code, 201
         )
         self.assertEqual(CardRelation.objects.count(), 2)
 
@@ -192,6 +241,7 @@ class CardRelationValidationTests(_RelationTestBase):
         self._link(self.card_a, self.card_b)
         r = self._link(self.card_b, self.card_a)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("relation_cycle", self._codes(r))
         self.assertEqual(CardRelation.objects.count(), 1)
 
     def test_longer_cycles_are_deliberately_allowed(self):
@@ -208,14 +258,15 @@ class CardRelationValidationTests(_RelationTestBase):
 
     def test_relates_to_is_normalized_so_duplicates_from_either_end_collide(self):
         """The symmetric-type dedup: (A,B) and (B,A) must not both be stored."""
-        first = self._link(self.card_a, self.card_b, T.RELATES_TO)
+        first = self._link(self.card_a, self.card_b, "relates_to")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
-        second = self._link(self.card_b, self.card_a, T.RELATES_TO)
+        second = self._link(self.card_b, self.card_a, "relates_to")
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("relation_exists", self._codes(second))
         self.assertEqual(CardRelation.objects.count(), 1)
 
     def test_relates_to_stored_with_lower_card_id_first(self):
-        self._link(self.card_b, self.card_a, T.RELATES_TO)
+        self._link(self.card_b, self.card_a, "relates_to")
         relation = CardRelation.objects.get()
         self.assertEqual(relation.from_card_id, min(self.card_a.id, self.card_b.id))
         self.assertEqual(relation.to_card_id, max(self.card_a.id, self.card_b.id))
@@ -223,7 +274,7 @@ class CardRelationValidationTests(_RelationTestBase):
     def test_unknown_relation_type_rejected(self):
         r = self.client.post(
             self._url(self.card_a),
-            {"to_card": self.card_b.id, "relation_type": "duplicates"},
+            {"to_card": self.card_b.id, "direction": "duplicates"},
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -233,6 +284,7 @@ class CardRelationValidationTests(_RelationTestBase):
         self.card_b.save(update_fields=["archived_at"])
         r = self._link(self.card_a, self.card_b)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("archived_card", self._codes(r))
 
 
 class CardRelationRbacTests(_RelationTestBase):
@@ -297,6 +349,26 @@ class CardRelationIdorTests(_RelationTestBase):
     def test_cannot_link_to_a_card_on_another_board(self):
         r = self._link(self.card_a, self.other_card)
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cross_board", self._codes(r))
+        self.assertEqual(CardRelation.objects.count(), 0)
+
+    def test_nonexistent_card_is_indistinguishable_from_a_cross_board_one(self):
+        """Same code and same message either way, so a caller cannot probe for
+        the existence of a card on a board they cannot see."""
+        missing = self.client.post(
+            self._url(self.card_a),
+            {"to_card": 99_999_999, "direction": "blocks"},
+            format="json",
+        )
+        cross = self._link(self.card_a, self.other_card)
+        self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self._codes(missing), self._codes(cross))
+        self.assertEqual(missing.data["detail"], cross.data["detail"])
+
+    def test_cannot_link_from_the_far_board_inward(self):
+        """`blocked_by` must not become a back door around the board scope."""
+        r = self._link(self.card_a, self.other_card, "blocked_by")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(CardRelation.objects.count(), 0)
 
     def test_rejection_does_not_leak_the_other_card_title(self):
@@ -336,7 +408,7 @@ class CardRelationBlockerCountTests(_RelationTestBase):
         self.assertEqual(self._card_face(self.card_a)["blocker_count"], 0)
 
     def test_relates_to_never_counts_as_a_blocker(self):
-        self._link(self.card_a, self.card_b, T.RELATES_TO)
+        self._link(self.card_a, self.card_b, "relates_to")
         self.assertEqual(self._card_face(self.card_b)["blocker_count"], 0)
 
     def test_multiple_blockers_counted(self):
@@ -489,7 +561,7 @@ class CardRelationBroadcastCommitTests(TransactionTestCase):
                 )
                 r = self.client.post(
                     f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/relations/",
-                    {"to_card": self.card_b.id, "relation_type": "blocks"},
+                    {"to_card": self.card_b.id, "direction": "blocks"},
                     format="json",
                 )
                 # Duplicate of the row created above — rejected, nothing published.
@@ -501,7 +573,7 @@ class CardRelationBroadcastCommitTests(TransactionTestCase):
         with patch("boards.broadcast.broadcast_board_event") as mock_broadcast:
             r = self.client.post(
                 f"/api/v1/boards/{self.board.id}/cards/{self.card_a.id}/relations/",
-                {"to_card": self.card_b.id, "relation_type": "blocks"},
+                {"to_card": self.card_b.id, "direction": "blocks"},
                 format="json",
             )
             self.assertEqual(r.status_code, status.HTTP_201_CREATED)
