@@ -120,7 +120,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
     def get_checklist_done(self, obj) -> int:
         return sum(1 for item in obj.checklist_items.all() if item.is_checked)
 
-    def get_blocker_count(self, obj):
+    def get_blocker_count(self, obj) -> int:
         # Present because CardQuerySerializerFieldParityTests requires this
         # field set to stay in step with CardSerializer's readable fields.
         # _card_queryset() prefetches active_blockers, so this costs no query;

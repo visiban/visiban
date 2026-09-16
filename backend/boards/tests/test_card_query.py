@@ -551,3 +551,28 @@ class CardQueryBlockerCountValueTests(TestCase):
         self.blocker.archived_at = timezone.now()
         self.blocker.save(update_fields=["archived_at"])
         self.assertEqual(self._row(self.blocked)["blocker_count"], 0)
+
+
+class CardQuerySchemaTypeTests(TestCase):
+    """Guards SerializerMethodField return-type hints against schema drift.
+
+    drf-spectacular infers a method field's OpenAPI type from its Python
+    return-type hint and silently falls back to "string" when the hint is
+    missing (same class of bug get_last_moved_at's docstring above already
+    documents for this file). A missing hint on an int-returning method
+    mismatches the real response but breaks nothing any test hitting the live
+    endpoint would catch — only the schema-fuzz job's response-vs-schema
+    conformance check did (#1120), against blocker_count specifically.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from drf_spectacular.generators import SchemaGenerator
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+
+    def test_blocker_count_schema_type_is_integer(self):
+        card_query_schema = self.schema["components"]["schemas"]["CardQuery"]
+        self.assertEqual(
+            card_query_schema["properties"]["blocker_count"]["type"], "integer",
+        )
