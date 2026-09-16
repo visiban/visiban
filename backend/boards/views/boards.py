@@ -92,6 +92,14 @@ class BoardViewSet(
 ):
     """CRUD endpoints for boards, scoped to boards the requesting user has access to."""
 
+    # Constrains the router-generated `pk` regex to digits, so a non-numeric
+    # board id 404s at URL resolution instead of reaching the view and raising
+    # an uncaught ValueError from the ORM's int coercion. NestedDefaultRouter
+    # derives every `board_pk` segment under boards_router (columns,
+    # swimlanes, labels, cards, custom-fields) from *this* viewset's
+    # lookup_value_regex, so setting it here also fixes those nested routes.
+    lookup_value_regex = r"\d+"
+
     # Explicitly enumerate the global default permission chain (#989) so that
     # any future @action(permission_classes=[...]) override is visibly diffed
     # against the documented baseline rather than silently dropping the
@@ -834,7 +842,7 @@ class BoardViewSet(
         # 201 for a new membership, 200 for a role update on an existing one.
         return Response(membership_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
-    @action(detail=True, methods=["delete"], url_path="members/(?P<user_id>[^/.]+)")
+    @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[0-9]+)")
     def remove_member(self, request, pk=None, user_id=None):
         """Remove a member from the board (admin only)."""
         board, role = get_board_for_user(pk, request.user)
