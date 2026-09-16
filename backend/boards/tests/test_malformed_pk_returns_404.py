@@ -93,7 +93,7 @@ class MalformedPkReturns404Tests(TestCase):
     # ── boards/views/share.py ───────────────────────────────────────────────
 
     def test_non_numeric_board_id_on_share_404s(self):
-        resp = self.client.post(f"/api/v1/boards/not-a-number/share/")
+        resp = self.client.post("/api/v1/boards/not-a-number/share/")
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
     # ── boards/views/import_export.py: group_id on import ──────────────────

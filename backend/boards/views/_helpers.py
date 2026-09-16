@@ -25,6 +25,15 @@ from django_filters import NumberFilter
 from rest_framework.exceptions import PermissionDenied
 
 from ..models import Board, BoardFavorite, BoardMembership, Card
+from ..permissions import (
+    GROUP_ANCESTOR_SELECT_RELATED,
+    can_modify_others_content as _can_modify_others_content,  # noqa: F401
+    get_board_role,
+)
+from ..serializers import CardSerializer, _card_queryset
+from ..utils import _get_effective_member_ids, _get_assignable_member_ids
+
+logger = logging.getLogger(__name__)
 
 # 64-bit signed integer bounds — every id-backed model in this codebase is a
 # plain AutoField/BigAutoField pk, and both SQLite's integer parameter
@@ -56,15 +65,6 @@ class BoundedIdFilter(NumberFilter):
         if not any(isinstance(v, MinValueValidator) for v in built.validators):
             built.validators.append(MinValueValidator(_INT64_MIN))
         return built
-from ..permissions import (
-    GROUP_ANCESTOR_SELECT_RELATED,
-    can_modify_others_content as _can_modify_others_content,  # noqa: F401
-    get_board_role,
-)
-from ..serializers import CardSerializer, _card_queryset
-from ..utils import _get_effective_member_ids, _get_assignable_member_ids
-
-logger = logging.getLogger(__name__)
 
 
 def get_accessible_boards_queryset(user):
