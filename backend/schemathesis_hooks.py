@@ -82,13 +82,22 @@ def _load_real_ids():
     Django's per-thread connection handling, for the run's full `--max-time` —
     same hazard as an ORM call from a spawned thread in a test (see this repo's
     backend-test-conventions doc), just with a `st run` process instead of pytest.
+
+    Guarded by `connection.in_atomic_block`: `boards/tests/test_schemathesis_hooks.py`
+    calls this function directly from inside a `TestCase`, which wraps the test body
+    in an atomic block sharing the *same* connection this function would otherwise
+    close — an unconditional `close_all()` here previously broke every subsequent
+    query in those tests with `InterfaceError: connection already closed`. `st run`
+    never runs inside an atomic block, so the close still happens for the real case
+    this exists to protect.
     """
-    from django.db import connections
+    from django.db import connection, connections
 
     try:
         return _query_real_ids()
     finally:
-        connections.close_all()
+        if not connection.in_atomic_block:
+            connections.close_all()
 
 
 def _query_real_ids():
