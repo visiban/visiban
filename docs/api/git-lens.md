@@ -210,25 +210,49 @@ Fetch live issue data from the remote provider for a board, pivoted into columns
 | `column_dim` | string | Override the column pivot dimension for this request only. One of `"status"`, `"state"`, `"pipeline"`. Does not modify the saved connection. |
 | `swimlane_dim` | string | Override the swimlane pivot dimension for this request only. One of `"milestone"`, `"assignee"`, `"label"`. Does not modify the saved connection. |
 | `state` | string | Filter by issue state. `"open"` or `"closed"`. Any other value (including omitting the parameter) returns all states. Applied **server-side** before the issue set is returned. |
-| `milestone` | string | Filter to a single milestone by title. Use the synthetic value `"__none__"` to return only issues with no milestone. Max 255 characters. Applied **server-side** for GitLab; **client-side** for GitHub (see [Filtering](#filtering)). Omitting returns all milestones. |
+| `milestone` | string | Filter to a single milestone by title. Use the synthetic value `"__none__"` to return only issues with no milestone. Max 255 characters. Applied **server-side** on both providers (see [Filtering](#filtering)). Omitting returns all milestones. |
+| `labels` | string | Comma-separated label names. Applied **server-side** on both providers and **AND-ed** — an issue must carry *every* listed label to match. At most 5 labels; extras are dropped rather than rejected. Values are trimmed, deduplicated and sorted server-side, so `?labels=b,a` and `?labels=a,b` are the same request. Label names are matched **case-sensitively** (both providers preserve label case). Each value is capped at 255 characters. |
+| `assignee` | string | Filter to issues assigned to a single username. Applied **server-side** on both providers. Deliberately single-valued: neither the GitLab nor the GitHub API can express "assigned to any of N" in one call. Max 255 characters. |
 | `refresh` | string | `"1"` or `"true"` forces a re-fetch from the provider past the ~60s server cache, so the response carries a fresh `fetched_at`. Rate-limited per user, per repository (see [Refresh and rate limits](#refresh-and-rate-limits)); a request inside the cooldown is served the cached copy instead — it does not error. |
+
+All filter parameters are **optional** and default to "no filter". Unrecognized or
+empty values are ignored rather than rejected: a lens URL is a shareable snapshot
+that can outlive the data it points at, so a link carrying a stale value still
+renders a board instead of returning `400`.
 
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
 
 ### Filtering
 
-The `state` and `milestone` parameters narrow which issues are returned. They are applied server-side where possible so that scoping to a milestone can surface issues that fall outside the default 300-issue fetch budget (3 pages × 100 per page).
+The `state`, `milestone`, `labels` and `assignee` parameters narrow which issues are returned. All four are applied **server-side** — pushed into the upstream provider query before any fetching occurs — so that a filter can surface issues that fall outside the default 300-issue fetch budget (3 pages × 100 per page).
 
-**GitLab** — both `state` and `milestone` are pushed to the GitLab API query before any fetching occurs. A `?milestone=Sprint+5` request asks GitLab for _only_ that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).
+**GitLab** — `state`, `milestone`, `labels` (as `labels=`) and `assignee` (as `assignee_username=`) are all pushed to the GitLab API query. A `?milestone=Sprint+5` request asks GitLab for _only_ that milestone's issues, which means a milestone with more than 300 issues can still be fully retrieved within the budget (the fetch budget applies to the filtered set, not the full repository).
 
-**GitHub** — `state` is sent as a query parameter to the GitHub Issues API and is therefore server-side. `milestone` is applied **client-side** over the fetched set: GitHub's API requires a numeric milestone ID rather than a title, and resolving a title to an ID would require an authenticated extra request. As a result, a GitHub milestone with more than 300 issues may be truncated when filtered by title. The field `truncated: true` in the response signals this condition.
+**GitHub** — `state`, `labels` and `assignee` map directly onto the GitHub Issues API parameters of the same names.
+
+For example, `GET /api/v1/git-lens/board/42/?labels=bug,priority-1&assignee=alice` returns only issues that carry both the `bug` and `priority-1` labels **and** are assigned to `alice` — the same AND semantics apply on both providers.
+
+`milestone` is also server-side, but requires one extra step: the GitHub Issues API filters by milestone **number**, not title. The server resolves the title against the repository's milestone roster (`GET /repos/{owner}/{repo}/milestones`, one page of 100, cached for ~10 minutes per user and repository) and sends the resolved number. Two outcomes are possible when the title is not in the roster:
+
+| Roster | Behavior |
+|---|---|
+| Complete (fewer than 100 milestones) | The milestone genuinely does not exist. An **empty board** is returned, and no issue request is made. |
+| Capped (a full page of 100 returned) | The title may exist on a page that was not read, so resolution is *unknown*, not negative. The server falls back to filtering the fetched set client-side and sets `truncated: true`. |
+
+The synthetic `"__none__"` value needs no resolution on either provider — GitLab receives its `None` literal and GitHub its `none` literal.
+
+> **Changed in 1.2**
+
+GitHub `milestone` filtering was applied client-side in earlier releases, which silently dropped matching issues outside the 300-issue budget. It is now server-side. No request or response shape changed — only the completeness of the result.
 
 **Text search** — there is no `q` or text-search query parameter. Full-text filtering (by title or issue number) is performed client-side by the SPA over the issues already in the response. Do not pass a text-search value to this endpoint; it is silently ignored.
 
-**Coverage expansion** — when a `milestone` filter is active, the effective issue set is scoped to that milestone. For GitLab this can return more issues than the unfiltered default view (because the budget applies to the scoped set), making the milestone filter a useful way to deep-dive a large milestone without fetching the entire repository.
+**Coverage expansion** — when any server-side filter is active, the effective issue set is scoped to it, and the fetch budget applies to the scoped set rather than the full repository. This makes filtering a useful way to deep-dive a large milestone or label without fetching the entire repository.
 
 The `available_milestones` field in the response lists the milestone titles present in the current fetched set, for use as autocomplete suggestions. Because it is derived from the fetched issues and not from the provider's full milestone list, milestones whose issues were not fetched (e.g. milestones beyond the budget on an unfiltered request) will not appear — but passing their title as a `?milestone=` value still works.
+
+There is deliberately no `available_labels` or `available_assignees` field: every issue object already carries its `labels` and `assignees`, so a client can derive both suggestion sets from the response it already has. Note that, as with `available_milestones`, any such derived list narrows as filters are applied — a client that needs a stable suggestion list should accumulate values across responses rather than recompute from the latest one.
 
 **Response — 200 OK** (`column_dim=state`, the default for `"state"` connections)
 ```json
@@ -379,6 +403,7 @@ The `available_milestones` field in the response lists the milestone titles pres
 | `404 Not Found` | `{ "detail": "..." }` | Board does not exist, no connection is configured, or `GIT_LENS_ENABLED` is not set |
 | `409 Conflict` | `{ "detail": "...", "code": "auth_required" }` | Provider is GitHub and the requesting user has not linked their GitHub account. The user must connect their GitHub account via profile settings before fetching data. |
 | `429 Too Many Requests` | `{ "detail": "...", "code": "rate_limited", "retry_after": 47 }` | The provider's API rate limit has been reached. `retry_after` is the number of seconds to wait before retrying. |
+| `429 Too Many Requests` | `{ "detail": "...", "code": "fetch_budget_exhausted" }` | The caller's own upstream-fetch budget is spent (see [Refresh and rate limits](#refresh-and-rate-limits)) and no cached copy exists to serve instead. No `retry_after`; retry after the budget window (5 minutes) elapses. |
 | `502 Bad Gateway` | `{ "detail": "...", "code": "lens_error" }` | Upstream provider returned an unexpected error or the request timed out. |
 
 
@@ -406,20 +431,31 @@ pipeline columns, so leading with it would make the badge flicker between pivots
 
 ## Refresh and rate limits
 
-Board data is cached server-side for ~60 seconds per repository and pivot, shared across
-everyone viewing that board. `?refresh=1` deliberately bypasses that cache.
+Board data is cached server-side for ~60 seconds per repository, pivot and filter combination,
+shared across everyone viewing that board. `?refresh=1` deliberately bypasses that cache.
 
-Two limits bound how much upstream traffic one account can cause. Both are per user **per
-repository** — not per board — because the budget being protected is the provider's rate limit,
-which every board pointing at the same repository shares:
+Three limits bound how much upstream traffic one account can cause. The first two are per user
+**per repository** — not per board — because the budget being protected is the provider's rate
+limit, which every board pointing at the same repository shares:
 
-| Limit | Window | Behavior when exceeded |
-|---|---|---|
-| One forced refresh (`?refresh=1`) | 30 s | The request is served the cached copy. No error; `fetched_at` simply does not advance. |
-| 12 upstream fetches from any path | 5 min | A cached copy is served if one exists, otherwise `429 Too Many Requests` with `code: "fetch_budget_exhausted"`. |
+| Limit | Scope | Window | Behavior when exceeded |
+|---|---|---|---|
+| One forced refresh (`?refresh=1`) | user + repository | 30 s | The request is served the cached copy. No error; `fetched_at` simply does not advance. |
+| 12 upstream fetches from any path | user + repository | 5 min | A cached copy is served if one exists, otherwise `429 Too Many Requests` with `code: "fetch_budget_exhausted"`. |
+| 48 upstream fetches from any path | user, all repositories | 5 min | Same behavior. Backstops the per-repository limit, which is scoped on a repository slug the caller can change at will. |
 
-The second limit covers cold cache keys as well as forced refreshes, because `milestone` accepts
-free text and every new value is a cache miss that would otherwise reach the provider.
+The second limit covers cold cache keys as well as forced refreshes. `milestone`, `labels` and
+`assignee` all accept free text, so the space of reachable cache keys is unbounded and every new
+value is a cache miss that would otherwise reach the provider. The fetch budget bounds that
+fan-out structurally rather than by restricting values: minting a distinct cache key *requires* a
+cold fetch, and the budget is spent before the provider is contacted — so the number of keys one
+account can create can never exceed the number of fetches it is allowed, regardless of how many
+filter dimensions exist. This is why filter values are never restricted to a known list; scoping
+to a milestone or label outside the fetched window is the point of filtering server-side.
+
+Filtered responses are retained for a shorter period than the unfiltered board (3 minutes versus
+10). The unfiltered board is the hot, genuinely shared entry; filtered combinations are a long
+tail that is far less likely to be re-read.
 
 Refresh is available to **every** board role including viewers — the lens is a read-only surface
 whose main audience is viewers, so the cap is on rate, not on role.

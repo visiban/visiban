@@ -46,19 +46,68 @@ logger = logging.getLogger(__name__)
 _UNEXPECTED_PARSE_ERRORS = (TypeError, KeyError, AttributeError, ValueError)
 
 
+# Filter-value bounds. The label cap is the fan-out control the #1067 security
+# item asks for at the value level: every extra label multiplies the reachable
+# cache-key space, and nobody legitimately AND-filters more than a handful.
+MAX_LENS_LABELS = 5
+MAX_FILTER_VALUE_LEN = 255
+
+
 def _parse_filters(request) -> LensFilters:
-    """Read server-side filter params from the query string, fail-open on invalid
-    values (mirrors the dim coercion). Text search is client-side and not read here.
+    """Read server-side filter params from the query string and canonicalize them.
+
+    **Fail-open is deliberate, not an oversight.** An unrecognized value is coerced
+    to "no filter" rather than raising a 400 (mirroring the pivot-dim coercion just
+    above ``LensBoardView.get``). Lens URLs are shareable snapshots that outlive the
+    data they point at, so a link carrying a filter value that has since become
+    meaningless must still render a board. Do not "fix" this into a serializer or a
+    FilterSet — both fail closed, and that would turn every stale shared link into a
+    hard error on already-shipped behavior.
+
+    Canonicalization happens HERE and nowhere else, so that the cache key and the
+    outbound provider request can never disagree about what was asked for.
+
+    Text search is client-side and is deliberately never read here.
     """
     state = request.query_params.get("state")
     if state not in ("open", "closed"):
         state = None
+
     milestone = request.query_params.get("milestone") or None
     if milestone:
         # Bound the value (cache-key hygiene + defense); accept any non-empty title
         # so a shared link to an off-budget milestone still scopes the fetch.
-        milestone = milestone.strip()[:255] or None
-    return LensFilters(state=state, milestone=milestone)
+        milestone = milestone.strip()[:MAX_FILTER_VALUE_LEN] or None
+
+    # Labels: comma-separated AND set. Deduped BEFORE the cap (so "a,a,a,a,a,b" is
+    # two labels, not six truncated to five) and sorted, because ?labels=b,a and
+    # ?labels=a,b are the same question — an unsorted key would mint two cache
+    # entries, and therefore two cold provider fetches, for one filter. Case is
+    # preserved: GitLab label matching is case-sensitive and GitHub preserves case,
+    # so lowercasing would either desynchronize the key from the value we send
+    # upstream or silently return an empty board for any capitalized label.
+    raw_labels = request.query_params.get("labels") or ""
+    labels = tuple(
+        sorted(
+            {
+                part
+                for part in (
+                    chunk.strip()[:MAX_FILTER_VALUE_LEN] for chunk in raw_labels.split(",")
+                )
+                if part
+            }
+        )[:MAX_LENS_LABELS]
+    )
+
+    # Single value by design — neither provider can express "assigned to any of N"
+    # in one call (GitLab assignee_username, GitHub assignee).
+    assignee = (
+        request.query_params.get("assignee") or ""
+    ).strip()[:MAX_FILTER_VALUE_LEN] or None
+
+    return LensFilters(
+        state=state, milestone=milestone, labels=labels, assignee=assignee
+    )
 
 # Per-repo lens-board cache. The board is shared, so the cache is keyed by
 # (provider, repo, pivot) — NOT by user — so N members viewing one board collapse
@@ -66,30 +115,53 @@ def _parse_filters(request) -> LensFilters:
 # outbound provider-call rate bounded and predictable (the API-politeness contract).
 LENS_CACHE_SOFT_TTL = 60     # serve cached data without revalidating for this long
 LENS_CACHE_HARD_TTL = 600    # keep a stale-servable copy this long (SWR + error fallback)
-LENS_FETCH_LOCK_TTL = 75     # single-flight lock; must exceed worst-case fetch (see assertion)
+# Filtered boards get a SHORTER hard TTL than the unfiltered one. The unfiltered
+# board is the hot, genuinely shared entry (on GitLab one copy serves every viewer),
+# so it keeps the full window. Filtered entries are the long tail: each distinct
+# filter combination is its own key, they are far less likely to be re-read, and
+# they are the entire resident footprint of the cache-key fan-out #1067 bounds.
+# Cutting their lifetime cuts that footprint by ~3x for no loss on the path that
+# matters — the fetch RATE is bounded separately by _claim_fetch_budget.
+LENS_CACHE_FILTERED_HARD_TTL = 180
+LENS_FETCH_LOCK_TTL = 90     # single-flight lock; must exceed worst-case fetch (see assertion)
 LENS_FORCE_REFRESH_COOLDOWN = 30  # per (provider, repo, user) floor between ?refresh=1 re-fetches
 LENS_FETCH_BUDGET = 12            # upstream fetches allowed per window, per (provider, repo, user)
 LENS_FETCH_BUDGET_WINDOW = 300    # seconds
+# A second, coarser ceiling per USER across every repo. The per-repo budget above
+# is scoped on repo_slug, and repo_slug is user-mintable: any authenticated user
+# can create a board, become its admin, and PUT a new repo_slug, minting a fresh
+# per-repo budget each time (1 PUT + 12 GETs). Without this the only remaining
+# bound is the global 5000/hour UserRateThrottle — ~400x looser than the per-repo
+# budget implies. That matters most for GitLab, whose reads are ANONYMOUS and
+# therefore charged to the instance's own IP: one account could saturate
+# gitlab.com's unauthenticated per-IP limit and break the lens for everyone on the
+# instance. Generous enough that viewing several lens boards in one sitting never
+# reaches it (#1067 security-review).
+LENS_USER_FETCH_BUDGET = LENS_FETCH_BUDGET * 4
 
 # The lock must outlive the worst-case synchronous fetch, or it could expire
 # mid-fetch and let a second fetcher dogpile the provider. Tie the constants
 # together so a future bump to the provider page cap / timeout can't silently
 # break the guarantee — fail loudly at import instead.
 #
-# The worst case is the PIPELINE column view: MAX_PAGES issue pages, plus two
-# aux paginations (branches + open MRs, MAX_AUX_PAGES each) inside
-# _enrich_{github,gitlab}_pipeline, which runs whenever column_dim == "pipeline"
-# (providers.py). The previous formula counted only the issue pages, so the
-# assertion passed (45 >= 30) while the guarantee this comment claims was false
-# for every pipeline fetch (real worst case 70s > 45s lock). That mattered less
-# when pipeline was opt-in; this branch makes it the default for new lenses, so
-# the formula now counts the aux pages it always should have.
+# The worst case is a GitHub PIPELINE fetch with a milestone filter:
+#   * MAX_PAGES issue pages, plus
+#   * two aux paginations (branches + open MRs, MAX_AUX_PAGES each) inside
+#     _enrich_{github,gitlab}_pipeline, which runs whenever column_dim ==
+#     "pipeline" (providers.py), plus
+#   * ONE milestone-roster page (_github_milestone_map), needed since #1067 moved
+#     GitHub milestone filtering server-side. It is capped at a single page
+#     precisely so this formula stays a small, checkable constant.
+# An earlier version of this formula counted only the issue pages, so the assertion
+# passed (45 >= 30) while the guarantee this comment claims was false for every
+# pipeline fetch. Keep every outbound leg represented here: the assert is the only
+# thing standing between a page-cap bump and a lock that expires mid-fetch.
 _WORST_CASE_FETCH_SECONDS = (
-    providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES
+    providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1
 ) * providers.REQUEST_TIMEOUT
 assert LENS_FETCH_LOCK_TTL >= _WORST_CASE_FETCH_SECONDS, (
     "LENS_FETCH_LOCK_TTL must exceed the worst-case provider fetch duration "
-    "((MAX_PAGES + 2 * MAX_AUX_PAGES) * REQUEST_TIMEOUT)"
+    "((MAX_PAGES + 2 * MAX_AUX_PAGES + 1) * REQUEST_TIMEOUT)"
 )
 
 # Explicit permission chain, mirroring every other board-scoped view in the
@@ -124,29 +196,64 @@ def _claim_force_refresh(conn, user) -> bool:
     )
 
 
-def _claim_fetch_budget(conn, user) -> bool:
-    """Consume one upstream-fetch slot for (provider, repo, user); False if spent.
-
-    Bounds how many provider fetches one viewer can cause for one repo regardless
-    of WHICH path triggered them. ``?refresh=1`` has its own cooldown, but a cold
-    cache key also fetches, and ``milestone`` is free text (see ``_parse_filters``)
-    so the key space — and therefore the supply of cold keys — is unbounded. Without
-    this, a viewer can loop novel ``?milestone=`` values and drive a full upstream
-    fetch on every request, bypassing both the soft-TTL and the refresh cooldown.
+def _claim_window_slot(key: str, limit: int) -> bool:
+    """Consume one slot of a fixed-window counter at *key*; False once *limit* is hit.
 
     A fixed window rather than a sliding one: it keeps the claim to a single atomic
-    cache op, and precision is not the point. The budget is deliberately generous —
-    it exists to stop a scripted loop, not to ration normal use. Re-pivoting and
-    filtering by hand for a few minutes stays well under it.
+    cache op (``add`` is SETNX, ``incr`` is INCR and does not reset the TTL), and
+    precision is not the point — these budgets exist to stop a scripted loop, not
+    to ration normal use.
     """
-    key = f"git_lens:budget:{conn.provider}:{conn.repo_slug}:{user.id}"
     if cache.add(key, 1, LENS_FETCH_BUDGET_WINDOW):
         return True
     try:
-        return cache.incr(key) <= LENS_FETCH_BUDGET
+        return cache.incr(key) <= limit
     except ValueError:
         # The window expired between add() and incr(); start a fresh one.
         return cache.add(key, 1, LENS_FETCH_BUDGET_WINDOW)
+
+
+def _claim_fetch_budget(conn, user) -> bool:
+    """Consume one upstream-fetch slot for this viewer; False if either budget is spent.
+
+    Bounds how many provider fetches one viewer can cause regardless of WHICH path
+    triggered them. ``?refresh=1`` has its own cooldown, but a cold cache key also
+    fetches, and ``milestone``/``labels``/``assignee`` are all free text (see
+    ``_parse_filters``) so the key space — and therefore the supply of cold keys —
+    is unbounded. Without this, a viewer can loop novel filter values and drive a
+    full upstream fetch on every request, bypassing both the soft-TTL and the
+    refresh cooldown.
+
+    This is also what bounds the cache-key FAN-OUT, which is why #1067 adds no
+    dedicated fan-out limiter. Minting a distinct cache key *requires* a cold fetch,
+    and ``_serve_board`` spends this budget BEFORE it touches the provider or takes
+    the lock — so keys created can never exceed fetches allowed. The bound is
+    dimension-agnostic by construction: it is keyed on the viewer and the repo, never
+    on the filter value, so adding label and assignee filters enlarges the
+    *reachable* key space combinatorially without changing the *rate* at which keys
+    can be minted — and rate is the only term in the resident-footprint bound.
+    ``test_novel_filter_values_cannot_loop_the_provider`` is the executable form of
+    that claim; keep it passing for every filter dimension added here.
+
+    TWO ceilings, both required:
+
+    * per (provider, repo, user) — the provider rate limit is shared by every board
+      pointing at the same repo, so a per-board key would let one user multiply
+      their budget by joining several boards on one repo.
+    * per user, across all repos — because the first key contains ``repo_slug``,
+      and ``repo_slug`` is user-mintable. Any authenticated user can create a board
+      and PUT a new slug, minting a fresh per-repo budget for the cost of one
+      request. The per-repo ceiling alone therefore bounds a scope whose *count* the
+      caller chooses, which is no bound at all; this one closes that (#1067
+      security-review). Evaluated second and short-circuited, so a caller already
+      over the per-repo limit is not also charged here.
+    """
+    return _claim_window_slot(
+        f"git_lens:budget:{conn.provider}:{conn.repo_slug}:{user.id}",
+        LENS_FETCH_BUDGET,
+    ) and _claim_window_slot(
+        f"git_lens:budget:user:{user.id}", LENS_USER_FETCH_BUDGET
+    )
 
 
 def _require_board_admin(role):
@@ -179,18 +286,47 @@ def _board_cache_key(provider, repo, column_dim, swimlane_dim, user_scope=None, 
     # those are scoped per user (``user_scope``) to preserve that boundary — the
     # "public repos only" contract is not enforced upstream, so we must not let one
     # member's token-authorized view leak to another through a shared cache.
-    # Server-side filters (state, milestone) change WHAT is fetched, so they MUST be
-    # in the key or a filtered view would be served unfiltered (or vice versa). Text
-    # search is client-side, so it is deliberately absent (it would explode the key
-    # space without changing the fetched set).
-    filt = ""
-    if filters is not None:
-        filt = f"|s={filters.state or ''}|m={filters.milestone or ''}"
-    digest = hashlib.sha256(
-        f"{provider}|{repo}|{column_dim}|{swimlane_dim}{filt}".encode()
-    ).hexdigest()[:16]
+    # Server-side filters change WHAT is fetched, so they MUST be in the key or a
+    # filtered view would be served unfiltered (or vice versa). Text search is
+    # client-side, so it is deliberately absent (it would explode the key space
+    # without changing the fetched set).
+    #
+    # The preimage is JSON, not a delimiter-joined f-string (which is what this was
+    # before #1067). Filter values are free text that legitimately contains the old
+    # separators — a milestone titled "1.2|m=x", an assignee containing a comma — so
+    # a hand-joined preimage lets two DIFFERENT filter sets collapse onto one digest,
+    # and one user is then served a board answering somebody else's filter. JSON
+    # quoting makes the preimage unambiguous for any value (quotes and backslashes
+    # escaped, non-ASCII normalized by ensure_ascii, `null` distinct from any string,
+    # the label slot type-tagged as an array), and documents the key grammar in one
+    # place. ``labels`` arrives already sorted from _parse_filters, so ?labels=b,a
+    # and ?labels=a,b share a key rather than doubling the fan-out.
+    f = filters if filters is not None else LensFilters()
+    preimage = json.dumps(
+        [
+            provider,
+            repo,
+            column_dim,
+            swimlane_dim,
+            f.state,
+            f.milestone,
+            list(f.labels),
+            f.assignee,
+        ],
+        separators=(",", ":"),
+    )
+    # FULL digest, not truncated. For GitLab ``user_scope`` is None, so this key is
+    # shared across every user on the instance — and a caller controls both sides of
+    # the comparison (anyone can create a board, point it at any repo, and vary the
+    # filter values freely). A truncated digest turns that into a multi-target second
+    # preimage search whose cost falls off linearly with the number of victim keys
+    # known; a poisoned entry would serve attacker-chosen issue titles and URLs into
+    # another team's board. Key length is free here, so do not re-truncate this
+    # (#1067 security-review).
+    digest = hashlib.sha256(preimage.encode()).hexdigest()
     scope = f":u{user_scope}" if user_scope is not None else ""
-    return f"git_lens:board:v3{scope}:{digest}"
+    # v4: the preimage grammar changed (see above). Old v3 entries simply age out.
+    return f"git_lens:board:v4{scope}:{digest}"
 
 
 def _lock_key(cache_key: str) -> str:
@@ -453,6 +589,6 @@ class LensBoardView(APIView):
         cache.set(
             key,
             {"payload": payload, "soft_expires": time.time() + LENS_CACHE_SOFT_TTL},
-            LENS_CACHE_HARD_TTL,
+            LENS_CACHE_FILTERED_HARD_TTL if filters.active else LENS_CACHE_HARD_TTL,
         )
         return _board_response(payload, request)

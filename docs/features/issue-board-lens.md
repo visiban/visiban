@@ -106,11 +106,38 @@ Visiban works out which milestone is current on its own; there is nothing to con
 
 The **Ungrouped** swimlane is never marked current.
 
+### Filtering the board
+
+Click **Filters** in the Lens toolbar (or press <kbd>f</kbd>) to open the filter row.
+
+| Filter | Behavior |
+|---|---|
+| **State** | Show only open or only closed issues. |
+| **Milestone** | Scope the board to one milestone. Type a title, pick one of the suggestions, or choose **(no milestone)** to see only issues that have not been assigned to one. |
+| **Label** | Tick up to five labels. Labels combine with **and** — an issue must carry *every* ticked label to appear. |
+| **Assignee** | Scope to a single person. One at a time: GitHub and GitLab cannot filter by several assignees in one request. |
+| **Title or number** | Narrows what is already on screen by issue title or `#number`. |
+
+State, milestone, label and assignee are applied **at the provider**, before issues are
+fetched. That matters on a large repository: filtering to a milestone or label reaches
+issues that fall outside the 300-issue cap, so a filtered board can show work an
+unfiltered one cannot. The title/number box, by contrast, only narrows the issues
+already loaded.
+
+All filters are stored in the page URL, so a filtered board can be copied and shared
+as a link. The **Filters** button shows how many are active; **Clear** removes them all.
+
+!!! note
+    Label and assignee suggestions are gathered from the issues that have been loaded
+    so far, so a label used only by issues beyond the cap may not be offered. You can
+    still type a milestone or assignee that is not in the list — the filter is sent to
+    the provider either way.
+
 ### Refreshing data
 
 The lens does not poll automatically. Click **Refresh** in the Lens toolbar to fetch the latest issues from the provider. A **Synced X ago** indicator below the toolbar shows when data was last fetched so you always know how fresh the view is.
 
-To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the **Synced X ago** indicator will not advance. Refresh is available to every board role, including viewers.
+To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well, plus an overall ceiling of 48 fetches per five minutes across every repository you are viewing. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the **Synced X ago** indicator will not advance. Refresh is available to every board role, including viewers.
 
 !!! tip
     Refresh after closing a sprint or milestone to update the board before your retrospective.
@@ -165,4 +192,7 @@ Link your GitHub account in **Settings → Connected accounts** and then reload 
 Click **Refresh** in the Lens toolbar to pull the latest data from the provider.
 
 **The 300-issue cap notice appears.**
-Filter the view by milestone or label to focus on a subset of work. The cap cannot be removed in this release.
+Filter the view by milestone, label or assignee to focus on a subset of work — those filters are applied at the provider, so they reach issues beyond the cap. The cap itself cannot be removed in this release.
+
+**A GitHub milestone filter returns an empty board.**
+No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization. Pick one from the suggestions to be sure.
