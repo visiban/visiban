@@ -185,11 +185,29 @@ function parseCoberturaFilenames(xmlPath) {
   return filenames;
 }
 
+// Normalizes a Cobertura `filename` against a known project-relative prefix
+// ("backend/" or "frontend/"): if the report's path literally contains that
+// prefix as a path segment (e.g. a runner wrote an absolute build path like
+// "/builds/.../backend/accounts/foo.py"), strip everything up to and
+// including it so it compares like our repo-root-relative candidate. This is
+// intentionally narrower than a generic suffix match — an open-ended
+// `endsWith('/' + shortPath)` false-matches two unrelated files that happen
+// to share a generic tail (e.g. two apps each with a `commands/utils.py`),
+// which would silently mark a genuinely uncovered new file as covered.
+function normalizeCovPath(cov, prefix) {
+  const idx = cov.indexOf(prefix);
+  if (idx === -1) return cov;
+  // Only strip at a real path boundary: right at the start of the string, or
+  // immediately after a '/'.
+  if (idx !== 0 && cov[idx - 1] !== '/') return cov;
+  return cov.slice(idx + prefix.length);
+}
+
 function isFileCovered(relPath, prefix, coberturaFilenames) {
   const stripped = relPath.startsWith(prefix) ? relPath.slice(prefix.length) : relPath;
   for (const cov of coberturaFilenames) {
     if (cov === stripped || cov === relPath) return true;
-    if (relPath.endsWith('/' + cov) || cov.endsWith('/' + stripped)) return true;
+    if (normalizeCovPath(cov, prefix) === stripped) return true;
   }
   return false;
 }
@@ -379,6 +397,13 @@ function selfTest() {
     writeFile(join(tmp, 'backend', 'testapp', 'uncovered.py'), 'def bad():\n    return 1\n');
     writeFile(join(tmp, 'backend', 'testapp', 'tests', 'test_covered.py'), '# test\n');
     writeFile(join(tmp, 'backend', 'testapp', 'migrations', '0002_add_field.py'), '# migration\n');
+    // Generic-basename collision guard: a new, genuinely uncovered top-level
+    // module ("utils.py") whose bare filename matches the *tail* of an
+    // unrelated, already-covered file nested in a different app
+    // ("legacyapp/utils.py"). A naive `cov.endsWith('/' + stripped)` suffix
+    // match would treat these as the same file just because one path ends
+    // with the other's tail — isFileCovered() must not.
+    writeFile(join(tmp, 'backend', 'utils.py'), 'def new_util():\n    pass\n');
 
     // Frontend: one covered file, one uncovered (known-bad) file, one file
     // excluded via vitest's src/test/** pattern.
@@ -391,8 +416,14 @@ function selfTest() {
 
     // Coverage reports (as CI artifacts would produce them) mention only the
     // covered files — this is the fixture that must trigger a violation for
-    // uncovered.py / Uncovered.tsx and stay silent for everything else.
-    writeFile(join(tmp, 'backend', 'coverage.xml'), coberturaXml(['testapp/covered.py']));
+    // uncovered.py / Uncovered.tsx and stay silent for everything else. The
+    // unrelated "legacyapp/utils.py" row exists only to bait the
+    // generic-basename collision case above; it must not cover the new
+    // top-level backend/utils.py.
+    writeFile(
+      join(tmp, 'backend', 'coverage.xml'),
+      coberturaXml(['testapp/covered.py', 'legacyapp/utils.py']),
+    );
     writeFile(join(tmp, 'frontend', 'coverage', 'cobertura-coverage.xml'), coberturaXml(['src/components/Covered.tsx']));
 
     console.log('--- Case: known-bad fixture (uncovered.py / Uncovered.tsx present, no coverage rows) ---');
@@ -412,9 +443,18 @@ function selfTest() {
     assert(!flagged.includes('backend/testapp/tests/test_covered.py'), 'does not flag a test file (omitted via */tests/*)', failures);
     assert(!flagged.includes('backend/testapp/migrations/0002_add_field.py'), 'does not flag a migration file', failures);
     assert(!flagged.includes('frontend/src/test/helper.ts'), 'does not flag a file excluded via src/test/**', failures);
+    assert(
+      flagged.includes('backend/utils.py'),
+      'flags a genuinely uncovered top-level file even when an unrelated covered file shares its ' +
+        'bare filename (legacyapp/utils.py) — generic-basename collision guard',
+      failures,
+    );
 
     console.log('--- Case: clean fixture (uncovered files removed) ---');
-    writeFileSync(join(tmp, 'backend', 'coverage.xml'), coberturaXml(['testapp/covered.py', 'testapp/uncovered.py']));
+    writeFileSync(
+      join(tmp, 'backend', 'coverage.xml'),
+      coberturaXml(['testapp/covered.py', 'testapp/uncovered.py', 'utils.py', 'legacyapp/utils.py']),
+    );
     writeFileSync(
       join(tmp, 'frontend', 'coverage', 'cobertura-coverage.xml'),
       coberturaXml(['src/components/Covered.tsx', 'src/components/Uncovered.tsx']),
