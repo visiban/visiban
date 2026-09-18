@@ -5,7 +5,7 @@ from .views import (
     SiteConfigView, UserSearchView, WSTicketView,
 )
 from .admin_views import (
-    AdminSettingsView, AdminUsersView, AdminUserDetailView,
+    AdminActionLogView, AdminSettingsView, AdminUsersView, AdminUserDetailView,
     AdminInviteLinkListCreateView, AdminInviteLinkRevokeView,
     AdminUserDeactivateView,
 )
@@ -22,6 +22,7 @@ urlpatterns = [
     path("users/", UserSearchView.as_view()),
     # Admin API — all gated by IsSiteAdmin
     path("admin/settings/", AdminSettingsView.as_view()),
+    path("admin/action-log/", AdminActionLogView.as_view()),
     path("admin/users/", AdminUsersView.as_view()),
     path("admin/users/<int:pk>/", AdminUserDetailView.as_view()),
     path("admin/users/<int:pk>/deactivate/", AdminUserDeactivateView.as_view()),
