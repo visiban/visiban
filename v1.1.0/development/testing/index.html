@@ -2627,6 +2627,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#added-file-coverage-guard-1091" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added-file coverage guard (#1091)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3529,6 +3540,26 @@ that only moves lines, or a vendored file with no realistic local test. When tha
 </ol>
 <p>The override is always visible in the MR discussion and job history — never silence the
 gate by weakening the threshold or broadening <code>--exclude</code> to route around a single MR.</p>
+<h3 id="added-file-coverage-guard-1091">Added-file coverage guard (#1091)<a class="headerlink" href="#added-file-coverage-guard-1091" title="Permanent link">&para;</a></h3>
+<p><code>diff-cover</code> has a blind spot that's the inverse of what you'd expect: a <strong>brand-new</strong>
+source file with zero tests never appears in <code>coverage.xml</code> / <code>cobertura-coverage.xml</code> at
+all, so <code>diff-cover</code> finds no rows for it and reports <strong>100%</strong> for that file — a file with
+<em>some</em> tests gets scrutinized, a file with <em>none</em> sails through. (The aggregate-coverage
+version of this same bug — an uninstrumented CI job reading as 0% — is #1090.)</p>
+<p><code>added-files-coverage-check</code> closes this gap. It reuses the same <code>coverage.xml</code> /
+<code>cobertura-coverage.xml</code> artifacts as the diff-coverage jobs above (no test re-run):
+for every file <em>added</em> (not modified) since the MR's merge-base, filtered to
+<code>backend/*.py</code> and <code>frontend/src/*.ts(x)</code> and excluding whatever <code>backend/.coveragerc</code>'s
+<code>omit</code> list and <code>vitest.config.ts</code>'s <code>coverage.exclude</code> list already exclude (plus
+migrations and <code>manage.py</code>, same as the diff-coverage <code>--exclude</code>), it fails the build if
+the file has no <code>&lt;class filename="..."&gt;</code> row in the report at all — naming the file and
+explaining what to do about it in the job log.</p>
+<p>The script (<code>scripts/check-added-files-covered.mjs</code>) ships a <code>--self-test</code> mode, run in
+its own <code>added-files-coverage-check-self-test</code> CI job on the same <code>node:20-alpine</code> image as
+the real check: it builds a synthetic git repo and coverage fixtures in a temp directory
+(no network, no database, no changes to the real working tree) and asserts detection fires
+on a known-bad fixture and stays clean on a known-good one. This is the house pattern for
+bespoke gate scripts described in #1093.</p>
 <h2 id="git-hooks">Git hooks<a class="headerlink" href="#git-hooks" title="Permanent link">&para;</a></h2>
 <p><code>scripts/wt</code> (see its <code>--help</code>) applies a <code>status::wip</code> GitLab label when you create a
 worktree with <code>wt new</code>/<code>wt claim</code>, so a parallel agent or teammate doesn't grab the same
