@@ -2719,6 +2719,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-turned-it-on-the-action-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who turned it on? — the action log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#turning-maintenance-mode-off-from-the-shell" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3249,17 +3260,62 @@ ways:</p>
 banner appear or disappear the instant you flip the toggle. Don't assume every open session
 updates the moment you act; if you need everyone to see the notice immediately, say so in
 another channel (chat, status page) rather than relying on the banner alone.</p>
+<h2 id="who-turned-it-on-the-action-log">Who turned it on? — the action log<a class="headerlink" href="#who-turned-it-on-the-action-log" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Every flip of the maintenance mode toggle is recorded, so an incident retrospective can
+answer "who put us into maintenance, and when did it end?" without guesswork. Each entry
+records the actor, the time, whether it went on or off, and the notice that was in force.</p>
+<p>Read it from <a href="../../api/admin/#action-log"><code>GET /api/v1/admin/action-log/</code></a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-s<span class="w"> </span>https://visiban.example.com/api/v1/admin/action-log/?action<span class="o">=</span>maintenance_mode.enabled<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_…"</span>
+</code></pre></div>
+<p>The same log also covers the other two instance-wide toggles — <a href="../admin-panel/#registration-mode">registration
+mode</a> and file uploads — so it is the single place to look
+for "who changed an instance setting".</p>
+<p>Changes made from the admin panel, the <code>maintenance_mode</code> management command below, and the
+<a href="../django-admin/">Django admin</a> are all recorded, each tagged with which route was used. A
+command-line change has no signed-in user to attribute, so it is recorded with no actor and
+<code>source: "cli"</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">An empty log does not prove nothing happened</p>
+<p>A change written straight to the database — <code>manage.py shell</code>, or <code>psql</code> — has no actor to
+record and leaves no entry. Every route an operator would normally use is covered, but
+treat an empty log as "no audited path made this change", not as proof the setting was
+never touched.</p>
+</div>
+<p>Setting a value to the one it already holds is not recorded: the log contains real
+transitions only, so the gap between an <code>enabled</code> entry and the next <code>disabled</code> entry is the
+actual duration of the maintenance window.</p>
+<p>The log covers the instance-wide settings on the Admin → Settings tab. It does <strong>not</strong> yet
+cover user management — granting site admin, deactivating an account, or issuing an invite
+link leaves no entry.</p>
+<div class="admonition warning">
+<p class="admonition-title">The audit write is part of the change</p>
+<p>A setting change and its log entry commit together: if the entry cannot be written, the
+change is rejected rather than applied unrecorded. That is the right trade for an audit
+trail, but it means a database fault specific to the <code>admin_action_logs</code> table would block
+the admin panel, the management command <em>and</em> the Django admin from toggling maintenance
+mode — during exactly the incident when you need it. The last resort is then to write the
+setting directly, which bypasses the audit path (and so records nothing):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">UPDATE</span><span class="w"> </span><span class="n">site_settings</span><span class="w"> </span><span class="k">SET</span><span class="w"> </span><span class="n">maintenance_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">false</span><span class="w"> </span><span class="k">WHERE</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+</code></pre></div>
+<p>Workers pick this up within 60 seconds, once the cached value expires — the usual instant
+invalidation does not run on this path. Use it only when every audited route is unavailable,
+and note what you did somewhere durable, because the log will not.</p>
+</div>
 <h2 id="turning-maintenance-mode-off-from-the-shell">Turning maintenance mode off from the shell<a class="headerlink" href="#turning-maintenance-mode-off-from-the-shell" title="Permanent link">&para;</a></h2>
 <p>If the web UI is unreachable — a broken ingress, a bad deploy — maintenance mode can be
 cleared from any container with database access:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Show the current state</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Turn it on, with a message</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode<span class="w"> </span>--on<span class="w"> </span>--message<span class="w"> </span><span class="s2">"Upgrading to 1.3 — back by 14:00 UTC."</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Turn it back off</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode<span class="w"> </span>--off
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Show the current state</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Turn it on, with a message</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode<span class="w"> </span>--on<span class="w"> </span>--message<span class="w"> </span><span class="s2">"Upgrading to 1.3 — back by 14:00 UTC."</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Turn it back off</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>maintenance_mode<span class="w"> </span>--off
 </code></pre></div>
 <p>Changes take effect immediately, exactly as they do from the admin panel. This is the
 break-glass path for an operator with shell access but no working ingress.</p>
@@ -3272,6 +3328,8 @@ save path, so the cache invalidation still fires.</p>
   other instance-wide toggles alongside it</li>
 <li><a href="../../api/admin/#maintenance-mode">Maintenance mode</a> — the API reference: request/response
   shapes, the <code>503</code> error body, and MCP behavior</li>
+<li><a href="../../api/admin/#action-log">Action log</a> — the audit trail of who changed which
+  instance-wide setting, and when</li>
 <li><a href="../zero-downtime-upgrade/#3-when-this-playbook-doesnt-apply">Zero-Downtime Upgrade Playbook</a> — when maintenance mode is the right tool versus scaling to zero</li>
 <li><a href="../upgrade/#standard-upgrade-steps">Upgrading Visiban</a> — the Docker Compose upgrade sequence maintenance mode is designed to wrap</li>
 </ul>

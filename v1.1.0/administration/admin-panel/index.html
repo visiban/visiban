@@ -2691,6 +2691,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#change-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Change history
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3384,6 +3395,15 @@ so it survives a restart, and it takes effect immediately for every worker.</p>
 <p>See <a href="../maintenance-mode/">Maintenance Mode</a> for the full runbook: what everyone else sees, the
 exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
 known limitation on tabs left open in the background.</p>
+<h3 id="change-history">Change history<a class="headerlink" href="#change-history" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Changes to the toggles on this tab — registration mode, file uploads, and maintenance mode —
+are recorded with the admin who made them and when. There is no UI for this yet; read the
+trail from <a href="../../api/admin/#action-log"><code>GET /api/v1/admin/action-log/</code></a>. See
+<a href="../maintenance-mode/#who-turned-it-on-the-action-log">Who turned it on?</a> for the incident-retro
+walkthrough.</p>
 <h2 id="users-tab">Users tab<a class="headerlink" href="#users-tab" title="Permanent link">&para;</a></h2>
 <p>Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.</p>
 <h3 id="user-status-badges">User status badges<a class="headerlink" href="#user-status-badges" title="Permanent link">&para;</a></h3>
