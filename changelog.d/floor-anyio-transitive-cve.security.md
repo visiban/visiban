@@ -1,0 +1,1 @@
+- Floored the transitive `anyio` dependency (pulled in unbounded via `mcp`) at `>=4.14.2` to clear GHSA-82r6-8w77-94w6 (CRITICAL — TLS certificate validation bypass via IDNA 2003 hostname encoding), GHSA-3w57-8xmc-8v26 (HIGH — privilege-drop bypass), and GHSA-5p39-cfhj-2xmp (MODERATE).
