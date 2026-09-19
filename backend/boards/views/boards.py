@@ -639,6 +639,20 @@ class BoardViewSet(
             return Response(SavedFilterSerializer(qs, many=True).data)
 
         # POST — create a new saved filter for this user on this board.
+        # A JSON body that parses to a non-mapping (a bare number/string/array/
+        # null/bool — valid JSON, just not a JSON *object*) makes every
+        # `request.data.get(...)` below raise AttributeError, uncaught, as an
+        # unhandled 500 instead of the documented 400 (#1120 baseline finding —
+        # same class as CardViewSet.move and GroupViewSet.transfer_ownership,
+        # found separately by schemathesis's negative-data fuzzing on this
+        # endpoint). DRF has no built-in "request body must be an object" check
+        # for a bare `request.data.get()` call the way a serializer's
+        # `is_valid()` would.
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         name = request.data.get("name")
         if not isinstance(name, str):
             return Response({"detail": "name must be a string."}, status=status.HTTP_400_BAD_REQUEST)

@@ -1,0 +1,1 @@
+- `POST /api/v1/boards/{id}/saved-filters/` no longer crashes with a 500 error when sent a non-object JSON body (e.g. a top-level array); it now returns a 400 with a clear error message.

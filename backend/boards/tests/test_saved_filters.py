@@ -109,6 +109,13 @@ class SavedFilterListCreateTests(TestCase):
         r = self.client.post(self.url, {"name": True, "state_json": SIMPLE_STATE}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_non_dict_body_returns_400_not_500(self):
+        """A top-level JSON list (or other non-mapping) body must not crash
+        `request.data.get(...)` with AttributeError — same bug class as
+        CardViewSet.move and GroupViewSet.transfer_ownership (#1120 schema-fuzz)."""
+        r = self.client.post(self.url, ["not", "a", "dict"], format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_create_name_too_long_returns_400(self):
         long_name = "x" * 101
         r = self.client.post(self.url, {"name": long_name, "state_json": SIMPLE_STATE}, format="json")
