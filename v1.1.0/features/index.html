@@ -806,6 +806,8 @@
       
         
       
+        
+      
     
     
     
@@ -1318,6 +1320,34 @@
   
   
     <li class="md-nav__item">
+      <a href="mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="permissions/" class="md-nav__link">
         
   
@@ -1430,7 +1460,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_21" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_22" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1452,14 +1482,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_21" id="__nav_3_21_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_21_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_21">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_22">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3164,8 +3194,8 @@
 <blockquote>
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Connect Claude, Copilot, or any <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a>-compatible AI agent to Visiban so it can read your boards. The server is read-only in this release and authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with <code>MCP_SERVER_ENABLED=true</code>.</p>
-<p>→ <a href="../api/mcp/">MCP Server</a></p>
+<p>Connect Claude Desktop, Copilot, or any <a href="https://spec.modelcontextprotocol.io">Model Context Protocol</a>-compatible AI agent to Visiban so it can read your boards and, with a suitably scoped token, create, move, update, and archive cards. Authenticates with the same Personal Access Token used elsewhere in the API. Off by default; operators enable it with <code>MCP_SERVER_ENABLED=true</code>.</p>
+<p>→ <a href="mcp-server/">MCP Server</a></p>
 <hr />
 <h2 id="stable-uids">Stable UIDs<a class="headerlink" href="#stable-uids" title="Permanent link">&para;</a></h2>
 <p>Every board, column, swimlane, label, and card carries a stable 16-character hex UID that never changes even after renames or moves. UIDs are included in JSON exports and are safe to reference in external integrations, webhooks, and scripts.</p>
