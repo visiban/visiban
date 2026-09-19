@@ -1174,6 +1174,14 @@ helm-install:
   # `helm uninstall` leaves nothing behind. See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
+  # Only the static chart check (helm-template), not the whole `lint` stage —
+  # stage-based ordering was making this wait on unrelated jobs (frontend-lint,
+  # backend-lint, shellcheck, ...) before booting a 40min cluster. `optional:
+  # true` because helm-template has no schedule rule, so it's absent from
+  # scheduled pipelines that still run this drill.
+  needs:
+    - job: helm-template
+      optional: true
   rules:
     # Advisory on the nightly schedule: a blip on a shared runner pulling Calico
     # manifests or base images is a signal, not a hard red.
@@ -1204,6 +1212,10 @@ helm-netpol:
   # file itself.
   <<: *helm-drill-base
   timeout: 45m
+  # See helm-install above.
+  needs:
+    - job: helm-template
+      optional: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       allow_failure: true
@@ -1490,6 +1502,10 @@ changelog-check:
 backend-sast:
   extends: .pip-cache
   stage: security
+  # Reads source only, not test output — runs alongside `test` instead of
+  # waiting for the whole stage (including the 40-45min helm drills) to
+  # finish first.
+  needs: []
   image: python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -1537,6 +1553,8 @@ backend-sast:
 frontend-sast:
   extends: .npm-cache
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -1584,6 +1602,8 @@ frontend-sast:
 # fails and GitLab sends a failure email to maintainers.
 backend-dep-scan:
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -1608,6 +1628,8 @@ backend-dep-scan:
 frontend-dep-scan:
   extends: .npm-cache
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -1636,6 +1658,8 @@ frontend-dep-scan:
 backend-license-check:
   extends: [.on-mr, .pip-cache]
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: python:3.12-slim
   before_script:
     - pip install --quiet -r backend/requirements.txt pip-licenses
@@ -1646,6 +1670,8 @@ backend-license-check:
 frontend-license-check:
   extends: [.on-mr, .npm-cache]
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: node:20-alpine
   before_script:
     - cd frontend
@@ -1671,6 +1697,8 @@ frontend-license-check:
 # findings are visible in the job log and artifact for triage.
 trivy-scan:
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image:
     name: ghcr.io/aquasecurity/trivy:0.74.0
     entrypoint: [""]
@@ -1738,6 +1766,8 @@ trivy-scan:
 # trivy-scan jobs' pinned-binary approach.
 dep-scan-osv:
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -1782,6 +1812,8 @@ dep-scan-osv:
 # otherwise go unscanned by anything in this file until an MR is opened.
 gitleaks-scan:
   stage: security
+  # See backend-sast above — source-only, no test dependency.
+  needs: []
   image: alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
