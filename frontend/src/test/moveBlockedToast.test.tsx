@@ -228,10 +228,49 @@ describe('MoveBlockedToast — maintenance mode (#783)', () => {
         onDismiss={vi.fn()}
       />
     )
-    expect(screen.getByText(/Move blocked/)).toBeInTheDocument()
+    expect(screen.getByText(/The instance is temporarily read-only/)).toBeInTheDocument()
     expect(
       screen.getByText(/Upgrading to v1\.3 — back by 3:00 PM UTC\./)
     ).toBeInTheDocument()
+  })
+
+  it('leads with a fixed, non-admin-authored sentence distinguishing it from a personal permission error (#1127)', () => {
+    // The operator's free-text detail can be terse or generic; the fixed
+    // lead sentence is the structural cue that this is systemic, not
+    // personal — it must appear even though it's not part of `detail`.
+    render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/The instance is temporarily read-only/)).toBeInTheDocument()
+    expect(screen.queryByText(/Cannot move this card/)).not.toBeInTheDocument()
+  })
+
+  it('uses a different title than permission_denied, even though both are no-override hard blocks', () => {
+    const { rerender } = render(
+      <MoveBlockedToast
+        error={maintenanceError}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/The instance is temporarily read-only/)).toBeInTheDocument()
+
+    rerender(
+      <MoveBlockedToast
+        error={{ code: 'permission_denied', detail: 'You lack permission.' }}
+        isAdmin={false}
+        onForce={vi.fn()}
+        onDismiss={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/Cannot move this card/)).toBeInTheDocument()
+    expect(screen.queryByText(/The instance is temporarily read-only/)).not.toBeInTheDocument()
   })
 
   it('offers no admin override — there is nothing to override', () => {
