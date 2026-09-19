@@ -116,7 +116,7 @@ resumes catching regressions in that area.
 
 The schema is generated live from whatever code is deployed — `GET /api/schema/` always reflects the exact version running behind it, consistent with the `/api/v1/` URL versioning scheme the REST API itself uses (see [`docs/api/authentication.md`](authentication.md) for the versioning contract those endpoints follow).
 
-There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the Second Chair front end and the MCP server's REST-client package (#511) are the two known cases — must fetch `/api/schema/` from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (`scripts/release.sh`) rather than a schema-accuracy fix.
+There is currently **no separately downloadable, per-release schema artifact** (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the MCP server's REST-client package (#511) is one known case — must fetch `/api/schema/` from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (`scripts/release.sh`) rather than a schema-accuracy fix.
 
 ## Adding annotations
 

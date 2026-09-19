@@ -5,7 +5,7 @@ to stay in sync with what the view actually returns. This test generates the
 real OpenAPI schema via drf-spectacular and validates live API responses
 against the documented request/response shapes, so a future edit to `move`
 that drifts from its schema (or vice versa) fails a test instead of shipping
-a wrong contract to schema-generated clients (Second Chair, the MCP REST
+a wrong contract to external schema-generated clients (e.g. the MCP REST
 client — see #1108, #511).
 """
 
