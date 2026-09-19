@@ -38,8 +38,15 @@ export const getLensBoard = (
     column_dim?: string;
     swimlane_dim?: string;
     // Server-side filters. Text search is client-side and not sent here.
+    // Every one is optional with a no-filter default — omitting them all gives
+    // exactly the pre-filter response.
     state?: string;
     milestone?: string;
+    /** Comma-joined label names, AND-ed server-side. Already sorted/deduped/capped
+     *  by `serializeLensLabels` so it lands on the same cache key each time. */
+    labels?: string;
+    /** Single username — neither provider supports multi-assignee in one call. */
+    assignee?: string;
     // 1 = force a re-fetch past the per-repo cache (the Refresh button).
     refresh?: number;
   },
@@ -51,6 +58,8 @@ export const getLensBoard = (
         ...(pivot?.swimlane_dim ? { swimlane_dim: pivot.swimlane_dim } : {}),
         ...(pivot?.state ? { state: pivot.state } : {}),
         ...(pivot?.milestone ? { milestone: pivot.milestone } : {}),
+        ...(pivot?.labels ? { labels: pivot.labels } : {}),
+        ...(pivot?.assignee ? { assignee: pivot.assignee } : {}),
         ...(pivot?.refresh ? { refresh: pivot.refresh } : {}),
       },
     })

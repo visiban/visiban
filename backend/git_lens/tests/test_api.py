@@ -15,7 +15,7 @@ if not settings.GIT_LENS_ENABLED:  # pragma: no cover - exercised only in the fl
     )
 
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -414,6 +414,257 @@ class LensBoardRenderTests(TestCase):
         self.assertEqual(last.data["code"], "fetch_budget_exhausted")
 
     @patch("git_lens.views.providers.get_provider")
+    def test_novel_filter_values_cannot_loop_the_provider(self, mock_get_provider):
+        """#1067's answer to the cache-key fan-out item, in executable form.
+
+        Label and assignee are free text too, so they enlarge the reachable key
+        space combinatorially. The existing per-(provider, repo, user) budget still
+        bounds it, because minting a distinct cache key REQUIRES a cold fetch and
+        the budget is spent before the provider is touched — so keys created can
+        never exceed fetches allowed, no matter how many filter dimensions exist.
+        That is why no second limiter was added. If a future filter dimension is
+        added without this property, this test is what should fail."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        last = None
+        for i in range(views.LENS_FETCH_BUDGET + 6):
+            # A novel value on EVERY new dimension at once — the widest key space
+            # a caller can reach through this endpoint.
+            last = self.client.get(
+                self.url + f"?labels=novel-{i}&assignee=who-{i}&milestone=m-{i}"
+            )
+        self.assertEqual(calls["n"], views.LENS_FETCH_BUDGET)
+        self.assertEqual(last.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(last.data["code"], "fetch_budget_exhausted")
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_rotating_repo_slug_cannot_mint_fresh_fetch_budgets(self, mock_get_provider):
+        """The per-repo budget key contains repo_slug, and repo_slug is USER-MINTABLE:
+        any authenticated user can create a board, become its admin, and PUT a new
+        slug — minting a fresh 12-fetch budget for the cost of one request. A ceiling
+        scoped on a value the caller chooses the cardinality of is no ceiling, so a
+        second per-user budget across all repos backstops it. This matters most for
+        GitLab, whose reads are anonymous and charged to the instance's own IP
+        (#1067 security-review)."""
+        conn = self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        last = None
+        # Rotate the slug far more times than the per-user ceiling allows fetches.
+        for repo_n in range(views.LENS_USER_FETCH_BUDGET + 10):
+            conn.repo_slug = f"g/p{repo_n}"
+            conn.save(update_fields=["repo_slug"])
+            last = self.client.get(self.url)
+        self.assertEqual(calls["n"], views.LENS_USER_FETCH_BUDGET)
+        self.assertEqual(last.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(last.data["code"], "fetch_budget_exhausted")
+
+    def test_cache_key_digest_is_not_truncated(self):
+        """GitLab board keys carry no user scope, so they are shared instance-wide
+        and a caller controls both sides of the hash comparison. A truncated digest
+        makes multi-target second-preimage search cheap enough to plant an entry
+        that serves attacker-chosen issue titles and URLs into another team's board.
+        Keep the full digest — key length is free."""
+        from git_lens.types import LensFilters
+        from git_lens.views import _board_cache_key
+
+        key = _board_cache_key("gitlab", "g/p", "status", "milestone", filters=LensFilters())
+        self.assertEqual(len(key.rsplit(":", 1)[1]), 64)  # full sha256 hex
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_label_order_and_duplicates_collapse_to_one_cache_key(self, mock_get_provider):
+        """Labels are an unordered AND set, so ?labels=b,a and ?labels=a,b are the
+        same question and must share one key — an unsorted key would mint two
+        entries and two cold provider fetches for one filter, multiplying exactly
+        the fan-out this change is bounding. Duplicates and padding collapse too."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url + "?labels=bug,backend")
+        self.client.get(self.url + "?labels=backend,bug")
+        self.client.get(self.url + "?labels=%20backend%20,bug,bug,")
+        self.assertEqual(calls["n"], 1)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_label_count_is_capped(self, mock_get_provider):
+        self._connect("gitlab")
+        seen = {}
+
+        def capture(token, repo, config, filters):
+            seen["labels"] = filters.labels
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        self.client.get(self.url + "?labels=a,b,c,d,e,f,g,h")
+        self.assertEqual(len(seen["labels"]), views.MAX_LENS_LABELS)
+        # Deduping happens BEFORE the cap, so a repeated label is not a wasted slot.
+        self.client.get(self.url + "?labels=z,z,z,z,z,y")
+        self.assertEqual(seen["labels"], ("y", "z"))
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_filter_values_containing_separators_do_not_collide(self, mock_get_provider):
+        """The cache-key preimage is JSON, not a delimiter-joined string. Label and
+        milestone titles legitimately contain '|' and ',' ("P1, urgent"), and with a
+        hand-joined preimage two DIFFERENT filter sets collapse onto one digest —
+        serving one viewer a board that answers somebody else's filter."""
+        from git_lens.types import LensFilters
+        from git_lens.views import _board_cache_key
+
+        args = ("gitlab", "g/p", "status", "milestone")
+        # One label literally containing a comma vs. two separate labels.
+        one_label = _board_cache_key(*args, filters=LensFilters(labels=("a,b",)))
+        two_labels = _board_cache_key(*args, filters=LensFilters(labels=("a", "b")))
+        self.assertNotEqual(one_label, two_labels)
+        # A milestone title that mimics the old delimiter grammar.
+        spoofed = _board_cache_key(*args, filters=LensFilters(milestone="x|a=y"))
+        plain = _board_cache_key(*args, filters=LensFilters(milestone="x", assignee="y"))
+        self.assertNotEqual(spoofed, plain)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_filtered_entries_get_a_shorter_hard_ttl(self, mock_get_provider):
+        """Filtered boards are the long tail of the key space and the whole resident
+        footprint of the fan-out; the unfiltered board is the hot, genuinely shared
+        entry and keeps the full window."""
+        self._connect("gitlab")
+        mock_get_provider.return_value = lambda token, repo, config, filters: _fake_lens_data()
+
+        with patch("git_lens.views.cache.set", wraps=cache.set) as mock_set:
+            self.client.get(self.url)
+            self.assertEqual(mock_set.call_args.args[2], views.LENS_CACHE_HARD_TTL)
+            self.client.get(self.url + "?labels=bug")
+            self.assertEqual(
+                mock_set.call_args.args[2], views.LENS_CACHE_FILTERED_HARD_TTL
+            )
+        self.assertLess(views.LENS_CACHE_FILTERED_HARD_TTL, views.LENS_CACHE_HARD_TTL)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_new_filters_reach_the_provider_and_are_optional(self, mock_get_provider):
+        """Backward compatibility: every new param is optional with a no-filter
+        default, so an existing client that sends none behaves exactly as before."""
+        self._connect("gitlab")
+        seen = {}
+
+        def capture(token, repo, config, filters):
+            seen["filters"] = filters
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        self.client.get(self.url)
+        self.assertEqual(seen["filters"].labels, ())
+        self.assertIsNone(seen["filters"].assignee)
+        self.assertFalse(seen["filters"].active)
+
+        self.client.get(self.url + "?labels=bug&assignee=alice")
+        self.assertEqual(seen["filters"].labels, ("bug",))
+        self.assertEqual(seen["filters"].assignee, "alice")
+        self.assertTrue(seen["filters"].active)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_blank_filter_values_are_treated_as_absent(self, mock_get_provider):
+        """Fail-open: a shared link carrying empty filter params must render the
+        unfiltered board, not a filter for the empty string (which would be its own
+        cache key and its own cold fetch)."""
+        self._connect("gitlab")
+        calls = {"n": 0}
+
+        def counting(token, repo, config, filters):
+            calls["n"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url)
+        self.client.get(self.url + "?labels=&assignee=&milestone=&state=")
+        self.client.get(self.url + "?labels=,,,&assignee=%20%20")
+        self.assertEqual(calls["n"], 1)  # all three are the same unfiltered key
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_overlong_filter_values_are_capped(self, mock_get_provider):
+        """Cache-key hygiene + defense: each filter value is bounded at
+        MAX_FILTER_VALUE_LEN before it reaches the provider or the cache key, so an
+        absurdly long query value can't inflate the resident cache-key payload or
+        get forwarded verbatim to the upstream provider request."""
+        self._connect("gitlab")
+        seen = {}
+
+        def capture(token, repo, config, filters):
+            seen["filters"] = filters
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        over_limit = "x" * (views.MAX_FILTER_VALUE_LEN + 50)
+        resp = self.client.get(
+            self.url + f"?milestone={over_limit}&assignee={over_limit}&labels={over_limit}"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(seen["filters"].milestone), views.MAX_FILTER_VALUE_LEN)
+        self.assertEqual(len(seen["filters"].assignee), views.MAX_FILTER_VALUE_LEN)
+        self.assertEqual(len(seen["filters"].labels[0]), views.MAX_FILTER_VALUE_LEN)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_invalid_state_value_fails_open(self, mock_get_provider):
+        """An unrecognized `state` value is coerced to "no filter" rather than sent
+        to the provider or baked into the cache key literally — the same fail-open
+        contract `_parse_filters` documents for milestone/labels/assignee, and the
+        same coercion already applied to the pivot-dim params just above it in the
+        view. A shared link carrying a since-invalid state must still render."""
+        self._connect("gitlab")
+        seen = {}
+
+        def capture(token, repo, config, filters):
+            seen["filters"] = filters
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = capture
+        resp = self.client.get(self.url + "?state=bogus")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIsNone(seen["filters"].state)
+        self.assertFalse(seen["filters"].active)
+
+    @patch("git_lens.views.providers.get_provider")
+    def test_refresh_with_filters_refetches_the_filtered_key_not_unfiltered(
+        self, mock_get_provider
+    ):
+        """?refresh=1 must revalidate the cache key the CURRENT request maps to —
+        a filtered request forces a re-fetch of the FILTERED entry, never the
+        unfiltered board it happens to share a repo with. Without this a Refresh
+        click on a filtered view could look like a no-op (revalidating the wrong
+        entry) or silently warm the unfiltered board instead of the one on screen."""
+        self._connect("gitlab")
+        calls = {"unfiltered": 0, "filtered": 0}
+
+        def counting(token, repo, config, filters):
+            calls["filtered" if filters.active else "unfiltered"] += 1
+            return _fake_lens_data()
+
+        mock_get_provider.return_value = counting
+        self.client.get(self.url)                            # unfiltered cold fetch
+        self.client.get(self.url + "?labels=bug")             # filtered cold fetch
+        self.assertEqual(calls, {"unfiltered": 1, "filtered": 1})
+
+        self.client.get(self.url + "?labels=bug&refresh=1")   # forces the FILTERED key
+        self.assertEqual(calls, {"unfiltered": 1, "filtered": 2})
+
+        # The unfiltered copy is untouched by a filtered refresh — still warm.
+        self.client.get(self.url)
+        self.assertEqual(calls, {"unfiltered": 1, "filtered": 2})
+
+    @patch("git_lens.views.providers.get_provider")
     def test_over_budget_serves_stale_rather_than_429(self, mock_get_provider):
         """When a cached copy exists, an exhausted budget degrades to the stale copy
         — the board still renders. 429 is only for the cold-key case."""
@@ -431,20 +682,46 @@ class LensBoardRenderTests(TestCase):
 
     def test_lock_ttl_covers_worst_case_pipeline_fetch(self):
         """The single-flight lock must outlive the slowest fetch it guards, or it
-        expires mid-fetch and a second caller dogpiles the provider. The worst case
-        is the pipeline view: MAX_PAGES issue pages plus TWO aux paginations
-        (branches + MRs). The original formula counted only the issue pages, so it
+        expires mid-fetch and a second caller dogpiles the provider.
+
+        The worst case is a GitHub pipeline fetch with a milestone filter:
+        MAX_PAGES issue pages, TWO aux paginations (branches + MRs), and ONE
+        milestone-roster page (_github_milestone_map, added in #1067 when GitHub
+        milestone filtering moved server-side).
+
+        This test is the second, independent guard on the import-time assertion in
+        views.py — which means the formula here has to track that one exactly. It
+        has drifted before: the original counted only the issue pages, so it
         asserted 45 >= 30 and passed while the real worst case (70s) exceeded the
-        45s lock. Pipeline is now the default for new lenses, so this is the
-        common path, not a corner."""
+        45s lock. A formula that under-counts still passes today and silently stops
+        guarding the next page-cap bump, which is the only failure this test exists
+        to catch. Keep every outbound leg represented."""
         from git_lens import providers as _p
         from git_lens import views as _v
 
-        worst = (_p.MAX_PAGES + 2 * _p.MAX_AUX_PAGES) * _p.REQUEST_TIMEOUT
+        worst = (_p.MAX_PAGES + 2 * _p.MAX_AUX_PAGES + 1) * _p.REQUEST_TIMEOUT
         self.assertGreaterEqual(
             _v.LENS_FETCH_LOCK_TTL, worst,
-            "lock TTL must cover issue pages AND both aux paginations",
+            "lock TTL must cover issue pages, both aux paginations, "
+            "AND the GitHub milestone-roster page",
         )
+        # Pin the two formulas together so a change to one without the other fails
+        # here rather than quietly halving this test's value.
+        self.assertEqual(worst, _v._WORST_CASE_FETCH_SECONDS)
+
+    def test_filtered_cache_window_stays_inside_the_fetch_budget_window(self):
+        """Capacity invariant behind the filtered-entry TTL (#1067 perf-check).
+
+        Resident filtered entries per (user, repo) settle at roughly
+        LENS_FETCH_BUDGET * (FILTERED_HARD_TTL / BUDGET_WINDOW) — entries expire
+        faster than the budget refills them. That decay only holds while the
+        filtered TTL is shorter than the budget window; invert them and the
+        resident count grows toward the full budget instead. Nothing else asserts
+        this, unlike the lock-TTL relationship, so a future tuning pass that
+        shortens the budget window should fail here rather than silently triple the
+        cache footprint."""
+        self.assertLess(views.LENS_CACHE_FILTERED_HARD_TTL, views.LENS_FETCH_BUDGET_WINDOW)
+        self.assertLess(views.LENS_CACHE_FILTERED_HARD_TTL, views.LENS_CACHE_HARD_TTL)
 
     @patch("git_lens.views.providers.get_provider")
     def test_filtered_and_unfiltered_do_not_cross_serve(self, mock_get_provider):
@@ -488,6 +765,32 @@ class LensBoardRenderTests(TestCase):
         other.get(self.url)  # different member → NOT served the owner's copy
 
         self.assertEqual(calls["n"], 2)
+
+    @patch("git_lens.views._user_provider_token", return_value="ghtok")
+    def test_github_milestone_roster_error_degrades_like_any_other_provider_error(
+        self, _mock_token
+    ):
+        """The milestone title->number lookup (`_github_milestone_map`) is itself an
+        upstream call, made BEFORE the issue fetch whenever a GitHub board is
+        filtered by milestone title. A failure there (rate limit, auth, 5xx) must
+        surface through the exact same LensError handling as a failure on the issue
+        endpoint itself — a clean error response on a cold cache, never a 500 — and
+        must never fall through to an issue request once resolution has failed."""
+        self._connect("github")
+
+        def boom(url, headers=None, params=None, timeout=None):
+            self.assertTrue(
+                url.endswith("/milestones"), "must fail before any issue request"
+            )
+            resp = MagicMock()
+            resp.status_code = 403
+            resp.headers = {}  # no X-RateLimit-Remaining -> abuse/secondary limit path
+            return resp
+
+        with patch("git_lens.providers.requests.get", side_effect=boom):
+            resp = self.client.get(self.url + "?milestone=1.2")
+        self.assertEqual(resp.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(resp.data["code"], "rate_limited")
 
     @patch("git_lens.views.providers.get_provider")
     def test_serves_stale_copy_when_provider_errors_after_soft_expiry(self, mock_get_provider):

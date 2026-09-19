@@ -44,6 +44,16 @@ See [Maintenance Mode](maintenance-mode.md) for the full runbook: what everyone 
 exempt endpoints that keep you from locking yourself out, the shell break-glass command, and a
 known limitation on tabs left open in the background.
 
+### Change history
+
+> **Added in 1.2**
+
+Changes to the toggles on this tab — registration mode, file uploads, and maintenance mode —
+are recorded with the admin who made them and when. There is no UI for this yet; read the
+trail from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log). See
+[Who turned it on?](maintenance-mode.md#who-turned-it-on-the-action-log) for the incident-retro
+walkthrough.
+
 ## Users tab
 
 Lists all accounts on the instance, paginated 50 per page. Use the search bar to filter by username, display name, or email address.

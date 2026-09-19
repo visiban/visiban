@@ -11,6 +11,7 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 | [Cards API](cards.md) | Cards, move endpoint, comments, attachments, checklists, and activity |
 | [Groups API](groups.md) | Groups, subgroups, group members, and invite links |
 | [Notifications API](notifications.md) | List unread notifications, mark as read, and get unread count |
+| [Admin API](admin.md) | Site settings, the instance-admin action log, users, and invite links — site admin only |
 | [Change Feed](events.md) | Durable, resumable feed of board mutations — replay what you missed with a cursor instead of re-fetching (since 1.2) |
 | [Health Checks](health.md) | Liveness and readiness probes for K8s / uptime monitoring |
 | [OpenAPI Spec](openapi.md) | Machine-readable OpenAPI 3.0 spec, Swagger UI, and ReDoc |

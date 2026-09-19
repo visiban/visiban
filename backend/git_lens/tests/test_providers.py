@@ -6,6 +6,7 @@ suite regardless of the GIT_LENS_ENABLED flag. Upstream HTTP is mocked.
 """
 from unittest.mock import MagicMock, patch
 
+from django.core.cache import cache
 from django.test import SimpleTestCase
 
 from git_lens import providers
@@ -33,6 +34,28 @@ def _resp(json_data, status=200, headers=None):
     m.json.return_value = json_data
     m.headers = headers or {}
     return m
+
+
+class LensFiltersActiveTests(SimpleTestCase):
+    """`.active` gates the shorter filtered-cache TTL and the provenance banner's
+    "filtered" badge. Every dimension must independently trip it — the existing
+    view-level tests only exercise combinations (e.g. labels+assignee together),
+    which would pass even if one dimension alone were wired wrong."""
+
+    def test_inactive_when_all_fields_are_default(self):
+        self.assertFalse(LensFilters().active)
+
+    def test_active_for_state_alone(self):
+        self.assertTrue(LensFilters(state="open").active)
+
+    def test_active_for_milestone_alone(self):
+        self.assertTrue(LensFilters(milestone="1.2").active)
+
+    def test_active_for_labels_alone(self):
+        self.assertTrue(LensFilters(labels=("bug",)).active)
+
+    def test_active_for_assignee_alone(self):
+        self.assertTrue(LensFilters(assignee="alice").active)
 
 
 class PivotTests(SimpleTestCase):
@@ -412,6 +435,11 @@ class PipelineEnrichmentGatingTests(SimpleTestCase):
 
 
 class FilterTests(SimpleTestCase):
+    def setUp(self):
+        # _github_milestone_map caches the roster per credential; clear it so these
+        # tests never inherit a roster another test planted.
+        cache.clear()
+
     @patch("git_lens.providers.requests.get")
     def test_gitlab_state_and_milestone_are_server_side(self, mock_get):
         mock_get.return_value = _resp([])
@@ -430,17 +458,156 @@ class FilterTests(SimpleTestCase):
         self.assertEqual(mock_get.call_args_list[0].kwargs["params"].get("milestone"), "None")
 
     @patch("git_lens.providers.requests.get")
-    def test_github_state_server_side_milestone_client_side(self, mock_get):
-        mock_get.return_value = _resp([
-            {"number": 1, "title": "a", "html_url": "u", "state": "open", "labels": [], "assignees": [], "milestone": {"title": "1.2"}},
-            {"number": 2, "title": "b", "html_url": "u", "state": "open", "labels": [], "assignees": [], "milestone": {"title": "0.3"}},
-        ])
+    def test_github_milestone_resolved_to_number_server_side(self, mock_get):
+        """#1067: GitHub milestone filtering moved from client-side to server-side.
+        GitHub's issues API takes a milestone NUMBER, so the title is resolved via
+        the milestones roster first — the whole point being that the filter then
+        reaches issues OUTSIDE the 300-issue fetch budget, which a client-side pass
+        over the already-fetched page never could."""
+        def by_url(url, **kwargs):
+            if url.endswith("/milestones"):
+                return _resp([{"title": "0.3", "number": 7}, {"title": "1.2", "number": 8}])
+            return _resp([
+                {"number": 2, "title": "b", "html_url": "u", "state": "open",
+                 "labels": [], "assignees": [], "milestone": {"title": "0.3"}},
+            ])
+
+        mock_get.side_effect = by_url
         data = providers.github_fetch(
             "tok", "o/r", LensConfig("state", "milestone"),
             LensFilters(state="open", milestone="0.3"),
         )
-        self.assertEqual(mock_get.call_args_list[0].kwargs["params"].get("state"), "open")
-        self.assertEqual({i.number for i in data.issues}, {2})  # milestone filtered client-side
+        issue_params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertEqual(issue_params.get("state"), "open")
+        self.assertEqual(issue_params.get("milestone"), "7")  # title → number
+        self.assertEqual({i.number for i in data.issues}, {2})
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_no_milestone_sentinel_needs_no_roster_lookup(self, mock_get):
+        """GitHub accepts the literal "none", so "__none__" costs zero extra calls."""
+        mock_get.return_value = _resp([])
+        providers.github_fetch("tok", "o/r", LensConfig(), LensFilters(milestone="__none__"))
+        self.assertEqual(mock_get.call_args_list[0].kwargs["params"].get("milestone"), "none")
+        for call in mock_get.call_args_list:
+            self.assertNotIn("/milestones", call.args[0])
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_unknown_milestone_with_complete_roster_returns_empty(self, mock_get):
+        """The roster came back short of a full page, so it is complete and the
+        title genuinely does not exist upstream. Return an empty board rather than
+        falling back — otherwise "no such milestone" is indistinguishable from "no
+        matches inside the fetched window". Costs zero issue requests."""
+        mock_get.return_value = _resp([{"title": "0.3", "number": 7}])
+        data = providers.github_fetch(
+            "tok", "o/r", LensConfig("state", "milestone"), LensFilters(milestone="nope")
+        )
+        self.assertEqual(data.issues, [])
+        self.assertFalse(data.truncated)
+        self.assertEqual(mock_get.call_count, 1)  # roster only — no issue fetch
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_unknown_milestone_with_capped_roster_falls_back_client_side(self, mock_get):
+        """A FULL roster page means the title may live on a page we never read, so
+        resolution is unknown rather than negative. Degrade to the pre-#1067
+        client-side filter and mark the result truncated."""
+        full_roster = [{"title": f"m{i}", "number": i} for i in range(providers.PER_PAGE)]
+
+        def by_url(url, **kwargs):
+            if url.endswith("/milestones"):
+                return _resp(full_roster)
+            return _resp([
+                {"number": 1, "title": "a", "html_url": "u", "state": "open",
+                 "labels": [], "assignees": [], "milestone": {"title": "1.2"}},
+                {"number": 2, "title": "b", "html_url": "u", "state": "open",
+                 "labels": [], "assignees": [], "milestone": {"title": "0.3"}},
+            ])
+
+        mock_get.side_effect = by_url
+        data = providers.github_fetch(
+            "tok", "o/r", LensConfig("state", "milestone"), LensFilters(milestone="0.3")
+        )
+        issue_params = mock_get.call_args_list[-1].kwargs["params"]
+        self.assertNotIn("milestone", issue_params)  # could not resolve → not sent
+        self.assertEqual({i.number for i in data.issues}, {2})  # filtered client-side
+        self.assertTrue(data.truncated)  # the set may be incomplete — say so
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_milestone_roster_is_cached_per_credential(self, mock_get):
+        """The roster is cached under a hash of the TOKEN, never per repo alone:
+        GitHub reads use the viewer's own token and may see rosters other board
+        members cannot. Two different tokens must not share one cached roster."""
+        cache.clear()
+
+        def by_url(url, **kwargs):
+            if url.endswith("/milestones"):
+                return _resp([{"title": "0.3", "number": 7}])
+            return _resp([])
+
+        mock_get.side_effect = by_url
+        filters = LensFilters(milestone="0.3")
+        providers.github_fetch("tok-a", "o/r", LensConfig(), filters)
+        providers.github_fetch("tok-a", "o/r", LensConfig(), filters)  # cached
+        roster_calls = [c for c in mock_get.call_args_list if c.args[0].endswith("/milestones")]
+        self.assertEqual(len(roster_calls), 1)
+
+        providers.github_fetch("tok-b", "o/r", LensConfig(), filters)  # other token
+        roster_calls = [c for c in mock_get.call_args_list if c.args[0].endswith("/milestones")]
+        self.assertEqual(len(roster_calls), 2)  # NOT served token-a's roster
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_labels_and_assignee_are_server_side(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.github_fetch(
+            "tok", "o/r", LensConfig("state", "milestone"),
+            LensFilters(labels=("backend", "bug"), assignee="alice"),
+        )
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params.get("labels"), "backend,bug")
+        self.assertEqual(params.get("assignee"), "alice")
+
+    @patch("git_lens.providers.requests.get")
+    def test_gitlab_labels_and_assignee_are_server_side(self, mock_get):
+        mock_get.return_value = _resp([])
+        providers.gitlab_fetch(
+            None, "g/p", LensConfig("status", "milestone"),
+            LensFilters(labels=("backend", "bug"), assignee="alice"),
+        )
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params.get("labels"), "backend,bug")
+        self.assertEqual(params.get("assignee_username"), "alice")
+
+    @patch("git_lens.providers.requests.get")
+    def test_user_controlled_filter_values_are_passed_as_params_not_interpolated(self, mock_get):
+        """Label/assignee are user-controlled and go straight into an outbound
+        request. They must ride in `params` (which requests URL-encodes) and never
+        be interpolated into the URL, or a crafted value could bolt extra query
+        parameters onto the upstream call."""
+        mock_get.return_value = _resp([])
+        nasty = "bug&state=all#x"
+        providers.gitlab_fetch(
+            None, "g/p", LensConfig(), LensFilters(labels=(nasty,), assignee=nasty)
+        )
+        url = mock_get.call_args_list[0].args[0]
+        self.assertNotIn(nasty, url)
+        self.assertNotIn("?", url)
+        params = mock_get.call_args_list[0].kwargs["params"]
+        self.assertEqual(params.get("labels"), nasty)  # value preserved verbatim
+        self.assertEqual(params.get("assignee_username"), nasty)
+
+    @patch("git_lens.providers.requests.get")
+    def test_github_milestone_roster_fetch_error_propagates_before_issue_fetch(self, mock_get):
+        """A failure resolving the milestone roster (rate limit, auth, 404, 5xx) must
+        raise the same LensError type any other upstream failure does — the view
+        layer's degrade-to-stale/clean-error handling doesn't distinguish where in
+        the provider call graph the failure occurred, so this only needs proving
+        here. No issue request should ever be attempted once resolution has failed,
+        or a filtered fetch would silently return an unfiltered issue set."""
+        mock_get.return_value = _resp({}, status=404)  # the /milestones lookup 404s
+        with self.assertRaises(providers.LensNotFound):
+            providers.github_fetch(
+                "tok", "o/r", LensConfig("state", "milestone"), LensFilters(milestone="1.2")
+            )
+        self.assertEqual(mock_get.call_count, 1)  # roster only — no issue fetch attempted
 
     @patch("git_lens.providers.requests.get")
     def test_available_milestones_derived_from_fetched_issues(self, mock_get):

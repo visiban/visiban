@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { getLensBoard } from "../api/gitLens";
+import { serializeLensLabels } from "../components/Board/Lens/lensDims";
 import type { LensData } from "../types";
 
 /**
@@ -64,20 +65,54 @@ function toLensError(err: unknown): LensError {
 }
 
 /**
+ * The server-side filters the lens board endpoint accepts.
+ *
+ * This is a CLIENT-SIDE type, not a serializer mirror — the "keep TypeScript
+ * interfaces in lockstep with the backend serializer" rule in the root CLAUDE.md
+ * applies to response shapes (`LensData`, `NormalizedIssue`), not to this. These
+ * are query params, and every one is optional with a no-filter default.
+ */
+export interface LensFilterState {
+  /** "open" | "closed"; omit for all. */
+  state?: string;
+  /** Milestone title, or the `__none__` sentinel for "no milestone". */
+  milestone?: string;
+  /** AND-ed label names. Serialized sorted/deduped/capped before the request. */
+  labels?: string[];
+  /** A single username. */
+  assignee?: string;
+}
+
+export interface UseLensDataOptions {
+  columnDim?: string;
+  swimlaneDim?: string;
+  filters?: LensFilterState;
+}
+
+/**
  * Fetch/refetch state machine for the read-only issue board lens.
  *
  * Distinguishes ``loading`` (first paint, no data) from ``refetching`` (a manual
  * refresh or pivot change while data is already on screen) so the view can keep
  * the grid mounted and show only a spinner in the freshness control. A stale
  * in-flight request never clobbers a newer one (guarded by a request id).
+ *
+ * Takes an options object rather than positional arguments: #1067 took the filter
+ * set from two values to four, and five-plus positional parameters of the same
+ * type is a call site nobody can read or safely reorder.
  */
 export function useLensData(
   boardId: number,
-  columnDim?: string,
-  swimlaneDim?: string,
-  state?: string,
-  milestone?: string,
+  { columnDim, swimlaneDim, filters }: UseLensDataOptions = {},
 ): UseLensDataResult {
+  const state = filters?.state;
+  const milestone = filters?.milestone;
+  const assignee = filters?.assignee;
+  // Depend on the canonical STRING, not the array: a fresh `labels` array every
+  // render would re-create `run` every render and refetch in a loop. This is also
+  // exactly the value sent upstream, so the dependency and the request cannot drift.
+  const labels = serializeLensLabels(filters?.labels ?? []);
+
   const [data, setData] = useState<LensData | null>(null);
   const [error, setError] = useState<LensError | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,6 +138,8 @@ export function useLensData(
       swimlane_dim: swimlaneDim,
       state,
       milestone,
+      labels: labels || undefined,
+      assignee,
       // The Refresh button forces a re-fetch past the per-repo cache's soft-TTL.
       refresh: force ? 1 : undefined,
     })
@@ -120,7 +157,7 @@ export function useLensData(
         setLoading(false);
         setRefetching(false);
       });
-  }, [boardId, columnDim, swimlaneDim, state, milestone]);
+  }, [boardId, columnDim, swimlaneDim, state, milestone, labels, assignee]);
 
   useEffect(() => {
     run();
