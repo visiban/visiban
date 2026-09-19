@@ -1361,6 +1361,8 @@ added-files-coverage-check-self-test:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       changes:
         - scripts/check-added-files-covered.mjs
+  before_script:
+    - apk add --no-cache git
   script:
     - node scripts/check-added-files-covered.mjs --self-test
 
