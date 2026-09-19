@@ -34,6 +34,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.models import get_maintenance_state
 from boards.models import Card, CardRelation
 from boards.serializers import CardSerializer, PublicCardSerializer, _card_queryset
 from boards.tests.conftest import (
@@ -767,6 +768,18 @@ class CardRelationPeerBroadcastQueryCountTests(_RelationTestBase):
     peer is exactly the one INSERT. This test is what stops that regressing
     back to a per-peer render.
     """
+
+    def setUp(self):
+        super().setUp()
+        # MaintenanceModeMiddleware's get_maintenance_state() cache read
+        # costs one query on a cold LocMemCache and nothing on a warm one
+        # (see backend/boards/tests/test_query_counts.py::CardMutationQueryCountTests
+        # for the fuller writeup). This test archives twice in the same
+        # process and diffs the two query counts, so an uncached first call
+        # skews the diff by exactly the same amount it skews an absolute
+        # budget elsewhere. Warm it here so the diff reflects the steady
+        # state, not which archive call happened to run first.
+        get_maintenance_state()
 
     def _archive_query_count(self, card):
         url = f"/api/v1/boards/{self.board.id}/cards/{card.id}/archive/"
