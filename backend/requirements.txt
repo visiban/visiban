@@ -48,5 +48,15 @@ mcp==1.30.0
 # resolver's choice, so floor it explicitly. 0.0.31 is the highest fix version
 # across the eight; mcp's unbounded spec accepts it.
 python-multipart>=0.0.31
+# anyio arrives transitively via mcp (anyio>=4.5, no upper bound) and via
+# httpx/starlette/sse-starlette in the same MCP dependency chain, all
+# similarly unbounded. pip resolves that to the latest satisfying version
+# (4.15.x today), so built images are not affected — but osv-scanner
+# resolves the MINIMUM satisfying version and so reports 4.9.0, vulnerable
+# to GHSA-82r6-8w77-94w6 (CRITICAL — TLSStream IDNA 2003 hostname encoding
+# enables TLS certificate validation bypass) and GHSA-5p39-cfhj-2xmp.
+# Floor it explicitly at the first version both advisories are fixed in,
+# mirroring the python-multipart pattern above.
+anyio>=4.14.2
 whitenoise==6.8.2
 drf-spectacular==0.29.0
