@@ -261,6 +261,30 @@ that only moves lines, or a vendored file with no realistic local test. When tha
 The override is always visible in the MR discussion and job history — never silence the
 gate by weakening the threshold or broadening `--exclude` to route around a single MR.
 
+### Added-file coverage guard (#1091)
+
+`diff-cover` has a blind spot that's the inverse of what you'd expect: a **brand-new**
+source file with zero tests never appears in `coverage.xml` / `cobertura-coverage.xml` at
+all, so `diff-cover` finds no rows for it and reports **100%** for that file — a file with
+*some* tests gets scrutinized, a file with *none* sails through. (The aggregate-coverage
+version of this same bug — an uninstrumented CI job reading as 0% — is #1090.)
+
+`added-files-coverage-check` closes this gap. It reuses the same `coverage.xml` /
+`cobertura-coverage.xml` artifacts as the diff-coverage jobs above (no test re-run):
+for every file *added* (not modified) since the MR's merge-base, filtered to
+`backend/*.py` and `frontend/src/*.ts(x)` and excluding whatever `backend/.coveragerc`'s
+`omit` list and `vitest.config.ts`'s `coverage.exclude` list already exclude (plus
+migrations and `manage.py`, same as the diff-coverage `--exclude`), it fails the build if
+the file has no `<class filename="...">` row in the report at all — naming the file and
+explaining what to do about it in the job log.
+
+The script (`scripts/check-added-files-covered.mjs`) ships a `--self-test` mode, run in
+its own `added-files-coverage-check-self-test` CI job on the same `node:20-alpine` image as
+the real check: it builds a synthetic git repo and coverage fixtures in a temp directory
+(no network, no database, no changes to the real working tree) and asserts detection fires
+on a known-bad fixture and stays clean on a known-good one. This is the house pattern for
+bespoke gate scripts described in #1093.
+
 ## Git hooks
 
 `scripts/wt` (see its `--help`) applies a `status::wip` GitLab label when you create a
