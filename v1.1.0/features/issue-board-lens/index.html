@@ -1559,6 +1559,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#filtering-the-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filtering the board
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#refreshing-data" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3363,9 +3374,55 @@
 <li>If neither applies, no milestone is marked.</li>
 </ul>
 <p>The <strong>Ungrouped</strong> swimlane is never marked current.</p>
+<h3 id="filtering-the-board">Filtering the board<a class="headerlink" href="#filtering-the-board" title="Permanent link">&para;</a></h3>
+<p>Click <strong>Filters</strong> in the Lens toolbar (or press <kbd>f</kbd>) to open the filter row.</p>
+<table>
+<thead>
+<tr>
+<th>Filter</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>State</strong></td>
+<td>Show only open or only closed issues.</td>
+</tr>
+<tr>
+<td><strong>Milestone</strong></td>
+<td>Scope the board to one milestone. Type a title, pick one of the suggestions, or choose <strong>(no milestone)</strong> to see only issues that have not been assigned to one.</td>
+</tr>
+<tr>
+<td><strong>Label</strong></td>
+<td>Tick up to five labels. Labels combine with <strong>and</strong> — an issue must carry <em>every</em> ticked label to appear.</td>
+</tr>
+<tr>
+<td><strong>Assignee</strong></td>
+<td>Scope to a single person. One at a time: GitHub and GitLab cannot filter by several assignees in one request.</td>
+</tr>
+<tr>
+<td><strong>Title or number</strong></td>
+<td>Narrows what is already on screen by issue title or <code>#number</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>State, milestone, label and assignee are applied <strong>at the provider</strong>, before issues are
+fetched. That matters on a large repository: filtering to a milestone or label reaches
+issues that fall outside the 300-issue cap, so a filtered board can show work an
+unfiltered one cannot. The title/number box, by contrast, only narrows the issues
+already loaded.</p>
+<p>All filters are stored in the page URL, so a filtered board can be copied and shared
+as a link. The <strong>Filters</strong> button shows how many are active; <strong>Clear</strong> removes them all.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Label and assignee suggestions are gathered from the issues that have been loaded
+so far, so a label used only by issues beyond the cap may not be offered. You can
+still type a milestone or assignee that is not in the list — the filter is sent to
+the provider either way.</p>
+</div>
 <h3 id="refreshing-data">Refreshing data<a class="headerlink" href="#refreshing-data" title="Permanent link">&para;</a></h3>
 <p>The lens does not poll automatically. Click <strong>Refresh</strong> in the Lens toolbar to fetch the latest issues from the provider. A <strong>Synced X ago</strong> indicator below the toolbar shows when data was last fetched so you always know how fresh the view is.</p>
-<p>To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the <strong>Synced X ago</strong> indicator will not advance. Refresh is available to every board role, including viewers.</p>
+<p>To protect your provider's API rate limit — which everyone viewing the same repository shares — Refresh is capped at once every 30 seconds per person, per repository, and there is a wider cap of 12 fetches per five minutes covering pivots and filter changes as well, plus an overall ceiling of 48 fetches per five minutes across every repository you are viewing. Clicking Refresh inside the cooldown simply keeps showing the data you already have; the <strong>Synced X ago</strong> indicator will not advance. Refresh is available to every board role, including viewers.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Refresh after closing a sprint or milestone to update the board before your retrospective.</p>
@@ -3429,7 +3486,9 @@ Link your GitHub account in <strong>Settings → Connected accounts</strong> and
 <p><strong>Issues are missing or stale.</strong>
 Click <strong>Refresh</strong> in the Lens toolbar to pull the latest data from the provider.</p>
 <p><strong>The 300-issue cap notice appears.</strong>
-Filter the view by milestone or label to focus on a subset of work. The cap cannot be removed in this release.</p>
+Filter the view by milestone, label or assignee to focus on a subset of work — those filters are applied at the provider, so they reach issues beyond the cap. The cap itself cannot be removed in this release.</p>
+<p><strong>A GitHub milestone filter returns an empty board.</strong>
+No milestone with that exact title exists in the repository. Milestone titles are matched exactly, including capitalization. Pick one from the suggestions to be sure.</p>
 
 
 
