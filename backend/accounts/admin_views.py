@@ -13,14 +13,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
-from .adapter import invalidate_registration_mode_cache
 from .models import (
+    AdminActionLog,
     InviteLink,
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
     SiteSetting,
-    invalidate_maintenance_mode_cache,
-    invalidate_uploads_enabled_cache,
+    record_site_setting_changes,
+    snapshot_site_setting,
 )
 from .permissions import IsSiteAdmin, TokenHasScope
 from .validators import UsernameFormatValidator
@@ -73,6 +73,26 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         max_length=MAINTENANCE_MESSAGE_MAX_LENGTH,
         trim_whitespace=True,
     )
+
+
+class AdminActionLogSerializer(drf_serializers.ModelSerializer):
+    """Read-only payload for the admin action log (#1126).
+
+    The actor is rendered flat (``actor_id`` + ``actor_username``) rather than
+    as a nested user object, matching ``created_by_username`` on the invite-link
+    payload in this same module. Both columns are local, so a page of rows costs
+    one query — and a nested object can always be *added* later without breaking
+    the 1.x contract, whereas one shipped now could never be removed.
+
+    ``actor_username`` is the username captured when the action happened, not a
+    live lookup: it stays correct after a rename and survives deletion of the
+    account. ``actor_id`` may therefore point at a user that no longer exists.
+    """
+
+    class Meta:
+        model = AdminActionLog
+        fields = ["id", "action", "actor_id", "actor_username", "source", "metadata", "created_at"]
+        read_only_fields = fields
 
 
 class OwnedBoardSummarySerializer(drf_serializers.Serializer):
@@ -210,6 +230,17 @@ class AdminUserPagination(OffsetCountPagination):
     max_limit = 200
 
 
+class AdminActionLogPagination(OffsetCountPagination):
+    # Offset pagination on a log that grows at the head can shift rows between
+    # pages while a caller walks it (the reason CardQueryCursorPagination exists
+    # for the card feed). Accepted here: this table gains a handful of rows a
+    # month, so a page boundary moving under a reader is a theoretical concern
+    # rather than an operational one, and the {count, offset, page_size,
+    # results} envelope is what every admin list endpoint already returns.
+    default_limit = 50
+    max_limit = 200
+
+
 # ---------------------------------------------------------------------------
 # Views
 # ---------------------------------------------------------------------------
@@ -223,35 +254,107 @@ class AdminSettingsView(APIView):
         return Response(SiteSettingSerializer(setting).data)
 
     def patch(self, request):
-        setting = SiteSetting.get()
+        # Validation runs BEFORE the lock below, so a malformed request returns
+        # 400 without ever holding a row lock on the singleton.
         serializer = SiteSettingSerializer(data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         validated = serializer.validated_data
-        update_fields = []
+        # Materialize the singleton before locking it — select_for_update has
+        # nothing to lock on a first-boot instance where the row is absent.
+        SiteSetting.get()
 
-        if "registration_mode" in validated:
-            setting.registration_mode = validated["registration_mode"]
-            update_fields.append("registration_mode")
+        # Everything from the read through the audit write happens under one
+        # locked transaction (#1126).
+        #
+        # The lock is what makes the audit trail truthful, not just the
+        # atomicity. Read the row without it and two admins editing
+        # concurrently produce a log that lies: A commits "X"→"Y", B (which
+        # read "X" earlier) then commits "Z", and B's row claims "X"→"Z" — a
+        # transition that never happened, with A's edit missing entirely.
+        # Last-write-wins on the value itself is unchanged and acceptable; a
+        # record that is confidently wrong about what changed is not, because
+        # that is the single thing this table exists to report. Concurrent
+        # admin edits are most likely during an incident, which is exactly when
+        # the trail is read. Same select_for_update pattern, same row, same
+        # reason as AdminInviteLinkListCreateView.post below.
+        #
+        # Cache invalidation is deliberately NOT repeated here: SiteSetting.save()
+        # owns it. It evicts immediately (which is what makes the new value
+        # visible in-process) AND again via transaction.on_commit. The second
+        # eviction is the one that matters here — the immediate one lands
+        # mid-transaction, where another worker can repopulate the cache from
+        # the still-old committed row, so without the post-commit repeat that
+        # stale value would survive until the TTL expired.
+        with transaction.atomic():
+            setting = SiteSetting.objects.select_for_update().get(pk=1)
+            # Snapshotted under the lock so the diff compares against what was
+            # actually stored, not against a value another request has since
+            # replaced.
+            before = snapshot_site_setting(setting)
+            update_fields = []
 
-        if "uploads_enabled" in validated:
-            setting.uploads_enabled = validated["uploads_enabled"]
-            update_fields.append("uploads_enabled")
+            if "registration_mode" in validated:
+                setting.registration_mode = validated["registration_mode"]
+                update_fields.append("registration_mode")
 
-        for field in ("maintenance_mode", "maintenance_message"):
-            if field in validated:
-                setattr(setting, field, validated[field])
-                update_fields.append(field)
+            if "uploads_enabled" in validated:
+                setting.uploads_enabled = validated["uploads_enabled"]
+                update_fields.append("uploads_enabled")
 
-        if update_fields:
-            setting.save(update_fields=update_fields)
-            # Flush caches so changes take effect immediately.
-            invalidate_registration_mode_cache()
-            invalidate_uploads_enabled_cache()
-            invalidate_maintenance_mode_cache()
+            for field in ("maintenance_mode", "maintenance_message"):
+                if field in validated:
+                    setattr(setting, field, validated[field])
+                    update_fields.append(field)
+
+            if update_fields:
+                setting.save(update_fields=update_fields)
+                record_site_setting_changes(
+                    before=before,
+                    after=setting,
+                    actor=request.user,
+                    source=AdminActionLog.Source.ADMIN_API,
+                )
 
         return Response(SiteSettingSerializer(setting).data)
+
+
+class AdminActionLogView(APIView):
+    """GET /api/admin/action-log/ — paginated instance-admin audit trail (#1126).
+
+    Site-admin only, like every other endpoint in this module: an audit trail of
+    privileged actions is itself sensitive, since it reveals when the instance
+    was unattended and who holds admin rights.
+
+    Read-only by design. There is no write endpoint and no delete endpoint —
+    rows are appended by the actions themselves, and an audit log an admin can
+    edit is not evidence of anything.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+    pagination_class = AdminActionLogPagination
+
+    def get(self, request):
+        qs = AdminActionLog.objects.all()
+
+        # Validated against the enum at the boundary rather than passed to the
+        # ORM as-is: an unknown value is a caller error worth a 400, not a
+        # silently empty page that reads like "nothing ever happened".
+        action = request.query_params.get("action", "").strip()
+        if action:
+            if action not in AdminActionLog.Action.values:
+                return Response(
+                    {"action": [f"'{action}' is not a valid action."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            qs = qs.filter(action=action)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request)
+        return paginator.get_paginated_response(
+            AdminActionLogSerializer(page, many=True).data
+        )
 
 
 class AdminUsersView(APIView):

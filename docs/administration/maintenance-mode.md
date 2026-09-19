@@ -80,6 +80,60 @@ banner appear or disappear the instant you flip the toggle. Don't assume every o
 updates the moment you act; if you need everyone to see the notice immediately, say so in
 another channel (chat, status page) rather than relying on the banner alone.
 
+## Who turned it on? — the action log
+
+> **Added in 1.2**
+
+Every flip of the maintenance mode toggle is recorded, so an incident retrospective can
+answer "who put us into maintenance, and when did it end?" without guesswork. Each entry
+records the actor, the time, whether it went on or off, and the notice that was in force.
+
+Read it from [`GET /api/v1/admin/action-log/`](../api/admin.md#action-log):
+
+```bash
+curl -s https://visiban.example.com/api/v1/admin/action-log/?action=maintenance_mode.enabled \
+  -H "Authorization: Token vbn_…"
+```
+
+The same log also covers the other two instance-wide toggles — [registration
+mode](admin-panel.md#registration-mode) and file uploads — so it is the single place to look
+for "who changed an instance setting".
+
+Changes made from the admin panel, the `maintenance_mode` management command below, and the
+[Django admin](django-admin.md) are all recorded, each tagged with which route was used. A
+command-line change has no signed-in user to attribute, so it is recorded with no actor and
+`source: "cli"`.
+
+!!! warning "An empty log does not prove nothing happened"
+    A change written straight to the database — `manage.py shell`, or `psql` — has no actor to
+    record and leaves no entry. Every route an operator would normally use is covered, but
+    treat an empty log as "no audited path made this change", not as proof the setting was
+    never touched.
+
+Setting a value to the one it already holds is not recorded: the log contains real
+transitions only, so the gap between an `enabled` entry and the next `disabled` entry is the
+actual duration of the maintenance window.
+
+The log covers the instance-wide settings on the Admin → Settings tab. It does **not** yet
+cover user management — granting site admin, deactivating an account, or issuing an invite
+link leaves no entry.
+
+!!! warning "The audit write is part of the change"
+    A setting change and its log entry commit together: if the entry cannot be written, the
+    change is rejected rather than applied unrecorded. That is the right trade for an audit
+    trail, but it means a database fault specific to the `admin_action_logs` table would block
+    the admin panel, the management command *and* the Django admin from toggling maintenance
+    mode — during exactly the incident when you need it. The last resort is then to write the
+    setting directly, which bypasses the audit path (and so records nothing):
+
+    ```sql
+    UPDATE site_settings SET maintenance_mode = false WHERE id = 1;
+    ```
+
+    Workers pick this up within 60 seconds, once the cached value expires — the usual instant
+    invalidation does not run on this path. Use it only when every audited route is unavailable,
+    and note what you did somewhere durable, because the log will not.
+
 ## Turning maintenance mode off from the shell
 
 If the web UI is unreachable — a broken ingress, a bad deploy — maintenance mode can be
@@ -109,5 +163,7 @@ save path, so the cache invalidation still fires.
   other instance-wide toggles alongside it
 - [Maintenance mode](../api/admin.md#maintenance-mode) — the API reference: request/response
   shapes, the `503` error body, and MCP behavior
+- [Action log](../api/admin.md#action-log) — the audit trail of who changed which
+  instance-wide setting, and when
 - [Zero-Downtime Upgrade Playbook](zero-downtime-upgrade.md#3-when-this-playbook-doesnt-apply) — when maintenance mode is the right tool versus scaling to zero
 - [Upgrading Visiban](upgrade.md#standard-upgrade-steps) — the Docker Compose upgrade sequence maintenance mode is designed to wrap
