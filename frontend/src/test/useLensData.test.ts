@@ -34,13 +34,54 @@ describe('useLensData', () => {
 
   it('starts in loading, then resolves to data on success', async () => {
     mockGetLensBoard.mockResolvedValue(sampleData)
-    const { result } = renderHook(() => useLensData(5, 'status', 'milestone'))
+    const { result } = renderHook(() =>
+      useLensData(5, { columnDim: 'status', swimlaneDim: 'milestone' }),
+    )
 
     expect(result.current.loading).toBe(true)
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.data).toEqual(sampleData)
     expect(result.current.error).toBeNull()
-    expect(mockGetLensBoard).toHaveBeenCalledWith(5, { column_dim: 'status', swimlane_dim: 'milestone' })
+    expect(mockGetLensBoard).toHaveBeenCalledWith(5, {
+      column_dim: 'status',
+      swimlane_dim: 'milestone',
+      state: undefined,
+      milestone: undefined,
+      labels: undefined,
+      assignee: undefined,
+      refresh: undefined,
+    })
+  })
+
+  it('sends label and assignee as server-side params', async () => {
+    mockGetLensBoard.mockResolvedValue(sampleData)
+    const { result } = renderHook(() =>
+      useLensData(5, { filters: { labels: ['bug', 'backend'], assignee: 'alice' } }),
+    )
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    // Labels arrive sorted — the server hashes the sorted list into the board
+    // cache key, so an unsorted value would mint a second key for one filter.
+    expect(mockGetLensBoard.mock.calls[0][1]).toMatchObject({
+      labels: 'backend,bug',
+      assignee: 'alice',
+    })
+  })
+
+  it('does not refetch when an equivalent labels array is passed again', async () => {
+    mockGetLensBoard.mockResolvedValue(sampleData)
+    const { result, rerender } = renderHook(
+      ({ labels }: { labels: string[] }) => useLensData(5, { filters: { labels } }),
+      { initialProps: { labels: ['bug'] } },
+    )
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mockGetLensBoard).toHaveBeenCalledTimes(1)
+
+    // A fresh array with the same contents is the same question. Depending on the
+    // array identity here would refetch on every render.
+    rerender({ labels: ['bug'] })
+    await waitFor(() => expect(result.current.refetching).toBe(false))
+    expect(mockGetLensBoard).toHaveBeenCalledTimes(1)
   })
 
   it('maps a 409 auth_required response to an auth_required error code', async () => {

@@ -12,12 +12,16 @@ of one source, triggered by a user request.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import quote
 
 import requests
+from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
 
 from .types import (
@@ -44,7 +48,18 @@ GITLAB_BASE = "https://gitlab.com"  # v1: gitlab.com only (self-managed is a lat
 
 _STATUS_PREFIXES = ("status::", "status:")
 _NO_STATUS = "__nostatus__"
+# The single synthetic "no value on this dimension" sentinel. It does double duty:
+# the swimlane axis key for issues with no milestone/assignee/label, AND the
+# accepted ``?milestone=`` value meaning "only issues with no milestone". There
+# used to be a second constant for the filter spelling; they were the same string
+# and drifting them apart would silently return the wrong issue set, so there is
+# deliberately only one (#1067).
 _NONE = "__none__"
+
+# How long a repo's GitHub milestone title→number map is cached. Bounded by the
+# same order of magnitude as the board cache: the map only changes when someone
+# creates or renames a milestone upstream.
+GITHUB_MILESTONE_CACHE_TTL = 600
 
 # Pipeline column dimension — a fixed, opinionated software workflow derived from
 # repo state (issue + branch + MR). Keys are internal enum values; labels are
@@ -95,8 +110,6 @@ class LensRateLimited(LensError):
 
 # --- registry (internal; public hook deferred to keep-decision) -----------
 _REGISTRY: dict[str, Callable[[str | None, str, LensConfig, LensFilters], LensData]] = {}
-
-_NONE_MILESTONE = "__none__"  # synthetic value: issues with no milestone
 
 
 def register(provider_id: str):
@@ -395,11 +408,19 @@ def _finalize(issues, truncated, provider, repo, source_url, config) -> LensData
 
 
 def _filter_by_milestone(issues, milestone):
-    """Client-side milestone filter (used where the provider can't filter milestone
-    server-side, e.g. GitHub-by-title). ``__none__`` keeps issues with no milestone."""
+    """Client-side milestone filter. ``__none__`` keeps issues with no milestone.
+
+    Still live, despite GitHub milestone filtering moving server-side in #1067:
+    this is the fallback for the one case where the server-side path cannot
+    answer — a GitHub repo whose milestone roster exceeded the single lookup page,
+    so a title we did not find may still exist on a page we never read. There,
+    resolution is *unknown* rather than *negative*, and guessing "no such
+    milestone" would be a wrong answer. Do not delete this on a "no callers"
+    reading; see ``github_fetch``.
+    """
     if not milestone:
         return issues
-    if milestone == _NONE_MILESTONE:
+    if milestone == _NONE:
         return [i for i in issues if not i.milestone]
     return [i for i in issues if i.milestone == milestone]
 
@@ -441,6 +462,70 @@ def _github_issue(raw: dict) -> NormalizedIssue:
     )
 
 
+def _github_milestone_map(repo_path: str, headers: dict, token: str | None) -> tuple[dict[str, int], bool]:
+    """Return ``(title -> number, roster_is_complete)`` for the repo's milestones.
+
+    GitHub's issues API filters by milestone *number*, never by title, so a
+    title-based filter has to be resolved before the issue fetch. Deliberately
+    ONE page (100 milestones): a repo with more is vanishingly rare, the caller
+    degrades gracefully when the roster is capped, and every extra page is
+    charged against the single-flight lock's worst-case budget (see
+    ``views._WORST_CASE_FETCH_SECONDS``).
+
+    Cached per *credential*, never per repo alone. GitHub reads use the viewer's
+    own token, which may see repos — and therefore milestone rosters — that other
+    members of the same board cannot. A repo-only cache key would leak one
+    member's token-authorized view to everyone else, which is exactly the boundary
+    ``views._board_cache_key``'s ``user_scope`` exists to hold. Scoping on the
+    credential rather than on the user id is deliberate: a rotated or revoked token
+    then invalidates its own roster instead of leaving a user-id key serving a
+    roster fetched under the old credential.
+
+    The credential is reduced to an HMAC keyed on ``SECRET_KEY``, never a bare
+    hash. Cache keys live in a shared, enumerable keyspace and surface in slow logs
+    and APM breadcrumbs; a bare ``sha256(token)`` there would be an offline
+    verification oracle for anyone holding a candidate token. The token itself is
+    never stored, returned or logged.
+
+    The whole map is cached under ONE key rather than a key per queried title:
+    a per-title cache would reintroduce the unbounded cache-key fan-out this
+    issue exists to close.
+    """
+    cache_key = None
+    if token:
+        credential = hmac.new(
+            settings.SECRET_KEY.encode(), token.encode(), hashlib.sha256
+        ).hexdigest()[:32]
+        cache_key = f"git_lens:gh_milestones:v1:{credential}:{repo_path}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached["map"], cached["complete"]
+
+    resp = requests.get(
+        f"https://api.github.com/repos/{repo_path}/milestones",
+        headers=headers,
+        params={"state": "all", "per_page": PER_PAGE},
+        timeout=REQUEST_TIMEOUT,
+    )
+    _raise_for_github(resp)
+    batch = resp.json() or []
+    # Same untrusted-shape discipline as _as_str_or_none: a milestone whose title
+    # or number isn't the type we expect is dropped, not coerced.
+    mapping = {
+        m["title"]: m["number"]
+        for m in batch
+        if isinstance(m, dict)
+        and isinstance(m.get("title"), str)
+        and isinstance(m.get("number"), int)
+    }
+    complete = len(batch) < PER_PAGE
+    if cache_key is not None:
+        cache.set(
+            cache_key, {"map": mapping, "complete": complete}, GITHUB_MILESTONE_CACHE_TTL
+        )
+    return mapping, complete
+
+
 @register("github")
 def github_fetch(token: str | None, repo: str, config: LensConfig, filters: LensFilters) -> LensData:
     headers = {
@@ -453,10 +538,47 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     # Encode each path segment so a crafted repo_slug cannot alter the API path
     # (defense in depth alongside the serializer's strict validation).
     repo_path = "/".join(quote(seg, safe="") for seg in repo.split("/"))
+    source_url = f"https://github.com/{repo}"
 
-    # State is filtered server-side; milestone-by-title is not reliably queryable on
-    # GitHub (the API wants a number), so it is applied client-side below.
     state_param = filters.state if filters.state in ("open", "closed") else "all"
+    base_params: dict[str, str | int] = {"state": state_param, "per_page": PER_PAGE}
+
+    # Label + assignee go straight to GitHub. Both values are user-controlled, so
+    # they are passed as `params` — requests URL-encodes them — and never
+    # interpolated into the URL string. `labels` is comma-joined and AND-ed by
+    # GitHub (an issue must carry every listed label); the list arrives already
+    # deduped, sorted and capped from views._parse_filters.
+    if filters.labels:
+        base_params["labels"] = ",".join(filters.labels)
+    if filters.assignee:
+        base_params["assignee"] = filters.assignee
+
+    # Milestone: server-side as of #1067. GitHub filters by milestone NUMBER, so a
+    # title has to be resolved first — which is why this used to be applied
+    # client-side, silently dropping any matching issue outside the 300-issue
+    # budget. The "__none__" sentinel needs no lookup at all: GitHub accepts the
+    # literal "none".
+    client_side_milestone = False
+    if filters.milestone == _NONE:
+        base_params["milestone"] = "none"
+    elif filters.milestone:
+        roster, roster_complete = _github_milestone_map(repo_path, headers, token)
+        number = roster.get(filters.milestone)
+        if number is not None:
+            base_params["milestone"] = str(number)
+        elif roster_complete:
+            # We read the whole roster and this title is not in it, so the
+            # milestone genuinely does not exist upstream → an empty board is the
+            # honest answer, and it costs zero further requests. Falling back to a
+            # client-side pass here would make "no such milestone" indistinguishable
+            # from "no matches inside the fetched window".
+            return _finalize([], False, "github", repo, source_url, config)
+        else:
+            # The roster was capped at one page, so the title may live on a page we
+            # never read: resolution is unknown, not negative. Degrade to the
+            # pre-#1067 client-side filter and mark the result truncated so the UI
+            # says the set may be incomplete.
+            client_side_milestone = True
 
     issues: list[NormalizedIssue] = []
     truncated = False
@@ -464,7 +586,7 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
         resp = requests.get(
             f"https://api.github.com/repos/{repo_path}/issues",
             headers=headers,
-            params={"state": state_param, "per_page": PER_PAGE, "page": page},
+            params={**base_params, "page": page},
             timeout=REQUEST_TIMEOUT,
         )
         _raise_for_github(resp)
@@ -481,12 +603,14 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     else:
         truncated = True  # hit the page cap with full pages → more may exist
 
-    issues = _filter_by_milestone(issues, filters.milestone)
+    if client_side_milestone:
+        issues = _filter_by_milestone(issues, filters.milestone)
+        truncated = True
 
     if config.column_dim == "pipeline":
         _enrich_github_pipeline(issues, repo_path, headers)
 
-    return _finalize(issues, truncated, "github", repo, f"https://github.com/{repo}", config)
+    return _finalize(issues, truncated, "github", repo, source_url, config)
 
 
 def _enrich_github_pipeline(issues, repo_path, headers) -> None:
@@ -563,14 +687,21 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     project = quote(repo, safe="")
     base = f"{GITLAB_BASE}/api/v4/projects/{project}"
 
-    # State + milestone are filtered server-side so they reach issues outside the
-    # fetch budget. GitLab's milestone param takes the title directly; the literal
-    # "None" selects issues with no milestone.
+    # Every filter is applied server-side so it reaches issues outside the fetch
+    # budget. GitLab's milestone param takes the title directly; the literal
+    # "None" selects issues with no milestone. Label and assignee values are
+    # user-controlled and are passed via `params` (requests URL-encodes them),
+    # never interpolated into the URL.
     base_params = {"per_page": PER_PAGE, "scope": "all", "with_labels_details": "true"}
     if filters.state in ("open", "closed"):
         base_params["state"] = "opened" if filters.state == "open" else "closed"
     if filters.milestone:
-        base_params["milestone"] = "None" if filters.milestone == _NONE_MILESTONE else filters.milestone
+        base_params["milestone"] = "None" if filters.milestone == _NONE else filters.milestone
+    if filters.labels:
+        # Comma-joined = AND on GitLab too (issue must carry every listed label).
+        base_params["labels"] = ",".join(filters.labels)
+    if filters.assignee:
+        base_params["assignee_username"] = filters.assignee
 
     issues: list[NormalizedIssue] = []
     truncated = False

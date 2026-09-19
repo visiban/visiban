@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
@@ -9,7 +9,13 @@ import LensGrid from "./LensGrid";
 import LensFocusBanner from "./LensFocusBanner";
 import LensFilterBar, { type LensState } from "./LensFilterBar";
 import LensProvenanceBanner from "./LensProvenanceBanner";
-import { COLUMN_DIM_KEYS, SWIMLANE_DIM_KEYS } from "./lensDims";
+import {
+  COLUMN_DIM_KEYS,
+  SWIMLANE_DIM_KEYS,
+  lensFilterActiveCount,
+  parseLensLabels,
+  serializeLensLabels,
+} from "./lensDims";
 
 interface Props {
   boardId: number;
@@ -40,20 +46,63 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   const swimlaneDim =
     rawSwimlaneDim && SWIMLANE_DIM_KEYS.has(rawSwimlaneDim) ? rawSwimlaneDim : connection.swimlane_dim;
 
-  // Filters. State + milestone are server-side (flow into the fetch); text (q) is
+  // Filters. State, milestone, label and assignee are server-side (they flow into
+  // the fetch, so they reach issues outside the fetch budget); text (q) is
   // client-side over the fetched set. All URL-persisted like the pivot.
   const rawState = searchParams.get("state");
   const stateFilter: LensState = rawState === "open" || rawState === "closed" ? rawState : "all";
   const milestone = searchParams.get("milestone") ?? "";
+  // Canonicalized on read, exactly as the server canonicalizes it, so a hand-edited
+  // or reordered shared link lands on the same cache key as the UI would produce.
+  const labelsCsv = serializeLensLabels(parseLensLabels(searchParams.get("labels")));
+  const labels = useMemo(() => parseLensLabels(labelsCsv), [labelsCsv]);
+  const assignee = (searchParams.get("assignee") ?? "").trim();
   const q = searchParams.get("q") ?? "";
 
-  const { data, error, loading, refetching, refresh } = useLensData(
-    boardId,
+  const { data, error, loading, refetching, refresh } = useLensData(boardId, {
     columnDim,
     swimlaneDim,
-    stateFilter === "all" ? undefined : stateFilter,
-    milestone || undefined,
-  );
+    filters: {
+      state: stateFilter === "all" ? undefined : stateFilter,
+      milestone: milestone || undefined,
+      labels,
+      assignee: assignee || undefined,
+    },
+  });
+
+  // Autocomplete suggestions for the label/assignee controls, derived from the
+  // fetched issues rather than a new response field — every issue already carries
+  // its labels and assignees, so this costs nothing and spends no permanent API
+  // contract surface on something already derivable.
+  //
+  // Accumulated across fetches on purpose. Label filtering is SERVER-SIDE, so once
+  // you filter to label X the response contains only issues carrying X — deriving
+  // the options from just the current response would collapse the menu to the
+  // labels already selected and make it impossible to add a second one. Keeping the
+  // union of everything seen this session (plus whatever is currently selected, so
+  // a filter arriving from a shared link is always listed) keeps the control usable.
+  //
+  // The memo below mutates this ref, which is a deliberate exception to useMemo
+  // purity: accumulation has to survive the memo being recomputed, and the only
+  // mutation is Set.add, which is idempotent — so Strict Mode's double invocation
+  // and an abandoned concurrent render both cost a wasted add() and change nothing.
+  // Do NOT copy this shape for a non-idempotent mutation; use an effect instead.
+  // Growth is bounded by the distinct label/assignee cardinality of the one repo
+  // this view is scoped to, and the ref dies with the component.
+  const suggestionsRef = useRef({ labels: new Set<string>(), assignees: new Set<string>() });
+  const { availableLabels, availableAssignees } = useMemo(() => {
+    const acc = suggestionsRef.current;
+    for (const issue of data?.issues ?? []) {
+      for (const label of issue.labels) acc.labels.add(label.name);
+      for (const user of issue.assignees) if (user.username) acc.assignees.add(user.username);
+    }
+    for (const label of parseLensLabels(labelsCsv)) acc.labels.add(label);
+    if (assignee) acc.assignees.add(assignee);
+    return {
+      availableLabels: Array.from(acc.labels).sort(),
+      availableAssignees: Array.from(acc.assignees).sort(),
+    };
+  }, [data, labelsCsv, assignee]);
 
   // Collapse/focus are properties of the shared link → URL params (validated
   // against live data so a key stale after a re-pivot or truncation is ignored).
@@ -124,6 +173,23 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
       else prev.delete("milestone");
       return prev;
     }, { replace: true });
+  const setLabels = (next: string[]) =>
+    setSearchParams((prev) => {
+      // Serialize through the shared canonicalizer (sorted, deduped, capped) so the
+      // URL — and therefore the server's cache key — is stable regardless of the
+      // order the boxes were ticked in.
+      const csv = serializeLensLabels(next);
+      if (csv) prev.set("labels", csv);
+      else prev.delete("labels");
+      return prev;
+    }, { replace: true });
+  const setAssignee = (next: string) =>
+    setSearchParams((prev) => {
+      const value = next.trim();
+      if (value) prev.set("assignee", value);
+      else prev.delete("assignee");
+      return prev;
+    }, { replace: true });
   const setQ = (next: string) =>
     setSearchParams((prev) => {
       if (next) prev.set("q", next);
@@ -134,13 +200,17 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
     setSearchParams((prev) => {
       prev.delete("state");
       prev.delete("milestone");
+      prev.delete("labels");
+      prev.delete("assignee");
       prev.delete("q");
       return prev;
     }, { replace: true });
 
-  const activeCount =
-    (stateFilter !== "all" ? 1 : 0) + (milestone ? 1 : 0) + (q.trim() ? 1 : 0);
-  const filtersActive = stateFilter !== "all" || milestone !== "";
+  // Shared with the Row-2 Filters badge (LensToolbar) — one implementation so the
+  // badge and the row can never disagree about how many filters are active.
+  const activeCount = lensFilterActiveCount(searchParams);
+  const filtersActive =
+    stateFilter !== "all" || milestone !== "" || labels.length > 0 || assignee !== "";
 
   // Client-side text filter over the fetched set (title substring / number prefix).
   const filteredData = useMemo(() => {
@@ -161,11 +231,17 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
         <LensFilterBar
           state={stateFilter}
           milestone={milestone}
+          labels={labels}
+          assignee={assignee}
           q={q}
           availableMilestones={data.available_milestones}
+          availableLabels={availableLabels}
+          availableAssignees={availableAssignees}
           activeCount={activeCount}
           onStateChange={setStateFilter}
           onMilestoneChange={setMilestone}
+          onLabelsChange={setLabels}
+          onAssigneeChange={setAssignee}
           onQChange={setQ}
           onClear={clearFilters}
         />

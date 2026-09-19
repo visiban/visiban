@@ -22,20 +22,34 @@ class LensConfig:
 @dataclass(frozen=True)
 class LensFilters:
     """Per-request issue filters. Distinct from the pivot (``LensConfig``): these
-    narrow *which* issues are fetched. ``state``/``milestone`` are applied
-    server-side where the provider supports it (so they can surface issues beyond
-    the fetch budget); text search is applied client-side and never reaches here.
+    narrow *which* issues are fetched. All of them are applied server-side where
+    the provider supports it (so they can surface issues beyond the fetch budget);
+    text search is applied client-side and never reaches here.
 
     ``milestone`` is a milestone title, or the synthetic ``"__none__"`` for issues
     with no milestone, or ``None`` for all.
+
+    ``labels`` is an AND set (an issue must carry every listed label), already
+    canonicalized by ``views._parse_filters``: stripped, deduped, sorted and capped.
+    It is a ``tuple`` rather than a ``list`` because this dataclass is ``frozen``
+    and a mutable default would make instances unhashable — and because the sorted
+    ordering is part of the value, not a rendering detail: it is what keeps
+    ``?labels=b,a`` and ``?labels=a,b`` on a single cache key.
+
+    ``assignee`` is a single username. Deliberately singular: neither GitLab
+    (``assignee_username``) nor GitHub (``assignee``) can express "assigned to any
+    of N" in one call, so accepting a list here would promise a semantic the
+    providers cannot deliver.
     """
 
     state: str | None = None       # "open" | "closed" | None (all)
     milestone: str | None = None
+    labels: tuple[str, ...] = ()   # AND-ed; pre-sorted/deduped/capped
+    assignee: str | None = None    # single username
 
     @property
     def active(self) -> bool:
-        return bool(self.state or self.milestone)
+        return bool(self.state or self.milestone or self.labels or self.assignee)
 
 
 @dataclass
