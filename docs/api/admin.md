@@ -38,6 +38,100 @@ Update site settings. All fields are optional.
 
 Changes take effect within approximately 60 seconds (server-side cache TTL) — no restart required.
 
+Every change to `registration_mode`, `uploads_enabled`, `maintenance_mode` and
+`maintenance_message` is recorded in the [action log](#action-log). Submitting a field with
+the value it already holds is not a change and records nothing.
+
+---
+
+## Action log
+
+> **Added in 1.2**
+
+### `GET /api/v1/admin/action-log/`
+
+Return the audit trail of instance-wide admin actions, newest first. Site-admin only — an
+audit trail of privileged actions is itself sensitive, since it shows when the instance was
+unattended and who holds admin rights.
+
+Read-only: there is no write or delete endpoint. Rows are appended by the actions themselves,
+and an audit log an admin can edit is not evidence of anything.
+
+**Query parameters**
+
+| Param | Description |
+|---|---|
+| `action` | Return only rows with this action. An unrecognized value is a `400`, not an empty page. |
+| `offset` / `page_size` | Standard pagination (default 50, max 200). |
+
+**Response**
+```json
+{
+  "count": 2,
+  "offset": 0,
+  "page_size": 50,
+  "results": [
+    {
+      "id": 2,
+      "action": "maintenance_mode.disabled",
+      "actor_id": 4,
+      "actor_username": "alice",
+      "source": "admin_api",
+      "metadata": { "message": "Upgrading to 1.2 — back by 14:00 UTC." },
+      "created_at": "2026-09-18T14:02:11Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Unique row id |
+| `action` | string | What happened, as `<subject>.<verb>` — see the table below |
+| `actor_id` | integer / null | User who performed the action; `null` when there was no authenticated actor. May reference an account that has since been deleted |
+| `actor_username` | string | Username captured at the time of the action; `""` when there was no authenticated actor |
+| `source` | `"admin_api"` / `"django_admin"` / `"cli"` | Which operator path was used |
+| `metadata` | object | Action-specific detail. Keys are additive-only |
+| `created_at` | string | ISO 8601 timestamp |
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"action": ["'<value>' is not a valid action."]}` | The `action` query param does not match one of the values in the table below |
+
+**Actions**
+
+| `action` | `metadata` |
+|---|---|
+| `maintenance_mode.enabled` | `{"message": "<the notice users will now see>"}` |
+| `maintenance_mode.disabled` | `{"message": "<the notice users saw during the window>"}` |
+| `maintenance_message.changed` | `{"from": "...", "to": "..."}` |
+| `registration_mode.changed` | `{"from": "open", "to": "closed"}` |
+| `uploads_enabled.enabled` | `{}` |
+| `uploads_enabled.disabled` | `{}` |
+
+New action types may be added in any minor release; treat an unrecognized `action` as an
+opaque string rather than failing on it.
+
+!!! warning "What this log does *not* record yet"
+    Only the instance-wide settings above are covered. Granting or revoking site admin,
+    changing `can_access_all_content`, deactivating a user, and creating or revoking invite
+    links are **not** recorded — so this is not yet a complete record of privileged activity.
+    Do not read an absence of entries as evidence that no admin action took place.
+
+!!! warning "The acting admin's username is retained indefinitely"
+    `actor_username` is stored verbatim and is **not** cleared when the account is deleted —
+    unlike, for example, group and invite-link creators, which report `null` once anonymized.
+    This is deliberate: an audit record that cannot name the actor cannot answer the question
+    it exists for. Operators with data-erasure obligations should account for this table.
+
+!!! note "Direct database writes are not captured"
+    Rows are written by the admin API, the `maintenance_mode` management command, and the
+    Django admin. A change made straight through the ORM (`manage.py shell`) has no actor to
+    record and leaves no row, so an empty log means "no audited path made this change" — not
+    "nothing happened".
+
 ---
 
 ## Maintenance mode

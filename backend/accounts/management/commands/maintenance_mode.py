@@ -1,9 +1,13 @@
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from accounts.models import (
+    AdminActionLog,
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     SiteSetting,
     get_maintenance_message,
+    record_site_setting_changes,
+    snapshot_site_setting,
 )
 
 
@@ -43,23 +47,47 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        setting = SiteSetting.get()
-        update_fields = []
+        # Materialize the singleton before locking it — select_for_update has
+        # nothing to lock on a first-boot instance where the row is absent.
+        SiteSetting.get()
 
-        if options["message"] is not None:
-            message = options["message"].strip()[:MAINTENANCE_MESSAGE_MAX_LENGTH]
-            setting.maintenance_message = message
-            update_fields.append("maintenance_message")
+        # Read, mutate and audit under one locked transaction, matching
+        # AdminSettingsView.patch. An operator running this while another admin
+        # uses the panel is not hypothetical — it is the normal shape of an
+        # incident — and an unlocked read would produce an audit row describing
+        # a transition that never happened.
+        with transaction.atomic():
+            setting = SiteSetting.objects.select_for_update().get(pk=1)
+            before = snapshot_site_setting(setting)
+            update_fields = []
 
-        if options["on"] or options["off"]:
-            setting.maintenance_mode = bool(options["on"])
-            update_fields.append("maintenance_mode")
+            if options["message"] is not None:
+                message = options["message"].strip()[:MAINTENANCE_MESSAGE_MAX_LENGTH]
+                setting.maintenance_message = message
+                update_fields.append("maintenance_message")
 
-        if update_fields:
-            # Goes through save() rather than .update() so the cache
-            # invalidation in SiteSetting.save() fires — without it the change
-            # would not reach running workers until the 60s TTL expired.
-            setting.save(update_fields=update_fields)
+            if options["on"] or options["off"]:
+                setting.maintenance_mode = bool(options["on"])
+                update_fields.append("maintenance_mode")
+
+            if update_fields:
+                # Goes through save() rather than .update() so the cache
+                # invalidation in SiteSetting.save() fires — without it the
+                # change would not reach running workers until the 60s TTL
+                # expired.
+                #
+                # actor is None: there is no authenticated user on a shell path,
+                # and the audit row says so explicitly via source="cli".
+                # Resolving an OS username here would be worse than nothing — in
+                # a container it reports the image's user, which reads as an
+                # identity while carrying none.
+                setting.save(update_fields=update_fields)
+                record_site_setting_changes(
+                    before=before,
+                    after=setting,
+                    actor=None,
+                    source=AdminActionLog.Source.CLI,
+                )
 
         if setting.maintenance_mode:
             self.stdout.write(

@@ -732,6 +732,51 @@ class AdminMustChangePwdBlocksTests(TestCase):
         r = self.client.post(f"/api/v1/admin/users/{target.pk}/deactivate/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_get_action_log_blocked(self):
+        r = self.client.get("/api/v1/admin/action-log/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AdminMustChangeUsernameBlocksTests(TestCase):
+    """The must_change_username counterpart of the class above.
+
+    _ADMIN_PERMISSIONS gained MustNotHavePendingUsernameChange in #1110, after
+    an audit found a site admin with must_change_username=True could reach every
+    /api/v1/admin/* route. Until now nothing asserted the *behaviour* — the only
+    coverage was a list-membership check, which would still pass if the
+    permission class itself stopped blocking. Added with #1126 alongside the new
+    action-log route, since that route is gated by the same shared list.
+    """
+
+    def setUp(self):
+        self.admin = make_admin(username="unameblock_admin")
+        self.admin.must_change_username = True
+        self.admin.save(update_fields=["must_change_username"])
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+
+    def test_get_action_log_blocked(self):
+        r = self.client.get("/api/v1/admin/action-log/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_settings_blocked(self):
+        r = self.client.get("/api/v1/admin/settings/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_settings_blocked(self):
+        r = self.client.patch(
+            "/api/v1/admin/settings/", {"maintenance_mode": True}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_users_blocked(self):
+        r = self.client.get("/api/v1/admin/users/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_invite_links_blocked(self):
+        r = self.client.get("/api/v1/admin/invite-links/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
 
 # ---------------------------------------------------------------------------
 # AdminCreateUserSerializer — password validator integration (Fix 3)

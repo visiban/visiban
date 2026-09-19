@@ -1,13 +1,16 @@
 import hashlib
+import logging
 import secrets
 
 from django.contrib.auth.models import AbstractUser
 from django.core.cache import cache
 from django.core.validators import MaxLengthValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 PAT_PREFIX = "vbn_"
 PAT_MAX_PER_USER = 10
@@ -135,6 +138,39 @@ def invalidate_maintenance_mode_cache():
     cache.delete(MAINTENANCE_CACHE_KEY)
 
 
+def _invalidate_site_setting_caches():
+    """Evict every cached projection of the SiteSetting singleton.
+
+    Never raises. A cache eviction is a propagation optimization, not part of
+    the write: the setting is already durable in the database, and the worst
+    consequence of a failed eviction is that workers keep serving the previous
+    value until the 60s TTL expires.
+
+    Letting the exception out would be strictly worse, and since #1126 it would
+    be dangerous. This now runs inside ``AdminSettingsView.patch``'s (and the
+    management command's) transaction, so an unhandled cache error would roll
+    the setting change back — meaning a Valkey/Redis outage could stop an
+    operator turning maintenance mode ON, at exactly the moment a cache outage
+    makes them want to. Degrading to a 60s propagation delay is the right trade;
+    refusing the write is not.
+    """
+    for invalidate in (
+        invalidate_registration_mode_cache,
+        invalidate_uploads_enabled_cache,
+        invalidate_maintenance_mode_cache,
+    ):
+        try:
+            invalidate()
+        except Exception:
+            # No setting values in the log line — only the failure itself.
+            logger.warning(
+                "SiteSetting cache eviction failed (%s); workers may serve the "
+                "previous value until the TTL expires",
+                invalidate.__name__,
+                exc_info=True,
+            )
+
+
 class SiteSetting(models.Model):
     """Singleton model for instance-wide configuration. Always access via SiteSetting.get()."""
 
@@ -183,9 +219,25 @@ class SiteSetting(models.Model):
         super().save(*args, **kwargs)
         # Invalidate caches so the new values take effect immediately without
         # waiting for the TTL to expire.
-        invalidate_registration_mode_cache()
-        invalidate_uploads_enabled_cache()
-        invalidate_maintenance_mode_cache()
+        #
+        # Done TWICE, deliberately (#1126). The immediate eviction is the
+        # original behavior and is what makes the new value visible to any
+        # reader in this same process — including a test, which runs inside a
+        # transaction that never commits.
+        #
+        # The repeat at commit time closes a race that only exists once the
+        # caller wraps this in a transaction, which AdminSettingsView.patch now
+        # does so the setting and its audit rows land together: evicting a key
+        # mid-transaction lets another worker read the still-old *committed* row
+        # and repopulate the cache with a stale value, which would then survive
+        # until the 60s TTL expired — precisely the "no restart required"
+        # guarantee get_maintenance_state() exists to provide. Evicting again
+        # after commit means the next reader repopulates from the new row.
+        #
+        # cache.delete is idempotent, so the second eviction costs a round trip
+        # and nothing else. Under autocommit both fire back to back.
+        _invalidate_site_setting_caches()
+        transaction.on_commit(_invalidate_site_setting_caches)
 
     @classmethod
     def get(cls):
@@ -461,3 +513,271 @@ class InviteLinkRedemption(models.Model):
                 name="invite_redm_invite__idx",
             ),
         ]
+
+
+# ---------------------------------------------------------------------------
+# Admin action audit log (#1126)
+# ---------------------------------------------------------------------------
+
+# The SiteSetting fields captured by snapshot_site_setting(), so the three write
+# paths (admin API, management command, Django admin) all diff the same set.
+#
+# This tuple is consumed ONLY by snapshot_site_setting(). record_site_setting_changes()
+# below does NOT loop over it — it is a hand-written branch per field, and that
+# is deliberate: each field needs its own decision about what is safe to persist
+# into an append-only, queryable table, and about which action name describes it.
+# Do not "simplify" those branches into a loop over this tuple. Today every
+# SiteSetting field is an enum, a boolean or the admin's own notice text; the
+# day one of them holds an SMTP password or an OIDC client secret, a generic
+# loop would copy that value verbatim into the audit log, and the rows are never
+# rewritten.
+AUDITED_SITE_SETTING_FIELDS = (
+    "maintenance_mode",
+    "maintenance_message",
+    "registration_mode",
+    "uploads_enabled",
+)
+
+
+def snapshot_site_setting(setting) -> dict:
+    """Capture the audited fields of ``setting`` before it is mutated.
+
+    Returned as a plain dict rather than a model copy so a caller can hold it
+    across a ``save()`` without carrying a second instance that might itself be
+    written back by accident.
+    """
+    return {field: getattr(setting, field) for field in AUDITED_SITE_SETTING_FIELDS}
+
+
+class AdminActionLog(models.Model):
+    """Append-only record of instance-wide admin control-plane actions (#1126).
+
+    Why this exists
+    ---------------
+    ``SiteSetting`` carries instance-wide switches any site admin can flip —
+    maintenance mode most consequentially, since it takes write access away
+    from everyone at once. Before this table the only trace of such a flip was
+    the singleton row's own state: it showed the *current* value and nothing
+    about who set it or when. On an instance with more than one site admin
+    that makes "who put us into maintenance, and when did it end?" unanswerable
+    during a retrospective, which is the question an incident review opens with.
+
+    Scope — deliberately narrow
+    ---------------------------
+    This is a record of a fixed, enumerable set of admin control-plane actions,
+    not a general-purpose audit-log product. Configurable retention, arbitrary
+    per-object diffing, SIEM export and compliance reporting are explicitly out
+    of scope and belong to the enterprise edition (see
+    ``docs/architecture/open-core-boundary.md``). What is here is the same shape
+    ``BoardExportLog`` (#842) already established for a board-scoped action,
+    lifted to instance scope.
+
+    Why ``actor_id`` is a plain integer and not a ForeignKey
+    -------------------------------------------------------
+    Same reasoning as ``boards.BoardEvent``: this table is append-only, and a
+    ForeignKey would quietly break that. ``on_delete=SET_NULL`` lets deleting a
+    user rewrite who did what — and *who* is this table's entire reason to
+    exist, so the one edit a FK would permit is the one that must not happen.
+    Nothing is given up: the actor is rendered from local columns, so a page of
+    rows cannot N+1 on a join, and no code ever traverses the relation.
+
+    Why ``actor_username`` outlives the account
+    -------------------------------------------
+    ``actor_id`` alone degrades to a dangling integer once the account is gone,
+    which answers "who" with a number nobody can resolve. The username is
+    therefore snapshotted at write time and kept verbatim.
+
+    This is a deliberate divergence from how the rest of the codebase treats a
+    departed user: invite links and group ownership report ``null`` for an
+    anonymized creator (see ``docs/api/groups.md``), and that is correct for a
+    convenience attribution field. It is not correct for a security audit
+    record of a privileged instance-wide action — a retrospective that cannot
+    name the actor has no value. The retention consequence is real and is
+    documented for operators in ``docs/api/admin.md``; do not "fix" this to
+    match the anonymization pattern without replacing it with something that
+    still answers the question.
+
+    Retention
+    ---------
+    There is deliberately no pruner. ``BoardEvent`` has one because it records
+    every board mutation; this table records deliberate admin actions and grows
+    by a handful of rows a month, so a retention job would be machinery with
+    nothing to do. Retention *policy* tooling is an enterprise concern per the
+    open-core boundary — if volume ever justifies pruning (e.g. once #785 adds
+    impersonation events), that is the point to revisit, not before.
+
+    Known gap
+    ---------
+    ``SiteSetting`` can also be written directly from ``manage.py shell`` or any
+    other raw ORM caller. Those writes are structurally unauditable here: the
+    only choke point that sees all of them is ``SiteSetting.save()``, which has
+    no actor to record. Every deliberate operator path (admin API, the
+    ``maintenance_mode`` command, Django admin) is instrumented; a raw ORM write
+    is not. An empty log therefore means "no audited path made this change",
+    not "nothing happened".
+    """
+
+    class Action(models.TextChoices):
+        """Vocabulary for ``action``, as ``<subject>.<verb>`` (matching the
+        WebSocket event-name convention used elsewhere in the project).
+
+        Deliberately NOT passed to the field as ``choices=``. Django emits no
+        database constraint from ``choices`` — only a Python-level validator and
+        a migration on every enum edit — so declaring it here and validating at
+        the serializer boundary costs nothing and keeps history verbatim, the
+        same trade ``BoardExportLog.role_at_export`` and ``BoardEvent.event``
+        already make. Adding #785's impersonation action is then an enum
+        addition, not a schema change.
+        """
+
+        MAINTENANCE_MODE_ENABLED = "maintenance_mode.enabled", "Maintenance mode enabled"
+        MAINTENANCE_MODE_DISABLED = "maintenance_mode.disabled", "Maintenance mode disabled"
+        MAINTENANCE_MESSAGE_CHANGED = "maintenance_message.changed", "Maintenance notice changed"
+        REGISTRATION_MODE_CHANGED = "registration_mode.changed", "Registration mode changed"
+        UPLOADS_ENABLED = "uploads_enabled.enabled", "File uploads enabled"
+        UPLOADS_DISABLED = "uploads_enabled.disabled", "File uploads disabled"
+
+    class Source(models.TextChoices):
+        """Which operator path performed the action."""
+
+        ADMIN_API = "admin_api", "Admin REST API"
+        DJANGO_ADMIN = "django_admin", "Django admin site"
+        CLI = "cli", "Management command"
+
+    action = models.CharField(
+        max_length=64,
+        help_text=(
+            "What happened, as '<subject>.<verb>'. One of: maintenance_mode.enabled, "
+            "maintenance_mode.disabled, maintenance_message.changed, "
+            "registration_mode.changed, uploads_enabled.enabled, uploads_enabled.disabled. "
+            "Validated at the serializer boundary, not by a column constraint."
+        ),
+    )
+    actor_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "User who performed the action; NULL when there was no authenticated "
+            "actor (e.g. a management command). Deliberately not a ForeignKey — "
+            "see the model docstring."
+        ),
+    )
+    actor_username = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        help_text=(
+            "Username captured at write time so the actor stays identifiable after "
+            "the account is deleted. Blank when there was no authenticated actor."
+        ),
+    )
+    source = models.CharField(
+        max_length=20,
+        default=Source.ADMIN_API,
+        help_text="Operator path used: admin_api, django_admin, or cli.",
+    )
+    metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text=(
+            "Action-specific detail — e.g. {'from': ..., 'to': ...} for a changed "
+            "value. Keys are additive-only: never remove or repurpose one, since "
+            "existing rows are never rewritten."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "admin_action_logs"
+        # The `-id` tiebreak is load-bearing, not decoration: a single PATCH that
+        # both enables maintenance mode and edits the notice writes two rows with
+        # the same auto_now_add timestamp. Ordering on created_at alone leaves
+        # their relative order undefined, which lets an offset-paginated read
+        # drop or repeat one across a page boundary.
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["-created_at"], name="aal_created_idx"),
+            models.Index(fields=["action", "-created_at"], name="aal_action_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.action} by {self.actor_username or '<system>'} @ {self.created_at}"
+
+    @classmethod
+    def record(cls, *, action, source, actor=None, metadata=None):
+        """Append one audit row.
+
+        ``actor`` is a ``User`` or ``None``; only its pk and username are read,
+        so an ``AnonymousUser`` degrades to the no-actor case rather than raising.
+        """
+        username = getattr(actor, "username", "") or ""
+        return cls.objects.create(
+            action=action,
+            actor_id=getattr(actor, "pk", None),
+            actor_username=username[:150],
+            source=source,
+            metadata=metadata or {},
+        )
+
+
+def record_site_setting_changes(*, before: dict, after, actor, source) -> list:
+    """Append an audit row for each audited SiteSetting field that actually changed.
+
+    ``before`` is a :func:`snapshot_site_setting` dict taken before mutation;
+    ``after`` is the saved instance.
+
+    Only real transitions are recorded. A PATCH that sets ``maintenance_mode``
+    to the value it already held writes nothing — an audit log padded with
+    non-events makes "how long were we in maintenance?" unanswerable, because
+    every row then looks like a transition. This is also why the diff is done
+    here rather than from ``update_fields``: a field can be *submitted* without
+    being *changed*.
+
+    Callers must invoke this inside the same transaction as the save, so a
+    rolled-back change cannot leave behind a row claiming it happened.
+    """
+    Action = AdminActionLog.Action
+    pending: list[tuple[str, dict]] = []
+
+    if before["maintenance_mode"] != after.maintenance_mode:
+        enabling = after.maintenance_mode
+        # The notice users actually saw, so a retro can read it off this row
+        # without correlating with a separate message.changed row.
+        #
+        # Which side that is depends on direction, and getting it wrong is easy:
+        # when enabling, it is the new notice (what users are about to be
+        # shown); when disabling, it is the OLD one (what they were shown for
+        # the duration of the window). A single PATCH that both clears the
+        # notice and switches maintenance off would otherwise record the
+        # disable with an empty message and lose what was displayed.
+        message = after.maintenance_message if enabling else before["maintenance_message"]
+        pending.append((
+            Action.MAINTENANCE_MODE_ENABLED if enabling else Action.MAINTENANCE_MODE_DISABLED,
+            {"message": (message or "")[:MAINTENANCE_MESSAGE_MAX_LENGTH]},
+        ))
+
+    if before["maintenance_message"] != after.maintenance_message:
+        pending.append((
+            Action.MAINTENANCE_MESSAGE_CHANGED,
+            {
+                "from": (before["maintenance_message"] or "")[:MAINTENANCE_MESSAGE_MAX_LENGTH],
+                "to": (after.maintenance_message or "")[:MAINTENANCE_MESSAGE_MAX_LENGTH],
+            },
+        ))
+
+    if before["registration_mode"] != after.registration_mode:
+        pending.append((
+            Action.REGISTRATION_MODE_CHANGED,
+            {"from": before["registration_mode"], "to": after.registration_mode},
+        ))
+
+    if before["uploads_enabled"] != after.uploads_enabled:
+        pending.append((
+            Action.UPLOADS_ENABLED if after.uploads_enabled else Action.UPLOADS_DISABLED,
+            {},
+        ))
+
+    return [
+        AdminActionLog.record(action=action, source=source, actor=actor, metadata=metadata)
+        for action, metadata in pending
+    ]
