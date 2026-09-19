@@ -1303,6 +1303,69 @@ frontend-diff-coverage:
         --show-uncovered
         --exclude "frontend/src/test/*" "frontend/src/**/*.test.*" "frontend/src/**/*.spec.*"
 
+# Guards a blind spot in diff-cover that both jobs above share (#1091, follow-up
+# to #1076): a brand-new source file with zero tests never appears as a row in
+# coverage.xml / cobertura-coverage.xml at all, so diff-cover finds nothing to
+# score for it and reports 100% — the inverse of what should happen. This is
+# the per-MR counterpart to #1090 (an uninstrumented CI job reading as 0% in
+# the aggregate) — same root cause, unmeasured code scored as if it were fine.
+#
+# Reuses the coverage.xml / cobertura-coverage.xml artifacts produced above
+# rather than re-running any tests. `optional: true` on both `needs` entries
+# means this job still runs (and still fails loudly, see the script's own
+# "report not found" branch) even if only one of backend/frontend changed —
+# but in practice a newly *added* file under backend/ or frontend/src/ always
+# triggers its own coverage job via the `changes:` rules on
+# backend-test-coverage / frontend-test, so both stay in lockstep with this
+# job's own `changes:` list.
+added-files-coverage-check:
+  stage: test
+  needs:
+    - job: backend-test-coverage
+      artifacts: true
+      optional: true
+    - job: frontend-test
+      artifacts: true
+      optional: true
+  image: node:20-alpine
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/**/*
+        - frontend/**/*
+        - .gitlab-ci.yml
+        - scripts/check-added-files-covered.mjs
+  before_script:
+    - apk add --no-cache git
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME --depth=100
+  script:
+    - node scripts/check-added-files-covered.mjs
+        --target-ref origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+        --no-fetch
+
+# Self-test for added-files-coverage-check, per the house rule in #1093 (not
+# yet standardized elsewhere — this is the first gate to adopt it): a bespoke
+# gate script's detection logic must be provable in its own job, on the same
+# image as the real check, so a shared-job skip can't silently take both down
+# together. Builds its own synthetic git repo + coverage fixtures in a temp
+# dir; touches nothing in this repository and needs no network or database —
+# see check-added-files-covered.mjs's `selfTest()`.
+added-files-coverage-check-self-test:
+  stage: test
+  needs: []
+  image: node:20-alpine
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - scripts/check-added-files-covered.mjs
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - scripts/check-added-files-covered.mjs
+  before_script:
+    - apk add --no-cache git
+  script:
+    - node scripts/check-added-files-covered.mjs --self-test
+
 # ─── Frontend — E2E (Playwright) ─────────────────────────────────────────────
 #
 # Runs the Playwright suite against the Vite dev server using the official

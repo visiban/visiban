@@ -25,7 +25,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import User, get_maintenance_state
 from boards.models import (
     Board, BoardMembership, Card, CardAttachment, CardChecklist,
     CardMovement, Column, Label, Swimlane,
@@ -931,6 +931,17 @@ class CardMutationQueryCountTests(TestCase):
     BUDGET_RELATION_DELETE = 23     # measured 20
 
     def setUp(self):
+        # MaintenanceModeMiddleware consults get_maintenance_state() on every
+        # non-SAFE request; that read is cached, but nothing warms the cache
+        # between test methods (Django's LocMemCache backend persists across
+        # a whole test process). Whichever test here happened to run first
+        # was paying one uncached SiteSetting query and blowing its budget,
+        # while every later test in the same process rode the warm cache for
+        # free — an order-dependent failure, not a real regression. Warming
+        # it explicitly makes every test see the steady-state (cache warm)
+        # cost the budgets are meant to measure.
+        get_maintenance_state()
+
         self._broadcast_patcher = patch("boards.broadcast.broadcast_board_event")
         self._broadcast_patcher.start()
 
