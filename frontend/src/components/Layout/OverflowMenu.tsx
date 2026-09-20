@@ -97,7 +97,7 @@ export default function OverflowMenu({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handler reads panelRef/triggerRef/setOpen, all stable across renders
   }, [open]);
 
   // Focus the first enabled item when opened (keyboard or external path).

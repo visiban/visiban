@@ -81,7 +81,7 @@ export default function ColumnHeader({ column, cards, boardId, isAdmin, onColumn
         onSelect: () => onRequestDelete(column),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startRenaming/setEditing/onRequestDelete's closures are stable; only the fields read by the memoized items are listed
     [column.id, column.name, onRequestDelete],
   );
 

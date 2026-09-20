@@ -1,7 +1,7 @@
 import React, { useRef, useState, useId, cloneElement } from "react";
 import { createPortal } from "react-dom";
 
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+/* eslint-disable-next-line @typescript-eslint/no-explicit-any -- accepts any cloned child element; only cloneElement's shape matters here */
 type AnyElement = React.ReactElement<any>;
 
 interface Props {
