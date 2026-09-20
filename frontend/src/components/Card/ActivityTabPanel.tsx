@@ -208,7 +208,7 @@ export default function ActivityTabPanel({ boardId, cardId, userDateFormat = "MM
     setTotalCount(0);
     fetchPage(0, true);
     // fetchPage is stable across renders; selectedTypes is captured in closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchPage intentionally excluded, see comment above
   }, [boardId, cardId, selectedTypes.join(",")]);
 
   const handleLoadMore = () => {

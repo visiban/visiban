@@ -85,7 +85,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       .catch(() => {})
       .finally(() => setLoading(false));
   // pruneByIds and recordVisit are stable from their hooks.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pruneByIds/recordVisit intentionally excluded, see comment above
   }, []);
 
   // Auto-expand ancestors of the active board once — fires after the initial
@@ -117,7 +117,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     ancestorExpandDoneRef.current = true;
   // location.pathname is intentionally included so this fires once after the
   // first load that sees the correct pathname.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- location.pathname intentionally omitted from deps, see comment above
   }, [loading, boards, groups]);
 
   // Record board visits for the Recent section whenever the user navigates to a board.
@@ -137,7 +137,7 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
     });
   // boards/groups are not listed to avoid re-recording on every state update;
   // we only want to fire when the pathname changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- boards/groups intentionally excluded, see comment above
   }, [location.pathname]);
 
   useEffect(() => {

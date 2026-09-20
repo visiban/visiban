@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# gate-selftest-exempt: end-to-end smoke test against a live Keycloak
+# instance — a synthetic --self-test would need a mock IdP and would not
+# exercise the actual risk (discovery/token-exchange/claim-mapping drift
+# against a real IdP). Deferred; see docs/development/ci-gates.md.
 """OIDC smoke test — exercises the full authorization code flow end-to-end.
 
 Drives the login flow programmatically using requests.Session:
