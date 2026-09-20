@@ -4,6 +4,7 @@ import json
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
+from .broadcast import EVT_PING
 from .models import get_accessible_group_ids
 
 # Mirror BoardConsumer.PING_INTERVAL; NATs and reverse proxies commonly drop idle
@@ -47,7 +48,7 @@ class GroupConsumer(AsyncWebsocketConsumer):
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
-                await self.send(text_data=json.dumps({"event": "ping", "data": {}}))
+                await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
             raise
 

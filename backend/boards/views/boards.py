@@ -40,8 +40,6 @@ from .import_export import BoardImportExportMixin
 
 logger = logging.getLogger(__name__)
 
-_EVT_BOARD_UPDATED = "board.updated"
-
 # Change-feed paging bounds (#1114). The ceiling exists so one request cannot ask
 # the server to serialize an unbounded slice of a busy board's history; a
 # consumer that wants more pages the cursor instead.
@@ -222,12 +220,12 @@ class BoardViewSet(
             # group channels keep firing from one on_commit callback (#753); the
             # row still lands inside this transaction, which is what #1114 needs.
             event_id = _broadcast.persist_board_event(
-                board_id, "board.created", board_data, actor_id=self.request.user.id,
+                board_id, _broadcast.EVT_BOARD_CREATED, board_data, actor_id=self.request.user.id,
             )
             def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
-                _broadcast.broadcast_board_event(bid, "board.created", bd, event_id=eid)
+                _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_CREATED, bd, event_id=eid)
                 if gid is not None:
-                    _broadcast_group_event(gid, "board.created", bd)
+                    _broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd)
             transaction.on_commit(_broadcast_created)
 
     def perform_update(self, serializer):
@@ -253,12 +251,12 @@ class BoardViewSet(
             board_data = BoardSerializer(annotated, context={"request": self.request}).data
             group_id = annotated.group_id
             event_id = _broadcast.persist_board_event(
-                board_id, _EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
+                board_id, _broadcast.EVT_BOARD_UPDATED, board_data, actor_id=self.request.user.id,
             )
             def _broadcast_updated(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
-                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd, event_id=eid)
+                _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_UPDATED, bd, event_id=eid)
                 if gid is not None:
-                    _broadcast_group_event(gid, "board.updated", bd)
+                    _broadcast_group_event(gid, _broadcast.EVT_BOARD_UPDATED, bd)
             transaction.on_commit(_broadcast_updated)
 
     def destroy(self, request, *args, **kwargs):
@@ -287,12 +285,12 @@ class BoardViewSet(
             # a plain integer, not a cascading FK, precisely so a consumer holding
             # a cursor can still read the terminal board.deleted event (#1114).
             event_id = _broadcast.persist_board_event(
-                board_id, "board.deleted", payload, actor_id=request.user.id,
+                board_id, _broadcast.EVT_BOARD_DELETED, payload, actor_id=request.user.id,
             )
             def _broadcast_deleted(bid=board_id, gid=group_id, pl=payload, eid=event_id):
-                _broadcast.broadcast_board_event(bid, "board.deleted", pl, event_id=eid)
+                _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_DELETED, pl, event_id=eid)
                 if gid is not None:
-                    _broadcast_group_event(gid, "board.deleted", pl)
+                    _broadcast_group_event(gid, _broadcast.EVT_BOARD_DELETED, pl)
             transaction.on_commit(_broadcast_deleted)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -320,19 +318,19 @@ class BoardViewSet(
             star_payload = {"uid": board_uid, "user_id": user_id, "is_starred": is_starred}
 
             event_id = _broadcast.persist_board_event(
-                board_id, "board.star_changed", star_payload, actor_id=user_id,
+                board_id, _broadcast.EVT_BOARD_STAR_CHANGED, star_payload, actor_id=user_id,
             )
 
             def _broadcast_star() -> None:
                 _broadcast.broadcast_board_event(
-                    board_id, "board.star_changed", star_payload, event_id=event_id
+                    board_id, _broadcast.EVT_BOARD_STAR_CHANGED, star_payload, event_id=event_id
                 )
                 if group_id is not None:
                     # Also fan out to the group channel so the GroupDetail page
                     # updates the star indicator in real time without a refetch
                     # (#952).  Same per-user filter applies — clients ignore
                     # events whose user_id does not match their own.
-                    _broadcast_group_event(group_id, "board.star_changed", star_payload)
+                    _broadcast_group_event(group_id, _broadcast.EVT_BOARD_STAR_CHANGED, star_payload)
 
             transaction.on_commit(_broadcast_star)
         return Response(self.get_serializer(board).data)
@@ -445,7 +443,7 @@ class BoardViewSet(
             annotated = self.get_queryset().get(pk=board_id)
             board_summary = BoardSerializer(annotated, context={"request": request}).data
             _broadcast.record_board_event(
-                board_id, _EVT_BOARD_UPDATED, board_summary, actor_id=request.user.id,
+                board_id, _broadcast.EVT_BOARD_UPDATED, board_summary, actor_id=request.user.id,
             )
         return Response(response_data)
 
@@ -482,22 +480,22 @@ class BoardViewSet(
             # Single on_commit callback so subscribers on the old and new group
             # channels observe the move atomically (#753).
             event_id = _broadcast.persist_board_event(
-                board_id, _EVT_BOARD_UPDATED, board_data, actor_id=request.user.id,
+                board_id, _broadcast.EVT_BOARD_UPDATED, board_data, actor_id=request.user.id,
             )
             def _broadcast_move(
                 bid=board_id, bd=board_data,
                 og=old_group_id, ng=new_group_id, eid=event_id,
             ):
-                _broadcast.broadcast_board_event(bid, _EVT_BOARD_UPDATED, bd, event_id=eid)
+                _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_UPDATED, bd, event_id=eid)
                 if og is not None and og != ng:
-                    _broadcast_group_event(og, "board.deleted", {
+                    _broadcast_group_event(og, _broadcast.EVT_BOARD_DELETED, {
                         "board_uid": bd.get("uid"), "board_id": bid,
                     })
                 if ng is not None and ng != og:
-                    _broadcast_group_event(ng, "board.created", bd)
+                    _broadcast_group_event(ng, _broadcast.EVT_BOARD_CREATED, bd)
                 elif ng is not None:
                     # Same group — treat as a metadata update.
-                    _broadcast_group_event(ng, "board.updated", bd)
+                    _broadcast_group_event(ng, _broadcast.EVT_BOARD_UPDATED, bd)
             transaction.on_commit(_broadcast_move)
         return Response(board_data)
 
@@ -719,7 +717,7 @@ class BoardViewSet(
                 # configuration and should not be pushed to all co-members on the board).
                 # The creating user receives the full payload via the HTTP response below.
                 _broadcast.record_board_event(
-                    board_id, "saved_filter.created",
+                    board_id, _broadcast.EVT_SAVED_FILTER_CREATED,
                     {"filter_id": filter_id, "user_id": user_id},
                     actor_id=user_id,
                 )
@@ -750,7 +748,7 @@ class BoardViewSet(
         with transaction.atomic():
             saved.delete()
             _broadcast.record_board_event(
-                board_id, "saved_filter.deleted",
+                board_id, _broadcast.EVT_SAVED_FILTER_DELETED,
                 {"filter_id": filter_id, "user_id": user_id},
                 actor_id=user_id,
             )
@@ -842,7 +840,7 @@ class BoardViewSet(
                 context={"role": role, "board": board, "request": request},
             ).data
             board_id = board.id
-            ws_event = "member.added" if created else "member.updated"
+            ws_event = _broadcast.EVT_MEMBER_ADDED if created else _broadcast.EVT_MEMBER_UPDATED
             # The stored payload still carries is_moderator; the feed strips it per
             # reader role on read, exactly as the consumer does per subscriber (#978).
             _broadcast.record_board_event(board_id, ws_event, membership_data, actor_id=request.user.id)
@@ -872,5 +870,5 @@ class BoardViewSet(
         removed_user_id = target_user.id
         with transaction.atomic():
             BoardMembership.objects.filter(board=board, user=target_user).delete()
-            _broadcast.record_board_event(board_id, "member.removed", {"user_id": removed_user_id}, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_MEMBER_REMOVED, {"user_id": removed_user_id}, actor_id=request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)

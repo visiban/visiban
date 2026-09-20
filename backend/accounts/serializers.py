@@ -13,7 +13,7 @@ from .models import (
     get_uploads_enabled,
 )
 from .forms import VisibanPasswordResetForm
-from .validators import UsernameFormatValidator
+from .validators import UsernameFormatValidator, normalize_username_field_validators
 
 
 @extend_schema_field({
@@ -112,6 +112,10 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        normalize_username_field_validators(self.fields["username"])
+
     class Meta:
         model = User
         fields = ["id", "username", "display_name", "avatar_url"]
@@ -130,6 +134,10 @@ class BoardUserSerializer(serializers.ModelSerializer):
 
     avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        normalize_username_field_validators(self.fields["username"])
+
     class Meta:
         model = User
         fields = ["id", "username", "display_name", "avatar_url"]
@@ -146,12 +154,16 @@ class UserSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # The auto-generated `username` field already carries the model's
-        # UnicodeUsernameValidator, which accepts astral-plane code points
-        # (#1120) — append the extra BMP restriction rather than replacing
-        # the field, so its other auto-derived behavior (max_length,
-        # uniqueness) is untouched.
-        self.fields["username"].validators.append(UsernameFormatValidator())
+        # The auto-generated `username` field carries the model's
+        # UnicodeUsernameValidator, which both accepts astral-plane code
+        # points (#1120) and, being a RegexValidator, gets its regex
+        # surfaced verbatim as a JSON-Schema `pattern` that rejects the
+        # Unicode usernames this app intentionally supports (breaks
+        # backend-schema-fuzz on every endpoint embedding a user). Swap it
+        # for UsernameFormatValidator rather than replacing the field, so
+        # its other auto-derived behavior (max_length, uniqueness) is
+        # untouched.
+        normalize_username_field_validators(self.fields["username"])
         # After super().__init__ the fields BindingDict is built; we can now
         # replace the auto-generated read-only FK field with a writable one.
         from boards.models import Board  # deferred to avoid startup ordering issues

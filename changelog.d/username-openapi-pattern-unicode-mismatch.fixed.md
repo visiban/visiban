@@ -1,0 +1,1 @@
+Fixed the OpenAPI schema for `CurrentUser.username` and `BoardUser.username` incorrectly declaring an ASCII-only `pattern`, even though the API has always accepted international usernames. Clients validating strictly against the published schema would reject legitimate non-ASCII usernames.

@@ -50,7 +50,6 @@ from ._helpers import (
 logger = logging.getLogger(__name__)
 
 # Broadcast event names — extracted to avoid string duplication.
-_EVT_CARD_UPDATED = "card.updated"
 
 # Permission error messages — extracted to avoid string duplication.
 _PERM_DENIED = "You do not have permission to perform this action."
@@ -942,7 +941,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             # Parse @username mentions and notify each mentioned board member.
             # Comments don't need a re-notification guard — each comment is a new event.
             mentioned_usernames = extract_mentions(comment.body)
@@ -991,7 +990,7 @@ class CardViewSet(viewsets.ModelViewSet):
             comment.delete()
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["get", "post"], url_path="attachments")
@@ -1072,7 +1071,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         serializer = CardAttachmentSerializer(attachment, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -1103,7 +1102,7 @@ class CardViewSet(viewsets.ModelViewSet):
             attachment.delete()
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -1165,7 +1164,7 @@ class CardViewSet(viewsets.ModelViewSet):
             )
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(CardChecklistSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"checklist/(?P<item_pk>[0-9]+)")
@@ -1196,7 +1195,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 item.delete()
                 card_data = self._refetch_card_data(card)
                 board_id = board.id
-                _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+                _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
             return Response(status=status.HTTP_204_NO_CONTENT)
         old_checked = item.is_checked
         serializer = CardChecklistSerializer(item, data=request.data, partial=True)
@@ -1215,7 +1214,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 )
             card_data = self._refetch_card_data(card)
             board_id = board.id
-            _broadcast.record_board_event(board_id, _EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_CARD_UPDATED, card_data, actor_id=request.user.id)
         return Response(serializer.data)
 
     # -- card relations (#449) ----------------------------------------------
@@ -1479,7 +1478,7 @@ class CardViewSet(viewsets.ModelViewSet):
                 continue
             _broadcast.record_board_event(
                 board.id,
-                _EVT_CARD_UPDATED,
+                _broadcast.EVT_CARD_UPDATED,
                 CardSerializer(
                     refetched,
                     context={

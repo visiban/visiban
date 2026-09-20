@@ -7,6 +7,8 @@
 # Usage:
 #   scripts/assemble-changelog.sh            # assemble and delete fragments
 #   scripts/assemble-changelog.sh --dry-run  # preview without modifying files
+#   scripts/assemble-changelog.sh --self-test  # prove filename validation
+#                                               # and assembly still work (#1093)
 #
 # Fragment files must be named: <slug>.<type>.md
 # where <type> is one of: added, changed, fixed, security
@@ -14,13 +16,94 @@
 # The script appends entries to the existing [Unreleased] section headings in
 # CHANGELOG.md (creating subsection headings as needed) and removes the
 # consumed fragment files.
+#
+# --self-test (#1093): this is the script behind the motivating incident in
+# the house-rule issue — a version-dotted slug like "1.1.fixed.md" is the
+# exact known-bad shape that must still be rejected, not silently assembled
+# with a mis-split type. Runs entirely against a synthetic CHANGELOG.md and
+# changelog.d/ built in a temp directory via the CHANGELOG_OVERRIDE /
+# FRAG_DIR_OVERRIDE env vars below — it never touches this repo's real
+# CHANGELOG.md or changelog.d/.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CHANGELOG="$REPO_ROOT/CHANGELOG.md"
-FRAG_DIR="$REPO_ROOT/changelog.d"
+# Overridable so --self-test can point the exact same assembly logic at a
+# synthetic fixture tree instead of the real repository.
+CHANGELOG="${CHANGELOG_OVERRIDE:-$REPO_ROOT/CHANGELOG.md}"
+FRAG_DIR="${FRAG_DIR_OVERRIDE:-$REPO_ROOT/changelog.d}"
 DRY_RUN=false
+
+self_test() {
+  local st_root
+  st_root="$(mktemp -d)"
+  # Double-quoted so the path is baked into the trap command now — st_root is
+  # local to this function and goes out of scope once it returns, and under
+  # `set -u` a single-quoted 'rm -rf "$st_root"' would fail to expand later.
+  # shellcheck disable=SC2064 # intentional early expansion, see comment above
+  trap "rm -rf '$st_root'" EXIT
+
+  echo "=== assemble-changelog.sh --self-test ==="
+
+  mkdir -p "$st_root/changelog.d"
+  cat > "$st_root/CHANGELOG.md" <<'EOF'
+# Changelog
+
+## [Unreleased]
+
+## [1.0.0] - 2026-01-01
+- Initial release
+EOF
+
+  # --- Case 1: known-bad — a version-dotted slug ("1.1.fixed.md") must be
+  # rejected, not silently mis-split into an unrecognized type and swallowed.
+  echo "- something broke" > "$st_root/changelog.d/1.1.fixed.md"
+  local rc=0
+  local out
+  out=$(CHANGELOG_OVERRIDE="$st_root/CHANGELOG.md" FRAG_DIR_OVERRIDE="$st_root/changelog.d" \
+    bash "$0" 2>&1) || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    echo "SELF-TEST FAILED: version-dotted fragment slug '1.1.fixed.md' was NOT rejected." >&2
+    echo "$out" >&2
+    exit 1
+  fi
+  if ! echo "$out" | grep -q "Invalid fragment filename"; then
+    echo "SELF-TEST FAILED: rejection happened but not via the filename validation message expected." >&2
+    echo "$out" >&2
+    exit 1
+  fi
+  rm -f "$st_root/changelog.d/1.1.fixed.md"
+  echo "Case 1 OK: version-dotted slug '1.1.fixed.md' is rejected, not silently assembled."
+
+  # --- Case 2: known-good — a valid fragment assembles cleanly and is
+  # removed, proving the detection logic isn't just rejecting everything.
+  echo "- a real fix" > "$st_root/changelog.d/434.fixed.md"
+  rc=0
+  out=$(CHANGELOG_OVERRIDE="$st_root/CHANGELOG.md" FRAG_DIR_OVERRIDE="$st_root/changelog.d" \
+    bash "$0" 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "SELF-TEST FAILED: a validly-named fragment (434.fixed.md) was rejected." >&2
+    echo "$out" >&2
+    exit 1
+  fi
+  if [ -f "$st_root/changelog.d/434.fixed.md" ]; then
+    echo "SELF-TEST FAILED: consumed fragment 434.fixed.md was not removed." >&2
+    exit 1
+  fi
+  if ! grep -q "### Fixed" "$st_root/CHANGELOG.md" || ! grep -q "a real fix" "$st_root/CHANGELOG.md"; then
+    echo "SELF-TEST FAILED: entry was not assembled into CHANGELOG.md's [Unreleased] section." >&2
+    cat "$st_root/CHANGELOG.md" >&2
+    exit 1
+  fi
+  echo "Case 2 OK: a validly-named fragment assembles into CHANGELOG.md and is removed."
+
+  echo "=== assemble-changelog.sh --self-test: PASSED ==="
+}
+
+if [[ "${1:-}" == "--self-test" ]]; then
+  self_test
+  exit 0
+fi
 
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=true
