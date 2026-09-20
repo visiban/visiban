@@ -59,7 +59,7 @@ export function BoardProvider({ children }: { children: ReactNode }) {
  * correctly because BoardProvider is a component and useBoardContext is a
  * hook — Vite treats the file as HMR-safe.
  */
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- co-located intentionally, see docstring above
 export function useBoardContext(): BoardContextType {
   const ctx = useContext(BoardContext);
   if (!ctx) {
@@ -71,7 +71,7 @@ export function useBoardContext(): BoardContextType {
 // Non-throwing variant for shell-level consumers (e.g. GlobalCommandPalette)
 // that mount above the board route and need to behave differently off-board.
 // Returns null when no provider is present rather than raising.
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- same co-location rationale as useBoardContext above
 export function useOptionalBoardContext(): BoardContextType | null {
   return useContext(BoardContext);
 }

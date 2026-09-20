@@ -126,6 +126,30 @@ t.start(); t.join()
 
 ---
 
+## Suppression markers — `SUPPRESSED-UNTIL(#NNNN)`
+
+A suppression (`pytest.mark.skip`/`skipif`/`xfail`, `eslint-disable`) is either **permanent**
+(a deliberate, lasting design choice) or **temporary** (waiting on tracked work). Say which one
+it is at the point of suppression:
+
+- **Permanent** — a plain reason, no marker: `# eslint-disable-next-line react-hooks/exhaustive-deps -- setPreference is a stable useState setter`
+- **Temporary** — cite the issue that would remove it: `@pytest.mark.skip(reason="SUPPRESSED-UNTIL(#1084): arm64 images unavailable")`
+
+The marker always names a specific, already-filed GitLab issue — file the tracking issue first
+if one doesn't exist yet. Never force a marker onto a suppression you're not prepared to say a
+specific future event should remove.
+
+CI's `suppressions-check` job (`scripts/check-suppression-issues.sh`) greps for the marker,
+queries each cited issue's state via the GitLab API, and **fails — naming file, line, and
+issue — when a cited issue is already closed.** It runs on merge requests, `main`, and
+scheduled pipelines, not MR-only: the triggering event is "an issue closed," not "a commit
+landed," so an MR-only job would never fire again after the marker's branch merges. See
+[`docs/development/suppressions.md`](docs/development/suppressions.md) for the full contract,
+scope (`frontend/src` eslint-disable + `backend/` skip/xfail), and the fail-open behavior on an
+inconclusive API lookup.
+
+---
+
 ## Open core vs. enterprise boundary
 
 Visiban follows an open-core model:

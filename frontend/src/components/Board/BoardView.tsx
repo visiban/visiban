@@ -570,7 +570,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       document.removeEventListener("keyup", onUp);
       window.removeEventListener("blur", onBlur);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onDown/onUp/onBlur are recreated each run but only read activeColumn via closure
   }, [activeColumn]);
 
   // --- Focus mode ---
@@ -890,7 +890,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       setSearchParams((prev) => { prev.set("view", "board"); return prev; }, { replace: true });
     }
     // setSearchParams is stable; view + showLensTab are the decision inputs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSearchParams intentionally excluded, see comment above
   }, [view, showLensTab]);
   const [selectedCardIds, setSelectedCardIds] = useState<Set<number>>(new Set());
   const [hoveredSepIndex, setHoveredSepIndex] = useState<number | null>(null);
@@ -1060,7 +1060,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // functions, and read board + focus state through refs, so the listener
     // never needs to re-subscribe when those inputs change. We pin only the
     // deps that actually change the handler's decision surface.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above; only the decision-surface deps are pinned
   }, [toggleCollapsedSwimlane, canExport, markExportSeen, isAdmin]);
 
   // Surface the shortcuts overlay from the Navbar's user menu (route-agnostic dispatch).
@@ -1120,7 +1120,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     // still correct. setFilters/setShowFilters/setShowSettings are stable
     // useState setters. boardRef tracks the latest board state so card
     // resolution works without re-registering on every cards-array change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above; setView/setFilters/etc. are stable or ref-backed
   }, [currentUser?.id, clearSelection]);
 
   useEscapeStack(() => {
@@ -1160,7 +1160,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     if (defaultCollapsed.length > 0) {
       defaultCollapsed.forEach((id) => toggleCollapsedSwimlane(id));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately gated on board.id alone, see comment above (avoids the toggleCollapsedSwimlane <-> viewPrefs write loop)
   }, [board.id]);
 
   // Server-side text search — debounced 300ms, aborts stale requests.

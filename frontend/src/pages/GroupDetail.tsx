@@ -330,7 +330,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
       .finally(() => setLoadingSubgroupBoards(false));
   // boards is intentionally not listed here — we only want to re-fetch when the
   // toggle turns on or the group changes, not on every boards state update.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- boards intentionally excluded, see comment above
   }, [showSubgroupBoards, groupId]);
 
   const handleStarToggle = async () => {
