@@ -127,7 +127,7 @@ class UserSerializer(serializers.ModelSerializer):
             required=False,
         )
 
-    def get_has_usable_password(self, obj):
+    def get_has_usable_password(self, obj) -> bool:
         return obj.has_usable_password()
 
     class Meta:
@@ -173,10 +173,10 @@ class CurrentUserSerializer(UserSerializer):
     maintenance_mode = serializers.SerializerMethodField()
     maintenance_message = serializers.SerializerMethodField()
 
-    def get_uploads_enabled(self, obj):
+    def get_uploads_enabled(self, obj) -> bool:
         return get_uploads_enabled()
 
-    def get_git_lens_enabled(self, obj):
+    def get_git_lens_enabled(self, obj) -> bool:
         from django.conf import settings
 
         return getattr(settings, "GIT_LENS_ENABLED", False)
@@ -195,7 +195,7 @@ class CurrentUserSerializer(UserSerializer):
         active, _ = self._maintenance_state()
         return active
 
-    def get_maintenance_message(self, obj):
+    def get_maintenance_message(self, obj) -> str:
         active, message = self._maintenance_state()
         return get_maintenance_message(message) if active else ""
 

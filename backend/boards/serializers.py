@@ -11,6 +11,11 @@ from rest_framework import serializers
 
 from accounts.models import User
 from accounts.serializers import BoardUserSerializer
+# Module-level (not lazy) so ``@extend_schema_field`` can reference it at class-body
+# evaluation time — see BoardSerializer.get_group_detail. No import cycle: neither
+# groups.serializers nor groups.models imports anything from boards (groups.views
+# does, but lazily, inside its methods).
+from groups.serializers import GroupBriefSerializer
 
 from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILITY
 
@@ -1172,6 +1177,26 @@ def _expand_requested(context, name):
     return name in {p.strip() for p in raw.split(",") if p.strip()}
 
 
+@extend_schema_field({
+    "type": "array",
+    "items": {"type": "string", "enum": [p[0] for p in Card.Priority.choices]},
+})
+class AllowedPrioritiesField(serializers.JSONField):
+    """``allowed_priorities`` on :class:`BoardSerializer`.
+
+    Schema-only subclass, deliberately *not* a ``ListField(child=ChoiceField)``.
+    ``Board.allowed_priorities`` is a ``JSONField``, which drf-spectacular
+    describes with no ``type`` at all — so a client generated from the schema
+    gets ``unknown``/``any`` for a field the 1.0 contract says is a list of
+    priority slugs (#1079). Declaring the real shape here fixes the schema
+    without touching validation: swapping in a ``ListField`` would move the
+    "invalid priority" rejection from :meth:`BoardSerializer.validate_allowed_priorities`
+    into DRF's own field machinery, changing the 400 body's error shape for
+    existing API callers — which the backward-compatibility rules don't allow.
+    Same schema-only pattern as :class:`CustomFieldValuesField` above.
+    """
+
+
 class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
@@ -1179,6 +1204,10 @@ class BoardSerializer(serializers.ModelSerializer):
     group_name = serializers.CharField(source="group.name", default=None, read_only=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
+    allowed_priorities = AllowedPrioritiesField(
+        required=False,
+        help_text=Board._meta.get_field("allowed_priorities").help_text,
+    )
     # Write-only and not a Board model field — it exists only to be validated
     # here and read back off `serializer.validated_data["template"]` by the
     # view (BoardViewSet.perform_create / GroupViewSet.boards()) to pick the
@@ -1191,13 +1220,19 @@ class BoardSerializer(serializers.ModelSerializer):
         fields = ["id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "member_count", "card_count", "staleness_threshold_days", "stale_warning_pct", "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "is_starred", "template"]
         read_only_fields = ["uid", "created_at", "updated_at"]
 
+    @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):
         # Nested expansion is opt-in via ``?expand=group`` so the default response
         # shape stays unchanged — list endpoints do not pay for a join they didn't
         # ask for. See #817.
+        #
+        # The key is always present; its *value* is null unless expansion was
+        # requested. The ``@extend_schema_field`` above says exactly that — an
+        # undecorated SerializerMethodField is described as ``string`` in the
+        # schema, which is how a generated client ends up with the wrong type
+        # for a nested object (#1079).
         if not _expand_requested(self.context, "group") or obj.group_id is None:
             return None
-        from groups.serializers import GroupBriefSerializer
         # Forward context so nested serializers can see ``group_ancestor_map``
         # (when the viewset pre-bulked ancestors to avoid N+1) — see #845.
         return GroupBriefSerializer(obj.group, context=self.context).data
@@ -1302,19 +1337,19 @@ class BoardSerializer(serializers.ModelSerializer):
         validated_data.pop("template", None)
         return super().create(validated_data)
 
-    def get_member_count(self, obj):
+    def get_member_count(self, obj) -> int:
         # Use the annotation injected by BoardViewSet.get_queryset() when available
         # to avoid a subquery per board on the list endpoint.
         if hasattr(obj, "_member_count"):
             return obj._member_count
         return obj.memberships.count()
 
-    def get_card_count(self, obj):
+    def get_card_count(self, obj) -> int:
         if hasattr(obj, "_card_count"):
             return obj._card_count
         return obj.cards.count()
 
-    def get_is_starred(self, obj):
+    def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):
             return obj._is_starred
         # _user_favorites is prefetched by get_board_for_user() — use it when present
