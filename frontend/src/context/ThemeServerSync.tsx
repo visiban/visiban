@@ -88,7 +88,7 @@ export function ThemeServerSync({
       });
     // user and setPreference are intentionally stable across renders — user
     // changes would re-fire a full sync that the current design does not cover.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user/setPreference intentionally excluded, see comment above
   }, [preference, onUserUpdated]);
 
   return null;

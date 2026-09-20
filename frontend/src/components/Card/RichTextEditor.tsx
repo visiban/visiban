@@ -155,7 +155,7 @@ const MentionWithMarkdown = MentionExtension.extend({
     return {
       ...parent,
       markdown: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tiptap doesn't export markdown serializer state/node types
         serialize(state: any, node: any) {
           state.write(`@${node.attrs.id}`);
         },
