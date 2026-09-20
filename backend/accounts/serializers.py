@@ -1,5 +1,6 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
+from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -36,6 +37,47 @@ class AvatarUrlField(serializers.CharField):
     write isn't load-bearing here.
     """
 
+
+@extend_schema_field({
+    "type": "string",
+    "maxLength": 254,
+    "title": "Email address",
+})
+class EmailOrBlankField(serializers.CharField):
+    """``email`` with the ``format: email`` constraint dropped from its schema.
+
+    ``User.email`` is Django's default ``AbstractUser.email = EmailField(blank=True)``
+    — an empty string is a valid "no email on file" value (e.g. an account
+    provisioned via SSO without an email claim in the token), not just an absent
+    one. A plain ``serializers.EmailField`` mapping declares ``format: email``
+    unconditionally (drf-spectacular maps that format from the field class
+    itself, same as ``AvatarUrlField`` above), which is a JSON Schema violation
+    for `""`: a PATCH to `/api/v1/auth/user/` that wrote a blank email made
+    every subsequent read of that user fail schema conformance
+    (backend-schema-fuzz). Subclassing ``CharField`` avoids the class-based
+    format mapping.
+
+    Unlike ``AvatarUrlField``, format validation on write is *not* dropped —
+    drf-spectacular's ``_insert_field_validators`` re-derives ``format: email``
+    from any ``EmailValidator`` found in ``field.validators``, independently of
+    this field's declared schema, so the validator can't simply be re-attached
+    here. See ``UserSerializer.validate_email`` for where it actually lives.
+    """
+
+
+def validate_optional_email_format(value):
+    """Run Django's ``EmailValidator`` unless ``value`` is blank.
+
+    Reused as a serializer-level ``validate_<field>`` method rather than a
+    ``Field`` validator so drf-spectacular's validator-derived schema (see
+    ``EmailOrBlankField`` above) never sees it and re-adds ``format: email``.
+    DRF's own ``Field.run_validators`` already skips attached validators for a
+    blank value when ``allow_blank=True``; this replicates that behavior
+    explicitly since it runs outside that mechanism.
+    """
+    if value:
+        EmailValidator()(value)
+    return value
 
 
 class RegistrationSerializer(RegisterSerializer):
@@ -96,6 +138,7 @@ class BoardUserSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
     avatar_url = AvatarUrlField(max_length=200, allow_blank=True, required=False)
+    email = EmailOrBlankField(max_length=254, allow_blank=True, required=False)
     # default_board_id is injected as a writable PrimaryKeyRelatedField in
     # __init__ rather than at class level to avoid a premature import of
     # boards.models during test collection (app registry may not be ready when
@@ -129,6 +172,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_has_usable_password(self, obj) -> bool:
         return obj.has_usable_password()
+
+    validate_email = staticmethod(validate_optional_email_format)
 
     class Meta:
         model = User
