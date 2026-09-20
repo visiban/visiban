@@ -909,6 +909,24 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
         _require_group_admin(request.user, group)
 
+        # A JSON body that parses to a non-mapping (a bare number/string/array/
+        # null/bool — valid JSON, just not a JSON *object*) makes the
+        # ``request.data.items()`` below raise AttributeError, uncaught, as an
+        # unhandled 500 instead of a 400 (#1136, found by backend-schema-fuzz;
+        # same class as CardViewSet.move, GroupViewSet.transfer_ownership and
+        # BoardViewSet.saved_filters). DRF has no built-in "request body must be
+        # an object" check for a bare ``request.data`` mapping access the way a
+        # serializer's ``is_valid()`` would.
+        #
+        # Deliberately placed *after* the admin check, not before it as in
+        # ``transfer_ownership``: a caller who may not touch this group should
+        # learn that before learning anything about their body being well-formed.
+        if not isinstance(request.data, dict):
+            return Response(
+                {"detail": "Request body must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         allowed_fields = {"default_board_member_role", "allowed_priorities"}
         data = {k: v for k, v in request.data.items() if k in allowed_fields}
 
