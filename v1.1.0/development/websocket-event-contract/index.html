@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/administration/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/websocket-event-contract/">
       
       
-        <link rel="prev" href="../development/websocket-event-contract/">
+        <link rel="prev" href="../suppressions/">
       
       
-        <link rel="next" href="configuration/">
+        <link rel="next" href="../../administration/">
       
       
         
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Administration - Visiban</title>
+        <title>WebSocket Event Contract - Visiban</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +53,7 @@
       
     
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#administration" class="md-skip">
+        <a href="#websocket-event-contract" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Administration
+              WebSocket Event Contract
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href=".." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -248,7 +248,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../getting-started/" class="md-tabs__link">
+        <a href="../../getting-started/" class="md-tabs__link">
           
   
   
@@ -270,7 +270,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../features/" class="md-tabs__link">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -292,7 +292,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../api/" class="md-tabs__link">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -310,11 +310,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
           
   
   
@@ -332,13 +334,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../administration/" class="md-tabs__link">
           
   
   
@@ -360,7 +360,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../maintainers/" class="md-tabs__link">
+        <a href="../../maintainers/" class="md-tabs__link">
           
   
   
@@ -380,7 +380,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../changelog/" class="md-tabs__link">
+      <a href="../../changelog/" class="md-tabs__link">
         
   
   
@@ -417,7 +417,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -447,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -511,7 +511,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../getting-started/" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -555,7 +555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -583,7 +583,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/kubernetes/" class="md-nav__link">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
         
   
   
@@ -611,7 +611,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/first-boot/" class="md-nav__link">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
         
   
   
@@ -639,7 +639,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/oauth/" class="md-nav__link">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
         
   
   
@@ -667,7 +667,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/board-setup/" class="md-nav__link">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
         
   
   
@@ -695,7 +695,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/sample-boards/" class="md-nav__link">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
         
   
   
@@ -723,7 +723,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../getting-started/onboarding-tour/" class="md-nav__link">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
         
   
   
@@ -823,7 +823,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../features/" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -867,7 +867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -895,7 +895,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -923,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -951,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -979,7 +979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1007,7 +1007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/card-relations/" class="md-nav__link">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1035,7 +1035,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1063,7 +1063,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/notifications/" class="md-nav__link">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1091,7 +1091,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1119,7 +1119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1147,7 +1147,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1175,7 +1175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1203,7 +1203,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1231,7 +1231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1259,7 +1259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/appearance/" class="md-nav__link">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1287,7 +1287,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1315,7 +1315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1343,7 +1343,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1371,7 +1371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1399,7 +1399,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1456,7 +1456,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../features/rbac/" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1500,7 +1500,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/rbac/roles/" class="md-nav__link">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1528,7 +1528,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/rbac/inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1556,7 +1556,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../features/rbac/managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -1648,7 +1648,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../api/" class="md-nav__link ">
+            <a href="../../api/" class="md-nav__link ">
               
   
   
@@ -1692,7 +1692,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/authentication/" class="md-nav__link">
+      <a href="../../api/authentication/" class="md-nav__link">
         
   
   
@@ -1720,7 +1720,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/boards/" class="md-nav__link">
+      <a href="../../api/boards/" class="md-nav__link">
         
   
   
@@ -1748,7 +1748,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/cards/" class="md-nav__link">
+      <a href="../../api/cards/" class="md-nav__link">
         
   
   
@@ -1776,7 +1776,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/groups/" class="md-nav__link">
+      <a href="../../api/groups/" class="md-nav__link">
         
   
   
@@ -1804,7 +1804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/notifications/" class="md-nav__link">
+      <a href="../../api/notifications/" class="md-nav__link">
         
   
   
@@ -1832,7 +1832,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/admin/" class="md-nav__link">
+      <a href="../../api/admin/" class="md-nav__link">
         
   
   
@@ -1860,7 +1860,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/git-lens/" class="md-nav__link">
+      <a href="../../api/git-lens/" class="md-nav__link">
         
   
   
@@ -1888,7 +1888,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/mcp/" class="md-nav__link">
+      <a href="../../api/mcp/" class="md-nav__link">
         
   
   
@@ -1916,7 +1916,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/websockets/" class="md-nav__link">
+      <a href="../../api/websockets/" class="md-nav__link">
         
   
   
@@ -1944,7 +1944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/events/" class="md-nav__link">
+      <a href="../../api/events/" class="md-nav__link">
         
   
   
@@ -1972,7 +1972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/health/" class="md-nav__link">
+      <a href="../../api/health/" class="md-nav__link">
         
   
   
@@ -2000,7 +2000,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/version/" class="md-nav__link">
+      <a href="../../api/version/" class="md-nav__link">
         
   
   
@@ -2028,7 +2028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../api/openapi/" class="md-nav__link">
+      <a href="../../api/openapi/" class="md-nav__link">
         
   
   
@@ -2060,500 +2060,6 @@
       
   
   
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../architecture/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Architecture
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/overview/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/data-model/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Data Model
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/deployment/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/scaling/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Scaling
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/service-layer/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Service Layer
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/open-core-boundary/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Open-Core Boundary
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/api-versioning/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Versioning
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/decisions/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Technology Decisions
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/testing/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Testing
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/database-migrations/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Database Migrations
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/ci-gates/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    CI Gate Self-Tests
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/serializer-ts-parity/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Serializer ↔ TypeScript Parity
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/suppressions/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Suppression Markers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../development/websocket-event-contract/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WebSocket Event Contract
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -2563,6 +2069,12 @@
       
         
           
+        
+      
+        
+      
+        
+      
         
       
         
@@ -2603,11 +2115,601 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../../architecture/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/scaling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scaling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Open-Core Boundary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Versioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technology Decisions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database-migrations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database Migrations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Gate Self-Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../suppressions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#adding-an-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding an event
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exempting-an-event-with-no-frontend-handler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exempting an event with no frontend handler
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retiring-an-event" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retiring an event
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-gate-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the gate locally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-gate-does-not-cover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the gate does not cover
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../administration/" class="md-nav__link ">
               
   
   
@@ -2625,13 +2727,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_6" id="__nav_6_label" tabindex="">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2651,7 +2753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="configuration/" class="md-nav__link">
+      <a href="../../administration/configuration/" class="md-nav__link">
         
   
   
@@ -2679,7 +2781,7 @@
   
   
     <li class="md-nav__item">
-      <a href="site-admins/" class="md-nav__link">
+      <a href="../../administration/site-admins/" class="md-nav__link">
         
   
   
@@ -2707,7 +2809,7 @@
   
   
     <li class="md-nav__item">
-      <a href="admin-panel/" class="md-nav__link">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
         
   
   
@@ -2735,7 +2837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="maintenance-mode/" class="md-nav__link">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
         
   
   
@@ -2763,7 +2865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="authentication/" class="md-nav__link">
+      <a href="../../administration/authentication/" class="md-nav__link">
         
   
   
@@ -2791,7 +2893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="demo-data/" class="md-nav__link">
+      <a href="../../administration/demo-data/" class="md-nav__link">
         
   
   
@@ -2819,7 +2921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="django-admin/" class="md-nav__link">
+      <a href="../../administration/django-admin/" class="md-nav__link">
         
   
   
@@ -2847,7 +2949,7 @@
   
   
     <li class="md-nav__item">
-      <a href="media-security/" class="md-nav__link">
+      <a href="../../administration/media-security/" class="md-nav__link">
         
   
   
@@ -2875,7 +2977,7 @@
   
   
     <li class="md-nav__item">
-      <a href="secret-rotation/" class="md-nav__link">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
         
   
   
@@ -2903,7 +3005,7 @@
   
   
     <li class="md-nav__item">
-      <a href="upgrade/" class="md-nav__link">
+      <a href="../../administration/upgrade/" class="md-nav__link">
         
   
   
@@ -2931,7 +3033,7 @@
   
   
     <li class="md-nav__item">
-      <a href="zero-downtime-upgrade/" class="md-nav__link">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -2995,7 +3097,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../maintainers/" class="md-nav__link ">
+            <a href="../../maintainers/" class="md-nav__link ">
               
   
   
@@ -3039,7 +3141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maintainers/ci-runners/" class="md-nav__link">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
         
   
   
@@ -3067,7 +3169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maintainers/tokens-and-rotation/" class="md-nav__link">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
         
   
   
@@ -3095,7 +3197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../maintainers/known-ci-failures/" class="md-nav__link">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
         
   
   
@@ -3130,7 +3232,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../changelog/" class="md-nav__link">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -3170,54 +3272,107 @@
   
 
 
-<h1 id="administration">Administration<a class="headerlink" href="#administration" title="Permanent link">&para;</a></h1>
-<p>Guides for running and maintaining a Visiban instance.</p>
+<h1 id="websocket-event-contract">WebSocket event contract<a class="headerlink" href="#websocket-event-contract" title="Permanent link">&para;</a></h1>
+<p>Visiban's <code>{event, data}</code> WebSocket envelope is a public API contract from 1.0. A
+board-channel or group-channel event name may be <strong>added</strong> freely; renaming or removing
+one, or removing a field from a payload, is a breaking change that requires a major
+version bump.</p>
+<p>Every event name lives in three places:</p>
 <table>
 <thead>
 <tr>
-<th>Guide</th>
-<th>Description</th>
+<th>Place</th>
+<th>Where</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><a href="configuration/">Configuration</a></td>
-<td>Required credentials reference for local development, CI pipeline, and production</td>
+<td><strong>Emitted</strong></td>
+<td>a constant in <code>backend/boards/broadcast.py</code> or <code>backend/groups/broadcast.py</code>, drawn on by a <code>broadcast_*_event()</code> / <code>record_board_event()</code> call site</td>
 </tr>
 <tr>
-<td><a href="admin-panel/">Admin Panel</a></td>
-<td>Managing users, registration mode, and instance settings via the <code>/admin</code> UI</td>
+<td><strong>Documented</strong></td>
+<td>a table row in <a href="../../api/websockets/"><code>docs/api/websockets.md</code></a></td>
 </tr>
 <tr>
-<td><a href="maintenance-mode/">Maintenance Mode</a></td>
-<td>Putting the instance into read-only mode for an upgrade or migration</td>
-</tr>
-<tr>
-<td><a href="site-admins/">Site Admins</a></td>
-<td>What site admins can do, how to grant and revoke site admin access</td>
-</tr>
-<tr>
-<td><a href="django-admin/">Django Admin</a></td>
-<td>Using the built-in Django <code>/django-admin</code> panel for direct data management</td>
-</tr>
-<tr>
-<td><a href="secret-rotation/">Secret Rotation</a></td>
-<td>How to rotate <code>DJANGO_SECRET_KEY</code>, <code>DB_PASSWORD</code>, and <code>CORS_ALLOWED_ORIGINS</code>; admin IP restriction</td>
-</tr>
-<tr>
-<td><a href="media-security/">Media Storage Security</a></td>
-<td>Attachment upload validation, allowed file types, and S3/GCS bucket hardening</td>
-</tr>
-<tr>
-<td><a href="demo-data/">Demo Data</a></td>
-<td>How to seed demo boards for development and demos; production risks; cleanup instructions</td>
-</tr>
-<tr>
-<td><a href="../architecture/deployment/#rate-limiting">Rate Limits</a></td>
-<td>Per-client API throttle limits enforced in production</td>
+<td><strong>Handled</strong></td>
+<td>an <code>event.event === "&lt;name&gt;"</code> branch in <code>BoardView.tsx</code> / <code>GroupDetail.tsx</code> (or the matching socket hook)</td>
 </tr>
 </tbody>
 </table>
+<p>The <code>ws-event-reachability</code> CI job reconciles all three and fails when a name is missing
+from any of them. A name present in only two of the three looks complete from every angle
+you would normally check — which is exactly why it needs a machine to check it.</p>
+<h2 id="adding-an-event">Adding an event<a class="headerlink" href="#adding-an-event" title="Permanent link">&para;</a></h2>
+<ol>
+<li>
+<p><strong>Declare it.</strong> Add a constant to the registry for the channel it rides, and add that
+   constant to <code>BOARD_CHANNEL_EVENTS</code> or <code>GROUP_CHANNEL_EVENTS</code>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># backend/boards/broadcast.py</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">EVT_CARD_PINNED</span> <span class="o">=</span> <span class="s2">"card.pinned"</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">BOARD_CHANNEL_EVENTS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">...</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">EVT_CARD_PINNED</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">})</span>
+</code></pre></div>
+</li>
+<li>
+<p><strong>Emit it</strong> through the constant, never a literal:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">_broadcast</span><span class="o">.</span><span class="n">record_board_event</span><span class="p">(</span><span class="n">board_id</span><span class="p">,</span> <span class="n">_broadcast</span><span class="o">.</span><span class="n">EVT_CARD_PINNED</span><span class="p">,</span> <span class="n">payload</span><span class="p">,</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                             <span class="n">actor_id</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">user</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</code></pre></div>
+<p>A bare string at an emit site fails the gate. The registry has to be the authoritative
+list, and a literal is invisible to it — including the ones a grep would miss, like
+<code>EVT_MEMBER_ADDED if created else EVT_MEMBER_UPDATED</code>.</p>
+</li>
+<li>
+<p><strong>Document it</strong> — add a row to the right channel's table in <code>docs/api/websockets.md</code>,
+   with the real <code>data</code> shape.</p>
+</li>
+<li>
+<p><strong>Handle it</strong> in the frontend, or exempt it with a reason (see below).</p>
+</li>
+</ol>
+<h2 id="exempting-an-event-with-no-frontend-handler">Exempting an event with no frontend handler<a class="headerlink" href="#exempting-an-event-with-no-frontend-handler" title="Permanent link">&para;</a></h2>
+<p>Some events are legitimately not acted on by this frontend — for example a board-channel
+<code>board.created</code>, which can only reach a client already subscribed to a board that did not
+exist a moment earlier. Record it in <code>INTENTIONALLY_UNHANDLED_BOARD_EVENTS</code> (or the group
+equivalent) <strong>with the reason</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">INTENTIONALLY_UNHANDLED_BOARD_EVENTS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">EVT_BOARD_CREATED</span><span class="p">:</span> <span class="s2">"no client can be subscribed to a board that did not exist ..."</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">}</span>
+</code></pre></div>
+<p>The reason is not decoration: without it the gate cannot tell a considered omission from a
+forgotten one, and the exemption becomes a rubber stamp. An exemption for an event that
+now <em>has</em> a handler also fails — stale exemptions are removed, not left lying around.</p>
+<h2 id="retiring-an-event">Retiring an event<a class="headerlink" href="#retiring-an-event" title="Permanent link">&para;</a></h2>
+<p>Never delete a documented name outright. Move it from the channel frozenset to
+<code>DEPRECATED_BOARD_EVENTS</code> / <code>DEPRECATED_GROUP_EVENTS</code>, mapping the wire name to the
+release it was deprecated in, and <strong>keep the docs row</strong> — the deprecation notice has to
+stand for at least one minor release before the name can go. The gate enforces both
+halves: a deprecated name that is still emitted fails, and so does one whose docs row was
+removed early.</p>
+<h2 id="running-the-gate-locally">Running the gate locally<a class="headerlink" href="#running-the-gate-locally" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>scripts/check-ws-event-reachability.py<span class="w">            </span><span class="c1"># reconcile this checkout</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>python<span class="w"> </span>scripts/check-ws-event-reachability.py<span class="w"> </span>--self-test<span class="w">  </span><span class="c1"># prove the detectors still fire</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>bash<span class="w"> </span>scripts/tests/check-ws-event-reachability.test.sh<span class="w">     </span><span class="c1"># CLI surface + exit codes</span>
+</code></pre></div>
+<p>Exit codes: <code>0</code> everything reconciles, <code>1</code> findings, <code>2</code> the checker could not run (a
+missing file or an unparseable registry). It fails closed on purpose — "I could not look"
+must never read as "I looked and it was fine".</p>
+<p>CI runs <code>--self-test</code> immediately before the real invocation, on the same image. A bespoke
+gate whose detectors have silently stopped detecting is worse than no gate, because the
+green tick still reads as a verdict.</p>
+<h2 id="what-the-gate-does-not-cover">What the gate does not cover<a class="headerlink" href="#what-the-gate-does-not-cover" title="Permanent link">&para;</a></h2>
+<p><code>CARD_MUTATION_HOOKS</code> (<code>backend/boards/hooks.py</code>) is a <em>separate</em> frozen contract for
+enterprise add-ons, and it is not the WebSocket surface. The two agree on five card event
+names and deliberately diverge on one: unarchiving a card broadcasts <code>card.unarchived</code>
+over the socket but fires the hook event <code>card.restored</code>. Both strings are frozen
+independently; neither may be "corrected" to match the other. The mapping table in
+<code>hooks.py</code> is the only place that correspondence is written down.</p>
+<p>The gate also does not check payload <em>shapes</em> — only names. A docs row whose <code>data</code> column
+lies about the payload still passes, so keep the row honest when you change a serializer.</p>
 
 
 
@@ -3273,10 +3428,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>

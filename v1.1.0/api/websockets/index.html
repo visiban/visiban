@@ -2159,6 +2159,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#git-lens-events-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git Lens events (since 1.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#keepalive" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2374,6 +2385,8 @@
       
         
           
+        
+      
         
       
         
@@ -2807,6 +2820,34 @@
     
   
     Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSocket Event Contract
   
 
     
@@ -3554,6 +3595,13 @@
 <p>Clients should ignore unknown event types to remain forward-compatible with new events added in future releases.</p>
 <hr />
 <h2 id="event-reference">Event reference<a class="headerlink" href="#event-reference" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">This table is enforced, not maintained by hand</p>
+<p>Every name below is checked by CI against the event registries in the backend and the
+event handlers in the web client — a name missing from any of the three fails the
+build. If you are adding an event, see
+<a href="../../development/websocket-event-contract/">WebSocket event contract</a>.</p>
+</div>
 <h3 id="board-events">Board events<a class="headerlink" href="#board-events" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3813,6 +3861,31 @@ needs no special handling for either case.</p>
 <p>On <code>member.added</code> and <code>member.updated</code>, the <code>is_moderator</code> field is stripped from the broadcast payload for non-<code>admin</code> / non-<code>site_admin</code> subscribers (consistent with the REST response filtering, #978). Only admin-role and site-admin connections receive the field — viewer- and member-role clients do not.</p>
 <p>The <a href="../events/">change feed</a> applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.</p>
 </div>
+<h3 id="git-lens-events-since-12">Git Lens events (since 1.2)<a class="headerlink" href="#git-lens-events-since-12" title="Permanent link">&para;</a></h3>
+<p>Emitted by the <a href="../git-lens/">Git Lens</a> connection endpoints. They ride the
+<strong>board</strong> channel, not a channel of their own, so a board member with the Lens tab open
+sees it appear or disappear without a reload.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lens_connection.configured</code></td>
+<td>Lens connection created or reconfigured on this board (admin only)</td>
+<td>Full <code>LensConnectionSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>lens_connection.removed</code></td>
+<td>Lens connection deleted from this board (admin only)</td>
+<td><code>{ "board_id": &lt;int&gt; }</code></td>
+</tr>
+</tbody>
+</table>
 <h3 id="keepalive">Keepalive<a class="headerlink" href="#keepalive" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -3912,6 +3985,16 @@ needs no special handling for either case.</p>
 <td><code>member.updated</code></td>
 <td>Group membership role changed. Mirrors the board channel's <code>member.updated</code></td>
 <td>Full <code>GroupMembershipSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>member.removed</code></td>
+<td>User removed from this group. Fires alongside the board-channel <code>member.removed</code> sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it</td>
+<td><code>{ "user_id": &lt;int&gt; }</code></td>
+</tr>
+<tr>
+<td><code>invite_link.revoked</code></td>
+<td>An invite link for this group was revoked</td>
+<td><code>{ "id": &lt;int&gt; }</code></td>
 </tr>
 <tr>
 <td><code>ping</code></td>
