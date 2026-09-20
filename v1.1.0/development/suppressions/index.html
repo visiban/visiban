@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/rbac/roles/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/suppressions/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../database-migrations/">
       
       
-        <link rel="next" href="../inheritance/">
+        <link rel="next" href="../../administration/">
       
       
         
       
       
-      <link rel="icon" href="../../../assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
-        <title>Overview - Visiban</title>
+        <title>Suppression Markers - Visiban</title>
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +53,7 @@
       
     
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#roles-permissions" class="md-skip">
+        <a href="#suppression-markers" class="md-skip">
           Skip to content
         </a>
       
@@ -96,7 +96,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
+    <a href="../.." title="Visiban" class="md-header__button md-logo" aria-label="Visiban" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              Suppression Markers
             
           </span>
         </div>
@@ -227,7 +227,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../.." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -248,7 +248,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../getting-started/" class="md-tabs__link">
+        <a href="../../getting-started/" class="md-tabs__link">
           
   
   
@@ -266,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -294,7 +292,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../api/" class="md-tabs__link">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -312,11 +310,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../../architecture/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture/" class="md-tabs__link">
           
   
   
@@ -338,7 +338,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../administration/" class="md-tabs__link">
+        <a href="../../administration/" class="md-tabs__link">
           
   
   
@@ -360,7 +360,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../maintainers/" class="md-tabs__link">
+        <a href="../../maintainers/" class="md-tabs__link">
           
   
   
@@ -380,7 +380,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../changelog/" class="md-tabs__link">
+      <a href="../../changelog/" class="md-tabs__link">
         
   
   
@@ -417,7 +417,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
+    <a href="../.." title="Visiban" class="md-nav__button md-logo" aria-label="Visiban" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -447,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../.." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -511,7 +511,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../getting-started/" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -555,7 +555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -583,7 +583,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/kubernetes/" class="md-nav__link">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
         
   
   
@@ -611,7 +611,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/first-boot/" class="md-nav__link">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
         
   
   
@@ -639,7 +639,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/oauth/" class="md-nav__link">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
         
   
   
@@ -667,7 +667,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/board-setup/" class="md-nav__link">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
         
   
   
@@ -695,7 +695,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/sample-boards/" class="md-nav__link">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
         
   
   
@@ -723,7 +723,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../getting-started/onboarding-tour/" class="md-nav__link">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
         
   
   
@@ -755,8 +755,6 @@
       
   
   
-    
-  
   
   
     
@@ -812,23 +810,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -846,13 +841,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -872,7 +867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -900,7 +895,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -928,7 +923,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -956,7 +951,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -984,7 +979,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1012,7 +1007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../card-relations/" class="md-nav__link">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1040,7 +1035,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1068,7 +1063,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../notifications/" class="md-nav__link">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1096,7 +1091,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1124,7 +1119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1152,7 +1147,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1180,7 +1175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1208,7 +1203,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1236,7 +1231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1264,7 +1259,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../appearance/" class="md-nav__link">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1292,7 +1287,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1320,7 +1315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1348,7 +1343,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1376,7 +1371,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1404,7 +1399,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1429,8 +1424,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1452,21 +1445,18 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_22" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_22" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1484,13 +1474,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_22_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_22_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_22">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1507,37 +1497,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1553,70 +1516,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#role-hierarchy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Role hierarchy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#permission-table" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Permission table
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#moderator-entitlement" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Moderator entitlement
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#site-admin-protection" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Site admin protection
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1629,7 +1528,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1657,7 +1556,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -1749,7 +1648,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../api/" class="md-nav__link ">
+            <a href="../../api/" class="md-nav__link ">
               
   
   
@@ -1793,7 +1692,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/authentication/" class="md-nav__link">
+      <a href="../../api/authentication/" class="md-nav__link">
         
   
   
@@ -1821,7 +1720,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/boards/" class="md-nav__link">
+      <a href="../../api/boards/" class="md-nav__link">
         
   
   
@@ -1849,7 +1748,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/cards/" class="md-nav__link">
+      <a href="../../api/cards/" class="md-nav__link">
         
   
   
@@ -1877,7 +1776,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/groups/" class="md-nav__link">
+      <a href="../../api/groups/" class="md-nav__link">
         
   
   
@@ -1905,7 +1804,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/notifications/" class="md-nav__link">
+      <a href="../../api/notifications/" class="md-nav__link">
         
   
   
@@ -1933,7 +1832,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/admin/" class="md-nav__link">
+      <a href="../../api/admin/" class="md-nav__link">
         
   
   
@@ -1961,7 +1860,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/git-lens/" class="md-nav__link">
+      <a href="../../api/git-lens/" class="md-nav__link">
         
   
   
@@ -1989,7 +1888,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/mcp/" class="md-nav__link">
+      <a href="../../api/mcp/" class="md-nav__link">
         
   
   
@@ -2017,7 +1916,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/websockets/" class="md-nav__link">
+      <a href="../../api/websockets/" class="md-nav__link">
         
   
   
@@ -2045,7 +1944,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/events/" class="md-nav__link">
+      <a href="../../api/events/" class="md-nav__link">
         
   
   
@@ -2073,7 +1972,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/health/" class="md-nav__link">
+      <a href="../../api/health/" class="md-nav__link">
         
   
   
@@ -2101,7 +2000,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/version/" class="md-nav__link">
+      <a href="../../api/version/" class="md-nav__link">
         
   
   
@@ -2129,7 +2028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../api/openapi/" class="md-nav__link">
+      <a href="../../api/openapi/" class="md-nav__link">
         
   
   
@@ -2161,6 +2060,8 @@
       
   
   
+    
+  
   
   
     
@@ -2196,20 +2097,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../architecture/" class="md-nav__link ">
+            <a href="../../architecture/" class="md-nav__link ">
               
   
   
@@ -2227,13 +2131,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2253,7 +2157,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/overview/" class="md-nav__link">
+      <a href="../../architecture/overview/" class="md-nav__link">
         
   
   
@@ -2281,7 +2185,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/data-model/" class="md-nav__link">
+      <a href="../../architecture/data-model/" class="md-nav__link">
         
   
   
@@ -2309,7 +2213,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/deployment/" class="md-nav__link">
+      <a href="../../architecture/deployment/" class="md-nav__link">
         
   
   
@@ -2337,7 +2241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/scaling/" class="md-nav__link">
+      <a href="../../architecture/scaling/" class="md-nav__link">
         
   
   
@@ -2365,7 +2269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/service-layer/" class="md-nav__link">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
         
   
   
@@ -2393,7 +2297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/open-core-boundary/" class="md-nav__link">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
         
   
   
@@ -2421,7 +2325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/api-versioning/" class="md-nav__link">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
         
   
   
@@ -2449,7 +2353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../architecture/decisions/" class="md-nav__link">
+      <a href="../../architecture/decisions/" class="md-nav__link">
         
   
   
@@ -2477,7 +2381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2505,7 +2409,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2530,10 +2434,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../../development/suppressions/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Suppression Markers
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2549,6 +2480,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The convention
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-ci-enforces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What CI enforces
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What CI enforces">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#self-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-test
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filing-a-new-temporary-suppression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filing a new temporary suppression
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2613,7 +2625,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../administration/" class="md-nav__link ">
+            <a href="../../administration/" class="md-nav__link ">
               
   
   
@@ -2657,7 +2669,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/configuration/" class="md-nav__link">
+      <a href="../../administration/configuration/" class="md-nav__link">
         
   
   
@@ -2685,7 +2697,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/site-admins/" class="md-nav__link">
+      <a href="../../administration/site-admins/" class="md-nav__link">
         
   
   
@@ -2713,7 +2725,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/admin-panel/" class="md-nav__link">
+      <a href="../../administration/admin-panel/" class="md-nav__link">
         
   
   
@@ -2741,7 +2753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/maintenance-mode/" class="md-nav__link">
+      <a href="../../administration/maintenance-mode/" class="md-nav__link">
         
   
   
@@ -2769,7 +2781,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/authentication/" class="md-nav__link">
+      <a href="../../administration/authentication/" class="md-nav__link">
         
   
   
@@ -2797,7 +2809,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/demo-data/" class="md-nav__link">
+      <a href="../../administration/demo-data/" class="md-nav__link">
         
   
   
@@ -2825,7 +2837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/django-admin/" class="md-nav__link">
+      <a href="../../administration/django-admin/" class="md-nav__link">
         
   
   
@@ -2853,7 +2865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/media-security/" class="md-nav__link">
+      <a href="../../administration/media-security/" class="md-nav__link">
         
   
   
@@ -2881,7 +2893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/secret-rotation/" class="md-nav__link">
+      <a href="../../administration/secret-rotation/" class="md-nav__link">
         
   
   
@@ -2909,7 +2921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/upgrade/" class="md-nav__link">
+      <a href="../../administration/upgrade/" class="md-nav__link">
         
   
   
@@ -2937,7 +2949,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../administration/zero-downtime-upgrade/" class="md-nav__link">
+      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -3001,7 +3013,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../../maintainers/" class="md-nav__link ">
+            <a href="../../maintainers/" class="md-nav__link ">
               
   
   
@@ -3045,7 +3057,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../maintainers/ci-runners/" class="md-nav__link">
+      <a href="../../maintainers/ci-runners/" class="md-nav__link">
         
   
   
@@ -3073,7 +3085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../maintainers/tokens-and-rotation/" class="md-nav__link">
+      <a href="../../maintainers/tokens-and-rotation/" class="md-nav__link">
         
   
   
@@ -3101,7 +3113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../maintainers/known-ci-failures/" class="md-nav__link">
+      <a href="../../maintainers/known-ci-failures/" class="md-nav__link">
         
   
   
@@ -3136,7 +3148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../changelog/" class="md-nav__link">
+      <a href="../../changelog/" class="md-nav__link">
         
   
   
@@ -3176,394 +3188,80 @@
   
 
 
-<h1 id="roles-permissions">Roles &amp; Permissions<a class="headerlink" href="#roles-permissions" title="Permanent link">&para;</a></h1>
-<p>Visiban has five roles that control access at both the group and board level.</p>
-<h2 id="role-hierarchy">Role hierarchy<a class="headerlink" href="#role-hierarchy" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Role</th>
-<th>Scope</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>site_admin</code></td>
-<td>Site-wide</td>
-<td>Full access to everything. Granted when the user has <code>can_access_all_content</code> enabled. Cannot be removed or demoted by any other admin.</td>
-</tr>
-<tr>
-<td><code>admin</code></td>
-<td>Group or Board</td>
-<td>Manages the group/board: members, structure, settings.</td>
-</tr>
-<tr>
-<td><code>member</code></td>
-<td>Group or Board</td>
-<td>Standard contributor — creates and moves cards.</td>
-</tr>
-<tr>
-<td><code>collaborator</code></td>
-<td>Group or Board</td>
-<td>Can comment on cards, upload attachments, and manage checklist items but cannot create, edit, move, or delete cards.</td>
-</tr>
-<tr>
-<td><code>viewer</code></td>
-<td>Group or Board</td>
-<td>Read-only access to cards and movement history.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="permission-table">Permission table<a class="headerlink" href="#permission-table" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Right</th>
-<th style="text-align: center;">site_admin</th>
-<th style="text-align: center;">admin</th>
-<th style="text-align: center;">member</th>
-<th style="text-align: center;">collaborator</th>
-<th style="text-align: center;">viewer</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Site</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>See all boards &amp; groups</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Grant / revoke site admin</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td><strong>Groups</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>Create top-level group</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Create subgroup</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓ <em>(of parent)</em></td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete group</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">owner only</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Manage group members</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>View group &amp; boards</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td><strong>Boards</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>Create board in group</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Create personal board</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Delete board</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">owner only</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Edit board structure (columns, swimlanes, labels)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Manage board members</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td><strong>Cards</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>Create / edit card</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Move card (drag-and-drop, column / swimlane change)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">move†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Assign card to member</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete own card</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete any card</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Archive / restore own card</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Archive / restore any card</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Comment on cards</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete own comment</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete any comment</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Upload attachments</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete own attachment</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Delete any attachment</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Add / edit / delete checklist items</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>View cards &amp; movement history</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Bulk card operations (move, priority, delete own)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Bulk assign cards</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">mod†</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td><strong>Export &amp; Import</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>Export board (CSV / JSON)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-<tr>
-<td>Import board from file</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td><strong>Analytics</strong></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-<td style="text-align: center;"></td>
-</tr>
-<tr>
-<td>View analytics &amp; summary</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Export analytics CSV</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-</tr>
-</tbody>
-</table>
-<p><strong>†</strong> <code>mod</code> = only members with the moderator entitlement. Regular members can only perform these actions on their own content.</p>
-<p><strong>†</strong> <code>move</code> = Members can freely move unassigned cards, cards assigned to themselves, and cards they created. Moving a card assigned to another member that the moving user did not create requires the moderator entitlement or Admin role.</p>
-<div class="admonition note">
-<p class="admonition-title">Personal boards</p>
-<p>Any authenticated user can create a personal board regardless of their group-level role. The "Create personal board" row above reflects this — personal boards are not scoped to a group, so group-level permissions do not apply. The permission table above reflects group-level permissions for all other rows.</p>
-</div>
-<h2 id="moderator-entitlement">Moderator entitlement<a class="headerlink" href="#moderator-entitlement" title="Permanent link">&para;</a></h2>
-<p>Board admins can grant the <strong>moderator</strong> entitlement to any member or admin via the Members tab in Board Settings. A moderator can assign, edit, delete, and archive cards created by other users, and delete comments created by other users — normally a member can only perform these actions on their own content.</p>
-<p>Moderator is a boolean flag (<code>is_moderator</code>) on the board membership, not a separate role. It appears as a checkbox next to the role dropdown. Demoting a moderator to collaborator or viewer automatically clears the flag.</p>
-<p>See <a href="../../permissions/#moderator-entitlement">Board Permissions</a> for the full description.</p>
-<h2 id="site-admin-protection">Site admin protection<a class="headerlink" href="#site-admin-protection" title="Permanent link">&para;</a></h2>
-<p>Site admins are protected at the API level:</p>
+<h1 id="suppression-markers">Suppression markers<a class="headerlink" href="#suppression-markers" title="Permanent link">&para;</a></h1>
+<p>A suppression — <code>pytest.mark.skip</code>, <code>eslint-disable</code>, a coverage <code>omit</code>, an excluded a11y
+rule — is added for a reason that is true <em>today</em>. Left alone, it stays true forever: nothing
+ever revisits the suppression, so it silently outlives its reason and the gate it disables
+stays green while hiding a real failure.</p>
+<p><code>#1090</code> is the concrete cost: <code>git_lens</code> code read as 0% covered for months because a job was
+uninstrumented, and nothing flagged that the coverage number had stopped meaning anything.</p>
+<h2 id="the-convention">The convention<a class="headerlink" href="#the-convention" title="Permanent link">&para;</a></h2>
+<p>Every suppression falls into one of two buckets:</p>
 <ul>
-<li>A board or group admin calling any role-change or remove-member endpoint <strong>targeting a user with <code>is_site_admin</code></strong> receives a <code>403 Forbidden</code>. This check uses the <code>is_site_admin</code> flag specifically, not <code>can_access_all_content</code>.</li>
-<li>Only another site admin can modify a site admin's membership.</li>
-<li>Users with <code>can_access_all_content</code> see all boards and groups regardless of explicit membership. This is the flag that controls board-level omniscience — <code>is_site_admin</code> alone does not grant it.</li>
+<li><strong>Permanent</strong> — this will never be re-enabled; the exclusion is a deliberate, lasting design
+  choice (e.g. a hook intentionally excludes a stable setter from its dependency array, or a
+  test mock is intentionally typed loosely). Write a plain reason:</li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">Two flags, two purposes</p>
-<p><code>is_site_admin</code> gates admin panel access and protection from demotion. <code>can_access_all_content</code> gates implicit board/group access. The <code>set_site_admin</code> management command sets both together, but they can be managed independently via the admin panel. See <a href="../../../administration/site-admins/">Site Admins</a> for details.</p>
-</div>
-<p>See <a href="../managing/">Managing Roles</a> for how to grant site admin status.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1">// eslint-disable-next-line react-hooks/exhaustive-deps -- setPreference is a stable useState setter; including it would re-fire the sync on every render</span>
+</code></pre></div>
+<ul>
+<li><strong>Temporary</strong> — this is waiting on tracked work; once that work lands, the suppression should
+  be removed. Cite the issue that would remove it with a <code>SUPPRESSED-UNTIL(#N)</code> marker:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">mark</span><span class="o">.</span><span class="n">skip</span><span class="p">(</span><span class="n">reason</span><span class="o">=</span><span class="s2">"SUPPRESSED-UNTIL(#1084): arm64 images unavailable"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// eslint-disable-next-line react-hooks/exhaustive-deps -- SUPPRESSED-UNTIL(#1057): deps churn until the token migration lands</span>
+</code></pre></div>
+<p>A marker always names a <strong>specific, already-filed</strong> GitLab issue — never a placeholder, and
+never an issue number invented on the spot. If a temporary suppression doesn't have a tracking
+issue yet, file one first.</p>
+<p><strong>Never force a marker onto a permanent suppression.</strong> A <code>SUPPRESSED-UNTIL(#N)</code> on something
+that's never coming back just produces noise the next time that issue happens to close for an
+unrelated reason. If you're not prepared to say what event should make this suppression go
+away, it's permanent — write a plain reason instead.</p>
+<h2 id="what-ci-enforces">What CI enforces<a class="headerlink" href="#what-ci-enforces" title="Permanent link">&para;</a></h2>
+<p>The <code>suppressions-check</code> CI job (<code>scripts/check-suppression-issues.sh</code>) greps the tree for
+<code>SUPPRESSED-UNTIL(#N)</code>, looks up each cited issue via the GitLab API, and <strong>fails — naming
+file, line, and issue — if any cited issue is already closed.</strong> An open issue passes silently.
+A plain <code>-- reason</code> suppression with no marker is never touched.</p>
+<p>This job runs on <strong>merge requests, <code>main</code>, and scheduled pipelines</strong> — deliberately not
+MR-only. The triggering event is "an issue closed," not "a commit landed": the commit that
+added the marker may have merged long before the cited issue closes, so a job that only ran on
+that MR's pipeline would never fire again. Running on <code>main</code>/schedule is what makes the closed
+issue actually get caught.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Run it locally the same way CI does:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>sh<span class="w"> </span>scripts/check-suppression-issues.sh
+</code></pre></div>
+<p>The gate fails <strong>open</strong> on an inconclusive GitLab API lookup (network hiccup, missing token
+scope) rather than blocking the pipeline on a lookup that didn't complete — this is a hygiene
+gate, not a security gate, and a false block on every pipeline would just teach people to
+ignore it. It only blocks on a <em>confirmed</em> closed issue.</p>
+<h3 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h3>
+<p>Per the meta-gate that derives the bespoke-gate list from <code>.gitlab-ci.yml</code> (#1093), every
+gate here carries a <code>--self-test</code> mode: it builds a small fixture tree, mocks the issue-state
+lookup (no network, no dependency on a real issue's state), and asserts the detection logic
+fires on a closed-issue marker, passes an open-issue marker, and leaves a plain-reason
+suppression alone.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>sh<span class="w"> </span>scripts/check-suppression-issues.sh<span class="w"> </span>--self-test
+</code></pre></div>
+<p>The CI job runs <code>--self-test</code> immediately before the real invocation, on the same image, so a
+regression in the gate itself fails the pipeline before the gate's real result can be trusted.</p>
+<h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
+<p>The marker convention and this check apply to <code>frontend/src</code> (eslint-disable) and <code>backend/</code>
+(pytest <code>skip</code>/<code>skipif</code>/<code>xfail</code>). Coverage <code>omit</code> entries in <code>backend/.coveragerc</code> are plain
+path globs — <code>configparser</code> (the INI format <code>.coveragerc</code> uses) has no syntax for an inline
+trailing comment on a list item, only a full-line <code>#</code> comment above it, so <code>SUPPRESSED-UNTIL(#N)</code>
+doesn't read naturally there and <code>check-suppression-issues.sh</code> does not scan this file today. A
+genuinely temporary <code>omit</code> entry should still get a plain <code>#</code> comment on the line above citing
+the tracking issue, for a human reader; extending the automated check to <code>.coveragerc</code> is a
+reasonable follow-up if these entries start accumulating the way the <code>eslint-disable</code> sites did.</p>
+<h2 id="filing-a-new-temporary-suppression">Filing a new temporary suppression<a class="headerlink" href="#filing-a-new-temporary-suppression" title="Permanent link">&para;</a></h2>
+<ol>
+<li>File the tracking issue first (or confirm one already exists for the blocking work).</li>
+<li>Add the suppression with <code>SUPPRESSED-UNTIL(#N)</code> citing that issue's number.</li>
+<li>When the issue closes, remove the suppression in the same MR that resolves it — don't leave
+   it for <code>suppressions-check</code> to catch on <code>main</code> after the fact.</li>
+</ol>
 
 
 
@@ -3619,10 +3317,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.breadcrumbs", "navigation.top", "toc.integrate", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
