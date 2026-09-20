@@ -591,11 +591,12 @@ backend-schema-validate:
 #     OpenAPI-`links`/Location-header-based chaining — this schema declares no
 #     links, and no Visiban view sets a Location header on create) were both
 #     investigated and ruled out; a path-parameter hook against real seeded
-#     rows is what this schemathesis version actually supports for this. Some
-#     resource families have no seeded row at all (groups, custom-fields,
-#     saved-filters, attachments, group invite-links/labels) and still 404 —
-#     tracked as #1125 rather than blocking this flip on extending
-#     seed_demo_data's committed sample-boards/ export.
+#     rows is what this schemathesis version actually supports for this.
+#     Groups, custom-fields, saved-filters, attachments, and group
+#     invite-links/labels previously had no seeded row at all and still 404ed
+#     under fuzzing; #1125 extended seed_demo_data with one of each and
+#     schemathesis_hooks.py maps their path parameters the same way as every
+#     other board-scoped resource above.
 #   - 12 admin-only operations returned only 403: expected — #1080 requires
 #     provision_fuzz_token to refuse an admin/superuser account, so this job's
 #     token can never reach `/api/v1/admin/*`. Accepted as documented residual

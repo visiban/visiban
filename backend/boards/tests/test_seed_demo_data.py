@@ -8,16 +8,21 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from boards.management.commands.seed_demo_data import SEED_ANCHOR_DATE
+from boards.management.commands.seed_demo_data import DEMO_GROUP_NAME, SEED_ANCHOR_DATE
 from accounts.models import User
 from boards.models import (
     Board,
     BoardMembership,
     Card,
+    CardAttachment,
     CardChecklist,
     CardMovement,
     Column,
+    CustomFieldDefinition,
+    CustomFieldValue,
+    SavedFilter,
 )
+from groups.models import Group, GroupInviteLink, GroupLabel
 
 BOARD_NAME = "Visiban Demo Board"
 
@@ -209,6 +214,60 @@ class SeedMovementHistoryTests(TestCase):
 
 
 @override_settings(DEBUG=True)
+class SeedGroupCustomFieldAndSubResourceTests(TestCase):
+    """Fixtures added for #1125 so schemathesis_hooks.py (#1120) has a real
+    row to seed group/custom-field/saved-filter/attachment/invite-link path
+    parameters from."""
+
+    def test_demo_group_created_and_owns_board(self):
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        self.assertIsNotNone(board.group)
+        self.assertEqual(board.group.name, DEMO_GROUP_NAME)
+
+    def test_demo_group_has_label_and_invite_link(self):
+        _seed()
+        group = Group.objects.get(name=DEMO_GROUP_NAME)
+        self.assertTrue(GroupLabel.objects.filter(group=group).exists())
+        self.assertTrue(GroupInviteLink.objects.filter(group=group).exists())
+
+    def test_custom_field_definition_and_value_created(self):
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        field = CustomFieldDefinition.objects.get(board=board)
+        self.assertEqual(field.name, "Story Points")
+        self.assertTrue(CustomFieldValue.objects.filter(field_definition=field).exists())
+
+    def test_saved_filter_created(self):
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        self.assertTrue(SavedFilter.objects.filter(board=board).exists())
+
+    def test_card_attachment_created(self):
+        _seed()
+        board = Board.objects.get(name=BOARD_NAME)
+        attachment = CardAttachment.objects.filter(card__board=board).first()
+        self.assertIsNotNone(attachment)
+        self.assertTrue(attachment.file.name)
+        self.assertGreater(attachment.size, 0)
+
+    def test_new_fixtures_do_not_change_card_export_content(self):
+        """The new fixtures are created with fixed literals *after* card/movement/
+        archival generation, not from the shared `random` stream, so they must not
+        perturb the deterministic card corpus that sample-boards/demo_board.json/.csv
+        is diffed against."""
+        _seed()
+        titles_with_fixtures = list(
+            Card.objects.order_by("id").values_list("title", flat=True)
+        )
+        _seed(wipe=True)
+        titles_after_reseed = list(
+            Card.objects.order_by("id").values_list("title", flat=True)
+        )
+        self.assertEqual(titles_with_fixtures, titles_after_reseed)
+
+
+@override_settings(DEBUG=True)
 class SeedIdempotencyTests(TestCase):
     def test_running_twice_without_wipe_skips(self):
         _seed()
@@ -220,6 +279,15 @@ class SeedIdempotencyTests(TestCase):
         _seed()
         _seed(wipe=True)
         self.assertEqual(Board.objects.filter(name=BOARD_NAME).count(), 1)
+
+    def test_wipe_does_not_leak_demo_group(self):
+        """Board.group is on_delete=SET_NULL, so deleting the board on --wipe
+        does not cascade to the demo Group (#1125) — regression guard for the
+        leak that would otherwise accumulate one orphaned Group per --wipe."""
+        _seed()
+        _seed(wipe=True)
+        _seed(wipe=True)
+        self.assertEqual(Group.objects.filter(name=DEMO_GROUP_NAME).count(), 1)
 
 
 class SeedWipeGuardTests(TestCase):
