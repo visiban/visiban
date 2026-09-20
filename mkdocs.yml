@@ -118,6 +118,7 @@ nav:
     - CI Gate Self-Tests: development/ci-gates.md
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
     - Suppression Markers: development/suppressions.md
+    - WebSocket Event Contract: development/websocket-event-contract.md
   - Administration:
     - administration/index.md
     - Configuration: administration/configuration.md

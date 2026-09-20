@@ -34,8 +34,28 @@ ANALYTICS_EXTENSIONS: list = []
 
 # Card lifecycle hook for enterprise audit-log and notification integrations.
 # Callable signature: (event: str, card_id: int, board_id: int, actor_id: int | None) -> None
-# Event values: "card.created", "card.updated", "card.moved", "card.deleted",
-#               "card.archived", "card.restored"
+#
+# These are *hook* event names, NOT WebSocket event names, and the two surfaces
+# are deliberately not the same list (#1078). The WebSocket board-channel
+# contract is the registry in ``boards.broadcast``; this list is the 1.0+
+# enterprise extension contract and is frozen independently of it. They agree on
+# five names and diverge on one:
+#
+#   hook event        WebSocket event     fired from
+#   ---------------   -----------------   -------------------------------------
+#   card.created      card.created        services.cards.create_card
+#   card.updated      card.updated        services.cards.update_card
+#   card.moved        card.moved          services.cards.move_card
+#   card.deleted      card.deleted        services.cards.delete_card
+#   card.archived     card.archived       services.cards.archive_card
+#   card.restored     card.unarchived     services.cards.unarchive_card
+#
+# ``card.restored`` has no WebSocket counterpart under that name and never had
+# one — do not "fix" it to card.unarchived, and do not add it to the WebSocket
+# registry. Both strings are frozen (see test_card_mutation_hooks.py). The
+# ws-event-reachability CI gate reads the WebSocket registry only, so nothing
+# here is reachable from it; this table is the only place the mapping is stated.
+#
 # Register via: from boards.hooks import CARD_MUTATION_HOOKS
 #               CARD_MUTATION_HOOKS.append(my_handler)
 # Called inside transaction.on_commit — all related data is already committed when

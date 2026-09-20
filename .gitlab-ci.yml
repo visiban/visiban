@@ -1495,6 +1495,48 @@ playwright-e2e:
       junit: frontend/test-results/junit.xml
     expire_in: 7 days
 
+# ─── WebSocket event reachability (#1078) ────────────────────────────────────
+#
+# Reconciles the three places a WebSocket event name lives — emitted (the
+# registries in backend/boards/broadcast.py and backend/groups/broadcast.py),
+# documented (docs/api/websockets.md), handled (BoardView.tsx / GroupDetail.tsx
+# and the two socket hooks) — and fails when any name is missing from one of
+# them. CLAUDE.md declares the {event, data} board_* schema a public 1.0+
+# contract; until this job nothing enforced it, so a name could be added to two
+# of the three and look complete from every angle.
+#
+# Ported from the same defect class TruePPM found in its beta-readiness audit:
+# a shipped alert queried a metric name the app never emitted, so the alert
+# could never fire and the panel was permanently blank — while both docs pages
+# had the correct name. Nothing compared the three.
+#
+# Pure stdlib Python and no database, so it runs on the plain python image with
+# no install step. The --self-test invocation runs FIRST and on the same image:
+# a bespoke gate whose detectors have silently stopped detecting is worse than
+# no gate, because the green tick still reads as a verdict (#1093).
+ws-event-reachability:
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/boards/**/*
+        - backend/groups/**/*
+        - backend/git_lens/**/*
+        - frontend/src/hooks/**/*
+        - frontend/src/components/Board/BoardView.tsx
+        - frontend/src/pages/GroupDetail.tsx
+        - docs/api/websockets.md
+        - scripts/check-ws-event-reachability.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    # Prove the detection logic fires against known-bad input before trusting
+    # this job's verdict on the real tree.
+    - python scripts/check-ws-event-reachability.py --self-test
+    - python scripts/check-ws-event-reachability.py
+  allow_failure: false
+
 # ─── Changelog check (MR only) ────────────────────────────────────────────────
 #
 # Fails when no changelog fragment was added and the MR contains changes that

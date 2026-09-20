@@ -261,6 +261,44 @@ class BoardDefaultsTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_patch_board_defaults_non_dict_body_returns_400_not_500(self):
+        """A body that is valid JSON but not a JSON *object* must not 500 (#1136).
+
+        ``request.data.items()`` raises AttributeError on a non-mapping, which
+        surfaces as an unhandled 500 rather than a 400. Found by
+        backend-schema-fuzz with a bare float body; same bug class as
+        CardViewSet.move, GroupViewSet.transfer_ownership and
+        BoardViewSet.saved_filters.
+        """
+        self.client.force_authenticate(self.admin)
+        # The exact value schemathesis used to trip it, plus the other
+        # non-mapping JSON shapes that reach the same line.
+        for body in (1.7976931348623157e308, 0, "a string", ["not", "a", "dict"], True):
+            with self.subTest(body=body):
+                r = self.client.patch(
+                    f"/api/v1/groups/{self.group.id}/board-defaults/",
+                    body,
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("detail", r.json())
+        # Nothing was written by any of the rejected calls.
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.default_board_member_role, "member")
+        self.assertEqual(self.group.allowed_priorities, [])
+
+    def test_patch_board_defaults_non_admin_checked_before_body_shape(self):
+        """403 beats 400: a non-admin learns they may not touch the group, not
+        that their body was malformed. This pins the guard's placement after
+        ``_require_group_admin`` — see the comment at the call site."""
+        self.client.force_authenticate(self.member)
+        r = self.client.patch(
+            f"/api/v1/groups/{self.group.id}/board-defaults/",
+            ["not", "a", "dict"],
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_board_created_in_group_inherits_defaults(self):
         """A board created in the group inherits the group's allowed_priorities."""
         self.client.force_authenticate(self.admin)

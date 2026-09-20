@@ -2,6 +2,7 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
+from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
 from .permissions import (
     MODERATOR_BEARING_EVENTS,
@@ -65,7 +66,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
         try:
             while True:
                 await asyncio.sleep(PING_INTERVAL)
-                await self.send(text_data=json.dumps({"event": "ping", "data": {}}))
+                await self.send(text_data=json.dumps({"event": EVT_PING, "data": {}}))
         except asyncio.CancelledError:
             raise
 
@@ -79,7 +80,7 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # membership deletion has already committed by the time this handler
         # runs (broadcast_board_event is always called via transaction.on_commit).
         if (
-            payload.get("event") == "member.removed"
+            payload.get("event") == EVT_MEMBER_REMOVED
             and payload.get("data", {}).get("user_id") == self.scope["user"].id
         ):
             await self.close()

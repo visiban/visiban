@@ -1,6 +1,8 @@
 import logging
 
 from rest_framework.permissions import BasePermission
+
+from .broadcast import EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED
 from .models import BoardMembership
 
 logger = logging.getLogger(__name__)
@@ -21,7 +23,7 @@ ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
 # Event types whose payload carries ``is_moderator``. Kept beside the role tuple
 # so adding a new member event forces a look at the gate that protects it.
-MODERATOR_BEARING_EVENTS = ("member.added", "member.updated")
+MODERATOR_BEARING_EVENTS = (EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED)
 
 # Maximum number of ancestor levels walked during group-based permission checks.
 # The cap exists to prevent unbounded query chains on deeply nested group trees

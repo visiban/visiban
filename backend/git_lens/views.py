@@ -13,7 +13,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from allauth.socialaccount.models import SocialToken
-from boards.broadcast import record_board_event
+from boards.broadcast import (
+    EVT_LENS_CONNECTION_CONFIGURED,
+    EVT_LENS_CONNECTION_REMOVED,
+    record_board_event,
+)
 from boards.models import BoardMembership
 from boards.permissions import SITE_ADMIN
 from boards.views import get_board_for_user
@@ -422,7 +426,7 @@ class LensConnectionView(APIView):
             # Notify other connected board members so the Lens tab appears for them.
             board_id_int = board.id
             record_board_event(
-                board_id_int, "lens_connection.configured", payload,
+                board_id_int, EVT_LENS_CONNECTION_CONFIGURED, payload,
                 actor_id=request.user.id,
             )
         return Response(payload)
@@ -434,7 +438,7 @@ class LensConnectionView(APIView):
             LensConnection.objects.filter(board=board).delete()
             board_id_int = board.id
             record_board_event(
-                board_id_int, "lens_connection.removed", {"board_id": board_id_int},
+                board_id_int, EVT_LENS_CONNECTION_REMOVED, {"board_id": board_id_int},
                 actor_id=request.user.id,
             )
         return Response(status=204)

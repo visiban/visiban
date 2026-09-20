@@ -106,6 +106,12 @@ Clients should ignore unknown event types to remain forward-compatible with new 
 
 ## Event reference
 
+!!! note "This table is enforced, not maintained by hand"
+    Every name below is checked by CI against the event registries in the backend and the
+    event handlers in the web client — a name missing from any of the three fails the
+    build. If you are adding an event, see
+    [WebSocket event contract](../development/websocket-event-contract.md).
+
 ### Board events
 
 | Event | Trigger | `data` shape |
@@ -198,6 +204,17 @@ payload carries the card's `custom_field_values`.
 
     The [change feed](events.md) applies the identical gate when the same event is read back over REST, so replaying from a cursor cannot surface a field the socket withheld.
 
+### Git Lens events (since 1.2)
+
+Emitted by the [Git Lens](git-lens.md) connection endpoints. They ride the
+**board** channel, not a channel of their own, so a board member with the Lens tab open
+sees it appear or disappear without a reload.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `lens_connection.configured` | Lens connection created or reconfigured on this board (admin only) | Full `LensConnectionSerializer` object |
+| `lens_connection.removed` | Lens connection deleted from this board (admin only) | `{ "board_id": <int> }` |
+
 ### Keepalive
 
 | Event | Trigger | `data` shape |
@@ -237,6 +254,8 @@ Authentication uses the same two mechanisms as the board channel — session coo
 | `group.label.deleted` | Group shared label deleted | `{ "id": <int> }` |
 | `member.added` | User joined this group via an invite link. Named to mirror the board channel's `member.added` so one frontend socket layer handles both | Full `GroupMembershipSerializer` object |
 | `member.updated` | Group membership role changed. Mirrors the board channel's `member.updated` | Full `GroupMembershipSerializer` object |
+| `member.removed` | User removed from this group. Fires alongside the board-channel `member.removed` sent to each board the user lost access to — that one evicts their board socket, this one keeps the group members panel live for the admins watching it | `{ "user_id": <int> }` |
+| `invite_link.revoked` | An invite link for this group was revoked | `{ "id": <int> }` |
 | `ping` | Server keepalive, sent every 30 seconds | `{}` |
 
 A board that moves between groups emits two events atomically (single `transaction.on_commit` callback): `board.deleted` on the old group's channel and `board.created` on the new group's channel.
