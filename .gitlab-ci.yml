@@ -1283,6 +1283,60 @@ frontend-test:
       - frontend/coverage/cobertura-coverage.xml
     when: always
 
+# ─── Serializer <-> TypeScript interface parity ──────────────────────────────
+#
+# CLAUDE.md requires Board/Card/User and related interfaces to match the backend
+# serializer fields exactly. Nothing enforced it, and the failure is silent in
+# both directions: a serializer field with no TypeScript field is data the SPA
+# simply cannot see, and a field whose *type* drifts type-checks cleanly on both
+# sides while the client reads the wrong shape (#1079).
+#
+# This job regenerates the OpenAPI schema with drf-spectacular — the same command
+# backend-schema-validate runs, and the same reason it needs no database — and
+# diffs its components against frontend/src/types/index.ts.
+#
+# Python, not Node, despite sitting among the frontend jobs: #1079 originally
+# asked for TypeScript types generated from openapi.json, but both viable
+# generators failed the dependency gate (openapi-typescript announced EOL on
+# 2026-09-19; @hey-api/openapi-ts requires Node >= 22.18, which no image here
+# provides, and pins a js-yaml carrying three unfixed CVSS-7.5 advisories).
+# Diffing the two representations catches the same drift with no npm dependency
+# at all. It stays in this position in the file so the frontend-facing gates read
+# together.
+#
+# Known mismatches are recorded in the script's SUPPRESSIONS table, each citing a
+# filed issue and each self-invalidating: a suppression whose recorded drift no
+# longer matches reality fails the job and asks to be deleted, so it cannot
+# outlive its reason.
+serializer-ts-parity:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - changes:
+        - backend/**/*
+        - frontend/src/types/index.ts
+        - scripts/check-serializer-ts-parity.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  variables:
+    # Schema generation only introspects serializers — Django never opens a
+    # connection — so a syntactically valid DATABASE_URL is all this needs.
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@localhost:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://localhost:6379/0"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+  script:
+    # Self-test FIRST (#1093). This gate's failure mode is a GREEN pipeline over
+    # a drifted contract, so prove the detection logic still fires before
+    # trusting the real run's verdict. Offline, no database, no network.
+    - python3 scripts/check-serializer-ts-parity.py --self-test
+    - python3 scripts/check-serializer-ts-parity.py
+  allow_failure: false
+
 # Diff coverage (MR only) — #1076. Same rationale as backend-diff-coverage
 # above: vitest.config.ts's aggregate thresholds (lines: 70, etc.) measure
 # the whole frontend and can absorb an untested new component. This job
