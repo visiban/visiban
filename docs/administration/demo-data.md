@@ -28,6 +28,13 @@ python manage.py seed_demo_data --wipe --force
 python manage.py seed_demo_data --export
 ```
 
+!!! info "Large fixture for load testing"
+    `--scale N` (replicate the swimlane layout N times) and `--with-notifications` seed a
+    much larger, separately-named **"Visiban Load Test Board"** instead of the normal demo
+    board — never combine `--scale > 1` with `--export`. This is CI-only, used by the
+    `nightly-load-test` job; see
+    [Nightly load test](../development/nightly-load-test.md) for the full contract.
+
 ## Production guard
 
 Both the plain run and the `--wipe` flag are guarded: the command raises an error if `DEBUG` is `False` and `--force` is not passed.

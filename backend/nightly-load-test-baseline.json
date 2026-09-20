@@ -1,0 +1,64 @@
+{
+  "_readme": "Committed p95 latency budgets for the nightly-load-test CI job (#1082). See docs/development/nightly-load-test.md for the full contract: fixture size, budget-derivation rule, and how to re-derive this file at each release. DO NOT hand-edit budget_p95_ms to a round number — every value here must trace to a measured_p95_ms via the stated formula.",
+  "status": "provisional",
+  "status_note": "Measured 2026-09-20 from a feature branch (#1082) against ad hoc local Docker containers (postgres:17-alpine + valkey/valkey:8-alpine on localhost, NOT a GitLab CI runner) — a real Postgres run with the pg_trgm indexes active, not an invented number, but explicitly NOT a CI-runner baseline per this issue's own 'a number measured on a laptop is not a CI baseline' rule. Re-derive from the first real nightly-load-test pipeline run after this MR merges (see docs/development/nightly-load-test.md#re-deriving-the-baseline) and flip status to \"ci-derived\" at that point.",
+  "measured_at": "2026-09-20T22:38:52.988547+00:00",
+  "fixture": {
+    "board_name": "Visiban Load Test Board",
+    "seed_command": "manage.py seed_demo_data --force --scale 20 --with-notifications",
+    "swimlane_count": 200,
+    "card_count": 2388,
+    "notification_count": 60,
+    "note": "--scale 20 replicates the 10-swimlane demo layout 20x (11-13 cards/swimlane, same distribution as the normal demo board) rather than picking an arbitrary target card count directly."
+  },
+  "measurement_method": {
+    "script": "scripts/nightly_load_test.py",
+    "iterations_per_endpoint": 40,
+    "warmup_per_endpoint": 5,
+    "percentile_method": "nearest-rank (no interpolation) over the 40 timed samples",
+    "auth": "manage.py provision_fuzz_token --username demo2 (scoped, non-admin PAT — same mechanism backend-schema-fuzz already uses)"
+  },
+  "budget_formula": "budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5 -- a 1.4x factor (issue #1082 specifies 1.3-1.5x) rounded up to the nearest 5ms so CI comparisons have a little headroom for measurement noise without the number itself being picked round. Recompute this whole file -- never hand-adjust a single budget_p95_ms -- when re-deriving.",
+  "endpoints": {
+    "board_full": {
+      "method": "GET",
+      "path": "/api/v1/boards/{id}/full/",
+      "measured_p95_ms": 681.4,
+      "measured_p99_ms": 694.0,
+      "budget_p95_ms": 955,
+      "note": "Serializes the entire board (all 2388 cards) in one response, unpaginated -- the most volume-sensitive endpoint in the fixture and the one this budget is least tolerant of relative headroom on, since a regression here is the one TruePPM's #2767 postmortem describes (index-shape regression, identical query count, higher latency)."
+    },
+    "card_search": {
+      "method": "GET",
+      "path": "/api/v1/cards/?search=the",
+      "measured_p95_ms": 70.2,
+      "measured_p99_ms": 72.2,
+      "budget_p95_ms": 100,
+      "note": "Exercises the pg_trgm GIN indexes added in migration 0030 (card_title_trgm_idx / card_desc_trgm_idx). 'the' is a deliberately broad, high-cardinality search term -- it matches a large fraction of the corpus, closer to a real user's search-as-you-type behavior than a highly selective term would be."
+    },
+    "card_timeline": {
+      "method": "GET",
+      "path": "/api/v1/boards/{board_id}/cards/{id}/timeline/",
+      "measured_p95_ms": 20.7,
+      "measured_p99_ms": 31.9,
+      "budget_p95_ms": 30,
+      "note": "Unified movement + activity feed for a single card. Exercises the comment_card_created_idx / activity_card_created_idx composite indexes added in migration 0045."
+    },
+    "notifications_list": {
+      "method": "GET",
+      "path": "/api/v1/notifications/",
+      "measured_p95_ms": 22.8,
+      "measured_p99_ms": 48.0,
+      "budget_p95_ms": 35,
+      "note": "The frontend polls this every 15-30s (visiban/settings.py's DEFAULT_THROTTLE_RATES comment) -- the highest-QPS authenticated endpoint in the product, even though its own per-request cost is capped at 50 rows by NotificationListView."
+    },
+    "notifications_unread": {
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count/",
+      "measured_p95_ms": 15.0,
+      "measured_p99_ms": 15.7,
+      "budget_p95_ms": 25,
+      "note": "Companion to notifications_list -- polled at the same interval, same 50-row cap."
+    }
+  }
+}

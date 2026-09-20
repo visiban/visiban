@@ -47,6 +47,15 @@ Usage:
         default seed (42) and will diverge if you run --export with a
         different seed. Only use a non-default seed for the live demo
         environment refresh, not for --export commits.
+
+    python manage.py seed_demo_data --force --scale 20 --with-notifications
+        Seed a SEPARATE, larger "Visiban Load Test Board" (#1082) instead of
+        the normal demo board: --scale replicates the 10 swimlanes that many
+        times (20 -> 200 swimlanes, ~2,400 cards), and --with-notifications
+        also seeds unread Notification rows for 'demo2' so the notification-
+        poll endpoints have realistic data. Used by the nightly-load-test CI
+        job (see docs/development/nightly-load-test.md) — never combine
+        --scale > 1 with --export.
 """
 
 import csv
@@ -67,10 +76,17 @@ from boards.models import (
     CardMovement,
     Column,
     Label,
+    Notification,
     Swimlane,
 )
 
 BOARD_NAME = "Visiban Demo Board"
+# Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
+# never collide with, or be mistaken for, the real demo board — most visibly
+# on the shared "demo" environment, where the weekly seed-demo-data refresh
+# job must keep operating on BOARD_NAME regardless of what other scale this
+# command has ever been invoked with elsewhere.
+LOAD_TEST_BOARD_NAME = "Visiban Load Test Board"
 RANDOM_SEED = 42
 # Fixed reference date for due-date calculations — keeps the exported JSON/CSV
 # files git-stable regardless of when the command is run.
@@ -464,6 +480,32 @@ class Command(BaseCommand):
             default=RANDOM_SEED,
             help=f"Random seed for data generation (default: {RANDOM_SEED}).",
         )
+        parser.add_argument(
+            "--scale",
+            type=int,
+            default=1,
+            help=(
+                "Swimlane-replication factor for a large-fixture board (#1082). "
+                "1 (default) seeds the normal 'Visiban Demo Board' unchanged — "
+                "identical output to every prior release, byte-for-byte with "
+                "--export. Any value > 1 seeds a SEPARATE board named "
+                f"'{LOAD_TEST_BOARD_NAME}' instead, replicating the 10 swimlanes "
+                "--scale times (so --scale 20 yields 200 swimlanes, ~2,400 cards) "
+                "for the nightly load-test job. Never combine --scale > 1 with "
+                "--export — the large fixture is not meant to be committed."
+            ),
+        )
+        parser.add_argument(
+            "--with-notifications",
+            action="store_true",
+            help=(
+                "Also seed unread Notification rows for 'demo2' so the "
+                "notification-poll endpoints (list/unread-count) have realistic "
+                "data. Off by default: the weekly demo-board refresh job's "
+                "existing behavior is left untouched unless this is passed "
+                "explicitly (used by the nightly load-test job, #1082)."
+            ),
+        )
 
     def handle(self, *args, **options):
         random.seed(options["seed"])
@@ -483,34 +525,50 @@ class Command(BaseCommand):
                 "Pass --force to override (only safe on dedicated demo environments)."
             )
 
-        if options["wipe"]:
-            deleted, _ = Board.objects.filter(name=BOARD_NAME).delete()
-            if deleted:
-                self.stdout.write(f"Deleted existing '{BOARD_NAME}' and all related data.")
+        scale = options["scale"]
+        if scale < 1:
+            raise CommandError("--scale must be >= 1.")
+        if scale > 1 and options["export"]:
+            raise CommandError(
+                "--export is only valid with --scale 1 — the large-fixture board "
+                "is generated for the nightly load-test job, not for committed "
+                "sample-boards/ snapshots."
+            )
+        board_name = BOARD_NAME if scale == 1 else LOAD_TEST_BOARD_NAME
 
-        if Board.objects.filter(name=BOARD_NAME).exists():
+        if options["wipe"]:
+            deleted, _ = Board.objects.filter(name=board_name).delete()
+            if deleted:
+                self.stdout.write(f"Deleted existing '{board_name}' and all related data.")
+
+        if Board.objects.filter(name=board_name).exists():
             self.stdout.write(
                 self.style.WARNING(
-                    f"'{BOARD_NAME}' already exists — skipping. Use --wipe to recreate."
+                    f"'{board_name}' already exists — skipping. Use --wipe to recreate."
                 )
             )
             return
 
         users = self._ensure_demo_users()
-        board = self._create_board(users[0])
+        board = self._create_board(users[0], board_name)
         columns = self._create_columns(board)
-        swimlanes = self._create_swimlanes(board)
+        swimlanes = self._create_swimlanes(board, scale)
         labels = self._create_labels(board)
         self._add_members(board, users)
         cards = self._create_cards(board, columns, swimlanes, labels, users)
         n_archived = self._archive_some_cards(cards)
 
+        if options["with_notifications"]:
+            n_notifications = len(self._create_notifications(board, cards, users))
+        else:
+            n_notifications = 0
+
         self.stdout.write(
             self.style.SUCCESS(
-                f"Seeded '{BOARD_NAME}': "
+                f"Seeded '{board_name}': "
                 f"{len(columns)} columns, {len(swimlanes)} swimlanes, "
                 f"{len(labels)} labels, {len(cards)} cards "
-                f"({n_archived} archived)."
+                f"({n_archived} archived, {n_notifications} notifications)."
             )
         )
 
@@ -537,12 +595,16 @@ class Command(BaseCommand):
             users.append(user)
         return users
 
-    def _create_board(self, owner):
+    def _create_board(self, owner, board_name=BOARD_NAME):
         return Board.objects.create(
-            name=BOARD_NAME,
+            name=board_name,
             description=(
                 "Demo board pre-loaded with realistic data for product demos, "
                 "sales calls, and integration testing."
+                if board_name == BOARD_NAME
+                else "Large fixture board for the nightly load-test job (#1082). "
+                "Not for demos — regenerated fresh in an ephemeral CI database "
+                "on every run."
             ),
             owner=owner,
             staleness_threshold_days=7,
@@ -554,10 +616,26 @@ class Command(BaseCommand):
             cols.append(Column.objects.create(board=board, position=i, **c))
         return cols
 
-    def _create_swimlanes(self, board):
+    def _create_swimlanes(self, board, scale=1):
+        """Create `scale` replicas of SWIMLANES so a large fixture (#1082) has
+
+        proportionally more rows to spread cards across, instead of stuffing an
+        unrealistic card count into 10 swimlanes. scale=1 (the default) creates
+        exactly SWIMLANES with no name suffix, unchanged from every prior
+        release, so the committed --export snapshot stays byte-stable.
+        """
         lanes = []
-        for i, s in enumerate(SWIMLANES):
-            lanes.append(Swimlane.objects.create(board=board, position=i, **s))
+        position = 0
+        for replica in range(scale):
+            for s in SWIMLANES:
+                data = dict(s)
+                if replica > 0:
+                    # Swimlane names are unique-per-board in the UI; suffix
+                    # replicas so multiple copies of "Acme Corp" etc. don't
+                    # collide. Replica 0 is untouched — see docstring above.
+                    data["name"] = f"{s['name']} ({replica + 1})"
+                lanes.append(Swimlane.objects.create(board=board, position=position, **data))
+                position += 1
         return lanes
 
     def _create_labels(self, board):
@@ -582,9 +660,18 @@ class Command(BaseCommand):
             n_cards = random.randint(11, 13)
 
             for _ in range(n_cards):
-                if title_idx >= len(titles):
-                    break  # Never duplicate card titles
-                title = titles[title_idx]
+                if title_idx < len(titles):
+                    # Corpus not yet exhausted: unique title, unchanged from
+                    # every prior release (scale=1 never reaches the else
+                    # branch — 10 swimlanes x <=13 cards < len(titles) — so
+                    # the committed --export snapshot stays byte-stable).
+                    title = titles[title_idx]
+                else:
+                    # Large-fixture (--scale > 1) corpus exhaustion: cycle the
+                    # corpus with a numeric suffix rather than breaking early,
+                    # so a --scale N run reaches its intended card count
+                    # instead of silently truncating at len(titles) cards.
+                    title = f"{titles[title_idx % len(titles)]} (#{title_idx})"
                 title_idx += 1
 
                 description = random.choice(CARD_DESCRIPTIONS)
@@ -852,6 +939,59 @@ class Command(BaseCommand):
             Card.objects.filter(pk=card.pk).update(archived_at=archived_at)
             card.archived_at = archived_at  # keep in-memory object consistent
         return len(to_archive)
+
+    def _create_notifications(self, board, cards, users, count=60):
+        """Seed unread Notification rows for 'demo2' (--with-notifications only).
+
+        NotificationListView and NotificationUnreadCountView both cap their
+        query at 50 rows, so `count` deliberately exceeds that: it exercises
+        the same "more unread than the cap" path a real busy inbox hits,
+        rather than a queryset that always returns everything it filters.
+
+        'demo2' is the fixed recipient because it is also the default
+        --username for provision_fuzz_token, which the nightly load-test job
+        (#1082) reuses unchanged to mint its bearer token — this keeps that
+        token's owner and the notification-poll fixture data pointed at the
+        same account without wiring a second convention through the job.
+        """
+        recipient = next((u for u in users if u.username == "demo2"), users[0])
+        actors = [u for u in users if u.pk != recipient.pk] or list(users)
+        anchor = datetime.datetime(
+            self._movement_anchor.year, self._movement_anchor.month, self._movement_anchor.day,
+            tzinfo=datetime.timezone.utc,
+        )
+        sample = random.sample(cards, min(count, len(cards)))
+        created = []
+        for card in sample:
+            actor = random.choice(actors)
+            action_type = random.choice([
+                Notification.ActionType.ASSIGNED,
+                Notification.ActionType.MENTIONED,
+                Notification.ActionType.CARD_MOVED,
+                Notification.ActionType.STALE,
+            ])
+            if action_type == Notification.ActionType.ASSIGNED:
+                verb = f"assigned you to \"{card.title}\""
+            elif action_type == Notification.ActionType.MENTIONED:
+                verb = f"mentioned you on \"{card.title}\""
+            elif action_type == Notification.ActionType.CARD_MOVED:
+                verb = f"moved \"{card.title}\" to {card.column.name}"
+            else:
+                verb = f"\"{card.title}\" has had no activity in {random.randint(7, 21)} days"
+            notif = Notification.objects.create(
+                recipient=recipient,
+                actor=actor,
+                action_type=action_type,
+                verb=verb,
+                card=card,
+                board=board,
+                read=False,
+            )
+            # Back-fill created_at; auto_now_add=True ignores values at create time.
+            created_at = anchor - datetime.timedelta(hours=random.randint(1, 240))
+            Notification.objects.filter(pk=notif.pk).update(created_at=created_at)
+            created.append(notif)
+        return created
 
     # ── Export ─────────────────────────────────────────────────────────────────
 
