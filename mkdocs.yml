@@ -116,6 +116,7 @@ nav:
     - Testing: development/testing.md
     - Database Migrations: development/database-migrations.md
     - CI Gate Self-Tests: development/ci-gates.md
+    - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
     - Suppression Markers: development/suppressions.md
   - Administration:
     - administration/index.md
