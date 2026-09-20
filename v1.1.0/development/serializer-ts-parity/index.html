@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/api/openapi/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/serializer-ts-parity/">
       
       
-        <link rel="prev" href="../version/">
+        <link rel="prev" href="../ci-gates/">
       
       
-        <link rel="next" href="../../architecture/">
+        <link rel="next" href="../suppressions/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>OpenAPI Spec - Visiban</title>
+        <title>Serializer ↔ TypeScript Parity - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#openapi-30-spec" class="md-skip">
+        <a href="#serializer-typescript-parity" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              OpenAPI Spec
+              Serializer ↔ TypeScript Parity
             
           </span>
         </div>
@@ -288,13 +288,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -1596,6 +1596,470 @@
       
   
   
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/boards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Boards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/cards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/groups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/admin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Admin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/git-lens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP Server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/websockets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WebSockets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Feed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/health/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Health Checks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/version/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Version
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/openapi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAPI Spec
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -1649,629 +2113,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Reference
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    API Reference
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../authentication/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Authentication
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../boards/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Boards
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cards/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Cards
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Groups
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../notifications/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../admin/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Admin
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../git-lens/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Issue Board Lens
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../mcp/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    MCP Server
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../websockets/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    WebSockets
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../events/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Change Feed
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../health/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Health Checks
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../version/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Version
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAPI Spec
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenAPI Spec
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#accessing-the-spec-by-deployment-type" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Accessing the spec by deployment type
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Accessing the spec by deployment type">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#docker-compose-development-docker-composeyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker Compose — development (docker-compose.yml)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#docker-compose-production-docker-composeprodyml" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker Compose — production (docker-compose.prod.yml)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kubernetes-helm-chart" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes (Helm chart)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ci-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        CI validation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="CI validation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Fuzz testing the contract against real responses (backend-schema-fuzz)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#versioning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Versioning
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-annotations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding annotations
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-          
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2293,13 +2135,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2543,7 +2385,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2571,7 +2413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2599,7 +2441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2624,10 +2466,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2643,6 +2512,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-gate-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this gate exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it locally
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-the-gate-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When the gate fails
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#suppressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Suppressions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-is-out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is out of scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2655,7 +2621,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -3298,136 +3264,250 @@
   
 
 
-<h1 id="openapi-30-spec">OpenAPI 3.0 Spec<a class="headerlink" href="#openapi-30-spec" title="Permanent link">&para;</a></h1>
-<p>Visiban exposes a machine-readable OpenAPI 3.0 specification generated by <a href="https://drf-spectacular.readthedocs.io/">drf-spectacular</a>.</p>
-<h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
+<h1 id="serializer-typescript-parity">Serializer ↔ TypeScript parity<a class="headerlink" href="#serializer-typescript-parity" title="Permanent link">&para;</a></h1>
+<p><code>CLAUDE.md</code> states the rule plainly:</p>
+<blockquote>
+<p><code>Board</code>, <code>Card</code>, <code>User</code>, and related interfaces must match the backend serializer fields exactly — when a new serializer field is added, update the corresponding TypeScript interface in the same MR.</p>
+</blockquote>
+<p>Two checks enforce it, and they cover different things. <strong>Read this section before assuming
+either one covers your change.</strong></p>
 <table>
 <thead>
 <tr>
-<th>URL</th>
-<th>Description</th>
+<th>Check</th>
+<th>Source of truth</th>
+<th>Covers</th>
+<th>Checks</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>GET /api/schema/</code></td>
-<td>Download the raw OpenAPI 3.0 YAML spec</td>
+<td><code>backend/boards/tests/test_ts_serializer_drift.py</code> (#821, since 1.1)</td>
+<td>The serializer classes (<code>instance.fields</code>)</td>
+<td><strong>14</strong> pairs, incl. <code>BoardFull</code>, <code>Column</code>, <code>Swimlane</code>, <code>Label</code>, <code>CardMovement</code>, <code>CardComment</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
+<td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>GET /api/schema/swagger-ui/</code></td>
-<td>Interactive Swagger UI — explore and test endpoints in the browser</td>
-</tr>
-<tr>
-<td><code>GET /api/schema/redoc/</code></td>
-<td>ReDoc alternative — clean two-panel reference docs</td>
+<td><code>serializer-ts-parity</code> CI job (#1079, this page)</td>
+<td>The <strong>generated OpenAPI document</strong></td>
+<td><strong>5</strong> pairs — <code>Board</code>, <code>Card</code>, <code>User</code>, <code>BoardMembership</code>, <code>BoardUser</code></td>
+<td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
 </table>
-<p>All three endpoints require authentication (<code>IsAuthenticated</code>) — you must be logged in to view the spec.</p>
-<h2 id="accessing-the-spec-by-deployment-type">Accessing the spec by deployment type<a class="headerlink" href="#accessing-the-spec-by-deployment-type" title="Permanent link">&para;</a></h2>
-<h3 id="docker-compose-development-docker-composeyml">Docker Compose — development (<code>docker-compose.yml</code>)<a class="headerlink" href="#docker-compose-development-docker-composeyml" title="Permanent link">&para;</a></h3>
-<p>The backend is exposed directly on port 8000 in the dev stack. The frontend dev server (Vite, port 5173) does <strong>not</strong> proxy <code>/api/</code> requests, so you must hit the backend directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>http://localhost:8000/api/schema/swagger-ui/
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>http://localhost:8000/api/schema/redoc/
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>http://localhost:8000/api/schema/
+<p>The older test covers more pairs; this gate covers more <em>per pair</em>. Neither supersedes the
+other, and a green run of one says nothing about the other.</p>
+<p>The distinction that matters: #821 asks "does the serializer emit this field?" — this gate
+asks "does the document we publish describe it correctly?" A field can pass the first and fail
+the second, and in practice several do. Eight fields on <code>Board</code> and <code>CurrentUser</code> were
+published as <code>string</code> while returning ints, bools and nested objects (#1135); <code>BoardFull.members</code>
+sends rows the <code>BoardMembership</code> component forbids (#1137); two nullable fields are declared
+non-nullable (#1138). Every one of those passes #821's name check, because the serializer
+really does emit the field — it is the <em>published type</em> that is wrong, and the published type
+is what an external consumer generates a client from.</p>
+<h2 id="why-this-gate-exists">Why this gate exists<a class="headerlink" href="#why-this-gate-exists" title="Permanent link">&para;</a></h2>
+<p>The frontend's view of the API lives in <code>frontend/src/types/index.ts</code> as hand-written
+interfaces. The backend's lives in DRF serializers, and what the outside world sees lives in
+the generated OpenAPI document. All three are internally consistent, and until this gate
+nothing compared the third against the first. Drift was silent in both directions:</p>
+<table>
+<thead>
+<tr>
+<th>Drift</th>
+<th>What you see</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serializer gains a field, TypeScript does not</td>
+<td>Nothing. The data arrives and the SPA cannot see it. No error anywhere.</td>
+</tr>
+<tr>
+<td>A field's <em>type</em> changes on one side only</td>
+<td>Nothing, until a component renders a number as a string, or reads <code>.length</code> off a boolean.</td>
+</tr>
+<tr>
+<td>A serializer stops sending a field</td>
+<td><code>tsc</code> catches it only if some component happens to read that property.</td>
+</tr>
+</tbody>
+</table>
+<p>This is the failure shape that motivated the gate: two representations of one contract, each
+internally consistent, with no third thing checking that they agree.</p>
+<h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
+<p>The job regenerates the OpenAPI schema with <code>drf-spectacular</code> — the same command
+<code>backend-schema-validate</code> runs, and for the same reason it needs no database — and compares
+its components against the hand-written interfaces:</p>
+<table>
+<thead>
+<tr>
+<th>Schema component</th>
+<th>TypeScript interface</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Board</code></td>
+<td><code>Board</code></td>
+</tr>
+<tr>
+<td><code>Card</code></td>
+<td><code>Card</code></td>
+</tr>
+<tr>
+<td><code>CurrentUser</code></td>
+<td><code>User</code></td>
+</tr>
+<tr>
+<td><code>BoardMembership</code></td>
+<td><code>BoardMembership</code></td>
+</tr>
+<tr>
+<td><code>BoardUser</code></td>
+<td><code>BoardUser</code></td>
+</tr>
+</tbody>
+</table>
+<p>There is no <code>User</code> component — the <code>/api/v1/auth/me/</code> shape is <code>CurrentUser</code>, which is why the
+mapping is not one-to-one by name.</p>
+<p>Six kinds of mismatch are reported:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Fires when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>missing_in_ts</code></td>
+<td>A serializer sends a field no interface declares</td>
+</tr>
+<tr>
+<td><code>missing_in_schema</code></td>
+<td>An interface declares a field no serializer sends</td>
+</tr>
+<tr>
+<td><code>type_family</code></td>
+<td>Both declare a type and the families disagree (string / number / boolean / array / object)</td>
+</tr>
+<tr>
+<td><code>untyped_schema</code></td>
+<td>The schema declares no resolvable type at all — a <code>JSONField</code> or bare <code>Field</code> reaching the client as <code>unknown</code></td>
+</tr>
+<tr>
+<td><code>nullability</code></td>
+<td>One side admits <code>null</code> and the other does not</td>
+</tr>
+<tr>
+<td><code>enum_members</code></td>
+<td>Both resolve to a set of string values and the sets differ</td>
+</tr>
+</tbody>
+</table>
+<p>A check is <strong>skipped, never guessed</strong>, when either side cannot be classified confidently. An
+unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
+(<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
+the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
+<h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full check: regenerates the schema, then diffs (needs the backend venv)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Reuse a schema you already generated</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--schema<span class="w"> </span>openapi.json
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Point at a different interfaces file (defaults to frontend/src/types/index.ts)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--types<span class="w"> </span>path/to/index.ts
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Show every mismatch, including tracked ones</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--no-suppressions
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Prove the gate itself still works</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--self-test
 </code></pre></div>
-<h3 id="docker-compose-production-docker-composeprodyml">Docker Compose — production (<code>docker-compose.prod.yml</code>)<a class="headerlink" href="#docker-compose-production-docker-composeprodyml" title="Permanent link">&para;</a></h3>
-<p>The backend port is <strong>not</strong> exposed externally. All traffic flows through the nginx reverse proxy, which forwards <code>/api/</code> to the backend internally. Access the spec via your domain:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://yourdomain.com/api/schema/swagger-ui/
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>https://yourdomain.com/api/schema/redoc/
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>https://yourdomain.com/api/schema/
+<p>Exit codes: <code>0</code> parity holds, <code>1</code> drift or a stale suppression, <code>2</code> usage or environment error.
+<code>2</code> is kept distinct from <code>1</code> so a gate that could not run is never mistaken for a clean tree.</p>
+<h2 id="when-the-gate-fails">When the gate fails<a class="headerlink" href="#when-the-gate-fails" title="Permanent link">&para;</a></h2>
+<p>Read which direction it drifted, then fix the side that is wrong — <strong>not</strong> whichever is
+quicker to edit.</p>
+<ul>
+<li><strong><code>missing_in_ts</code></strong> — you added a serializer field. Add it to the interface in the same MR.</li>
+<li><strong><code>missing_in_schema</code></strong> — usually a serializer field that was removed. Confirm it is
+  genuinely gone (removing a response field is a backward-compatibility violation on its own,
+  see <code>CLAUDE.md</code>), then remove it from the interface.</li>
+<li><strong><code>type_family</code> / <code>untyped_schema</code></strong> — most often the <em>schema</em> is wrong, not the frontend. An
+  undecorated <code>SerializerMethodField</code> has no inferable return type, so <code>drf-spectacular</code>
+  describes it as <code>string</code>; a <code>JSONField</code> gets no type at all. Fix it at the serializer:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># A return annotation is enough for a method field</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_member_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">memberships</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># A nested object or an array needs the shape spelled out</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nd">@extend_schema_field</span><span class="p">(</span><span class="n">GroupBriefSerializer</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_group_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="o">...</span>
 </code></pre></div>
-<h3 id="kubernetes-helm-chart">Kubernetes (Helm chart)<a class="headerlink" href="#kubernetes-helm-chart" title="Permanent link">&para;</a></h3>
-<p>The nginx ConfigMap in the Helm chart proxies <code>/api/</code> to the backend service. The backend is not exposed outside the cluster. Access via the ingress host configured in <code>values.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>https://&lt;ingress-host&gt;/api/schema/swagger-ui/
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>https://&lt;ingress-host&gt;/api/schema/redoc/
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>https://&lt;ingress-host&gt;/api/schema/
+<ul>
+<li><strong><code>nullability</code></strong> — a declared serializer field (a nested serializer, or a <code>CharField</code> with a
+  traversing <code>source</code>) does not inherit <code>null=True</code> from the model the way an auto-generated
+  <code>ModelSerializer</code> field does. Add <code>allow_null=True</code>. On a <code>read_only</code> field this is
+  schema-only.</li>
+<li><strong><code>enum_members</code></strong> — the choice sets diverged. Decide which is authoritative before editing.</li>
+</ul>
+<h2 id="suppressions">Suppressions<a class="headerlink" href="#suppressions" title="Permanent link">&para;</a></h2>
+<p>Real, already-tracked drift is recorded in the <code>SUPPRESSIONS</code> table in
+<code>scripts/check-serializer-ts-parity.py</code>, spelled <code>SUPPRESSED-UNTIL(#N)</code> to match the
+convention in <a href="https://gitlab.com/visiban/visiban/-/issues/1092">suppression markers</a>.</p>
+<p>These suppressions are <strong>self-invalidating</strong>, which is the part that matters. Each records the
+exact mismatch it masks — the schema type and the TypeScript type as they are today:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">Suppression</span><span class="p">(</span><span class="n">TYPE_FAMILY</span><span class="p">,</span> <span class="s2">"Board"</span><span class="p">,</span> <span class="s2">"member_count"</span><span class="p">,</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>            <span class="n">schema_repr</span><span class="o">=</span><span class="s2">"string"</span><span class="p">,</span> <span class="n">ts_repr</span><span class="o">=</span><span class="s2">"number"</span><span class="p">,</span> <span class="n">issue</span><span class="o">=</span><span class="mi">1135</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>            <span class="n">reason</span><span class="o">=</span><span class="s2">"SerializerMethodField returns int, described as string"</span><span class="p">),</span>
 </code></pre></div>
-<p>To access the schema directly from a backend pod for debugging:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>kubectl<span class="w"> </span>port-forward<span class="w"> </span>svc/&lt;release-name&gt;-backend<span class="w"> </span><span class="m">8000</span>:8000
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># then: http://localhost:8000/api/schema/swagger-ui/</span>
-</code></pre></div>
-<h2 id="ci-validation">CI validation<a class="headerlink" href="#ci-validation" title="Permanent link">&para;</a></h2>
-<p>The CI pipeline runs <code>manage.py spectacular --validate</code> on every change to the backend. This catches schema regressions (missing serializers, ambiguous response shapes) before merge.</p>
-<p><strong>Not yet enforced: <code>--fail-on-warn</code>.</strong> <a href="https://gitlab.com/visiban/visiban/-/issues/1108">#1108</a> proposed also running <code>--fail-on-warn</code> in CI so the schema cannot regress by acquiring a new warning (as opposed to <code>--validate</code> alone, which only catches OpenAPI-document-level errors). As of this writing the codebase carries ~90 unique pre-existing warnings unrelated to any single change — mostly <code>@action</code>/APIView endpoints with no declared serializer, and nested viewsets where drf-spectacular cannot resolve <code>board_pk</code>-scoped path parameter types without a request. Flipping <code>--fail-on-warn</code> on today would fail CI on every branch, not just ones that introduce a new problem. Enforcing it is tracked as a follow-up once that backlog is worked down; until then, treat a clean <code>--validate --fail-on-warn</code> run as informative, not a merge gate.</p>
-<h3 id="fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz">Fuzz testing the contract against real responses (<code>backend-schema-fuzz</code>)<a class="headerlink" href="#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz" title="Permanent link">&para;</a></h3>
-<p><code>--validate</code> only proves the generated <em>document</em> is internally well-formed — it has no way
-to know whether a view actually returns what its declared schema says. A view that bypasses
-its serializer (a bare <code>Response({...})</code> from an error path, an <code>@action</code> method, an admin
-endpoint) can be syntactically valid in the document while describing a response the server
-never sends. <a href="https://gitlab.com/visiban/visiban/-/issues/1080">#1080</a> closes that gap with a
-second job, <code>backend-schema-fuzz</code>, that boots a real backend against seeded demo data
-(<code>manage.py seed_demo_data</code>), authenticates as a normal, non-admin board member (see
-<code>accounts/management/commands/provision_fuzz_token.py</code> — it refuses to mint a token for a
-superuser/site-admin/<code>can_access_all_content</code> account), and drives
-<a href="https://schemathesis.readthedocs.io/">schemathesis</a> against every operation the schema
-describes, checking <code>response_schema_conformance</code>, <code>status_code_conformance</code>, and
-<code>content_type_conformance</code>.</p>
-<p>Runs on any MR touching <code>backend/**/views/**</code>, <code>**/serializers.py</code>, or <code>**/urls.py</code>, and
-always on <code>main</code>.</p>
-<p><strong>Error envelope.</strong> Visiban has no custom DRF <code>EXCEPTION_HANDLER</code>, so authentication,
-permission, lookup, and throttling failures all render as DRF's default <code>{"detail": "&lt;message&gt;"}</code>.
-<code>visiban/schema_hooks.py</code> (a drf-spectacular <code>POSTPROCESSING_HOOKS</code> entry) documents that
-envelope for 401/403/404/429 on every operation that doesn't already declare a response for
-that status code, so <code>backend-schema-fuzz</code> has something to validate a real error response
-against instead of silently skipping an undocumented one. It never overwrites a response an
-operation already declares — the card-mutation 409s (<code>WipLimitExceeded</code>, <code>VersionConflict</code>,
-etc. — see <code>boards/services/errors.py</code>) and the move/comments/checklist/share/members
-<code>@extend_schema</code> blocks from #1108 still win.</p>
-<p><strong>Path-parameter seeding.</strong> <code>backend/schemathesis_hooks.py</code>, loaded via the job's
-<code>SCHEMATHESIS_HOOKS</code> variable, substitutes real ids pulled from <code>seed_demo_data</code>'s board for
-<code>board_pk</code>/<code>id</code>/etc. on nested board-resource routes — otherwise a randomly-generated id
-almost never matches a seeded row, and schemathesis never exercises the operation's real
-200-path logic. Resource families <code>seed_demo_data</code> doesn't create yet (groups, custom fields,
-saved filters, attachments, group invite-links/labels) aren't seeded and still 404 under
-fuzzing — tracked as <a href="https://gitlab.com/visiban/visiban/-/issues/1125">#1125</a>.</p>
-<p><strong>Enforced (<code>allow_failure: false</code>) as of <a href="https://gitlab.com/visiban/visiban/-/issues/1120">#1120</a>.</strong>
-Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.
-That baseline's findings were triaged in #1120: version-prefix fuzzing noise and an unhandled
-500 on non-numeric board-scoped path parameters were fixed outright (see the <code>backend-schema-fuzz</code>
-job comment in <code>.gitlab-ci.yml</code> for the mechanism); admin-only 403s were accepted as documented
-residual scope (only 9 operations sit behind <code>IsSiteAdmin</code>, all separately covered by
-<code>accounts/tests/test_admin_api.py</code> and friends). Seeding real ids for reachability (above) then
-surfaced the schema-accuracy bug #1108 fixed on <code>CardSerializer</code> and #1119 is tracking for
-<code>Group</code>/<code>GroupDetail</code> on several more serializers — filed as
-<a href="https://gitlab.com/visiban/visiban/-/issues/1123">#1123</a> — plus a structural gap where most
-write endpoints' <code>400</code> validation-error response isn't documented at all — filed as
-<a href="https://gitlab.com/visiban/visiban/-/issues/1124">#1124</a>. Neither blocks this flip: both are
-recorded as scoped, justified entries in <code>backend/schemathesis-baseline.json</code>
-(<a href="https://schemathesis.readthedocs.io/">schemathesis's baseline mechanism</a> — matched by
-operation + check + failure class, not by the random value generated, so it doesn't need
-touching on every run) alongside #1119's still-open findings. Closing #1119/#1123/#1124 should
-prune the corresponding entries (<code>st run ... --baseline-update --baseline-prune</code>) so the job
-resumes catching regressions in that area.</p>
-<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
-<p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
-<p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the MCP server's REST-client package (#511) is one known case — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>
-<h2 id="adding-annotations">Adding annotations<a class="headerlink" href="#adding-annotations" title="Permanent link">&para;</a></h2>
-<p>For most ViewSet actions, drf-spectacular infers the schema automatically. For custom actions with non-standard request/response shapes, use <code>@extend_schema</code> — see <code>CardViewSet.move</code>, <code>.comments</code>, and <code>.checklist</code> in <code>backend/boards/views/cards.py</code>, <code>ColumnViewSet.reorder</code> / <code>SwimlaneViewSet.reorder</code>, and <code>BoardViewSet.share</code> / <code>.members</code> for worked examples covering inline request/response serializers, per-HTTP-method overrides on a single multi-method action, and documented error responses (#1108):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">drf_spectacular.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">extend_schema</span><span class="p">,</span> <span class="n">inline_serializer</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">rest_framework</span><span class="w"> </span><span class="kn">import</span> <span class="n">serializers</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nd">@extend_schema</span><span class="p">(</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Move a card to a different column or swimlane"</span><span class="p">,</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">request</span><span class="o">=</span><span class="n">inline_serializer</span><span class="p">(</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>        <span class="n">name</span><span class="o">=</span><span class="s2">"CardMoveRequest"</span><span class="p">,</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">fields</span><span class="o">=</span><span class="p">{</span><span class="s2">"column_id"</span><span class="p">:</span> <span class="n">serializers</span><span class="o">.</span><span class="n">IntegerField</span><span class="p">(),</span> <span class="o">...</span><span class="p">},</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="p">),</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">inline_serializer</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"CardMoveResponse"</span><span class="p">,</span> <span class="n">fields</span><span class="o">=</span><span class="p">{</span><span class="o">...</span><span class="p">})},</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">)</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"post"</span><span class="p">])</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">move</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="o">...</span>
-</code></pre></div>
-<p>When a <code>@action</code> accepts more than one HTTP method with different shapes per method (e.g. <code>GET</code> returns a list, <code>POST</code> returns a single created object), stack multiple <code>@extend_schema</code> calls with <code>methods=[...]</code> rather than trying to describe both in one block:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"GET"</span><span class="p">],</span> <span class="n">responses</span><span class="o">=</span><span class="n">CardCommentSerializer</span><span class="p">(</span><span class="n">many</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nd">@extend_schema</span><span class="p">(</span><span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"POST"</span><span class="p">],</span> <span class="n">request</span><span class="o">=</span><span class="n">CardCommentSerializer</span><span class="p">,</span> <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">201</span><span class="p">:</span> <span class="n">CardCommentSerializer</span><span class="p">})</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nd">@action</span><span class="p">(</span><span class="n">detail</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">"get"</span><span class="p">,</span> <span class="s2">"post"</span><span class="p">])</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">comments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="o">...</span>
-</code></pre></div>
-<p>A <code>SerializerMethodField</code> that can return <code>None</code>, or a manually-declared nested serializer field on a nullable FK (e.g. <code>BoardUserSerializer(read_only=True)</code> on a <code>null=True</code> relation), must say so explicitly — add a <code>-&gt; SomeType | None</code> return type hint to the <code>get_*</code> method, or pass <code>allow_null=True</code> to the nested field — otherwise drf-spectacular documents it as always-present and a generated client will reject the very responses the API actually sends (#1108; see <code>CardSerializer.get_last_moved_at</code>, <code>.assignee</code>, and <code>CardMovementSerializer.moved_by</code> in <code>backend/boards/serializers.py</code>).</p>
-<p>See the <a href="https://drf-spectacular.readthedocs.io/en/latest/customization.html">drf-spectacular docs</a> for full customization options.</p>
+<p>When reality stops matching that record — because the cited issue's fix landed — the
+suppression has done its job, and the gate <strong>fails</strong> asking for its removal. A suppression
+therefore cannot outlive its reason, which is the usual way a suppression quietly turns a gate
+green forever.</p>
+<p>This is deliberately not an issue-state lookup: tying staleness to the observed drift needs no
+network and no GitLab token, so it works offline and in a fork's pipeline.</p>
+<p>Adding one:</p>
+<ul>
+<li>It must cite a <strong>specific, already-filed</strong> issue. Never a placeholder, never a number invented
+  on the spot. If the drift has no tracking issue, file one first.</li>
+<li>Record the mismatch exactly as the gate reports it — run with <code>--no-suppressions</code> to see it.</li>
+<li>Do not add one for drift you could simply fix. A suppression is for a mismatch whose fix is
+  out of scope for the branch in front of you, not for one that is merely inconvenient.</li>
+</ul>
+<h2 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h2>
+<p>Per the house rule in <a href="https://gitlab.com/visiban/visiban/-/issues/1093">#1093</a>, this gate
+ships a <code>--self-test</code> mode, and CI runs it <strong>immediately before</strong> the real invocation on the
+same image. A gate that has stopped detecting anything looks exactly like a clean codebase; the
+self-test builds a synthetic schema and interface carrying one instance of every finding kind,
+asserts each is caught, and asserts that a matching pair stays silent and that the suppression
+machinery both suppresses and goes stale. It needs no network and no database.</p>
+<h2 id="what-is-out-of-scope">What is out of scope<a class="headerlink" href="#what-is-out-of-scope" title="Permanent link">&para;</a></h2>
+<p><strong>WebSocket event payloads.</strong> The <code>{event, data}</code> contract in
+<code>frontend/src/hooks/useBoardSocket.ts</code> is not schema-derived and is not checked here. The
+schema <em>does</em> contain a <code>BoardEvent</code> component, but it describes the REST event-feed
+serializer — a different shape that merely shares a name. Mapping the WebSocket union onto it
+would assert a correspondence that does not exist. That union stays hand-maintained;
+<a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
+separately.</p>
+<p><strong><code>BoardFull</code>.</strong> <code>drf-spectacular</code> does not currently emit a component for it, so
+<code>BoardFullSerializer</code>'s response shape is unchecked <em>here</em>. #821's test does name-check it via
+serializer introspection. Extending this gate there depends on that component existing first.</p>
+<p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
+carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
+This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
+the job (it is still a <code>backend/**/*</code> change) but produces no finding. If the frontend grows
+explicit request-body interfaces, mapping them is the natural extension.</p>
+<p><strong>The other ten pairs.</strong> <code>CardComment</code>, <code>CardMovement</code>, <code>CardRelation</code>, <code>Column</code>,
+<code>CustomFieldDefinition</code>, <code>CustomFieldValue</code>, <code>Group</code>, <code>GroupLabel</code>, <code>Label</code> and <code>Swimlane</code> all
+have both a schema component and a TypeScript interface, and all are name-checked by #821, but
+none get a <em>type</em> check yet. <a href="https://gitlab.com/visiban/visiban/-/issues/1139">#1139</a> tracks
+closing that gap. Until it does, a green <code>serializer-ts-parity</code> run means "the five mapped
+pairs agree", not "the API and the frontend agree".</p>
 
 
 
