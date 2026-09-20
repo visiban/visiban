@@ -51,7 +51,7 @@ import {
 } from '../api/boards'
 import { moveCard, createCard } from '../api/cards'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test mock client cast; the real client type is broader than any single test needs
 const mockClient = client as any
 
 describe('Board API wrappers', () => {

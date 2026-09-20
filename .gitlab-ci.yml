@@ -1489,6 +1489,45 @@ changelog-check:
         exit 1
       fi
 
+# ─── Suppression marker check (main + schedule, not MR-only) ─────────────────
+#
+# #1092: a suppression (pytest skip/xfail, eslint-disable, coverage omit) is
+# added for a reason that's true *today* and nothing ever revisits it — see
+# #1090, where git_lens read as 0% covered for months because a job was
+# uninstrumented and nothing flagged that the number had stopped meaning
+# anything.
+#
+# Convention: a suppression waiting on tracked work (as opposed to being
+# permanently intentional) carries a SUPPRESSED-UNTIL(#N) marker naming the
+# issue that would remove it. This job greps for the marker, looks up each
+# cited issue via the GitLab API, and fails — naming file, line, and issue —
+# if any cited issue is already closed. See scripts/check-suppression-issues.sh
+# and docs/development/suppressions.md for the full contract; unit-tested in
+# scripts/tests/check-suppression-issues.test.sh.
+#
+# Deliberately NOT MR-only: the triggering event is "an issue closed", not
+# "a commit landed" on the branch that added the marker. That commit may have
+# merged long before the cited issue closes, so an MR-only job would never
+# fire again after merge. Also runs on MR for early feedback when a marker is
+# added citing an issue that is already closed at authoring time.
+#
+# --self-test runs immediately before the real invocation, on the same
+# image, per #1093's meta-gate (every bespoke CI gate must carry a self-test
+# or main goes red when that gate lands).
+suppressions-check:
+  stage: lint
+  needs: []
+  image: alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - sh scripts/check-suppression-issues.sh --self-test
+    - sh scripts/check-suppression-issues.sh
+
 # ─── Security (MR only) ───────────────────────────────────────────────────────
 #
 # Security jobs run only on MR pipelines — they are the gate before merging
