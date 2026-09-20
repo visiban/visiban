@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 #
+# gate-selftest-exempt: a live Calico kind-cluster enforcement drill — a
+# synthetic --self-test would need a second real cluster with NetworkPolicy
+# enforcement, which is what this drill IS. Its own NEGATIVE and CONTROL
+# cases below (denied-pod, then policies-deleted-so-it-succeeds) already are
+# the known-bad/known-good pair #1093 asks for, run against real Calico
+# instead of a fixture. See docs/development/ci-gates.md.
+#
 # NetworkPolicy ENFORCEMENT drill for the Visiban Helm chart (#1116).
 #
 # Why this is a SEPARATE cluster from scripts/helm-install-drill.sh:

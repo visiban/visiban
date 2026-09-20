@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 #
+# gate-selftest-exempt: this IS a live kind-cluster boot drill — a synthetic
+# --self-test would need to boot a second real cluster, which defeats the
+# point of proving the chart actually starts. Its own step 4 (NEGATIVE: a
+# placeholder-SECRET_KEY install must be REJECTED) already is the
+# known-bad-input assertion #1093 asks for, run against the real chart
+# instead of a fixture. See docs/development/ci-gates.md.
+#
 # Runtime deploy smoke test for the Visiban Helm chart on a kind cluster (#1116).
 #
 # The half scripts/helm-structure-check.sh cannot reach: actually BOOT the chart.
