@@ -111,7 +111,7 @@ export default function CommandPalette({
       .catch(() => setBoards([]))
       .finally(() => setLoadingBoards(false));
   // pruneByIds is stable across renders via the hook's closure scope.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- pruneByIds intentionally excluded, see comment above
   }, [open]);
 
   // Focus the input on open

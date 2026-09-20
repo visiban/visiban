@@ -289,7 +289,7 @@ describe('CreateGroupModal', () => {
   })
 
   it('renders modal for subgroup', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture reuses fakeBoard's shape loosely to stand in for a group parent
     const parent = { ...fakeBoard, name: 'Engineering' } as any
     render(<CreateGroupModal parentGroup={parent} onCreated={vi.fn()} onClose={vi.fn()} />)
     expect(screen.getByText('New subgroup of "Engineering"')).toBeInTheDocument()
@@ -326,7 +326,7 @@ describe('CreateGroupModal', () => {
     mockCreateGroup.mockResolvedValue(subgroup)
     const onCreated = vi.fn()
     const onClose = vi.fn()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture reuses fakeBoard's shape loosely to stand in for a group parent
     const parent = { ...fakeBoard, id: 1, name: 'Engineering' } as any
 
     render(<CreateGroupModal parentGroup={parent} onCreated={onCreated} onClose={onClose} />)
@@ -383,7 +383,7 @@ describe('CreateGroupModal', () => {
     const parent = {
       ...fakeBoard, id: 3, name: 'Engineering',
       ancestors: [{ id: 1, name: 'Acme Corp' }],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test fixture reuses fakeBoard's shape loosely to stand in for a group parent
     } as any
 
     render(<CreateGroupModal parentGroup={parent} onCreated={vi.fn()} onClose={vi.fn()} />)

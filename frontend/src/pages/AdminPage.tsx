@@ -973,7 +973,11 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 
   useEffect(() => {
     fetchUsers(search, offset);
-  }, [offset]); // eslint-disable-line react-hooks/exhaustive-deps
+    // search is read from the latest closure intentionally: typing updates
+    // `search` without refetching here — handleSearchChange below debounces
+    // and fetches directly, so this effect only needs to react to offset
+    // (pagination) changes.
+  }, [offset]); // eslint-disable-line react-hooks/exhaustive-deps -- search intentionally excluded, see comment above
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
