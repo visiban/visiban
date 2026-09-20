@@ -219,35 +219,6 @@ class Suppression:
 # below the hand-written TypeScript is CORRECT and the schema is wrong — which is
 # why none of them is fixed by editing `frontend/src/types/index.ts`.
 SUPPRESSIONS: tuple[Suppression, ...] = (
-    # ── #1135: eight SerializerMethodFields drf-spectacular cannot type ──────
-    # An undecorated SerializerMethodField has no inferable return type, so it is
-    # described as `string`; a JSONField gets no `type` at all. Fixed by return
-    # annotations / @extend_schema_field on the serializers. MR in flight.
-    Suppression(UNTYPED_SCHEMA, "Board", "allowed_priorities",
-                schema_repr="no type", ts_repr="array", issue=1135,
-                reason="JSONField; schema carries no type until the field declares one"),
-    Suppression(TYPE_FAMILY, "Board", "card_count",
-                schema_repr="string", ts_repr="number", issue=1135,
-                reason="SerializerMethodField returns int, described as string"),
-    Suppression(TYPE_FAMILY, "Board", "group_detail",
-                schema_repr="string", ts_repr="object", issue=1135,
-                reason="SerializerMethodField returns GroupBrief|null, described as string"),
-    Suppression(TYPE_FAMILY, "Board", "is_starred",
-                schema_repr="string", ts_repr="boolean", issue=1135,
-                reason="SerializerMethodField returns bool, described as string"),
-    Suppression(TYPE_FAMILY, "Board", "member_count",
-                schema_repr="string", ts_repr="number", issue=1135,
-                reason="SerializerMethodField returns int, described as string"),
-    Suppression(TYPE_FAMILY, "CurrentUser", "git_lens_enabled",
-                schema_repr="string", ts_repr="boolean", issue=1135,
-                reason="SerializerMethodField returns bool, described as string"),
-    Suppression(TYPE_FAMILY, "CurrentUser", "has_usable_password",
-                schema_repr="string", ts_repr="boolean", issue=1135,
-                reason="SerializerMethodField returns bool, described as string"),
-    Suppression(TYPE_FAMILY, "CurrentUser", "uploads_enabled",
-                schema_repr="string", ts_repr="boolean", issue=1135,
-                reason="SerializerMethodField returns bool, described as string"),
-
     # ── #1137: BoardFull.members is an effective roster, not BoardMembership rows ──
     # BoardFullSerializer.get_members() synthesizes entries for group-inherited
     # members, the board owner, and site admins, with no membership row behind
