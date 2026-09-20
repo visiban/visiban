@@ -114,7 +114,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             board_id = board.id
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(
-                    board_id, "custom_field.created", payload
+                    board_id, _broadcast.EVT_CUSTOM_FIELD_CREATED, payload
                 )
             )
 
@@ -134,7 +134,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             board_id = definition.board_id
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(
-                    board_id, "custom_field.updated", payload
+                    board_id, _broadcast.EVT_CUSTOM_FIELD_UPDATED, payload
                 )
             )
 
@@ -150,7 +150,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             instance.delete()
             transaction.on_commit(
                 lambda: _broadcast.broadcast_board_event(
-                    board_id, "custom_field.deleted", {"custom_field_uid": field_uid}
+                    board_id, _broadcast.EVT_CUSTOM_FIELD_DELETED, {"custom_field_uid": field_uid}
                 )
             )
 
@@ -218,7 +218,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
 
             def _broadcast_reorder() -> None:
                 _broadcast.broadcast_board_event(
-                    board_id, "custom_field.reordered", {"custom_fields": list(data)}
+                    board_id, _broadcast.EVT_CUSTOM_FIELD_REORDERED, {"custom_fields": list(data)}
                 )
 
             transaction.on_commit(_broadcast_reorder)

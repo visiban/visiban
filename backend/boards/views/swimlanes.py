@@ -79,7 +79,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # sent to viewer-role members who are connected via WebSocket.
             swimlane_data = SwimlaneSerializer(swimlane).data
             board_id = board.id
-            _broadcast.record_board_event(board_id, "swimlane.created", swimlane_data, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_CREATED, swimlane_data, actor_id=self.request.user.id)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
@@ -90,7 +90,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # Same broadcast-safety constraint as perform_create.
             swimlane_data = SwimlaneSerializer(swimlane).data
             board_id = swimlane.board_id
-            _broadcast.record_board_event(board_id, "swimlane.updated", swimlane_data, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -100,7 +100,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         swimlane_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            _broadcast.record_board_event(board_id, "swimlane.deleted", {"swimlane_uid": swimlane_uid}, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_DELETED, {"swimlane_uid": swimlane_uid}, actor_id=self.request.user.id)
 
     @action(detail=True, methods=["patch"], url_path="set-collapsed")
     def set_collapsed_kebab(self, request, board_pk=None, pk=None):
@@ -155,7 +155,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             swimlane.save(update_fields=["is_collapsed"])
             swimlane_data = SwimlaneSerializer(swimlane).data
             board_id = swimlane.board_id
-            _broadcast.record_board_event(board_id, "swimlane.updated", swimlane_data, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
         return Response(self.get_serializer(swimlane).data)
 
     @extend_schema(
@@ -205,7 +205,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
             board_id = board.id
             _broadcast.record_board_event(
-                board_id, "swimlane.reordered", {"swimlanes": list(lanes_data)},
+                board_id, _broadcast.EVT_SWIMLANE_REORDERED, {"swimlanes": list(lanes_data)},
                 actor_id=request.user.id,
             )
         return Response(lanes_data)

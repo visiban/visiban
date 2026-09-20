@@ -18,6 +18,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
+from . import broadcast as _group_broadcast
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
 from .serializers import GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer
 
@@ -162,9 +163,9 @@ class GroupViewSet(viewsets.ModelViewSet):
                 # Fanout: the new group's own channel (so anyone subscribed
                 # by id refreshes), and the parent's channel (so the parent's
                 # subgroup list updates).
-                broadcast_group_event(gid, "group.created", data)
+                broadcast_group_event(gid, _group_broadcast.EVT_GROUP_CREATED, data)
                 if pid is not None:
-                    broadcast_group_event(pid, "group.created", data)
+                    broadcast_group_event(pid, _group_broadcast.EVT_GROUP_CREATED, data)
 
             transaction.on_commit(_broadcast_created)
 
@@ -193,7 +194,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_updated(gid=group.pk, data=group_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "group.updated", data)
+                broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data)
 
             transaction.on_commit(_broadcast_updated)
         return response
@@ -210,10 +211,10 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_deleted(g=gid, pid=parent_id, pl=payload):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(g, "group.deleted", pl)
+                broadcast_group_event(g, _group_broadcast.EVT_GROUP_DELETED, pl)
                 if pid is not None:
                     # Sidebar tree under the parent needs to refresh too.
-                    broadcast_group_event(pid, "group.deleted", pl)
+                    broadcast_group_event(pid, _group_broadcast.EVT_GROUP_DELETED, pl)
 
             transaction.on_commit(_broadcast_deleted)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -395,7 +396,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                             # — so the feed row gets its own short transaction
                             # rather than joining one that is already closed.
                             with transaction.atomic():
-                                record_board_event(bid, "member.removed", {"user_id": uid})
+                                record_board_event(bid, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": uid})
 
                 transaction.on_commit(_evict_stale_ws)
 
@@ -410,7 +411,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                     from .broadcast import broadcast_group_event
                     # member.* mirrors the board channel's member.added/updated/
                     # removed naming so one frontend socket layer handles both.
-                    broadcast_group_event(gid, "member.removed", {"user_id": uid})
+                    broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_REMOVED, {"user_id": uid})
 
                 transaction.on_commit(_broadcast_group_member_removed)
 
@@ -432,7 +433,7 @@ class GroupViewSet(viewsets.ModelViewSet):
                 from .broadcast import broadcast_group_event
                 # member.* mirrors the board channel's member.added/updated/removed
                 # naming so a single frontend socket layer handles both channels.
-                broadcast_group_event(gid, "member.updated", data)
+                broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_UPDATED, data)
 
             transaction.on_commit(_broadcast_membership_updated)
         return Response(membership_data)
@@ -576,15 +577,15 @@ class GroupViewSet(viewsets.ModelViewSet):
             # Persisted inside this transaction (#1114); the board and group
             # channels keep firing from one on_commit callback.
             _event_id = _persist_board_event(
-                _board_id, "board.created", _board_event_payload,
+                _board_id, _group_broadcast.EVT_BOARD_CREATED, _board_event_payload,
                 actor_id=request.user.id,
             )
             def _broadcast_created(
                 bid=_board_id, bd=_board_event_payload, gid=_group_id, eid=_event_id,
             ):
-                _broadcast_board_event(bid, "board.created", bd, event_id=eid)
+                _broadcast_board_event(bid, _group_broadcast.EVT_BOARD_CREATED, bd, event_id=eid)
                 # Powers live refresh of GroupDetail's boards list (#753).
-                _broadcast_group_event(gid, "board.created", bd)
+                _broadcast_group_event(gid, _group_broadcast.EVT_BOARD_CREATED, bd)
             transaction.on_commit(_broadcast_created)
 
         return Response(BoardSerializer(board, context={"request": request}).data, status=status.HTTP_201_CREATED)
@@ -746,7 +747,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_transfer(gid=group.pk, data=group_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "group.updated", data)
+                broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, data)
 
             transaction.on_commit(_broadcast_transfer)
 
@@ -832,7 +833,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_invite_revoked(gid=revoked_group_id, lid=revoked_link_id):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "invite_link.revoked", {"id": lid})
+                broadcast_group_event(gid, _group_broadcast.EVT_INVITE_LINK_REVOKED, {"id": lid})
 
             transaction.on_commit(_broadcast_invite_revoked)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -861,7 +862,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_label_created(g=gid, data=label_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(g, "group.label.created", data)
+                broadcast_group_event(g, _group_broadcast.EVT_GROUP_LABEL_CREATED, data)
 
             transaction.on_commit(_broadcast_label_created)
         return Response(label_data, status=status.HTTP_201_CREATED)
@@ -882,7 +883,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
                 def _broadcast_label_deleted(g=gid, pl=payload):
                     from .broadcast import broadcast_group_event
-                    broadcast_group_event(g, "group.label.deleted", pl)
+                    broadcast_group_event(g, _group_broadcast.EVT_GROUP_LABEL_DELETED, pl)
 
                 transaction.on_commit(_broadcast_label_deleted)
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -897,7 +898,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_label_updated(g=gid, data=label_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(g, "group.label.updated", data)
+                broadcast_group_event(g, _group_broadcast.EVT_GROUP_LABEL_UPDATED, data)
 
             transaction.on_commit(_broadcast_label_updated)
         return Response(label_data)
@@ -922,7 +923,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
             def _broadcast_defaults(gid=group.pk, gd=group_data):
                 from .broadcast import broadcast_group_event
-                broadcast_group_event(gid, "group.updated", gd)
+                broadcast_group_event(gid, _group_broadcast.EVT_GROUP_UPDATED, gd)
 
             transaction.on_commit(_broadcast_defaults)
         return Response(group_data)
@@ -957,7 +958,7 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         def _broadcast_star(g=gid, u=uid, starred=False):
             from .broadcast import broadcast_group_event
-            broadcast_group_event(g, "group.star_changed", {"id": g, "user_id": u, "is_starred": starred})
+            broadcast_group_event(g, _group_broadcast.EVT_GROUP_STAR_CHANGED, {"id": g, "user_id": u, "is_starred": starred})
 
         if request.method == "DELETE":
             with transaction.atomic():
@@ -1126,7 +1127,7 @@ class JoinGroupView(APIView):
 
                 def _broadcast_member_added(gid=joined_gid, data=membership_data):
                     from .broadcast import broadcast_group_event
-                    broadcast_group_event(gid, "member.added", data)
+                    broadcast_group_event(gid, _group_broadcast.EVT_MEMBER_ADDED, data)
 
                 transaction.on_commit(_broadcast_member_added)
 

@@ -115,6 +115,7 @@ nav:
     - Technology Decisions: architecture/decisions.md
     - Testing: development/testing.md
     - Database Migrations: development/database-migrations.md
+    - WebSocket Event Contract: development/websocket-event-contract.md
   - Administration:
     - administration/index.md
     - Configuration: administration/configuration.md

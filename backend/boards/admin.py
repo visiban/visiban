@@ -23,7 +23,7 @@ class CardAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
         board = obj.board
-        event = "card.updated" if change else "card.created"
+        event = _broadcast.EVT_CARD_UPDATED if change else _broadcast.EVT_CARD_CREATED
         card_data = _refetched_card_data(obj, request, board)
         board_id = board.id
         _broadcast.record_board_event(board_id, event, card_data, actor_id=request.user.pk)
@@ -33,7 +33,7 @@ class CardAdmin(admin.ModelAdmin):
         card_uid = obj.uid
         super().delete_model(request, obj)
         _broadcast.record_board_event(
-            board_id, "card.deleted", {"card_uid": card_uid}, actor_id=request.user.pk
+            board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor_id=request.user.pk
         )
 
     def delete_queryset(self, request, queryset):
@@ -42,7 +42,7 @@ class CardAdmin(admin.ModelAdmin):
         super().delete_queryset(request, queryset)
         for board_id, card_uid in deleted:
             _broadcast.record_board_event(
-                board_id, "card.deleted", {"card_uid": card_uid}, actor_id=request.user.pk
+                board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor_id=request.user.pk
             )
 
 
@@ -52,7 +52,7 @@ class ColumnAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        event = "column.updated" if change else "column.created"
+        event = _broadcast.EVT_COLUMN_UPDATED if change else _broadcast.EVT_COLUMN_CREATED
         column_data = ColumnSerializer(obj).data
         board_id = obj.board_id
         _broadcast.record_board_event(board_id, event, column_data, actor_id=request.user.pk)
@@ -62,7 +62,7 @@ class ColumnAdmin(admin.ModelAdmin):
         column_uid = obj.uid
         super().delete_model(request, obj)
         _broadcast.record_board_event(
-            board_id, "column.deleted", {"column_uid": column_uid}, actor_id=request.user.pk
+            board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=request.user.pk
         )
 
     def delete_queryset(self, request, queryset):
@@ -70,7 +70,7 @@ class ColumnAdmin(admin.ModelAdmin):
         super().delete_queryset(request, queryset)
         for board_id, column_uid in deleted:
             _broadcast.record_board_event(
-                board_id, "column.deleted", {"column_uid": column_uid}, actor_id=request.user.pk
+                board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=request.user.pk
             )
 
 

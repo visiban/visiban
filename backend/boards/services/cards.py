@@ -262,7 +262,7 @@ def _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many=None
     else:
         return
     for payload in payloads:
-        _broadcast_after_commit(board_id, "card.updated", payload, actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
 
 
 def _board_scoped(model, pk, board, error):
@@ -323,7 +323,7 @@ def create_card(*, actor, board, column_id, swimlane_id, save, render, role=None
             notes="Card created",
         )
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.created", payload, actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_CREATED, payload, actor.id)
         _fire_hooks("card.created", card.id, board_id, actor.id)
         if card.description:
             # Notify any @mentioned board members in the initial description.
@@ -485,7 +485,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
             CardActivity.objects.bulk_create(activities)
 
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.updated", payload, actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload)
 
@@ -684,7 +684,7 @@ def move_card(
         payload = render(card, movement)
         # The WebSocket payload is the same dict as the REST body so a client can
         # update its movement history without re-polling /movements/.
-        _broadcast_after_commit(board_id, "card.moved", dict(payload), actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_MOVED, dict(payload), actor.id)
         _fire_hooks("card.moved", card.id, board_id, actor.id)
     return CardMutationResult(card=card, payload=payload, movement=movement)
 
@@ -763,7 +763,7 @@ def archive_card(*, actor, board, card_id, render, role=None, render_many=None):
             card.archived_at = timezone.now()
             card.save(update_fields=["archived_at"])
             _archive_movement(card, actor, CardMovement.MovementType.ARCHIVED)
-            _broadcast_after_commit(board_id, "card.archived", {"card_uid": card_uid}, actor.id)
+            _broadcast_after_commit(board_id, _broadcast.EVT_CARD_ARCHIVED, {"card_uid": card_uid}, actor.id)
             # Archiving a blocker drops its targets' blocker_count (#449).
             # Rendered after the save so each peer payload reflects the new
             # state, and inside the transaction so it rolls back with it.
@@ -805,7 +805,7 @@ def unarchive_card(*, actor, board, card_id, render, role=None, render_many=None
         # captured before the callback is registered (#999), and reused as the
         # response rather than re-fetched (#1050).
         payload = render(card)
-        _broadcast_after_commit(board_id, "card.unarchived", payload, actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UNARCHIVED, payload, actor.id)
         # Restoring a blocker puts its targets back into a blocked state (#449)
         # — the mirror of the archive case above.
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
@@ -843,7 +843,7 @@ def delete_card(*, actor, board, card, role=None, render=None, render_many=None)
     peer_ids = _blocked_peer_ids(card)
     with transaction.atomic():
         card.delete()
-        _broadcast_after_commit(board_id, "card.deleted", {"card_uid": card_uid}, actor.id)
+        _broadcast_after_commit(board_id, _broadcast.EVT_CARD_DELETED, {"card_uid": card_uid}, actor.id)
         _broadcast_blocked_peers(board_id, peer_ids, actor, render, render_many)
         # The id is still passed even though the row is gone, so a handler can
         # tell "deleted" apart from "never existed".

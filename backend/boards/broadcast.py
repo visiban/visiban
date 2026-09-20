@@ -5,6 +5,134 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from rest_framework.renderers import JSONRenderer
 
+# ─── Board-channel event registry (#1078) ────────────────────────────────────
+#
+# The authoritative list of every event name that may appear in the ``event``
+# key of a board-channel frame. Every broadcast call site draws its name from
+# one of these constants rather than spelling a literal, so the emitted set is
+# a Python object that ``scripts/check-ws-event-reachability.py`` can read —
+# not a grep over string literals that silently misses a name assembled at
+# runtime.
+#
+# **These values are the wire format.** ``CLAUDE.md`` declares the
+# ``{event, data}`` board_* schema a public 1.0+ contract: a name may be added
+# freely, but renaming or removing one is a breaking change requiring a major
+# bump. Rename the *constant* as much as you like; never touch the string.
+#
+# Adding a name here is not enough on its own — the CI gate also requires a row
+# in ``docs/api/websockets.md`` and a frontend handler (or an entry in
+# ``INTENTIONALLY_UNHANDLED_BOARD_EVENTS`` below giving the reason there is
+# none). That three-way match is the whole point: a name that exists in only
+# two of the three places is an alert that can never fire.
+EVT_BOARD_CREATED = "board.created"
+EVT_BOARD_UPDATED = "board.updated"
+EVT_BOARD_DELETED = "board.deleted"
+EVT_BOARD_STAR_CHANGED = "board.star_changed"
+
+EVT_SAVED_FILTER_CREATED = "saved_filter.created"
+EVT_SAVED_FILTER_DELETED = "saved_filter.deleted"
+
+EVT_COLUMN_CREATED = "column.created"
+EVT_COLUMN_UPDATED = "column.updated"
+EVT_COLUMN_DELETED = "column.deleted"
+EVT_COLUMN_REORDERED = "column.reordered"
+
+EVT_SWIMLANE_CREATED = "swimlane.created"
+EVT_SWIMLANE_UPDATED = "swimlane.updated"
+EVT_SWIMLANE_DELETED = "swimlane.deleted"
+EVT_SWIMLANE_REORDERED = "swimlane.reordered"
+
+EVT_LABEL_CREATED = "label.created"
+EVT_LABEL_UPDATED = "label.updated"
+EVT_LABEL_DELETED = "label.deleted"
+
+EVT_CUSTOM_FIELD_CREATED = "custom_field.created"
+EVT_CUSTOM_FIELD_UPDATED = "custom_field.updated"
+EVT_CUSTOM_FIELD_DELETED = "custom_field.deleted"
+EVT_CUSTOM_FIELD_REORDERED = "custom_field.reordered"
+
+EVT_CARD_CREATED = "card.created"
+EVT_CARD_UPDATED = "card.updated"
+EVT_CARD_DELETED = "card.deleted"
+EVT_CARD_MOVED = "card.moved"
+EVT_CARD_ARCHIVED = "card.archived"
+# Note the asymmetry: the WebSocket name is ``card.unarchived`` while the
+# ``CARD_MUTATION_HOOKS`` lifecycle name for the same operation is
+# ``card.restored`` (see boards/hooks.py). Both are independently frozen — the
+# WS name by this contract, the hook name by the 1.0+ extension guarantee. They
+# are not a typo, and neither may be "corrected" to match the other.
+EVT_CARD_UNARCHIVED = "card.unarchived"
+
+EVT_MEMBER_ADDED = "member.added"
+EVT_MEMBER_UPDATED = "member.updated"
+EVT_MEMBER_REMOVED = "member.removed"
+
+# Emitted from the git_lens app, but onto the *board* channel — so they are
+# board-channel contract and belong in this registry rather than a third one.
+EVT_LENS_CONNECTION_CONFIGURED = "lens_connection.configured"
+EVT_LENS_CONNECTION_REMOVED = "lens_connection.removed"
+
+# Consumer keepalive — sent by BoardConsumer._ping_loop, never through
+# broadcast_board_event(), but it is on the wire and clients must ignore it, so
+# the contract covers it.
+EVT_PING = "ping"
+
+BOARD_CHANNEL_EVENTS: frozenset[str] = frozenset({
+    EVT_BOARD_CREATED,
+    EVT_BOARD_UPDATED,
+    EVT_BOARD_DELETED,
+    EVT_BOARD_STAR_CHANGED,
+    EVT_SAVED_FILTER_CREATED,
+    EVT_SAVED_FILTER_DELETED,
+    EVT_COLUMN_CREATED,
+    EVT_COLUMN_UPDATED,
+    EVT_COLUMN_DELETED,
+    EVT_COLUMN_REORDERED,
+    EVT_SWIMLANE_CREATED,
+    EVT_SWIMLANE_UPDATED,
+    EVT_SWIMLANE_DELETED,
+    EVT_SWIMLANE_REORDERED,
+    EVT_LABEL_CREATED,
+    EVT_LABEL_UPDATED,
+    EVT_LABEL_DELETED,
+    EVT_CUSTOM_FIELD_CREATED,
+    EVT_CUSTOM_FIELD_UPDATED,
+    EVT_CUSTOM_FIELD_DELETED,
+    EVT_CUSTOM_FIELD_REORDERED,
+    EVT_CARD_CREATED,
+    EVT_CARD_UPDATED,
+    EVT_CARD_DELETED,
+    EVT_CARD_MOVED,
+    EVT_CARD_ARCHIVED,
+    EVT_CARD_UNARCHIVED,
+    EVT_MEMBER_ADDED,
+    EVT_MEMBER_UPDATED,
+    EVT_MEMBER_REMOVED,
+    EVT_LENS_CONNECTION_CONFIGURED,
+    EVT_LENS_CONNECTION_REMOVED,
+    EVT_PING,
+})
+
+# Names still documented (and still accepted by clients) but no longer emitted.
+# Maps the wire name to the release it was deprecated in. Removing an entry
+# here without also removing its docs row fails the reachability gate — which is
+# the point: the docs row is the deprecation notice the contract requires to
+# stand for at least one minor release before the name goes.
+DEPRECATED_BOARD_EVENTS: dict[str, str] = {}
+
+# Emitted names with deliberately no frontend handler. The reason string is not
+# decoration: without it the gate cannot tell a considered omission from a
+# forgotten one, which is the exact failure this whole job exists to catch.
+INTENTIONALLY_UNHANDLED_BOARD_EVENTS: dict[str, str] = {
+    EVT_BOARD_CREATED: (
+        "Board-channel board.created can only reach a client already subscribed "
+        "to that board's channel, and no client can be subscribed to a board "
+        "that did not exist a moment ago. It is broadcast for symmetry with the "
+        "group channel (where it does drive the boards list) and to put the row "
+        "in the change feed; BoardView has nothing to do with it."
+    ),
+}
+
 
 def _json_safe(payload: dict) -> dict:
     """Return *payload* with only plain JSON types.

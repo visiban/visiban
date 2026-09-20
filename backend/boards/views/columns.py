@@ -70,7 +70,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             column = serializer.save(board=board, position=max_pos)
             column_data = ColumnSerializer(column).data
             board_id = board.id
-            _broadcast.record_board_event(board_id, "column.created", column_data, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_CREATED, column_data, actor_id=self.request.user.id)
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
@@ -80,7 +80,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             column = serializer.save()
             column_data = ColumnSerializer(column).data
             board_id = column.board_id
-            _broadcast.record_board_event(board_id, "column.updated", column_data, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_UPDATED, column_data, actor_id=self.request.user.id)
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()
@@ -90,7 +90,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
         column_uid = instance.uid
         with transaction.atomic():
             instance.delete()
-            _broadcast.record_board_event(board_id, "column.deleted", {"column_uid": column_uid}, actor_id=self.request.user.id)
+            _broadcast.record_board_event(board_id, _broadcast.EVT_COLUMN_DELETED, {"column_uid": column_uid}, actor_id=self.request.user.id)
 
     @extend_schema(
         summary="Reorder columns",
@@ -135,7 +135,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
             cols_data = ColumnSerializer(board.columns.order_by("position"), many=True).data
             board_id = board.id
             _broadcast.record_board_event(
-                board_id, "column.reordered", {"columns": list(cols_data)},
+                board_id, _broadcast.EVT_COLUMN_REORDERED, {"columns": list(cols_data)},
                 actor_id=request.user.id,
             )
         return Response(cols_data)
