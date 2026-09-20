@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# gate-selftest-exempt: setup/provisioning against a live Keycloak Admin
+# REST API, not detection logic — there is no pass/fail verdict here to
+# prove still fires. Its correctness is exercised end-to-end by
+# oidc_smoke_test.py, which the whole oidc-smoke job depends on failing
+# loudly if provisioning silently stopped working. See
+# docs/development/ci-gates.md.
 """Provision Keycloak with the visiban-test realm for CI smoke tests.
 
 This script is used by the oidc-smoke CI job to seed Keycloak with the
