@@ -1272,6 +1272,15 @@ class BoardSerializer(serializers.ModelSerializer):
     def validate_allowed_priorities(self, value):
         if not value:
             return value
+        # allowed_priorities is a bare JSONField (any JSON value is valid input
+        # at the field level) — a non-list truthy value like `true` reaches here
+        # and `any(v not in valid for v in value)` crashes with an unhandled 500
+        # (`'bool' object is not iterable`) instead of a normal 400 (found by
+        # backend-schema-fuzz).
+        if not isinstance(value, list):
+            raise serializers.ValidationError(
+                "allowed_priorities must be a list of priority values."
+            )
         valid = {p[0] for p in Card.Priority.choices}
         if any(v not in valid for v in value):
             raise serializers.ValidationError(

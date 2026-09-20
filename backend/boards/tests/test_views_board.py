@@ -341,6 +341,18 @@ class AllowedPrioritiesValidationTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    def test_non_list_value_rejected_not_500(self):
+        # backend-schema-fuzz: a bare JSON boolean crashed
+        # `any(v not in valid for v in value)` with an unhandled 500
+        # ('bool' object is not iterable) instead of a 400.
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": True},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("allowed_priorities must be a list", str(r.data))
+
 
 class CardDensityValidationTests(TestCase):
     """#961: per-board card_density choice validation and round-trip."""
