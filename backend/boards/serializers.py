@@ -261,6 +261,34 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name cannot be blank.")
         return name
 
+    def validate_field_type(self, value):
+        """Freeze ``field_type`` once a card already holds a value for it (#1121).
+
+        ``field_type`` decides how ``CustomFieldValue.value`` gets validated,
+        cast, and rendered (see ``validate_custom_field_value`` below, board
+        export, and the future Phase 2 per-type card rendering). None of those
+        call sites revalidate or migrate existing rows when the type changes,
+        so letting a PATCH flip e.g. ``text`` -> ``number`` after cards have
+        free-text values would leave stale rows silently mismatched against
+        their own definition — corrupt data that only surfaces later, in a
+        crash or a misrender, far from the change that caused it.
+
+        A field with zero values has never had a chance to accumulate that
+        mismatch, so it stays freely editable. This intentionally does not
+        implement a ``text`` -> ``dropdown`` conversion path: that needs an
+        explicit decision on how existing free-text values map onto the new
+        choice set, which #1121 defers rather than builds silently.
+        """
+        if (
+            self.instance is not None
+            and value != self.instance.field_type
+            and self.instance.values.exists()
+        ):
+            raise serializers.ValidationError(
+                "This field already has values; its type cannot be changed."
+            )
+        return value
+
     def validate(self, attrs):
         """Cross-field rules: dropdown choices, and the two per-board caps.
 

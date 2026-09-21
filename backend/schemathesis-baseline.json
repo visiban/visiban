@@ -318,105 +318,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "f59bc0",
-      "operation": "GET /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "a3a1d9",
-      "operation": "GET /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "5434b0",
-      "operation": "GET /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b54061",
-      "operation": "GET /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/parent_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "9f5969",
-      "operation": "GET /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/subgroup_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "c1a303",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/ancestors/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "be140b",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "1cb8a0",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "3227bd",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "558bba",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/parent_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "2b4adf",
-      "operation": "GET /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/subgroup_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "9ffdfc",
       "operation": "GET /api/v1/groups/{id}/boards/",
       "check": "response_schema_conformance",
@@ -561,42 +462,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "ac103b",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "19016f",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ebd93a",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4d9c57",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/subgroup_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "1eb14e",
       "operation": "PATCH /api/v1/groups/{id}/",
       "check": "response_schema_conformance",
@@ -611,51 +476,6 @@
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "fb9770",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b64f14",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ea9ec1",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "de768f",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/parent_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "03491f",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/subgroup_count/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -885,6 +705,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "f7cedf",
+      "operation": "PATCH /api/v1/boards/{board_pk}/custom-fields/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-21",
+      "last_seen": "2026-09-21"
+    },
+    {
       "id": "a23064",
       "operation": "POST /api/v1/boards/{board_pk}/custom-fields/",
       "check": "status_code_conformance",
@@ -901,6 +730,15 @@
       "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "ff8b06",
+      "operation": "PUT /api/v1/boards/{board_pk}/custom-fields/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-21",
+      "last_seen": "2026-09-21"
     },
     {
       "id": "7a9d35",
@@ -955,6 +793,15 @@
       "signature": "JSON deserialization error",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "66c7a8",
+      "operation": "POST /api/v1/boards/{id}/move-group/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
     },
     {
       "id": "1dc638",
@@ -1038,49 +885,13 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "0897ff",
-      "operation": "POST /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "638279",
-      "operation": "POST /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "61010b",
-      "operation": "POST /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "8395c2",
-      "operation": "POST /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/parent_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "952ecf",
-      "operation": "POST /api/v1/groups/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/subgroup_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
+      "id": "4997f0",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
     },
     {
       "id": "7f2373",
@@ -1223,51 +1034,6 @@
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "98c195",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/board_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "a10dd5",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "c6bebd",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "d52715",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/parent_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "8674f6",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/subgroup_count/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
