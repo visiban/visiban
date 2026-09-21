@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import BoardSettingsSwimlaneFieldsTab from '../components/Board/BoardSettingsSwimlaneFieldsTab'
@@ -10,17 +10,30 @@ const fakeUser: User = {
   id: 1, username: 'admin', display_name: 'Admin', avatar_url: '',
 } as User
 
+// Captures the settings tab's onDragEnd so a test can drive a reorder without
+// simulating a pointer drag through jsdom.
+const dnd = vi.hoisted(() => ({
+  onDragEnd: undefined as undefined | ((e: { active: { id: number }; over: { id: number } | null }) => void),
+}))
+
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDndContext: () => ({ active: null }),
-  DndContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DndContext: ({ children, onDragEnd }: { children: React.ReactNode; onDragEnd?: typeof dnd.onDragEnd }) => {
+    dnd.onDragEnd = onDragEnd
+    return <div>{children}</div>
+  },
 }))
 
 vi.mock('@dnd-kit/sortable', () => ({
   SortableContext: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   verticalListSortingStrategy: {},
   useSortable: () => ({ setNodeRef: () => {}, attributes: {}, listeners: {}, transform: null, transition: undefined, isDragging: false }),
-  arrayMove: <T,>(a: T[]) => a,
+  arrayMove: <T,>(a: T[], from: number, to: number) => {
+    const next = [...a]
+    next.splice(to, 0, next.splice(from, 1)[0])
+    return next
+  },
 }))
 
 vi.mock('../components/Board/BoardCell', () => ({
@@ -388,3 +401,397 @@ describe('BoardSettingsSwimlaneFieldsTab (#1140)', () => {
     expect(screen.getByText(/any values stored on swimlanes for it/)).toBeInTheDocument()
   })
 })
+
+describe('BoardSettingsSwimlaneFieldsTab — editing, pinning, deleting, reordering (#1140)', () => {
+  const defA = makeDef({ id: 1, uid: 'sfuid0000001', name: 'A', position: 0, show_on_row: false })
+  const defB = makeDef({ id: 2, uid: 'sfuid0000002', name: 'B', position: 1, show_on_row: false })
+
+  beforeEach(() => {
+    Object.values(mockApi).forEach((m) => m.mockReset())
+    dnd.onDragEnd = undefined
+  })
+
+  function renderTab(defs: SwimlaneCustomFieldDefinition[], onFieldsUpdated = vi.fn(), isAdmin = true) {
+    render(<BoardSettingsSwimlaneFieldsTab board={makeBoard(defs)} isAdmin={isAdmin} onFieldsUpdated={onFieldsUpdated} />)
+    return onFieldsUpdated
+  }
+
+  const NAME = 'e.g. Account owner'
+
+  describe('read-only view for a non-admin', () => {
+    it('lists the fields with type, lock and pin markers but no edit controls', () => {
+      renderTab([makeDef({ name: 'Owner', is_admin_only: true, show_on_row: true })], vi.fn(), false)
+      expect(screen.getByText('Only board admins can add or edit swimlane fields.')).toBeInTheDocument()
+      expect(screen.getByText('Owner')).toBeInTheDocument()
+      expect(screen.getByText('Pinned')).toBeInTheDocument()
+      expect(screen.getByText('Locked fields store values only board admins can see.')).toBeInTheDocument()
+      expect(screen.queryByTitle('Edit Owner')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '+ Add field' })).not.toBeInTheDocument()
+    })
+
+    it('says so plainly when the board has no fields', () => {
+      renderTab([], vi.fn(), false)
+      expect(screen.getByText('This board has no swimlane fields.')).toBeInTheDocument()
+    })
+  })
+
+  describe('adding a field', () => {
+    it('opens from the empty state and cancels back to it', async () => {
+      const user = userEvent.setup()
+      renderTab([])
+      expect(screen.getByText('No swimlane fields yet')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      expect(screen.getByPlaceholderText(NAME)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByPlaceholderText(NAME)).not.toBeInTheDocument()
+    })
+
+    it('requires a name', async () => {
+      const user = userEvent.setup()
+      renderTab([])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(screen.getByText('Name is required.')).toBeInTheDocument()
+      expect(mockApi.createSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('rejects a duplicate name regardless of case', async () => {
+      const user = userEvent.setup()
+      renderTab([defA])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.type(screen.getByPlaceholderText(NAME), 'a')
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(screen.getByText('A swimlane field with this name already exists.')).toBeInTheDocument()
+      expect(mockApi.createSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('requires at least one choice for a dropdown', async () => {
+      const user = userEvent.setup()
+      renderTab([])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.type(screen.getByPlaceholderText(NAME), 'Region')
+      await user.click(screen.getByRole('button', { name: /▾ Dropdown/ }))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(screen.getByText('A dropdown field needs at least one choice.')).toBeInTheDocument()
+      expect(mockApi.createSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('creates an admin-only text field by default and reports the new list', async () => {
+      const user = userEvent.setup()
+      const created = makeDef({ id: 7, name: 'Region', is_admin_only: true, show_on_row: false })
+      mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(created)
+      const onFieldsUpdated = renderTab([])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.type(screen.getByPlaceholderText(NAME), '  Region  ')
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([created]))
+      expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, {
+        name: 'Region', field_type: 'text', choices: undefined, help_text: undefined, is_admin_only: true,
+      })
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+      // Editor closes and the saved field is listed.
+      expect(screen.queryByPlaceholderText(NAME)).not.toBeInTheDocument()
+      expect(screen.getByText('Region')).toBeInTheDocument()
+    })
+
+    it('builds a dropdown from typed, pasted and removed choices, with help text, public and pinned', async () => {
+      const user = userEvent.setup()
+      const created = makeDef({ id: 7, name: 'Region', field_type: 'dropdown', show_on_row: false })
+      const pinned = { ...created, show_on_row: true }
+      mockApi.createSwimlaneCustomFieldDefinition.mockResolvedValue(created)
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(pinned)
+      const onFieldsUpdated = renderTab([])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.type(screen.getByPlaceholderText(NAME), 'Region')
+      await user.type(screen.getByPlaceholderText('Shown as hint text'), ' Sales region ')
+      await user.click(screen.getByRole('button', { name: /▾ Dropdown/ }))
+
+      await user.click(screen.getByRole('button', { name: '+ Add choice' }))
+      // name, help text, then the one choice input
+      await user.type(screen.getAllByRole('textbox')[2], 'EMEA')
+
+      await user.click(screen.getByRole('button', { name: 'Paste a list' }))
+      expect(screen.getByText('newline-separated')).toBeInTheDocument()
+      await user.type(screen.getByPlaceholderText('One choice per line'), 'EMEA{Enter}APAC{Enter}{Enter}AMER')
+      await user.click(screen.getByRole('button', { name: 'Add 3 choices' }))
+      // EMEA was already present, so pasting it again adds nothing.
+      expect(screen.getAllByRole('textbox').slice(2).map((i) => (i as HTMLInputElement).value)).toEqual(['EMEA', 'APAC', 'AMER'])
+      expect(screen.queryByPlaceholderText('One choice per line')).not.toBeInTheDocument()
+
+      await user.click(screen.getAllByText('✕')[0])
+      expect(screen.getAllByRole('textbox').slice(2).map((i) => (i as HTMLInputElement).value)).toEqual(['APAC', 'AMER'])
+
+      await user.click(screen.getByText('Admin only'))
+      expect(screen.getByText(/Everyone on this board will see/)).toBeInTheDocument()
+      await user.click(screen.getByRole('switch', { name: 'Pin to swimlane row' }))
+
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([pinned]))
+      expect(mockApi.createSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, {
+        name: 'Region', field_type: 'dropdown', choices: ['APAC', 'AMER'],
+        help_text: 'Sales region', is_admin_only: false,
+      })
+      // Pinning is a second call: the create endpoint does not take show_on_row.
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 7, { show_on_row: true })
+    })
+
+    it('reports a generic error when the save fails', async () => {
+      const user = userEvent.setup()
+      mockApi.createSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
+      const onFieldsUpdated = renderTab([])
+      await user.click(screen.getByRole('button', { name: '+ Add field' }))
+      await user.type(screen.getByPlaceholderText(NAME), 'Region')
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(await screen.findByText("Couldn't save this field. Check the values and try again.")).toBeInTheDocument()
+      expect(onFieldsUpdated).not.toHaveBeenCalled()
+      // Editor stays open with the input intact so the admin can retry.
+      expect(screen.getByPlaceholderText(NAME)).toHaveValue('Region')
+      expect(screen.getByRole('button', { name: 'Save field' })).toBeEnabled()
+    })
+
+    it('flags the type lock when the server rejects a type change', async () => {
+      const user = userEvent.setup()
+      // The client-side lock derives from board data that can be stale; the
+      // server's field_type error is the real gate and must read as such.
+      mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue({ response: { data: { field_type: ['locked'] } } })
+      renderTab([defA])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: /# Number/ }))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      expect(
+        await screen.findByText("Couldn't change this field's type — swimlanes already have values for it.")
+      ).toBeInTheDocument()
+    })
+  })
+
+  describe('editing a field', () => {
+    it('saves changes through PATCH and replaces the row', async () => {
+      const user = userEvent.setup()
+      const updated = { ...defA, name: 'Alpha' }
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(updated)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Edit A'))
+      const input = screen.getByPlaceholderText(NAME)
+      expect(input).toHaveValue('A')
+      await user.clear(input)
+      await user.type(input, 'Alpha')
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([updated, defB]))
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1, {
+        name: 'Alpha', field_type: 'text', choices: undefined, help_text: undefined, is_admin_only: false,
+      })
+    })
+
+    it('does not treat its own name as a duplicate', async () => {
+      const user = userEvent.setup()
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(defA)
+      renderTab([defA])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: 'Save field' }))
+      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalled())
+      expect(screen.queryByText(/already exists/)).not.toBeInTheDocument()
+    })
+
+    it('cancels without calling the API', async () => {
+      const user = userEvent.setup()
+      renderTab([defA])
+      await user.click(screen.getByTitle('Edit A'))
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByPlaceholderText(NAME)).not.toBeInTheDocument()
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('keeps in-progress edits when the board definitions change underneath', async () => {
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <BoardSettingsSwimlaneFieldsTab board={makeBoard([defA])} isAdmin onFieldsUpdated={vi.fn()} />
+      )
+      await user.click(screen.getByTitle('Edit A'))
+      await user.type(screen.getByPlaceholderText(NAME), 'lpha')
+      rerender(<BoardSettingsSwimlaneFieldsTab board={makeBoard([defA, defB])} isAdmin onFieldsUpdated={vi.fn()} />)
+      expect(screen.getByPlaceholderText(NAME)).toHaveValue('Alpha')
+    })
+
+    it('re-syncs from the board when no row is being edited', () => {
+      const { rerender } = render(
+        <BoardSettingsSwimlaneFieldsTab board={makeBoard([defA])} isAdmin onFieldsUpdated={vi.fn()} />
+      )
+      expect(screen.queryByText('B')).not.toBeInTheDocument()
+      rerender(<BoardSettingsSwimlaneFieldsTab board={makeBoard([defA, defB])} isAdmin onFieldsUpdated={vi.fn()} />)
+      expect(screen.getByText('B')).toBeInTheDocument()
+    })
+  })
+
+  describe('pinning', () => {
+    it('pins a field under the cap', async () => {
+      const user = userEvent.setup()
+      const pinned = { ...defA, show_on_row: true }
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(pinned)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByRole('button', { name: 'Pin A to swimlane row' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([pinned, defB]))
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_row: true })
+    })
+
+    it('unpins a pinned field', async () => {
+      const user = userEvent.setup()
+      const pinnedA = { ...defA, show_on_row: true }
+      mockApi.updateSwimlaneCustomFieldDefinition.mockResolvedValue(defA)
+      const onFieldsUpdated = renderTab([pinnedA])
+      await user.click(screen.getByRole('button', { name: 'Unpin A from swimlane row' }))
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defA]))
+      expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1, { show_on_row: false })
+    })
+
+    it('rolls the optimistic pin back when the save fails', async () => {
+      const user = userEvent.setup()
+      mockApi.updateSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
+      const onFieldsUpdated = renderTab([defA])
+      await user.click(screen.getByRole('button', { name: 'Pin A to swimlane row' }))
+      await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalled())
+      expect(await screen.findByRole('button', { name: 'Pin A to swimlane row' })).toBeInTheDocument()
+      expect(onFieldsUpdated).not.toHaveBeenCalled()
+    })
+
+    describe('at the pin cap', () => {
+      const p1 = makeDef({ id: 1, uid: 'sfuid0000001', name: 'P1', position: 0, show_on_row: true })
+      const p2 = makeDef({ id: 2, uid: 'sfuid0000002', name: 'P2', position: 1, show_on_row: true })
+      const p3 = makeDef({ id: 3, uid: 'sfuid0000003', name: 'P3', position: 2, show_on_row: true })
+      const extra = makeDef({ id: 4, uid: 'sfuid0000004', name: 'Extra', position: 3, show_on_row: false })
+
+      it('swaps: unpins the chosen field and pins the new one together', async () => {
+        const user = userEvent.setup()
+        mockApi.updateSwimlaneCustomFieldDefinition.mockImplementation(
+          (_b: number, id: number, patch: { show_on_row: boolean }) =>
+            Promise.resolve({ ...[p1, p2, p3, extra].find((d) => d.id === id)!, ...patch })
+        )
+        const onFieldsUpdated = renderTab([p1, p2, p3, extra])
+        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
+        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
+        await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalled())
+        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 2, { show_on_row: false })
+        expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 4, { show_on_row: true })
+        const next = onFieldsUpdated.mock.calls[0][0] as SwimlaneCustomFieldDefinition[]
+        expect(next.map((d) => [d.name, d.show_on_row])).toEqual([
+          ['P1', true], ['P2', false], ['P3', true], ['Extra', true],
+        ])
+        expect(screen.queryByText('The row header shows 3 fields.')).not.toBeInTheDocument()
+      })
+
+      it('dismisses the prompt on Cancel without changing anything', async () => {
+        const user = userEvent.setup()
+        renderTab([p1, p2, p3, extra])
+        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+        expect(screen.queryByText('The row header shows 3 fields.')).not.toBeInTheDocument()
+        expect(mockApi.updateSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+      })
+
+      it('rolls both halves back when either request fails', async () => {
+        const user = userEvent.setup()
+        mockApi.updateSwimlaneCustomFieldDefinition
+          .mockResolvedValueOnce({ ...p2, show_on_row: false })
+          .mockRejectedValueOnce(new Error('boom'))
+        const onFieldsUpdated = renderTab([p1, p2, p3, extra])
+        await user.click(screen.getByRole('button', { name: 'Pin Extra to swimlane row' }))
+        await user.click(screen.getByRole('button', { name: /P2\s*Replace/ }))
+        await waitFor(() => expect(mockApi.updateSwimlaneCustomFieldDefinition).toHaveBeenCalledTimes(2))
+        expect(onFieldsUpdated).not.toHaveBeenCalled()
+        expect(screen.getAllByRole('button', { name: /^Unpin / })).toHaveLength(3)
+      })
+    })
+  })
+
+  describe('deleting a field', () => {
+    it('stays disabled until the exact name is typed, then deletes', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockResolvedValue(undefined)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Delete A'))
+      const del = screen.getByRole('button', { name: 'Delete' })
+      expect(del).toBeDisabled()
+      await user.type(screen.getByPlaceholderText('A'), 'a')
+      expect(del).toBeDisabled()
+      await user.clear(screen.getByPlaceholderText('A'))
+      await user.type(screen.getByPlaceholderText('A'), 'A')
+      expect(del).toBeEnabled()
+      await user.click(del)
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([defB]))
+      expect(mockApi.deleteSwimlaneCustomFieldDefinition).toHaveBeenCalledWith(1, 1)
+      expect(screen.queryByText('Delete field?')).not.toBeInTheDocument()
+    })
+
+    it('deletes on Enter once the name matches', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockResolvedValue(undefined)
+      const onFieldsUpdated = renderTab([defA])
+      await user.click(screen.getByTitle('Delete A'))
+      await user.type(screen.getByPlaceholderText('A'), 'A{Enter}')
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith([]))
+    })
+
+    it('ignores Enter while the name does not match', async () => {
+      const user = userEvent.setup()
+      renderTab([defA])
+      await user.click(screen.getByTitle('Delete A'))
+      await user.type(screen.getByPlaceholderText('A'), 'x{Enter}')
+      expect(mockApi.deleteSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('cancels without calling the API', async () => {
+      const user = userEvent.setup()
+      renderTab([defA])
+      await user.click(screen.getByTitle('Delete A'))
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByText('Delete field?')).not.toBeInTheDocument()
+      expect(mockApi.deleteSwimlaneCustomFieldDefinition).not.toHaveBeenCalled()
+    })
+
+    it('restores the field when the delete fails', async () => {
+      const user = userEvent.setup()
+      mockApi.deleteSwimlaneCustomFieldDefinition.mockRejectedValue(new Error('boom'))
+      const onFieldsUpdated = renderTab([defA, defB])
+      await user.click(screen.getByTitle('Delete A'))
+      await user.type(screen.getByPlaceholderText('A'), 'A')
+      await user.click(screen.getByRole('button', { name: 'Delete' }))
+      await waitFor(() => expect(screen.queryByText('Delete field?')).not.toBeInTheDocument())
+      expect(onFieldsUpdated).not.toHaveBeenCalled()
+      expect(screen.getByTitle('Delete A')).toBeInTheDocument()
+    })
+  })
+
+  describe('reordering', () => {
+    const drag = (activeId: number, overId: number | null) =>
+      act(async () => { dnd.onDragEnd!({ active: { id: activeId }, over: overId === null ? null : { id: overId } }) })
+
+    it('sends the new id order and reports the server list', async () => {
+      const serverList = [{ ...defB, position: 0 }, { ...defA, position: 1 }]
+      mockApi.reorderSwimlaneCustomFields.mockResolvedValue(serverList)
+      const onFieldsUpdated = renderTab([defA, defB])
+      await drag(1, 2)
+      expect(mockApi.reorderSwimlaneCustomFields).toHaveBeenCalledWith(1, [2, 1])
+      await waitFor(() => expect(onFieldsUpdated).toHaveBeenCalledWith(serverList))
+    })
+
+    it.each([
+      ['dropped outside the list', 1, null],
+      ['dropped on itself', 1, 1],
+      ['an id the list does not hold', 99, 2],
+    ])('does nothing for a drag %s', async (_label, activeId, overId) => {
+      renderTab([defA, defB])
+      await drag(activeId, overId)
+      expect(mockApi.reorderSwimlaneCustomFields).not.toHaveBeenCalled()
+    })
+
+    it('restores the previous order when the request fails', async () => {
+      mockApi.reorderSwimlaneCustomFields.mockRejectedValue(new Error('boom'))
+      const onFieldsUpdated = renderTab([defA, defB])
+      await drag(1, 2)
+      await waitFor(() => expect(mockApi.reorderSwimlaneCustomFields).toHaveBeenCalled())
+      expect(onFieldsUpdated).not.toHaveBeenCalled()
+      const names = screen.getAllByTitle(/^(?!Edit|Delete)[AB]$/).map((n) => n.textContent)
+      expect(names).toEqual(['A', 'B'])
+    })
+  })
+})
+

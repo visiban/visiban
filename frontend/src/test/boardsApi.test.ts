@@ -48,6 +48,11 @@ import {
   createLabel,
   setBoardMember,
   removeBoardMember,
+  listSwimlaneCustomFieldDefinitions,
+  createSwimlaneCustomFieldDefinition,
+  updateSwimlaneCustomFieldDefinition,
+  deleteSwimlaneCustomFieldDefinition,
+  reorderSwimlaneCustomFields,
 } from '../api/boards'
 import { moveCard, createCard } from '../api/cards'
 
@@ -371,6 +376,48 @@ describe('Board API wrappers', () => {
   it('removeBoardMember calls DELETE /api/boards/:id/members/:userId/', async () => {
     await removeBoardMember(1, 7)
     expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/1/members/7/')
+  })
+})
+
+describe('Swimlane custom field API wrappers (#1140)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  // The row schema has its own endpoint, not a scoped variant of the card one,
+  // so a wrapper pointed at /custom-fields/ would silently edit card fields.
+  it('listSwimlaneCustomFieldDefinitions calls GET on the swimlane endpoint', async () => {
+    mockClient.get.mockResolvedValue({ data: [{ id: 1 }] })
+    const result = await listSwimlaneCustomFieldDefinitions(4)
+    expect(mockClient.get).toHaveBeenCalledWith('/api/v1/boards/4/swimlane-custom-fields/')
+    expect(result).toEqual([{ id: 1 }])
+  })
+
+  it('createSwimlaneCustomFieldDefinition sends POST with the definition', async () => {
+    const data = { name: 'Region', field_type: 'text' as const, is_admin_only: true }
+    mockClient.post.mockResolvedValue({ data: { id: 9, ...data } })
+    const result = await createSwimlaneCustomFieldDefinition(4, data)
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/swimlane-custom-fields/', data)
+    expect(result.id).toBe(9)
+  })
+
+  it('updateSwimlaneCustomFieldDefinition sends PATCH to the field', async () => {
+    mockClient.patch.mockResolvedValue({ data: { id: 9, show_on_row: true } })
+    const result = await updateSwimlaneCustomFieldDefinition(4, 9, { show_on_row: true })
+    expect(mockClient.patch).toHaveBeenCalledWith('/api/v1/boards/4/swimlane-custom-fields/9/', { show_on_row: true })
+    expect(result.show_on_row).toBe(true)
+  })
+
+  it('deleteSwimlaneCustomFieldDefinition sends DELETE to the field', async () => {
+    await deleteSwimlaneCustomFieldDefinition(4, 9)
+    expect(mockClient.delete).toHaveBeenCalledWith('/api/v1/boards/4/swimlane-custom-fields/9/')
+  })
+
+  it('reorderSwimlaneCustomFields sends POST with the id order', async () => {
+    mockClient.post.mockResolvedValue({ data: [{ id: 2 }, { id: 1 }] })
+    const result = await reorderSwimlaneCustomFields(4, [2, 1])
+    expect(mockClient.post).toHaveBeenCalledWith('/api/v1/boards/4/swimlane-custom-fields/reorder/', { order: [2, 1] })
+    expect(result).toEqual([{ id: 2 }, { id: 1 }])
   })
 })
 
