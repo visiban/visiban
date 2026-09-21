@@ -12,9 +12,20 @@ from types import SimpleNamespace
 
 from django.test import TestCase
 
+from django.core.files.base import ContentFile
+
 from accounts.models import PersonalAccessToken
-from boards.models import BoardMembership, CardChecklist, CardComment, Label
+from boards.models import (
+    BoardMembership,
+    CardAttachment,
+    CardChecklist,
+    CardComment,
+    CustomFieldDefinition,
+    Label,
+    SavedFilter,
+)
 from boards.tests.conftest import _make_board, _make_card, _make_column, _make_swimlane, _make_user
+from groups.models import Group, GroupInviteLink, GroupLabel
 
 
 def _fake_context(path):
@@ -48,6 +59,12 @@ class LoadRealIdsTests(TestCase):
                 "comment_id": None,
                 "member_user_id": None,
                 "pat_id": None,
+                "group_pk": None,
+                "custom_field_id": None,
+                "saved_filter_id": None,
+                "attachment_id": None,
+                "group_invite_link_id": None,
+                "group_label_id": None,
             },
         )
 
@@ -68,6 +85,74 @@ class LoadRealIdsTests(TestCase):
         self.assertIsNone(ids["card_id"])
         self.assertIsNone(ids["checklist_item_id"])
         self.assertIsNone(ids["comment_id"])
+        # No group/custom-field/saved-filter/attachment exists on this board
+        # either (#1125) — same graceful-degradation-to-None behavior.
+        self.assertIsNone(ids["group_pk"])
+        self.assertIsNone(ids["custom_field_id"])
+        self.assertIsNone(ids["saved_filter_id"])
+        self.assertIsNone(ids["attachment_id"])
+        self.assertIsNone(ids["group_invite_link_id"])
+        self.assertIsNone(ids["group_label_id"])
+
+    def test_populates_group_and_group_sub_resource_ids(self):
+        owner = _make_user()
+        group = Group.objects.create(name="Demo Group", owner=owner)
+        board = _make_board(owner, name="Visiban Demo Board", group=group)
+        invite_link, _raw_token = GroupInviteLink.generate(group=group, created_by=owner)
+        group_label = GroupLabel.objects.create(group=group, name="Demo")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["board_pk"], board.id)
+        self.assertEqual(ids["group_pk"], group.id)
+        self.assertEqual(ids["group_invite_link_id"], invite_link.id)
+        self.assertEqual(ids["group_label_id"], group_label.id)
+
+    def test_group_pk_is_none_when_board_has_no_group(self):
+        owner = _make_user()
+        _make_board(owner, name="Visiban Demo Board")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertIsNone(ids["group_pk"])
+        self.assertIsNone(ids["group_invite_link_id"])
+        self.assertIsNone(ids["group_label_id"])
+
+    def test_populates_custom_field_id(self):
+        owner = _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        field = CustomFieldDefinition.objects.create(board=board, name="Story Points")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["custom_field_id"], field.id)
+
+    def test_populates_saved_filter_id(self):
+        owner = _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        saved_filter = SavedFilter.objects.create(user=owner, board=board, name="My filter")
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["saved_filter_id"], saved_filter.id)
+
+    def test_populates_attachment_id(self):
+        owner = _make_user()
+        board = _make_board(owner, name="Visiban Demo Board")
+        column = _make_column(board)
+        swimlane = _make_swimlane(board)
+        card = _make_card(column, swimlane)
+        attachment = CardAttachment.objects.create(
+            card=card,
+            file=ContentFile(b"hello", name="f.txt"),
+            filename="f.txt",
+            size=5,
+            uploaded_by=owner,
+        )
+
+        ids = _hooks()._load_real_ids()
+
+        self.assertEqual(ids["attachment_id"], attachment.id)
 
     def test_prefers_a_card_with_both_checklist_item_and_comment(self):
         owner = _make_user()
@@ -141,7 +226,16 @@ class MapPathParametersTests(TestCase):
         # directly against a controlled substitute rather than relying on it.
         hooks = _hooks()
         self._original_ids = hooks._IDS
-        hooks._IDS = {"board_pk": 7, "card_id": None}
+        hooks._IDS = {
+            "board_pk": 7,
+            "card_id": None,
+            "group_pk": 9,
+            "custom_field_id": 11,
+            "saved_filter_id": 13,
+            "attachment_id": 15,
+            "group_invite_link_id": 17,
+            "group_label_id": 19,
+        }
         self.addCleanup(setattr, hooks, "_IDS", self._original_ids)
 
     def test_passes_through_when_operation_is_none(self):
@@ -160,12 +254,63 @@ class MapPathParametersTests(TestCase):
         self.assertEqual(result, {})
 
     def test_passes_through_for_an_unmapped_path(self):
-        context = _fake_context("/api/v1/groups/{id}/")
+        # transfer-ownership is a destructive mutation, so it is deliberately
+        # left unmapped (#1125) even though group_pk is now seeded for its
+        # sibling group routes.
+        context = _fake_context("/api/v1/groups/{id}/transfer-ownership/")
         params = {"id": "some-generated-value"}
 
         result = _hooks().map_path_parameters(context, params)
 
         self.assertEqual(result, params)
+
+    def test_overrides_group_pk_and_group_sub_resource_ids(self):
+        context = _fake_context("/api/v1/groups/{id}/labels/{label_id}/")
+        params = {"id": "generated-group", "label_id": "generated-label"}
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(result, {"id": 9, "label_id": 19})
+
+    def test_overrides_custom_field_id(self):
+        context = _fake_context("/api/v1/boards/{board_pk}/custom-fields/{id}/")
+        params = {"board_pk": "generated-board", "id": "generated-field"}
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(result, {"board_pk": 7, "id": 11})
+
+    def test_overrides_saved_filter_id(self):
+        context = _fake_context("/api/v1/boards/{id}/saved-filters/{filter_pk}/")
+        params = {"id": "generated-board", "filter_pk": "generated-filter"}
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(result, {"id": 7, "filter_pk": 13})
+
+    def test_overrides_attachment_pk(self):
+        context = _fake_context(
+            "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/"
+        )
+        params = {
+            "board_pk": "generated-board",
+            "id": "generated-card",
+            "attachment_pk": "generated-attachment",
+        }
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(
+            result, {"board_pk": 7, "id": "generated-card", "attachment_pk": 15}
+        )
+
+    def test_overrides_group_invite_link_id(self):
+        context = _fake_context("/api/v1/groups/{id}/invite-links/{link_id}/")
+        params = {"id": "generated-group", "link_id": "generated-link"}
+
+        result = _hooks().map_path_parameters(context, params)
+
+        self.assertEqual(result, {"id": 9, "link_id": 17})
 
     def test_overrides_a_mapped_parameter_with_a_real_value(self):
         context = _fake_context("/api/v1/boards/{id}/")

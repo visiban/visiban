@@ -25,12 +25,11 @@ it does not turn off negative testing generally.
 
 ## What this deliberately does NOT seed
 
-Several resource families have no corresponding row in `seed_demo_data` at all — there
-is no seeded Group, CustomFieldDefinition, SavedFilter, CardAttachment, or group
-invite-link/label, so there is nothing to seed an id *from*. Those operations still
-404 under fuzzing; per #1120 triage this is accepted for now (extending
-`seed_demo_data` with those entity types touches its committed
-`sample-boards/demo_board.json`/`.csv` export and is tracked separately — see #1125).
+`seed_demo_data` now also seeds a demo Group (owning the demo board),
+CustomFieldDefinition (+ value), SavedFilter, CardAttachment, GroupInviteLink, and
+GroupLabel (#1125), so the corresponding path parameters below are mapped the same
+way as every other board-scoped resource.
+
 Admin-only endpoints (`/api/v1/admin/...`) are excluded on purpose too: #1080 requires
 `provision_fuzz_token` to refuse an admin/superuser account, so this job's token can
 never reach them regardless of path-parameter seeding (#1120 accepted this as
@@ -113,12 +112,37 @@ def _query_real_ids():
         "comment_id": None,
         "member_user_id": None,
         "pat_id": None,
+        # #1125 — group/custom-field/saved-filter/attachment/invite-link/
+        # group-label ids, now that seed_demo_data creates one of each.
+        "group_pk": None,
+        "custom_field_id": None,
+        "saved_filter_id": None,
+        "attachment_id": None,
+        "group_invite_link_id": None,
+        "group_label_id": None,
     }
 
     board = Board.objects.filter(name="Visiban Demo Board").first()
     if board is None:
         return ids
     ids["board_pk"] = board.id
+
+    if board.group_id is not None:
+        ids["group_pk"] = board.group_id
+        invite_link = board.group.invite_links.order_by("id").first()
+        if invite_link is not None:
+            ids["group_invite_link_id"] = invite_link.id
+        group_label = board.group.labels.order_by("id").first()
+        if group_label is not None:
+            ids["group_label_id"] = group_label.id
+
+    custom_field = board.custom_field_definitions.order_by("id").first()
+    if custom_field is not None:
+        ids["custom_field_id"] = custom_field.id
+
+    saved_filter = board.saved_filters.order_by("id").first()
+    if saved_filter is not None:
+        ids["saved_filter_id"] = saved_filter.id
 
     column = board.columns.order_by("position").first()
     if column is not None:
@@ -148,6 +172,15 @@ def _query_real_ids():
         comment = card.comments.order_by("id").first()
         if comment is not None:
             ids["comment_id"] = comment.id
+
+    # Independent of `card` above — the seeded attachment (#1125) lives on
+    # whichever card seed_demo_data happened to pick, not necessarily the
+    # checklist+comment card selected above.
+    from boards.models import CardAttachment
+
+    attachment = CardAttachment.objects.filter(card__board=board).order_by("id").first()
+    if attachment is not None:
+        ids["attachment_id"] = attachment.id
 
     member = (
         BoardMembership.objects.filter(board=board)
@@ -187,8 +220,9 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{board_pk}/cards/{id}/archive/": {"board_pk": "board_pk", "id": "card_id"},
     "/api/v1/boards/{board_pk}/cards/{id}/unarchive/": {"board_pk": "board_pk", "id": "card_id"},
     "/api/v1/boards/{board_pk}/cards/{id}/attachments/": {"board_pk": "board_pk", "id": "card_id"},
+    # attachment_pk seeded since #1125 (was left to schemathesis before).
     "/api/v1/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/": {
-        "board_pk": "board_pk", "id": "card_id",
+        "board_pk": "board_pk", "id": "card_id", "attachment_pk": "attachment_id",
     },
     "/api/v1/boards/{board_pk}/cards/{id}/checklist/": {"board_pk": "board_pk", "id": "card_id"},
     "/api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/": {
@@ -218,9 +252,10 @@ _PATH_PARAM_OVERRIDES = {
     },
     "/api/v1/boards/{board_pk}/custom-fields/": {"board_pk": "board_pk"},
     "/api/v1/boards/{board_pk}/custom-fields/reorder/": {"board_pk": "board_pk"},
-    # No CustomFieldDefinition is seeded, so `id` here is left to schemathesis —
-    # board_pk alone still turns the 404 from "no such board" into "no such field".
-    "/api/v1/boards/{board_pk}/custom-fields/{id}/": {"board_pk": "board_pk"},
+    # id seeded since #1125 (was left to schemathesis before).
+    "/api/v1/boards/{board_pk}/custom-fields/{id}/": {
+        "board_pk": "board_pk", "id": "custom_field_id",
+    },
     "/api/v1/boards/{id}/": {"id": "board_pk"},
     "/api/v1/boards/{id}/analytics/": {"id": "board_pk"},
     "/api/v1/boards/{id}/events/": {"id": "board_pk"},
@@ -232,12 +267,30 @@ _PATH_PARAM_OVERRIDES = {
     "/api/v1/boards/{id}/move-group/": {"id": "board_pk"},
     "/api/v1/boards/{id}/movements/": {"id": "board_pk"},
     "/api/v1/boards/{id}/saved-filters/": {"id": "board_pk"},
-    # No SavedFilter is seeded; filter_pk is left to schemathesis.
-    "/api/v1/boards/{id}/saved-filters/{filter_pk}/": {"id": "board_pk"},
+    # filter_pk seeded since #1125 (was left to schemathesis before).
+    "/api/v1/boards/{id}/saved-filters/{filter_pk}/": {
+        "id": "board_pk", "filter_pk": "saved_filter_id",
+    },
     "/api/v1/boards/{id}/share/": {"id": "board_pk"},
     "/api/v1/boards/{id}/star/": {"id": "board_pk"},
     "/api/v1/boards/{id}/summary/": {"id": "board_pk"},
     "/api/v1/auth/tokens/{id}/": {"id": "pat_id"},
+    # ── Group routes (#1125) — group_pk seeded via board.group, now that
+    # seed_demo_data attaches the demo board to a demo Group.
+    "/api/v1/groups/{id}/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/board-defaults/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/boards/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/descendant-boards/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/invite-links/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/invite-links/{link_id}/": {
+        "id": "group_pk", "link_id": "group_invite_link_id",
+    },
+    "/api/v1/groups/{id}/labels/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/labels/{label_id}/": {
+        "id": "group_pk", "label_id": "group_label_id",
+    },
+    "/api/v1/groups/{id}/subgroups/": {"id": "group_pk"},
+    "/api/v1/groups/{id}/star/": {"id": "group_pk"},
 }
 
 
