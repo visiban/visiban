@@ -975,6 +975,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "66c7a8",
+      "operation": "POST /api/v1/boards/{id}/move-group/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
+    },
+    {
       "id": "1dc638",
       "operation": "POST /api/v1/boards/{id}/saved-filters/",
       "check": "status_code_conformance",
@@ -1054,6 +1063,15 @@
       "signature": "x-bundled/schema1/properties/member_count/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4997f0",
+      "operation": "POST /api/v1/boards/{id}/star/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
     },
     {
       "id": "0897ff",
