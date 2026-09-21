@@ -63,6 +63,7 @@ import datetime
 import json
 import random
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import User
@@ -71,14 +72,19 @@ from boards.models import (
     BoardMembership,
     Card,
     CardActivity,
+    CardAttachment,
     CardChecklist,
     CardComment,
     CardMovement,
     Column,
+    CustomFieldDefinition,
+    CustomFieldValue,
     Label,
     Notification,
+    SavedFilter,
     Swimlane,
 )
+from groups.models import Group, GroupInviteLink, GroupLabel
 
 BOARD_NAME = "Visiban Demo Board"
 # Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
@@ -87,6 +93,7 @@ BOARD_NAME = "Visiban Demo Board"
 # job must keep operating on BOARD_NAME regardless of what other scale this
 # command has ever been invoked with elsewhere.
 LOAD_TEST_BOARD_NAME = "Visiban Load Test Board"
+DEMO_GROUP_NAME = "Visiban Demo Workspace"
 RANDOM_SEED = 42
 # Fixed reference date for due-date calculations — keeps the exported JSON/CSV
 # files git-stable regardless of when the command is run.
@@ -538,6 +545,17 @@ class Command(BaseCommand):
 
         if options["wipe"]:
             deleted, _ = Board.objects.filter(name=board_name).delete()
+            if board_name == BOARD_NAME:
+                # Board.group uses on_delete=SET_NULL, so deleting the board does
+                # NOT cascade to the demo Group created by _create_demo_group()
+                # (#1125) — that direction of the FK only nulls Board.group when
+                # the *Group* is deleted, not the reverse. Without this, every
+                # --wipe leaves an orphaned "Visiban Demo Workspace" behind and
+                # the next seed creates another one — an unbounded leak on the
+                # CI cronjob that reseeds daily with --wipe --force. Scoped to
+                # the real demo board only — the --scale load-test board (#1082)
+                # has no associated demo Group to clean up.
+                Group.objects.filter(name=DEMO_GROUP_NAME).delete()
             if deleted:
                 self.stdout.write(f"Deleted existing '{board_name}' and all related data.")
 
@@ -557,6 +575,23 @@ class Command(BaseCommand):
         self._add_members(board, users)
         cards = self._create_cards(board, columns, swimlanes, labels, users)
         n_archived = self._archive_some_cards(cards)
+
+        if board_name == BOARD_NAME:
+            # ── #1125: fixtures for resource families schemathesis_hooks.py
+            # (#1120) otherwise has no seeded row to pull a real id from.
+            # Deliberately run *after* card/movement/archival generation and
+            # use fixed literals rather than `random.*` — inserting these
+            # earlier, or drawing from the shared `random` stream, would shift
+            # every subsequent random draw and silently change the committed
+            # sample-boards/demo_board.json/.csv snapshot's card corpus for
+            # reasons unrelated to this fixture set. Scoped to the real demo
+            # board only — the --scale load-test board (#1082) is ephemeral
+            # CI fixture data with no schemathesis route dependency on these
+            # rows.
+            self._create_demo_group(board, users[0])
+            self._create_custom_field(board, cards)
+            self._create_saved_filter(board, users[0])
+            self._create_attachment(cards, users[0])
 
         if options["with_notifications"]:
             n_notifications = len(self._create_notifications(board, cards, users))
@@ -992,6 +1027,100 @@ class Command(BaseCommand):
             Notification.objects.filter(pk=notif.pk).update(created_at=created_at)
             created.append(notif)
         return created
+
+    def _create_demo_group(self, board, owner):
+        """Create a demo Group and attach the demo board to it (#1125).
+
+        `seed_demo_data` previously left `Board.group` null, so the
+        `map_path_parameters` schemathesis hook (#1120) had no seeded Group id
+        to reach `/api/v1/groups/{id}/...` routes with — every one of those
+        operations 404ed under fuzzing. Attaching the *existing* demo board to
+        a new group (rather than building an unrelated second board) keeps the
+        seeded data self-consistent: `GroupViewSet.boards`/`descendant_boards`
+        surface a real board, matching what an actual workspace looks like.
+
+        A `GroupLabel` and a `GroupInviteLink` are added too so those
+        sub-resource routes (`labels/{label_id}`, `invite-links/{link_id}`)
+        have a real row as well. `GroupInviteLink.generate()` hashes a
+        `secrets.token_hex()` token — per this repo's token-generation rule,
+        tokens are never `random`-derived — so the token itself is
+        non-deterministic across runs. That's fine: the token is not part of
+        the committed `sample-boards/` snapshot, only the Group/label/link
+        *rows existing* matters for schemathesis reachability.
+        """
+        group = Group.objects.create(
+            name=DEMO_GROUP_NAME,
+            description=(
+                "Demo workspace bundling the demo board and its group-scoped "
+                "sub-resources (labels, invite links, subgroups)."
+            ),
+            owner=owner,
+        )
+        board.group = group
+        board.save(update_fields=["group"])
+        GroupLabel.objects.create(group=group, name="Demo", color="#6366F1")
+        GroupInviteLink.generate(
+            group=group,
+            created_by=owner,
+            name="Demo invite link",
+            role=GroupInviteLink.Role.MEMBER,
+        )
+        return group
+
+    def _create_custom_field(self, board, cards):
+        """Create one board-scoped CustomFieldDefinition and a value on one
+        card (#371, #1125), so `/boards/{board_pk}/custom-fields/{id}/` has a
+        real definition id to seed for schemathesis (#1120)."""
+        field = CustomFieldDefinition.objects.create(
+            board=board,
+            name="Story Points",
+            field_type=CustomFieldDefinition.FieldType.NUMBER,
+            position=0,
+            show_on_card=True,
+            help_text="Estimated relative effort for this card.",
+        )
+        if cards:
+            CustomFieldValue.objects.create(
+                card=cards[0],
+                field_definition=field,
+                value="5",
+            )
+        return field
+
+    def _create_saved_filter(self, board, owner):
+        """Create one SavedFilter on the demo board (#1125) so
+        `/boards/{id}/saved-filters/{filter_pk}/` has a real row for
+        schemathesis (#1120) to reach."""
+        return SavedFilter.objects.create(
+            user=owner,
+            board=board,
+            name="High priority, overdue",
+            state_json={
+                "search": "",
+                "assigneeIds": [],
+                "labelIds": [],
+                "priorities": ["high", "urgent"],
+                "dueDate": "overdue",
+            },
+        )
+
+    def _create_attachment(self, cards, uploaded_by):
+        """Attach one small, deterministic file to a card (#1125) so
+        `/boards/{board_pk}/cards/{id}/attachments/{attachment_pk}/` has a
+        real row for schemathesis (#1120) to reach.
+
+        Kept tiny and fixed-content (not `--export`ed — attachments are not
+        part of the committed JSON/CSV snapshot, only DB rows for the fuzz job)."""
+        if not cards:
+            return None
+        content = b"Demo attachment seeded by seed_demo_data (#1125).\n"
+        return CardAttachment.objects.create(
+            card=cards[0],
+            file=ContentFile(content, name="demo-notes.txt"),
+            filename="demo-notes.txt",
+            size=len(content),
+            uploaded_by=uploaded_by,
+        )
 
     # ── Export ─────────────────────────────────────────────────────────────────
 
