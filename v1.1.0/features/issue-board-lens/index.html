@@ -1520,6 +1520,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#resizing-columns-and-the-swimlane-label-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resizing columns and the swimlane label panel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#columns-the-horizontal-dimension" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3434,6 +3445,13 @@
 <h2 id="using-the-lens">Using the lens<a class="headerlink" href="#using-the-lens" title="Permanent link">&para;</a></h2>
 <h3 id="the-board-view">The board view<a class="headerlink" href="#the-board-view" title="Permanent link">&para;</a></h3>
 <p>The Lens tab renders issues as cards on a read-only kanban grid. You can scroll, filter, and inspect issues but cannot drag them, edit them, or create new ones.</p>
+<h3 id="resizing-columns-and-the-swimlane-label-panel">Resizing columns and the swimlane label panel<a class="headerlink" href="#resizing-columns-and-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
+<p>Drag the thin edge between a column and its neighbor to widen or narrow it, or drag the edge of the swimlane label panel on the left to give milestone, label, or assignee names more (or less) room. This is view-only chrome, like scrolling — it changes nothing in the source repository.</p>
+<ul>
+<li>Columns resize between roughly 160px and 640px; the swimlane label panel resizes between roughly 120px and 480px.</li>
+<li>Each column edge doubles as a keyboard control: focus it with Tab and press the left/right arrow keys to resize in small steps (hold Shift for larger steps).</li>
+<li>Sizes are remembered per board, on the device and browser you resized them in. They do not travel with a shared lens link and are not synced across devices.</li>
+</ul>
 <h3 id="columns-the-horizontal-dimension">Columns — the horizontal dimension<a class="headerlink" href="#columns-the-horizontal-dimension" title="Permanent link">&para;</a></h3>
 <p>By default, columns are derived from the repository's <strong>status labels</strong> — any label whose name matches a common status prefix (for example <code>status: in review</code>, <code>state: blocked</code>, or <code>stage/done</code>). If no status labels are detected, issues fall back to two columns: <strong>Open</strong> and <strong>Closed</strong>.</p>
 <p>You can override the column dimension in <strong>Settings → Lens → Columns</strong> and choose from:</p>
