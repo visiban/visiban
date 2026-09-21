@@ -3408,9 +3408,11 @@ etc. — see <code>boards/services/errors.py</code>) and the move/comments/check
 <code>SCHEMATHESIS_HOOKS</code> variable, substitutes real ids pulled from <code>seed_demo_data</code>'s board for
 <code>board_pk</code>/<code>id</code>/etc. on nested board-resource routes — otherwise a randomly-generated id
 almost never matches a seeded row, and schemathesis never exercises the operation's real
-200-path logic. Resource families <code>seed_demo_data</code> doesn't create yet (groups, custom fields,
-saved filters, attachments, group invite-links/labels) aren't seeded and still 404 under
-fuzzing — tracked as <a href="https://gitlab.com/visiban/visiban/-/issues/1125">#1125</a>.</p>
+200-path logic. <a href="https://gitlab.com/visiban/visiban/-/issues/1125">#1125</a> extended
+<code>seed_demo_data</code> with one Group (owning the demo board), <code>CustomFieldDefinition</code>,
+<code>SavedFilter</code>, <code>CardAttachment</code>, <code>GroupInviteLink</code>, and <code>GroupLabel</code>, and
+<code>schemathesis_hooks.py</code> now maps their path parameters the same way, so these resource
+families are also reachable instead of always 404ing under fuzzing.</p>
 <p><strong>Enforced (<code>allow_failure: false</code>) as of <a href="https://gitlab.com/visiban/visiban/-/issues/1120">#1120</a>.</strong>
 Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.
 That baseline's findings were triaged in #1120: version-prefix fuzzing noise and an unhandled
