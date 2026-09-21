@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import type { BoardFull, BoardUser, CustomFieldDefinition, Priority, User } from "../../types";
 import { userDisplayName } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
@@ -138,9 +138,85 @@ const DUE_DATE_OPTIONS: { value: NonNullable<FilterState["dueDate"]>; label: str
   { value: "none", label: "No due date" },
 ];
 
+// #964 — the four built-in facets that used to render as always-visible
+// dropdowns in Row 1. They now stay collapsed until picked from the
+// "+ Filter" menu. FACET_ORDER is the canonical render order regardless of
+// pick order, matching the order the dropdowns appeared in before this
+// change.
+type FacetId = "assignee" | "label" | "priority" | "dueDate";
+const FACET_ORDER: FacetId[] = ["assignee", "label", "priority", "dueDate"];
+const FACET_OPTIONS: { value: FacetId; label: string }[] = [
+  { value: "assignee", label: "Assignee" },
+  { value: "label", label: "Label" },
+  { value: "priority", label: "Priority" },
+  { value: "dueDate", label: "Due date" },
+];
+
 export default function FilterBar({ board, filters, onChange, searchRef, isSearching, currentUser, hiddenCount = 0, scope = "board", onScopeChange }: Props) {
   const activeCount = countActiveFilters(filters);
   const searchDisabled = scope === "all";
+
+  // #964 — which built-in facet controls are currently expanded in Row 1.
+  // Deliberately local, ephemeral UI state, NOT a FilterState field: it is
+  // not persisted (usePersistedFilters), not serialized into a saved filter
+  // (useSavedFilters' state_json goes through the backend's allow-list, which
+  // already doesn't know about #371's visibleCustomFieldFilterIds — adding a
+  // second UI-only array here would compound that pre-existing gap rather
+  // than fix it). A board switch/reload always starts with every facet
+  // collapsed, mirroring "+ Custom fields" starting empty for a fresh visit.
+  const [openFacetIds, setOpenFacetIds] = useState<FacetId[]>([]);
+  const filterMenuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const activeBuiltInFacetCount = [
+    filters.assigneeIds.length > 0,
+    filters.labelIds.length > 0,
+    filters.priorities.length > 0,
+    filters.dueDate !== null,
+  ].filter(Boolean).length;
+
+  // #964 — a facet's control auto-collapses out of Row 1 the moment the user
+  // closes it (Escape, outside click, or re-toggling), unlike custom fields
+  // (which stay open once revealed — see the comment on the custom-field
+  // chip dismiss handler below for why that's the right call there but not
+  // here). On Escape, useDropdownEscape refocuses the facet's own trigger
+  // button before it unmounts, which then strands focus on <body> once React
+  // removes that node — that's the one case worth recovering from by
+  // refocusing "+ Filter"'s trigger. An *outside click* must NOT get the same
+  // recovery: the click already moved focus (or intentionally landed on a
+  // non-focusable part of the page, which also reads as document.body) to
+  // wherever the user meant to go, so grabbing focus back would be a bug, not
+  // a fix. document.activeElement alone can't tell these two cases apart —
+  // both can legitimately observe <body> — so escapeCloseRef records whether
+  // the close now being processed was actually triggered by Escape.
+  const escapeCloseRef = useRef(false);
+
+  const handleRow1KeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    // Row 1's own onKeyDown (React's synthetic bubble phase, delegated at the
+    // app root) fires before useEscapeStack's document-level listener, so
+    // this flag is already set by the time a facet's onOpenChange(false)
+    // — triggered by the very same Escape keypress — runs and consumes it.
+    // Self-resetting on the next tick means an Escape that closes something
+    // other than a built-in facet (e.g. "+ Filter" itself, which has no
+    // onOpenChange wired here) never leaves a stale true behind to
+    // mis-attribute a later, unrelated outside-click close.
+    escapeCloseRef.current = true;
+    setTimeout(() => {
+      escapeCloseRef.current = false;
+    }, 0);
+  };
+
+  const handleFacetOpenChange = (id: FacetId, open: boolean) => {
+    if (open) return;
+    setOpenFacetIds((prev) => prev.filter((f) => f !== id));
+    if (!escapeCloseRef.current) return;
+    escapeCloseRef.current = false;
+    setTimeout(() => {
+      if (!document.body.contains(document.activeElement) || document.activeElement === document.body) {
+        filterMenuTriggerRef.current?.focus();
+      }
+    }, 0);
+  };
 
   // Derive chips from active filter state (search is excluded — the input already communicates state)
   const chips: { key: string; label: string; colorDot?: string; avatarUser?: BoardUser; onDismiss: () => void }[] = [];
@@ -217,7 +293,7 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {/* Row 1: filter controls */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap" onKeyDown={handleRow1KeyDown}>
         <span className="w-px h-4 bg-surface-active shrink-0" />
 
         {currentUser && (
@@ -291,36 +367,83 @@ export default function FilterBar({ board, filters, onChange, searchRef, isSearc
           )}
         </div>
 
+        {/* #964 — "+ Filter" replaces the four always-visible built-in facet
+            dropdowns (Assignee/Label/Priority/Due date). Picking a facet here
+            reveals its own control below (two-click flow, matching
+            "+ Custom fields": pick, then open) — auto-opening the just-picked
+            facet's menu would yank focus away from this still-open menu
+            while the user may still be checking more facets. The badge
+            counts facets with an active VALUE (independent of which are
+            currently expanded) so it tracks the same signal as the chip row,
+            not the toolbar's open/closed state. hideSelectionSummary keeps
+            the trigger's own text pinned to "+ Filter" — without it,
+            CheckboxDropdown's default label logic would render "+ Filter:
+            Assignee, Label" once facets are picked, a second (and, once the
+            badge is present, a conflicting) signal on top of the badge and
+            the active border color. */}
         <CheckboxDropdown
-          label="Assignee"
-          options={[
-            { value: -1, label: "Unassigned" },
-            ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
-          ]}
-          selected={filters.assigneeIds}
-          onChange={(assigneeIds) => onChange({ ...filters, assigneeIds })}
+          ref={filterMenuTriggerRef}
+          label="+ Filter"
+          hideSelectionSummary
+          badge={activeBuiltInFacetCount || undefined}
+          options={FACET_OPTIONS}
+          selected={openFacetIds}
+          onChange={setOpenFacetIds}
         />
 
-        <CheckboxDropdown
-          label="Label"
-          options={board.labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
-          selected={filters.labelIds}
-          onChange={(labelIds) => onChange({ ...filters, labelIds })}
-        />
-
-        <CheckboxDropdown
-          label="Priority"
-          options={PRIORITY_OPTIONS}
-          selected={filters.priorities}
-          onChange={(priorities) => onChange({ ...filters, priorities })}
-        />
-
-        <SingleSelectDropdown
-          label="Due date"
-          options={DUE_DATE_OPTIONS}
-          selected={filters.dueDate}
-          onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
-        />
+        {FACET_ORDER.filter((id) => openFacetIds.includes(id)).map((id) => {
+          switch (id) {
+            case "assignee":
+              return (
+                <CheckboxDropdown
+                  key="assignee"
+                  label="Assignee"
+                  options={[
+                    { value: -1, label: "Unassigned" },
+                    ...board.members.map((m) => ({ value: m.user.id, label: userDisplayName(m.user) })),
+                  ]}
+                  selected={filters.assigneeIds}
+                  onChange={(assigneeIds) => onChange({ ...filters, assigneeIds })}
+                  onOpenChange={(open) => handleFacetOpenChange("assignee", open)}
+                />
+              );
+            case "label":
+              return (
+                <CheckboxDropdown
+                  key="label"
+                  label="Label"
+                  options={board.labels.map((l) => ({ value: l.id, label: l.name, color: l.color }))}
+                  selected={filters.labelIds}
+                  onChange={(labelIds) => onChange({ ...filters, labelIds })}
+                  onOpenChange={(open) => handleFacetOpenChange("label", open)}
+                />
+              );
+            case "priority":
+              return (
+                <CheckboxDropdown
+                  key="priority"
+                  label="Priority"
+                  options={PRIORITY_OPTIONS}
+                  selected={filters.priorities}
+                  onChange={(priorities) => onChange({ ...filters, priorities })}
+                  onOpenChange={(open) => handleFacetOpenChange("priority", open)}
+                />
+              );
+            case "dueDate":
+              return (
+                <SingleSelectDropdown
+                  key="dueDate"
+                  label="Due date"
+                  options={DUE_DATE_OPTIONS}
+                  selected={filters.dueDate}
+                  onChange={(dueDate) => onChange({ ...filters, dueDate: dueDate as FilterState["dueDate"] })}
+                  onOpenChange={(open) => handleFacetOpenChange("dueDate", open)}
+                />
+              );
+            default:
+              return null;
+          }
+        })}
 
         {/* #371 — one control per field in visibleCustomFieldFilterIds (seeded
             to the board's pinned fields on first load; see

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createRef } from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SelectDropdown from '../components/Common/SelectDropdown'
 import SingleSelectDropdown from '../components/Common/SingleSelectDropdown'
+import CheckboxDropdown from '../components/Common/CheckboxDropdown'
 
 const options = [
   { value: 'a', label: 'Option A' },
@@ -337,5 +339,106 @@ describe('SingleSelectDropdown', () => {
     // Escape is handled via useDropdownEscape — fire on document
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+// #964 — CheckboxDropdown had no dedicated unit tests before this change; it
+// was only ever exercised indirectly through FilterBar/CustomFieldFilterControl.
+// This suite covers the new onOpenChange/badge/hideSelectionSummary props (and
+// the forwardRef) directly, at the component level, independent of FilterBar's
+// own facet-collapse wiring (which has its own coverage in filterBar.test.tsx).
+describe('CheckboxDropdown', () => {
+  const cbOptions = [
+    { value: 'a', label: 'Option A' },
+    { value: 'b', label: 'Option B' },
+  ]
+
+  it('renders without crashing', () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} />)
+    expect(screen.getByRole('button', { name: 'Filter' })).toBeInTheDocument()
+  })
+
+  it('shows a badge with the count and a folded-in aria-label when badge is truthy', () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} badge={3} />)
+    const trigger = screen.getByRole('button')
+    expect(trigger).toHaveTextContent('3')
+    expect(trigger).toHaveAttribute('aria-label', 'Filter, 3 active')
+  })
+
+  it('suppresses the badge and aria-label when badge is 0', () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} badge={0} />)
+    expect(screen.getByRole('button')).not.toHaveAttribute('aria-label')
+  })
+
+  it('suppresses the badge and aria-label when badge is undefined', () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} />)
+    expect(screen.getByRole('button')).not.toHaveAttribute('aria-label')
+  })
+
+  it('badge count reflects the passed prop regardless of open/closed state', async () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} badge={2} />)
+    const trigger = screen.getByRole('button')
+    expect(trigger).toHaveTextContent('2')
+    await userEvent.setup().click(trigger)
+    expect(trigger).toHaveTextContent('2')
+  })
+
+  it('hideSelectionSummary keeps the visible and accessible label pinned to the static label even with selections', () => {
+    render(
+      <CheckboxDropdown label="+ Filter" options={cbOptions} selected={['a', 'b']} onChange={() => undefined} hideSelectionSummary />
+    )
+    const trigger = screen.getByRole('button', { name: '+ Filter' })
+    expect(trigger).toHaveTextContent('+ Filter')
+    expect(trigger.textContent).not.toContain('Option A')
+  })
+
+  it('without hideSelectionSummary, the trigger label reflects the normal selection summary', () => {
+    render(<CheckboxDropdown label="Filter" options={cbOptions} selected={['a']} onChange={() => undefined} />)
+    expect(screen.getByRole('button').textContent).toMatch(/Filter: Option A/)
+  })
+
+  it('calls onOpenChange(true) then onOpenChange(false) across a click-toggle open/close cycle', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} onOpenChange={onOpenChange} />
+    )
+    const user = userEvent.setup()
+    const trigger = screen.getByRole('button')
+    await user.click(trigger)
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await user.click(trigger)
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('calls onOpenChange(false) on outside click', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <div>
+        <button>Outside</button>
+        <CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} onOpenChange={onOpenChange} />
+      </div>
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Filter' }))
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await user.click(screen.getByText('Outside'))
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('calls onOpenChange(false) on Escape', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <CheckboxDropdown label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} onOpenChange={onOpenChange} />
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button'))
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await user.keyboard('{Escape}')
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
+  it('forwards a ref to the trigger button element', () => {
+    const ref = createRef<HTMLButtonElement>()
+    render(<CheckboxDropdown ref={ref} label="Filter" options={cbOptions} selected={[]} onChange={() => undefined} />)
+    expect(ref.current).toBe(screen.getByRole('button'))
   })
 })
