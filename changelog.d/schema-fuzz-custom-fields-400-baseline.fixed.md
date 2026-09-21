@@ -1,0 +1,1 @@
+Fixed `backend-schema-fuzz` failing on `main` after #1121: `PATCH`/`PUT /api/v1/boards/{board_pk}/custom-fields/{id}/` legitimately return `400` once `field_type` is frozen by an existing value, but that response wasn't in the accepted-failure baseline. Baselined alongside the other custom-fields write endpoints (#1124); no application behavior changed.
