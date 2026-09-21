@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import Spinner from "../../Common/Spinner";
 import { useLensData } from "../../../hooks/useLensData";
+import { useLensViewPrefs } from "../../../hooks/useLensViewPrefs";
 import { useEscapeStack } from "../../../hooks/useEscapeStack";
 import type { LensConnection } from "../../../types";
 import type { CardLayout } from "../../../hooks/useCardLayoutPref";
@@ -58,6 +59,11 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
   const labels = useMemo(() => parseLensLabels(labelsCsv), [labelsCsv]);
   const assignee = (searchParams.get("assignee") ?? "").trim();
   const q = searchParams.get("q") ?? "";
+
+  // Resizable sidebar/columns view state (#1065) — board-scoped localStorage,
+  // separate from the URL-persisted pivot/filter/collapse/focus state above
+  // (a resize is per-device chrome, not something worth sharing via link).
+  const { prefs: lensViewPrefs, setSidebarWidth, setColumnWidth } = useLensViewPrefs(boardId);
 
   const { data, error, loading, refetching, refresh } = useLensData(boardId, {
     columnDim,
@@ -287,6 +293,10 @@ export default function LensView({ boardId, connection, cardLayout, showFilters 
           onFocus={enterFocus}
           onExitFocus={exitFocus}
           compact={compact}
+          sidebarWidth={lensViewPrefs.sidebarWidth}
+          columnWidths={lensViewPrefs.columnWidths}
+          onResizeSidebar={setSidebarWidth}
+          onResizeColumn={setColumnWidth}
         />
       ) : null}
     </div>
