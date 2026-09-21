@@ -2097,6 +2097,8 @@
       
         
       
+        
+      
     
     
     
@@ -2530,6 +2532,34 @@
     
   
     WebSocket Event Contract
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Nightly Load Test
   
 
     
@@ -3387,6 +3417,14 @@
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Run this and commit the result whenever the board structure changes</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--export
 </code></pre></div>
+<div class="admonition info">
+<p class="admonition-title">Large fixture for load testing</p>
+<p><code>--scale N</code> (replicate the swimlane layout N times) and <code>--with-notifications</code> seed a
+much larger, separately-named <strong>"Visiban Load Test Board"</strong> instead of the normal demo
+board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. This is CI-only, used by the
+<code>nightly-load-test</code> job; see
+<a href="../../development/nightly-load-test/">Nightly load test</a> for the full contract.</p>
+</div>
 <h2 id="production-guard">Production guard<a class="headerlink" href="#production-guard" title="Permanent link">&para;</a></h2>
 <p>Both the plain run and the <code>--wipe</code> flag are guarded: the command raises an error if <code>DEBUG</code> is <code>False</code> and <code>--force</code> is not passed.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>CommandError: Refusing to seed: DEBUG is False.
