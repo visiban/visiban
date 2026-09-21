@@ -49,6 +49,21 @@ export function serializeLensLabels(labels: string[]): string {
   return parseLensLabels(labels.join(",")).join(",");
 }
 
+/**
+ * Default and clamp bounds for the lens grid's resizable sidebar (swimlane
+ * label column) and pivot columns (#1065). Mirrors the native board's
+ * `useViewPrefs` resize pattern, but with its own range and defaults — the
+ * lens grid started narrower (200/280 vs the board's 220/DEFAULT_COL_WIDTH)
+ * and keeps that starting point unresized so existing screenshots/docs don't
+ * shift on upgrade.
+ */
+export const DEFAULT_LENS_SIDEBAR_WIDTH = 200;
+export const DEFAULT_LENS_COL_WIDTH = 280;
+export const MIN_LENS_SIDEBAR_WIDTH = 120;
+export const MAX_LENS_SIDEBAR_WIDTH = 480;
+export const MIN_LENS_COL_WIDTH = 160;
+export const MAX_LENS_COL_WIDTH = 640;
+
 /** Number of active filters from the URL params — the Row-2 Filters badge and
  *  the provenance banner both read this, so it lives in one place. Counts one per
  *  active *dimension*, not one per selected label. */
