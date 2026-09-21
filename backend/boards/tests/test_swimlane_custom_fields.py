@@ -18,6 +18,8 @@ the thing that can break:
   WebSocket payload, and the anonymous share endpoint.
 * ``SwimlaneCustomFieldExportTests``, ``SwimlaneCustomFieldBroadcastTests``,
   ``SwimlaneCustomFieldExtensionPointTests``, ``SwimlaneCustomFieldQueryCountTests``.
+* ``SwimlaneCustomFieldReorderSchemaTests`` — the documented ``reorder`` response
+  shape matches what the endpoint sends.
 """
 
 import json
@@ -27,6 +29,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from drf_spectacular.generators import SchemaGenerator
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -887,3 +890,38 @@ class SwimlaneCustomFieldQueryCountTests(SwimlaneCustomFieldTestBase):
         with CaptureQueriesContext(connection) as ctx:
             self.client.get(url)
         self.assertEqual(len(ctx.captured_queries), baseline)
+
+
+class SwimlaneCustomFieldReorderSchemaTests(SwimlaneCustomFieldTestBase):
+    """`reorder` returns a bare array, so the schema must not promise a paginated envelope.
+
+    The global paginator wraps any ``many=True`` response in
+    ``{count, results, ...}`` in the generated schema. ``reorder`` never
+    paginates, so without ``pagination_class=None`` a client generated from the
+    schema expects an object and chokes on the array the endpoint sends —
+    caught by the ``backend-schema-fuzz`` job.
+    """
+
+    PATH = "/api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/"
+
+    def test_documented_response_is_an_array_for_put_and_post(self):
+        paths = SchemaGenerator().get_schema(request=None, public=True)["paths"]
+        for method in ("put", "post"):
+            schema = paths[self.PATH][method]["responses"]["200"]["content"][
+                "application/json"
+            ]["schema"]
+            self.assertEqual(schema["type"], "array", method)
+            self.assertEqual(
+                schema["items"]["$ref"],
+                "#/components/schemas/SwimlaneCustomFieldDefinition",
+                method,
+            )
+
+    def test_empty_body_returns_a_bare_array_over_both_methods(self):
+        _definition(self.board, name="A", position=0)
+        for method in (self.client.put, self.client.post):
+            r = method(f"{self.url}reorder/", {}, format="json")
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
+            self.assertIsInstance(r.json(), list)
+            self.assertEqual([d["name"] for d in r.json()], ["A"])
+
