@@ -5275,7 +5275,7 @@ on board load. Card <strong>values</strong> are read and written through the
 <tr>
 <td><code>field_type</code></td>
 <td>string</td>
-<td>no</td>
+<td>no*</td>
 <td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code></td>
 </tr>
 <tr>
@@ -5316,6 +5316,8 @@ on board load. Card <strong>values</strong> are read and written through the
 </tr>
 </tbody>
 </table>
+<p>* <code>field_type</code> is writable only while the definition has zero values — see the <code>PATCH</code>
+errors below.</p>
 <h3 id="get-apiv1boardsidcustom-fields"><code>GET /api/v1/boards/{id}/custom-fields/</code><a class="headerlink" href="#get-apiv1boardsidcustom-fields" title="Permanent link">&para;</a></h3>
 <p>List the board's custom field definitions, in <code>position</code> order. Available to <strong>all board
 members, including viewers</strong> — a reader needs the schema to make sense of the values they
@@ -5336,7 +5338,16 @@ can already see. Paginated with the project-wide offset pagination.</p>
 <blockquote>
 <p>Removing a choice from a dropdown does <strong>not</strong> rewrite cards that already hold it: the
 stored value keeps reading back, but it can no longer be written again.</p>
+<p><strong>Since 1.2:</strong> <code>field_type</code> is frozen once any card holds a value for this field — a
+stale <code>CustomFieldValue</code> is never revalidated or migrated against a new type, so changing
+it out from under existing data would corrupt it silently. Delete and recreate the field
+to change its type once it has values. A field with zero values may still have its type
+changed freely. There is no <code>text</code> → <code>dropdown</code> (or any other) conversion path in this
+release.</p>
 </blockquote>
+<p><strong>Errors:</strong>
+- <code>400 Bad Request</code> if <code>field_type</code> is changed on a definition that already has at least
+  one <code>CustomFieldValue</code>.</p>
 <h3 id="delete-apiv1boardsidcustom-fieldsfield_id"><code>DELETE /api/v1/boards/{id}/custom-fields/{field_id}/</code><a class="headerlink" href="#delete-apiv1boardsidcustom-fieldsfield_id" title="Permanent link">&para;</a></h3>
 <p>Delete a definition. Requires board admin. <strong>Every card's value for that field is deleted
 with it.</strong></p>
