@@ -176,6 +176,52 @@ class CustomFieldDefinitionCrudTests(CustomFieldTestBase):
         self.assertEqual(definition.name, "New")
         self.assertEqual(definition.help_text, "hi")
 
+    def test_field_type_change_is_rejected_once_a_value_exists(self):
+        """#1121: a stale CustomFieldValue must not survive a type change.
+
+        Nothing revalidates or migrates a value against its definition's new
+        type, so once a card holds one, the type is frozen — a PATCH that
+        would have silently succeeded (and left the value type-mismatched)
+        must 400 instead.
+        """
+        definition = _definition(self.board, name="Notes", field_type=T.TEXT)
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=definition,
+            value="waiting on legal, see thread",
+        )
+        r = self.client.patch(
+            self._field_url(definition), {"field_type": "number"}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("field_type", r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.field_type, T.TEXT)
+
+    def test_field_type_change_succeeds_with_zero_values(self):
+        definition = _definition(self.board, name="Notes", field_type=T.TEXT)
+        r = self.client.patch(
+            self._field_url(definition), {"field_type": "number"}, format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        definition.refresh_from_db()
+        self.assertEqual(definition.field_type, T.NUMBER)
+
+    def test_field_type_resubmitted_unchanged_is_not_blocked_by_existing_values(self):
+        """A PATCH that happens to echo the current field_type (e.g. a form
+        that always sends the full object) is not a type change and must not
+        be rejected just because values already exist.
+        """
+        definition = _definition(self.board, name="Notes", field_type=T.TEXT)
+        CustomFieldValue.objects.create(
+            card=self.card, field_definition=definition, value="hello",
+        )
+        r = self.client.patch(
+            self._field_url(definition),
+            {"field_type": "text", "help_text": "unchanged type"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+
     def test_list_returns_definitions_in_position_order(self):
         _definition(self.board, name="B", position=1)
         _definition(self.board, name="A", position=0)
