@@ -1227,6 +1227,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "2d0793",
+      "operation": "PUT /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
+    },
+    {
       "id": "414410",
       "operation": "PUT /api/v1/boards/{board_pk}/swimlanes/{id}/",
       "check": "status_code_conformance",
