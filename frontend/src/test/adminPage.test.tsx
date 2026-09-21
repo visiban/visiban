@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import AdminPage from '../pages/AdminPage'
-import type { User, AdminUser, SiteSettings } from '../types'
+import type { User, AdminUser, SiteSettings, SiteEmailSettings } from '../types'
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -37,6 +37,9 @@ const mockGetAdminInviteLinks = vi.fn()
 const mockCreateAdminInviteLink = vi.fn()
 const mockDeactivateAdminUser = vi.fn()
 const mockRevokeAdminInviteLink = vi.fn()
+const mockGetAdminEmailSettings = vi.fn()
+const mockPatchAdminEmailSettings = vi.fn()
+const mockSendAdminTestEmail = vi.fn()
 
 vi.mock('../api/auth', () => ({
   getAdminSettings: (...args: unknown[]) => mockGetAdminSettings(...args),
@@ -48,6 +51,9 @@ vi.mock('../api/auth', () => ({
   createAdminInviteLink: (...args: unknown[]) => mockCreateAdminInviteLink(...args),
   deactivateAdminUser: (...args: unknown[]) => mockDeactivateAdminUser(...args),
   revokeAdminInviteLink: (...args: unknown[]) => mockRevokeAdminInviteLink(...args),
+  getAdminEmailSettings: (...args: unknown[]) => mockGetAdminEmailSettings(...args),
+  patchAdminEmailSettings: (...args: unknown[]) => mockPatchAdminEmailSettings(...args),
+  sendAdminTestEmail: (...args: unknown[]) => mockSendAdminTestEmail(...args),
   // Keep other auth exports as no-ops to avoid errors from other tests
   getCurrentUser: vi.fn(),
   getVersion: vi.fn(),
@@ -92,6 +98,24 @@ const fakeSettings: SiteSettings = {
   uploads_enabled: true,
   maintenance_mode: false,
   maintenance_message: '',
+}
+
+const fakeEmailSettings: SiteEmailSettings = {
+  config_source: 'env',
+  host: '',
+  port: 587,
+  username: '',
+  use_tls: true,
+  use_ssl: false,
+  from_email: '',
+  timeout: 10,
+  password_set: false,
+  password_decryptable: true,
+  effective_source: 'env',
+  effective_host: 'smtp.env.example',
+  effective_port: 587,
+  effective_from_email: 'env@example.com',
+  effective_use_tls: true,
 }
 
 const fakeAdminUsers: AdminUser[] = [
@@ -145,6 +169,7 @@ describe('AdminPage — access control', () => {
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
   it('redirects non-admins to /', () => {
@@ -170,6 +195,7 @@ describe('AdminPage — Settings tab', () => {
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
   it('shows registration mode options', async () => {
@@ -226,6 +252,7 @@ describe('AdminPage — Users tab', () => {
       results: fakeAdminUsers,
     })
     mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
   it('shows users table after switching to Users tab', async () => {
@@ -408,6 +435,7 @@ describe('AdminPage — Escape key', () => {
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 2, offset: 0, page_size: 50, results: fakeAdminUsers })
     mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
   it('Escape navigates back from the admin page', async () => {
@@ -460,6 +488,7 @@ describe('AdminPage — maintenance mode', () => {
     mockGetAdminSettings.mockResolvedValue(fakeSettings)
     mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
     mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
   })
 
   it('renders the toggle and the message field', async () => {
@@ -518,8 +547,13 @@ describe('AdminPage — maintenance mode', () => {
     renderAdminPage()
     await waitFor(() => screen.getByLabelText('Maintenance mode'))
     fireEvent.click(screen.getByLabelText('Maintenance mode'))
-    await waitFor(() => screen.getByText('Cancel'))
-    fireEvent.click(screen.getByText('Cancel'))
+    // Scoped to the maintenance confirm row: the Email (SMTP) section's
+    // Save/Cancel footer also renders a "Cancel", so a bare getByText would
+    // match two elements and throw.
+    const confirmRow = await waitFor(() =>
+      screen.getByText(/Enable maintenance mode\?/).parentElement as HTMLElement
+    )
+    fireEvent.click(within(confirmRow).getByText('Cancel'))
 
     await waitFor(() => screen.getByLabelText('Maintenance mode'))
     expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
@@ -595,5 +629,335 @@ describe('AdminPage — maintenance mode', () => {
 
     await waitFor(() => screen.getByText('Failed to save settings.'))
     expect(screen.getByLabelText('Maintenance mode')).toHaveAttribute('aria-checked', 'false')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Tests: Email (SMTP) settings section (#306)
+// ---------------------------------------------------------------------------
+
+describe('AdminPage — Email (SMTP) settings', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetAdminSettings.mockResolvedValue(fakeSettings)
+    mockGetAdminUsers.mockResolvedValue({ count: 0, offset: 0, page_size: 50, results: [] })
+    mockGetAdminInviteLinks.mockResolvedValue([])
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+  })
+
+  async function renderEmailSection(overrides: Partial<SiteEmailSettings> = {}) {
+    mockGetAdminEmailSettings.mockResolvedValue({ ...fakeEmailSettings, ...overrides })
+    renderAdminPage()
+    await waitFor(() => screen.getByLabelText('Host'))
+  }
+
+  it('shows which source is actually sending mail', async () => {
+    await renderEmailSection()
+    const panel = screen.getByRole('group', { name: 'Currently sending mail' })
+    expect(within(panel).getByText('Environment variables')).toBeInTheDocument()
+    expect(within(panel).getByText(/smtp\.env\.example:587/)).toBeInTheDocument()
+  })
+
+  it('warns when no mail server is configured at all', async () => {
+    await renderEmailSection({ effective_host: '', effective_from_email: '' })
+    expect(
+      screen.getByText(/password resets and invites are not being delivered/i)
+    ).toBeInTheDocument()
+  })
+
+  it('explains an EMAIL_BACKEND override without disabling the form', async () => {
+    await renderEmailSection({ effective_source: 'env_backend_override' })
+    expect(screen.getByText(/EMAIL_BACKEND is set on the server/)).toBeInTheDocument()
+    // The values still persist and are still worth editing, so the form must
+    // not be a greyed dead end.
+    expect(screen.getByLabelText('Host')).not.toBeDisabled()
+  })
+
+  it('warns when the stored password cannot be decrypted', async () => {
+    await renderEmailSection({
+      config_source: 'database',
+      effective_source: 'database',
+      password_set: true,
+      password_decryptable: false,
+    })
+    expect(screen.getByText(/Can.t decrypt the stored password/)).toBeInTheDocument()
+    expect(screen.getByText(/secret key most likely changed/)).toBeInTheDocument()
+  })
+
+  it('keeps Save and Cancel disabled until something changes', async () => {
+    await renderEmailSection()
+    expect(screen.getByText('Save email settings')).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    await waitFor(() => expect(screen.getByText('Save email settings')).not.toBeDisabled())
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument()
+  })
+
+  it('does not autosave on change — the PATCH only fires on Save', async () => {
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.blur(screen.getByLabelText('Host'))
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('maps the encryption choice onto use_tls / use_ssl', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue({
+      ...fakeEmailSettings, use_tls: false, use_ssl: true,
+    })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('SSL/TLS'))
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(mockPatchAdminEmailSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ use_tls: false, use_ssl: true })
+      )
+    })
+  })
+
+  it('warns that None sends credentials unencrypted', async () => {
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('None'))
+    expect(
+      screen.getByText(/Credentials and message contents are sent unencrypted/)
+    ).toBeInTheDocument()
+  })
+
+  it('omits the password from the PATCH when left blank', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderEmailSection({ password_set: true })
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => expect(mockPatchAdminEmailSettings).toHaveBeenCalled())
+    // "Leave blank to keep the current password" has to mean the key is absent
+    // on the wire, not an empty string.
+    expect(mockPatchAdminEmailSettings.mock.calls[0][0]).not.toHaveProperty('password')
+  })
+
+  it('sends an empty password only when Clear is used', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderEmailSection({ password_set: true })
+    fireEvent.click(screen.getByText('Clear'))
+    expect(screen.getByText(/Password will be cleared when you save/)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(mockPatchAdminEmailSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ password: '' })
+      )
+    })
+  })
+
+  it('Undo cancels a pending password clear', async () => {
+    await renderEmailSection({ password_set: true })
+    fireEvent.click(screen.getByText('Clear'))
+    fireEvent.click(screen.getByText('Undo'))
+    expect(screen.queryByText(/Password will be cleared/)).not.toBeInTheDocument()
+    expect(screen.getByText('A password is stored.')).toBeInTheDocument()
+  })
+
+  it('replaces the blank-is-fine hint when a password becomes required', async () => {
+    await renderEmailSection()
+    expect(
+      screen.getByText(/Leave blank if your server doesn.t require a password/)
+    ).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'mailer' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(screen.getByText('A password is required when a username is set.')).toBeInTheDocument()
+    })
+    // Showing "leave blank if not required" beside "a password is required"
+    // would be two contradictory instructions at once.
+    expect(
+      screen.queryByText(/Leave blank if your server doesn.t require a password/)
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not claim a source is unused until that choice is saved', async () => {
+    await renderEmailSection({
+      config_source: 'database', host: 'smtp.db.test', from_email: 'db@visiban.test',
+      effective_source: 'database',
+    })
+    expect(screen.queryByText(/Saved, but not in use/)).not.toBeInTheDocument()
+    const group = screen.getByRole('radiogroup', { name: 'Email configuration source' })
+    fireEvent.click(within(group).getByText('Environment variables'))
+    // The database config is still what is live until this is saved.
+    expect(screen.queryByText(/Saved, but not in use/)).not.toBeInTheDocument()
+  })
+
+  it('requires a password when a username is set', async () => {
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'mailer' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(screen.getByText('A password is required when a username is set.')).toBeInTheDocument()
+    })
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('rejects an out-of-range port without calling the API', async () => {
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Port'), { target: { value: '70000' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(
+        screen.getByText('Port must be a whole number between 1 and 65535.')
+      ).toBeInTheDocument()
+    })
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('requires host and sender before switching to database', async () => {
+    await renderEmailSection()
+    const group = screen.getByRole('radiogroup', { name: 'Email configuration source' })
+    fireEvent.click(within(group).getByText('Database'))
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(screen.getByText('Host is required.')).toBeInTheDocument()
+    })
+    expect(screen.getByText('From address is required.')).toBeInTheDocument()
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('rejects a display-name sender the backend would 400 on', async () => {
+    // The backend uses a DRF EmailField, which rejects the display-name form.
+    // Accepting it here would promise something the server refuses.
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('From address'), {
+      target: { value: 'Visiban <noreply@visiban.test>' },
+    })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument()
+    })
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+  })
+
+  it('confirms before switching env to database', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue({
+      ...fakeEmailSettings, config_source: 'database',
+    })
+    await renderEmailSection()
+    const group = screen.getByRole('radiogroup', { name: 'Email configuration source' })
+    fireEvent.click(within(group).getByText('Database'))
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.change(screen.getByLabelText('From address'), {
+      target: { value: 'noreply@visiban.test' },
+    })
+    fireEvent.click(screen.getByText('Save email settings'))
+
+    // The confirm row appears and nothing is sent yet.
+    await waitFor(() => screen.getByText(/Switch to database configuration\?/))
+    expect(mockPatchAdminEmailSettings).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('Confirm'))
+    await waitFor(() => {
+      expect(mockPatchAdminEmailSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ config_source: 'database' })
+      )
+    })
+  })
+
+  it('does not confirm when switching database back to env', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderEmailSection({
+      config_source: 'database', host: 'smtp.db.test', from_email: 'db@visiban.test',
+    })
+    const sourceGroup = screen.getByRole('radiogroup', { name: 'Email configuration source' })
+    fireEvent.click(within(sourceGroup).getByText('Environment variables'))
+    fireEvent.click(screen.getByText('Save email settings'))
+    // Restoring the previous behavior needs no warning.
+    await waitFor(() => {
+      expect(mockPatchAdminEmailSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ config_source: 'env' })
+      )
+    })
+  })
+
+  it('Cancel restores the last saved values', async () => {
+    await renderEmailSection()
+    const host = screen.getByLabelText('Host') as HTMLInputElement
+    fireEvent.change(host, { target: { value: 'smtp.typo.test' } })
+    await waitFor(() => screen.getByText('Unsaved changes'))
+    const footerCancel = screen.getByText('Save email settings').parentElement as HTMLElement
+    fireEvent.click(within(footerCancel).getByText('Cancel'))
+    await waitFor(() => expect((screen.getByLabelText('Host') as HTMLInputElement).value).toBe(''))
+  })
+
+  it('uses its own status line, distinct from the shared one', async () => {
+    mockPatchAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => expect(screen.getByText('Email settings saved.')).toBeInTheDocument())
+    // Must not collide with SettingsTab's shared "Settings saved." line.
+    expect(screen.queryByText('Settings saved.')).not.toBeInTheDocument()
+  })
+
+  it('disables the test button while there are unsaved changes', async () => {
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    await waitFor(() => expect(screen.getByText('Send test email')).toBeDisabled())
+    expect(screen.getByText('Save your changes before testing.')).toBeInTheDocument()
+    expect(mockSendAdminTestEmail).not.toHaveBeenCalled()
+  })
+
+  it('reports a successful test send', async () => {
+    mockSendAdminTestEmail.mockResolvedValue({
+      success: true, code: null, sent_to: 'admin@example.com',
+    })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() => {
+      expect(screen.getByText('Test email sent to admin@example.com.')).toBeInTheDocument()
+    })
+  })
+
+  it('maps each failure code to a headline and a remedy', async () => {
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'auth_failed' })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() => {
+      expect(
+        screen.getByText('The server rejected the username or password.')
+      ).toBeInTheDocument()
+    })
+    expect(
+      screen.getByText('Re-enter the password and save before testing again.')
+    ).toBeInTheDocument()
+  })
+
+  it('treats an unrecognized failure code as unknown', async () => {
+    mockSendAdminTestEmail.mockResolvedValue({ success: false, code: 'brand_new_code' })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() => expect(screen.getByText('The test failed.')).toBeInTheDocument())
+  })
+
+  it('explains a throttled test without treating it as a failure', async () => {
+    mockSendAdminTestEmail.mockRejectedValue({ response: { status: 429, data: {} } })
+    await renderEmailSection()
+    fireEvent.click(screen.getByText('Send test email'))
+    await waitFor(() => expect(screen.getByText('Too many test emails.')).toBeInTheDocument())
+    expect(screen.getByText('You can send 5 per hour. Try again later.')).toBeInTheDocument()
+  })
+
+  it('offers a retry when the section fails to load', async () => {
+    mockGetAdminEmailSettings.mockRejectedValueOnce(new Error('boom'))
+    renderAdminPage()
+    await waitFor(() => screen.getByText('Failed to load email settings.'))
+    mockGetAdminEmailSettings.mockResolvedValue(fakeEmailSettings)
+    fireEvent.click(screen.getByText('Retry'))
+    await waitFor(() => expect(screen.getByLabelText('Host')).toBeInTheDocument())
+  })
+
+  it('surfaces a server field error next to the field', async () => {
+    mockPatchAdminEmailSettings.mockRejectedValue({
+      response: { data: { from_email: ['Enter your real sending address.'] } },
+    })
+    await renderEmailSection()
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: 'smtp.new.test' } })
+    fireEvent.click(screen.getByText('Save email settings'))
+    await waitFor(() => {
+      expect(screen.getByText('Enter your real sending address.')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Failed to save email settings.')).toBeInTheDocument()
   })
 })

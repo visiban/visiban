@@ -2,24 +2,40 @@
 import logging
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model, password_validation
+from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
+from rest_framework.throttling import UserRateThrottle
 from visiban.pagination import OffsetCountPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
+from visiban.mail import (
+    ERROR_BACKEND_PINNED,
+    EmailConfigUnusable,
+    build_smtp_backend,
+    classify_smtp_error,
+    env_email_config,
+    resolve_email_config,
+    sender_is_placeholder,
+)
 from .models import (
     AdminActionLog,
     InviteLink,
     MAINTENANCE_MESSAGE_MAX_LENGTH,
     MAX_ACTIVE_INVITE_LINKS,
+    SiteEmailSetting,
     SiteSetting,
+    record_email_settings_changes,
+    record_email_test,
     record_site_setting_changes,
+    snapshot_email_setting,
     snapshot_site_setting,
 )
 from .permissions import IsSiteAdmin, TokenHasScope
@@ -73,6 +89,322 @@ class SiteSettingSerializer(drf_serializers.Serializer):
         max_length=MAINTENANCE_MESSAGE_MAX_LENGTH,
         trim_whitespace=True,
     )
+
+
+class SiteEmailSettingSerializer(drf_serializers.Serializer):
+    """Read/write payload for DB-backed SMTP configuration (#306).
+
+    A plain ``Serializer`` rather than a ``ModelSerializer``, matching
+    ``SiteSettingSerializer`` above — and here it is load-bearing rather than
+    stylistic. A ModelSerializer would expose ``password_ciphertext`` by
+    default, and "the field that must never be returned is excluded only
+    because someone remembered to exclude it" is the wrong default for a
+    credential.
+
+    The password is ``write_only``. Reads answer two booleans instead:
+    ``password_set`` and ``password_decryptable``. The second is what makes a
+    rotated encryption key visible *before* the next send fails.
+    """
+
+    config_source = drf_serializers.ChoiceField(
+        choices=SiteEmailSetting.ConfigSource.choices,
+        required=False,
+    )
+    host = drf_serializers.CharField(required=False, allow_blank=True, max_length=255,
+                                     trim_whitespace=True)
+    port = drf_serializers.IntegerField(required=False, min_value=1, max_value=65535)
+    username = drf_serializers.CharField(required=False, allow_blank=True, max_length=255,
+                                         trim_whitespace=True)
+    # Blank is meaningful and distinct from absent: absent leaves the stored
+    # password alone, blank clears it. See EmailSettingsView.patch.
+    password = drf_serializers.CharField(required=False, allow_blank=True, max_length=1024,
+                                         write_only=True, trim_whitespace=False)
+    use_tls = drf_serializers.BooleanField(required=False)
+    use_ssl = drf_serializers.BooleanField(required=False)
+    from_email = drf_serializers.EmailField(required=False, allow_blank=True, max_length=255)
+    timeout = drf_serializers.IntegerField(required=False, min_value=1, max_value=300)
+
+    def __init__(self, *args, **kwargs):
+        # The existing row, so validate() can reason about the state a partial
+        # PATCH would produce rather than only about the submitted fields.
+        self.current = kwargs.pop("current", None)
+        super().__init__(*args, **kwargs)
+
+    def _merged(self, attrs, field):
+        if field in attrs:
+            return attrs[field]
+        return getattr(self.current, field) if self.current is not None else None
+
+    def validate(self, attrs):
+        # Cross-field validation, all against the POST-PATCH state — validating
+        # only the submitted fields would let a two-step PATCH walk the row into
+        # a combination neither request looked invalid on its own.
+        use_tls = self._merged(attrs, "use_tls")
+        use_ssl = self._merged(attrs, "use_ssl")
+        if use_tls and use_ssl:
+            # Django's SMTP backend raises ValueError when both are set, which
+            # would surface as a 500 at send time instead of a 400 here.
+            raise drf_serializers.ValidationError({
+                "use_ssl": "STARTTLS and implicit SSL cannot both be enabled. "
+                           "Use STARTTLS on port 587, or implicit SSL on port 465.",
+            })
+
+        from_email = self._merged(attrs, "from_email")
+        if from_email and sender_is_placeholder(from_email):
+            raise drf_serializers.ValidationError({
+                "from_email": "Enter your real sending address — example.com is a "
+                              "placeholder and mail sent from it will not be deliverable.",
+            })
+
+        # Selecting the database as the authoritative source is the moment the
+        # row starts routing real mail, so completeness is enforced here rather
+        # than at send time. This is what makes the "admin saved host and port,
+        # then got interrupted" half-row harmless: it simply never becomes
+        # authoritative, and env configuration keeps working untouched.
+        if self._merged(attrs, "config_source") == SiteEmailSetting.ConfigSource.DATABASE:
+            host = self._merged(attrs, "host")
+            username = self._merged(attrs, "username")
+            has_password = bool(attrs.get("password")) or bool(
+                self.current.password_ciphertext if self.current is not None else ""
+            )
+            missing = []
+            if not host:
+                missing.append("host")
+            if not from_email:
+                missing.append("from_email")
+            if username and not has_password:
+                missing.append("password")
+            if missing:
+                raise drf_serializers.ValidationError({
+                    "config_source": (
+                        "Cannot switch to the stored configuration until it is "
+                        f"complete. Missing: {', '.join(missing)}."
+                    ),
+                })
+            if self.current is not None and not self.current.password_decryptable:
+                raise drf_serializers.ValidationError({
+                    "config_source": (
+                        "The stored SMTP password could not be decrypted because the "
+                        "instance encryption key changed. Re-enter the password before "
+                        "switching to the stored configuration."
+                    ),
+                })
+        return attrs
+
+
+def _email_settings_payload(cfg) -> dict:
+    """Serialize the email settings row plus what is actually in effect.
+
+    The ``effective_*`` block is deliberately computed rather than echoed back:
+    an admin looking at this page needs to know which source is live *right
+    now*, and the stored row alone cannot answer that — it says nothing about
+    an explicit ``EMAIL_BACKEND`` override or about env values.
+    """
+    data = {
+        "config_source": cfg.config_source,
+        "host": cfg.host,
+        "port": cfg.port,
+        "username": cfg.username,
+        "use_tls": cfg.use_tls,
+        "use_ssl": cfg.use_ssl,
+        "from_email": cfg.from_email,
+        "timeout": cfg.timeout,
+        "password_set": cfg.password_set,
+        "password_decryptable": cfg.password_decryptable,
+    }
+
+    if getattr(settings, "EMAIL_BACKEND_EXPLICIT", False):
+        # The operator pinned EMAIL_BACKEND, so neither env SMTP values nor the
+        # stored row are consulted. Reporting "env" here would be a lie.
+        effective_source = "env_backend_override"
+        effective = env_email_config()
+    else:
+        try:
+            # Reuse the row the caller already fetched, and skip decrypting the
+            # password: nothing below reads it, and decrypting a secret only to
+            # discard it would put the plaintext in this frame for no reason.
+            effective = resolve_email_config(cfg, need_password=False)
+            effective_source = effective.source
+        except EmailConfigUnusable:
+            # The selected configuration cannot be used (incomplete row,
+            # undecryptable password, or a placeholder sender). Report the
+            # source the operator actually selected — reporting anything else
+            # would be a lie, and the UI surfaces the specific fault separately
+            # via password_decryptable and the warning panel.
+            effective = env_email_config()
+            effective_source = cfg.config_source
+
+    data.update({
+        "effective_source": effective_source,
+        "effective_host": effective.host,
+        "effective_port": effective.port,
+        "effective_from_email": effective.from_email,
+        "effective_use_tls": effective.use_tls,
+    })
+    return data
+
+
+class AdminEmailSettingsView(APIView):
+    """GET/PATCH the singleton SiteEmailSetting row (#306)."""
+
+    permission_classes = _ADMIN_PERMISSIONS
+
+    def get(self, request):
+        return Response(_email_settings_payload(SiteEmailSetting.get()))
+
+    def patch(self, request):
+        # Materialize before locking — select_for_update has nothing to lock on
+        # a first-boot instance where the row is absent.
+        current = SiteEmailSetting.get()
+        serializer = SiteEmailSettingSerializer(data=request.data, partial=True, current=current)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        validated = serializer.validated_data
+
+        # Same locked validate-then-audit shape as AdminSettingsView.patch: the
+        # lock is what keeps the audit trail truthful under concurrent admin
+        # edits, not merely atomic. See that method's comment.
+        with transaction.atomic():
+            cfg = SiteEmailSetting.objects.select_for_update().get(pk=1)
+            before = snapshot_email_setting(cfg)
+            update_fields = []
+
+            for field in ("config_source", "host", "port", "username",
+                          "use_tls", "use_ssl", "from_email", "timeout"):
+                if field in validated:
+                    setattr(cfg, field, validated[field])
+                    update_fields.append(field)
+
+            # Absent means "keep the stored password"; blank means "clear it".
+            # Collapsing the two would make it impossible to edit the host
+            # without either re-typing the password or silently wiping it.
+            if "password" in validated:
+                cfg.set_password(validated["password"])
+                update_fields.append("password_ciphertext")
+
+            if update_fields:
+                cfg.save(update_fields=update_fields)
+                record_email_settings_changes(
+                    before=before,
+                    after=cfg,
+                    actor=request.user,
+                    source=AdminActionLog.Source.ADMIN_API,
+                )
+
+        return Response(_email_settings_payload(cfg))
+
+
+class EmailTestThrottle(UserRateThrottle):
+    """Bounds outbound SMTP connections opened by the admin test endpoint."""
+
+    scope = "email_test"
+
+
+class AdminEmailTestView(APIView):
+    """POST /api/v1/admin/email-settings/test/ — send a test email (#306).
+
+    The recipient is always ``request.user.email`` and is never taken from the
+    request body. An admin-gated endpoint that connects to an arbitrary
+    host:port and delivers to an arbitrary address is an open relay, a spam
+    vector, an exfiltration channel and a network probe; restricting delivery to
+    the caller's own address costs nothing and removes all four.
+
+    Failures return a code from the sanitized taxonomy in ``visiban.mail`` —
+    never the raw smtplib error. Some MTAs echo the offending protocol line
+    back in their error text, which on an AUTH failure can carry base64-encoded
+    credentials, and that text would otherwise reach the client verbatim.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+    throttle_classes = [EmailTestThrottle]
+
+    def post(self, request):
+        recipient = (request.user.email or "").strip()
+        if not recipient:
+            return Response(
+                {
+                    "success": False,
+                    "code": "no_recipient",
+                    "detail": "Your account has no email address, so there is nowhere "
+                              "to send the test. Add one in your profile first.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # An operator who pinned EMAIL_BACKEND has opted out of both sources, so
+        # opening an SMTP connection to the resolved host:port would test a path
+        # that carries no production mail and report a green check for the wrong
+        # thing — while still making an outbound connection on an install that
+        # deliberately opted out of this feature.
+        if getattr(settings, "EMAIL_BACKEND_EXPLICIT", False):
+            return Response(
+                {
+                    "success": False,
+                    "code": ERROR_BACKEND_PINNED,
+                    "detail": "EMAIL_BACKEND is set on the server, so Visiban cannot test "
+                              "the configuration below — it is not what sends mail.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            config = resolve_email_config()
+            connection = build_smtp_backend(config, fail_silently=False)
+            message = EmailMessage(
+                subject="Visiban test email",
+                body=(
+                    "This is a test email from your Visiban instance.\n\n"
+                    "If you received it, outbound email is configured correctly."
+                ),
+                from_email=config.from_email or None,
+                to=[recipient],
+                connection=connection,
+            )
+            message.send(fail_silently=False)
+        except Exception as exc:  # noqa: BLE001 - mapped onto a sanitized taxonomy
+            code = classify_smtp_error(exc)
+            # Exception TYPE only — deliberately no exc_info, and never str(exc).
+            #
+            # For SMTPAuthenticationError the exception message *is* the remote
+            # server's reply line, which is remote-controlled and on a rejected
+            # AUTH routinely echoes the offending command back — including the
+            # base64-encoded credentials. `test_auth_failure_returns_code_without
+            # _leaking_the_raw_error` models exactly that payload. Writing it
+            # with exc_info=True would hand the log the one value this feature
+            # encrypts at rest, excludes from the audit trail, and strips from
+            # every response — and log aggregators are a far wider audience than
+            # the site admins entitled to the relay credential.
+            #
+            # `code` already carries the actionable taxonomy, so nothing
+            # diagnostic is lost.
+            logger.warning(
+                "Admin SMTP test failed (code=%s, source=%s, exc=%s)",
+                code,
+                getattr(locals().get("config"), "source", "unresolved"),
+                type(exc).__name__,
+            )
+            with transaction.atomic():
+                record_email_test(
+                    success=False,
+                    actor=request.user,
+                    source=AdminActionLog.Source.ADMIN_API,
+                )
+            detail = exc.detail if isinstance(exc, EmailConfigUnusable) else None
+            return Response(
+                {"success": False, "code": code, "detail": detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            record_email_test(
+                success=True,
+                actor=request.user,
+                source=AdminActionLog.Source.ADMIN_API,
+            )
+        # The recipient is echoed to the caller who supplied it implicitly (it
+        # is their own address) but is never logged — CLAUDE.md forbids logging
+        # email addresses.
+        return Response({"success": True, "code": None, "sent_to": recipient})
 
 
 class AdminActionLogSerializer(drf_serializers.ModelSerializer):
