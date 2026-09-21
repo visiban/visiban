@@ -269,6 +269,8 @@ Save any combination of filters (search text, assignee, labels, priority, due da
 
 Board admins can define up to 30 typed metadata fields per board — text, number, date, dropdown, or checkbox — for tracking anything specific to that board's workflow. Up to 2 fields can be pinned to the card face as small chips; checkbox and dropdown chips are editable directly from the card face. Every field also gets its own input in the card detail panel, and the filter bar can filter on any of them.
 
+Boards can also define up to 15 separate fields scoped to **swimlanes** (rows) instead of cards, with up to 3 pinned as chips in the swimlane label panel. Swimlane fields are a fully independent per-board schema, managed on their own **Swimlane fields** tab in Board Settings, and each can be marked admin-only so only board admins see its values.
+
 → [Custom Fields](custom-fields.md)
 
 ---

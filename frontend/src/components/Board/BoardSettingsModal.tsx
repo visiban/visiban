@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardMembership, CardDensity, CustomFieldDefinition, LensConnection, User } from "../../types";
+import type { BoardFull, BoardMembership, CardDensity, CustomFieldDefinition, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
+import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import { userDisplayName } from "../../types";
 import { exportBoardCsv, exportBoardJson, setBoardMember, removeBoardMember, deleteBoard, patchBoard, enableBoardSharing, disableBoardSharing, getBoardExportHistory } from "../../api/boards";
 import type { BoardExportLogEntry, BoardExportMinRole } from "../../types";
@@ -29,7 +30,7 @@ interface Props {
   board: BoardFull;
   isAdmin: boolean;
   onClose: () => void;
-  initialTab?: "members" | "display" | "rules" | "fields" | "sharing" | "data";
+  initialTab?: "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
   onBoardDeleted?: () => void;
   viewPrefs?: ViewPrefs;
   onToggleHiddenColumn?: (columnId: number) => void;
@@ -53,9 +54,10 @@ interface Props {
    *  owns syncing this into board state, the same role it plays for every
    *  other board sub-resource. */
   onFieldsUpdated?: (definitions: CustomFieldDefinition[]) => void;
+  onSwimlaneFieldsUpdated?: (definitions: SwimlaneCustomFieldDefinition[]) => void;
 }
 
-type Tab = "members" | "display" | "rules" | "fields" | "sharing" | "data";
+type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
 
 interface StagedInvite {
   user: User;
@@ -84,7 +86,7 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<BoardMembership[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -343,7 +345,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
       open={true}
       onClose={onClose}
       title="Board Settings"
-      maxWidth="max-w-lg"
+      maxWidth="max-w-2xl"
       noPadding
       labelId="board-settings-title"
       panelClassName="h-[85vh] max-h-[640px] min-h-0"
@@ -351,20 +353,21 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
     >
 
         {/* Tabs */}
-        <div className="flex border-b border-line px-6 gap-1">
-          {(["members", "display", "rules", "fields", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
+        <div className="flex border-b border-line px-6 gap-1 overflow-x-auto">
+          {(["members", "display", "rules", "fields", "swimlane-fields", ...(isAdmin ? ["sharing"] : []), "data"] as Tab[]).map((t) => {
             const label =
               t === "members" ? `Members (${members.length})`
               : t === "display" ? "Display"
               : t === "rules" ? "Rules"
-              : t === "fields" ? "Fields"
+              : t === "fields" ? "Card fields"
+              : t === "swimlane-fields" ? "Swimlane fields"
               : t === "sharing" ? "Sharing"
               : "Data";
             return (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                className={`py-2.5 px-1 mr-3 text-sm font-medium border-b-2 transition -mb-px rounded shrink-0 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   tab === t ? "border-primary-emphasis text-fg" : "border-transparent text-fg-tertiary hover:text-fg"
                 }`}
               >
@@ -383,6 +386,15 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               board={board}
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onFieldsUpdated?.(definitions)}
+            />
+          )}
+
+          {/* ── Swimlane fields tab (#1140) ── */}
+          {tab === "swimlane-fields" && (
+            <BoardSettingsSwimlaneFieldsTab
+              board={board}
+              isAdmin={isAdmin}
+              onFieldsUpdated={(definitions) => onSwimlaneFieldsUpdated?.(definitions)}
             />
           )}
 

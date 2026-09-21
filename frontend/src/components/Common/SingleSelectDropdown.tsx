@@ -19,6 +19,13 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * component's own base classes always apply.
    */
   className?: string;
+  /**
+   * Escape-stack priority for the open menu (#1140). Defaults to the
+   * dropdown tier, 25. A dropdown rendered inside a `ModalWrapper` (priority
+   * 40) MUST pass a higher value, or Escape closes the modal and discards the
+   * form instead of just closing this menu.
+   */
+  escapePriority?: number;
 }
 
 export default function SingleSelectDropdown<T extends string | number>({
@@ -28,6 +35,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   onChange,
   triggerPrefix,
   className,
+  escapePriority,
 }: SingleSelectDropdownProps<T>) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -36,7 +44,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   const id = useId();
   const menuId = `${id}-menu`;
 
-  useDropdownEscape(open, () => setOpen(false), triggerRef);
+  useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
   useEffect(() => {
     if (!open) return;
@@ -143,7 +151,12 @@ export default function SingleSelectDropdown<T extends string | number>({
                   setOpen(false);
                 }}
                 onKeyDown={(e) => handleItemKeyDown(e, i)}
-                className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${
+                // Menu items are real tab stops, reached by roving arrow-key
+                // focus — `hover:` alone is invisible to a keyboard user who
+                // arrowed here without touching the mouse. Pre-existing gap,
+                // fixed here because #1140 newly routes modal-hosted dropdowns
+                // through this primitive.
+                className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   selected === opt.value ? "text-info" : "text-fg-secondary"
                 }`}
               >

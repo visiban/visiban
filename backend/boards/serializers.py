@@ -23,6 +23,7 @@ from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
     CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardRelation,
     CustomFieldDefinition, CustomFieldValue, SavedFilter,
+    SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
 )
 
 
@@ -155,28 +156,233 @@ class ColumnSerializer(serializers.ModelSerializer):
         read_only_fields = ["uid"]
 
 
+@extend_schema_field({
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "field_definition": {
+                "type": "integer",
+                "description": (
+                    "SwimlaneCustomFieldDefinition id, scoped to the swimlane's board."
+                ),
+            },
+            "value": {
+                "type": "string",
+                "description": (
+                    "Value as a string; empty string clears the field. Numbers as "
+                    "written, dates as YYYY-MM-DD, checkboxes as 'true'/'false'."
+                ),
+            },
+        },
+        "required": ["field_definition", "value"],
+    },
+})
+class SwimlaneCustomFieldValuesField(serializers.Field):
+    """The ``custom_field_values`` field on the swimlane serializers (#1140).
+
+    The row-level twin of :class:`CustomFieldValuesField`; see that class for
+    why one round-trippable field is used rather than a read/write pair, and
+    why ``extend_schema_field`` is load-bearing rather than decorative.
+
+    Two things differ, both consequences of the admin-only visibility rule:
+
+    * **Reads are filtered in Python, never by a queryset call.** The read path
+      is fed by a ``Prefetch``; a ``.filter()`` here would escape that cache and
+      reintroduce an N+1 across every swimlane on the board. ``admin_only``
+      comes from the serializer that owns this field, so the public serializer
+      shows only ``is_admin_only=False`` values and the admin one shows all.
+    * **Writes are never filtered.** Only board admins reach a swimlane write
+      at all (``SwimlaneViewSet.perform_update`` raises ``PermissionDenied``
+      first), so an admin writing an admin-only field is the expected case, not
+      an escalation.
+    """
+
+    default_error_messages = {
+        "not_a_list": (
+            "Expected a list of objects, each with a field_definition and a value."
+        ),
+        "not_an_object": (
+            "Each entry must be an object with a field_definition and a value."
+        ),
+        "no_board": (
+            "Swimlane custom field values cannot be resolved without board context."
+        ),
+    }
+
+    def __init__(self, *, admin_only=False, **kwargs):
+        kwargs.setdefault("required", False)
+        #: When False, ``is_admin_only`` definitions are omitted from reads.
+        self.admin_only = admin_only
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        # Return the instance itself, not the related manager: to_representation
+        # needs the swimlane to reach the prefetched related manager by name.
+        return instance
+
+    def to_representation(self, swimlane):
+        # .all() reads the prefetch cache populated by the read paths in
+        # BoardFullSerializer/SwimlaneViewSet; .filter()/.order_by() here would
+        # bypass it and issue one query per swimlane.
+        rows = swimlane.custom_field_values.all()
+        return [
+            {"field_definition": row.field_definition_id, "value": row.value}
+            for row in rows
+            if self.admin_only or not row.field_definition.is_admin_only
+        ]
+
+    def to_internal_value(self, data):
+        if not isinstance(data, list):
+            self.fail("not_a_list")
+        if len(data) > SwimlaneCustomFieldDefinition.MAX_PER_BOARD:
+            # A board can never have more than MAX_PER_BOARD definitions, so a
+            # longer list cannot be legitimate. Rejected on length before the
+            # per-entry loop, same as the card field.
+            raise serializers.ValidationError(
+                f"At most {SwimlaneCustomFieldDefinition.MAX_PER_BOARD} swimlane "
+                "custom field values can be set in one request."
+            )
+        board = self.context.get("board")
+        if board is None:
+            self.fail("no_board")
+
+        wanted = {}
+        for entry in data:
+            if not isinstance(entry, dict) or "field_definition" not in entry:
+                self.fail("not_an_object")
+            try:
+                definition_id = int(entry["field_definition"])
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    f"Invalid field_definition: {entry['field_definition']!r}."
+                ) from None
+            if definition_id in wanted:
+                raise serializers.ValidationError(
+                    f"Field {definition_id} appears more than once."
+                )
+            wanted[definition_id] = entry.get("value")
+
+        if not wanted:
+            return []
+
+        # One board-scoped query for the whole submitted set. An id belonging to
+        # another board is simply absent from the result, so it reports as
+        # unknown rather than confirming it exists somewhere the caller cannot
+        # see (IDOR).
+        definitions = {
+            definition.pk: definition
+            for definition in SwimlaneCustomFieldDefinition.objects.filter(
+                board=board, pk__in=wanted
+            )
+        }
+        missing = sorted(set(wanted) - set(definitions))
+        if missing:
+            raise serializers.ValidationError(
+                "Unknown swimlane custom field(s) for this board: "
+                + ", ".join(str(pk) for pk in missing)
+                + "."
+            )
+
+        pairs = []
+        for definition_id, raw in wanted.items():
+            definition = definitions[definition_id]
+            # Resolved at call time: both helpers are defined further down this
+            # module, alongside the card-level field they were written for.
+            # _normalize_custom_field_value is shared outright — it reads only
+            # field_type and choices_json, so it is duck-type safe. The
+            # validator hooks are not: they run third-party code written
+            # against the card definition, so row values get their own list.
+            value = _normalize_custom_field_value(definition, raw)
+            value = _run_custom_field_validator_hooks(
+                definition, value, hook_name="SWIMLANE_CUSTOM_FIELD_VALIDATORS"
+            )
+            pairs.append((definition, value))
+        return pairs
+
+
+def _swimlane_custom_field_prefetch():
+    """The one Prefetch every swimlane read path must apply (#1140).
+
+    Defined once and imported rather than rewritten per call site, because
+    getting it wrong is silent: the swimlane serializers read ``is_admin_only``
+    off each value's *definition* to decide visibility, so a read path without
+    ``select_related("field_definition")`` costs two extra queries per swimlane
+    and still returns correct data. Nothing fails; the board just gets slower
+    as rows are added.
+
+    Ordering belongs here and not in ``SwimlaneCustomFieldValue.Meta.ordering``
+    so only the read path pays for the join — the same trade ``_card_queryset``
+    makes for card values.
+    """
+    return Prefetch(
+        "custom_field_values",
+        queryset=SwimlaneCustomFieldValue.objects.select_related(
+            "field_definition"
+        ).order_by("field_definition__position", "field_definition_id"),
+    )
+
+
 class SwimlaneSerializer(serializers.ModelSerializer):
     """Public swimlane representation — omits contact_email and notes.
 
     Viewer-role members have read access to the board but must not see PII or
     internal notes stored on swimlanes (customer records). Admin-role members and
     write operations use SwimlaneAdminSerializer which includes those fields.
+
+    ``custom_field_values`` (#1140) reuses exactly this split rather than adding
+    a second visibility rule: this serializer emits only values whose definition
+    has ``is_admin_only=False``. Because every swimlane broadcast is built from
+    this class — never the admin one — that filtering is also what keeps
+    admin-only row values out of the WebSocket payload that reaches viewers.
     """
+
+    custom_field_values = SwimlaneCustomFieldValuesField(read_only=True)
 
     class Meta:
         model = Swimlane
-        fields = ["id", "uid", "name", "position", "color", "is_collapsed", "created_at"]
+        fields = [
+            "id", "uid", "name", "position", "color", "is_collapsed",
+            "created_at", "custom_field_values",
+        ]
         read_only_fields = ["uid"]
 
 
 class SwimlaneAdminSerializer(SwimlaneSerializer):
     """Full swimlane representation including contact_email and notes.
 
-    Used for admin/site_admin members only. Never served to viewer-role members.
+    Used for admin/site_admin members only. Never served to viewer-role members,
+    and never used to build a broadcast payload — see SwimlaneSerializer.
+
+    ``custom_field_values`` is writable here and read-only on the public
+    serializer: swimlane writes are admin-gated in the viewset, so this is the
+    only class through which a value can be set.
+    """
+
+    custom_field_values = SwimlaneCustomFieldValuesField(admin_only=True, required=False)
+
+    class Meta(SwimlaneSerializer.Meta):
+        fields = [
+            "id", "uid", "name", "contact_email", "notes", "position", "color",
+            "is_collapsed", "created_at", "custom_field_values",
+        ]
+
+
+class PublicSwimlaneSerializer(SwimlaneSerializer):
+    """Swimlane representation for anonymous share-link visitors (#1140).
+
+    Drops ``custom_field_values`` entirely rather than relying on the
+    ``is_admin_only`` filter that protects authenticated non-admins. The two
+    audiences are not the same: a board member who is not an admin has been
+    granted access to the board and may legitimately see a field its admin
+    marked shareable, whereas a share-link visitor is unauthenticated and the
+    board owner may not know who they are. The structural omission is the same
+    mechanism ``PublicCardSerializer`` uses for card values — the field simply
+    is not there, so no flag can be set wrong and expose it.
     """
 
     class Meta(SwimlaneSerializer.Meta):
-        fields = ["id", "uid", "name", "contact_email", "notes", "position", "color", "is_collapsed", "created_at"]
+        fields = ["id", "uid", "name", "position", "color", "is_collapsed", "created_at"]
 
 
 class LabelSerializer(serializers.ModelSerializer):
@@ -196,7 +402,16 @@ class LabelSerializer(serializers.ModelSerializer):
 # models"), and it is what lets a value be typed at all.
 # ---------------------------------------------------------------------------
 
-def assert_definition_caps(board, *, instance=None, show_on_card=False):
+def assert_definition_caps(
+    board,
+    *,
+    instance=None,
+    show_on_card=False,
+    definition_model=CustomFieldDefinition,
+    pin_attr="show_on_card",
+    pin_surface="the card face",
+    field_noun="custom fields",
+):
     """Enforce the two per-board custom field caps, or raise ``ValidationError``.
 
     Neither cap is expressible as a database constraint — both are counts over
@@ -209,25 +424,32 @@ def assert_definition_caps(board, *, instance=None, show_on_card=False):
 
     ``instance`` excludes the row being updated from both counts, so re-saving
     an already-pinned field does not count itself as the third pin.
+
+    The keyword-only ``definition_model`` / ``pin_attr`` / ``pin_surface`` /
+    ``field_noun`` parameters default to the card-level model (#371) so the two
+    original call sites are unchanged, and let the swimlane-level model (#1140)
+    reuse the same counting and locking logic with its own caps and its own
+    ``show_on_row`` pin column. The caps themselves are read off whichever model
+    is passed, never hardcoded here.
     """
-    siblings = CustomFieldDefinition.objects.filter(board=board)
+    siblings = definition_model.objects.filter(board=board)
     if instance is not None and instance.pk is not None:
         siblings = siblings.exclude(pk=instance.pk)
     if instance is None or instance.pk is None:
-        if siblings.count() >= CustomFieldDefinition.MAX_PER_BOARD:
+        if siblings.count() >= definition_model.MAX_PER_BOARD:
             raise serializers.ValidationError({
                 "detail": (
                     f"A board may define at most "
-                    f"{CustomFieldDefinition.MAX_PER_BOARD} custom fields."
+                    f"{definition_model.MAX_PER_BOARD} {field_noun}."
                 )
             })
     if show_on_card:
-        pinned = siblings.filter(show_on_card=True).count()
-        if pinned >= CustomFieldDefinition.MAX_PINNED_PER_BOARD:
+        pinned = siblings.filter(**{pin_attr: True}).count()
+        if pinned >= definition_model.MAX_PINNED_PER_BOARD:
             raise serializers.ValidationError({
-                "show_on_card": (
-                    f"At most {CustomFieldDefinition.MAX_PINNED_PER_BOARD} custom "
-                    "fields can be shown on the card face."
+                pin_attr: (
+                    f"At most {definition_model.MAX_PINNED_PER_BOARD} "
+                    f"{field_noun} can be shown on {pin_surface}."
                 )
             })
 
@@ -440,16 +662,22 @@ def _normalize_custom_field_value(definition, raw):
     return text
 
 
-def _run_custom_field_validator_hooks(definition, value):
-    """Apply :data:`boards.hooks.CUSTOM_FIELD_VALIDATORS` to a normalized value.
+def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FIELD_VALIDATORS"):
+    """Apply a ``boards.hooks`` validator list to a normalized value.
 
     Read off the module object on every call, never bound at import time, so an
     enterprise ``AppConfig.ready()`` that appends to the list is honored — the
     stability guarantee in ``boards/hooks.py``.
+
+    ``hook_name`` selects the list: card values use the default
+    ``CUSTOM_FIELD_VALIDATORS``; swimlane values pass
+    ``SWIMLANE_CUSTOM_FIELD_VALIDATORS``. They are deliberately separate lists
+    rather than one list fed both definition types — see the reasoning on the
+    hook itself.
     """
     from . import hooks as _hooks
 
-    for validator in _hooks.CUSTOM_FIELD_VALIDATORS:
+    for validator in getattr(_hooks, hook_name):
         try:
             replacement = validator(definition, value)
         except DjangoValidationError as exc:
@@ -593,6 +821,138 @@ class CustomFieldValuesField(serializers.Field):
             value = _run_custom_field_validator_hooks(definition, value)
             pairs.append((definition, value))
         return pairs
+
+
+class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
+    """The board-scoped schema half of a swimlane custom field (#1140).
+
+    Mirrors :class:`CustomFieldDefinitionSerializer` — ``position`` read-only
+    and changed only through ``reorder``, ``choices_json`` exposed as
+    ``choices`` — so that the two field editors behave identically and a reader
+    of one understands the other. The differences are the pin column
+    (``show_on_row``, capped at 3 rather than 2) and ``is_admin_only``.
+    """
+
+    choices = serializers.JSONField(source="choices_json", required=False)
+
+    class Meta:
+        model = SwimlaneCustomFieldDefinition
+        fields = [
+            "id", "uid", "name", "field_type", "choices", "position",
+            "show_on_row", "is_admin_only", "is_required", "help_text",
+            "created_at",
+        ]
+        read_only_fields = ["id", "uid", "position", "created_at"]
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Name cannot be blank.")
+        return name
+
+    def validate_field_type(self, value):
+        """Freeze ``field_type`` once a swimlane already holds a value for it.
+
+        Deliberately the same rule, and the same shape, as the card-level guard
+        added for #1121: ``field_type`` decides how the single untyped ``value``
+        column is validated, cast and rendered, and nothing revalidates or
+        migrates stored rows when it changes. Flipping ``text`` -> ``number``
+        after rows carry free text leaves those rows silently mismatched
+        against their own definition — corruption that surfaces later, far from
+        the change that caused it.
+
+        A definition with zero values has nothing to protect and stays freely
+        editable. No ``text`` -> ``dropdown`` conversion path is implied: that
+        needs an explicit decision about how existing values map onto the new
+        choice set, which this issue defers rather than builds silently.
+
+        Known and accepted: a value written concurrently between this check and
+        the save slips through. The card-level guard has the identical gap;
+        closing it here alone would make the two diverge for no benefit.
+        """
+        if (
+            self.instance is not None
+            and value != self.instance.field_type
+            and self.instance.values.exists()
+        ):
+            raise serializers.ValidationError(
+                "This field already has values; its type cannot be changed."
+            )
+        return value
+
+    def validate(self, attrs):
+        """Cross-field rules: dropdown choices, name uniqueness, and the caps."""
+        instance = self.instance
+        T = CustomFieldDefinition.FieldType
+        field_type = attrs.get(
+            "field_type", instance.field_type if instance else T.TEXT
+        )
+        choices_submitted = "choices_json" in attrs
+        choices = attrs.get(
+            "choices_json", instance.choices_json if instance else []
+        )
+
+        if field_type == T.DROPDOWN:
+            if not isinstance(choices, list) or not choices:
+                raise serializers.ValidationError({
+                    "choices": "A dropdown field needs at least one choice."
+                })
+            cleaned = []
+            for choice in choices:
+                if not isinstance(choice, str) or not choice.strip():
+                    raise serializers.ValidationError({
+                        "choices": "Every choice must be a non-empty string."
+                    })
+                cleaned.append(choice.strip())
+            if len(set(cleaned)) != len(cleaned):
+                raise serializers.ValidationError({
+                    "choices": "Choices must be unique."
+                })
+            if len(cleaned) > 100:
+                raise serializers.ValidationError({
+                    "choices": "A dropdown field may have at most 100 choices."
+                })
+            attrs["choices_json"] = cleaned
+        elif choices_submitted and choices:
+            raise serializers.ValidationError({
+                "choices": "Only a dropdown field can have choices."
+            })
+        else:
+            attrs["choices_json"] = []
+
+        board = self.context.get("board") or (instance.board if instance else None)
+        if board is not None:
+            # Same reason as the card-level serializer: `board` is not a
+            # serializer field, so DRF's UniqueTogetherValidator cannot reach
+            # unique_together(board, name) and a duplicate would surface as a
+            # 500 instead of a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = SwimlaneCustomFieldDefinition.objects.filter(
+                    board=board, name=name
+                )
+                if instance is not None and instance.pk is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": (
+                            "A swimlane custom field with this name already "
+                            "exists on this board."
+                        )
+                    })
+            assert_definition_caps(
+                board,
+                instance=instance,
+                show_on_card=attrs.get(
+                    "show_on_row",
+                    instance.show_on_row if instance else False,
+                ),
+                definition_model=SwimlaneCustomFieldDefinition,
+                pin_attr="show_on_row",
+                pin_surface="the swimlane row",
+                field_noun="swimlane custom fields",
+            )
+        return attrs
 
 
 class CardMovementSerializer(serializers.ModelSerializer):
@@ -1393,12 +1753,23 @@ class BoardFullSerializer(serializers.ModelSerializer):
     # definitions are managed through /boards/{id}/custom-fields/, which is
     # admin-gated, while /full/ is readable by every role.
     custom_field_definitions = CustomFieldDefinitionSerializer(many=True, read_only=True)
+    # The board's swimlane (row) field schema (#1140), shipped with the board for
+    # the same reason as the card schema above: the client renders and edits row
+    # values without a second round trip. Read-only here; definitions are managed
+    # through the admin-gated /boards/{id}/swimlane-custom-fields/. A definition
+    # discloses nothing a board reader does not already have — whether a given
+    # row *value* is readable is decided per definition by is_admin_only on the
+    # swimlane serializers, not here.
+    swimlane_custom_field_definitions = SwimlaneCustomFieldDefinitionSerializer(
+        many=True, read_only=True
+    )
 
     class Meta:
         model = Board
         fields = [
             "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail", "columns", "swimlanes",
-            "cards", "labels", "members", "custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
+            "cards", "labels", "members", "custom_field_definitions",
+            "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
             "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits", "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at", "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
         ]
         read_only_fields = ["uid"]
@@ -1472,7 +1843,13 @@ class BoardFullSerializer(serializers.ModelSerializer):
             role = get_board_role(request.user, obj)
         use_admin = role in (BM.Role.ADMIN, SITE_ADMIN)
         serializer_class = SwimlaneAdminSerializer if use_admin else SwimlaneSerializer
-        return serializer_class(obj.swimlanes.all(), many=True, context=self.context).data
+        # obj.swimlanes.all() is not prefetched by get_board_for_user, and both
+        # serializers now read each value's definition for is_admin_only, so
+        # without this the /full/ payload costs 1 + 2N queries in swimlane count
+        # (#1140). .all() on the prefetched manager keeps the cache; a .filter()
+        # here would escape it.
+        lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch())
+        return serializer_class(lanes, many=True, context=self.context).data
 
     def get_cards(self, obj):
         """Return only active (non-archived) cards for the board view.
@@ -1887,7 +2264,7 @@ class PublicBoardSerializer(serializers.ModelSerializer):
     card comments, card movements, and any user PK/email fields.
     """
     columns = ColumnSerializer(many=True, read_only=True)
-    swimlanes = SwimlaneSerializer(many=True, read_only=True)  # public variant — no contact_email/notes
+    swimlanes = PublicSwimlaneSerializer(many=True, read_only=True)  # no contact_email/notes/custom fields
     labels = LabelSerializer(many=True, read_only=True)
     cards = serializers.SerializerMethodField()
 

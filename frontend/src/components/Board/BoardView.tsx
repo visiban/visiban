@@ -20,7 +20,8 @@ import {
 } from "@dnd-kit/core";
 import type { DragEndEvent, DragStartEvent, DragOverEvent, CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, Swimlane, User } from "../../types";
+import type { BoardMembership, Card, Column, CustomFieldDefinition, Label, Swimlane, SwimlaneCustomFieldDefinition, User } from "../../types";
+import { mergeSwimlaneFromBroadcast } from "../../utils/swimlaneMerge";
 import { useBoardContext } from "../../contexts/BoardContext";
 import ColumnHeader from "./ColumnHeader";
 import ColumnSeparator from "./ColumnSeparator";
@@ -245,6 +246,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     updateLabel: onLabelUpdated,
     removeLabel: onLabelDeleted,
     applyCustomFieldDefinitions: onCustomFieldDefinitionsApplied,
+    applySwimlaneFieldDefinitions: onSwimlaneFieldDefinitionsApplied,
     addMember: onMemberAdded,
     updateMember: onMemberUpdated,
     removeMember: onMemberRemoved,
@@ -375,7 +377,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "swimlane.created") {
       onSwimlaneAdded(d as unknown as Swimlane);
     } else if (event.event === "swimlane.updated") {
-      onSwimlaneUpdated(d as unknown as Swimlane);
+      // Merge, never replace: the broadcast is built from the *public*
+      // SwimlaneSerializer, so a straight replace would blank this admin's
+      // contact_email, notes, and every admin-only row field value (#1140).
+      onSwimlaneUpdated(mergeSwimlaneFromBroadcast(
+        board.swimlanes,
+        d as unknown as Swimlane,
+        board.swimlane_custom_field_definitions,
+      ));
     } else if (event.event === "swimlane.deleted") {
       // Use state-only eviction — the delete already happened on the server;
       // calling onSwimlaneDeleted would fire a redundant DELETE API request.
@@ -401,6 +410,23 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       onCustomFieldDefinitionsApplied(board.custom_field_definitions.filter((f) => f.uid !== custom_field_uid));
     } else if (event.event === "custom_field.reordered") {
       onCustomFieldDefinitionsApplied((d as { custom_fields: CustomFieldDefinition[] }).custom_fields);
+    } else if (event.event === "swimlane_custom_field.created") {
+      const created = d as unknown as SwimlaneCustomFieldDefinition;
+      onSwimlaneFieldDefinitionsApplied([...board.swimlane_custom_field_definitions, created]);
+    } else if (event.event === "swimlane_custom_field.updated") {
+      const updated = d as unknown as SwimlaneCustomFieldDefinition;
+      onSwimlaneFieldDefinitionsApplied(
+        board.swimlane_custom_field_definitions.map((f) => (f.id === updated.id ? updated : f))
+      );
+    } else if (event.event === "swimlane_custom_field.deleted") {
+      const { swimlane_custom_field_uid } = d as { swimlane_custom_field_uid: string };
+      onSwimlaneFieldDefinitionsApplied(
+        board.swimlane_custom_field_definitions.filter((f) => f.uid !== swimlane_custom_field_uid)
+      );
+    } else if (event.event === "swimlane_custom_field.reordered") {
+      onSwimlaneFieldDefinitionsApplied(
+        (d as { swimlane_custom_fields: SwimlaneCustomFieldDefinition[] }).swimlane_custom_fields
+      );
     } else if (event.event === "member.added") {
       onMemberAdded(d as unknown as BoardMembership);
     } else if (event.event === "member.updated") {
@@ -412,6 +438,15 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       // UI affordances until they reload the page.
       if (currentUser && updatedMembership.user.id === currentUser.id) {
         mergeBoardState({ current_user_role: updatedMembership.role });
+        // Refetch on a self-role change (#1140). Swimlane state is *merged*
+        // from broadcasts rather than replaced, precisely so an admin does not
+        // lose their admin-only row values on an unrelated edit — but that
+        // same merge would otherwise keep those values alive in the tab of a
+        // user who has just been demoted out of admin, since the socket is
+        // only closed on removal from the board, never on a downgrade. A
+        // refetch reissues /full/ under the new role, and the server then
+        // simply does not send what they may no longer see.
+        silentReload();
       }
     } else if (event.event === "member.removed") {
       onMemberRemoved((d as { user_id: number }).user_id);
@@ -450,7 +485,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     } else if (event.event === "lens_connection.removed") {
       setLensConnection(null);
     }
-  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
+  }, [onCardAdded, onCardUpdated, onCardUnarchived, evictCardByUid, onColumnAdded, onColumnUpdated, evictColumn, onColumnOrderApplied, onSwimlaneAdded, onSwimlaneUpdated, evictSwimlane, onSwimlaneOrderApplied, onLabelAdded, onLabelUpdated, onLabelDeleted, onCustomFieldDefinitionsApplied, board.custom_field_definitions, silentReload, onSwimlaneFieldDefinitionsApplied, board.swimlane_custom_field_definitions, board.swimlanes, onMemberAdded, onMemberUpdated, onMemberRemoved, mergeBoardState, onBoardDeleted, currentUser, refreshFilters, onSavedFilterEvicted]);
 
   // Collect a subset of WS events into the activity feed for the drawer.
   // Runs alongside handleSocketEvent — does not interfere with board state updates.
@@ -2183,6 +2218,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       staleness_threshold_days={board.staleness_threshold_days ?? 14}
                       stale_warning_pct={board.stale_warning_pct ?? 50}
                       customFieldDefinitions={board.custom_field_definitions}
+                      swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
                       onCardUpdated={onCardUpdated}
                     />
                   </React.Fragment>
@@ -2329,6 +2365,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           lensConnection={lensConnection}
           onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
+          onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
         />
       )}
 

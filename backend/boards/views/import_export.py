@@ -8,6 +8,7 @@ import logging
 
 from django.conf import settings as django_settings
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from rest_framework.generics import get_object_or_404
 from django.utils.text import slugify
@@ -1049,6 +1050,11 @@ class BoardImportExportMixin:
                 # with the definition joined so neither branch below resolves a
                 # per-card FK.
                 "custom_field_values__field_definition",
+                # Row field values (#1140). The CSV branch denormalizes these
+                # onto every card row, so without this prefetch it would issue
+                # two queries per *card* to walk card.swimlane.custom_field_values
+                # — the export's worst N+1, on its largest loop.
+                "swimlane__custom_field_values__field_definition",
             )
             .order_by("position")
         )
@@ -1064,6 +1070,50 @@ class BoardImportExportMixin:
         custom_field_definitions = list(
             board.custom_field_definitions.order_by("position", "id")
         )
+
+        # Swimlane (row) field definitions (#1140), same contract as above.
+        # Role-gated: an is_admin_only definition and its values are withheld
+        # from a non-admin exporter, the same rule the JSON branch already
+        # applies to swimlane contact_email/notes below. Filtering the
+        # *definitions* rather than the values keeps the export clean — a
+        # withheld field produces no column of blanks and no orphaned schema
+        # entry — rather than blanking cells under a header.
+        #
+        # Deliberately NOT a claim that the field's existence is secret: a
+        # definition's name and its is_admin_only flag reach every board role
+        # through /full/ and through GET swimlane-custom-fields/, because a
+        # reader needs the schema to render the values they *can* see. Only
+        # the values are gated. If the schema is ever reclassified as
+        # sensitive, this filter is not the place that would change — the
+        # serializer and the viewset queryset are.
+        _export_is_admin = role in (BoardMembershipModel.Role.ADMIN, SITE_ADMIN)
+        swimlane_field_definitions = [
+            definition
+            for definition in board.swimlane_custom_field_definitions.order_by(
+                "position", "id"
+            )
+            if _export_is_admin or not definition.is_admin_only
+        ]
+
+        # Hoisted out of the helper below: the CSV branch calls it once per
+        # *card*, and rebuilding a set of at most 15 ids 500 times is work for
+        # nothing.
+        _visible_swimlane_field_ids = {
+            definition.pk for definition in swimlane_field_definitions
+        }
+
+        def _swimlane_values_by_name(swimlane):
+            """Return ``{field name: value}`` for one swimlane.
+
+            Keyed by name for the same reason as the card helper below, and
+            filtered to the definitions the exporter may see.
+            """
+            visible = _visible_swimlane_field_ids
+            return {
+                row.field_definition.name: row.value
+                for row in swimlane.custom_field_values.all()
+                if row.field_definition_id in visible
+            }
 
         def _custom_values_by_name(card):
             """Return ``{field name: value}`` for one card.
@@ -1087,7 +1137,20 @@ class BoardImportExportMixin:
             # consumers (cards list, full board) do not pay for prefetches
             # they never read.
             from django.db.models import prefetch_related_objects
-            prefetch_related_objects([board], "columns", "swimlanes")
+            from ..serializers import _swimlane_custom_field_prefetch
+            prefetch_related_objects(
+                [board],
+                "columns",
+                # The swimlane prefetch carries its row field values (#1140) so
+                # the per-swimlane block below reads from cache rather than
+                # issuing two queries per row.
+                Prefetch(
+                    "swimlanes",
+                    queryset=Swimlane.objects.prefetch_related(
+                        _swimlane_custom_field_prefetch()
+                    ),
+                ),
+            )
             columns = board.columns.all()
             swimlanes = board.swimlanes.all()
             labels = board.labels.all()
@@ -1183,6 +1246,9 @@ class BoardImportExportMixin:
                             if role in (BoardMembershipModel.Role.ADMIN, SITE_ADMIN)
                             else {}
                         ),
+                        # Row field values (#1140), keyed by name and already
+                        # filtered to what this exporter's role may see.
+                        "custom_field_values": _swimlane_values_by_name(sw),
                     }
                     for sw in swimlanes
                 ],
@@ -1203,6 +1269,27 @@ class BoardImportExportMixin:
                         "help_text": cf.help_text,
                     }
                     for cf in custom_field_definitions
+                ],
+                # The swimlane (row) field schema (#1140), so a consumer can
+                # type the per-swimlane values above. Additive alongside
+                # "custom_fields" rather than merged into it: the two are
+                # separate per-board sets attached to different objects, and
+                # merging them would make a round-trip ambiguous about which
+                # set a definition belongs to. schema_version is unchanged —
+                # this is a new key, and no existing key moved or changed
+                # meaning.
+                "swimlane_custom_fields": [
+                    {
+                        "name": sf.name,
+                        "field_type": sf.field_type,
+                        "choices": sf.choices_json,
+                        "position": sf.position,
+                        "show_on_row": sf.show_on_row,
+                        "is_admin_only": sf.is_admin_only,
+                        "is_required": sf.is_required,
+                        "help_text": sf.help_text,
+                    }
+                    for sf in swimlane_field_definitions
                 ],
                 "cards": cards_data,
             }
@@ -1234,12 +1321,31 @@ class BoardImportExportMixin:
         # "Weight" from producing a duplicate header that the importer's
         # header map would then mis-bind.
         custom_field_headers = [f"Custom: {cf.name}" for cf in custom_field_definitions]
+        # Row field columns (#1140) come after the card field columns, so both
+        # the fixed set and the existing `Custom: ` block keep their indices.
+        # A distinct `Swimlane Custom: ` prefix is required, not cosmetic: the
+        # `Custom: ` namespace is already card fields', and a board may legally
+        # define a card field and a row field with the same name — they are
+        # separate per-board sets with separate uniqueness. Sharing the prefix
+        # would produce two identical headers and an importer header map that
+        # silently binds one onto the other.
+        # Sanitized like every value cell. Today the literal prefix already
+        # guarantees the cell cannot start with a formula character, so this is
+        # a no-op — which is exactly why it is worth writing explicitly: the
+        # safety currently rests on the prefix string, and a future export
+        # variant that shortens or drops that prefix would silently reintroduce
+        # formula injection through a user-controlled field name.
+        swimlane_field_headers = [
+            _sanitize_csv_field(f"Swimlane Custom: {sf.name}")
+            for sf in swimlane_field_definitions
+        ]
         writer.writerow([
             "Card ID", "Title", "Description", "Column", "Swimlane",
             "Priority", "Assignee", "Labels", "Due Date", "Weight",
             "Created At", "Created By", "Last Moved At", "Movement Count",
             "Movement History",
             *custom_field_headers,
+            *swimlane_field_headers,
         ])
 
         s = _sanitize_csv_field  # local alias for brevity in the writerow calls below
@@ -1262,6 +1368,14 @@ class BoardImportExportMixin:
             custom_cells = [
                 s(card_custom.get(cf.name, "")) for cf in custom_field_definitions
             ]
+            # Row field values denormalize onto every card row (#1140): the CSV
+            # is one row per card, so a row field's value repeats for each card
+            # in that swimlane. That is what makes the column usable in a pivot
+            # without a second file to join against.
+            swimlane_custom = _swimlane_values_by_name(card.swimlane)
+            swimlane_cells = [
+                s(swimlane_custom.get(sf.name, "")) for sf in swimlane_field_definitions
+            ]
 
             writer.writerow([
                 card.id,
@@ -1280,6 +1394,7 @@ class BoardImportExportMixin:
                 len(movements),
                 history,
                 *custom_cells,
+                *swimlane_cells,
             ])
 
         response = HttpResponse(buf.getvalue(), content_type="text/csv")

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { CustomFieldDefinition } from "../../types";
+import type { FieldDefinitionShape } from "../../types";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
 import { ToggleField } from "../Common/Toggle";
 import { isValidForType } from "../../utils/customFieldValue";
 
 interface Props {
-  definition: CustomFieldDefinition;
+  definition: FieldDefinitionShape;
   value: string | undefined;
   /**
    * "" clears. The component owns its own commit timing per type — text and
@@ -22,11 +22,25 @@ interface Props {
   /** `sm` = quick-edit popover chrome (card face). `md` = card-detail / Fields-tab. */
   size?: "sm" | "md";
   autoFocus?: boolean;
+  /**
+   * Debounce for the text and number types, in ms. Defaults to 600, matching
+   * the autosave surfaces this was written for. A surface that commits behind
+   * an explicit Save button must pass `0` (#1140): with a debounce, clicking
+   * Save within the window silently drops the last keystrokes, because the
+   * timer never fires before the form is read.
+   */
+  debounceMs?: number;
+  /**
+   * Forwarded to the dropdown type's `SingleSelectDropdown` (#1140). Pass a
+   * value above 40 when this input is rendered inside a `ModalWrapper`, or
+   * Escape closes the modal instead of the open menu.
+   */
+  escapePriority?: number;
 }
 
 const DEBOUNCE_MS = 600;
 
-export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus }: Props) {
+export default function CustomFieldValueInput({ definition, value, onCommit, disabled, size = "md", autoFocus, debounceMs = DEBOUNCE_MS, escapePriority }: Props) {
   const [local, setLocal] = useState(value ?? "");
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +58,8 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
   const debouncedCommit = (next: string) => {
     setLocal(next);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => onCommit(next), DEBOUNCE_MS);
+    if (debounceMs === 0) { onCommit(next); return; }
+    debounceTimer.current = setTimeout(() => onCommit(next), debounceMs);
   };
 
   const inputClasses = `bg-surface border border-line rounded text-fg-secondary focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent ${
@@ -167,6 +182,7 @@ export default function CustomFieldValueInput({ definition, value, onCommit, dis
           selected={local || null}
           onChange={(v) => { const next = v ?? ""; setLocal(next); onCommit(next); }}
           className={size === "md" ? "w-full justify-between" : undefined}
+          escapePriority={escapePriority}
         />
       );
     }

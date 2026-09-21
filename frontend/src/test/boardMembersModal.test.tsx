@@ -37,6 +37,7 @@ const fakeBoard: BoardFull = {
   share_token: null,
   share_token_expires_at: null,
   custom_field_definitions: [],
+  swimlane_custom_field_definitions: [],
 }
 
 describe('BoardMembersModal', () => {

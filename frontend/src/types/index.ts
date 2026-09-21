@@ -167,6 +167,22 @@ export interface Swimlane {
   color: string;
   is_collapsed: boolean;
   created_at: string;
+  /**
+   * Row field values (#1140). `field_definition` is a
+   * `SwimlaneCustomFieldDefinition.id` — never a `CustomFieldDefinition.id`;
+   * the two are independent id spaces.
+   *
+   * Filtered by the server, not the client: a definition marked
+   * `is_admin_only` is absent here entirely for members and viewers, so there
+   * is nothing to hide client-side.
+   *
+   * Optional for the same reason `contact_email` and `notes` are: the
+   * anonymous share-link serializer (`PublicSwimlaneSerializer`) omits the key
+   * entirely rather than sending an empty list, so a `BoardPublic` swimlane
+   * genuinely has no such property. Read a missing value as "not visible to
+   * me", never as "this row has none".
+   */
+  custom_field_values?: SwimlaneCustomFieldValue[];
 }
 
 export interface Label {
@@ -217,6 +233,65 @@ export interface CustomFieldDefinition {
  */
 export interface CustomFieldValue {
   /** `CustomFieldDefinition.id` — look the schema up in `BoardFull`. */
+  field_definition: number;
+  value: string;
+}
+
+/**
+ * The definition subset the value display, input, and formatting helpers
+ * actually read. Satisfied by both `CustomFieldDefinition` (#371) and
+ * `SwimlaneCustomFieldDefinition` (#1140), so those helpers work on either
+ * without being made generic or duplicated.
+ */
+export interface FieldDefinitionShape {
+  name: string;
+  field_type: CustomFieldType;
+  choices: string[];
+  help_text: string;
+}
+
+/**
+ * A board's declaration of one typed field on swimlane *rows* (#1140). Mirrors
+ * `SwimlaneCustomFieldDefinitionSerializer`; arrives with the board on
+ * `/full/` as `swimlane_custom_field_definitions`.
+ *
+ * Deliberately a separate set from `CustomFieldDefinition`: card fields and row
+ * fields are independent per-board schemas with their own caps, their own
+ * endpoints, and their own uniqueness, so a board may legitimately define a
+ * card field and a row field with the same name. Reuses `CustomFieldType`
+ * rather than declaring a second union — there is one type system.
+ */
+export interface SwimlaneCustomFieldDefinition {
+  id: number;
+  uid: string;
+  name: string;
+  field_type: CustomFieldType;
+  /** Permitted values; non-empty only when `field_type` is `"dropdown"`. */
+  choices: string[];
+  /** Display order within the board. Changed only via the reorder endpoint. */
+  position: number;
+  /** Pin this field's value to the swimlane row header. At most 3 per board. */
+  show_on_row: boolean;
+  /**
+   * When true (the default), this field's values are served only to board
+   * admins — members and viewers receive the swimlane without them. Not a
+   * rendering hint: the value is absent from the payload, so there is nothing
+   * to hide client-side.
+   */
+  is_admin_only: boolean;
+  /** Declared but not enforced in v1 — see the serializer. */
+  is_required: boolean;
+  help_text: string;
+  created_at: string;
+}
+
+/**
+ * One swimlane's value for one row-field definition (#1140). Same string
+ * carriage as `CustomFieldValue`, and the same "no entry rather than an empty
+ * entry" rule for an unset field.
+ */
+export interface SwimlaneCustomFieldValue {
+  /** `SwimlaneCustomFieldDefinition.id` — schema is on `BoardFull`. */
   field_definition: number;
   value: string;
 }
@@ -505,6 +580,8 @@ export interface BoardFull {
   labels: Label[];
   members: BoardMembership[];
   custom_field_definitions: CustomFieldDefinition[];
+  /** The board's swimlane-row field schema (#1140). Independent of the card schema above. */
+  swimlane_custom_field_definitions: SwimlaneCustomFieldDefinition[];
   staleness_threshold_days: number;
   stale_warning_pct: number;
   allowed_priorities: Priority[];

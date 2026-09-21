@@ -6,7 +6,7 @@
  * contract (a stale dropdown choice, a value that no longer parses for its
  * field's current type, a missing value) lives in exactly one place.
  */
-import type { CustomFieldDefinition } from "../types";
+import type { FieldDefinitionShape } from "../types";
 import { PALETTE_COLORS } from "../constants/colors";
 import { formatDateStr } from "./date";
 
@@ -38,7 +38,7 @@ export function choiceColor(choice: string): string {
  * `CustomFieldValueDisplay`/`CustomFieldValueInput`, not an invalid-value
  * concern; the stored string is always "valid enough" to display as text.
  */
-export function isValidForType(definition: CustomFieldDefinition, value: string): boolean {
+export function isValidForType(definition: FieldDefinitionShape, value: string): boolean {
   if (value === "") return true; // empty is always valid — it means "no value", never "invalid value"
   switch (definition.field_type) {
     case "number":
@@ -62,7 +62,7 @@ export function isValidForType(definition: CustomFieldDefinition, value: string)
  * Date/a broken boolean).
  */
 export function formatCustomFieldValue(
-  definition: CustomFieldDefinition,
+  definition: FieldDefinitionShape,
   value: string,
   userDateFormat: string
 ): string {

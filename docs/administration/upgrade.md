@@ -282,6 +282,12 @@ Migration `accounts/0027_maintenance_mode` adds two nullable-by-default columns
 no constraint, no data backfill — and `maintenance_mode` defaults to `False`, so an existing
 install behaves exactly as before until an operator deliberately turns it on.
 
+Migration `boards/0059_add_swimlane_custom_fields` adds two new tables
+(`swimlane_custom_field_definitions`, `swimlane_custom_field_values`) for the new
+[swimlane (row) custom fields](../features/custom-fields.md#swimlane-row-custom-fields)
+feature. Both operations are `CreateModel` — no existing table, index, or constraint is
+touched — so it is zero-downtime and requires no operator action.
+
 !!! warning "Helm values are now schema-validated — an unknown key fails the upgrade"
     Chart 0.4.0 ships `values.schema.json` with `additionalProperties: false` on
     the chart's own blocks. A values key the chart does not read — a typo, or a
