@@ -772,13 +772,16 @@ Definition objects include a `uid` field — stable across renames, read-only.
 | `id` | integer | yes | Database primary key |
 | `uid` | string | yes | Stable 16-character hex UID |
 | `name` | string | no | Field name; unique within the board |
-| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"` |
+| `field_type` | string | no\* | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"` |
 | `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
 | `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
 | `show_on_card` | boolean | no | Pin the value to the card face. Max 2 per board |
 | `is_required` | boolean | no | Declared but **not enforced** in this release |
 | `help_text` | string | no | Hint shown next to the input |
 | `created_at` | string | yes | ISO 8601 creation timestamp |
+
+\* `field_type` is writable only while the definition has zero values — see the `PATCH`
+errors below.
 
 ### `GET /api/v1/boards/{id}/custom-fields/`
 List the board's custom field definitions, in `position` order. Available to **all board
@@ -807,6 +810,17 @@ Update a definition. Requires board admin.
 
 > Removing a choice from a dropdown does **not** rewrite cards that already hold it: the
 > stored value keeps reading back, but it can no longer be written again.
+
+> **Since 1.2:** `field_type` is frozen once any card holds a value for this field — a
+> stale `CustomFieldValue` is never revalidated or migrated against a new type, so changing
+> it out from under existing data would corrupt it silently. Delete and recreate the field
+> to change its type once it has values. A field with zero values may still have its type
+> changed freely. There is no `text` → `dropdown` (or any other) conversion path in this
+> release.
+
+**Errors:**
+- `400 Bad Request` if `field_type` is changed on a definition that already has at least
+  one `CustomFieldValue`.
 
 ### `DELETE /api/v1/boards/{id}/custom-fields/{field_id}/`
 Delete a definition. Requires board admin. **Every card's value for that field is deleted
