@@ -13,6 +13,7 @@ import socket
 from unittest import mock
 
 from django.core import mail
+from django.core.mail import EmailMessage
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -27,8 +28,11 @@ from visiban.crypto import (
     secret_is_decryptable,
 )
 from visiban.mail import (
+    DatabaseAwareEmailBackend,
     EmailConfigUnusable,
+    build_smtp_backend,
     classify_smtp_error,
+    env_email_config,
     resolve_email_config,
 )
 
@@ -447,6 +451,33 @@ class AdminEmailSettingsAPITests(TestCase):
         self.assertEqual(row.metadata, {"from": "env", "to": "database"})
 
 
+class DevelopmentConsoleBackendTests(TestCase):
+    """The DEBUG console path must survive the placeholder guard.
+
+    These instantiate ``DatabaseAwareEmailBackend`` **directly** on purpose.
+    Django's test runner swaps EMAIL_BACKEND for locmem in
+    ``setup_test_environment()``, so the real backend is never exercised by an
+    ordinary mail test — the whole suite can pass green while every outbound
+    email on a stock dev install raises. An ``override_settings(EMAIL_BACKEND=…)``
+    test would not catch it either.
+    """
+
+    @override_settings(DEBUG=True, DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_debug_console_send_tolerates_the_placeholder_sender(self):
+        # .env.example ships DEBUG=true and no DEFAULT_FROM_EMAIL, so this is
+        # the stock development configuration. Printing to stdout is not
+        # delivering mail from a domain you do not own.
+        sent = DatabaseAwareEmailBackend().send_messages(
+            [EmailMessage("subject", "body", None, ["someone@visiban.test"])]
+        )
+        self.assertEqual(sent, 1)
+
+    @override_settings(DEBUG=False, DEFAULT_FROM_EMAIL="noreply@example.com")
+    def test_production_smtp_still_refuses_the_placeholder_sender(self):
+        with self.assertRaises(EmailConfigUnusable):
+            build_smtp_backend(env_email_config())
+
+
 class PlaceholderSenderTests(TestCase):
     """The guard demoted from import time must still hold at send time.
 
@@ -458,8 +489,11 @@ class PlaceholderSenderTests(TestCase):
 
     @override_settings(EMAIL_HOST="smtp.real.test", DEFAULT_FROM_EMAIL="noreply@example.com")
     def test_env_path_refuses_a_placeholder_sender(self):
+        # Asserted at the SMTP construction site, which is where the guard
+        # lives — resolution itself stays permissive so the console backend
+        # keeps working in development.
         with self.assertRaises(EmailConfigUnusable):
-            resolve_email_config()
+            build_smtp_backend(resolve_email_config())
 
     @override_settings(DEFAULT_FROM_EMAIL="noreply@example.com")
     def test_database_path_refuses_a_placeholder_sender(self):
@@ -469,11 +503,13 @@ class PlaceholderSenderTests(TestCase):
         cfg.config_source = SiteEmailSetting.ConfigSource.DATABASE
         cfg.save()
         with self.assertRaises(EmailConfigUnusable):
-            resolve_email_config()
+            build_smtp_backend(resolve_email_config())
 
     @override_settings(EMAIL_HOST="smtp.real.test", DEFAULT_FROM_EMAIL="noreply@visiban.test")
     def test_a_real_sender_resolves(self):
         self.assertEqual(resolve_email_config().from_email, "noreply@visiban.test")
+        # And actually builds a backend without raising.
+        self.assertIsNotNone(build_smtp_backend(resolve_email_config()))
 
 
 # A real sender: the placeholder guard in resolve_email_config would otherwise

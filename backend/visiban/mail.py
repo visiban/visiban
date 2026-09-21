@@ -114,7 +114,9 @@ def env_email_config() -> ResolvedEmailConfig:
         use_tls=settings.EMAIL_USE_TLS,
         use_ssl=getattr(settings, "EMAIL_USE_SSL", False),
         from_email=settings.DEFAULT_FROM_EMAIL,
-        timeout=getattr(settings, "EMAIL_TIMEOUT", 10) or 10,
+        # None means "no explicit socket timeout", which is Django's own
+        # default and what env-configured installs had before #306.
+        timeout=getattr(settings, "EMAIL_TIMEOUT", None),
     )
 
 
@@ -122,8 +124,18 @@ def _checked(config: ResolvedEmailConfig) -> ResolvedEmailConfig:
     """Refuse to send from the shipped placeholder sender address.
 
     This is where the guard demoted from import time in ``settings.py`` is
-    actually enforced, and it MUST wrap every return path out of
-    ``resolve_email_config`` — including the env ones.
+    actually enforced. It lives in ``build_smtp_backend`` — the single point
+    where an SMTP connection is constructed — rather than in
+    ``resolve_email_config``.
+
+    That placement is deliberate and was got wrong once: checking during
+    *resolution* also caught the console backend, which broke every outbound
+    email on a stock development install (``.env.example`` ships ``DEBUG=true``
+    and no ``DEFAULT_FROM_EMAIL``, so the placeholder default applies). Printing
+    a message to stdout is not delivering mail from a domain you do not own, so
+    the check has no business firing there. Django's test runner swaps in the
+    locmem backend, so no suite catches that class of mistake — only a test
+    instantiating ``DatabaseAwareEmailBackend`` directly does.
 
     The realistic failure it catches is a partial environment config: an
     operator sets EMAIL_HOST/EMAIL_HOST_USER/EMAIL_HOST_PASSWORD against a real
@@ -192,10 +204,10 @@ def resolve_email_config(cfg=None, *, need_password: bool = True) -> ResolvedEma
         # admin's mail through a server they did not choose, which is the exact
         # outcome EmailConfigUnusable exists to prevent.
         logger.warning("SiteEmailSetting unavailable; falling back to environment config")
-        return _checked(env_email_config())
+        return env_email_config()
 
     if cfg.config_source != SiteEmailSetting.ConfigSource.DATABASE:
-        return _checked(env_email_config())
+        return env_email_config()
 
     if not cfg.db_config_is_complete():
         raise EmailConfigUnusable(
@@ -232,7 +244,7 @@ def resolve_email_config(cfg=None, *, need_password: bool = True) -> ResolvedEma
                 "encryption key changed. Re-enter the password in Admin → Settings → Email.",
             ) from None
 
-    return _checked(ResolvedEmailConfig(
+    return ResolvedEmailConfig(
         source="database",
         host=cfg.host,
         port=cfg.port,
@@ -242,11 +254,16 @@ def resolve_email_config(cfg=None, *, need_password: bool = True) -> ResolvedEma
         use_ssl=cfg.use_ssl,
         from_email=cfg.from_email,
         timeout=cfg.timeout or 10,
-    ))
+    )
 
 
 def build_smtp_backend(config: ResolvedEmailConfig, **kwargs) -> SMTPEmailBackend:
-    """Construct Django's SMTP backend from a resolved configuration."""
+    """Construct Django's SMTP backend from a resolved configuration.
+
+    Every real SMTP send funnels through here, which is why the placeholder
+    sender check lives at this point rather than during resolution.
+    """
+    config = _checked(config)
     return SMTPEmailBackend(
         host=config.host,
         port=config.port,

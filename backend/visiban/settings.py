@@ -588,10 +588,17 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 # Added in 1.2 alongside #306 so the environment and the database express the
-# same set of settings. Purely additive; the defaults reproduce the behavior
-# these two knobs implicitly had before they existed.
+# same set of settings. Purely additive, and both defaults reproduce exactly what
+# these knobs implicitly did before they existed.
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
-EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+# default=None, NOT 10: EMAIL_TIMEOUT is a pre-existing Django setting whose
+# global default is None (no explicit socket timeout). This file simply never
+# set it before, so every env-configured install ran without one. Defaulting to
+# 10 here would impose a hard timeout they never had and break greylisting
+# relays and slow Exchange front-ends — a behavior change for existing installs,
+# which CLAUDE.md forbids. The DB-backed path has its own default of 10, which
+# is new configuration and therefore free to choose.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=None)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
 
 # Optional dedicated key for secrets encrypted at rest (#306). When unset, the
