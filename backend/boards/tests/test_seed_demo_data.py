@@ -8,7 +8,11 @@ from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from boards.management.commands.seed_demo_data import DEMO_GROUP_NAME, SEED_ANCHOR_DATE
+from boards.management.commands.seed_demo_data import (
+    DEMO_GROUP_NAME,
+    LOAD_TEST_BOARD_NAME,
+    SEED_ANCHOR_DATE,
+)
 from accounts.models import User
 from boards.models import (
     Board,
@@ -20,6 +24,7 @@ from boards.models import (
     Column,
     CustomFieldDefinition,
     CustomFieldValue,
+    Notification,
     SavedFilter,
 )
 from groups.models import Group, GroupInviteLink, GroupLabel
@@ -518,3 +523,96 @@ class SeedArchivingTests(TestCase):
 
         self.assertEqual(len(data["cards"]), active_count)
         self.assertLess(len(data["cards"]), board.cards.count())
+
+
+@override_settings(DEBUG=True)
+class SeedScaleTests(TestCase):
+    """--scale (#1082): the large-fixture variant for the nightly load-test job."""
+
+    def test_scale_1_is_unchanged_default_behavior(self):
+        """--scale 1 (the default) must be indistinguishable from no --scale at all —
+        same board name, same swimlane count, no suffixed names."""
+        _seed(scale=1)
+        board = Board.objects.get(name=BOARD_NAME)
+        self.assertEqual(board.swimlanes.count(), 10)
+        names = list(board.swimlanes.order_by("position").values_list("name", flat=True))
+        self.assertNotIn(" (2)", " ".join(names))
+        self.assertFalse(Board.objects.filter(name=LOAD_TEST_BOARD_NAME).exists())
+
+    def test_scale_n_creates_separate_load_test_board(self):
+        """--scale > 1 must never touch 'Visiban Demo Board' — it seeds a
+        distinctly-named board instead, so the weekly demo refresh job and the
+        nightly load-test job can never collide or overwrite each other."""
+        _seed(scale=3)
+        self.assertFalse(Board.objects.filter(name=BOARD_NAME).exists())
+        board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
+        self.assertEqual(board.swimlanes.count(), 30)
+
+    def test_scale_n_replicates_swimlanes_with_suffixed_names(self):
+        _seed(scale=2)
+        board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
+        names = list(board.swimlanes.order_by("position").values_list("name", flat=True))
+        self.assertIn("Acme Corp", names)
+        self.assertIn("Acme Corp (2)", names)
+
+    def test_scale_n_exceeds_title_corpus_without_truncating(self):
+        """At high scale the fixed 152-title corpus is exhausted well before the
+        target card count — cards must keep generating (with a cycled/suffixed
+        title) rather than silently stopping early (the pre-#1082 `break`)."""
+        _seed(scale=20)
+        board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
+        # 200 swimlanes x 11-13 cards each is comfortably > 152 unique titles.
+        self.assertGreater(board.cards.count(), 2000)
+
+    def test_scale_below_one_is_rejected(self):
+        with self.assertRaises(CommandError) as ctx:
+            _seed(scale=0)
+        self.assertIn("--scale", str(ctx.exception))
+
+    def test_scale_with_export_is_rejected(self):
+        """The large fixture is generated fresh for CI, never committed —
+        combining --scale > 1 with --export is a usage error, not a silent no-op."""
+        with self.assertRaises(CommandError) as ctx:
+            _seed(scale=2, export=True)
+        self.assertIn("--export", str(ctx.exception))
+
+    def test_scale_n_wipe_only_deletes_load_test_board(self):
+        """--wipe with --scale > 1 must be scoped to the load-test board, leaving
+        an existing demo board (if any) untouched."""
+        _seed(scale=1)
+        _seed(scale=3, wipe=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+        self.assertEqual(Board.objects.filter(name=LOAD_TEST_BOARD_NAME).count(), 1)
+
+
+@override_settings(DEBUG=True)
+class SeedNotificationsTests(TestCase):
+    """--with-notifications (#1082): fixture data for the notification-poll endpoints."""
+
+    def test_notifications_off_by_default(self):
+        """The weekly demo-board refresh job's existing behavior must not change
+        unless --with-notifications is passed explicitly."""
+        _seed()
+        self.assertEqual(Notification.objects.count(), 0)
+
+    def test_with_notifications_seeds_unread_rows_for_demo2(self):
+        _seed(with_notifications=True)
+        demo2 = User.objects.get(username="demo2")
+        notifications = Notification.objects.filter(recipient=demo2)
+        self.assertGreater(notifications.count(), 50, "expected more than the 50-row API cap")
+        self.assertTrue(notifications.filter(read=False).exists())
+        self.assertFalse(notifications.filter(read=True).exists())
+
+    def test_with_notifications_reference_real_cards_and_board(self):
+        _seed(with_notifications=True)
+        board = Board.objects.get(name=BOARD_NAME)
+        for notif in Notification.objects.filter(recipient__username="demo2")[:5]:
+            self.assertEqual(notif.board_id, board.id)
+            self.assertIsNotNone(notif.card_id)
+            self.assertTrue(notif.verb)
+
+    def test_with_notifications_works_alongside_scale(self):
+        _seed(scale=2, with_notifications=True)
+        board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
+        demo2 = User.objects.get(username="demo2")
+        self.assertTrue(Notification.objects.filter(recipient=demo2, board=board).exists())

@@ -2535,6 +2535,98 @@ seed-export-check:
         - backend/boards/management/commands/seed_demo_data.py
         - sample-boards/demo_board.*
 
+# ─── Nightly load test ─────────────────────────────────────────────────────────
+#
+# Measures p50/p95/p99 latency for the endpoints most sensitive to data volume
+# and fails the pipeline if any exceeds its committed budget (#1082).
+#
+# Why this exists alongside perf-check/perf-bench: those two are both a
+# query-COUNT check (static N+1 review and on-demand query counting) — neither
+# can see a regression that keeps the query count and query text identical and
+# just makes the same queries slower, which is the normal shape of a missing-
+# index or data-volume regression. This job measures wall-clock latency
+# directly, against a large seeded fixture, closing that gap. See
+# docs/development/nightly-load-test.md for the full contract (fixture size,
+# budget-derivation rule, how to re-derive at each release) and
+# backend/nightly-load-test-baseline.json for the committed budgets.
+#
+# To configure the schedule: CI/CD → Schedules → New schedule → target branch
+# main, cron "0 3 * * *" (daily at 03:00 UTC), variable LOAD_TEST_SCHEDULE=true.
+# Can also be run manually at any time (advisory — allow_failure: true) via
+# "Run pipeline" or the pipeline's manual job button.
+nightly-load-test:
+  extends: .pip-cache
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+    - name: valkey/valkey:8-alpine
+      alias: valkey
+  variables:
+    POSTGRES_DB: "${CI_POSTGRES_DB}"
+    POSTGRES_USER: "${CI_POSTGRES_USER}"
+    POSTGRES_PASSWORD: "${CI_POSTGRES_PASSWORD}"
+    DATABASE_URL: "postgres://${CI_POSTGRES_USER}:${CI_POSTGRES_PASSWORD}@postgres:5432/${CI_POSTGRES_DB}"
+    REDIS_URL: "redis://valkey:6379/0"
+    REDIS_CACHE_URL: "redis://valkey:6379/1"
+    DJANGO_SECRET_KEY: "${CI_DJANGO_SECRET_KEY}"
+    DEBUG: "True"
+    ALLOWED_HOSTS: "localhost"
+    # Swimlane-replication factor for seed_demo_data --scale — see that
+    # command's docstring. 20 -> 200 swimlanes, ~2,400 cards, matching the
+    # fixture backend/nightly-load-test-baseline.json's budgets were derived
+    # against. Override in a manual pipeline run to test a different fixture
+    # size without editing this file.
+    LOAD_TEST_SCALE: "20"
+    LOAD_TEST_ITERATIONS: "40"
+    LOAD_TEST_WARMUP: "5"
+    # CI-only file; provision_fuzz_token writes the raw PAT here (mode 0600),
+    # never to job output — same pattern as backend-schema-fuzz.
+    VISIBAN_LOAD_TEST_TOKEN_FILE: "/tmp/visiban_load_test_token"
+  before_script:
+    - pip install --quiet -r backend/requirements.txt
+    - cd backend
+    - python manage.py migrate --noinput
+    # A dedicated, larger board — never the normal demo board — so this job's
+    # fixture size is independent of and cannot collide with seed-demo-data's
+    # weekly refresh of "Visiban Demo Board".
+    - python manage.py seed_demo_data --force --scale ${LOAD_TEST_SCALE} --with-notifications
+    - python manage.py provision_fuzz_token --username demo2 --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
+    - python manage.py runserver 0.0.0.0:8000 &
+    # Poll liveness instead of a fixed sleep, same pattern as oidc-smoke /
+    # backend-schema-fuzz.
+    - |
+      for i in $(seq 1 30); do
+        python3 -c "import requests; requests.get('http://localhost:8000/api/health/liveness/', timeout=2)" \
+          2>/dev/null && break
+        sleep 1
+      done
+    - cd ..
+  script:
+    # Self-test immediately before the real invocation, same image (#1093) —
+    # proves the percentile/budget-comparison detection logic still fires
+    # before trusting this run's verdict.
+    - python3 scripts/nightly_load_test.py --self-test
+    - python3 scripts/nightly_load_test.py
+        --base-url http://localhost:8000
+        --token-file "${VISIBAN_LOAD_TEST_TOKEN_FILE}"
+        --board-name "Visiban Load Test Board"
+        --budget-file backend/nightly-load-test-baseline.json
+        --iterations "${LOAD_TEST_ITERATIONS}"
+        --warmup "${LOAD_TEST_WARMUP}"
+        --output nightly-load-test-results.json
+  artifacts:
+    when: always
+    expire_in: 90 days
+    paths:
+      - nightly-load-test-results.json
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $LOAD_TEST_SCHEDULE == "true"'
+    - when: manual
+      allow_failure: true
+
 # Runs on the gh-pages branch after docs-deploy pushes to it.
 # Copies the branch content to public/ for GitLab Pages to serve.
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
