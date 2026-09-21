@@ -1,6 +1,21 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from accounts.serializers import BoardUserSerializer
 from .models import Group, GroupLabel, GroupMembership, GroupInviteLink, GroupFavorite, _GROUP_TRAVERSAL_MAX_DEPTH
+
+# Schema for the root-first ancestor breadcrumb returned by
+# GroupDetailSerializer.get_ancestors (#1119) — a plain list-of-``{id, name}`` dict, not
+# the `string` drf-spectacular defaults an unhinted SerializerMethodField to.
+_ANCESTOR_LIST_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "id": {"type": "integer"},
+            "name": {"type": "string"},
+        },
+    },
+}
 
 
 class GroupLabelSerializer(serializers.ModelSerializer):
@@ -67,7 +82,12 @@ class GroupBriefSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
-    parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)
+    # allow_null=True: a root group has no parent, so `source="parent.name"` resolves to
+    # the field-level `default=None` — declaring the field non-nullable made every
+    # top-level group's response fail schema conformance (#1119).
+    parent_name = serializers.CharField(
+        source="parent.name", default=None, allow_null=True, read_only=True
+    )
     member_count = serializers.SerializerMethodField()
     board_count = serializers.SerializerMethodField()
     subgroup_count = serializers.SerializerMethodField()
@@ -84,24 +104,24 @@ class GroupSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["owner", "created_at", "shared_labels", "is_starred"]
 
-    def get_member_count(self, obj):
+    def get_member_count(self, obj) -> int:
         # Use annotation from GroupViewSet.get_queryset() when available to avoid
         # an extra COUNT query per group in list responses.
         if hasattr(obj, "_member_count"):
             return obj._member_count
         return obj.memberships.count()
 
-    def get_board_count(self, obj):
+    def get_board_count(self, obj) -> int:
         if hasattr(obj, "_board_count"):
             return obj._board_count
         return obj.boards.count()
 
-    def get_subgroup_count(self, obj):
+    def get_subgroup_count(self, obj) -> int:
         if hasattr(obj, "_subgroup_count"):
             return obj._subgroup_count
         return obj.subgroups.count()
 
-    def get_is_starred(self, obj):
+    def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):
             return obj._is_starred
         request = self.context.get("request")
@@ -159,6 +179,7 @@ class GroupDetailSerializer(GroupSerializer):
         fields = GroupSerializer.Meta.fields + ["ancestors"]
         read_only_fields = list(GroupSerializer.Meta.read_only_fields) + ["ancestors"]
 
+    @extend_schema_field(_ANCESTOR_LIST_SCHEMA)
     def get_ancestors(self, obj):
         # ancestors() returns [immediate_parent, grandparent, …, root].
         # Reverse so the breadcrumb renders root-first (left-to-right).
