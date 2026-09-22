@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import LensGrid from '../components/Board/Lens/LensGrid'
 import type { LensData } from '../types'
 
@@ -37,9 +37,69 @@ describe('LensGrid swimlane ordering', () => {
         onFocus={vi.fn()}
         onExitFocus={vi.fn()}
         compact={false}
+        sidebarWidth={200}
+        columnWidths={{}}
+        onResizeSidebar={vi.fn()}
+        onResizeColumn={vi.fn()}
       />,
     )
     const labels = screen.getAllByText(/^(v1\.0|v1\.2|v0\.9|\(no milestone\))$/)
     expect(labels.map((l) => l.textContent)).toEqual(['v1.2', 'v1.0', 'v0.9', '(no milestone)'])
+  })
+})
+
+describe('LensGrid resizing (#1065)', () => {
+  function renderGrid(overrides: Partial<React.ComponentProps<typeof LensGrid>> = {}) {
+    const onResizeSidebar = vi.fn()
+    const onResizeColumn = vi.fn()
+    render(
+      <LensGrid
+        data={data}
+        collapsedKeys={new Set()}
+        focusKey={null}
+        onToggleCollapse={vi.fn()}
+        onFocus={vi.fn()}
+        onExitFocus={vi.fn()}
+        compact={false}
+        sidebarWidth={200}
+        columnWidths={{}}
+        onResizeSidebar={onResizeSidebar}
+        onResizeColumn={onResizeColumn}
+        {...overrides}
+      />,
+    )
+    return { onResizeSidebar, onResizeColumn }
+  }
+
+  it('renders the corner cell and column header at their prop widths', () => {
+    renderGrid({ sidebarWidth: 240, columnWidths: { open: 350 } })
+    const corner = screen.getByText('1 col').closest('[style]') as HTMLElement
+    expect(corner.style.width).toBe('240px')
+    const header = screen.getByTitle('Open').closest('[style]') as HTMLElement
+    expect(header.style.width).toBe('350px')
+  })
+
+  it('a missing column key falls back to the default column width', () => {
+    renderGrid({ columnWidths: {} })
+    const header = screen.getByTitle('Open').closest('[style]') as HTMLElement
+    expect(header.style.width).toBe('280px')
+  })
+
+  it('dragging the sidebar handle calls onResizeSidebar with the dragged width', () => {
+    const { onResizeSidebar } = renderGrid({ sidebarWidth: 200 })
+    const handle = screen.getByRole('separator', { name: 'Resize swimlane label width' })
+    fireEvent.mouseDown(handle, { clientX: 0 })
+    fireEvent.mouseMove(window, { clientX: 40 })
+    expect(onResizeSidebar).toHaveBeenCalledWith(240)
+    fireEvent.mouseUp(window)
+  })
+
+  it('dragging a column handle calls onResizeColumn with that column key and the dragged width', () => {
+    const { onResizeColumn } = renderGrid({ columnWidths: { open: 280 } })
+    const handle = screen.getByRole('separator', { name: 'Resize Open column' })
+    fireEvent.mouseDown(handle, { clientX: 0 })
+    fireEvent.mouseMove(window, { clientX: -30 })
+    expect(onResizeColumn).toHaveBeenCalledWith('open', 250)
+    fireEvent.mouseUp(window)
   })
 })

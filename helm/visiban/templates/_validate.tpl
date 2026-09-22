@@ -19,11 +19,26 @@ manage the Secret in that case and cannot inspect its contents.
 {{- end }}
 {{- end }}
 
-{{- if eq .Values.backend.email.backend "smtp" }}
+{{- /*
+    Only fails when the operator has actually configured an SMTP host via the
+    chart. An empty host now means "I will configure email in Admin → Settings →
+    Email after install" (#306), which is a supported flow and must not be
+    blocked at render time — the old check keyed on backend.email.backend, which
+    defaulted to "smtp", so it refused every install that intended to use the
+    admin UI, and the escape hatch it suggested pinned EMAIL_BACKEND and
+    disabled that UI too.
+
+    A placeholder sender is still rejected: mail from example.com fails
+    SPF/DMARC and silently breaks account recovery.
+*/ -}}
 {{- $from := .Values.backend.email.fromAddress -}}
+{{- if .Values.backend.email.host }}
 {{- if or (eq $from "") (contains "example.com" $from) }}
-{{- fail "\n\nVisiban: backend.email.fromAddress is empty or still points at example.com.\nDjango will refuse to start when EMAIL_BACKEND is smtp without a real From: address.\n\nSet a real sender:\n    --set backend.email.fromAddress=noreply@yourdomain.com\n\nOr switch to the console backend (logs emails instead of sending):\n    --set backend.email.backend=console\n" -}}
+{{- fail "\n\nVisiban: backend.email.host is set but backend.email.fromAddress is empty or still points at example.com.\nVisiban refuses to send mail from a placeholder sender — it fails SPF/DMARC and silently breaks password resets.\n\nSet a real sender:\n    --set backend.email.fromAddress=noreply@yourdomain.com\n\nOr leave backend.email.host empty and configure email after install in Admin -> Settings -> Email.\n" -}}
 {{- end }}
+{{- end }}
+{{- if and .Values.backend.email.useTls .Values.backend.email.useSsl }}
+{{- fail "\n\nVisiban: backend.email.useTls and backend.email.useSsl cannot both be true.\nUse STARTTLS on port 587 (useTls), or implicit SSL on port 465 (useSsl).\n" -}}
 {{- end }}
 
 {{- if contains "visiban.example.com" .Values.backend.settings.allowedHosts }}

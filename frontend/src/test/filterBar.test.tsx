@@ -34,40 +34,197 @@ describe('FilterBar', () => {
     expect(screen.getByPlaceholderText('Search cards on this board…')).toBeInTheDocument()
   })
 
-  it('renders assignee dropdown button', () => {
+  it('does not render the built-in facet dropdowns at rest (#964)', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    expect(screen.getByText('Assignee')).toBeInTheDocument()
+    expect(screen.queryByText('Assignee')).not.toBeInTheDocument()
+    expect(screen.queryByText('Label')).not.toBeInTheDocument()
+    expect(screen.queryByText('Priority')).not.toBeInTheDocument()
+    expect(screen.queryByText('Due date')).not.toBeInTheDocument()
   })
 
-  it('clicking assignee dropdown shows options', async () => {
+  it('renders the "+ Filter" trigger', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    await userEvent.setup().click(screen.getByText('Assignee'))
+    expect(screen.getByText('+ Filter')).toBeInTheDocument()
+  })
+
+  it('"+ Filter" menu lists all four built-in facets', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    await userEvent.setup().click(screen.getByText('+ Filter'))
+    const menu = screen.getByRole('group', { name: '+ Filter' })
+    expect(menu).toHaveTextContent('Assignee')
+    expect(menu).toHaveTextContent('Label')
+    expect(menu).toHaveTextContent('Priority')
+    expect(menu).toHaveTextContent('Due date')
+  })
+
+  it('picking Assignee from "+ Filter" reveals the Assignee control in Row 1 (two-click flow)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    // The facet control is now revealed but its own menu is not auto-opened
+    const assigneeTrigger = screen.getByRole('button', { name: /^Assignee/ })
+    expect(assigneeTrigger).toBeInTheDocument()
+    expect(assigneeTrigger).toHaveAttribute('aria-expanded', 'false')
+    // Opening it shows its options
+    await user.click(assigneeTrigger)
     expect(screen.getByText('Unassigned')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
   })
 
-  it('clicking due date dropdown shows options', async () => {
+  it('picking Due date from "+ Filter" reveals the Due date control and its options open on click', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    await userEvent.setup().click(screen.getByText('Due date'))
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Due date' }))
+    await user.click(screen.getByRole('button', { name: /^Due date/ }))
     expect(screen.getByText('Overdue')).toBeInTheDocument()
     expect(screen.getByText('Today')).toBeInTheDocument()
     expect(screen.getByText('Due this week')).toBeInTheDocument()
     expect(screen.getByText('No due date')).toBeInTheDocument()
   })
 
-  it('renders label dropdown', () => {
+  it('picking Label and Priority from "+ Filter" reveals both controls', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    expect(screen.getByText('Label')).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Label' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Priority' }))
+    expect(screen.getByRole('button', { name: /^Label/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Priority/ })).toBeInTheDocument()
   })
 
-  it('renders priority dropdown', () => {
-    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    expect(screen.getByText('Priority')).toBeInTheDocument()
+  it('a facet with an active value shows a chip even when its control is collapsed', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} />)
+    // Control is collapsed (not in openFacetIds) — only the chip is visible
+    expect(screen.queryByRole('button', { name: /^Label/ })).not.toBeInTheDocument()
+    expect(screen.getByTitle('Bug')).toBeInTheDocument()
   })
 
-  it('renders due date select', () => {
+  it('"+ Filter" shows an active-count badge reflecting facets with a value, not open facets', () => {
+    const filters: FilterState = { ...EMPTY_FILTER, labelIds: [100], priorities: ['high'] }
+    render(<FilterBar board={makeBoard()} filters={filters} onChange={vi.fn()} />)
+    const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveTextContent('2')
+    expect(trigger).toHaveAttribute('aria-label', '+ Filter, 2 active')
+  })
+
+  it('"+ Filter" shows no badge when no built-in facet has a value', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    expect(screen.getByText('Due date')).toBeInTheDocument()
+    const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
+    expect(trigger).not.toHaveAttribute('aria-label')
+  })
+
+  it('closing a facet control (Escape) collapses it out of Row 1 and returns focus to "+ Filter"', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    const assigneeTrigger = screen.getByRole('button', { name: /^Assignee/ })
+    await user.click(assigneeTrigger)
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    // The control's own control has already collapsed the facet out of Row 1
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
+    // Focus falls back to "+ Filter" on the next tick
+    await vi.waitFor(() => {
+      expect(screen.getByText('+ Filter').closest('button')).toHaveFocus()
+    })
+  })
+
+  it('closing a facet control via outside click does NOT steal focus back to "+ Filter"', async () => {
+    render(
+      <div>
+        <button>Outside target</button>
+        <FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />
+      </div>
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    const assigneeTrigger = screen.getByRole('button', { name: /^Assignee/ })
+    await user.click(assigneeTrigger)
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    const outsideTarget = screen.getByText('Outside target')
+    await user.click(outsideTarget)
+    // The facet control has collapsed out of Row 1 (outside click closes it, same as before)...
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
+    // ...but focus stays where the user's click intentionally sent it, not on "+ Filter"
+    expect(outsideTarget).toHaveFocus()
+    // Give the deferred focus-recovery tick a chance to run and confirm it
+    // still didn't fire (regression guard for the Escape-only recovery path)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(outsideTarget).toHaveFocus()
+  })
+
+  it('closing a facet control by re-toggling its own trigger (not Escape, not outside click) collapses it out of Row 1 (#964)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    const assigneeTrigger = screen.getByRole('button', { name: /^Assignee/ })
+    await user.click(assigneeTrigger)
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    // Re-toggle: click the facet's own trigger a second time to close it (third close path)
+    await user.click(assigneeTrigger)
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
+  })
+
+  it('unchecking a facet in the "+ Filter" menu itself removes its control from Row 1, without ever opening the facet\'s own control (#964)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    expect(screen.getByRole('button', { name: /^Assignee/ })).toBeInTheDocument()
+    // Uncheck it again from the same "+ Filter" menu — the facet's own control is never opened
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
+  })
+
+  it('two revealed facets close independently via different paths, without cross-contaminating each other\'s close (#964)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Label' }))
+    // Both facets are now revealed ("open") in Row 1 simultaneously
+    expect(screen.getByRole('button', { name: /^Assignee/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Label/ })).toBeInTheDocument()
+
+    // Close Assignee via Escape (its own popup opened, then Escape-closed)
+    const assigneeTrigger = screen.getByRole('button', { name: /^Assignee/ })
+    await user.click(assigneeTrigger)
+    expect(screen.getByText('Unassigned')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('button', { name: /^Assignee/ })).not.toBeInTheDocument()
+    // Label is untouched by Assignee's close — still revealed in Row 1
+    const labelTrigger = screen.getByRole('button', { name: /^Label/ })
+    expect(labelTrigger).toBeInTheDocument()
+    // Focus returned to "+ Filter" after Assignee's Escape-close
+    await vi.waitFor(() => {
+      expect(screen.getByText('+ Filter').closest('button')).toHaveFocus()
+    })
+
+    // Label's own close (re-toggle, a different path) still works correctly
+    // afterward — Assignee's earlier close didn't leave stale state (e.g. a
+    // stuck escapeCloseRef) behind that would break Label's close.
+    await user.click(labelTrigger)
+    expect(screen.getByText('Bug')).toBeInTheDocument()
+    await user.click(labelTrigger)
+    expect(screen.queryByRole('button', { name: /^Label/ })).not.toBeInTheDocument()
+  })
+
+  it('"+ Filter" trigger text stays pinned to "+ Filter" with multiple facets open (#964 label-in-name fix)', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Assignee' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Label' }))
+    const trigger = screen.getByRole('button', { name: '+ Filter' })
+    expect(trigger).toHaveTextContent('+ Filter')
+    expect(trigger.textContent).not.toContain('Assignee')
+    expect(trigger.textContent).not.toContain('Label')
   })
 
   it('does not show clear all when no filters active', () => {
@@ -96,16 +253,22 @@ describe('FilterBar', () => {
     expect(onChange).toHaveBeenCalled()
   })
 
-  it('clicking label dropdown shows options', async () => {
+  it('clicking label dropdown shows options (after revealing it via "+ Filter")', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    await userEvent.setup().click(screen.getByText('Label'))
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Label' }))
+    await user.click(screen.getByRole('button', { name: /^Label/ }))
     expect(screen.getByText('Bug')).toBeInTheDocument()
     expect(screen.getByText('Feature')).toBeInTheDocument()
   })
 
-  it('clicking priority dropdown shows options', async () => {
+  it('clicking priority dropdown shows options (after revealing it via "+ Filter")', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    await userEvent.setup().click(screen.getByText('Priority'))
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: 'Priority' }))
+    await user.click(screen.getByRole('button', { name: /^Priority/ }))
     expect(screen.getByText('Low')).toBeInTheDocument()
     expect(screen.getByText('Medium')).toBeInTheDocument()
     expect(screen.getByText('High')).toBeInTheDocument()
@@ -201,39 +364,56 @@ describe('FilterBar — Clear all button styling', () => {
 })
 
 describe('FilterBar — dropdown ARIA attributes', () => {
-  it('SingleSelectDropdown trigger has aria-haspopup and aria-expanded', () => {
+  async function revealFacet(facetLabel: string) {
+    const user = userEvent.setup()
+    await user.click(screen.getByText('+ Filter'))
+    await user.click(screen.getByRole('checkbox', { name: facetLabel }))
+    return user
+  }
+
+  it('"+ Filter" trigger has aria-haspopup and aria-expanded', () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    // "Due date" is rendered as a SingleSelectDropdown
-    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
+    const trigger = screen.getByText('+ Filter').closest('button') as HTMLButtonElement
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('SingleSelectDropdown trigger (Due date) has aria-haspopup and aria-expanded once revealed', async () => {
+    render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
+    await revealFacet('Due date')
+    const trigger = screen.getByRole('button', { name: /^Due date/ }) as HTMLButtonElement
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('SingleSelectDropdown trigger aria-expanded becomes true when open', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
-    await userEvent.setup().click(trigger)
+    const user = await revealFacet('Due date')
+    const trigger = screen.getByRole('button', { name: /^Due date/ }) as HTMLButtonElement
+    await user.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 
-  it('CheckboxDropdown trigger has aria-haspopup and aria-expanded', () => {
+  it('CheckboxDropdown trigger (Assignee) has aria-haspopup and aria-expanded once revealed', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    // "Assignee" is rendered as a CheckboxDropdown
-    const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
+    await revealFacet('Assignee')
+    const trigger = screen.getByRole('button', { name: /^Assignee/ }) as HTMLButtonElement
     expect(trigger).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('CheckboxDropdown trigger aria-expanded becomes true when open', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    const trigger = screen.getByText('Assignee').closest('button') as HTMLButtonElement
-    await userEvent.setup().click(trigger)
+    const user = await revealFacet('Assignee')
+    const trigger = screen.getByRole('button', { name: /^Assignee/ }) as HTMLButtonElement
+    await user.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('keyboard navigation: ArrowDown from open SingleSelectDropdown moves focus to first menu item', async () => {
     render(<FilterBar board={makeBoard()} filters={EMPTY_FILTER} onChange={vi.fn()} />)
-    const trigger = screen.getByText('Due date').closest('button') as HTMLButtonElement
+    await revealFacet('Due date')
+    const trigger = screen.getByRole('button', { name: /^Due date/ }) as HTMLButtonElement
     trigger.focus()
     // Open the menu
     fireEvent.keyDown(trigger, { key: 'ArrowDown' })

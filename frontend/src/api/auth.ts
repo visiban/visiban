@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -94,6 +94,17 @@ export const getAdminSettings = () =>
 
 export const patchAdminSettings = (data: Partial<SiteSettings>) =>
   client.patch<SiteSettings>("/api/v1/admin/settings/", data).then((r) => r.data);
+
+// Email (SMTP) settings — deliberately separate endpoints rather than folded
+// into SiteSettings, so the existing 1.0 SiteSettings contract is untouched.
+export const getAdminEmailSettings = () =>
+  client.get<SiteEmailSettings>("/api/v1/admin/email-settings/").then((r) => r.data);
+
+export const patchAdminEmailSettings = (data: SiteEmailSettingsPatch) =>
+  client.patch<SiteEmailSettings>("/api/v1/admin/email-settings/", data).then((r) => r.data);
+
+export const sendAdminTestEmail = () =>
+  client.post<EmailTestResult>("/api/v1/admin/email-settings/test/", {}).then((r) => r.data);
 
 export const getAdminUsers = (params?: { search?: string; offset?: number }) =>
   client.get<{ count: number; offset: number; page_size: number; results: AdminUser[] }>(

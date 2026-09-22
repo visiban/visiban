@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import type { LensData, NormalizedIssue } from "../../../types";
 import LensColumnHeader from "./LensColumnHeader";
 import LensSwimlaneRow from "./LensSwimlaneRow";
+import LensResizeHandle from "./LensResizeHandle";
+import { DEFAULT_LENS_COL_WIDTH } from "./lensDims";
 
 interface Props {
   data: LensData;
@@ -11,10 +13,16 @@ interface Props {
   onFocus: (key: string) => void;
   onExitFocus: () => void;
   compact: boolean;
+  /** Width of the swimlane-label sidebar (#1065) — shared by the corner cell and every row's label panel. */
+  sidebarWidth: number;
+  /** Per-column-key widths (#1065); a key absent here renders at DEFAULT_LENS_COL_WIDTH. */
+  columnWidths: Record<string, number>;
+  /** Called continuously while the sidebar's resize handle is dragged. */
+  onResizeSidebar: (width: number) => void;
+  /** Called continuously while a column's resize handle is dragged. */
+  onResizeColumn: (columnKey: string, width: number) => void;
 }
 
-const SIDEBAR_WIDTH = 200;
-const COL_WIDTH = 280;
 // Synthetic "no value" keys arrive from the backend with friendly labels
 // already set. We only need the key to push these lanes to the end.
 const NONE_KEYS = new Set(["__none__", "__nostatus__"]);
@@ -32,6 +40,10 @@ export default function LensGrid({
   onFocus,
   onExitFocus,
   compact,
+  sidebarWidth,
+  columnWidths,
+  onResizeSidebar,
+  onResizeColumn,
 }: Props) {
   // Ordering: the current milestone leads, then the rest in backend order, then
   // synthetic "(none)" lanes last (so real milestones/assignees lead).
@@ -73,6 +85,17 @@ export default function LensGrid({
     return counts;
   }, [data.columns, data.issues]);
 
+  // Resolved per-column widths as a Map — mirrors the native board's
+  // `colWidths: Map<number, number>` shape (BoardView.tsx), keyed by the
+  // pivot-derived column string key instead of a numeric ID (#1065).
+  const colWidths = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const col of data.columns) {
+      map.set(col.key, columnWidths[col.key] ?? DEFAULT_LENS_COL_WIDTH);
+    }
+    return map;
+  }, [data.columns, columnWidths]);
+
   if (data.issues.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 text-fg-tertiary">
@@ -87,10 +110,12 @@ export default function LensGrid({
       <div className="min-w-max">
         {/* Header row — sticky to the top of the scroll container */}
         <div className="flex sticky top-0 z-20 border-b border-line bg-surface">
-          {/* Corner — sticky to the left; shows axis counts at a glance */}
+          {/* Corner — sticky to the left; shows axis counts at a glance. Also
+              carries the sidebar's resize handle (#1065) — its width drives
+              both this cell and every row's label panel below. */}
           <div
-            className="shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2"
-            style={{ width: SIDEBAR_WIDTH }}
+            className="relative shrink-0 bg-surface flex flex-col items-center justify-center gap-0.5 sticky left-0 z-30 px-2"
+            style={{ width: sidebarWidth }}
           >
             <span className="text-xs text-fg-muted font-medium tabular-nums">
               {data.columns.length} col{data.columns.length !== 1 ? "s" : ""}
@@ -101,13 +126,19 @@ export default function LensGrid({
             <span className="text-xs text-fg-faint tabular-nums">
               {data.issues.length} issue{data.issues.length !== 1 ? "s" : ""}
             </span>
+            <LensResizeHandle
+              currentWidth={sidebarWidth}
+              setWidth={onResizeSidebar}
+              ariaLabel="Resize swimlane label width"
+            />
           </div>
           {data.columns.map((col) => (
             <LensColumnHeader
               key={col.key}
               column={col}
               count={columnCounts.get(col.key) ?? 0}
-              width={COL_WIDTH}
+              width={colWidths.get(col.key) ?? DEFAULT_LENS_COL_WIDTH}
+              onResize={(w) => onResizeColumn(col.key, w)}
             />
           ))}
         </div>
@@ -118,8 +149,8 @@ export default function LensGrid({
             key={lane.key}
             swimlane={lane}
             columns={data.columns}
-            sidebarWidth={SIDEBAR_WIDTH}
-            colWidth={COL_WIDTH}
+            sidebarWidth={sidebarWidth}
+            colWidths={colWidths}
             issues={issuesByLane.get(lane.key) ?? []}
             collapsed={collapsedKeys.has(lane.key)}
             onToggleCollapse={() => onToggleCollapse(lane.key)}
