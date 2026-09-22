@@ -297,6 +297,8 @@ Click **Filters** in the toolbar (or press `f`) to open the filter bar below the
 | Priority | One or more of low / medium / high / urgent |
 | Due date | None set · Overdue · Due today · Due this week |
 
+> **Changed in 1.2** — Assignee, Labels, Priority, and Due date no longer sit in the filter bar as always-visible dropdowns. Click **+ Filter** to pick which one(s) you want to set; picking a filter reveals its own dropdown in the bar, which collapses again once you close it. Once a filter has a value, it shows as a removable chip (e.g. `backend ×`) below the filter bar — click the **×** on a chip to clear just that value. The **+ Filter** button shows a count badge for how many filters currently have a value.
+
 An active filter count badge appears on the Filters button when filters are in use. Click **Clear** to reset all filters at once.
 
 When all filters are active and no cards match, a **"No cards match"** banner appears across the board area so it is clear the board has cards but none satisfy the current criteria.

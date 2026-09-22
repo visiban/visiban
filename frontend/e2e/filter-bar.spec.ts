@@ -15,7 +15,11 @@ test.describe('filter bar', () => {
     // Filter row is hidden by default; pressing "f" toggles it.
     await page.keyboard.press('f')
 
-    // Open the "Label" CheckboxDropdown and pick the "bug" label.
+    // #964 — Label is collapsed behind "+ Filter" until picked; a two-click
+    // flow reveals its own control (pick facet, then open it), matching the
+    // pre-existing "+ Custom fields" pattern.
+    await page.getByRole('button', { name: '+ Filter' }).click()
+    await page.getByRole('checkbox', { name: 'Label' }).click()
     await page.getByRole('button', { name: /^Label/ }).click()
     await page.getByRole('checkbox', { name: LABEL_BUG.name }).click()
     // Click outside to close the dropdown and commit the selection.
@@ -31,6 +35,8 @@ test.describe('filter bar', () => {
     await expect(page.getByText(CARD.title).first()).toBeVisible({ timeout: 10_000 })
 
     await page.keyboard.press('f')
+    await page.getByRole('button', { name: '+ Filter' }).click()
+    await page.getByRole('checkbox', { name: 'Label' }).click()
     await page.getByRole('button', { name: /^Label/ }).click()
     await page.getByRole('checkbox', { name: LABEL_BUG.name }).click()
     await page.keyboard.press('Escape')
