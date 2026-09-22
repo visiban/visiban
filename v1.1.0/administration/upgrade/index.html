@@ -3814,6 +3814,11 @@ works for hand-rolled manifests — use it in place of bare <code>migrate</code>
 <a href="../maintenance-mode/">maintenance mode</a> feature. It is a plain <code>AddField</code> migration — no index,
 no constraint, no data backfill — and <code>maintenance_mode</code> defaults to <code>False</code>, so an existing
 install behaves exactly as before until an operator deliberately turns it on.</p>
+<p>Migration <code>boards/0059_add_swimlane_custom_fields</code> adds two new tables
+(<code>swimlane_custom_field_definitions</code>, <code>swimlane_custom_field_values</code>) for the new
+<a href="../../features/custom-fields/#swimlane-row-custom-fields">swimlane (row) custom fields</a>
+feature. Both operations are <code>CreateModel</code> — no existing table, index, or constraint is
+touched — so it is zero-downtime and requires no operator action.</p>
 <div class="admonition warning">
 <p class="admonition-title">Helm values are now schema-validated — an unknown key fails the upgrade</p>
 <p>Chart 0.4.0 ships <code>values.schema.json</code> with <code>additionalProperties: false</code> on

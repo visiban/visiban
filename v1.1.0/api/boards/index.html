@@ -2552,6 +2552,89 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#swimlane-custom-fields-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlane custom fields (since 1.2)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Swimlane custom fields (since 1.2)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidswimlane-custom-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/swimlane-custom-fields/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-apiv1boardsidswimlane-custom-fieldsfield_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-apiv1boardsidswimlane-custom-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/boards/{id}/swimlane-custom-fields/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-apiv1boardsidswimlane-custom-fieldsfield_id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DELETE /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#put-apiv1boardsidswimlane-custom-fieldsreorder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PUT /api/v1/boards/{id}/swimlane-custom-fields/reorder/
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#public-share-endpoint" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4231,6 +4314,7 @@
 <p>Delete board. Requires board owner or site admin.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
 <p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
+<p>Since 1.2, also includes <code>custom_field_definitions</code> (the board's card custom field schema) and <code>swimlane_custom_field_definitions</code> (the board's <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> schema) — both read-only lists, available to every board role. Definition schemas disclose nothing a board reader does not already have; which of a swimlane's <em>values</em> a given role may read is decided per-definition by <code>is_admin_only</code>, not by this field.</p>
 <p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing <code>id</code>, <code>name</code>, <code>parent</code> (parent group FK ID or <code>null</code>), <code>parent_name</code> (parent group display name or <code>null</code>), and <code>ancestors</code> (root-first <code>[{ id, name }]</code> chain). Without this parameter <code>group_detail</code> is <code>null</code>.</p>
 <h3 id="get-apiv1boardsidevents"><code>GET /api/v1/boards/{id}/events/</code><a class="headerlink" href="#get-apiv1boardsidevents" title="Permanent link">&para;</a></h3>
 <p>Board change feed — committed board mutations in ascending <code>id</code> order, so an out-of-process consumer can resume after a dropped WebSocket instead of re-fetching <code>/full/</code>. Added in 1.2.</p>
@@ -4864,6 +4948,15 @@
 defined on the board, in the fields' display order, headed <code>Custom: &lt;field name&gt;</code>. The
 fixed columns above keep their positions, so a consumer reading by index is unaffected.
 The prefix keeps a field named e.g. <code>Title</code> from colliding with a built-in header.</p>
+<p>Also since 1.2, one further column is appended per <a href="#swimlane-custom-fields-since-12">swimlane custom
+field</a> defined on the board, after the <code>Custom:</code> block,
+headed <code>Swimlane Custom: &lt;field name&gt;</code>. A row field's value is repeated on every card row
+belonging to that swimlane, so the CSV stays one row per card. The distinct <code>Swimlane
+Custom:</code> prefix (rather than reusing <code>Custom:</code>) is required, not cosmetic: a card field
+and a row field may legally share a <code>name</code> on the same board, and sharing the prefix would
+produce two identical headers. A field with <code>is_admin_only: true</code> produces no column at all
+for an exporter below <code>admin</code> — its existence is not disclosed, the same rule
+<code>contact_email</code>/<code>notes</code> already follow in this export.</p>
 <h3 id="get-apiv1boardsidexportformatjson"><code>GET /api/v1/boards/{id}/export/?format=json</code><a class="headerlink" href="#get-apiv1boardsidexportformatjson" title="Permanent link">&para;</a></h3>
 <p>Export the board as JSON. Returns <code>application/json</code>. Same permission rules as the CSV variant: requires board membership and meeting the <code>export_min_role</code> threshold. Owners and site admins always bypass.</p>
 <p><strong>Rate limit:</strong> 20 exports/hour per authenticated user (scope: <code>board_export</code>). Exceeding the limit returns <code>429 Too Many Requests</code>.</p>
@@ -4873,36 +4966,57 @@ The prefix keeps a field named e.g. <code>Title</code> from colliding with a bui
 <code>custom_field_values</code>, keyed by field name. Both are <strong>additive</strong>, so <code>schema_version</code>
 stays at <code>2</code> and an existing consumer is unaffected. Re-importing custom field data is not
 supported yet — the importer ignores both keys.</p>
+<p>Also since 1.2, each swimlane object carries its own <code>custom_field_values</code> (keyed by
+<a href="#swimlane-custom-fields-since-12">swimlane custom field</a> name), and a top-level
+<code>swimlane_custom_fields</code> array carries that schema — the row-level counterpart to
+<code>custom_fields</code>/<code>custom_field_values</code>, kept as separate keys rather than merged into the
+card ones because they are independent per-board sets attached to different objects.
+Both are additive and unimported, same as the card-level pair. A definition with
+<code>is_admin_only: true</code>, and any value under it, is omitted from the export entirely for a
+caller below <code>admin</code> — the same role gate this export already applies to a swimlane's
+<code>contact_email</code> and <code>notes</code>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"schema_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sales Pipeline"</span><span class="p">,</span>
 <a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">"columns"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#64748B"</span><span class="p">,</span><span class="w"> </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"weight_limit"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"allow_card_creation"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span><span class="w"> </span><span class="nt">"contact_email"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span><span class="w"> </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">"custom_fields"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Array Type"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"raid6"</span><span class="p">,</span><span class="w"> </span><span class="s2">"raid10"</span><span class="p">],</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"show_on_card"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_required"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"help_text"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="p">],</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="p">{</span>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
-<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Bug"</span><span class="p">],</span>
-<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
-<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="p">,</span>
-<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">      </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">      </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Array Type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raid10"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">      </span><span class="nt">"comments"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"body"</span><span class="p">:</span><span class="w"> </span><span class="s2">"On it."</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-02T09:00:00Z"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">      </span><span class="nt">"checklist"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
-<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="p">}</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">"swimlanes"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">      </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#3B82F6"</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">"contact_email"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">      </span><span class="nt">"notes"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Account Tier"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Enterprise"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">  </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Bug"</span><span class="p">,</span><span class="w"> </span><span class="nt">"color"</span><span class="p">:</span><span class="w"> </span><span class="s2">"#EF4444"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">  </span><span class="nt">"custom_fields"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Array Type"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"raid6"</span><span class="p">,</span><span class="w"> </span><span class="s2">"raid10"</span><span class="p">],</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"show_on_card"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_required"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"help_text"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">  </span><span class="nt">"swimlane_custom_fields"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Account Tier"</span><span class="p">,</span><span class="w"> </span><span class="nt">"field_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dropdown"</span><span class="p">,</span><span class="w"> </span><span class="nt">"choices"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Startup"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Growth"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Enterprise"</span><span class="p">],</span><span class="w"> </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"show_on_row"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_admin_only"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_required"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"help_text"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="w">  </span><span class="nt">"cards"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="w">    </span><span class="p">{</span>
+<a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Fix login bug"</span><span class="p">,</span>
+<a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a><span class="w">      </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="p">,</span>
+<a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="w">      </span><span class="nt">"column"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Backlog"</span><span class="p">,</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="w">      </span><span class="nt">"swimlane"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Acme Corp"</span><span class="p">,</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="w">      </span><span class="nt">"priority"</span><span class="p">:</span><span class="w"> </span><span class="s2">"high"</span><span class="p">,</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="w">      </span><span class="nt">"assignee"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a><span class="w">      </span><span class="nt">"labels"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Bug"</span><span class="p">],</span>
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="w">      </span><span class="nt">"due_date"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-01"</span><span class="p">,</span>
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="w">      </span><span class="nt">"weight"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="w">      </span><span class="nt">"position"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="w">      </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="w">      </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Array Type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raid10"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">      </span><span class="nt">"comments"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"body"</span><span class="p">:</span><span class="w"> </span><span class="s2">"On it."</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-02T09:00:00Z"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">      </span><span class="nt">"checklist"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="get-apiv1boardsidexport-history"><code>GET /api/v1/boards/{id}/export-history/</code><a class="headerlink" href="#get-apiv1boardsidexport-history" title="Permanent link">&para;</a></h3>
 <p>Return recent successful board exports for audit purposes (#842). Requires board <code>admin</code> or <code>site_admin</code> role — other roles (including board owners who are not also admins) receive <code>403 Forbidden</code> with body <code>{"detail": "Export history is restricted to board admins."}</code>. Failed exports (permission denied, rate limited) are not logged.</p>
@@ -5168,6 +5282,7 @@ supported yet — the importer ignores both keys.</p>
 <h2 id="swimlanes">Swimlanes<a class="headerlink" href="#swimlanes" title="Permanent link">&para;</a></h2>
 <p>Swimlane objects include a <code>uid</code> field — stable across renames, read-only.</p>
 <p><strong>Role-gated fields:</strong> <code>contact_email</code> and <code>notes</code> are only included in responses for <code>admin</code> and <code>site_admin</code> role members. <code>member</code>, <code>collaborator</code>, and <code>viewer</code> roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, <code>GET /api/v1/boards/{id}/full/</code>, and WebSocket broadcast events.</p>
+<p><strong><code>custom_field_values</code> visibility (since 1.2):</strong> unlike <code>contact_email</code>/<code>notes</code>, visibility of a row's custom field values is gated <strong>per definition</strong>, not per role. Every board role receives <code>custom_field_values</code>, but each entry is present only if its <a href="#swimlane-custom-fields-since-12">definition</a> has <code>is_admin_only: false</code> — the default is <code>true</code>. Board admins and site admins always see every value regardless of <code>is_admin_only</code>. A share-link visitor (<code>GET /api/share/{token}/</code>) never receives <code>custom_field_values</code> at all — see <a href="#public-share-endpoint">Public share endpoint</a>.</p>
 <h3 id="get-apiv1boardsidswimlanes"><code>GET /api/v1/boards/{id}/swimlanes/</code><a class="headerlink" href="#get-apiv1boardsidswimlanes" title="Permanent link">&para;</a></h3>
 <p>List all swimlanes on the board in position order. Available to all board members. <code>admin</code> and <code>site_admin</code> roles see <code>contact_email</code> and <code>notes</code>; all other roles receive swimlane objects without those fields.</p>
 <h3 id="get-apiv1boardsidswimlanesswimlane_id"><code>GET /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#get-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
@@ -5228,12 +5343,28 @@ supported yet — the importer ignores both keys.</p>
 <td>string</td>
 <td>Admin-only — internal notes (empty string if unset)</td>
 </tr>
+<tr>
+<td><code>custom_field_values</code></td>
+<td>array</td>
+<td>Since 1.2. <code>[{ "field_definition": &lt;id&gt;, "value": "&lt;string&gt;" }, ...]</code> — one entry per <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> definition that has a value <strong>and</strong> is visible to the requesting role (see the <code>custom_field_values</code> visibility note above). Values are always strings; numbers as written, dates as <code>YYYY-MM-DD</code>, checkboxes as <code>"true"</code>/<code>"false"</code>.</td>
+</tr>
 </tbody>
 </table>
 <p><code>contact_email</code> and <code>notes</code> are only returned to <code>admin</code> and <code>site_admin</code> role members (see role-gated fields note above).</p>
 <h3 id="put-apiv1boardsidswimlanesswimlane_id"><code>PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#put-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Update a swimlane. Requires board admin.</p>
-<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code></p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>color</code>, <code>is_collapsed</code>, <code>contact_email</code>, <code>notes</code>, <code>custom_field_values</code> (since 1.2)</p>
+<p><code>custom_field_values</code> writes are also accepted on <code>PATCH</code>. Send only the entries you want to change — a swimlane custom field not named in the list keeps its current value. Send <code>{"field_definition": &lt;id&gt;, "value": ""}</code> to clear (and delete) a value. At most one entry per <code>field_definition</code> per request; a <code>field_definition</code> id from another board is rejected with <code>400 Bad Request</code>. Since writes to this endpoint are already admin-only, an admin may write a value for an <code>is_admin_only</code> field — that is the expected case, not an escalation. There is no separate values endpoint; values are always written through this one.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code>PUT</code>/<code>PATCH</code> HTTP response always includes <code>contact_email</code>, <code>notes</code>, and every
+<code>custom_field_values</code> entry regardless of <code>is_admin_only</code> — the caller is the admin who
+just wrote it. The <code>swimlane.updated</code> WebSocket broadcast, however, is always built from
+the <strong>public</strong> swimlane shape, for every connected client — including the admin who made
+the change. <code>contact_email</code>, <code>notes</code>, and any <code>is_admin_only</code> value are absent from that
+frame for everyone; an admin sees the change on their next REST fetch, not in real time.
+See <a href="../websockets/#swimlane-field-events-since-12">WebSockets</a> for the full contract.</p>
+</div>
 <h3 id="delete-apiv1boardsidswimlanesswimlane_id"><code>DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/</code><a class="headerlink" href="#delete-apiv1boardsidswimlanesswimlane_id" title="Permanent link">&para;</a></h3>
 <p>Delete a swimlane. Requires board admin.</p>
 <h3 id="patch-apiv1boardsidswimlanesswimlane_idset-collapsed"><code>PATCH /api/v1/boards/{id}/swimlanes/{swimlane_id}/set-collapsed/</code><a class="headerlink" href="#patch-apiv1boardsidswimlanesswimlane_idset-collapsed" title="Permanent link">&para;</a></h3>
@@ -5418,6 +5549,141 @@ and swimlane reorder actions.</p>
 another board are ignored.</p>
 <p><strong>Response</strong> the full list in the new order.</p>
 <hr />
+<h2 id="swimlane-custom-fields-since-12">Swimlane custom fields (since 1.2)<a class="headerlink" href="#swimlane-custom-fields-since-12" title="Permanent link">&para;</a></h2>
+<p>Typed, per-board metadata fields that <strong>swimlane rows</strong> can carry — the row-level
+counterpart to <a href="#custom-fields-since-12">Custom fields</a> above. A swimlane represents an
+entity (an account, a customer, a project), and this is the typed alternative to stuffing
+everything into <code>notes</code> as unstructured prose. A board's definitions are also returned on
+<code>GET /api/v1/boards/{id}/full/</code> as <code>swimlane_custom_field_definitions</code>, so a client has the
+schema on board load. Row <strong>values</strong> are read and written through the
+<a href="#swimlanes">swimlane endpoints</a> as <code>custom_field_values</code>, not here — this section covers
+the schema only.</p>
+<p>Card custom fields and swimlane custom fields are independent per-board sets with
+independent name uniqueness: a card field and a row field may share the same <code>name</code> on the
+same board.</p>
+<p>Definition objects include a <code>uid</code> field — stable across renames, read-only.</p>
+<p><strong>Limits:</strong> at most <strong>15</strong> definitions per board, and at most <strong>3</strong> with <code>show_on_row:
+true</code>. These caps are deliberately different from the card-level field's 30/2 — see the
+model docstring for the reasoning; do not assume they track each other.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Read-only</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>integer</td>
+<td>yes</td>
+<td>Database primary key</td>
+</tr>
+<tr>
+<td><code>uid</code></td>
+<td>string</td>
+<td>yes</td>
+<td>Stable 16-character hex UID</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>no</td>
+<td>Field name; unique within the board's swimlane fields (a card field may reuse the same name)</td>
+</tr>
+<tr>
+<td><code>field_type</code></td>
+<td>string</td>
+<td>no</td>
+<td>One of <code>"text"</code>, <code>"number"</code>, <code>"date"</code>, <code>"dropdown"</code>, <code>"checkbox"</code>. Immutable once any swimlane holds a value for this definition — see <strong>Errors</strong> below.</td>
+</tr>
+<tr>
+<td><code>choices</code></td>
+<td>string[]</td>
+<td>no</td>
+<td>Permitted values; required and non-empty for <code>"dropdown"</code>, rejected for every other type</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td>integer</td>
+<td>yes</td>
+<td>Display order; set on create and changed only via <code>reorder/</code></td>
+</tr>
+<tr>
+<td><code>show_on_row</code></td>
+<td>boolean</td>
+<td>no</td>
+<td>Pin the value to the swimlane row header. Max 3 per board</td>
+</tr>
+<tr>
+<td><code>is_admin_only</code></td>
+<td>boolean</td>
+<td>no</td>
+<td>When <code>true</code> (the default), this field's <strong>values</strong> are served only to <code>admin</code> and <code>site_admin</code> role members and are omitted entirely from share-link payloads. Does not affect who can read the <em>definition</em> — see <a href="#swimlanes">Swimlanes</a> for the values visibility rule.</td>
+</tr>
+<tr>
+<td><code>is_required</code></td>
+<td>boolean</td>
+<td>no</td>
+<td>Declared but <strong>not enforced</strong> in this release</td>
+</tr>
+<tr>
+<td><code>help_text</code></td>
+<td>string</td>
+<td>no</td>
+<td>Hint shown next to the input</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>string</td>
+<td>yes</td>
+<td>ISO 8601 creation timestamp</td>
+</tr>
+</tbody>
+</table>
+<h3 id="get-apiv1boardsidswimlane-custom-fields"><code>GET /api/v1/boards/{id}/swimlane-custom-fields/</code><a class="headerlink" href="#get-apiv1boardsidswimlane-custom-fields" title="Permanent link">&para;</a></h3>
+<p>List the board's swimlane custom field definitions, in <code>position</code> order. Available to <strong>all
+board members, including viewers</strong> — a reader needs the schema to make sense of the values
+they can already see. This lists the schema regardless of <code>is_admin_only</code>; it is the
+<em>values</em> that are withheld from non-admins, not the field's existence. Paginated with the
+project-wide offset pagination.</p>
+<h3 id="get-apiv1boardsidswimlane-custom-fieldsfield_id"><code>GET /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#get-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
+<p>Get a single definition. Available to all board members. A definition <code>id</code> belonging to
+another board returns <code>404 Not Found</code>.</p>
+<h3 id="post-apiv1boardsidswimlane-custom-fields"><code>POST /api/v1/boards/{id}/swimlane-custom-fields/</code><a class="headerlink" href="#post-apiv1boardsidswimlane-custom-fields" title="Permanent link">&para;</a></h3>
+<p>Create a definition. Requires board admin.</p>
+<p><strong>Request</strong> <code>{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "show_on_row": true, "is_admin_only": true }</code></p>
+<p><code>position</code> is server-assigned (appended to the end) and ignored if supplied.</p>
+<p><strong>Errors:</strong>
+- <code>400 Bad Request</code> if the name is blank or already used on this board's swimlane fields, a
+  dropdown has no choices, a non-dropdown supplies choices, the board already has 15
+  swimlane field definitions, or a fourth field is pinned with <code>show_on_row</code>.</p>
+<h3 id="patch-apiv1boardsidswimlane-custom-fieldsfield_id"><code>PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#patch-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
+<p>Update a definition. Requires board admin.</p>
+<p><strong>Writable fields:</strong> <code>name</code>, <code>field_type</code>, <code>choices</code>, <code>show_on_row</code>, <code>is_admin_only</code>, <code>is_required</code>, <code>help_text</code></p>
+<p><strong>Errors:</strong>
+- <code>400 Bad Request</code> with a <code>field_type</code> key if the request changes <code>field_type</code> and at
+  least one swimlane already holds a value for this definition. A definition with zero
+  values stays freely editable. There is no <code>text</code> → <code>dropdown</code> (or other) conversion path —
+  clear the field's values first, or create a new definition.
+- <code>400 Bad Request</code> with a <code>name</code> key if the new name collides with another swimlane field
+  on this board.</p>
+<blockquote>
+<p>Removing a choice from a dropdown does <strong>not</strong> rewrite rows that already hold it: the
+stored value keeps reading back, but it can no longer be written again.</p>
+</blockquote>
+<h3 id="delete-apiv1boardsidswimlane-custom-fieldsfield_id"><code>DELETE /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/</code><a class="headerlink" href="#delete-apiv1boardsidswimlane-custom-fieldsfield_id" title="Permanent link">&para;</a></h3>
+<p>Delete a definition. Requires board admin. <strong>Every swimlane's value for that field is
+deleted with it.</strong></p>
+<h3 id="put-apiv1boardsidswimlane-custom-fieldsreorder"><code>PUT /api/v1/boards/{id}/swimlane-custom-fields/reorder/</code><a class="headerlink" href="#put-apiv1boardsidswimlane-custom-fieldsreorder" title="Permanent link">&para;</a></h3>
+<p>Reorder definitions. Requires board admin. <code>POST</code> is accepted as well, matching the column,
+swimlane, and card-custom-field reorder actions.</p>
+<p><strong>Request</strong> <code>{ "order": [5, 3, 4] }</code> — swimlane custom field IDs in the new order. IDs
+belonging to another board are silently ignored rather than reordered or exposed.</p>
+<p><strong>Response</strong> the full list in the new order.</p>
+<hr />
 <h2 id="public-share-endpoint">Public share endpoint<a class="headerlink" href="#public-share-endpoint" title="Permanent link">&para;</a></h2>
 <h3 id="get-apisharetoken"><code>GET /api/share/{token}/</code><a class="headerlink" href="#get-apisharetoken" title="Permanent link">&para;</a></h3>
 <p>Returns a read-only board payload identified by its UUID share token. No authentication is required.</p>
@@ -5498,7 +5764,7 @@ another board are ignored.</p>
 <tr>
 <td><code>swimlanes</code></td>
 <td>array</td>
-<td>Swimlane objects; <code>contact_email</code> and <code>notes</code> are never included</td>
+<td>Swimlane objects; <code>contact_email</code>, <code>notes</code>, and <code>custom_field_values</code> (since 1.2) are never included — a structural omission, not an <code>is_admin_only</code> filter, since the visitor is unauthenticated</td>
 </tr>
 <tr>
 <td><code>cards</code></td>

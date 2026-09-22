@@ -2167,6 +2167,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#swimlane-field-events-since-12" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlane field events (since 1.2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#card-events" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3833,6 +3844,54 @@ payload carries the card's <code>custom_field_values</code>.</p>
 </tr>
 </tbody>
 </table>
+<h3 id="swimlane-field-events-since-12">Swimlane field events (since 1.2)<a class="headerlink" href="#swimlane-field-events-since-12" title="Permanent link">&para;</a></h3>
+<p>Schema changes only, and a separate set from the card-level events above — swimlane
+(row) fields are an independent per-board schema. A change to a swimlane's <strong>values</strong>
+arrives as <code>swimlane.updated</code>, whose payload carries the swimlane's
+<code>custom_field_values</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Trigger</th>
+<th><code>data</code> shape</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>swimlane_custom_field.created</code></td>
+<td>New swimlane field definition created</td>
+<td>Full <code>SwimlaneCustomFieldDefinitionSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>swimlane_custom_field.updated</code></td>
+<td>Definition renamed, retyped, or its choices/pinning/visibility changed</td>
+<td>Full <code>SwimlaneCustomFieldDefinitionSerializer</code> object</td>
+</tr>
+<tr>
+<td><code>swimlane_custom_field.deleted</code></td>
+<td>Definition deleted (and every swimlane value with it)</td>
+<td><code>{ "swimlane_custom_field_uid": &lt;string&gt; }</code></td>
+</tr>
+<tr>
+<td><code>swimlane_custom_field.reordered</code></td>
+<td>Definition order changed</td>
+<td><code>{ "swimlane_custom_fields": [&lt;SwimlaneCustomFieldDefinitionSerializer&gt;, ...] }</code> — all definitions in new order</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Admin-only values never travel over the board channel</p>
+<p>A board's WebSocket group holds every role at once, so every <code>swimlane.updated</code>
+payload is built from the <strong>public</strong> swimlane serializer. A field defined with
+<code>is_admin_only</code> (the default) is therefore absent from that payload for everyone,
+admins included — an admin sees the new value on their next REST fetch, not in
+real time. This is the same behavior <code>contact_email</code> and <code>notes</code> have always had,
+for the same reason.</p>
+<p>A client that keeps swimlane state locally must therefore <strong>merge</strong> this payload
+rather than replace with it, or an admin's own copy of the row loses its
+admin-only values on any unrelated edit.</p>
+</div>
 <h3 id="card-events">Card events<a class="headerlink" href="#card-events" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

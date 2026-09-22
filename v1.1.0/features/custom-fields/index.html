@@ -1074,15 +1074,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#managing-fields-board-settings-fields" class="md-nav__link">
+  <a href="#managing-card-fields-board-settings-card-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Managing fields (Board Settings → Fields)
+        Managing card fields (Board Settings → Card fields)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Managing fields (Board Settings → Fields)">
+    <nav class="md-nav" aria-label="Managing card fields (Board Settings → Card fields)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1203,6 +1203,56 @@
       
     </span>
   </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#swimlane-row-custom-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Swimlane (row) custom fields
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Swimlane (row) custom fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#managing-swimlane-fields-board-settings-swimlane-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Managing swimlane fields (Board Settings → Swimlane fields)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinned-fields-in-the-swimlane-label-panel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinned fields in the swimlane label panel
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-values-edit-swimlane-modal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing values (Edit Swimlane modal)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3440,6 +3490,7 @@
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>Board admins can define typed metadata fields scoped to a single board — where a label is an untyped tag, a custom field is a named key with a type. Use custom fields to track information specific to your workflow that doesn't fit the built-in card fields: sprint, budget, region, array type, anything.</p>
+<p>Custom fields come in two independent flavors, scoped to different objects on the board: <strong>card fields</strong>, described on the rest of this page, and <strong>swimlane fields</strong>, described in <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a> below. The two are separate per-board schemas — a board may define a card field and a swimlane field with the same name, and they are never merged or compared.</p>
 <p>Five field types are available:</p>
 <table>
 <thead>
@@ -3483,10 +3534,14 @@
 </tr>
 </tbody>
 </table>
-<p>A board can have up to <strong>30 custom fields</strong>, and up to <strong>2 of them pinned</strong> to the card face at once.</p>
+<p>A board can have up to <strong>30 card fields</strong>, and up to <strong>2 of them pinned</strong> to the card face at once. (Swimlane fields have their own, smaller caps — see <a href="#swimlane-row-custom-fields">Swimlane (row) custom fields</a>.)</p>
 <hr />
-<h2 id="managing-fields-board-settings-fields">Managing fields (Board Settings → Fields)<a class="headerlink" href="#managing-fields-board-settings-fields" title="Permanent link">&para;</a></h2>
-<p>Open <strong>Board Settings</strong> and select the <strong>Fields</strong> tab (alongside Members, Display, Rules, and Sharing). Only board admins can create, edit, reorder, pin, or delete fields.</p>
+<h2 id="managing-card-fields-board-settings-card-fields">Managing card fields (Board Settings → Card fields)<a class="headerlink" href="#managing-card-fields-board-settings-card-fields" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Tab renamed in 1.2</p>
+<p>This tab was named <strong>Fields</strong> before 1.2. It was renamed to <strong>Card fields</strong> when <a href="#swimlane-row-custom-fields">swimlane fields</a> shipped, so the two tabs read unambiguously side by side.</p>
+</div>
+<p>Open <strong>Board Settings</strong> and select the <strong>Card fields</strong> tab (alongside Members, Display, Rules, Sharing, and, since 1.2, Swimlane fields). Only board admins can create, edit, reorder, pin, or delete fields.</p>
 <p>The tab lists every field defined on the board in display order, showing the type glyph, name, type label, and pin state. Hover a row to reveal <strong>✎ Edit</strong> and <strong>✕ Delete</strong>. Drag the <code>⋮⋮</code> handle to reorder fields — the order here is the order fields appear in the card detail panel and, for pinned fields, on the card face.</p>
 <h3 id="adding-or-editing-a-field">Adding or editing a field<a class="headerlink" href="#adding-or-editing-a-field" title="Permanent link">&para;</a></h3>
 <p>Click <strong>+ Add field</strong>, or <strong>✎</strong> on an existing field, to open the inline editor:</p>
@@ -3579,12 +3634,35 @@
 </div>
 <p>Which extra field controls you've added via <strong>+ Custom fields</strong>, and the values you've set in them, persist per-board in your browser alongside the rest of the filter bar state.</p>
 <hr />
+<h2 id="swimlane-row-custom-fields">Swimlane (row) custom fields<a class="headerlink" href="#swimlane-row-custom-fields" title="Permanent link">&para;</a></h2>
+<p>Board admins can also define typed fields on <strong>swimlanes</strong> (rows) instead of cards — a separate per-board schema from the card fields above. Use a swimlane field to capture something that belongs to the row as a whole rather than to any one card on it: an owner, a region, a renewal date. Swimlane fields use the same five types as card fields — Text, Number, Date, Dropdown, and Checkbox.</p>
+<p>A board can have up to <strong>15 swimlane fields</strong>, and up to <strong>3 of them pinned</strong> to the swimlane label panel at once.</p>
+<h3 id="managing-swimlane-fields-board-settings-swimlane-fields">Managing swimlane fields (Board Settings → Swimlane fields)<a class="headerlink" href="#managing-swimlane-fields-board-settings-swimlane-fields" title="Permanent link">&para;</a></h3>
+<p>Open <strong>Board Settings</strong> and select the <strong>Swimlane fields</strong> tab, beside <strong>Card fields</strong>. Only board admins can create, edit, reorder, pin, or delete swimlane fields.</p>
+<p>The tab lists every swimlane field in display order, with the same type glyph, name, type label, and pin state that the Card fields tab uses. The tab header shows a running count, e.g. <code>12 of 15 · 2 of 3 pinned</code>. At <strong>13–14 fields</strong>, a warning line shows how many fields are left before <strong>+ Add field</strong> locks out; at <strong>15 fields</strong>, <strong>+ Add field</strong> is disabled with an inline explanation.</p>
+<p>The field editor is the same shape as the card field editor — name, type, help text, choices for dropdowns, and a pin toggle — plus one addition:</p>
+<ul>
+<li><strong>Admin only</strong> — toggle, <strong>on by default</strong> for a new field. An admin-only field's values are withheld from every non-admin role entirely: members and viewers never receive the value over the API or the WebSocket, so there is nothing hidden client-side for them to discover. A padlock glyph marks an admin-only field in the settings list, on its chip in the swimlane label panel, and next to its input in the Edit Swimlane modal.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Field type is locked once a swimlane holds a value</p>
+<p>Unlike a card field, a swimlane field's <strong>type cannot be changed once any swimlane on the board holds a value for it</strong> — this is enforced by the API, not just a client-side caution. The field editor disables the other type buttons and explains why. Delete the field and add it again under a new type if you need to change it.</p>
+</div>
+<h3 id="pinned-fields-in-the-swimlane-label-panel">Pinned fields in the swimlane label panel<a class="headerlink" href="#pinned-fields-in-the-swimlane-label-panel" title="Permanent link">&para;</a></h3>
+<p>Up to 3 pinned swimlane fields render as chips in the swimlane's label panel — the sticky left column, alongside the swimlane's name — stacked below the row name. They're hidden while the swimlane is collapsed, the same way the rest of the label panel's detail is. If the swimlane has further, unpinned field values set, a trailing <code>+N</code> chip opens a read-only popover listing every value the current viewer may see.</p>
+<h3 id="editing-values-edit-swimlane-modal">Editing values (Edit Swimlane modal)<a class="headerlink" href="#editing-values-edit-swimlane-modal" title="Permanent link">&para;</a></h3>
+<p>Swimlane field values are set in the <strong>Edit Swimlane modal</strong>, which gains a <strong>Fields</strong> section listing every field defined on the board (the section doesn't appear if the board has none). Editing a swimlane is already admin-only, so <strong>only board admins can set swimlane field values at all</strong>, regardless of a field's Admin only toggle — the toggle controls who can <em>read</em> a value, not who can <em>write</em> it. Edits are held in the modal and saved together with the rest of the swimlane when you click <strong>Save</strong>; they do not autosave field-by-field the way card fields do in the card detail panel.</p>
+<hr />
 <h2 id="api-and-real-time-events">API and real-time events<a class="headerlink" href="#api-and-real-time-events" title="Permanent link">&para;</a></h2>
 <p>This page covers the UI. For the wire format:</p>
 <ul>
 <li>Field definition CRUD and reordering — <a href="../../api/boards/#custom-fields-since-12"><code>/api/v1/boards/{id}/custom-fields/</code></a></li>
 <li>Card values — the <code>custom_field_values</code> field on the card payload — <a href="../../api/cards/">Cards API</a></li>
 <li>Real-time updates — <code>custom_field.created</code>, <code>custom_field.updated</code>, <code>custom_field.deleted</code>, and <code>custom_field.reordered</code> WebSocket events — <a href="../../api/websockets/">WebSockets</a></li>
+<li>Swimlane field definition CRUD and reordering — <a href="../../api/boards/#swimlane-custom-fields-since-12"><code>/api/v1/boards/{id}/swimlane-custom-fields/</code></a></li>
+<li>Swimlane values — the <code>custom_field_values</code> field on the swimlane payload — <a href="../../api/boards/#swimlanes">Boards API</a></li>
+<li>Swimlane real-time updates — schema changes arrive as <code>swimlane_custom_field.created</code>, <code>swimlane_custom_field.updated</code>, <code>swimlane_custom_field.deleted</code>, and <code>swimlane_custom_field.reordered</code>; value changes arrive on the existing <code>swimlane.updated</code> event — <a href="../../api/websockets/#swimlane-field-events-since-12">WebSockets</a></li>
+<li>Board export (CSV and JSON) includes swimlane field values alongside card field values, with admin-only fields omitted entirely for a non-admin exporter — <a href="../../api/boards/#export-import">Export &amp; Import</a></li>
 </ul>
 <hr />
 <h2 id="limitations-in-this-release">Limitations in this release<a class="headerlink" href="#limitations-in-this-release" title="Permanent link">&para;</a></h2>
@@ -3611,6 +3689,14 @@
 <tr>
 <td>Type changes aren't guarded server-side</td>
 <td>The inline warning in the field editor is a client-side caution, not a backend safeguard; the API does not validate a retyped field's existing values</td>
+</tr>
+<tr>
+<td>Swimlane fields aren't filterable</td>
+<td>The board's filter bar only offers controls for card fields; swimlane field values cannot be used as filter criteria in this release</td>
+</tr>
+<tr>
+<td><code>is_required</code> not enforced (swimlane fields)</td>
+<td>Same gap as the card-level entry above — a swimlane field marked required can still be left blank in the Edit Swimlane modal</td>
 </tr>
 </tbody>
 </table>

@@ -3912,13 +3912,23 @@
 </tr>
 <tr>
 <td><code>CUSTOM_FIELD_VALIDATORS</code> list (<code>boards/hooks.py</code>)</td>
-<td>Enterprise per-type custom field validators (#371)</td>
+<td>Enterprise per-type custom field validators, <strong>card</strong> values (#371)</td>
 <td>✅ Implemented — <code>boards/hooks.py</code>, applied at the serializer boundary</td>
 </tr>
 <tr>
+<td><code>SWIMLANE_CUSTOM_FIELD_VALIDATORS</code> list (<code>boards/hooks.py</code>)</td>
+<td>Enterprise per-type custom field validators, <strong>swimlane row</strong> values (#1140)</td>
+<td>✅ Implemented — <code>boards/hooks.py</code>, applied at the serializer boundary. A separate list from the card one, not a widening of it: a validator registered against the card signature may read card-only attributes, so feeding it a swimlane definition could raise. A validator that is generic across both levels registers in both lists.</td>
+</tr>
+<tr>
 <td><code>custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
-<td>Enterprise custom field change audit trail (#371)</td>
+<td>Enterprise custom field change audit trail, <strong>card</strong> values (#371)</td>
 <td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code></td>
+</tr>
+<tr>
+<td><code>swimlane_custom_field_value_changed</code> signal (<code>boards/signals.py</code>)</td>
+<td>Enterprise custom field change audit trail, <strong>swimlane row</strong> values (#1140)</td>
+<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending <code>card=None</code> to receivers that guarantee a card.</td>
 </tr>
 <tr>
 <td><code>post_notification_created</code> signal</td>
