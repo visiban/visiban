@@ -6,6 +6,7 @@ from .views import (
 )
 from .admin_views import (
     AdminActionLogView, AdminSettingsView, AdminUsersView, AdminUserDetailView,
+    AdminEmailSettingsView, AdminEmailTestView,
     AdminInviteLinkListCreateView, AdminInviteLinkRevokeView,
     AdminUserDeactivateView,
 )
@@ -22,6 +23,8 @@ urlpatterns = [
     path("users/", UserSearchView.as_view()),
     # Admin API — all gated by IsSiteAdmin
     path("admin/settings/", AdminSettingsView.as_view()),
+    path("admin/email-settings/", AdminEmailSettingsView.as_view()),
+    path("admin/email-settings/test/", AdminEmailTestView.as_view()),
     path("admin/action-log/", AdminActionLogView.as_view()),
     path("admin/users/", AdminUsersView.as_view()),
     path("admin/users/<int:pk>/", AdminUserDetailView.as_view()),

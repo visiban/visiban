@@ -736,6 +736,18 @@ class AdminMustChangePwdBlocksTests(TestCase):
         r = self.client.get("/api/v1/admin/action-log/")
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_get_email_settings_blocked(self):
+        r = self.client.get("/api/v1/admin/email-settings/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_email_settings_blocked(self):
+        r = self.client.patch("/api/v1/admin/email-settings/", {})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_send_test_email_blocked(self):
+        r = self.client.post("/api/v1/admin/email-settings/test/", {})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
 
 class AdminMustChangeUsernameBlocksTests(TestCase):
     """The must_change_username counterpart of the class above.
@@ -757,6 +769,18 @@ class AdminMustChangeUsernameBlocksTests(TestCase):
 
     def test_get_action_log_blocked(self):
         r = self.client.get("/api/v1/admin/action-log/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_get_email_settings_blocked(self):
+        r = self.client.get("/api/v1/admin/email-settings/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_email_settings_blocked(self):
+        r = self.client.patch("/api/v1/admin/email-settings/", {})
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_send_test_email_blocked(self):
+        r = self.client.post("/api/v1/admin/email-settings/test/", {})
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_settings_blocked(self):

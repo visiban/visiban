@@ -13,6 +13,7 @@ import {
   revokeAdminInviteLink,
 } from "../api/auth";
 import Avatar from "../components/Common/Avatar";
+import EmailSettingsSection from "../components/Admin/EmailSettingsSection";
 import Navbar from "../components/Layout/Navbar";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import { Toggle } from "../components/Common/Toggle";
@@ -632,7 +633,7 @@ const MAINTENANCE_MESSAGE_MAX = 1000;
 // 90% of the cap, matching the 500/450 precedent in CreateGroupModal.
 const MAINTENANCE_MESSAGE_WARN = 900;
 
-function SettingsTab() {
+function SettingsTab({ currentUser }: { currentUser: User }) {
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -840,6 +841,8 @@ function SettingsTab() {
           />
         </div>
       </div>
+
+      <EmailSettingsSection currentUser={currentUser} />
 
       <div>
         <p className="text-sm font-medium text-fg-tertiary uppercase tracking-wide mb-3">
@@ -1346,7 +1349,7 @@ export default function AdminPage({ user, onLogout, onUserUpdated }: Props) {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            {activeTab === "settings" && <SettingsTab />}
+            {activeTab === "settings" && <SettingsTab currentUser={user} />}
             {activeTab === "users" && <UsersTab currentUser={user} />}
             {activeTab === "invite_links" && <InviteLinksTab />}
           </div>

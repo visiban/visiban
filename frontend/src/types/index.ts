@@ -572,6 +572,68 @@ export interface SiteSettings {
   maintenance_message: string;
 }
 
+/** Which source configures outbound mail. Never a field-level merge of the two. */
+export type EmailConfigSource = "env" | "database";
+
+/**
+ * What is actually sending mail right now. `env_backend_override` means the
+ * operator pinned EMAIL_BACKEND, so both the stored row and the EMAIL_* vars
+ * are bypassed and the form is informational only.
+ */
+export type EffectiveEmailSource = EmailConfigSource | "env_backend_override";
+
+/** Failure taxonomy from POST /admin/email-settings/test/. Treat unknown values as "unknown". */
+export type EmailTestErrorCode =
+  | "dns_failure"
+  | "connection_refused"
+  | "tls_failure"
+  | "auth_failed"
+  | "timeout"
+  | "config_unusable"
+  | "no_recipient"
+  | "backend_pinned"
+  | "unknown";
+
+export interface SiteEmailSettings {
+  config_source: EmailConfigSource;
+  host: string;
+  port: number;
+  username: string;
+  use_tls: boolean;
+  use_ssl: boolean;
+  from_email: string;
+  timeout: number;
+  /** Whether a password is stored. The password itself is never returned. */
+  password_set: boolean;
+  /** False means the instance encryption key changed; the password must be re-entered. */
+  password_decryptable: boolean;
+  effective_source: EffectiveEmailSource;
+  effective_host: string;
+  effective_port: number;
+  effective_from_email: string;
+  effective_use_tls: boolean;
+}
+
+/**
+ * PATCH payload. `password` is write-only, and absent vs empty are distinct:
+ * omitting it keeps the stored password, sending "" clears it.
+ */
+export type SiteEmailSettingsPatch = Partial<
+  Pick<
+    SiteEmailSettings,
+    | "config_source" | "host" | "port" | "username"
+    | "use_tls" | "use_ssl" | "from_email" | "timeout"
+  >
+> & { password?: string };
+
+export interface EmailTestResult {
+  success: boolean;
+  code: EmailTestErrorCode | null;
+  /** Present only for config_unusable / no_recipient; never a raw SMTP error. */
+  detail?: string | null;
+  sent_to?: string;
+}
+
 export interface OwnedBoardSummary {
   id: number;
   uid: string;
