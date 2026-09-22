@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/serializer-ts-parity/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/getting-started/why-visiban/">
       
       
-        <link rel="prev" href="../ci-gates/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../suppressions/">
+        <link rel="next" href="../installation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Serializer ↔ TypeScript Parity - Visiban</title>
+        <title>Why Visiban - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#serializer-typescript-parity" class="md-skip">
+        <a href="#why-visiban" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Serializer ↔ TypeScript Parity
+              Why Visiban
             
           </span>
         </div>
@@ -244,11 +244,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../getting-started/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -310,12 +312,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -471,6 +471,8 @@
       
   
   
+    
+  
   
   
     
@@ -500,20 +502,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../getting-started/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -531,13 +536,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -554,10 +559,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../getting-started/why-visiban/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Why Visiban
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -573,6 +605,236 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-one-sentence-answer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The one-sentence answer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-actually-makes-it-different" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What actually makes it different
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What actually makes it different">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-rows-are-entities-and-rows-carry-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Rows are entities, and rows carry data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-movement-history-is-not-an-activity-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Movement history is not an activity log
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-bring-your-own-agent-nothing-leaves-your-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Bring your own agent — nothing leaves your install
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-sso-is-in-the-open-source-core-free" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. SSO is in the open-source core, free
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-compares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it compares
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How it compares">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vs-trello" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Trello
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-linear" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Linear
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-gitlab-github-issue-boards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. GitLab / GitHub issue boards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-monday-clickup-asana" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Monday / ClickUp / Asana
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-notion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Notion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-vikunja-plane" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Vikunja / Plane
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-planka" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. Planka
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-wekan-kanboard-focalboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. WeKan / Kanboard / Focalboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vs-a-real-crm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        vs. a real CRM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#who-visiban-is-not-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who Visiban is not for
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -585,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/installation/" class="md-nav__link">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -613,7 +875,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/kubernetes/" class="md-nav__link">
+      <a href="../kubernetes/" class="md-nav__link">
         
   
   
@@ -641,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/first-boot/" class="md-nav__link">
+      <a href="../first-boot/" class="md-nav__link">
         
   
   
@@ -669,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/oauth/" class="md-nav__link">
+      <a href="../oauth/" class="md-nav__link">
         
   
   
@@ -697,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/board-setup/" class="md-nav__link">
+      <a href="../board-setup/" class="md-nav__link">
         
   
   
@@ -725,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/sample-boards/" class="md-nav__link">
+      <a href="../sample-boards/" class="md-nav__link">
         
   
   
@@ -753,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
+      <a href="../onboarding-tour/" class="md-nav__link">
         
   
   
@@ -2090,8 +2352,6 @@
       
   
   
-    
-  
   
   
     
@@ -2135,19 +2395,16 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2169,13 +2426,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2419,7 +2676,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testing/" class="md-nav__link">
+      <a href="../../development/testing/" class="md-nav__link">
         
   
   
@@ -2447,7 +2704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../database-migrations/" class="md-nav__link">
+      <a href="../../development/database-migrations/" class="md-nav__link">
         
   
   
@@ -2475,7 +2732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ci-gates/" class="md-nav__link">
+      <a href="../../development/ci-gates/" class="md-nav__link">
         
   
   
@@ -2500,37 +2757,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Serializer ↔ TypeScript Parity
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2546,103 +2776,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-gate-exists" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this gate exists
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it checks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-it-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running it locally
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#when-the-gate-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When the gate fails
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#suppressions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suppressions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#self-test" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Self-test
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-out-of-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What is out of scope
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2655,7 +2788,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../suppressions/" class="md-nav__link">
+      <a href="../../development/suppressions/" class="md-nav__link">
         
   
   
@@ -2683,7 +2816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../websocket-event-contract/" class="md-nav__link">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2711,7 +2844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../nightly-load-test/" class="md-nav__link">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
         
   
   
@@ -3354,250 +3487,147 @@
   
 
 
-<h1 id="serializer-typescript-parity">Serializer ↔ TypeScript parity<a class="headerlink" href="#serializer-typescript-parity" title="Permanent link">&para;</a></h1>
-<p><code>CLAUDE.md</code> states the rule plainly:</p>
+<h1 id="why-visiban">Why Visiban<a class="headerlink" href="#why-visiban" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><code>Board</code>, <code>Card</code>, <code>User</code>, and related interfaces must match the backend serializer fields exactly — when a new serializer field is added, update the corresponding TypeScript interface in the same MR.</p>
+<p><strong>Reflects 1.2</strong></p>
 </blockquote>
-<p>Two checks enforce it, and they cover different things. <strong>Read this section before assuming
-either one covers your change.</strong></p>
-<table>
-<thead>
-<tr>
-<th>Check</th>
-<th>Source of truth</th>
-<th>Covers</th>
-<th>Checks</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>backend/boards/tests/test_ts_serializer_drift.py</code> (#821, since 1.1)</td>
-<td>The serializer classes (<code>instance.fields</code>)</td>
-<td><strong>14</strong> pairs, incl. <code>BoardFull</code>, <code>Column</code>, <code>Swimlane</code>, <code>Label</code>, <code>CardMovement</code>, <code>CardComment</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
-<td>Field <strong>names</strong>, both directions</td>
-</tr>
-<tr>
-<td><code>serializer-ts-parity</code> CI job (#1079, this page)</td>
-<td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>5</strong> pairs — <code>Board</code>, <code>Card</code>, <code>User</code>, <code>BoardMembership</code>, <code>BoardUser</code></td>
-<td>Names, <strong>types</strong>, nullability, enum membership</td>
-</tr>
-</tbody>
-</table>
-<p>The older test covers more pairs; this gate covers more <em>per pair</em>. Neither supersedes the
-other, and a green run of one says nothing about the other.</p>
-<p>The distinction that matters: #821 asks "does the serializer emit this field?" — this gate
-asks "does the document we publish describe it correctly?" A field can pass the first and fail
-the second, and in practice several do. Eight fields on <code>Board</code> and <code>CurrentUser</code> were
-published as <code>string</code> while returning ints, bools and nested objects (#1135); <code>BoardFull.members</code>
-sends rows the <code>BoardMembership</code> component forbids (#1137); two nullable fields are declared
-non-nullable (#1138). Every one of those passes #821's name check, because the serializer
-really does emit the field — it is the <em>published type</em> that is wrong, and the published type
-is what an external consumer generates a client from.</p>
-<h2 id="why-this-gate-exists">Why this gate exists<a class="headerlink" href="#why-this-gate-exists" title="Permanent link">&para;</a></h2>
-<p>The frontend's view of the API lives in <code>frontend/src/types/index.ts</code> as hand-written
-interfaces. The backend's lives in DRF serializers, and what the outside world sees lives in
-the generated OpenAPI document. All three are internally consistent, and until this gate
-nothing compared the third against the first. Drift was silent in both directions:</p>
-<table>
-<thead>
-<tr>
-<th>Drift</th>
-<th>What you see</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Serializer gains a field, TypeScript does not</td>
-<td>Nothing. The data arrives and the SPA cannot see it. No error anywhere.</td>
-</tr>
-<tr>
-<td>A field's <em>type</em> changes on one side only</td>
-<td>Nothing, until a component renders a number as a string, or reads <code>.length</code> off a boolean.</td>
-</tr>
-<tr>
-<td>A serializer stops sending a field</td>
-<td><code>tsc</code> catches it only if some component happens to read that property.</td>
-</tr>
-</tbody>
-</table>
-<p>This is the failure shape that motivated the gate: two representations of one contract, each
-internally consistent, with no third thing checking that they agree.</p>
-<h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
-<p>The job regenerates the OpenAPI schema with <code>drf-spectacular</code> — the same command
-<code>backend-schema-validate</code> runs, and for the same reason it needs no database — and compares
-its components against the hand-written interfaces:</p>
-<table>
-<thead>
-<tr>
-<th>Schema component</th>
-<th>TypeScript interface</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Board</code></td>
-<td><code>Board</code></td>
-</tr>
-<tr>
-<td><code>Card</code></td>
-<td><code>Card</code></td>
-</tr>
-<tr>
-<td><code>CurrentUser</code></td>
-<td><code>User</code></td>
-</tr>
-<tr>
-<td><code>BoardMembership</code></td>
-<td><code>BoardMembership</code></td>
-</tr>
-<tr>
-<td><code>BoardUser</code></td>
-<td><code>BoardUser</code></td>
-</tr>
-</tbody>
-</table>
-<p>There is no <code>User</code> component — the <code>/api/v1/auth/me/</code> shape is <code>CurrentUser</code>, which is why the
-mapping is not one-to-one by name.</p>
-<p>Six kinds of mismatch are reported:</p>
-<table>
-<thead>
-<tr>
-<th>Check</th>
-<th>Fires when</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>missing_in_ts</code></td>
-<td>A serializer sends a field no interface declares</td>
-</tr>
-<tr>
-<td><code>missing_in_schema</code></td>
-<td>An interface declares a field no serializer sends</td>
-</tr>
-<tr>
-<td><code>type_family</code></td>
-<td>Both declare a type and the families disagree (string / number / boolean / array / object)</td>
-</tr>
-<tr>
-<td><code>untyped_schema</code></td>
-<td>The schema declares no resolvable type at all — a <code>JSONField</code> or bare <code>Field</code> reaching the client as <code>unknown</code></td>
-</tr>
-<tr>
-<td><code>nullability</code></td>
-<td>One side admits <code>null</code> and the other does not</td>
-</tr>
-<tr>
-<td><code>enum_members</code></td>
-<td>Both resolve to a set of string values and the sets differ</td>
-</tr>
-</tbody>
-</table>
-<p>A check is <strong>skipped, never guessed</strong>, when either side cannot be classified confidently. An
-unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
-(<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
-the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
-<h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full check: regenerates the schema, then diffs (needs the backend venv)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Reuse a schema you already generated</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--schema<span class="w"> </span>openapi.json
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Point at a different interfaces file (defaults to frontend/src/types/index.ts)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--types<span class="w"> </span>path/to/index.ts
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Show every mismatch, including tracked ones</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--no-suppressions
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Prove the gate itself still works</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py<span class="w"> </span>--self-test
-</code></pre></div>
-<p>Exit codes: <code>0</code> parity holds, <code>1</code> drift or a stale suppression, <code>2</code> usage or environment error.
-<code>2</code> is kept distinct from <code>1</code> so a gate that could not run is never mistaken for a clean tree.</p>
-<h2 id="when-the-gate-fails">When the gate fails<a class="headerlink" href="#when-the-gate-fails" title="Permanent link">&para;</a></h2>
-<p>Read which direction it drifted, then fix the side that is wrong — <strong>not</strong> whichever is
-quicker to edit.</p>
+<div class="admonition info">
+<p class="admonition-title">Competitive claims are dated</p>
+<p>Every statement about another product below carries the date it was verified. Projects change
+their licensing and feature gating without notice — if a claim here is more than a few months
+old, check it yourself before relying on it. We would rather you catch us out of date than
+trust a stale page.</p>
+</div>
+<h2 id="the-one-sentence-answer">The one-sentence answer<a class="headerlink" href="#the-one-sentence-answer" title="Permanent link">&para;</a></h2>
+<p><strong>Visiban is a self-hosted Kanban board where rows are entities — customers, projects, teams — every
+card movement is permanently recorded, and any AI agent you already run can query and update the
+board through your own API token.</strong></p>
+<p>Or, compressed: <em>kill the spreadsheet, visualize the workflow, interrogate it with your own AI —
+every move on the record.</em></p>
+<p>If you need a sentence for your manager: <em>"It's the board, but each row is one client, it keeps a
+full audit trail of what moved when, and it runs on our own infrastructure with our own SSO."</em></p>
+<h2 id="what-actually-makes-it-different">What actually makes it different<a class="headerlink" href="#what-actually-makes-it-different" title="Permanent link">&para;</a></h2>
+<p>Four things. Everything else Visiban does, something else also does.</p>
+<h3 id="1-rows-are-entities-and-rows-carry-data">1. Rows are entities, and rows carry data<a class="headerlink" href="#1-rows-are-entities-and-rows-carry-data" title="Permanent link">&para;</a></h3>
+<p>Most boards give you columns (stages) and treat rows as an afterthought — a label, or nothing at
+all. In Visiban a swimlane is a first-class object: one customer, one project, one team. It has a
+name, a position, and — as of 1.2 — <strong>typed custom fields of its own</strong>.</p>
+<p>That last part is the reason teams stop keeping a spreadsheet next to their board. The spreadsheet
+usually exists because the board can hold <em>cards</em> but not <em>the thing the cards are about</em>. A renewal
+date, an account tier, a contract value, a region — that data belongs to the row, not to any single
+card in it.</p>
+<p>See <a href="../../features/custom-fields/">Custom Fields</a>.</p>
+<h3 id="2-movement-history-is-not-an-activity-log">2. Movement history is not an activity log<a class="headerlink" href="#2-movement-history-is-not-an-activity-log" title="Permanent link">&para;</a></h3>
+<p>Plenty of tools log activity. Visiban records every card movement as structured data — from-column,
+to-column, from-swimlane, to-swimlane, actor, timestamp — and keeps it permanently, as the substrate
+for cycle-time and bottleneck analysis rather than as a human-readable feed.</p>
+<p>The practical difference shows up in an incident retrospective: you can ask <em>"how long did this
+actually sit in Review, and how does that compare to the last thirty cards?"</em> and get an answer, not
+a scroll-back.</p>
+<p>See <a href="../../features/card-history/">Card History</a> and <a href="../../features/analytics/">Analytics</a>.</p>
+<h3 id="3-bring-your-own-agent-nothing-leaves-your-install">3. Bring your own agent — nothing leaves your install<a class="headerlink" href="#3-bring-your-own-agent-nothing-leaves-your-install" title="Permanent link">&para;</a></h3>
+<p>Visiban ships a first-class <a href="../../features/mcp-server/">MCP server</a>. Any MCP-capable assistant you
+already run can list boards, query cards, and make changes, authenticated with a
+<a href="../../features/personal-access-tokens/">scoped personal access token</a> you issue and can revoke.</p>
+<p>The distinction worth being precise about: <strong>Visiban does not ship AI features.</strong> There is no bundled
+model, no vendor relationship, no telemetry, and no data egress. What Visiban ships is the
+<em>interface</em>. You bring the model — including a local one — and your board data never leaves the
+machine you installed it on.</p>
+<p>For a self-hosting team, that is usually the point. If you want a tool that summarizes your standup
+for you out of the box, Visiban is the wrong choice and you should pick something else.</p>
+<h3 id="4-sso-is-in-the-open-source-core-free">4. SSO is in the open-source core, free<a class="headerlink" href="#4-sso-is-in-the-open-source-core-free" title="Permanent link">&para;</a></h3>
+<p>OIDC and OAuth — Google, GitHub, GitLab, and any OIDC-compliant provider such as Keycloak, Okta, or
+Authentik — are part of the Apache-2.0 core. Not a paid tier, not an add-on.</p>
+<p>This is a deliberate position, and it is worth checking against the alternatives: identity is the
+feature most commonly moved behind a paywall in self-hosted project tools, and it is the one that
+most often forces a team onto a commercial tier they otherwise would not need.</p>
+<p>See <a href="../oauth/">OAuth Setup</a>.</p>
+<h2 id="how-it-compares">How it compares<a class="headerlink" href="#how-it-compares" title="Permanent link">&para;</a></h2>
+<p>The honest version. Each of these tools is better than Visiban at something, and this section says
+what.</p>
+<h3 id="vs-trello">vs. Trello<a class="headerlink" href="#vs-trello" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick Trello if</strong> you want zero setup, you are fine with SaaS, and your team's needs are covered by
+cards in columns. Trello's power-up ecosystem is enormous and Visiban has nothing like it.</p>
+<p><strong>Pick Visiban if</strong> you need self-hosting, entity-shaped rows with their own data, or a real audit
+trail. Trello's swimlanes are a view option rather than a data model, and its activity log is not
+built for cycle-time analysis.</p>
+<p>Visiban imports Trello JSON exports directly — see <a href="../installation/">Installation</a>.</p>
+<h3 id="vs-linear">vs. Linear<a class="headerlink" href="#vs-linear" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick Linear if</strong> you are a cloud-native product team. Linear's interface and keyboard model are
+genuinely excellent, its cycle/triage workflow is more opinionated and more polished than anything
+Visiban offers, and for a software team that does not need self-hosting it is very hard to beat.</p>
+<p><strong>Pick Visiban if</strong> self-hosting is a requirement, or your rows are customers rather than sprints.
+Linear is cloud-only and models work around engineering cycles, not per-account pipelines.</p>
+<h3 id="vs-gitlab-github-issue-boards">vs. GitLab / GitHub issue boards<a class="headerlink" href="#vs-gitlab-github-issue-boards" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick the native board if</strong> all your work already lives in one repository. It is free, it is where
+your issues already are, and adding another tool is real operational cost for marginal gain. This is
+the right call more often than vendors like us admit.</p>
+<p><strong>Pick Visiban if</strong> work spans repositories, accounts, or teams that do not map to a repo; if you
+need per-account swimlanes; or if you need cycle-time data the native boards do not compute.</p>
+<p>Visiban can also <em>mirror</em> a repository's issues as a read-only board — see
+<a href="../../features/issue-board-lens/">Issue Board Lens</a> — which is often the better first step than
+migrating anything.</p>
+<h3 id="vs-monday-clickup-asana">vs. Monday / ClickUp / Asana<a class="headerlink" href="#vs-monday-clickup-asana" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick these if</strong> you need breadth: forms, docs, time tracking, dashboards, portfolio rollups, and a
+large integrations catalog in one product. Their reporting is more mature than Visiban's and will
+stay that way — this is not a gap we are trying to close.</p>
+<p><strong>Pick Visiban if</strong> you want one thing done well, self-hosted, without per-seat pricing, and the
+breadth is cost rather than value.</p>
+<h3 id="vs-notion">vs. Notion<a class="headerlink" href="#vs-notion" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick Notion if</strong> the board is one view of a flexible database and the writing matters as much as
+the workflow.</p>
+<p><strong>Pick Visiban if</strong> you need WIP enforcement and movement history. Notion's board is a presentation
+of a database; it does not track how long something sat in a state, and it will not stop you
+overloading a column.</p>
+<h3 id="vs-vikunja-plane">vs. Vikunja / Plane<a class="headerlink" href="#vs-vikunja-plane" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick these if</strong> you want a broader self-hosted task suite — Gantt charts, sprints, multiple project
+views. They cover more surface than Visiban does.</p>
+<p><strong>Pick Visiban if</strong> you want Kanban specifically and want it to go deeper rather than wider. Visiban
+<a href="../../architecture/overview/">deliberately does not ship Gantt, sprints, or capacity planning</a> and
+is not planning to. If those are on your list, one of these is a better fit and we would rather you
+knew now.</p>
+<h3 id="vs-planka">vs. Planka<a class="headerlink" href="#vs-planka" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09. Verify before relying on this — it is the claim most likely to change.</em></p>
+<p><strong>Pick Planka if</strong> you want a close, mature Trello clone and its licensing works for you.</p>
+<p><strong>Pick Visiban if</strong> you need SSO without a commercial tier — Planka moved OIDC support to its Pro
+offering in August 2026 — or if you need the swimlane data model and movement history.</p>
+<h3 id="vs-wekan-kanboard-focalboard">vs. WeKan / Kanboard / Focalboard<a class="headerlink" href="#vs-wekan-kanboard-focalboard" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p><strong>Pick these if</strong> they already work for you. WeKan and Kanboard are long-lived and battle-tested, and
+a tool your team already knows has real value.</p>
+<p><strong>Consider the maintenance question:</strong> Focalboard is unmaintained following Mattermost's
+discontinuation, and Kanboard is in maintenance mode. For a tool you intend to run for years, that
+belongs in the evaluation.</p>
+<h3 id="vs-a-real-crm">vs. a real CRM<a class="headerlink" href="#vs-a-real-crm" title="Permanent link">&para;</a></h3>
+<p><em>Checked 2026-09.</em></p>
+<p>Worth stating plainly, because Kanban boards get pressed into service as sales pipelines constantly:
+<strong>if you are running a sales pipeline, use a CRM.</strong> EspoCRM, Twenty, and self-hosted Odoo are free,
+self-hostable, and will beat any board on contact management, email sync, quoting, and revenue
+reporting — because those are not things a board is shaped to do.</p>
+<p>Visiban is a reasonable fit for a <em>lightweight</em> pipeline where the stages matter more than the
+contact history. It is the wrong tool the moment you need to know who you emailed last Tuesday.</p>
+<h2 id="who-visiban-is-not-for">Who Visiban is not for<a class="headerlink" href="#who-visiban-is-not-for" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>missing_in_ts</code></strong> — you added a serializer field. Add it to the interface in the same MR.</li>
-<li><strong><code>missing_in_schema</code></strong> — usually a serializer field that was removed. Confirm it is
-  genuinely gone (removing a response field is a backward-compatibility violation on its own,
-  see <code>CLAUDE.md</code>), then remove it from the interface.</li>
-<li><strong><code>type_family</code> / <code>untyped_schema</code></strong> — most often the <em>schema</em> is wrong, not the frontend. An
-  undecorated <code>SerializerMethodField</code> has no inferable return type, so <code>drf-spectacular</code>
-  describes it as <code>string</code>; a <code>JSONField</code> gets no type at all. Fix it at the serializer:</li>
+<li>Teams that need Gantt charts, sprint ceremonies, or capacity planning — that is a deliberate scope
+  boundary, not a roadmap gap</li>
+<li>Teams that want AI features rather than an AI interface</li>
+<li>Anyone who needs a mature third-party integration marketplace</li>
+<li>Sales teams who need a CRM (see above)</li>
 </ul>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># A return annotation is enough for a method field</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_member_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">memberships</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># A nested object or an array needs the shape spelled out</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nd">@extend_schema_field</span><span class="p">(</span><span class="n">GroupBriefSerializer</span><span class="p">(</span><span class="n">allow_null</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_group_detail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="o">...</span>
-</code></pre></div>
+<h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>nullability</code></strong> — a declared serializer field (a nested serializer, or a <code>CharField</code> with a
-  traversing <code>source</code>) does not inherit <code>null=True</code> from the model the way an auto-generated
-  <code>ModelSerializer</code> field does. Add <code>allow_null=True</code>. On a <code>read_only</code> field this is
-  schema-only.</li>
-<li><strong><code>enum_members</code></strong> — the choice sets diverged. Decide which is authoritative before editing.</li>
+<li><a href="../installation/">Installation</a> — get it running</li>
+<li><a href="../board-setup/">Board Setup</a> — swimlanes and columns</li>
+<li><a href="../../features/custom-fields/">Custom Fields</a> — typed data on cards and rows</li>
+<li><a href="../../features/mcp-server/">MCP Server</a> — connect an agent</li>
+<li><a href="../../features/analytics/">Analytics</a> — what the movement history buys you</li>
 </ul>
-<h2 id="suppressions">Suppressions<a class="headerlink" href="#suppressions" title="Permanent link">&para;</a></h2>
-<p>Real, already-tracked drift is recorded in the <code>SUPPRESSIONS</code> table in
-<code>scripts/check-serializer-ts-parity.py</code>, spelled <code>SUPPRESSED-UNTIL(#N)</code> to match the
-convention in <a href="https://gitlab.com/visiban/visiban/-/issues/1092">suppression markers</a>.</p>
-<p>These suppressions are <strong>self-invalidating</strong>, which is the part that matters. Each records the
-exact mismatch it masks — the schema type and the TypeScript type as they are today:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">Suppression</span><span class="p">(</span><span class="n">TYPE_FAMILY</span><span class="p">,</span> <span class="s2">"Board"</span><span class="p">,</span> <span class="s2">"member_count"</span><span class="p">,</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>            <span class="n">schema_repr</span><span class="o">=</span><span class="s2">"string"</span><span class="p">,</span> <span class="n">ts_repr</span><span class="o">=</span><span class="s2">"number"</span><span class="p">,</span> <span class="n">issue</span><span class="o">=</span><span class="mi">1135</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>            <span class="n">reason</span><span class="o">=</span><span class="s2">"SerializerMethodField returns int, described as string"</span><span class="p">),</span>
-</code></pre></div>
-<p>When reality stops matching that record — because the cited issue's fix landed — the
-suppression has done its job, and the gate <strong>fails</strong> asking for its removal. A suppression
-therefore cannot outlive its reason, which is the usual way a suppression quietly turns a gate
-green forever.</p>
-<p>This is deliberately not an issue-state lookup: tying staleness to the observed drift needs no
-network and no GitLab token, so it works offline and in a fork's pipeline.</p>
-<p>Adding one:</p>
-<ul>
-<li>It must cite a <strong>specific, already-filed</strong> issue. Never a placeholder, never a number invented
-  on the spot. If the drift has no tracking issue, file one first.</li>
-<li>Record the mismatch exactly as the gate reports it — run with <code>--no-suppressions</code> to see it.</li>
-<li>Do not add one for drift you could simply fix. A suppression is for a mismatch whose fix is
-  out of scope for the branch in front of you, not for one that is merely inconvenient.</li>
-</ul>
-<h2 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h2>
-<p>Per the house rule in <a href="https://gitlab.com/visiban/visiban/-/issues/1093">#1093</a>, this gate
-ships a <code>--self-test</code> mode, and CI runs it <strong>immediately before</strong> the real invocation on the
-same image. A gate that has stopped detecting anything looks exactly like a clean codebase; the
-self-test builds a synthetic schema and interface carrying one instance of every finding kind,
-asserts each is caught, and asserts that a matching pair stays silent and that the suppression
-machinery both suppresses and goes stale. It needs no network and no database.</p>
-<h2 id="what-is-out-of-scope">What is out of scope<a class="headerlink" href="#what-is-out-of-scope" title="Permanent link">&para;</a></h2>
-<p><strong>WebSocket event payloads.</strong> The <code>{event, data}</code> contract in
-<code>frontend/src/hooks/useBoardSocket.ts</code> is not schema-derived and is not checked here. The
-schema <em>does</em> contain a <code>BoardEvent</code> component, but it describes the REST event-feed
-serializer — a different shape that merely shares a name. Mapping the WebSocket union onto it
-would assert a correspondence that does not exist. That union stays hand-maintained;
-<a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
-separately.</p>
-<p><strong><code>BoardFull</code>.</strong> <code>drf-spectacular</code> does not currently emit a component for it, so
-<code>BoardFullSerializer</code>'s response shape is unchecked <em>here</em>. #821's test does name-check it via
-serializer introspection. Extending this gate there depends on that component existing first.</p>
-<p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
-carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
-This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
-the job (it is still a <code>backend/**/*</code> change) but produces no finding. If the frontend grows
-explicit request-body interfaces, mapping them is the natural extension.</p>
-<p><strong>The other ten pairs.</strong> <code>CardComment</code>, <code>CardMovement</code>, <code>CardRelation</code>, <code>Column</code>,
-<code>CustomFieldDefinition</code>, <code>CustomFieldValue</code>, <code>Group</code>, <code>GroupLabel</code>, <code>Label</code> and <code>Swimlane</code> all
-have both a schema component and a TypeScript interface, and all are name-checked by #821, but
-none get a <em>type</em> check yet. <a href="https://gitlab.com/visiban/visiban/-/issues/1139">#1139</a> tracks
-closing that gap. Until it does, a green <code>serializer-ts-parity</code> run means "the five mapped
-pairs agree", not "the API and the frontend agree".</p>
 
 
 
