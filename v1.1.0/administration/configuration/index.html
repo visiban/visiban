@@ -2831,6 +2831,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#example-gmail-google-workspace" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2857,6 +2868,17 @@
     <span class="md-ellipsis">
       
         Console backend (development)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configuring-smtp-from-the-admin-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuring SMTP from the admin UI
       
     </span>
   </a>
@@ -3666,7 +3688,20 @@
 </code></pre></div>
 <hr />
 <h2 id="email-smtp">Email (SMTP)<a class="headerlink" href="#email-smtp" title="Permanent link">&para;</a></h2>
-<p>Visiban uses Django's email backend for password resets and email verification. Configure these variables in <code>.env</code> (Docker Compose) or as environment variables in your Helm values:</p>
+<p>Visiban uses Django's email backend for password resets and email verification.</p>
+<p>There are two ways to configure it, and <strong>exactly one of them is in effect at a time</strong> —
+settings are never merged across the two:</p>
+<ol>
+<li><strong>Environment variables</strong> (below) — the default, and unchanged from earlier releases.</li>
+<li><strong>The admin UI</strong> — <em>new in 1.2.</em> <strong>Admin → Settings → Email</strong> stores the same settings
+   in the database, so you can configure and test SMTP without shell access or a restart.
+   See <a href="#configuring-smtp-from-the-admin-ui">Configuring SMTP from the admin UI</a>.</li>
+</ol>
+<p>An instance uses environment variables until an admin explicitly switches the source to
+the stored configuration, so <strong>upgrading changes nothing</strong> about how your instance sends
+mail.</p>
+<h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<p>Configure these in <code>.env</code> (Docker Compose) or as environment variables in your Helm values:</p>
 <table>
 <thead>
 <tr>
@@ -3678,8 +3713,8 @@
 <tbody>
 <tr>
 <td><code>EMAIL_BACKEND</code></td>
-<td>Django email backend class</td>
-<td><code>django.core.mail.backends.smtp.EmailBackend</code></td>
+<td>Django email backend class. Setting this explicitly pins the backend and <strong>disables</strong> the admin-UI configuration entirely.</td>
+<td><em>(unset — uses the source selected in the admin UI, falling back to these variables)</em></td>
 </tr>
 <tr>
 <td><code>EMAIL_HOST</code></td>
@@ -3707,9 +3742,24 @@
 <td><code>true</code></td>
 </tr>
 <tr>
+<td><code>EMAIL_USE_SSL</code></td>
+<td>Use implicit TLS/SSL. Mutually exclusive with <code>EMAIL_USE_TLS</code>. <em>(new in 1.2)</em></td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>EMAIL_TIMEOUT</code></td>
+<td>SMTP socket timeout, in seconds. <em>(new in 1.2)</em></td>
+<td><code>10</code></td>
+</tr>
+<tr>
 <td><code>DEFAULT_FROM_EMAIL</code></td>
 <td>Sender address for outgoing emails</td>
-<td><code>noreply@localhost</code></td>
+<td><code>noreply@example.com</code></td>
+</tr>
+<tr>
+<td><code>VISIBAN_SECRET_ENCRYPTION_KEY</code></td>
+<td>Optional dedicated key for secrets stored at rest. <em>(new in 1.2)</em> See <a href="../secret-rotation/#visiban_secret_encryption_key">Secret rotation</a>.</td>
+<td><em>(empty — derived from <code>DJANGO_SECRET_KEY</code>)</em></td>
 </tr>
 </tbody>
 </table>
@@ -3736,6 +3786,52 @@
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The default value of <code>EMAIL_VERIFICATION</code> is <code>optional</code>, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set <code>EMAIL_VERIFICATION=none</code> to disable verification emails entirely (no SMTP needed). The old alias <code>ACCOUNT_EMAIL_VERIFICATION</code> was removed in 1.1 — only <code>EMAIL_VERIFICATION</code> is read.</p>
+</div>
+<h3 id="configuring-smtp-from-the-admin-ui">Configuring SMTP from the admin UI<a class="headerlink" href="#configuring-smtp-from-the-admin-ui" title="Permanent link">&para;</a></h3>
+<p><em>New in 1.2.</em></p>
+<p>Site admins can configure outbound email from <strong>Admin → Settings → Email</strong> without shell
+access or a container restart — useful on managed and cloud deployments.</p>
+<ol>
+<li>Fill in the server, port, sender address, and credentials.</li>
+<li>Switch <strong>Configuration source</strong> to <strong>Stored in this admin UI</strong>.</li>
+<li>Click <strong>Send test email</strong>. The test is delivered to your own account's email address.</li>
+</ol>
+<p>Changes take effect on the next email sent — there is no restart and no cache to wait for.</p>
+<p><strong>How the two sources interact:</strong></p>
+<ul>
+<li>The setting is <strong>all-or-nothing</strong>. When the source is <em>stored configuration</em>, every
+  value comes from the database; when it is <em>environment variables</em>, every value comes
+  from the environment. A single setting is never taken from the other source.</li>
+<li>You cannot switch to the stored configuration until it is complete (at minimum a host
+  and a sender address, plus a password if you set a username). A partly-filled form is
+  therefore harmless: it stays a draft and your existing email configuration keeps
+  working.</li>
+<li><strong>Setting <code>EMAIL_BACKEND</code> explicitly overrides both.</strong> If you pin that variable — to a
+  third-party relay, or to the console backend in development — Visiban honors it and
+  ignores the stored configuration entirely. The admin page says so when this is the case.</li>
+</ul>
+<p><strong>Password storage.</strong> The SMTP password is encrypted at rest and never returned by the
+API. By default the encryption key is derived from <code>DJANGO_SECRET_KEY</code>, so <strong>rotating
+that key makes a stored password unrecoverable</strong> and you must re-enter it. To decouple
+the two, set <code>VISIBAN_SECRET_ENCRYPTION_KEY</code> before storing a password — see
+<a href="../secret-rotation/#visiban_secret_encryption_key">Secret rotation</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">The test button connects to whatever host you enter</p>
+<p><strong>Send test email</strong> opens an outbound SMTP connection from the Visiban backend to
+the host and port in the form — including internal addresses the backend can reach
+but you cannot. That makes it a site-admin-only capability with real network reach,
+so grant <code>is_site_admin</code> accordingly. The action is limited to 5 attempts per hour
+per admin, always delivers to the requesting admin's own address, and every server
+change is recorded in the <a href="../../api/admin/#action-log">admin action log</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Sender address placeholder</p>
+<p>Visiban refuses to send mail from the shipped <code>noreply@example.com</code> placeholder. In
+earlier releases this was checked at startup and a production instance would not boot
+until <code>DEFAULT_FROM_EMAIL</code> was set. Since 1.2 the check happens when mail is sent (and
+on save in the admin UI), so an instance can boot and be configured entirely through
+the UI. Startup logs a warning instead, and outbound mail is refused with a clear
+error until a real sender address is set — by either method.</p>
 </div>
 <hr />
 <h2 id="health-check-endpoints">Health check endpoints<a class="headerlink" href="#health-check-endpoints" title="Permanent link">&para;</a></h2>

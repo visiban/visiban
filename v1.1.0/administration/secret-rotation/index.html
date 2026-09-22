@@ -3004,6 +3004,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#visiban_secret_encryption_key" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VISIBAN_SECRET_ENCRYPTION_KEY
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="VISIBAN_SECRET_ENCRYPTION_KEY">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#steps_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#db_password" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3016,7 +3044,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#steps_1" class="md-nav__link">
+  <a href="#steps_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Steps
@@ -3055,7 +3083,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#steps_2" class="md-nav__link">
+  <a href="#steps_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Steps
@@ -3369,6 +3397,27 @@
 <hr />
 <h2 id="django_secret_key">DJANGO_SECRET_KEY<a class="headerlink" href="#django_secret_key" title="Permanent link">&para;</a></h2>
 <p>Django uses <code>SECRET_KEY</code> to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links.</p>
+<div class="admonition note">
+<p class="admonition-title">Key strength is now a confidentiality control, not only an integrity one</p>
+<p>Before Visiban stored secrets at rest, <code>SECRET_KEY</code> protected session and CSRF
+signatures — forgery, not disclosure. Now that it can encrypt a stored SMTP
+password, a weak or guessable key means anyone with a database dump or backup can
+recover that credential offline. Use a full-entropy value: the generator in step 1
+below produces one. Never shorten it, and never reuse it across environments.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Rotating this key invalidates a stored SMTP password</p>
+<p>If you configured outbound email through <strong>Admin → Settings → Email</strong> (rather than
+the <code>EMAIL_*</code> environment variables), the SMTP password is encrypted at rest using a
+key derived from <code>SECRET_KEY</code>. Rotating <code>SECRET_KEY</code> makes that stored password
+permanently unrecoverable, and outbound email will stop working.</p>
+<p>This is recoverable in under a minute — step 5 below — but only if you know to do it.
+Otherwise the symptom (password-reset emails silently stop arriving) shows up days
+later with nothing pointing back to the rotation.</p>
+<p>To decouple the two, set a dedicated <code>VISIBAN_SECRET_ENCRYPTION_KEY</code> <strong>before</strong> you
+first store an SMTP password. See
+<a href="../configuration/#email-smtp">Configuration → Email</a>.</p>
+</div>
 <h3 id="when-to-rotate">When to rotate<a class="headerlink" href="#when-to-rotate" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Suspected or confirmed compromise of the key</li>
@@ -3400,23 +3449,59 @@
 </code></pre></div>
 </li>
 <li>
+<p><strong>If you configured SMTP in the admin UI, re-enter the password.</strong> Open
+   <strong>Admin → Settings → Email</strong>. If the stored password can no longer be decrypted the
+   page says so explicitly and outbound mail is blocked until you re-enter it. Type the
+   password again and save, then use <strong>Send test email</strong> to confirm delivery.</p>
+<p>Instances configured via the <code>EMAIL_*</code> environment variables are unaffected — skip
+this step.</p>
+</li>
+<li>
 <p>Notify users that they will need to log in again.</p>
 </li>
 </ol>
 <hr />
-<h2 id="db_password">DB_PASSWORD<a class="headerlink" href="#db_password" title="Permanent link">&para;</a></h2>
-<p>The database password is used by the Django backend to connect to PostgreSQL. Rotating it requires a coordinated update of both the database and the application config.</p>
+<h2 id="visiban_secret_encryption_key">VISIBAN_SECRET_ENCRYPTION_KEY<a class="headerlink" href="#visiban_secret_encryption_key" title="Permanent link">&para;</a></h2>
+<p>Optional. When set, this key — rather than one derived from <code>SECRET_KEY</code> — encrypts
+secrets Visiban stores at rest (today: the SMTP password set in <strong>Admin → Settings →
+Email</strong>). Setting it lets you rotate <code>SECRET_KEY</code> on its own schedule without
+invalidating stored secrets.</p>
 <h3 id="steps_1">Steps<a class="headerlink" href="#steps_1" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
+<p>Generate a key:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"</span>
+</code></pre></div>
+</li>
+<li>
+<p>Set <code>VISIBAN_SECRET_ENCRYPTION_KEY</code> in your <code>.env</code> and restart the backend. The
+   backend refuses to start if the value is not 32 bytes of URL-safe base64.</p>
+</li>
+<li>
+<p>Re-enter any stored SMTP password in <strong>Admin → Settings → Email</strong> — existing secrets
+   were encrypted under the old key and are not migrated automatically.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Set it before storing secrets, not after</p>
+<p>Adding, changing, or removing this variable has the same effect on already-stored
+secrets as rotating <code>SECRET_KEY</code>: they become undecryptable and must be re-entered.
+There is no re-encryption command yet.</p>
+</div>
+<hr />
+<h2 id="db_password">DB_PASSWORD<a class="headerlink" href="#db_password" title="Permanent link">&para;</a></h2>
+<p>The database password is used by the Django backend to connect to PostgreSQL. Rotating it requires a coordinated update of both the database and the application config.</p>
+<h3 id="steps_2">Steps<a class="headerlink" href="#steps_2" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
 <p>Generate a new password:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(32))"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import secrets; print(secrets.token_urlsafe(32))"</span>
 </code></pre></div>
 </li>
 <li>
 <p>Update the PostgreSQL user password <strong>inside the database container</strong> (replace <code>&lt;new-password&gt;</code> with your generated value):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>-c<span class="w"> </span><span class="s2">"ALTER USER visiban PASSWORD '&lt;new-password&gt;';"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>db<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span>psql<span class="w"> </span>-U<span class="w"> </span>visiban<span class="w"> </span>-c<span class="w"> </span><span class="s2">"ALTER USER visiban PASSWORD '&lt;new-password&gt;';"</span>
 </code></pre></div>
 </li>
 <li>
@@ -3424,12 +3509,12 @@
 </li>
 <li>
 <p>Restart the backend so it picks up the new <code>DATABASE_URL</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>backend
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>backend
 </code></pre></div>
 </li>
 <li>
 <p>Verify the backend can connect:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>logs<span class="w"> </span>backend<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-20
 </code></pre></div>
 <p>Look for the <code>daphne</code> startup line — a connection error means the password was not updated correctly in one of the two places.</p>
 </li>
@@ -3443,21 +3528,21 @@
 <li>Adding a new frontend deployment (staging, mirror)</li>
 <li>Removing a domain that is no longer in use</li>
 </ul>
-<h3 id="steps_2">Steps<a class="headerlink" href="#steps_2" title="Permanent link">&para;</a></h3>
+<h3 id="steps_3">Steps<a class="headerlink" href="#steps_3" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
 <p>Open <code>.env</code> and update <code>CORS_ALLOWED_ORIGINS</code> (comma-separated, no trailing slash):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com,https://staging.yourdomain.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">CORS_ALLOWED_ORIGINS</span><span class="o">=</span>https://yourdomain.com,https://staging.yourdomain.com
 </code></pre></div>
 </li>
 <li>
 <p>If you also need <code>CSRF_TRUSTED_ORIGINS</code> to differ (e.g. you use a separate API subdomain), set it explicitly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nv">CSRF_TRUSTED_ORIGINS</span><span class="o">=</span>https://api.yourdomain.com
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nv">CSRF_TRUSTED_ORIGINS</span><span class="o">=</span>https://api.yourdomain.com
 </code></pre></div>
 </li>
 <li>
 <p>Restart the backend:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>backend
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>backend
 </code></pre></div>
 </li>
 </ol>
@@ -3466,20 +3551,20 @@
 <h2 id="admin-interface-access">Admin interface access<a class="headerlink" href="#admin-interface-access" title="Permanent link">&para;</a></h2>
 <p>Since v1.0 the Django admin interface (<code>/admin/</code>) is restricted to loopback addresses at both the Nginx layer and via <code>AdminIPRestrictionMiddleware</code>. External requests return 403.</p>
 <p>To access admin from your local machine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Open an SSH tunnel to the server — forwards local port 8080 to loopback on the server</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8080</span>:127.0.0.1:443<span class="w"> </span>user@yourserver
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Open an SSH tunnel to the server — forwards local port 8080 to loopback on the server</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8080</span>:127.0.0.1:443<span class="w"> </span>user@yourserver
 </code></pre></div>
 <p>Then visit <code>https://localhost:8080/admin/</code> in your browser.</p>
 <p>To allow access from a specific non-loopback IP (e.g. an internal bastion host), set <code>DJANGO_ADMIN_ALLOWED_IPS</code> in your <code>.env</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">DJANGO_ADMIN_ALLOWED_IPS</span><span class="o">=</span><span class="m">10</span>.0.1.20,10.0.1.21
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nv">DJANGO_ADMIN_ALLOWED_IPS</span><span class="o">=</span><span class="m">10</span>.0.1.20,10.0.1.21
 </code></pre></div>
 <p>This extends — not replaces — the loopback addresses. Restart the backend after changing this variable.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Operators upgrading from a release prior to the v1.0 security hardening must apply the Nginx <code>/admin/</code> block manually if they manage the Nginx config outside of the bundled template. Add the following to the <code>/admin/</code> location block:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">allow</span><span class="w"> </span><span class="mi">127</span><span class="s">.0.0.1</span><span class="p">;</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">allow</span><span class="w"> </span><span class="p">::</span><span class="mi">1</span><span class="p">;</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">deny</span><span class="w"> </span><span class="s">all</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="k">allow</span><span class="w"> </span><span class="mi">127</span><span class="s">.0.0.1</span><span class="p">;</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">allow</span><span class="w"> </span><span class="p">::</span><span class="mi">1</span><span class="p">;</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="k">deny</span><span class="w"> </span><span class="s">all</span><span class="p">;</span>
 </code></pre></div>
 </div>
 
