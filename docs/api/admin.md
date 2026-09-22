@@ -110,9 +110,22 @@ and an audit log an admin can edit is not evidence of anything.
 | `registration_mode.changed` | `{"from": "open", "to": "closed"}` |
 | `uploads_enabled.enabled` | `{}` |
 | `uploads_enabled.disabled` | `{}` |
+| `email_settings.source_changed` | `{"from": "env", "to": "database"}` |
+| `email_settings.server_changed` | `{"from": "old.example.org:587 (starttls)", "to": "smtp.example.org:465 (ssl)"}` |
+| `email_settings.from_email_changed` | `{"from": "...", "to": "..."}` |
+| `email_settings.username_changed` | `{}` |
+| `email_settings.password_changed` | `{}` |
+| `email_settings.test_sent` | `{"result": "success"}` or `{"result": "failure"}` |
 
 New action types may be added in any minor release; treat an unrecognized `action` as an
 opaque string rather than failing on it.
+
+!!! note "Email credentials are recorded as markers, without values"
+    `email_settings.password_changed` and `email_settings.username_changed` carry an empty
+    `metadata` on purpose. The password is a credential, and an SMTP username is routinely
+    an email address — neither belongs in a table whose rows are never rewritten. That a
+    change happened, by whom, and when is the auditable part. `email_settings.test_sent`
+    likewise records the outcome but never the recipient.
 
 !!! warning "What this log does *not* record yet"
     Only the instance-wide settings above are covered. Granting or revoking site admin,
@@ -131,6 +144,104 @@ opaque string rather than failing on it.
     Django admin. A change made straight through the ORM (`manage.py shell`) has no actor to
     record and leaves no row, so an empty log means "no audited path made this change" — not
     "nothing happened".
+
+---
+
+## Email settings
+
+> **Added in 1.2**
+
+DB-backed outbound SMTP configuration. See
+[Configuration → Email](../administration/configuration.md#email-smtp) for the operator
+guide.
+
+### `GET /api/v1/admin/email-settings/`
+
+```json
+{
+  "config_source": "env",
+  "host": "",
+  "port": 587,
+  "username": "",
+  "use_tls": true,
+  "use_ssl": false,
+  "from_email": "",
+  "timeout": 10,
+  "password_set": false,
+  "password_decryptable": true,
+  "effective_source": "env",
+  "effective_host": "smtp.example.org",
+  "effective_port": 587,
+  "effective_from_email": "noreply@example.org",
+  "effective_use_tls": true
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `config_source` | string | `env` or `database`. Selects which source configures outbound mail. Settings are **never** merged across the two. |
+| `host`, `port`, `username`, `use_tls`, `use_ssl`, `from_email`, `timeout` | — | The stored configuration. Used only when `config_source` is `database`. |
+| `password_set` | boolean | Whether a password is stored. The password itself is **never** returned. |
+| `password_decryptable` | boolean | `false` means the instance encryption key changed (typically a `DJANGO_SECRET_KEY` rotation) and the stored password is unrecoverable. It must be re-entered before mail can be sent. |
+| `effective_*` | — | What is actually in effect right now, after resolving `config_source` and any explicit `EMAIL_BACKEND`. Read-only. |
+| `effective_source` | string | `env`, `database`, or `env_backend_override` — the last meaning the operator pinned `EMAIL_BACKEND`, so both the stored configuration and the `EMAIL_*` variables are bypassed. |
+
+### `PATCH /api/v1/admin/email-settings/`
+
+Accepts any subset of `config_source`, `host`, `port`, `username`, `password`, `use_tls`,
+`use_ssl`, `from_email`, `timeout`.
+
+`password` is write-only. **Omitting it leaves the stored password unchanged; sending an
+empty string clears it.** The two are deliberately distinct, so the host can be edited
+without re-typing or silently discarding the password.
+
+| Status | Body | Cause |
+|---|---|---|
+| `400` | `{"use_ssl": ["STARTTLS and implicit SSL cannot both be enabled…"]}` | `use_tls` and `use_ssl` would both be true *after* applying the patch |
+| `400` | `{"from_email": ["Enter your real sending address…"]}` | Sender is still an `example.com` placeholder |
+| `400` | `{"config_source": ["Cannot switch to the stored configuration until it is complete. Missing: …"]}` | Switching to `database` without a host, sender, or (when a username is set) a password |
+| `400` | `{"config_source": ["The stored SMTP password could not be decrypted…"]}` | Switching to `database` after the encryption key changed |
+
+Because switching to `database` requires a complete configuration, a partly-filled row is
+never authoritative — an interrupted edit leaves the previous configuration working.
+
+Every change is recorded in the [action log](#action-log). Submitting a field with its
+existing value writes no row.
+
+### `POST /api/v1/admin/email-settings/test/`
+
+Sends a test email using the configuration currently in effect and reports the result.
+
+**The recipient is always the requesting admin's own email address.** It cannot be
+supplied in the request body — an admin-gated endpoint that delivered to an arbitrary
+address would be usable as an open relay and as a network probe.
+
+Throttled to **5 requests per hour** per user (unlimited when `DEBUG` is on).
+
+```json
+{ "success": true, "code": null, "sent_to": "admin@example.org" }
+```
+
+On failure the endpoint returns `400` with a code from a fixed taxonomy:
+
+| `code` | Meaning |
+|---|---|
+| `dns_failure` | The hostname could not be resolved |
+| `connection_refused` | Nothing accepted a connection on that host and port |
+| `tls_failure` | TLS negotiation failed — often STARTTLS vs implicit SSL, or the wrong port |
+| `auth_failed` | The server rejected the username or password |
+| `timeout` | The server did not respond within the configured timeout |
+| `config_unusable` | The stored configuration is incomplete, or its password cannot be decrypted. `detail` explains which. |
+| `no_recipient` | The requesting admin's account has no email address |
+| `backend_pinned` | `EMAIL_BACKEND` is set explicitly on the server, so neither configuration source is what sends mail and there is nothing here to test |
+| `unknown` | Anything else |
+
+!!! note "The underlying SMTP error is never returned"
+    Only the codes above cross the API boundary. Some mail servers echo the offending
+    protocol line back in their error text, which on an authentication failure can contain
+    the submitted credentials. The full error is logged server-side instead.
+
+New codes may be added in any minor release; treat an unrecognized `code` as `unknown`.
 
 ---
 

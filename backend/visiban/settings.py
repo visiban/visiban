@@ -367,6 +367,11 @@ REST_FRAMEWORK = {
         # so the ceiling is generous — the limit exists to prevent log flooding and
         # cache-layer exhaustion, not token enumeration (#754).
         "email_confirm_redirect": "9999/hour" if DEBUG else "60/hour",
+        # Admin SMTP test send (#306): each call opens an outbound SMTP
+        # connection to an operator-supplied host, so the ceiling bounds both
+        # mail-relay abuse and use of the endpoint as a network probe. Keyed on
+        # the user, and the endpoint is site-admin-only on top of this.
+        "email_test": "9999/hour" if DEBUG else "5/hour",
     },
 }
 
@@ -570,28 +575,79 @@ APP_VERSION = env("APP_VERSION", default="dev")
 
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).
-EMAIL_BACKEND = env(
-    "EMAIL_BACKEND",
-    default=(
-        "django.core.mail.backends.console.EmailBackend"
-        if DEBUG
-        else "django.core.mail.backends.smtp.EmailBackend"
-    ),
-)
+# Whether the operator pinned EMAIL_BACKEND explicitly. Load-bearing for #306:
+# an explicit value is honored verbatim and suppresses DB-backed configuration
+# entirely, so an install pointing at a third-party relay keeps that relay and
+# a development install keeps the console backend. Only when the variable is
+# unset does the DB-aware backend take over.
+EMAIL_BACKEND_EXPLICIT = env("EMAIL_BACKEND", default="") != ""
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="visiban.mail.DatabaseAwareEmailBackend")
 EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+# Added in 1.2 alongside #306 so the environment and the database express the
+# same set of settings. Purely additive, and both defaults reproduce exactly what
+# these knobs implicitly did before they existed.
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+# default=None, NOT 10: EMAIL_TIMEOUT is a pre-existing Django setting whose
+# global default is None (no explicit socket timeout). This file simply never
+# set it before, so every env-configured install ran without one. Defaulting to
+# 10 here would impose a hard timeout they never had and break greylisting
+# relays and slow Exchange front-ends — a behavior change for existing installs,
+# which CLAUDE.md forbids. The DB-backed path has its own default of 10, which
+# is new configuration and therefore free to choose.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=None)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
-# Only enforce a real sender address when using SMTP — console/locmem backends
-# are used in development and tests where delivery doesn't matter.
-_SMTP_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-if EMAIL_BACKEND == _SMTP_BACKEND and "example.com" in DEFAULT_FROM_EMAIL:
-    raise ImproperlyConfigured(
+
+# Optional dedicated key for secrets encrypted at rest (#306). When unset, the
+# key is derived from SECRET_KEY — see visiban/crypto.py for why that is the
+# default rather than a mandatory variable. Validated eagerly so a malformed
+# value fails at boot rather than at the first password save.
+SECRET_ENCRYPTION_KEY = env("VISIBAN_SECRET_ENCRYPTION_KEY", default="")
+if SECRET_ENCRYPTION_KEY:
+    import base64 as _b64
+
+    try:
+        if len(_b64.urlsafe_b64decode(SECRET_ENCRYPTION_KEY.encode())) != 32:
+            raise ValueError
+    except Exception:
+        raise ImproperlyConfigured(
+            "VISIBAN_SECRET_ENCRYPTION_KEY must be 32 bytes of urlsafe base64. "
+            'Generate one with: python -c "import base64,os; '
+            'print(base64.urlsafe_b64encode(os.urandom(32)).decode())"'
+        )
+
+# Sender-address placeholder check.
+#
+# This was an import-time `raise ImproperlyConfigured` until #306. It had to be
+# demoted, because it made the feature it now guards unreachable: on a fresh
+# production install (DEBUG=False → SMTP backend, DEFAULT_FROM_EMAIL unset →
+# the example.com default) Django refused to start, so an operator intending to
+# configure SMTP entirely from the admin UI could never reach that UI. Verified
+# empirically against this tree before changing it.
+#
+# No protection is lost. "Never send from a placeholder address" is enforced
+# where a send actually happens: visiban.mail._checked() wraps EVERY return path
+# out of resolve_email_config() — the env ones included — and the admin
+# serializer's validate() rejects it on save as well. That also covers the
+# database-configured sender the import-time check could not see.
+#
+# The env path is the one that matters, and it is easy to get wrong: an operator
+# who configures a real relay via EMAIL_HOST/EMAIL_HOST_USER but forgets
+# DEFAULT_FROM_EMAIL would otherwise send live password-reset mail from a domain
+# they do not control, fail SPF/DMARC, and lose account recovery silently. If
+# you ever add a new return path to the resolver, wrap it in _checked().
+#
+# This is a relaxation at boot, so no install that boots today stops booting.
+if not DEBUG and "example.com" in DEFAULT_FROM_EMAIL:
+    import logging as _logging
+
+    _logging.getLogger(__name__).warning(
         "DEFAULT_FROM_EMAIL is still set to the example.com placeholder. "
-        "Set the DEFAULT_FROM_EMAIL environment variable to your real sending address "
-        "so password-reset emails are deliverable in production."
+        "Outbound mail will be refused until you set DEFAULT_FROM_EMAIL, or "
+        "configure a sender address in Admin → Settings → Email."
     )
 
 # Log auth failures (401/403) at WARNING so operators can detect brute-force

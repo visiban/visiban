@@ -49,15 +49,27 @@ backend:
   # verification messages.  When backend == "console" emails are written to
   # stdout instead of sent (suitable for staging or air-gapped clusters).
   email:
-    # smtp | console | locmem.  Translated to django.core.mail.backends.<x>.EmailBackend
-    backend: "smtp"
+    # "" | smtp | console | locmem.
+    #
+    # Empty (the default since 1.2) leaves EMAIL_BACKEND unset, so the backend
+    # resolves email from the EMAIL_* values below OR from the configuration a
+    # site admin saves in Admin → Settings → Email — whichever the admin
+    # selects. Setting this to an explicit value PINS the backend and disables
+    # that admin UI entirely, which is the right choice only when you
+    # deliberately want env-only configuration (or a third-party relay backend).
+    #
+    # Translated to django.core.mail.backends.<x>.EmailBackend when non-empty.
+    backend: ""
     host: ""
     port: 587
     user: ""
     useTls: true
-    # Required when backend == "smtp".  Used as the From: address on outgoing
-    # mail.  Must be a real address — values containing "example.com" are
-    # rejected at chart-render time.
+    # Implicit TLS/SSL (port 465). Mutually exclusive with useTls.
+    useSsl: false
+    # Used as the From: address on outgoing mail. Must be a real address —
+    # values containing "example.com" are rejected at chart-render time when a
+    # host is configured. May be left empty if you intend to configure email
+    # entirely from Admin → Settings → Email after the install.
     fromAddress: ""
     # Optional: name of a pre-existing Secret containing the SMTP password.
     # When set, the chart will not store password in its own Secret.

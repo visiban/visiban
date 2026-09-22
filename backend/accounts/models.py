@@ -250,6 +250,173 @@ class SiteSetting(models.Model):
         return self.registration_mode != self.RegistrationMode.OPEN
 
 
+class SiteEmailSetting(models.Model):
+    """Singleton holding DB-backed outbound SMTP configuration (#306).
+
+    Always access via ``SiteEmailSetting.get()``.
+
+    Why this is a separate model and not fields on ``SiteSetting``
+    -------------------------------------------------------------
+    The reason is already written down in this file. The
+    ``AUDITED_SITE_SETTING_FIELDS`` docstring above says:
+
+        "Today every SiteSetting field is an enum, a boolean or the admin's own
+        notice text; the day one of them holds an SMTP password or an OIDC
+        client secret, a generic loop would copy that value verbatim into the
+        audit log, and the rows are never rewritten."
+
+    That day is this model. Keeping the secret in its own table makes "this
+    column is never diffed into the audit log" a structural property rather
+    than a discipline that every future edit of ``SiteSettingSerializer`` and
+    ``record_site_setting_changes`` has to remember.
+
+    The read patterns also differ sharply: ``SiteSetting`` is read on nearly
+    every request through cached projections (``MaintenanceModeMiddleware``
+    alone calls ``get_maintenance_state()`` per request), whereas this row is
+    read only when mail is actually sent. It therefore has **no cache layer**
+    on purpose — a 60s TTL here would be machinery with nothing to do.
+
+    Precedence: all-or-nothing, never a field-level merge
+    ----------------------------------------------------
+    ``config_source`` alone decides whether env vars or this row configure
+    outbound mail. Fields are never merged across the two sources. A merge is
+    exactly how a half-filled row silently breaks mail — host from the DB,
+    password from the env — and it produces states no operator can describe in
+    a support ticket.
+
+    The serializer refuses to set ``config_source='database'`` unless
+    :meth:`db_config_is_complete` passes, so the realistic "admin saved host and
+    port, then got interrupted" case leaves a harmless draft row with
+    ``config_source`` still ``env``: existing env configuration keeps working,
+    untouched. See ``visiban.mail.resolve_email_config``.
+    """
+
+    class ConfigSource(models.TextChoices):
+        ENV = "env", "Environment variables"
+        DATABASE = "database", "Stored in this admin UI"
+
+    # Defaults to ENV so an existing install upgrading to this release behaves
+    # exactly as it did before: the DB row materializes empty and is ignored
+    # until an operator deliberately switches the source over.
+    config_source = models.CharField(
+        max_length=16,
+        choices=ConfigSource.choices,
+        default=ConfigSource.ENV,
+        help_text=(
+            "Which source configures outbound mail: 'env' uses the EMAIL_* "
+            "environment variables, 'database' uses the fields on this row. "
+            "Never a field-level merge of the two."
+        ),
+    )
+    host = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="SMTP server hostname.",
+    )
+    port = models.PositiveIntegerField(
+        default=587,
+        help_text="SMTP server port. 587 for STARTTLS, 465 for implicit SSL, 25 for unencrypted.",
+    )
+    username = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="SMTP authentication username. Blank means the relay accepts unauthenticated mail.",
+    )
+    # Ciphertext, never plaintext. Format and key derivation live in
+    # visiban.crypto; the value is written only through set_password() and read
+    # only through get_password().
+    password_ciphertext = models.TextField(
+        blank=True,
+        default="",
+        help_text=(
+            "SMTP password, encrypted at rest (see visiban.crypto). Never "
+            "returned by the API and never written to the audit log."
+        ),
+    )
+    use_tls = models.BooleanField(
+        default=True,
+        help_text="Use STARTTLS. Mutually exclusive with use_ssl.",
+    )
+    use_ssl = models.BooleanField(
+        default=False,
+        help_text="Use implicit TLS/SSL. Mutually exclusive with use_tls.",
+    )
+    from_email = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Envelope sender for all outbound mail when config_source is 'database'.",
+    )
+    timeout = models.PositiveIntegerField(
+        default=10,
+        help_text="Socket timeout in seconds for SMTP connections.",
+    )
+
+    class Meta:
+        db_table = "site_email_settings"
+
+    def save(self, *args, **kwargs):
+        # Enforce singleton: the row always has pk=1. Deliberately duplicated
+        # from SiteSetting.save() rather than factored into a shared base — at
+        # two instances the bodies already diverge (SiteSetting does a
+        # double cache invalidation this model has no need for), and a base
+        # class would have to grow hooks for a difference that is only eight
+        # lines of duplication.
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def set_password(self, plaintext: str) -> None:
+        """Encrypt and store the SMTP password. Empty string clears it."""
+        from visiban.crypto import encrypt_secret
+
+        self.password_ciphertext = encrypt_secret(plaintext)
+
+    def get_password(self) -> str:
+        """Decrypt the stored SMTP password.
+
+        Raises ``visiban.crypto.SecretDecryptionError`` when the instance
+        encryption key has changed since the password was stored.
+        """
+        from visiban.crypto import decrypt_secret
+
+        return decrypt_secret(self.password_ciphertext)
+
+    @property
+    def password_set(self) -> bool:
+        return bool(self.password_ciphertext)
+
+    @property
+    def password_decryptable(self) -> bool:
+        """False when the encryption key changed and the password is lost.
+
+        Cheap: compares a stored key fingerprint, performing no decryption, so
+        it is safe to call on the admin GET path.
+        """
+        from visiban.crypto import secret_is_decryptable
+
+        return secret_is_decryptable(self.password_ciphertext)
+
+    def db_config_is_complete(self) -> bool:
+        """Whether this row holds enough to actually send mail.
+
+        A password is required only when a username is set: unauthenticated
+        relays (a local Postfix, an SES VPC endpoint) are a real deployment
+        shape, and demanding a password there would block a valid configuration.
+        """
+        if not self.host or not self.from_email:
+            return False
+        if self.username and not self.password_ciphertext:
+            return False
+        return True
+
+
 class User(AbstractUser):
     """Extended user model. django-allauth handles OAuth linkage."""
 
@@ -636,6 +803,17 @@ class AdminActionLog(models.Model):
         REGISTRATION_MODE_CHANGED = "registration_mode.changed", "Registration mode changed"
         UPLOADS_ENABLED = "uploads_enabled.enabled", "File uploads enabled"
         UPLOADS_DISABLED = "uploads_enabled.disabled", "File uploads disabled"
+        # Outbound email configuration (#306). Host, port and the TLS flags are
+        # not secrets and carry from/to so a retrospective can read the actual
+        # transition. The username and password deliberately do NOT: SMTP
+        # usernames are routinely email addresses, which CLAUDE.md forbids
+        # logging, and for the password the marker IS the record.
+        EMAIL_SOURCE_CHANGED = "email_settings.source_changed", "Email config source changed"
+        EMAIL_SERVER_CHANGED = "email_settings.server_changed", "Email server changed"
+        EMAIL_FROM_CHANGED = "email_settings.from_email_changed", "Email sender address changed"
+        EMAIL_USERNAME_CHANGED = "email_settings.username_changed", "Email username changed"
+        EMAIL_PASSWORD_CHANGED = "email_settings.password_changed", "Email password changed"
+        EMAIL_TEST_SENT = "email_settings.test_sent", "Test email sent"
 
     class Source(models.TextChoices):
         """Which operator path performed the action."""
@@ -649,7 +827,10 @@ class AdminActionLog(models.Model):
         help_text=(
             "What happened, as '<subject>.<verb>'. One of: maintenance_mode.enabled, "
             "maintenance_mode.disabled, maintenance_message.changed, "
-            "registration_mode.changed, uploads_enabled.enabled, uploads_enabled.disabled. "
+            "registration_mode.changed, uploads_enabled.enabled, uploads_enabled.disabled, "
+            "email_settings.source_changed, email_settings.server_changed, "
+            "email_settings.from_email_changed, email_settings.username_changed, "
+            "email_settings.password_changed, email_settings.test_sent. "
             "Validated at the serializer boundary, not by a column constraint."
         ),
     )
@@ -781,3 +962,124 @@ def record_site_setting_changes(*, before: dict, after, actor, source) -> list:
         AdminActionLog.record(action=action, source=source, actor=actor, metadata=metadata)
         for action, metadata in pending
     ]
+
+
+# ---------------------------------------------------------------------------
+# Email settings auditing (#306)
+# ---------------------------------------------------------------------------
+# Deliberately a SEPARATE list and a separate recorder from the SiteSetting
+# pair above, not a generalization of them. The whole reason SMTP config lives
+# in its own model is that a generic field loop would copy a password into an
+# append-only table; sharing one recorder between the two would reintroduce
+# exactly that risk the first time someone adds a field here.
+#
+# `password_ciphertext` is absent from this tuple on purpose. It is snapshotted
+# separately as a bare boolean below, because even the *ciphertext* must not
+# reach a row that is never rewritten.
+AUDITED_EMAIL_SETTING_FIELDS = (
+    "config_source",
+    "host",
+    "port",
+    "username",
+    "use_tls",
+    "use_ssl",
+    "from_email",
+    "timeout",
+)
+
+
+def snapshot_email_setting(setting) -> dict:
+    """Capture the audited fields of ``setting`` before it is mutated.
+
+    The password is reduced to ``password_set`` — a boolean — at snapshot time,
+    so no caller downstream of this function ever holds the secret.
+    """
+    snap = {field: getattr(setting, field) for field in AUDITED_EMAIL_SETTING_FIELDS}
+    snap["password_set"] = setting.password_set
+    snap["password_ciphertext"] = setting.password_ciphertext
+    return snap
+
+
+def record_email_settings_changes(*, before: dict, after, actor, source) -> list:
+    """Append an audit row for each audited SiteEmailSetting change.
+
+    Hand-written per field rather than a loop, for the same reason
+    ``record_site_setting_changes`` is: a generic differ cannot know which
+    values are safe to write into an append-only table, and this model holds
+    one that never is.
+
+    Follows the same "only real transitions are recorded" discipline — a PATCH
+    that submits a field's existing value writes nothing, so the log stays
+    readable as a list of things that actually happened.
+
+    Must be called inside the same transaction as the save.
+    """
+    Action = AdminActionLog.Action
+    pending: list[tuple[str, dict]] = []
+
+    if before["config_source"] != after.config_source:
+        pending.append((
+            Action.EMAIL_SOURCE_CHANGED,
+            {"from": before["config_source"], "to": after.config_source},
+        ))
+
+    # Host, port and the transport flags travel as one "server" record: they
+    # are read together during an incident, and splitting them across four rows
+    # would make a single edit look like four separate changes.
+    server_before = (before["host"], before["port"], before["use_tls"], before["use_ssl"])
+    server_after = (after.host, after.port, after.use_tls, after.use_ssl)
+    if server_before != server_after:
+        pending.append((
+            Action.EMAIL_SERVER_CHANGED,
+            {
+                "from": _describe_email_server(*server_before),
+                "to": _describe_email_server(*server_after),
+            },
+        ))
+
+    if before["from_email"] != after.from_email:
+        pending.append((
+            Action.EMAIL_FROM_CHANGED,
+            {"from": before["from_email"], "to": after.from_email},
+        ))
+
+    # Value deliberately omitted: an SMTP username is usually an email address,
+    # and CLAUDE.md forbids logging PII. That a change happened, by whom, and
+    # when is the auditable part.
+    if before["username"] != after.username:
+        pending.append((Action.EMAIL_USERNAME_CHANGED, {}))
+
+    # Never a value, never a from/to, not even a length — the marker is the
+    # entire record.
+    if before["password_ciphertext"] != after.password_ciphertext:
+        pending.append((Action.EMAIL_PASSWORD_CHANGED, {}))
+
+    return [
+        AdminActionLog.record(action=action, source=source, actor=actor, metadata=metadata)
+        for action, metadata in pending
+    ]
+
+
+def _describe_email_server(host: str, port: int, use_tls: bool, use_ssl: bool) -> str:
+    """Render a server tuple as 'host:port (starttls)' for the audit metadata."""
+    if use_ssl:
+        transport = "ssl"
+    elif use_tls:
+        transport = "starttls"
+    else:
+        transport = "plaintext"
+    return f"{host or '(unset)'}:{port} ({transport})"
+
+
+def record_email_test(*, success: bool, actor, source) -> "AdminActionLog":
+    """Record a test-email attempt.
+
+    Outcome only. The recipient is never logged: it is the admin's own address,
+    which is PII, and CLAUDE.md forbids logging it.
+    """
+    return AdminActionLog.record(
+        action=AdminActionLog.Action.EMAIL_TEST_SENT,
+        source=source,
+        actor=actor,
+        metadata={"result": "success" if success else "failure"},
+    )

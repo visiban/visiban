@@ -112,17 +112,36 @@ helm upgrade --install visiban ./helm/visiban \
 
 ## Email (SMTP)
 
-Visiban uses Django's email backend for password resets and email verification. Configure these variables in `.env` (Docker Compose) or as environment variables in your Helm values:
+Visiban uses Django's email backend for password resets and email verification.
+
+There are two ways to configure it, and **exactly one of them is in effect at a time** —
+settings are never merged across the two:
+
+1. **Environment variables** (below) — the default, and unchanged from earlier releases.
+2. **The admin UI** — *new in 1.2.* **Admin → Settings → Email** stores the same settings
+   in the database, so you can configure and test SMTP without shell access or a restart.
+   See [Configuring SMTP from the admin UI](#configuring-smtp-from-the-admin-ui).
+
+An instance uses environment variables until an admin explicitly switches the source to
+the stored configuration, so **upgrading changes nothing** about how your instance sends
+mail.
+
+### Environment variables
+
+Configure these in `.env` (Docker Compose) or as environment variables in your Helm values:
 
 | Variable | Description | Default |
 |---|---|---|
-| `EMAIL_BACKEND` | Django email backend class | `django.core.mail.backends.smtp.EmailBackend` |
+| `EMAIL_BACKEND` | Django email backend class. Setting this explicitly pins the backend and **disables** the admin-UI configuration entirely. | *(unset — uses the source selected in the admin UI, falling back to these variables)* |
 | `EMAIL_HOST` | SMTP server hostname | `localhost` |
 | `EMAIL_PORT` | SMTP server port | `587` |
 | `EMAIL_HOST_USER` | SMTP authentication username | *(empty — no auth)* |
 | `EMAIL_HOST_PASSWORD` | SMTP authentication password | *(empty)* |
 | `EMAIL_USE_TLS` | Use STARTTLS | `true` |
-| `DEFAULT_FROM_EMAIL` | Sender address for outgoing emails | `noreply@localhost` |
+| `EMAIL_USE_SSL` | Use implicit TLS/SSL. Mutually exclusive with `EMAIL_USE_TLS`. *(new in 1.2)* | `false` |
+| `EMAIL_TIMEOUT` | SMTP socket timeout, in seconds. *(new in 1.2)* | `10` |
+| `DEFAULT_FROM_EMAIL` | Sender address for outgoing emails | `noreply@example.com` |
+| `VISIBAN_SECRET_ENCRYPTION_KEY` | Optional dedicated key for secrets stored at rest. *(new in 1.2)* See [Secret rotation](secret-rotation.md#visiban_secret_encryption_key). | *(empty — derived from `DJANGO_SECRET_KEY`)* |
 
 ### Example: Gmail / Google Workspace
 
@@ -156,6 +175,54 @@ EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 
 !!! note
     The default value of `EMAIL_VERIFICATION` is `optional`, which sends a verification email on signup but allows login without verifying. SMTP should be configured so that verification emails are delivered. Set `EMAIL_VERIFICATION=none` to disable verification emails entirely (no SMTP needed). The old alias `ACCOUNT_EMAIL_VERIFICATION` was removed in 1.1 — only `EMAIL_VERIFICATION` is read.
+
+### Configuring SMTP from the admin UI
+
+*New in 1.2.*
+
+Site admins can configure outbound email from **Admin → Settings → Email** without shell
+access or a container restart — useful on managed and cloud deployments.
+
+1. Fill in the server, port, sender address, and credentials.
+2. Switch **Configuration source** to **Stored in this admin UI**.
+3. Click **Send test email**. The test is delivered to your own account's email address.
+
+Changes take effect on the next email sent — there is no restart and no cache to wait for.
+
+**How the two sources interact:**
+
+- The setting is **all-or-nothing**. When the source is *stored configuration*, every
+  value comes from the database; when it is *environment variables*, every value comes
+  from the environment. A single setting is never taken from the other source.
+- You cannot switch to the stored configuration until it is complete (at minimum a host
+  and a sender address, plus a password if you set a username). A partly-filled form is
+  therefore harmless: it stays a draft and your existing email configuration keeps
+  working.
+- **Setting `EMAIL_BACKEND` explicitly overrides both.** If you pin that variable — to a
+  third-party relay, or to the console backend in development — Visiban honors it and
+  ignores the stored configuration entirely. The admin page says so when this is the case.
+
+**Password storage.** The SMTP password is encrypted at rest and never returned by the
+API. By default the encryption key is derived from `DJANGO_SECRET_KEY`, so **rotating
+that key makes a stored password unrecoverable** and you must re-enter it. To decouple
+the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password — see
+[Secret rotation](secret-rotation.md#visiban_secret_encryption_key).
+
+!!! warning "The test button connects to whatever host you enter"
+    **Send test email** opens an outbound SMTP connection from the Visiban backend to
+    the host and port in the form — including internal addresses the backend can reach
+    but you cannot. That makes it a site-admin-only capability with real network reach,
+    so grant `is_site_admin` accordingly. The action is limited to 5 attempts per hour
+    per admin, always delivers to the requesting admin's own address, and every server
+    change is recorded in the [admin action log](../api/admin.md#action-log).
+
+!!! note "Sender address placeholder"
+    Visiban refuses to send mail from the shipped `noreply@example.com` placeholder. In
+    earlier releases this was checked at startup and a production instance would not boot
+    until `DEFAULT_FROM_EMAIL` was set. Since 1.2 the check happens when mail is sent (and
+    on save in the admin UI), so an instance can boot and be configured entirely through
+    the UI. Startup logs a warning instead, and outbound mail is refused with a clear
+    error until a real sender address is set — by either method.
 
 ---
 

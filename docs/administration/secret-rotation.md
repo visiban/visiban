@@ -8,6 +8,28 @@ This guide covers rotating the three most critical secrets in a Visiban deployme
 
 Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password reset links. Rotating it immediately invalidates all active sessions (all users are logged out) and any outstanding password reset / email confirmation links.
 
+!!! note "Key strength is now a confidentiality control, not only an integrity one"
+    Before Visiban stored secrets at rest, `SECRET_KEY` protected session and CSRF
+    signatures — forgery, not disclosure. Now that it can encrypt a stored SMTP
+    password, a weak or guessable key means anyone with a database dump or backup can
+    recover that credential offline. Use a full-entropy value: the generator in step 1
+    below produces one. Never shorten it, and never reuse it across environments.
+
+!!! warning "Rotating this key invalidates a stored SMTP password"
+
+    If you configured outbound email through **Admin → Settings → Email** (rather than
+    the `EMAIL_*` environment variables), the SMTP password is encrypted at rest using a
+    key derived from `SECRET_KEY`. Rotating `SECRET_KEY` makes that stored password
+    permanently unrecoverable, and outbound email will stop working.
+
+    This is recoverable in under a minute — step 5 below — but only if you know to do it.
+    Otherwise the symptom (password-reset emails silently stop arriving) shows up days
+    later with nothing pointing back to the rotation.
+
+    To decouple the two, set a dedicated `VISIBAN_SECRET_ENCRYPTION_KEY` **before** you
+    first store an SMTP password. See
+    [Configuration → Email](configuration.md#email-smtp).
+
 ### When to rotate
 
 - Suspected or confirmed compromise of the key
@@ -40,7 +62,44 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
     docker compose -f docker-compose.prod.yml logs backend | tail -20
     ```
 
-5. Notify users that they will need to log in again.
+5. **If you configured SMTP in the admin UI, re-enter the password.** Open
+   **Admin → Settings → Email**. If the stored password can no longer be decrypted the
+   page says so explicitly and outbound mail is blocked until you re-enter it. Type the
+   password again and save, then use **Send test email** to confirm delivery.
+
+    Instances configured via the `EMAIL_*` environment variables are unaffected — skip
+    this step.
+
+6. Notify users that they will need to log in again.
+
+---
+
+## VISIBAN_SECRET_ENCRYPTION_KEY
+
+Optional. When set, this key — rather than one derived from `SECRET_KEY` — encrypts
+secrets Visiban stores at rest (today: the SMTP password set in **Admin → Settings →
+Email**). Setting it lets you rotate `SECRET_KEY` on its own schedule without
+invalidating stored secrets.
+
+### Steps
+
+1. Generate a key:
+
+    ```bash
+    python -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+    ```
+
+2. Set `VISIBAN_SECRET_ENCRYPTION_KEY` in your `.env` and restart the backend. The
+   backend refuses to start if the value is not 32 bytes of URL-safe base64.
+
+3. Re-enter any stored SMTP password in **Admin → Settings → Email** — existing secrets
+   were encrypted under the old key and are not migrated automatically.
+
+!!! note "Set it before storing secrets, not after"
+
+    Adding, changing, or removing this variable has the same effect on already-stored
+    secrets as rotating `SECRET_KEY`: they become undecryptable and must be re-entered.
+    There is no re-encryption command yet.
 
 ---
 

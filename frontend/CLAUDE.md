@@ -91,6 +91,7 @@ All dropdowns — `SelectDropdown` or hand-rolled — must follow this style:
 - Footer layout: `flex items-center justify-end gap-3` — always `gap-3`, never `gap-2`
 - **Fixed-height tabbed modals** — when a modal contains tabs with variable content height, give the panel a fixed height (`h-[85vh] max-h-[640px] min-h-0`) rather than only a max-height. This prevents layout jumping between tabs. The scrollable content region uses `overflow-y-auto flex-1` and the panel uses `flex flex-col`. Never use `max-h` alone on a tabbed modal panel.
 - **Inline confirmation for destructive toggles** — for settings toggles with immediate, broad-blast-radius effects (board-wide or instance-wide — e.g. enabling hard WIP enforcement, enabling maintenance mode), show an inline confirmation row before committing. The trigger is **blast radius and immediacy, not permanence**: a reversible change that instantly affects everyone still qualifies. **Confirm only the transition that removes access or functionality, never the one that restores it** — confirm turning maintenance mode on, never turning it off. On toggle click, keep the toggle **mounted and rendered** and add a text prompt + Confirm + Cancel **bare-text** buttons at `text-xs` scale directly below it (`text-danger hover:text-danger font-medium` for Confirm, `text-fg-tertiary hover:text-fg` for Cancel, both with `focus:ring-2` — reuse the member-removal and hard-WIP patterns in `BoardSettingsModal`). Do **not** swap the toggle row out for the confirm row, and do **not** use a filled button variant for Confirm — either one creates a third visual treatment of what should be a single pattern. Do **not** flip the toggle optimistically first: none of the reference instances do, and with the control never having changed there is nothing for Cancel to revert. Do not use a modal-within-modal or a danger-zone text input for toggle-level confirmations.
+- **In an explicit Save/Cancel composite editor, inline confirmation attaches to Save, not to the control.** The toggle rule above assumes the control commits on click. In a composite editor (§ Composite inline editors) nothing commits until Save, so confirming when a value is *selected* would force a second confirmation at Save time and leaves an incoherent state where the user "confirmed" something they can still Cancel. Instead, diff the last-saved value against the pending draft inside the submit handler and show the confirm row only when the blast-radius transition is actually present — still only the direction that removes or re-routes functionality, never the one that restores it. Reference: `EmailSettingsSection.tsx`'s `env → database` switch, which reuses the maintenance-mode confirm's exact bare-text styling with a different trigger point.
 - **Escape priority inside the card detail panel** — any dropdown, picker, or popover rendered inside `CardDetail` must register `useEscapeStack` at a priority **above 30**. **Never use `useDropdownEscape`** there: it registers at 25, below the panel's own close handler at 30, so Escape would dismiss the entire panel instead of the control. Allocated so far: `30` panel close · `35` archive/delete confirm · `36` move popover · `37` relation picker. Claim the next free integer and record it in this list.
 
 ## Badges and labels
@@ -320,6 +321,8 @@ ml-6 border-l-2 border-line pl-4
 
 **Do not invent a per-instance variant** — no custom border color (`border-line-strong`), no opacity modifier (`border-line-strong/40`), no different indent/padding pairing. This is the one sanctioned treatment for "a settings block that visually belongs to the control above it," established by the Rules tab's Hard-WIP-mode block (`BoardSettingsModal.tsx`) and reused as-is by the Display tab's personal density override block. `RoleTooltip`'s `pl-3 border-l-2 border-line` is a pre-existing, unrelated exception (tooltip content formatting, not a gated settings block) — do not treat it as a third variant to reconcile against.
 
+**Not every control-plus-dependent-fields layout is toggle-gated.** The rule above applies when the dependent block is *inert* while the controlling toggle is off — there is nothing useful to do with it. It does **not** apply when the dependent fields stay independently meaningful whichever option is selected, because the safe path to switching requires filling them in *before* the switch. Admin Settings → Email is the reference case (`EmailSettingsSection.tsx`): the SMTP host/port/credential fields stay unindented and fully editable whether "Environment variables" or "Database" is selected, because indenting or disabling them under an unselected radio would force an admin to switch mail configuration blind. When leaving a block unindented for this reason, add an inline status line saying whether it is currently in effect (e.g. "Saved, but not in use — {other option} is selected above"), sourced from the **last-saved server state, never the in-progress draft** — do not assert a saved fact about a selection the user has not committed.
+
 ## Native checkbox and radio accent
 
 When a native `<input type="checkbox">` or `<input type="radio">` is rendered with its default browser control visible (i.e. *not* the `sr-only` custom-styled radio pattern above), it **must** set `accent-primary` — never a raw palette value like `accent-blue-500` / `accent-blue-600`. The `accent-primary` token tracks the active theme (including dark mode); a hardcoded `accent-blue-*` stays the same hue regardless of theme and reads as an off-brand control. This applies to filter checkboxes (`ActivityFilterDropdown`), column-option checkboxes (`EditColumnModal`), and any admin toggle that keeps the native control.
@@ -386,6 +389,8 @@ Reference implementation: `BoardSettingsFieldsTab`'s `FieldEditPanel` (name + ty
 - **Reserve vertical space unconditionally** — render the container element always (`<p className="text-xs h-4">`) and conditionally render the text content inside it. Never conditionally render the container itself; doing so causes buttons and surrounding elements to shift when messages appear or disappear.
 - Error text: `text-danger`; success text: `text-success` — always on a `<span>` inside the reserved container, not directly on the `<p>`
 - **Relabel destructive-escape actions after success** — if a modal stays open after a successful action, relabel "Cancel" to "Close" once success state is set, so the button's semantics match the user's situation
+- **`h-4` reserves exactly one line — size the reservation to the copy.** A slot whose longest state wraps to two lines uses `h-8`; a slot holding a full sentence whose wrapping depends on viewport width uses `min-h-4`, which still reserves space unconditionally but cannot clip. A fixed `h-4` under a wrapping sentence overflows into the block below, and the states most likely to carry long copy are first-run states, so the bug ships visible on day one (#306).
+- **On form fields, the reserved slot doubles as the helper slot.** Render helper text there by default and swap it for the error when the field is invalid. This satisfies the reservation rule while spending the space productively instead of leaving a dead gap under every input, and it keeps `aria-describedby` pointing at one stable id.
 
 ## Paired numeric settings fields
 
@@ -401,6 +406,7 @@ When two related numeric inputs belong to the same conceptual setting (e.g. thre
 ## Loading and spinner states
 
 - **Canonical animated spinner:** `w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin` (inline context). Use `w-8 h-8` for full-page center spinners. Always wrap in `flex items-center justify-center gap-2` with a `text-sm text-fg-tertiary` label when the wait context is not obvious.
+- **In-button variant: `w-3 h-3`.** A spinner rendered *inside* a `px-3 py-1.5 text-sm` button uses `w-3 h-3` with the same border treatment, plus `shrink-0` and `aria-hidden="true"` (the button's own label text carries the state, e.g. "Sending…"). The canonical `w-5 h-5` overflows a `py-1.5` button. Established by `AutosaveIndicator`, reused by `EmailSettingsSection`.
 - Center spinners with `flex items-center justify-center`
 
 ## Empty states
@@ -600,6 +606,42 @@ Not every persistent banner is a "mode" the current user opted into. When a bann
 - The message text is operator-supplied: render it as a text node, never via `dangerouslySetInnerHTML`. Use `truncate min-w-0 flex-1` plus a `title` so a long notice never wraps the strip or forces horizontal scroll, while staying complete in the DOM for screen readers
 - **Icon: use the app's canonical `⚠` / `⛔` glyph, never a bespoke SVG** — `<span aria-hidden="true" className="text-base leading-none shrink-0">⚠</span>`. These are the same Unicode characters `ColumnHeader`, `MoveBlockedToast` and `LensProvenanceBanner` already use for identical amber/red severity semantics; drawing a new SVG triangle per banner gives the app two different renderings of one meaning
 - Reference implementation: `MaintenanceBanner` (`src/components/Common/MaintenanceBanner.tsx`, issue #783)
+
+## Inline summary panels (embedded, not chrome)
+
+Not every amber-toned status block is a § Degraded-state site banner. That section is specifically for persistent, full-width chrome outside the scroll container (`MaintenanceBanner`). When a panel instead sits *inside* a form or card to summarize the live effect of settings the user is actively editing — e.g. Admin Settings → Email's "Currently sending mail" panel (`EmailSettingsSection.tsx`) — it may borrow the same tokens (`border-warning/30 bg-warning/10`, the canonical `⚠`/`⛔` glyph, `aria-hidden` on the glyph) but must **not** copy the `role="status" aria-live="polite"` treatment.
+
+- Use `role="group" aria-labelledby="{heading-id}"` instead.
+- **Why:** these panels sit next to an action that already owns a live region for *its* result (Save, Send test). A second concurrent polite region queues against the first and produces duplicated or out-of-order announcements. Carry exactly one live region per user-initiated action, not one per visually-amber element.
+- State the panel's facts from **saved server state only**, never the in-progress draft — the panel answers "what is happening right now", which an uncommitted edit has not changed.
+- Warning copy in such a panel is usually a full sentence, so its reserved slot uses `min-h-4`, not `h-4`. See § Inline status messages.
+
+## Write-only secret fields ("leave blank to keep")
+
+For an admin-editable secret the server never returns in cleartext (SMTP password, webhook signing secret, API key), use this pattern rather than inventing one per field. Reference: `EmailSettingsSection.tsx`'s password field.
+
+- The input is `type="password"`, `autoComplete="new-password"`, starts empty, and its `placeholder` communicates **current state** rather than an example value: `"Leave blank to keep the current password"` when one is stored and usable, no placeholder when none is stored, and an explicit re-entry prompt (`"Enter the password again"`) when a stored value exists but cannot be decrypted.
+- The unrecoverable-secret state is surfaced, never silent: `border-warning/50` on the input plus `text-warning` helper text naming the likely cause and the remedy.
+- Two helper lines beneath the input say what is stored and what typing or leaving blank will do. Reserve them unconditionally (`h-8` for two `text-xs` lines, or `min-h-` if the copy can wrap).
+- A `Clear` bare-text button appears in the label row **only** when a secret is stored and Clear has not already been pressed. It stages the removal — input disabled and empty, `text-warning` "will be cleared when you save", and an `Undo` bare-text button. The clear commits with Save, never on click.
+- **On the wire, omit the key entirely unless the user typed a value (send it) or pressed Clear (send `""`).** "Leave blank" must never resolve to an empty string on the wire, or an unrelated edit silently wipes the secret.
+- A validation error touching the secret **replaces both helper lines**, never just the first. Rendering "Leave blank if your server doesn't require a password." directly beneath "A password is required when a username is set." shows two contradictory instructions at once.
+- Give each field's helper copy its own wording. Reusing one sentence across two fields (username and password, say) makes the UI read as boilerplate and makes text-based test queries ambiguous.
+
+## Verification actions against a saved configuration
+
+When a surface lets an admin verify a stored configuration against a live external system (send a test email, ping a webhook):
+
+- **It tests saved state, never the draft.** Disable the action while the form is dirty and say why in both a `title` and the result region's first line ("Save your changes before testing."). Testing a draft would require sending an unsaved credential for a side-effecting action, and would not tell the admin what is actually live.
+- Place it below the form's Save/Cancel footer behind a `pt-3 border-t border-line-subtle` divider. The physical separation is what makes "this tests what is live, not what you typed" legible without a paragraph of explanation. Use the **secondary** button variant — the form's Save is the primary action.
+- The backend returns an **opaque error code from a closed set**, never a raw upstream error string. The frontend owns the copy: map each code in one lookup table to a `{ headline, remedy }` pair — headline in the tone color (`text-danger` / `text-warning` / `text-success`), remedy in `text-fg-muted` beneath it — and treat an unrecognized code as the generic failure rather than rendering it.
+- Both lines live in reserved `text-xs h-4` containers inside a single `role="status" aria-live="polite" aria-atomic="true"` wrapper.
+- A throttled response (429) is `text-warning`, not `text-danger` — nothing is broken, the admin is just early.
+- Rate limits and retry windows are backend-owned numbers; interpolate them from the response where the API provides them rather than hardcoding them in the copy table, or the string goes stale silently when the limit changes.
+
+## Disambiguating repeated button labels
+
+When one page or tab can simultaneously render more than one bare-text button with the same visible label — most often `Cancel` or `Save` across two independent inline-confirm or composite-editor blocks — give each a distinguishing `aria-label` and keep the visible text generic (e.g. `aria-label="Discard email settings changes"`). Two controls accessibly named only "Cancel" are ambiguous for screen-reader rotor navigation and for `getByRole`/`getByText` queries alike. This is not hypothetical: it broke `adminPage.test.tsx` in #306, where the Email section's footer Cancel collided with the maintenance-mode confirm's Cancel.
 
 ## Common dropdown primitives
 

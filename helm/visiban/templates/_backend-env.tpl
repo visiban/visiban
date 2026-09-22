@@ -54,8 +54,18 @@ Invocation: {{ include "visiban.backendEnv" . }}
   value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL
   value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/1" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.cacheUrl | quote }}{{ end }}
+{{- /*
+  EMAIL_BACKEND is emitted ONLY when explicitly configured. Setting it pins the
+  backend and suppresses the DB-backed configuration in Admin → Settings → Email
+  (#306) — so emitting it unconditionally, as this chart did before 1.2, made
+  that feature permanently inert on every Kubernetes install and left no way to
+  install-then-configure. Leave backend.email.backend empty to keep the admin UI
+  usable; set it to pin a specific backend on purpose.
+*/}}
+{{- if $ctx.Values.backend.email.backend }}
 - name: EMAIL_BACKEND
   value: {{ printf "django.core.mail.backends.%s.EmailBackend" $ctx.Values.backend.email.backend | quote }}
+{{- end }}
 - name: EMAIL_HOST
   value: {{ $ctx.Values.backend.email.host | quote }}
 - name: EMAIL_PORT
@@ -64,6 +74,8 @@ Invocation: {{ include "visiban.backendEnv" . }}
   value: {{ $ctx.Values.backend.email.user | quote }}
 - name: EMAIL_USE_TLS
   value: {{ $ctx.Values.backend.email.useTls | quote }}
+- name: EMAIL_USE_SSL
+  value: {{ $ctx.Values.backend.email.useSsl | quote }}
 - name: DEFAULT_FROM_EMAIL
   value: {{ $ctx.Values.backend.email.fromAddress | quote }}
 - name: EMAIL_VERIFICATION
