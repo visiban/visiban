@@ -68,6 +68,14 @@ To disconnect the lens, return to **Settings → Lens** and click **Remove lens*
 
 The Lens tab renders issues as cards on a read-only kanban grid. You can scroll, filter, and inspect issues but cannot drag them, edit them, or create new ones.
 
+### Resizing columns and the swimlane label panel
+
+Drag the thin edge between a column and its neighbor to widen or narrow it, or drag the edge of the swimlane label panel on the left to give milestone, label, or assignee names more (or less) room. This is view-only chrome, like scrolling — it changes nothing in the source repository.
+
+- Columns resize between roughly 160px and 640px; the swimlane label panel resizes between roughly 120px and 480px.
+- Each column edge doubles as a keyboard control: focus it with Tab and press the left/right arrow keys to resize in small steps (hold Shift for larger steps).
+- Sizes are remembered per board, on the device and browser you resized them in. They do not travel with a shared lens link and are not synced across devices.
+
 ### Columns — the horizontal dimension
 
 By default, columns are derived from the repository's **status labels** — any label whose name matches a common status prefix (for example `status: in review`, `state: blocked`, or `stage/done`). If no status labels are detected, issues fall back to two columns: **Open** and **Closed**.

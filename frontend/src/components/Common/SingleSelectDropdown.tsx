@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
 
@@ -19,6 +19,12 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    * component's own base classes always apply.
    */
   className?: string;
+  /**
+   * #964 — fired on every open/close transition (click-toggle, outside-click,
+   * and Escape via useDropdownEscape). Additive and optional: no existing
+   * consumer passes it, so no existing behavior changes.
+   */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export default function SingleSelectDropdown<T extends string | number>({
@@ -28,13 +34,26 @@ export default function SingleSelectDropdown<T extends string | number>({
   onChange,
   triggerPrefix,
   className,
+  onOpenChange,
 }: SingleSelectDropdownProps<T>) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const id = useId();
   const menuId = `${id}-menu`;
+
+  // #964 — onOpenChange fires as a plain call after setOpenState, never
+  // inside a state-updater function (see the identical comment in
+  // CheckboxDropdown.tsx for why). Every call site here already knows the
+  // resolved next value up front.
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setOpenState(next);
+      onOpenChange?.(next);
+    },
+    [onOpenChange],
+  );
 
   useDropdownEscape(open, () => setOpen(false), triggerRef);
 
@@ -45,7 +64,7 @@ export default function SingleSelectDropdown<T extends string | number>({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [open, setOpen]);
 
   const displayLabel =
     selected === null
@@ -88,7 +107,7 @@ export default function SingleSelectDropdown<T extends string | number>({
       <button
         ref={triggerRef}
         id={`${id}-trigger`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         onKeyDown={handleTriggerKeyDown}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -143,7 +162,7 @@ export default function SingleSelectDropdown<T extends string | number>({
                   setOpen(false);
                 }}
                 onKeyDown={(e) => handleItemKeyDown(e, i)}
-                className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${
+                className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   selected === opt.value ? "text-info" : "text-fg-secondary"
                 }`}
               >

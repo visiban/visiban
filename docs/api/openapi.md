@@ -89,9 +89,11 @@ etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/
 `SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for
 `board_pk`/`id`/etc. on nested board-resource routes — otherwise a randomly-generated id
 almost never matches a seeded row, and schemathesis never exercises the operation's real
-200-path logic. Resource families `seed_demo_data` doesn't create yet (groups, custom fields,
-saved filters, attachments, group invite-links/labels) aren't seeded and still 404 under
-fuzzing — tracked as [#1125](https://gitlab.com/visiban/visiban/-/issues/1125).
+200-path logic. [#1125](https://gitlab.com/visiban/visiban/-/issues/1125) extended
+`seed_demo_data` with one Group (owning the demo board), `CustomFieldDefinition`,
+`SavedFilter`, `CardAttachment`, `GroupInviteLink`, and `GroupLabel`, and
+`schemathesis_hooks.py` now maps their path parameters the same way, so these resource
+families are also reachable instead of always 404ing under fuzzing.
 
 **Enforced (`allow_failure: false`) as of [#1120](https://gitlab.com/visiban/visiban/-/issues/1120).**
 Per #1080's own phased plan, the job ran non-blocking for one release to establish a baseline.

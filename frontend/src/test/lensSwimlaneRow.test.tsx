@@ -37,7 +37,7 @@ function setup(overrides: Partial<React.ComponentProps<typeof LensSwimlaneRow>> 
       swimlane={{ key: 'v1', label: 'v1.2', is_current: false }}
       columns={columns}
       sidebarWidth={200}
-      colWidth={280}
+      colWidths={new Map([['open', 280], ['closed', 280]])}
       issues={[issue(1, 'open'), issue(2, 'closed')]}
       collapsed={false}
       onToggleCollapse={onToggleCollapse}
@@ -97,5 +97,32 @@ describe('LensSwimlaneRow', () => {
     const { onToggleCollapse } = setup()
     await user.click(screen.getByRole('button', { name: 'Collapse v1.2' }))
     expect(onToggleCollapse).toHaveBeenCalled()
+  })
+
+  // --- Resizing (#1065) ---
+
+  it('renders each cell at its resolved colWidths entry', () => {
+    setup({ colWidths: new Map([['open', 400], ['closed', 280]]) })
+    const openCell = screen.getByText('Issue 1').closest('[style]') as HTMLElement
+    expect(openCell.style.width).toBe('400px')
+  })
+
+  it('falls back to the default column width for a key missing from colWidths', () => {
+    setup({ colWidths: new Map() })
+    const openCell = screen.getByText('Issue 1').closest('[style]') as HTMLElement
+    expect(openCell.style.width).toBe('280px')
+  })
+
+  it('sidebarWidth drives the label panel width', () => {
+    setup({ sidebarWidth: 320 })
+    const label = screen.getByText('v1.2').closest('[style]') as HTMLElement
+    expect(label.style.width).toBe('320px')
+  })
+
+  it('compact cells lay out with auto-fill/minmax rather than a fixed 2-column grid', () => {
+    setup({ compact: true })
+    const grid = screen.getByText('Issue 1').closest('.grid') as HTMLElement
+    expect(grid.className).toContain('grid-cols-[repeat(auto-fill,minmax(120px,1fr))]')
+    expect(grid.className).not.toContain('grid-cols-2')
   })
 })
