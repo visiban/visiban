@@ -444,6 +444,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "f7cedf",
+      "operation": "PATCH /api/v1/boards/{board_pk}/custom-fields/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-21",
+      "last_seen": "2026-09-21"
+    },
+    {
       "id": "d51e52",
       "operation": "PATCH /api/v1/boards/{board_pk}/labels/{id}/",
       "check": "status_code_conformance",
@@ -750,6 +759,24 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "44f7fe",
+      "operation": "POST /api/v1/boards/{board_pk}/swimlane-custom-fields/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
+    },
+    {
+      "id": "b8873e",
+      "operation": "POST /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
+    },
+    {
       "id": "8fc3e8",
       "operation": "POST /api/v1/boards/{board_pk}/swimlanes/",
       "check": "status_code_conformance",
@@ -1011,6 +1038,15 @@
       "last_seen": "2026-09-16"
     },
     {
+      "id": "ff8b06",
+      "operation": "PUT /api/v1/boards/{board_pk}/custom-fields/{id}/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-21",
+      "last_seen": "2026-09-21"
+    },
+    {
       "id": "e2741b",
       "operation": "PUT /api/v1/boards/{board_pk}/labels/{id}/",
       "check": "status_code_conformance",
@@ -1018,6 +1054,15 @@
       "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "2d0793",
+      "operation": "PUT /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-20",
+      "last_seen": "2026-09-20"
     },
     {
       "id": "414410",

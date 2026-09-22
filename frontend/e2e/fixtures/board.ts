@@ -182,6 +182,7 @@ export const BOARD_FULL = {
   enforce_weight_limits: false,
   export_min_role: 'viewer' as const,
   custom_field_definitions: [],
+  swimlane_custom_field_definitions: [],
   is_starred: false,
   share_token: null,
   current_user_role: 'admin' as const,

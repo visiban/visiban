@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
+import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane, SwimlaneCustomFieldDefinition } from "../../types";
 import { updateSwimlane } from "../../api/boards";
 import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
+import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
+import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
 
 interface Props {
   swimlane: Swimlane;
@@ -51,17 +53,46 @@ interface Props {
   compact?: boolean;
   staleness_threshold_days?: number;
   stale_warning_pct?: number;
+  /**
+   * Card-level definitions (#371) — passed straight through to
+   * BoardCell/CardItem. NOT the row's own fields; see
+   * `swimlaneFieldDefinitions` below.
+   */
   customFieldDefinitions?: CustomFieldDefinition[];
+  /**
+   * Row-level definitions (#1140) — consumed here, never forwarded to
+   * BoardCell. Kept distinct from `customFieldDefinitions` above because the
+   * two are independent schemas with independent id spaces, and conflating
+   * them would render card fields on a row or vice versa.
+   */
+  swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
   onCardUpdated?: (card: Card) => void;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onCardUpdated }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const heightResizeState = useRef<{ startY: number; startHeight: number } | null>(null);
+  const [fieldsPopoverRect, setFieldsPopoverRect] = useState<DOMRect | null>(null);
+  const overflowRef = useRef<HTMLButtonElement>(null);
+
+  // Row field values to render (#1140). Three guards, all deliberate:
+  // an empty-string value renders nothing (never a dashed ghost chip — dashed
+  // already means "unset" on the card face and must not gain a second
+  // meaning); a value whose definition is missing is dropped silently (a WS
+  // race between a definition delete and this render); and the pinned slice is
+  // capped client-side so a server-side cap violation cannot blow out the row.
+  const swimlaneFieldsById = new Map((swimlaneFieldDefinitions ?? []).map((d) => [d.id, d]));
+  const rowFieldEntries = (swimlane.custom_field_values ?? [])
+    .filter((v) => v.value !== "")
+    .map((v) => ({ def: swimlaneFieldsById.get(v.field_definition), value: v.value }))
+    .filter((x): x is { def: SwimlaneCustomFieldDefinition; value: string } => !!x.def)
+    .sort((a, b) => a.def.position - b.def.position);
+  const pinnedRowFields = rowFieldEntries.filter((x) => x.def.show_on_row).slice(0, 3);
+  const unpinnedRowFields = rowFieldEntries.filter((x) => !x.def.show_on_row);
 
   const startRenaming = () => {
     setDraft(swimlane.name);
@@ -163,6 +194,42 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
               </p>
             )}
             {!collapsed && isAdmin && swimlane.contact_email && <p className="text-xs text-fg-tertiary truncate">{swimlane.contact_email}</p>}
+            {/* Gated on !collapsed, matching contact_email above: a collapsed
+                row is py-1 and exists to give vertical space back, so stacked
+                chips would undo the gesture the user just made. The +N trigger
+                disappears with them, so nothing is silently truncated. */}
+            {!collapsed && rowFieldEntries.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 mt-1 min-w-0">
+                {pinnedRowFields.map(({ def, value }) => (
+                  <CustomFieldValueDisplay
+                    key={def.id}
+                    definition={def}
+                    value={value}
+                    variant="row-chip"
+                    adminOnly={def.is_admin_only}
+                    userDateFormat={userDateFormat}
+                  />
+                ))}
+                {unpinnedRowFields.length > 0 && (
+                  <button
+                    ref={overflowRef}
+                    onClick={(e) => {
+                      // The label panel's parent has onDoubleClick -> edit for
+                      // admins; without this the click bubbles into it.
+                      e.stopPropagation();
+                      setFieldsPopoverRect(e.currentTarget.getBoundingClientRect());
+                    }}
+                    aria-haspopup="dialog"
+                    aria-expanded={fieldsPopoverRect !== null}
+                    aria-label={`Show all ${rowFieldEntries.length} field values for ${swimlane.name}`}
+                    title="Show all field values"
+                    className="inline-flex items-center text-xs px-1.5 py-0.5 rounded border border-line text-fg-muted hover:text-fg-secondary hover:bg-surface-hover shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                  >
+                    {pinnedRowFields.length > 0 ? `+${unpinnedRowFields.length}` : `+${unpinnedRowFields.length} more`}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {!collapsed && isAdmin && (
@@ -373,6 +440,18 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
         )}
       </div>
 
+      {fieldsPopoverRect && (
+        <SwimlaneFieldsPopover
+          swimlaneName={swimlane.name}
+          entries={rowFieldEntries}
+          anchorRect={fieldsPopoverRect}
+          userDateFormat={userDateFormat}
+          onEdit={isAdmin ? () => setEditing(true) : undefined}
+          onDismiss={() => setFieldsPopoverRect(null)}
+          triggerRef={overflowRef}
+        />
+      )}
+
       {isAdmin && editing && (
         <EditSwimlaneModal
           boardId={boardId}
@@ -381,6 +460,7 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
           onUpdated={(s) => { onSwimlaneUpdated(s); setEditing(false); }}
           onDeleted={(id) => { onSwimlaneDeleted(id); setEditing(false); }}
           onClose={() => setEditing(false)}
+          swimlaneFieldDefinitions={swimlaneFieldDefinitions}
         />
       )}
     </>

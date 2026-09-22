@@ -107,3 +107,33 @@ TEMPLATE_PROVIDERS: list = []
 # above, call sites must read the module attribute rather than a copy taken at
 # import time, and must never rebind it.
 CUSTOM_FIELD_VALIDATORS: list = []
+
+# Swimlane (row) custom field value validation hook (#1140).
+# Callable signature: (definition: SwimlaneCustomFieldDefinition, value: str) -> str | None
+# The row-level counterpart to CUSTOM_FIELD_VALIDATORS above, with an identical
+# contract: same call position (serializer boundary, after built-in per-type
+# normalization), same accept / replace / raise semantics, same registration
+# order rule, same read-the-module-attribute requirement.
+#
+# **Why a second list rather than reusing CUSTOM_FIELD_VALIDATORS**, given the
+# two definition models are duck-type compatible for everything the built-in
+# validation reads (`name`, `field_type`, `choices_json`):
+#
+# An already-registered validator was written against the signature above,
+# where `definition` is always a CustomFieldDefinition. Feeding it a
+# SwimlaneCustomFieldDefinition would work for a validator that only switches
+# on `field_type`, and would raise AttributeError — surfacing as a 500 on a
+# swimlane write — for one that reads a card-only attribute such as
+# `show_on_card`, or that walks `definition.values` expecting CustomFieldValue
+# rows. Those validators live in the enterprise repo, which this one cannot
+# grep, so the failure could not be ruled out by inspection.
+#
+# This is the same reasoning, and the same resolution, as the separate
+# `swimlane_custom_field_value_changed` signal in boards/signals.py: widening a
+# published extension point in place is a silent break for consumers we cannot
+# see, while a sibling hook makes adoption an explicit opt-in that breaks
+# nothing that already exists. A validator that is genuinely generic across
+# both levels is registered in both lists — one line, and deliberately visible.
+#
+# OSS behaviour is unchanged when this list is empty.
+SWIMLANE_CUSTOM_FIELD_VALIDATORS: list = []

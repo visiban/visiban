@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition } from "../types";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -137,6 +137,35 @@ export const deleteCustomFieldDefinition = (boardId: number, fieldId: number) =>
 
 export const reorderCustomFields = (boardId: number, order: number[]) =>
   client.post<CustomFieldDefinition[]>(`/api/v1/boards/${boardId}/custom-fields/reorder/`, { order }).then((r) => r.data);
+
+// Swimlane (row) custom fields (#1140). A separate endpoint from the card
+// fields above, not a scoped variant of it: the two are independent per-board
+// schemas with their own caps and their own id space. Row *values* need no
+// endpoint here — they ride on updateSwimlane.
+export const listSwimlaneCustomFieldDefinitions = (boardId: number) =>
+  client.get<SwimlaneCustomFieldDefinition[]>(`/api/v1/boards/${boardId}/swimlane-custom-fields/`).then((r) => r.data);
+
+export const createSwimlaneCustomFieldDefinition = (boardId: number, data: {
+  name: string;
+  field_type: CustomFieldType;
+  choices?: string[];
+  help_text?: string;
+  is_admin_only?: boolean;
+}) =>
+  client.post<SwimlaneCustomFieldDefinition>(`/api/v1/boards/${boardId}/swimlane-custom-fields/`, data).then((r) => r.data);
+
+export const updateSwimlaneCustomFieldDefinition = (
+  boardId: number,
+  fieldId: number,
+  data: Partial<Pick<SwimlaneCustomFieldDefinition, "name" | "field_type" | "choices" | "help_text" | "show_on_row" | "is_admin_only">>
+) =>
+  client.patch<SwimlaneCustomFieldDefinition>(`/api/v1/boards/${boardId}/swimlane-custom-fields/${fieldId}/`, data).then((r) => r.data);
+
+export const deleteSwimlaneCustomFieldDefinition = (boardId: number, fieldId: number) =>
+  client.delete(`/api/v1/boards/${boardId}/swimlane-custom-fields/${fieldId}/`);
+
+export const reorderSwimlaneCustomFields = (boardId: number, order: number[]) =>
+  client.post<SwimlaneCustomFieldDefinition[]>(`/api/v1/boards/${boardId}/swimlane-custom-fields/reorder/`, { order }).then((r) => r.data);
 
 export const importBoard = (file: File, name?: string, groupId?: number) => {
   const formData = new FormData();

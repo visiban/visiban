@@ -66,6 +66,8 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/v1/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
+Since 1.2, also includes `custom_field_definitions` (the board's card custom field schema) and `swimlane_custom_field_definitions` (the board's [swimlane custom field](#swimlane-custom-fields-since-12) schema) — both read-only lists, available to every board role. Definition schemas disclose nothing a board reader does not already have; which of a swimlane's *values* a given role may read is decided per-definition by `is_admin_only`, not by this field.
+
 **`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (parent group display name or `null`), and `ancestors` (root-first `[{ id, name }]` chain). Without this parameter `group_detail` is `null`.
 
 ### `GET /api/v1/boards/{id}/events/`
@@ -412,6 +414,16 @@ defined on the board, in the fields' display order, headed `Custom: <field name>
 fixed columns above keep their positions, so a consumer reading by index is unaffected.
 The prefix keeps a field named e.g. `Title` from colliding with a built-in header.
 
+Also since 1.2, one further column is appended per [swimlane custom
+field](#swimlane-custom-fields-since-12) defined on the board, after the `Custom: ` block,
+headed `Swimlane Custom: <field name>`. A row field's value is repeated on every card row
+belonging to that swimlane, so the CSV stays one row per card. The distinct `Swimlane
+Custom: ` prefix (rather than reusing `Custom: `) is required, not cosmetic: a card field
+and a row field may legally share a `name` on the same board, and sharing the prefix would
+produce two identical headers. A field with `is_admin_only: true` produces no column at all
+for an exporter below `admin` — its existence is not disclosed, the same rule
+`contact_email`/`notes` already follow in this export.
+
 ### `GET /api/v1/boards/{id}/export/?format=json`
 Export the board as JSON. Returns `application/json`. Same permission rules as the CSV variant: requires board membership and meeting the `export_min_role` threshold. Owners and site admins always bypass.
 
@@ -426,16 +438,38 @@ Since 1.2 the payload also carries the board's `custom_fields` schema and each c
 stays at `2` and an existing consumer is unaffected. Re-importing custom field data is not
 supported yet — the importer ignores both keys.
 
+Also since 1.2, each swimlane object carries its own `custom_field_values` (keyed by
+[swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level
+`swimlane_custom_fields` array carries that schema — the row-level counterpart to
+`custom_fields`/`custom_field_values`, kept as separate keys rather than merged into the
+card ones because they are independent per-board sets attached to different objects.
+Both are additive and unimported, same as the card-level pair. A definition with
+`is_admin_only: true`, and any value under it, is omitted from the export entirely for a
+caller below `admin` — the same role gate this export already applies to a swimlane's
+`contact_email` and `notes`.
+
 ```json
 {
   "schema_version": 2,
   "name": "Sales Pipeline",
   "description": "",
   "columns": [{ "name": "Backlog", "position": 0, "color": "#64748B", "wip_limit": null, "weight_limit": null, "allow_card_creation": true }],
-  "swimlanes": [{ "name": "Acme Corp", "position": 0, "color": "#3B82F6", "contact_email": "", "notes": "" }],
+  "swimlanes": [
+    {
+      "name": "Acme Corp",
+      "position": 0,
+      "color": "#3B82F6",
+      "contact_email": "",
+      "notes": "",
+      "custom_field_values": { "Account Tier": "Enterprise" }
+    }
+  ],
   "labels": [{ "name": "Bug", "color": "#EF4444" }],
   "custom_fields": [
     { "name": "Array Type", "field_type": "dropdown", "choices": ["raid6", "raid10"], "position": 0, "show_on_card": true, "is_required": false, "help_text": "" }
+  ],
+  "swimlane_custom_fields": [
+    { "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "position": 0, "show_on_row": true, "is_admin_only": true, "is_required": false, "help_text": "" }
   ],
   "cards": [
     {
@@ -655,6 +689,8 @@ Swimlane objects include a `uid` field — stable across renames, read-only.
 
 **Role-gated fields:** `contact_email` and `notes` are only included in responses for `admin` and `site_admin` role members. `member`, `collaborator`, and `viewer` roles receive swimlane objects without those fields. This applies to the swimlane list endpoint, `GET /api/v1/boards/{id}/full/`, and WebSocket broadcast events.
 
+**`custom_field_values` visibility (since 1.2):** unlike `contact_email`/`notes`, visibility of a row's custom field values is gated **per definition**, not per role. Every board role receives `custom_field_values`, but each entry is present only if its [definition](#swimlane-custom-fields-since-12) has `is_admin_only: false` — the default is `true`. Board admins and site admins always see every value regardless of `is_admin_only`. A share-link visitor (`GET /api/share/{token}/`) never receives `custom_field_values` at all — see [Public share endpoint](#public-share-endpoint).
+
 ### `GET /api/v1/boards/{id}/swimlanes/`
 List all swimlanes on the board in position order. Available to all board members. `admin` and `site_admin` roles see `contact_email` and `notes`; all other roles receive swimlane objects without those fields.
 
@@ -680,13 +716,25 @@ Swimlane response objects include the following fields:
 | `created_at` | string | ISO 8601 timestamp of swimlane creation |
 | `contact_email` | string | Admin-only — contact email for this swimlane (empty string if unset) |
 | `notes` | string | Admin-only — internal notes (empty string if unset) |
+| `custom_field_values` | array | Since 1.2. `[{ "field_definition": <id>, "value": "<string>" }, ...]` — one entry per [swimlane custom field](#swimlane-custom-fields-since-12) definition that has a value **and** is visible to the requesting role (see the `custom_field_values` visibility note above). Values are always strings; numbers as written, dates as `YYYY-MM-DD`, checkboxes as `"true"`/`"false"`. |
 
 `contact_email` and `notes` are only returned to `admin` and `site_admin` role members (see role-gated fields note above).
 
 ### `PUT /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Update a swimlane. Requires board admin.
 
-**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`
+**Writable fields:** `name`, `color`, `is_collapsed`, `contact_email`, `notes`, `custom_field_values` (since 1.2)
+
+`custom_field_values` writes are also accepted on `PATCH`. Send only the entries you want to change — a swimlane custom field not named in the list keeps its current value. Send `{"field_definition": <id>, "value": ""}` to clear (and delete) a value. At most one entry per `field_definition` per request; a `field_definition` id from another board is rejected with `400 Bad Request`. Since writes to this endpoint are already admin-only, an admin may write a value for an `is_admin_only` field — that is the expected case, not an escalation. There is no separate values endpoint; values are always written through this one.
+
+!!! note
+    The `PUT`/`PATCH` HTTP response always includes `contact_email`, `notes`, and every
+    `custom_field_values` entry regardless of `is_admin_only` — the caller is the admin who
+    just wrote it. The `swimlane.updated` WebSocket broadcast, however, is always built from
+    the **public** swimlane shape, for every connected client — including the admin who made
+    the change. `contact_email`, `notes`, and any `is_admin_only` value are absent from that
+    frame for everyone; an admin sees the change on their next REST fetch, not in real time.
+    See [WebSockets](websockets.md#swimlane-field-events-since-12) for the full contract.
 
 ### `DELETE /api/v1/boards/{id}/swimlanes/{swimlane_id}/`
 Delete a swimlane. Requires board admin.
@@ -837,6 +885,95 @@ another board are ignored.
 
 ---
 
+## Swimlane custom fields (since 1.2)
+
+Typed, per-board metadata fields that **swimlane rows** can carry — the row-level
+counterpart to [Custom fields](#custom-fields-since-12) above. A swimlane represents an
+entity (an account, a customer, a project), and this is the typed alternative to stuffing
+everything into `notes` as unstructured prose. A board's definitions are also returned on
+`GET /api/v1/boards/{id}/full/` as `swimlane_custom_field_definitions`, so a client has the
+schema on board load. Row **values** are read and written through the
+[swimlane endpoints](#swimlanes) as `custom_field_values`, not here — this section covers
+the schema only.
+
+Card custom fields and swimlane custom fields are independent per-board sets with
+independent name uniqueness: a card field and a row field may share the same `name` on the
+same board.
+
+Definition objects include a `uid` field — stable across renames, read-only.
+
+**Limits:** at most **15** definitions per board, and at most **3** with `show_on_row:
+true`. These caps are deliberately different from the card-level field's 30/2 — see the
+model docstring for the reasoning; do not assume they track each other.
+
+| Field | Type | Read-only | Description |
+|---|---|---|---|
+| `id` | integer | yes | Database primary key |
+| `uid` | string | yes | Stable 16-character hex UID |
+| `name` | string | no | Field name; unique within the board's swimlane fields (a card field may reuse the same name) |
+| `field_type` | string | no | One of `"text"`, `"number"`, `"date"`, `"dropdown"`, `"checkbox"`. Immutable once any swimlane holds a value for this definition — see **Errors** below. |
+| `choices` | string[] | no | Permitted values; required and non-empty for `"dropdown"`, rejected for every other type |
+| `position` | integer | yes | Display order; set on create and changed only via `reorder/` |
+| `show_on_row` | boolean | no | Pin the value to the swimlane row header. Max 3 per board |
+| `is_admin_only` | boolean | no | When `true` (the default), this field's **values** are served only to `admin` and `site_admin` role members and are omitted entirely from share-link payloads. Does not affect who can read the *definition* — see [Swimlanes](#swimlanes) for the values visibility rule. |
+| `is_required` | boolean | no | Declared but **not enforced** in this release |
+| `help_text` | string | no | Hint shown next to the input |
+| `created_at` | string | yes | ISO 8601 creation timestamp |
+
+### `GET /api/v1/boards/{id}/swimlane-custom-fields/`
+List the board's swimlane custom field definitions, in `position` order. Available to **all
+board members, including viewers** — a reader needs the schema to make sense of the values
+they can already see. This lists the schema regardless of `is_admin_only`; it is the
+*values* that are withheld from non-admins, not the field's existence. Paginated with the
+project-wide offset pagination.
+
+### `GET /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
+Get a single definition. Available to all board members. A definition `id` belonging to
+another board returns `404 Not Found`.
+
+### `POST /api/v1/boards/{id}/swimlane-custom-fields/`
+Create a definition. Requires board admin.
+
+**Request** `{ "name": "Account Tier", "field_type": "dropdown", "choices": ["Startup", "Growth", "Enterprise"], "show_on_row": true, "is_admin_only": true }`
+
+`position` is server-assigned (appended to the end) and ignored if supplied.
+
+**Errors:**
+- `400 Bad Request` if the name is blank or already used on this board's swimlane fields, a
+  dropdown has no choices, a non-dropdown supplies choices, the board already has 15
+  swimlane field definitions, or a fourth field is pinned with `show_on_row`.
+
+### `PATCH /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
+Update a definition. Requires board admin.
+
+**Writable fields:** `name`, `field_type`, `choices`, `show_on_row`, `is_admin_only`, `is_required`, `help_text`
+
+**Errors:**
+- `400 Bad Request` with a `field_type` key if the request changes `field_type` and at
+  least one swimlane already holds a value for this definition. A definition with zero
+  values stays freely editable. There is no `text` → `dropdown` (or other) conversion path —
+  clear the field's values first, or create a new definition.
+- `400 Bad Request` with a `name` key if the new name collides with another swimlane field
+  on this board.
+
+> Removing a choice from a dropdown does **not** rewrite rows that already hold it: the
+> stored value keeps reading back, but it can no longer be written again.
+
+### `DELETE /api/v1/boards/{id}/swimlane-custom-fields/{field_id}/`
+Delete a definition. Requires board admin. **Every swimlane's value for that field is
+deleted with it.**
+
+### `PUT /api/v1/boards/{id}/swimlane-custom-fields/reorder/`
+Reorder definitions. Requires board admin. `POST` is accepted as well, matching the column,
+swimlane, and card-custom-field reorder actions.
+
+**Request** `{ "order": [5, 3, 4] }` — swimlane custom field IDs in the new order. IDs
+belonging to another board are silently ignored rather than reordered or exposed.
+
+**Response** the full list in the new order.
+
+---
+
 ## Public share endpoint
 
 ### `GET /api/share/{token}/`
@@ -903,7 +1040,7 @@ Response fields:
 | `uid` | string | Board stable 16-char hex UID |
 | `name` | string | Board name |
 | `columns` | array | Column objects; includes `is_done` flag (see Columns section) |
-| `swimlanes` | array | Swimlane objects; `contact_email` and `notes` are never included |
+| `swimlanes` | array | Swimlane objects; `contact_email`, `notes`, and `custom_field_values` (since 1.2) are never included — a structural omission, not an `is_admin_only` filter, since the visitor is unauthenticated |
 | `cards` | array | Active (non-archived) card objects |
 | `labels` | array | Label objects |
 

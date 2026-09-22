@@ -20,6 +20,13 @@ export interface SingleSelectDropdownProps<T extends string | number> {
    */
   className?: string;
   /**
+   * Escape-stack priority for the open menu (#1140). Defaults to the
+   * dropdown tier, 25. A dropdown rendered inside a `ModalWrapper` (priority
+   * 40) MUST pass a higher value, or Escape closes the modal and discards the
+   * form instead of just closing this menu.
+   */
+  escapePriority?: number;
+  /**
    * #964 — fired on every open/close transition (click-toggle, outside-click,
    * and Escape via useDropdownEscape). Additive and optional: no existing
    * consumer passes it, so no existing behavior changes.
@@ -34,6 +41,7 @@ export default function SingleSelectDropdown<T extends string | number>({
   onChange,
   triggerPrefix,
   className,
+  escapePriority,
   onOpenChange,
 }: SingleSelectDropdownProps<T>) {
   const [open, setOpenState] = useState(false);
@@ -55,7 +63,7 @@ export default function SingleSelectDropdown<T extends string | number>({
     [onOpenChange],
   );
 
-  useDropdownEscape(open, () => setOpen(false), triggerRef);
+  useDropdownEscape(open, () => setOpen(false), triggerRef, escapePriority);
 
   useEffect(() => {
     if (!open) return;
@@ -162,6 +170,11 @@ export default function SingleSelectDropdown<T extends string | number>({
                   setOpen(false);
                 }}
                 onKeyDown={(e) => handleItemKeyDown(e, i)}
+                // Menu items are real tab stops, reached by roving arrow-key
+                // focus — `hover:` alone is invisible to a keyboard user who
+                // arrowed here without touching the mouse. Pre-existing gap,
+                // fixed here because #1140 newly routes modal-hosted dropdowns
+                // through this primitive.
                 className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
                   selected === opt.value ? "text-info" : "text-fg-secondary"
                 }`}

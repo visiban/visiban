@@ -83,6 +83,8 @@ from boards.models import (
     Notification,
     SavedFilter,
     Swimlane,
+    SwimlaneCustomFieldDefinition,
+    SwimlaneCustomFieldValue,
 )
 from groups.models import Group, GroupInviteLink, GroupLabel
 
@@ -571,6 +573,15 @@ class Command(BaseCommand):
         board = self._create_board(users[0], board_name)
         columns = self._create_columns(board)
         swimlanes = self._create_swimlanes(board, scale)
+        if board_name == BOARD_NAME:
+            # Row-level custom field schema (#1140) — scoped to the real demo
+            # board for the same reason as the #1125 fixtures below: the
+            # --scale load-test board (#1082) is regenerated fresh in an
+            # ephemeral CI database purely to measure card/swimlane-volume
+            # latency, and its committed budget file was derived without this
+            # feature present — adding it here would be an unrelated fixture
+            # change riding along with an unrelated feature.
+            self._create_swimlane_custom_fields(board, swimlanes)
         labels = self._create_labels(board)
         self._add_members(board, users)
         cards = self._create_cards(board, columns, swimlanes, labels, users)
@@ -672,6 +683,34 @@ class Command(BaseCommand):
                 lanes.append(Swimlane.objects.create(board=board, position=position, **data))
                 position += 1
         return lanes
+
+    def _create_swimlane_custom_fields(self, board, lanes):
+        """Seed the row field schema and a value per lane (#1140).
+
+        Two definitions rather than one, and deliberately one of each
+        visibility: the admin-only default is what the schemathesis fuzz job
+        and any manual poke at the API will meet first, and a demo board with
+        only admin-only fields would look empty to every non-admin viewer.
+        """
+        region = SwimlaneCustomFieldDefinition.objects.create(
+            board=board, name="Region", field_type="dropdown",
+            choices_json=["EMEA", "AMER", "APAC"], position=0,
+            show_on_row=True, is_admin_only=False,
+            help_text="Sales region for this account",
+        )
+        owner = SwimlaneCustomFieldDefinition.objects.create(
+            board=board, name="Account owner", field_type="text", position=1,
+            show_on_row=True, is_admin_only=True,
+        )
+        regions = ["EMEA", "AMER", "APAC"]
+        owners = ["J. Rivera", "P. Okafor", "L. Nakamura", "S. Brandt"]
+        for i, lane in enumerate(lanes):
+            SwimlaneCustomFieldValue.objects.create(
+                swimlane=lane, field_definition=region, value=regions[i % len(regions)]
+            )
+            SwimlaneCustomFieldValue.objects.create(
+                swimlane=lane, field_definition=owner, value=owners[i % len(owners)]
+            )
 
     def _create_labels(self, board):
         return [Label.objects.create(board=board, **lbl) for lbl in LABELS]

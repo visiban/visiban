@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getBoardFull, patchBoard as apiPatchBoard, reorderColumns as apiReorderColumns, reorderSwimlanes as apiReorderSwimlanes, deleteSwimlane as apiDeleteSwimlane, deleteColumn as apiDeleteColumn } from "../api/boards";
 import { moveCard as apiMoveCard } from "../api/cards";
-import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition } from "../types";
+import type { BoardFull, BoardMembership, Card, Column, Swimlane, Label, CustomFieldDefinition, SwimlaneCustomFieldDefinition } from "../types";
 
 export type MoveBlockedError =
   | { code: "wip_limit_exceeded"; column_name: string; current_count: number; wip_limit: number }
@@ -263,6 +263,12 @@ export function useBoard() {
     setBoard((b) => b ? { ...b, custom_field_definitions: definitions } : b);
   }, []);
 
+  // Row field schema (#1140) — exactly parallel to the card version above,
+  // and separate because the two are independent per-board schemas.
+  const applySwimlaneFieldDefinitions = useCallback((definitions: SwimlaneCustomFieldDefinition[]) => {
+    setBoard((b) => b ? { ...b, swimlane_custom_field_definitions: definitions } : b);
+  }, []);
+
   const addMember = useCallback((membership: BoardMembership) => {
     setBoard((b) => {
       if (!b) return b;
@@ -324,6 +330,13 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
+  /**
+   * Replace one swimlane wholesale. Callers handling a `swimlane.updated`
+   * *broadcast* must pass a payload already merged through
+   * `mergeSwimlaneFromBroadcast` — the broadcast is built from the public
+   * serializer and would otherwise blank an admin's contact_email, notes, and
+   * admin-only field values (#1140).
+   */
   const updateSwimlane = useCallback((swimlane: Swimlane) => {
     setBoard((b) => b ? { ...b, swimlanes: b.swimlanes.map((s) => s.id === swimlane.id ? swimlane : s) } : b);
   }, []);
@@ -383,5 +396,5 @@ export function useBoard() {
     }
   }, [boardId, load]);
 
-  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
+  return { board, loading, error, reload: load, silentReload, moveCard, forceMoveCard, moveError, clearMoveError, addCard, removeCard, addColumn, removeColumn, addSwimlane, updateCard, updateColumn, addLabel, updateLabel, removeLabel, applyCustomFieldDefinitions, applySwimlaneFieldDefinitions, addMember, updateMember, removeMember, applyColumnOrder, applySwimlaneOrder, reorderColumns, reorderSwimlanes, updateSwimlane, removeSwimlane, updateBoardSettings, evictColumn, evictSwimlane, evictCardByUid, mergeBoardState };
 }

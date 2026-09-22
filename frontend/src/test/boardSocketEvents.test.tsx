@@ -142,6 +142,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     created_at: '', updated_at: '',
     current_user_role: 'admin',
     custom_field_definitions: [],
+    swimlane_custom_field_definitions: [],
     owner: fakeUser,
     capabilities: { movement_export: false },
     share_token: null,
@@ -171,6 +172,7 @@ function makeContext(overrides: Partial<BoardContextType> = {}): BoardContextTyp
     updateLabel: vi.fn(),
     removeLabel: vi.fn(),
     applyCustomFieldDefinitions: vi.fn(),
+    applySwimlaneFieldDefinitions: vi.fn(),
     addMember: vi.fn(),
     updateMember: vi.fn(),
     removeMember: vi.fn(),
@@ -336,6 +338,33 @@ describe('BoardView socket event routing — new event types', () => {
     const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', is_moderator: false, joined_at: '' }
     act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
     expect(ctx.mergeBoardState).toHaveBeenCalledWith(expect.objectContaining({ current_user_role: 'viewer' }))
+  })
+
+  it('member.updated refetches the board when the current user own role changes (#1140)', async () => {
+    // Swimlane state is merged from broadcasts, not replaced, so that an admin
+    // does not lose their admin-only row values on an unrelated edit. That
+    // same merge would otherwise keep those values alive in the tab of a user
+    // who has just been demoted, since the socket is only closed on removal
+    // from the board, never on a downgrade. The refetch reissues /full/ under
+    // the new role and the server decides again what they may see.
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    const membership: BoardMembership = { id: 1, user: fakeUser, role: 'viewer', is_moderator: false, joined_at: '' }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).toHaveBeenCalled()
+  })
+
+  it('member.updated does not refetch when a different user role changes', async () => {
+    const ctx = makeContext()
+    mockBoardContextValue = ctx
+    render(<BoardView currentUser={fakeUser} />)
+    await act(async () => {})
+    const otherUser: User = { ...fakeUser, id: 99, username: 'bob', display_name: 'Bob' }
+    const membership: BoardMembership = { id: 2, user: otherUser, role: 'viewer', is_moderator: false, joined_at: '' }
+    act(() => { getOnEvent.dispatch({ event: 'member.updated', data: membership as unknown as Record<string, unknown> }) })
+    expect(ctx.silentReload).not.toHaveBeenCalled()
   })
 
   it('member.updated does not sync current_user_role when a different user is updated', async () => {

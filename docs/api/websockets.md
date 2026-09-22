@@ -164,6 +164,32 @@ payload carries the card's `custom_field_values`.
 | `custom_field.deleted` | Definition deleted (and every card value with it) | `{ "custom_field_uid": <string> }` |
 | `custom_field.reordered` | Definition order changed | `{ "custom_fields": [<CustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
 
+### Swimlane field events (since 1.2)
+
+Schema changes only, and a separate set from the card-level events above — swimlane
+(row) fields are an independent per-board schema. A change to a swimlane's **values**
+arrives as `swimlane.updated`, whose payload carries the swimlane's
+`custom_field_values`.
+
+| Event | Trigger | `data` shape |
+|---|---|---|
+| `swimlane_custom_field.created` | New swimlane field definition created | Full `SwimlaneCustomFieldDefinitionSerializer` object |
+| `swimlane_custom_field.updated` | Definition renamed, retyped, or its choices/pinning/visibility changed | Full `SwimlaneCustomFieldDefinitionSerializer` object |
+| `swimlane_custom_field.deleted` | Definition deleted (and every swimlane value with it) | `{ "swimlane_custom_field_uid": <string> }` |
+| `swimlane_custom_field.reordered` | Definition order changed | `{ "swimlane_custom_fields": [<SwimlaneCustomFieldDefinitionSerializer>, ...] }` — all definitions in new order |
+
+!!! warning "Admin-only values never travel over the board channel"
+    A board's WebSocket group holds every role at once, so every `swimlane.updated`
+    payload is built from the **public** swimlane serializer. A field defined with
+    `is_admin_only` (the default) is therefore absent from that payload for everyone,
+    admins included — an admin sees the new value on their next REST fetch, not in
+    real time. This is the same behavior `contact_email` and `notes` have always had,
+    for the same reason.
+
+    A client that keeps swimlane state locally must therefore **merge** this payload
+    rather than replace with it, or an admin's own copy of the row loses its
+    admin-only values on any unrelated edit.
+
 ### Card events
 
 | Event | Trigger | `data` shape |

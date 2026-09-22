@@ -108,6 +108,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     share_token: null,
     share_token_expires_at: null,
     custom_field_definitions: [],
+    swimlane_custom_field_definitions: [],
     ...overrides,
   }
 }
@@ -400,6 +401,7 @@ describe('CardDetail', () => {
     props.board = makeBoard({
       current_user_role: 'member',
       custom_field_definitions: [],
+      swimlane_custom_field_definitions: [],
       members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
     })
     props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // card owned by user 1, current user is 99
@@ -413,6 +415,7 @@ describe('CardDetail', () => {
     props.board = makeBoard({
       current_user_role: 'member',
       custom_field_definitions: [],
+      swimlane_custom_field_definitions: [],
       members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
     })
     props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } })
@@ -427,6 +430,7 @@ describe('CardDetail', () => {
     props.board = makeBoard({
       current_user_role: 'member',
       custom_field_definitions: [],
+      swimlane_custom_field_definitions: [],
       members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
     })
     props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // card owned by user 1, moderator is 99
@@ -870,6 +874,7 @@ describe('CardDetail', () => {
       props.board = makeBoard({
         current_user_role: 'member',
         custom_field_definitions: [],
+        swimlane_custom_field_definitions: [],
         members: [{ id: 1, user: fakeUser, role: 'member', is_moderator: false, joined_at: '' }],
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // fakeUser is the creator
@@ -884,6 +889,7 @@ describe('CardDetail', () => {
       props.board = makeBoard({
         current_user_role: 'member',
         custom_field_definitions: [],
+        swimlane_custom_field_definitions: [],
         members: [{ id: 2, user: otherUser, role: 'member', is_moderator: false, joined_at: '' }],
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // owned by fakeUser (id 1), not otherUser (id 99)
@@ -898,6 +904,7 @@ describe('CardDetail', () => {
       props.board = makeBoard({
         current_user_role: 'member',
         custom_field_definitions: [],
+        swimlane_custom_field_definitions: [],
         members: [{ id: 2, user: modUser, role: 'member', is_moderator: true, joined_at: '' }],
       })
       props.card = makeCard({ created_by: { id: 1, username: "user1", display_name: "User 1", avatar_url: "" } }) // owned by fakeUser, not modUser

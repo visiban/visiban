@@ -19,8 +19,28 @@ from visiban.permissions import (
 from .. import broadcast as _broadcast
 from ..models import Board, BoardMembership, Swimlane
 from ..permissions import SITE_ADMIN
-from ..serializers import SwimlaneSerializer, SwimlaneAdminSerializer
+from ..serializers import (
+    SwimlaneSerializer, SwimlaneAdminSerializer, _swimlane_custom_field_prefetch,
+)
+from ..services.custom_fields import apply_swimlane_custom_field_values
 from ._helpers import get_board_for_user
+
+
+def _refetch_swimlane(swimlane):
+    """Re-read one swimlane with its custom field values prefetched (#1140).
+
+    A swimlane that has just been written holds no prefetch cache, and the
+    values may have been changed by ``apply_swimlane_custom_field_values`` after
+    it was loaded. Serializing it directly would therefore either miss the
+    change or lazily re-query per value. One targeted re-read keeps the
+    broadcast payload correct and its query count fixed.
+    """
+    return (
+        Swimlane.objects.filter(pk=swimlane.pk)
+        .prefetch_related(_swimlane_custom_field_prefetch())
+        .first()
+        or swimlane
+    )
 
 
 class SwimlaneViewSet(viewsets.ModelViewSet):
@@ -61,13 +81,31 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
     def _board(self):
         return self._board_and_role()[0]
 
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        # SwimlaneCustomFieldValuesField resolves submitted definition ids
+        # scoped to this board and fails closed without it (#1140).
+        ctx["board"] = self._board()
+        return ctx
+
     def get_queryset(self):
-        return Swimlane.objects.filter(board=self._board())
+        # Prefetch the custom field values and their definitions (#1140).
+        # Without this, serializing N swimlanes costs 1 + 2N queries: the
+        # serializer reads `is_admin_only` off each value's definition to decide
+        # whether a non-admin may see it. Ordering lives in the Prefetch
+        # queryset rather than Meta.ordering so only the read path pays the
+        # join — same reasoning as _card_queryset().
+        return Swimlane.objects.filter(board=self._board()).prefetch_related(
+            _swimlane_custom_field_prefetch()
+        )
 
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
+        # Not a model field — pop before save() so ModelSerializer.create() does
+        # not try to pass it to Swimlane.objects.create().
+        field_pairs = serializer.validated_data.pop("custom_field_values", None)
         # Lock the board row for the same reason as ColumnViewSet.perform_create —
         # concurrent swimlane creation could race on Max(position).
         with transaction.atomic():
@@ -75,9 +113,14 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             _max = board.swimlanes.aggregate(m=Max("position"))["m"]
             max_pos = 0 if _max is None else _max + 1
             swimlane = serializer.save(board=board, position=max_pos)
-            # Broadcast uses the public serializer — contact_email and notes must not be
-            # sent to viewer-role members who are connected via WebSocket.
-            swimlane_data = SwimlaneSerializer(swimlane).data
+            if field_pairs:
+                apply_swimlane_custom_field_values(
+                    swimlane=swimlane, pairs=field_pairs, actor=self.request.user
+                )
+            # Broadcast uses the public serializer — contact_email, notes, and
+            # is_admin_only custom field values must not be sent to viewer-role
+            # members who are connected via WebSocket.
+            swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
             board_id = board.id
             _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_CREATED, swimlane_data, actor_id=self.request.user.id)
 
@@ -85,10 +128,15 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
+        field_pairs = serializer.validated_data.pop("custom_field_values", None)
         with transaction.atomic():
             swimlane = serializer.save()
+            if field_pairs:
+                apply_swimlane_custom_field_values(
+                    swimlane=swimlane, pairs=field_pairs, actor=self.request.user
+                )
             # Same broadcast-safety constraint as perform_create.
-            swimlane_data = SwimlaneSerializer(swimlane).data
+            swimlane_data = SwimlaneSerializer(_refetch_swimlane(swimlane)).data
             board_id = swimlane.board_id
             _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
 
@@ -153,10 +201,14 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         swimlane.is_collapsed = is_collapsed
         with transaction.atomic():
             swimlane.save(update_fields=["is_collapsed"])
-            swimlane_data = SwimlaneSerializer(swimlane).data
+            # Fetched once and reused for both the broadcast payload and the
+            # response: get_serializer() picks the admin/public class by role,
+            # which needs no second query.
+            fresh = _refetch_swimlane(swimlane)
+            swimlane_data = SwimlaneSerializer(fresh).data
             board_id = swimlane.board_id
             _broadcast.record_board_event(board_id, _broadcast.EVT_SWIMLANE_UPDATED, swimlane_data, actor_id=self.request.user.id)
-        return Response(self.get_serializer(swimlane).data)
+        return Response(self.get_serializer(fresh).data)
 
     @extend_schema(
         summary="Reorder swimlanes",
@@ -202,7 +254,12 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
                 if swimlane_id in id_to_lane:
                     id_to_lane[swimlane_id].position = pos
             Swimlane.objects.bulk_update(list(id_to_lane.values()), ["position"])
-            lanes_data = SwimlaneSerializer(board.swimlanes.order_by("position"), many=True).data
+            lanes_data = SwimlaneSerializer(
+                board.swimlanes.order_by("position").prefetch_related(
+                    _swimlane_custom_field_prefetch()
+                ),
+                many=True,
+            ).data
             board_id = board.id
             _broadcast.record_board_event(
                 board_id, _broadcast.EVT_SWIMLANE_REORDERED, {"swimlanes": list(lanes_data)},

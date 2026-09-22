@@ -36,7 +36,8 @@ function makeBoard(fields: CustomFieldDefinition[] = []): BoardFull {
     enforce_wip_limits: false, enforce_wip_hard: false, enforce_weight_limits: false,
     show_wip_at_limit: false, export_min_role: "viewer", card_density: "comfortable",
     is_starred: false, created_at: "", updated_at: "", current_user_role: "admin",
-    custom_field_definitions: fields, owner: fakeUser, capabilities: { movement_export: false },
+    custom_field_definitions: fields, swimlane_custom_field_definitions: [],
+    owner: fakeUser, capabilities: { movement_export: false },
     share_token: null, share_token_expires_at: null,
   };
 }

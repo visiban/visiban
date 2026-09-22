@@ -903,6 +903,165 @@ class CustomFieldValue(models.Model):
         return f"{self.card_id} / {self.field_definition_id}"
 
 
+class SwimlaneCustomFieldDefinition(models.Model):
+    """A typed metadata field that every swimlane row on one board may carry (#1140).
+
+    The row-level counterpart to :class:`CustomFieldDefinition`. A swimlane
+    represents an entity — an account, a customer, a project, a candidate — and
+    before this everything but ``name``/``contact_email``/``notes`` had to be
+    stuffed into ``notes`` as prose that cannot be filtered or sorted.
+
+    **Why a separate table rather than a ``target_type`` discriminator on
+    :class:`CustomFieldDefinition`:** the discriminator shares one row space
+    between two owners, and every existing card-level reader would then have to
+    filter for its own scope or silently start seeing row fields. Three of those
+    readers reach a 1.0 response body — ``BoardFullSerializer``'s
+    ``custom_field_definitions``, the CSV export header list, and the per-board
+    cap count — so a missed filter is a contract break that no test failure
+    announces. It would also mean altering ``unique_together`` and adding a
+    check constraint on a populated ``custom_field_values`` table, which under
+    ``docs/development/database-migrations.md`` is three migrations, two of them
+    ``atomic = False`` and therefore without rollback. A second table costs one
+    ``CreateModel`` pair and changes no existing response.
+
+    What is *not* duplicated is the behavior: the type enum below is
+    :class:`CustomFieldDefinition`'s by reference, and the value normalizer, the
+    validator hooks and the cap helper in ``boards.serializers`` are shared
+    outright. Same pattern, second owner.
+    """
+
+    #: One enum, referenced rather than copied — a second five-member enum would
+    #: be free to drift, and the TypeScript side has a single ``CustomFieldType``
+    #: union that both models' definitions are checked against.
+    FieldType = CustomFieldDefinition.FieldType
+
+    # Re-derived for swimlane cardinality rather than copied from the card cap
+    # of 30, whose justification does not transfer. That cap bounds the /full/
+    # join at an assumed 500 cards (``_IMPORT_MAX_CARDS``) x 30 fields = 15,000
+    # value rows. The parallel row ceiling is ``_IMPORT_MAX_SWIMLANES`` = 100, so
+    # the join constraint alone would permit 150 — it does not bind here.
+    # What binds instead is that row values ride in the *same* /full/ response
+    # as card values: budgeting them at a tenth of the card side keeps them from
+    # materially growing the board payload. 100 swimlanes x 15 fields = 1,500
+    # value rows, one prefetch query. 15 covers the account/customer case
+    # (owner, ARR, region, tier, renewal, CSM, health, segment) with headroom.
+    # Raising a cap later is backward compatible; lowering it is not, so this
+    # starts deliberately conservative — the same asymmetry as MAX_VALUE_LENGTH.
+    MAX_PER_BOARD = 15
+    # Row-header real estate. Note the swimlane label panel is *not* a
+    # full-width band — it is a sticky left column, `sidebarWidth ?? 220`px
+    # wide, already carrying the drag handle, the name, contact_email and the
+    # collapse control. It is narrower than the ~250px card face, not wider.
+    # The cap is 3 rather than the card face's 2 because row chips stack
+    # *vertically* down that column, so three pinned fields cost three lines
+    # rather than competing for one line's width. Raising this trades rows
+    # visible on screen for metadata per row.
+    MAX_PINNED_PER_BOARD = 3
+    # Referenced, not re-chosen. The constraint behind the number is the same
+    # one the card model documents: ``scfv_definition_value_idx`` is a btree,
+    # and PostgreSQL rejects an index tuple over ~2704 bytes at INSERT time, so
+    # no legal value may be writable and then fail to index. Two independently
+    # chosen limits on the same constraint would be free to drift.
+    MAX_VALUE_LENGTH = CustomFieldDefinition.MAX_VALUE_LENGTH
+
+    uid = models.CharField(max_length=16, unique=True, editable=False, default=_generate_uid)
+    board = models.ForeignKey(
+        Board, on_delete=models.CASCADE, related_name="swimlane_custom_field_definitions"
+    )
+    name = models.CharField(max_length=100)
+    field_type = models.CharField(
+        max_length=20,
+        choices=CustomFieldDefinition.FieldType.choices,
+        default=CustomFieldDefinition.FieldType.TEXT,
+    )
+    choices_json = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Permitted values, used only when field_type is 'dropdown'. Stored on "
+            "the definition rather than in a separate table so the choices are "
+            "always loaded with the field they belong to."
+        ),
+    )
+    position = models.IntegerField(default=0)
+    show_on_row = models.BooleanField(
+        default=False,
+        help_text="Pin this field's value to the swimlane row header. Max 3 per board.",
+    )
+    is_admin_only = models.BooleanField(
+        default=True,
+        help_text=(
+            "Serve this field's values only to board admins, reusing the existing "
+            "SwimlaneSerializer/SwimlaneAdminSerializer split rather than adding a "
+            "second visibility rule. Defaults to True because the default is not "
+            "symmetrically reversible: loosening a field later is an additive, "
+            "per-field admin action, while tightening one would change what an "
+            "existing install already exposes — a 1.0 contract break. Rows carry "
+            "entity data (this model was called Customer until migration 0005), "
+            "so the safe default is the closed one."
+        ),
+    )
+    is_required = models.BooleanField(
+        default=False,
+        help_text=(
+            "Declared but NOT enforced in v1 — the column exists so the flag can "
+            "be set and read before enforcement lands. Do not add enforcement "
+            "without a release note: it would turn existing valid swimlane writes "
+            "into 400s."
+        ),
+    )
+    help_text = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "swimlane_custom_field_definitions"
+        ordering = ["position", "id"]
+        # Same two reasons as the card-level model: (board, position) keeps the
+        # display order unambiguous for the two-pass reorder, and (board, name)
+        # makes a field addressable by name, which the export header relies on.
+        unique_together = [("board", "position"), ("board", "name")]
+
+    def __str__(self):
+        return f"{self.board_id} / {self.name}"
+
+
+class SwimlaneCustomFieldValue(models.Model):
+    """One swimlane's value for one :class:`SwimlaneCustomFieldDefinition` (#1140).
+
+    Storage decisions are :class:`CustomFieldValue`'s, deliberately: one untyped
+    text column for every type, casting and validation at the serializer
+    boundary, and a row written only when a value exists so that "unset" has
+    exactly one representation. Typed columns stay deferred to the enterprise
+    analytics work that would actually need SUM/AVG.
+
+    Values die with their swimlane through the FK cascade, and with their board
+    through ``Swimlane.board``'s cascade — no cleanup path of its own.
+    """
+
+    swimlane = models.ForeignKey(
+        Swimlane, on_delete=models.CASCADE, related_name="custom_field_values"
+    )
+    field_definition = models.ForeignKey(
+        SwimlaneCustomFieldDefinition, on_delete=models.CASCADE, related_name="values"
+    )
+    value = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "swimlane_custom_field_values"
+        # No Meta.ordering, same reason as CustomFieldValue: ordering by the
+        # definition's position would force a join on every query touching this
+        # table. The read path orders explicitly in its Prefetch queryset.
+        unique_together = [("swimlane", "field_definition")]
+        indexes = [
+            models.Index(
+                fields=["field_definition", "value"], name="scfv_definition_value_idx"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.swimlane_id} / {self.field_definition_id}"
+
+
 class CardRelation(models.Model):
     """A typed, directional link between two cards on the same board (#449).
 

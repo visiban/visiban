@@ -42,6 +42,7 @@ from boards.serializers import (
     ColumnSerializer,
     LabelSerializer,
     SwimlaneAdminSerializer,
+    SwimlaneCustomFieldDefinitionSerializer,
     SwimlaneSerializer,
 )
 from accounts.serializers import BoardUserSerializer
@@ -67,6 +68,9 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     # on the TS side as optional.
     (SwimlaneSerializer, "Swimlane", {"contact_email", "notes"}),
     (SwimlaneAdminSerializer, "Swimlane", set()),
+    # Row field schema (#1140). The value shape is covered by the Swimlane
+    # pairs above, which carry custom_field_values.
+    (SwimlaneCustomFieldDefinitionSerializer, "SwimlaneCustomFieldDefinition", set()),
     (LabelSerializer, "Label", set()),
     (CardMovementSerializer, "CardMovement", set()),
     (CardCommentSerializer, "CardComment", set()),

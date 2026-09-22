@@ -26,6 +26,35 @@ from .models import CardMovement, Card, Notification
 # without a major version bump.
 custom_field_value_changed = Signal()
 
+# Swimlane custom field value change signal (#1140) — the row-level counterpart
+# to the card-level signal above, and likewise an OSS extension point for the
+# enterprise field-change audit trail.
+#
+# sender:           boards.models.SwimlaneCustomFieldValue
+# swimlane:         the Swimlane whose value changed
+# field_definition: the SwimlaneCustomFieldDefinition it belongs to
+# old_value:        the previous stored value, "" when the field was unset
+# new_value:        the new stored value, "" when the field was cleared
+# actor:            the User who made the change, or None for a non-HTTP caller
+#
+# **Why a second signal rather than a `swimlane=` kwarg on the card signal:**
+# `custom_field_value_changed` guarantees its `card` argument above, and
+# reusing it for rows would mean sending `card=None`. That is additive on the
+# signature and breaking in meaning — an existing receiver doing `card.board`
+# starts raising the moment a row value changes, and the receivers live in a
+# private repo this one cannot grep. A separate signal makes enterprise
+# adoption an opt-in second `connect()` and breaks nothing that exists.
+#
+# Sent from ``boards.services.custom_fields.apply_swimlane_custom_field_values``
+# inside the swimlane-mutation transaction, once per value that actually
+# changed. Receivers run inside that transaction, with the same caveat as
+# above: a receiver that raises rolls the swimlane update back.
+#
+# Stability: this signal's name and keyword arguments are part of the 1.0+
+# extension surface. Arguments may be added; none may be removed or renamed
+# without a major version bump.
+swimlane_custom_field_value_changed = Signal()
+
 
 @receiver(post_save, sender=CardMovement)
 def notify_on_card_moved(sender, instance, created, **kwargs):

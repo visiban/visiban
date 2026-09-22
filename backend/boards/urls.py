@@ -5,6 +5,7 @@ from .views import (
     BoardViewSet, BoardTemplateListView,
     ColumnViewSet, SwimlaneViewSet, LabelViewSet, CardViewSet,
     CardQueryViewSet, CustomFieldDefinitionViewSet,
+    SwimlaneCustomFieldDefinitionViewSet,
     NotificationListView, NotificationMarkReadView, NotificationUnreadCountView,
     VersionView,
 )
@@ -29,6 +30,11 @@ boards_router.register(r"labels", LabelViewSet, basename="board-label")
 boards_router.register(r"cards", CardViewSet, basename="board-card")
 boards_router.register(
     r"custom-fields", CustomFieldDefinitionViewSet, basename="board-custom-field"
+)
+boards_router.register(
+    r"swimlane-custom-fields",
+    SwimlaneCustomFieldDefinitionViewSet,
+    basename="board-swimlane-custom-field",
 )
 
 urlpatterns = [

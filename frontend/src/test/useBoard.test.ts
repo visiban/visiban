@@ -63,6 +63,7 @@ function makeBoard(overrides: Partial<BoardFull> = {}): BoardFull {
     updated_at: '2026-01-01T00:00:00Z',
     current_user_role: 'admin',
     custom_field_definitions: [],
+    swimlane_custom_field_definitions: [],
     owner: { id: 1, username: 'admin', display_name: 'Admin User', avatar_url: '' },
     capabilities: { movement_export: false },
     share_token: null,
