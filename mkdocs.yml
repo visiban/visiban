@@ -54,6 +54,7 @@ nav:
   - Home: index.md
   - Getting Started:
     - getting-started/index.md
+    - Why Visiban: getting-started/why-visiban.md
     - Installation: getting-started/installation.md
     - Kubernetes (Helm): getting-started/kubernetes.md
     - First Boot: getting-started/first-boot.md

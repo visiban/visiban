@@ -5,6 +5,10 @@
 
 A self-hosted Kanban board with swimlane rows and automatic card movement tracking. A lightweight alternative to Trello/Smartsheet focused on pipeline visibility per customer or project, with a full audit trail of every card movement between stages.
 
+**In one line: kill the spreadsheet, visualize the workflow, interrogate it with your own AI — every move on the record.** Rows are entities with typed fields of their own, so the data that used to live in a side-spreadsheet lives on the board. Every card movement is recorded permanently. And a first-class [MCP server](features/mcp-server.md) lets any AI agent you already run query and update the board through a token you issue — Visiban ships the interface, not a model, so nothing leaves your install.
+
+New here, or comparing options? [Why Visiban](getting-started/why-visiban.md) covers what makes it different and, honestly, when to pick something else.
+
 ## Highlights
 
 - **Swimlanes** — rows represent entities (customers, projects, teams); columns are pipeline stages
