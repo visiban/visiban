@@ -10,6 +10,10 @@
 
 Every card move is recorded automatically. You always know where something is _and_ how it got there.
 
+**In one line: kill the spreadsheet, visualize the workflow, interrogate it with your own AI — every move on the record.** Swimlane rows carry typed fields of their own, so the data teams usually keep in a side-spreadsheet lives on the board instead. A first-class MCP server lets any AI agent you already run query and change the board through a scoped token you issue — Visiban ships the *interface*, not a model, so no data leaves your install. OIDC/OAuth SSO is in the Apache-2.0 core, not a paid tier.
+
+Comparing options? [Why Visiban](https://docs.visiban.com/next/getting-started/why-visiban/) is an honest look at what it does differently — and when one of the alternatives is the better pick.
+
 ---
 
 ## Where things live
