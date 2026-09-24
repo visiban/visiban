@@ -106,7 +106,7 @@ class ColumnViewSet(viewsets.ModelViewSet):
         ),
         responses=ColumnSerializer(many=True),
     )
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
         """Reorder columns by accepting a list of column IDs in the desired order (admin only)."""
         board, role = self._board_and_role()

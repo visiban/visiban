@@ -173,7 +173,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
         ),
         responses=CustomFieldDefinitionSerializer(many=True),
     )
-    @action(detail=False, methods=["put", "post"])
+    @action(detail=False, methods=["put", "post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
         """Reorder custom fields by a list of IDs in the desired order (admin only)."""
         board = self._require_admin()
