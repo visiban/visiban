@@ -57,6 +57,7 @@ import { useViewPrefs } from "../../hooks/useViewPrefs";
 import { useCardLayoutPref } from "../../hooks/useCardLayoutPref";
 import { useCardDensityOverride } from "../../hooks/useCardDensityOverride";
 import LensToolbar from "./Lens/LensToolbar";
+import { isBoardTabDeemphasized, LENS_ONLY_BOARD_TOOLTIP } from "./lensTabState";
 import { lensFilterActiveCount } from "./Lens/lensDims";
 import { useBoardPan } from "../../hooks/useBoardPan";
 import { usePersistedFilters } from "../../hooks/usePersistedFilters";
@@ -107,15 +108,21 @@ function ColumnTrashZone() {
 // the board has a lens connection and the current user has git_lens_enabled).
 type BoardViewName = "board" | "summary" | "history" | "analytics" | "lens";
 
-function ViewToggle({
+export function ViewToggle({
   view,
   onChange,
   showLens = false,
+  deemphasizeBoard = false,
 }: {
   view: BoardViewName;
   onChange: (v: BoardViewName) => void;
   /** Whether to render the read-only "Lens" tab (gated on connection + flag). */
   showLens?: boolean;
+  /**
+   * Mute the Board tab (lens configured + zero native swimlanes, #1063). Stays a
+   * normal, enabled, one-click button — only its weight and a tooltip change.
+   */
+  deemphasizeBoard?: boolean;
 }) {
   // Bare-letter shortcut per view. Rendered in the tooltip and exposed via
   // `aria-keyshortcuts` so screen readers can announce the binding. Keys are
@@ -125,16 +132,26 @@ function ViewToggle({
     val: BoardViewName,
     shortcut: string,
     tourStep?: string,
+    muted = false,
   ) => (
-    <Tooltip content={`${label} (${shortcut.toUpperCase()})`}>
+    <Tooltip
+      content={
+        muted
+          ? `${LENS_ONLY_BOARD_TOOLTIP} (${shortcut.toUpperCase()})`
+          : `${label} (${shortcut.toUpperCase()})`
+      }
+    >
       <button
         onClick={() => onChange(val)}
         className={`text-sm px-3 py-1 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
           view === val
             ? "bg-primary text-on-primary font-medium"
-            : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
+            : muted
+              ? "text-fg-tertiary italic hover:text-fg hover:bg-surface-hover"
+              : "text-fg-tertiary hover:text-fg hover:bg-surface-hover"
         }`}
         aria-keyshortcuts={shortcut.toUpperCase()}
+        {...(muted ? { "data-deemphasized": "true" } : {})}
         {...(tourStep ? { "data-tour-step": tourStep } : {})}
       >
         {label}
@@ -143,7 +160,7 @@ function ViewToggle({
   );
   return (
     <div className="flex items-center gap-0.5 bg-surface-hover rounded p-0.5">
-      {btn("Board", "board", "b")}
+      {btn("Board", "board", "b", undefined, showLens && deemphasizeBoard)}
       {showLens && btn("Lens", "lens", "l")}
       {btn("Summary", "summary", "s")}
       {btn("History", "history", "h", "history")}
@@ -690,9 +707,9 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         setHighlightedCardId(null);
         highlightedCardTimerRef.current = null;
       }, 1500);
-      setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
     } else {
-      setSearchParams((prev) => { prev.delete("card"); return prev; }, { replace: true });
+      setSearchParams((prev) => { prev.delete("card"); if (!prev.has("view")) prev.set("view", "board"); return prev; }, { replace: true });
       // Check whether the card is archived so we can show a contextual message.
       getCardStatus(board.id, cardId).then((status) => {
         const msg = status?.archived
@@ -737,6 +754,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return () => { cancelled = true; };
   }, [board.id, gitLensEnabled]);
   const showLensTab = gitLensEnabled && lensConnection !== null;
+  // #1063: mute the Board tab only for a lens-only board (zero native swimlanes).
+  const deemphasizeBoardTab = showLensTab && isBoardTabDeemphasized(lensConnection, board.swimlanes.length);
   // Mirror into a ref so the bare-letter `l` shortcut handler (registered with a
   // narrow dep array) can consult the latest availability without re-subscribing.
   const showLensTabRef = useRef(showLensTab);
@@ -904,7 +923,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // and users can bookmark/share a specific sub-view URL.
   const VALID_VIEWS = ["board", "summary", "history", "analytics", "lens"] as const;
   const rawView = searchParams.get("view");
-  const view: BoardViewName = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as BoardViewName) : "board";
+  // #1063: with no explicit ?view=, land on the Lens when one is configured; an
+  // explicit ?view=board (the user clicked Board) is always honored.
+  // A ?card= / ?focus= deep link targets native content, so it keeps the Board default.
+  const hasNativeDeepLink = searchParams.has("card") || searchParams.has("focus");
+  const defaultView: BoardViewName = showLensTab && !hasNativeDeepLink ? "lens" : "board";
+  const view: BoardViewName = (VALID_VIEWS as readonly string[]).includes(rawView ?? "") ? (rawView as BoardViewName) : defaultView;
   // Assign-on-render ref (same pattern as cardLayoutRef) so the keydown handler
   // can route `f` to the lens filter row when the lens tab is showing without
   // re-subscribing. Must sit AFTER `view` is derived — `view` is a plain const,
@@ -1130,7 +1154,12 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       const detail = (ev as CustomEvent<{ cardId: number }>).detail;
       if (!detail) return;
       const card = boardRef.current?.cards.find((c) => c.id === detail.cardId);
-      if (card) { clearSelection(); setSelectedCard(card); }
+      if (card) {
+        clearSelection();
+        setSelectedCard(card);
+        // The lens branch renders no CardDetail; a native card must open on the board.
+        if (viewRef.current === "lens") setView("board");
+      }
     };
     const filterMyCards = () => {
       if (!currentUser) return;
@@ -1601,7 +1630,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center">
           <div className="flex-1 min-w-0 overflow-x-auto h-full flex items-center pl-3">
             <div className="flex items-center gap-2 h-full min-w-max">
-              <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+              <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
               {/* Inside its own Lens boundary: before the toolbar was split out of
                   LensView, all lens chrome sat inside the boundary below. Without
                   this, a throw from LensToolbar escapes the Lens section and takes
@@ -1634,7 +1663,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
         <SectionErrorBoundary section="Summary">
           <SummaryView boardId={board.id} columns={board.columns.map((c) => c.name)} />
@@ -1647,7 +1676,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
         <SectionErrorBoundary section="Movement history">
           <MovementHistoryView board={board} currentUser={currentUser} />
@@ -1660,7 +1689,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <nav aria-label="Board toolbar" className="h-10 shrink-0 bg-surface border-b border-line flex items-center gap-2 px-3">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </nav>
         <SectionErrorBoundary section="Analytics">
           <AnalyticsView
@@ -1747,7 +1776,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       <div data-testid="board-toolbar" className="flex items-center gap-2 h-full min-w-max">
         {/* Zone 1: View navigation */}
         <div data-tour-step="view-tabs">
-          <ViewToggle view={view} onChange={setView} showLens={showLensTab} />
+          <ViewToggle view={view} onChange={setView} showLens={showLensTab} deemphasizeBoard={deemphasizeBoardTab} />
         </div>
 
         {/* Divider 1 */}

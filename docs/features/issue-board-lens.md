@@ -58,6 +58,8 @@ Only **board admins** can configure the lens.
 
 A **Lens** tab appears in the board sub-navigation. It remains visible to all board members regardless of their role.
 
+When a lens is configured, opening the board (with no `?view=` in the URL, and no `?card=` or `?focus=` deep link) lands on the **Lens** tab instead of the native Board. If the board also has **no native swimlanes**, the **Board** tab is shown in a muted (italic, lower-contrast) style with the tooltip "This board mirrors a repo — no native cards", so a lens-only board does not look like it has two competing boards. The Board tab is never disabled or hidden: it stays one click (or the `B` key) away, and it returns to normal styling as soon as the board has one native swimlane. This is automatic — there is no per-board setting.
+
 To disconnect the lens, return to **Settings → Lens** and click **Remove lens**. The Lens tab disappears immediately.
 
 ---
