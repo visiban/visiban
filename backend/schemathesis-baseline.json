@@ -874,6 +874,24 @@
       "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4ed6e4",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/archive/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-24",
+      "last_seen": "2026-09-24"
+    },
+    {
+      "id": "9fc85f",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/unarchive/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-24",
+      "last_seen": "2026-09-24"
     }
   ]
 }
