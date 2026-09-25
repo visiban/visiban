@@ -1538,6 +1538,24 @@ describe('BoardView', () => {
       expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
     })
 
+    it('a palette card-open while on the Lens tab switches to Board so CardDetail can render', async () => {
+      const card = {
+        id: 1, uid: 'carduid00001', title: 'Native Card', column: 10, swimlane: 20,
+        description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
+        position: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
+        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0,
+      } as never
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByTestId('lens-view')
+      act(() => {
+        window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 1 } }))
+      })
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+      expect(await screen.findByTestId('card-detail')).toBeInTheDocument()
+    })
+
     it('does NOT mute the Board tab once one native swimlane exists', async () => {
       render(<BoardView currentUser={lensUser} />)
       await screen.findByTestId('lens-view')
