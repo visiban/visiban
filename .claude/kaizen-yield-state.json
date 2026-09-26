@@ -1,0 +1,148 @@
+{
+  "last_iid": 925,
+  "last_merged_at": "2026-09-26T19:39:56.057Z",
+  "pairs": {
+    "api-docs|feat": {
+      "evidence": [
+        915,
+        920
+      ],
+      "positive": 8,
+      "runs": 11,
+      "streak": 2,
+      "zero": 3
+    },
+    "architect|feat": {
+      "evidence": [],
+      "positive": 22,
+      "runs": 22,
+      "streak": 0,
+      "zero": 0
+    },
+    "broadcast-check|feat": {
+      "evidence": [],
+      "positive": 7,
+      "runs": 9,
+      "streak": 0,
+      "zero": 2
+    },
+    "dependency|feat": {
+      "evidence": [],
+      "positive": 2,
+      "runs": 4,
+      "streak": 0,
+      "zero": 2
+    },
+    "dependency|fix": {
+      "evidence": [
+        900
+      ],
+      "positive": 1,
+      "runs": 2,
+      "streak": 1,
+      "zero": 1
+    },
+    "duplicate-check|fix": {
+      "evidence": [
+        859
+      ],
+      "positive": 0,
+      "runs": 1,
+      "streak": 1,
+      "zero": 1
+    },
+    "enterprise-check|feat": {
+      "evidence": [],
+      "positive": 2,
+      "runs": 2,
+      "streak": 0,
+      "zero": 0
+    },
+    "migration-check|feat": {
+      "evidence": [
+        914,
+        915
+      ],
+      "positive": 2,
+      "runs": 12,
+      "streak": 2,
+      "zero": 10
+    },
+    "perf-bench|feat": {
+      "evidence": [
+        889
+      ],
+      "positive": 0,
+      "runs": 1,
+      "streak": 1,
+      "zero": 1
+    },
+    "perf-check|feat": {
+      "evidence": [],
+      "positive": 14,
+      "runs": 20,
+      "streak": 0,
+      "zero": 6
+    },
+    "rbac-check|feat": {
+      "evidence": [
+        915
+      ],
+      "positive": 12,
+      "runs": 20,
+      "streak": 1,
+      "zero": 8
+    },
+    "regression-check|feat": {
+      "evidence": [],
+      "positive": 26,
+      "runs": 47,
+      "streak": 0,
+      "zero": 21
+    },
+    "regression-check|fix": {
+      "evidence": [
+        901,
+        922,
+        925
+      ],
+      "positive": 3,
+      "runs": 7,
+      "streak": 3,
+      "zero": 4
+    },
+    "security-review|feat": {
+      "evidence": [
+        919
+      ],
+      "positive": 18,
+      "runs": 24,
+      "streak": 1,
+      "zero": 6
+    },
+    "ux-design|feat": {
+      "evidence": [],
+      "positive": 7,
+      "runs": 8,
+      "streak": 0,
+      "zero": 1
+    },
+    "ux-review|feat": {
+      "evidence": [],
+      "positive": 14,
+      "runs": 14,
+      "streak": 0,
+      "zero": 0
+    },
+    "voc|feat": {
+      "evidence": [],
+      "positive": 5,
+      "runs": 5,
+      "streak": 0,
+      "zero": 0
+    }
+  },
+  "proposed": [],
+  "threshold": 10,
+  "version": 1
+}
