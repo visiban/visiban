@@ -3511,6 +3511,16 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>gate-selftest-parity</code></td>
 <td>The meta-gate itself — see above.</td>
 </tr>
+<tr>
+<td><code>scripts/check-compose-image-pins.sh</code></td>
+<td><code>compose-hygiene</code></td>
+<td>Self-test plants an untagged image, an explicit <code>:latest</code>, a ported-registry reference (<code>host:5000/img</code>, whose colon must not read as a tag separator), and a first-party <code>${VAR}</code> reference that must NOT be reported.</td>
+</tr>
+<tr>
+<td><code>scripts/check-compose-project-names.sh</code></td>
+<td><code>compose-hygiene</code></td>
+<td>Self-test plants a missing <code>name:</code>, a duplicate name, a <code>${VAR:-default}</code> colliding on its <em>default</em> (the exact shape of the original defect), and an overlay that wrongly declares a name.</td>
+</tr>
 </tbody>
 </table>
 <p><code>scripts/assemble-changelog.sh</code> also ships a <code>--self-test</code> (added alongside this page,
