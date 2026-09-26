@@ -187,7 +187,7 @@ The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visibl
 - Background: `bg-canvas` — darkest level, creates depth contrast with cards and headers
 - Grid lines: `border border-line-subtle` — subtle, not prominent
 - **Empty addable cells (#962)** — when a cell has no cards, the user can create cards in it (`column.allow_card_creation && canEdit`), and is not currently editing, the cell wrapper itself is the keyboard-reachable creation surface. Spec:
-  - `role="button"`, `tabIndex={0}`, `aria-label="Add card to {column.name} in {swimlane.name}"` so screen readers announce *which* slot the action targets
+  - `role="button"`, `tabIndex={0}`, `aria-label="Add card to {column.name} in {swimlane.name}"` so screen readers announce *which* slot the action targets. When a grid overlay gives the cell a value, that reading is appended to this same label — see § Board grid overlay slot; an `aria-label` overrides every descendant's text, so an `sr-only` reading inside the cell would be silently discarded
   - `cursor-pointer hover:bg-surface-hover/30` on the cell so hover gives a soft wash; `focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis` for keyboard focus
   - Dashed inset border (`border border-dashed border-line/50`) is the visual frame
   - The visible **`+ Add card`** label is a centered, `pointer-events-none`, `aria-hidden="true"` overlay (`absolute inset-0 flex items-center justify-center text-xs text-fg-muted`) that brightens on cell hover/focus via `group-hover/cell:text-fg group-focus/cell:text-fg`
@@ -196,6 +196,100 @@ The destructive column trash drop zone is **opt-in via ⌥ (Alt)**, never visibl
 - **Populated cells** keep the dense info-rich layout. The `+ Add card` affordance is the bottom-aligned button (`w-full text-left text-xs text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50 mt-1`) and the cell wrapper is *not* `role="button"` — power users can Tab from the last card directly into the bottom button without the cell intercepting Enter.
 - **Never render two creation affordances on the same cell.** Empty cells have the cell-as-button only; populated cells have the bottom button only. The two states are mutually exclusive.
 - Board stats corner cell (top-left, where header row meets swimlane column): stacked `text-xs text-fg-muted` lines for col/lane/card counts
+
+## Board grid overlay slot (#1147)
+
+The board grid has one pluggable shading layer. An overlay (`src/gridOverlays/`) supplies
+a per-cell `{value, label}`; the slot owns the scale, every class, the legend, and the
+empty state. Rules:
+
+- **An overlay supplies numbers, never classes.** `GridOverlay.compute()` returns values
+  and labels only. The ramp, the non-color channels, the legend and the empty state live
+  in `src/gridOverlays/scale.ts` and `slot.ts`, so #969's dual-encoding rule is enforced
+  once for every overlay instead of once per overlay. An overlay that *could* ship a
+  hue-only ramp is a bug in the slot, not in the overlay.
+- **Severity is encoded three ways, and none of them is a font glyph (#969).** Tint
+  (`bg-primary-emphasis/10 /20 /30 /40`) + a bar pinned to the cell's bottom edge
+  (`h-px / h-0.5 / h-[3px] / h-1`, `bg-primary-emphasis` at `/50 /70 /85 /100`) + the
+  value itself. Never `▁▃▅▇` or any block-element glyph: they do track `currentColor`,
+  but their advance width and baseline are font-dependent, so the ramp's step size is not
+  reproducible across platforms. Never `⚠` / `⛔` on a magnitude overlay — those belong to
+  actionable severity (§ Column headers, § Move-blocked toast), and a high card count is
+  not a problem.
+- **A generic overlay ramps one hue; it never borrows success→warning→danger.** A scalar
+  the slot cannot interpret means "more/less", not "safe/dangerous" — `bg-warning/*` is
+  the card aging tint and `bg-danger/*` is over-WIP, so a red cell would assert a judgment
+  the overlay cannot justify. The ramp is `primary-emphasis`, identical in both themes, so
+  it is verified once. **Never `bg-info/*` inside a cell:** `/10` is the active-toggle
+  state, `/15` the filter-match pulse on collapsed stubs, `/20` the drop-target indicator.
+  The ramp starts at `/10`; `/5` is below the perceptibility floor over `bg-canvas`.
+- **The tint is the first child of the cell root, `z-0`, `pointer-events-none`,
+  `aria-hidden`; the value badge is a sibling at `z-[5]`.** A positioned descendant paints
+  above non-positioned in-flow content regardless of DOM order, so the card stack and the
+  affordances after it carry `relative` and beat the tint on DOM order. The badge needs the
+  opposite outcome and cannot get it from DOM order at all: `CardItem`'s root is
+  `relative z-0`, so a z-auto badge earlier in the subtree paints *underneath* the first
+  card. The three numbers in play are exact — `z-[5]` clears the cards, stays **below** the
+  sticky swimlane label panel (`z-10`) and the sticky header row (`z-20`) which a badge
+  must never cover when the grid is scrolled, and still yields to a hovered card
+  (`hover:z-20`) so the card's own selection checkbox stays usable in the same corner.
+  Never put the tint on the cell root's `bg-*`: the root already carries `bg-canvas` and
+  the drag-over `bg-surface-hover/40`, and a third `bg-*` on one node is a Tailwind
+  ordering coin-flip.
+- **A cell tint or z-order change needs a browser check in both themes before merge.**
+  jsdom renders no paint order, so a vitest suite will pass over a layer that is invisible
+  in the product. Class-level assertions (the z value, the tint token) are a guard against
+  regression, not evidence that the layer is visible.
+- **The layer is suppressed on the cell being dragged over.** Drop feedback owns the
+  background channel — same precedent as hiding the centered `+ Add card` overlay during a
+  drag.
+- **One scalar per cell corner.** The top-right slot renders *either* the built-in
+  `cards.length` badge (at ≥ 2) *or* the overlay's value badge, never both.
+- **A cell whose `aria-label` is set must carry the overlay reading inside that label.**
+  An empty addable cell is `role="button"` with an `aria-label`, and an `aria-label`
+  overrides every descendant's text — an `sr-only` reading there is silently discarded.
+  Append it to the cell's label and mark the visible badge `aria-hidden` instead.
+- **The legend floats; it is never a strip.** Every above-grid strip is in-flow and
+  `shrink-0`, so it shrinks the `flex-1 min-h-0` scroll container — that is displacement,
+  which this slot forbids. The legend is `absolute bottom-4 right-4 z-30
+  pointer-events-none` inside a `relative` wrapper around the **scroll container only**,
+  so it can never cover `BoardActivityDrawer`. `bottom-4` clears `.board-scroll`'s
+  always-visible 10px custom scrollbar (`src/index.css`) and `pointer-events-none`
+  means a graze can never eat a scrollbar drag. `z-30`
+  is deliberately below `BulkActionToolbar` (`z-40`) and `MoveBlockedToast` (`z-50`) — a
+  transient message always wins over a passive key. It fades (never unmounts) during a
+  drag, and drops to a single compact row below `lg` via `useIsLargeViewport`.
+- **The legend's empty state is filter-aware, and it is the second one-line empty state
+  in the system.** § Empty states' centered-icon pattern is for a surface with nothing in
+  it, and the board is full of cards, so the legend uses the one-line form at `text-xs
+  italic` — but `text-fg-muted`, not the `text-fg-faint` the card-detail sub-sections use:
+  faint is a decorative tone and this is the only sentence the panel shows. The copy must
+  name the actual cause — `No values match the active filters.` when `isFiltered`, and
+  `No values on this board yet.` otherwise. "Nothing on this board" is a lie when the
+  filter bar is what emptied the overlay.
+- **`role="group"`, never `role="region"`** — the board is capped at four landmarks
+  (§ Top chrome). Swatches are `aria-hidden`; each legend row carries an `sr-only` level
+  prefix, and an unused level renders `—`, never `0`.
+- **The picker never folds into `OverflowMenu`.** It is the one Zone 2 control exempt from
+  the fold set: an `OverflowItem` carries an action, not a selection, and the never-folded
+  set still fits Row 2 at every supported width. It lives right after **Filters** (Filters
+  changes *which cards*; the overlay changes *what is drawn over them*), passes
+  `portalMenu`, and maps "None" to `selected={null}` so the trigger reads `Overlay` at
+  rest and takes the primitive's active treatment — showing the overlay's own name —
+  exactly when one is on. `triggerPrefix={OverlayIcon}` is not decorative: it is what keeps
+  the control identifiable once its text becomes the option name.
+- **Overlay ids are a persisted contract.** `board:{boardId}:grid-overlay` stores the raw
+  id and unknown ids decay to `none` through `resolveGridOverlayId` — a board preset
+  (#1146) or a stale value may name an overlay this build has never heard of, and an
+  un-overlaid board is a strictly better failure than a board that does not render. Never
+  rename a shipped id; `label` is free to be reworded.
+- **Never gate the overlay on `canEdit` or `isAdmin`** — it is a local reading preference
+  with no server write, so every role gets it. It renders only in `view === "board"`.
+- **Two live regions on the board is deliberate.** The overlay announcer sits beside the
+  DnD announcer because they are driven by disjoint actions (a pointer drag vs. a toolbar
+  click); the one-region-per-action rule targets two regions racing on a *single* action.
+  Cell values themselves carry no `aria-live`: they change from other users' WebSocket
+  events, and announcing those would make the board unusable with a screen reader.
 
 ## Card density (#961)
 
@@ -661,6 +755,18 @@ When one page or tab can simultaneously render more than one bare-text button wi
 
 - **A soft-capped multi-select refuses the click; it never lets a serializer truncate.** When a multi-select has a maximum selection count (typically a server-side cap), enforce it in the feature component's `onChange` handler — drop the additional selection on the floor — and never leave the cap to a downstream serializer that sorts and slices the array. A slice evicts whichever item sorts last, which is routinely an item the user never touched, so the click appears to succeed while silently changing a *different* selection. `CheckboxDropdown` has no `maxSelected` prop today (`toggle()` always appends), so the handler in the calling component is the enforcement point; the reference implementation is `handleLabelsChange` in `LensFilterBar`. Deselection must stay allowed at the cap, or the control becomes a dead end.
 - **Limit and helper text beside a control must be announced, not merely visible.** A cap that silently makes further clicks do nothing is invisible to a screen-reader user, so render the message in a `role="status"` live region that goes from empty to text when the limit is reached (the content change is what triggers the announcement). A bare sibling `<span>` with no role conveys nothing. Where the control accepts `aria-describedby` and the text is static rather than state-dependent, the `id`-bearing helper-span pattern in `FilterBar` (`aria-describedby="filterbar-search-helper"`) is the alternative.
+- **A dropdown inside an `overflow-x-auto` toolbar strip must portal its menu.** Per the
+  CSS spec, `overflow-x: auto` with the default `overflow-y: visible` promotes the y-axis
+  to `auto` too, so Row 2's `h-10` strip clips any `absolute top-full` menu to 40px.
+  `SingleSelectDropdown` takes `portalMenu` for this (anchor captured with
+  `getBoundingClientRect`, rendered `position: fixed` through `createPortal` — the same
+  technique `SplitButton` documents). It is opt-in, not the default, because the in-flow
+  menu is what modal focus traps and existing call sites assume. Pass it for any dropdown
+  rendered in Row 2. Known limitation, shared with `SplitButton`: the anchor is measured
+  once when the menu opens, so scrolling Row 2 or resizing the window while it is open
+  leaves the menu behind. Closing on scroll/resize (or re-measuring) is the fix whenever
+  that becomes visible — do it in the primitive, for both consumers.
+
 - **Free-text filter inputs in the same row clear on Escape, all of them.** Escape resets the input and blurs. Applying it to only some inputs in a row is worse than applying it to none — a keyboard user who learns the affordance on one input expects it on its neighbors.
 
 ### SplitButton
@@ -721,6 +827,11 @@ Shortcut wiring lives in two places: the board-scoped keydown listener in `Board
 - **Platform-aware formatting — always route through `src/utils/platform.ts`.** `formatShortcut({ mod, shift, alt, key })` renders visible hints (⌘⇧L on Mac; Ctrl+Shift+L elsewhere). `formatAriaKeyshortcuts()` renders the ARIA 1.2 canonical form (`Meta+Shift+L` / `Control+Shift+L`). Never hard-code the Mac glyphs or the `Meta+` prefix at a call site.
 - **Tooltip hints — parenthesize the shortcut after the label.** Format `"${label} (${formatShortcut(...)})"`. The overflow menu's own `shortcut` slot already renders the hint inline; set it there instead of baking the hint into the item label.
 - **The shortcuts overlay is the canonical registry.** Every non-trivial binding must appear in `KeyboardShortcutsOverlay.tsx` grouped under one of the four sections (Navigation / Board view / Board actions / Help) and in `docs/features/keyboard-shortcuts.md`. Descriptions are imperative (`Switch to Board view`, not `Board view`) so each row reads as a command.
+- **A control is allowed to have no shortcut, on purpose.** The grid overlay picker
+  (#1147) deliberately has none and carries no `aria-keyshortcuts`: it is a cosmetic
+  reading layer, it is Tab-reachable in Row 2 at every supported width, and the bare-letter
+  set is already crowded. Do not "complete" it with a binding — the budget above is the
+  reason it was left out.
 - **Command palette surface-awareness — suppress actions that have no target.** When adding a new action to `CommandPalette.STATIC_ACTIONS` that requires a board (opens a card, toggles filters, switches view), set `boardOnly: true` so `GlobalCommandPalette` filters it out on Dashboard/Group/Settings/Admin. Route-agnostic actions (open shortcuts overlay, log out) must *not* carry the flag.
 
 ## Board search scope toggle

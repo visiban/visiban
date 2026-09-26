@@ -4,6 +4,8 @@ import { SortableContext, verticalListSortingStrategy, rectSortingStrategy } fro
 import type { Card, CardDensity, Column, CustomFieldDefinition, Swimlane } from "../../types";
 import CardItem from "../Card/CardItem";
 import { createCard } from "../../api/cards";
+import GridOverlayLayer from "./GridOverlay/GridOverlayLayer";
+import type { GridOverlayCellState } from "../../gridOverlays/slot";
 
 interface Props {
   column: Column;
@@ -27,9 +29,18 @@ interface Props {
   stale_warning_pct?: number;
   customFieldDefinitions?: CustomFieldDefinition[];
   onCardUpdated?: (card: Card) => void;
+  /**
+   * This cell's grid-overlay shading (#1147), or undefined/null when no overlay is
+   * active or this cell has no value. Optional so every existing call site — and the
+   * component's own tests — keep working untouched, which is also what makes the
+   * default "None" overlay provably identical to the pre-#1147 board.
+   */
+  overlayCell?: GridOverlayCellState | null;
+  /** The active overlay's label, for the cell's screen-reader text. */
+  overlayLabel?: string;
 }
 
-const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated }: Props) {
+const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, canEdit, closeEditorOnEnter, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, density, userTimezone, userDateFormat, width, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, onCardUpdated, overlayCell, overlayLabel }: Props) {
   const id = `cell:${column.id}:${swimlane.id}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const { active } = useDndContext();
@@ -59,12 +70,23 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
   const isEmptyAddable = cards.length === 0 && !adding && column.allow_card_creation && canEdit;
   const startAdding = () => setAdding(true);
 
+  // Grid overlay (#1147). Suppressed on the cell being dragged over: drop feedback
+  // already owns the cell's background channel (`bg-surface-hover/40` here, `bg-info/20`
+  // on the empty-cell indicator), and compositing a tint on top weakens it — the same
+  // reason the centered "+ Add card" overlay hides during a drag.
+  const overlay = overlayCell && overlayLabel && !(isOver && isDraggingCard) ? overlayCell : null;
+  // An empty addable cell is `role="button"` with an `aria-label`, and an aria-label
+  // overrides *all* descendant text — so an sr-only reading inside it is silently
+  // discarded. Fold the overlay reading into the cell's own label instead.
+  const addLabel = `Add card to ${column.name} in ${swimlane.name}`;
+  const cellAriaLabel = overlay ? `${addLabel} — ${overlayLabel}: ${overlay.label}, ${overlay.encoding.levelLabel}` : addLabel;
+
   return (
     <div
       ref={setNodeRef}
       role={isEmptyAddable ? "button" : undefined}
       tabIndex={isEmptyAddable ? 0 : undefined}
-      aria-label={isEmptyAddable ? `Add card to ${column.name} in ${swimlane.name}` : undefined}
+      aria-label={isEmptyAddable ? cellAriaLabel : undefined}
       onClick={isEmptyAddable ? startAdding : undefined}
       onKeyDown={isEmptyAddable ? (e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -84,13 +106,27 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
         isEmptyAddable ? "cursor-pointer hover:bg-surface-hover/30 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-emphasis" : ""
       }`}
     >
-      {cards.length >= 2 && (
+      {/* Grid overlay shading (#1147) — FIRST child on purpose: it is absolutely
+          positioned, so everything below it in this subtree paints on top of the tint
+          and stays legible. See GridOverlayLayer for the full ordering rationale. */}
+      {overlay && overlayLabel && (
+        <GridOverlayLayer
+          overlayLabel={overlayLabel}
+          cell={overlay}
+          valueAnnouncedByCell={isEmptyAddable}
+        />
+      )}
+      {/* One scalar per corner: the built-in count stands down while an overlay owns
+          the top-right slot, so the cell never shows two different numbers there. */}
+      {!overlay && cards.length >= 2 && (
         <span className="absolute top-1.5 right-2 text-xs font-medium text-fg-faint select-none pointer-events-none">
           {cards.length}
         </span>
       )}
       <SortableContext items={cards.map((c) => c.id)} strategy={compact ? rectSortingStrategy : verticalListSortingStrategy}>
-        <div className={compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-1.5"}>
+        {/* `relative` so the card stack paints above the overlay tint layer, which is
+            absolutely positioned and would otherwise cover in-flow siblings. */}
+        <div className={`relative ${compact ? "grid grid-cols-2 gap-1.5" : "flex flex-col gap-1.5"}`}>
           {(filteredCardIds ? cards.filter((c) => filteredCardIds.has(c.id)) : cards).map((card) => (
             <CardItem
               key={card.id}
@@ -119,7 +155,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       </SortableContext>
 
       {column.allow_card_creation && canEdit && adding && (
-        <div className="mt-1.5">
+        <div className="relative mt-1.5">
           <input
             autoFocus
             value={title}
@@ -160,7 +196,7 @@ const BoardCell = memo(function BoardCell({ column, swimlane, cards, boardId, ca
       {column.allow_card_creation && canEdit && !adding && cards.length > 0 && (
         <button
           onClick={() => setAdding(true)}
-          className="w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          className="relative w-full text-left text-xs rounded px-1.5 py-1 transition mt-1 text-fg-faint hover:text-fg-secondary hover:bg-surface-hover/50 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
         >
           + Add card
         </button>

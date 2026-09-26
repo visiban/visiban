@@ -29,3 +29,18 @@ export const LayoutExpandedIcon: ReactNode = (
     <rect x="14" y="14" width="7" height="7" rx="1" />
   </svg>
 );
+
+/**
+ * Grid overlay picker (#1147) — a grid with one shaded cell. Row 2 icons live here and
+ * are imported, never re-inlined at a call site.
+ */
+export const OverlayIcon: ReactNode = (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <rect x="2" y="2" width="12" height="12" rx="1" />
+    <line x1="6" y1="2" x2="6" y2="14" />
+    <line x1="10" y1="2" x2="10" y2="14" />
+    <line x1="2" y1="6" x2="14" y2="6" />
+    <line x1="2" y1="10" x2="14" y2="10" />
+    <rect x="10" y="10" width="4" height="4" fill="currentColor" stroke="none" opacity="0.4" />
+  </svg>
+);

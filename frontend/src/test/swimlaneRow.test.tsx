@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SwimlaneRow from '../components/Board/SwimlaneRow'
 import type { Card, Column, Swimlane } from '../types'
+import { cellKey } from '../gridOverlays/types'
+import { encodeOverlayLevel } from '../gridOverlays/scale'
 
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
@@ -16,8 +18,14 @@ vi.mock('@dnd-kit/sortable', () => ({
 }))
 
 vi.mock('../components/Board/BoardCell', () => ({
-  default: ({ column, swimlane }: { column: Column; swimlane: Swimlane }) => (
-    <div data-testid={`cell-${column.id}-${swimlane.id}`}>Cell</div>
+  default: ({ column, swimlane, overlayCell, overlayLabel }: { column: Column; swimlane: Swimlane; overlayCell?: { value: number } | null; overlayLabel?: string }) => (
+    <div
+      data-testid={`cell-${column.id}-${swimlane.id}`}
+      data-overlay-value={overlayCell ? String(overlayCell.value) : ''}
+      data-overlay-label={overlayLabel ?? ''}
+    >
+      Cell
+    </div>
   ),
 }))
 
@@ -269,5 +277,43 @@ describe('SwimlaneRow', () => {
     fireEvent.mouseEnter(row)
     fireEvent.mouseLeave(row)
     expect(onHoverLeave).toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Grid overlay plumbing (#1147)
+// ---------------------------------------------------------------------------
+
+describe('SwimlaneRow — grid overlay lookup (#1147)', () => {
+  const overlayCells = () =>
+    new Map([
+      [cellKey(10, 20), { value: 3, label: '3 cards', encoding: encodeOverlayLevel(4) }],
+    ])
+
+  it('hands each cell its own value and nothing to the cells with none', () => {
+    render(<SwimlaneRow {...defaultProps()} overlayCells={overlayCells()} overlayLabel="Card count" />)
+    expect(screen.getByTestId('cell-10-20')).toHaveAttribute('data-overlay-value', '3')
+    expect(screen.getByTestId('cell-10-20')).toHaveAttribute('data-overlay-label', 'Card count')
+    // Column 11 has no entry in the map — the cell renders untouched.
+    expect(screen.getByTestId('cell-11-20')).toHaveAttribute('data-overlay-value', '')
+  })
+
+  it('passes nothing at all when no overlay is active', () => {
+    render(<SwimlaneRow {...defaultProps()} />)
+    expect(screen.getByTestId('cell-10-20')).toHaveAttribute('data-overlay-value', '')
+    expect(screen.getByTestId('cell-10-20')).toHaveAttribute('data-overlay-label', '')
+  })
+
+  it('leaves a collapsed column as its count stub, with no BoardCell to shade', () => {
+    render(
+      <SwimlaneRow
+        {...defaultProps()}
+        cards={[makeCard({ id: 1, column: 10 })]}
+        collapsedColumnIds={new Set([10])}
+        overlayCells={overlayCells()}
+        overlayLabel="Card count"
+      />,
+    )
+    expect(screen.queryByTestId('cell-10-20')).not.toBeInTheDocument()
   })
 })
