@@ -1589,7 +1589,7 @@ class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
-    group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     allowed_priorities = AllowedPrioritiesField(
@@ -1769,7 +1769,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
     cards = serializers.SerializerMethodField()
     labels = LabelSerializer(many=True, read_only=True)
     members = serializers.SerializerMethodField()
-    group_name = serializers.CharField(source="group.name", default=None, read_only=True)
+    group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
     group_detail = serializers.SerializerMethodField()
     current_user_role = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
@@ -1802,6 +1802,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["uid"]
 
+    @extend_schema_field(GroupBriefSerializer(allow_null=True))
     def get_group_detail(self, obj):
         # See BoardSerializer.get_group_detail — same gating rule (#817).
         if not _expand_requested(self.context, "group") or obj.group_id is None:
@@ -2052,7 +2053,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         from .permissions import get_board_role
         return get_board_role(request.user, obj)
 
-    def get_is_starred(self, obj):
+    def get_is_starred(self, obj) -> bool:
         # Use the prefetched _user_favorites attr when available (set by
         # get_board_for_user via Prefetch(to_attr="_user_favorites")) to avoid
         # a per-request favorites query on the full board endpoint.
