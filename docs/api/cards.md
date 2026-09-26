@@ -4,6 +4,8 @@
 
 ### `GET /api/v1/cards/`
 
+> **Added in 1.2**
+
 Paginated, filterable card query across every board the requesting user can access — for
 table/list views over large boards and for incremental sync (`?updated_since=`). This is
 additive: it does not change `GET /api/v1/boards/{board_id}/cards/` or `GET

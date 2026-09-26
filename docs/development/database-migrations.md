@@ -1,5 +1,7 @@
 # Database migrations
 
+> **Added in 1.2**
+
 Visiban's migration rules exist for one reason: `migrate` must never block the product.
 Everything below follows from that.
 
