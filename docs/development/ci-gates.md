@@ -99,6 +99,8 @@ own header — is never mistaken for a real exemption.
 | `scripts/check-issue-collision.sh` | pre-push git hook only (not a CI job — see [Known gaps](#known-gaps-and-deferred-work)) | Offline self-test against stubbed forge responses. |
 | `scripts/check-memory-index.sh` | not currently a CI job | Self-test builds a synthetic memory store. |
 | `scripts/check-gate-selftest-parity.sh` | `gate-selftest-parity` | The meta-gate itself — see above. |
+| `scripts/check-compose-image-pins.sh` | `compose-hygiene` | Self-test plants an untagged image, an explicit `:latest`, a ported-registry reference (`host:5000/img`, whose colon must not read as a tag separator), and a first-party `${VAR}` reference that must NOT be reported. |
+| `scripts/check-compose-project-names.sh` | `compose-hygiene` | Self-test plants a missing `name:`, a duplicate name, a `${VAR:-default}` colliding on its *default* (the exact shape of the original defect), and an overlay that wrongly declares a name. |
 
 `scripts/assemble-changelog.sh` also ships a `--self-test` (added alongside this page,
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into

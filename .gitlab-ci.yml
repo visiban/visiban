@@ -233,6 +233,40 @@ dockerfile-lint:
         frontend/Dockerfile
         frontend/Dockerfile.prod
 
+# ─── Compose — shipped-stack hygiene ──────────────────────────────────────────
+#
+# Two gates over the compose files an operator actually runs. Both are cheap,
+# both cover a defect that was live in this repo, and neither is visible in a
+# diff review:
+#
+#   * image pins — `certbot/certbot` shipped untagged in docker-compose.prod.yml
+#     while every sibling service carried a floor, so the component that owns TLS
+#     renewal floated to `latest` on each `compose pull`.
+#   * project names — docker-compose.prod.yml pinned no `name:` and dev defaulted
+#     to `visiban`, so on a default clone both resolved to the same project,
+#     sharing `visiban_pgdata` and the `db`/`valkey`/`backend` service names.
+#
+# Each runs its `--self-test` first, per #1093: a gate observed only on a clean
+# tree is indistinguishable from one that always passes.
+
+compose-hygiene:
+  stage: lint
+  needs: []
+  image: alpine:3.19
+  rules:
+    - changes:
+        - docker-compose*.yml
+        - scripts/check-compose-*.sh
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  before_script:
+    - apk add --no-cache bash grep sed
+  script:
+    - bash scripts/check-compose-image-pins.sh --self-test
+    - bash scripts/check-compose-image-pins.sh
+    - bash scripts/check-compose-project-names.sh --self-test
+    - bash scripts/check-compose-project-names.sh
+
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
 # Ruff lint check + CodeClimate quality report in a single job — avoids
