@@ -415,6 +415,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
         prefetch_related_objects([card], "labels")
 
         activities = []
+        assignment_notifications = []
         ET = CardActivity.EventType
 
         if old_title != card.title and "title" in submitted:
@@ -438,11 +439,14 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
                 card=card, event_type=ET.ASSIGNEE_CHANGE,
                 from_value=old_assignee_name, to_value=new_name, actor=actor,
             ))
-            # Notify the new assignee unless they opted out. Routed through
-            # create_notifications so email/enterprise delivery fires after the
-            # card update commits, not inside this transaction.
+            # Notify the new assignee unless they opted out. Collected here,
+            # where the assignee change is detected, but handed to
+            # create_notifications at the end of the block — on_commit callbacks
+            # run in registration order, and registering this one first would put
+            # notification dispatch ahead of the card.updated broadcast every
+            # other client on the board is waiting for.
             if card.assignee and card.assignee != actor and card.assignee.notif_card_assigned:
-                create_notifications([
+                assignment_notifications.append(
                     Notification(
                         recipient=card.assignee,
                         actor=actor,
@@ -451,7 +455,7 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
                         card=card,
                         board=card.board,
                     )
-                ], context={"previous_assignee_name": old_assignee_name})
+                )
         if old_description != card.description and "description" in submitted:
             activities.append(CardActivity(
                 card=card, event_type=ET.DESCRIPTION_CHANGE,
@@ -492,6 +496,12 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
         payload = render(card)
         _broadcast_after_commit(board_id, _broadcast.EVT_CARD_UPDATED, payload, actor.id)
         _fire_hooks("card.updated", card.id, board_id, actor.id)
+        # Registered last on purpose — see the comment at the assignee branch.
+        if assignment_notifications:
+            create_notifications(
+                assignment_notifications,
+                context={"previous_assignee_name": old_assignee_name},
+            )
     return CardMutationResult(card=card, payload=payload)
 
 

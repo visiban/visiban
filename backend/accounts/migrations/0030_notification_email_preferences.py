@@ -9,9 +9,16 @@
 #   index or constraint here. See docs/development/database-migrations.md.
 # * The RunPython copies notif_due_soon into notif_stale so nobody's effective
 #   staleness setting changes when notify_stale_cards starts reading the new
-#   field. Batched with .update() rather than row-by-row, and reverse is a no-op
-#   because reversing the AddField drops the column anyway.
-# * Deploy ordering is free. Old code neither reads nor writes the new columns.
+#   field. It is a single set-based UPDATE touching only the opted-in rows, not
+#   a row-by-row loop, and the reverse is a no-op because reversing the AddField
+#   drops the column anyway.
+# * Deploy ordering: this must run BEFORE or WITH the new code, never after. It
+#   is safe to run ahead of the code deploy — old code neither reads nor writes
+#   the new columns — but the new code does read notif_stale (see
+#   notify_stale_cards.py) and the email_notif_* fields, so code-first would
+#   query a column that does not exist yet. That is the repo's normal
+#   migrate-first, additive-only rule; it is called out here only because the
+#   claim "ordering is free" would be wrong in one direction.
 #   The one window worth naming: if a user edits notif_due_soon after this
 #   migration runs but before the new code is live, that edit lands on the old
 #   field only and their notif_stale keeps the pre-migration value. It is a

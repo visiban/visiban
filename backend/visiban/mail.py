@@ -327,8 +327,11 @@ class DatabaseAwareEmailBackend(BaseEmailBackend):
     so this has to be accepted explicitly or it would be accepted and ignored.
     """
 
-    def __init__(self, *, timeout=None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, fail_silently=False, *, timeout=None, **kwargs):
+        # fail_silently stays positional: BaseEmailBackend accepts it that way,
+        # and making it keyword-only here would break any caller that does
+        # DatabaseAwareEmailBackend(True).
+        super().__init__(fail_silently=fail_silently, **kwargs)
         self._timeout_floor = timeout
 
     def send_messages(self, email_messages):

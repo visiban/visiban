@@ -102,6 +102,15 @@ swimlane_custom_field_value_changed = Signal()
 # * Sent once per notification row, not once per batch, even though the rows are
 #   created with ``bulk_create``.
 #
+# Receiver responsibility — a notification row can outlive the recipient's access
+# to the board it is about. ``Card.assignee`` is not cleared when a member is
+# removed, and a stale scan can still pick that card up. In-app this is invisible
+# (``_filter_to_accessible_boards`` drops such rows when the inbox is read), and
+# OSS email re-checks effective membership before sending. A receiver that
+# delivers **off-instance** — Slack, Teams, a webhook — must do the same check
+# itself: ``boards.utils._get_effective_member_ids(notification.board)``. Neither
+# the signal nor the row asserts that the recipient still has access.
+#
 # Stability: this signal's name and keyword arguments are part of the 1.0+
 # extension surface. Arguments may be added; none may be removed or renamed
 # without a major version bump.

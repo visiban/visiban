@@ -184,25 +184,40 @@ the sender set in the admin UI). There is no separate notification sender.
 - Deactivated users — their notification history is kept, their mail is not
 - Users whose address is unconfirmed, **when** the instance sets
   `EMAIL_VERIFICATION=mandatory`. Under the default `optional` policy unverified
-  addresses are normal, so they still receive mail. Mailing board content to an
-  address nobody has proved they own is a disclosure, so if that matters to you,
-  set verification to mandatory.
+  addresses are normal — the same instance already sends password-reset mail to
+  them — so they still receive notification mail.
+
+    Two things follow from that default, and they are the reason to consider
+    `mandatory` on a public instance. Notification mail carries board content
+    (board names, card titles) to whatever address the account holder last saved,
+    proved or not. And because a member can set their own address to anyone's, a
+    member could point notifications at a third party who never asked for them,
+    with card titles they chose. Neither gives anybody access to a board they are
+    not on, but `EMAIL_VERIFICATION=mandatory` closes both, and
+    `NOTIFICATION_EMAIL_ENABLED=false` closes them outright.
 - Everybody, when `NOTIFICATION_EMAIL_ENABLED=false`
 
 ### When mail fails
 
 A delivery failure never breaks the action that caused it. Notifications are
-created inside the request's transaction; mail is sent after it commits, over one
-connection per event, with a socket timeout
-(`NOTIFICATION_EMAIL_TIMEOUT`, default 10 seconds). If the SMTP server is
-unreachable, misconfigured or rejects the credentials, the card update still
-succeeds, the in-app notification is still created, and the failure is logged
-with a sanitized error code. Logs never contain a recipient address.
+created inside the request's transaction; once it commits, the messages are
+handed to a background thread that sends them over a single connection with a
+socket timeout (`NOTIFICATION_EMAIL_TIMEOUT`, default 10 seconds). If the SMTP
+server is unreachable, misconfigured or rejects the credentials, the card update
+still succeeds, the in-app notification is still created, and the failure is
+logged with a sanitized error code. Logs never contain a recipient address.
+
+The send runs on a thread rather than inline because the timeout is applied per
+socket operation, not as a wall-clock total — a tarpitting relay can spend it
+again at every step of the conversation, which inline would mean a card
+assignment or drag-and-drop appearing to hang. The trade-off is that delivery is
+explicitly **best-effort**: restarting or recycling a worker mid-send drops that
+batch. Set `NOTIFICATION_EMAIL_ASYNC=false` to send inline instead.
 
 There is no retry and no queue: a notification email is only useful promptly, and
-a durable queue is not something the OSS core takes a dependency on. If mail is
-failing, fix the SMTP configuration — **Admin → Settings → Email** has a
-**Send test email** button.
+a durable queue is not a dependency the OSS core takes on. If mail is failing, fix
+the SMTP configuration — **Admin → Settings → Email** has a **Send test email**
+button.
 
 ### Extending delivery
 

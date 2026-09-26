@@ -514,7 +514,7 @@ describe('NotificationsTab', () => {
     expect(emailToggle).toBeDisabled()
     const reasonId = emailToggle.getAttribute('aria-describedby')
     expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Paused while the in-app notification above is off. Your choice is kept.'
+      'Paused while the in-app notification above is off. Your email setting is kept.'
     )
   })
 
@@ -527,8 +527,23 @@ describe('NotificationsTab', () => {
     })
     expect(emailToggle).not.toBeDisabled()
     const reasonId = emailToggle.getAttribute('aria-describedby')
+    // Off, so the helper is action-phrased rather than claiming mail is going out.
     expect(document.getElementById(reasonId!)?.textContent).toBe(
-      'Sends a copy to your account email.'
+      'Email a copy to your account address.'
+    )
+  })
+
+  it('an enabled email toggle that is on says it is sending', async () => {
+    const user = userEvent.setup()
+    renderSettings({ ...fakeUser, notif_card_assigned: true, email_notif_card_assigned: true })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Card assigned to me',
+    })
+    expect(emailToggle).toHaveAttribute('aria-checked', 'true')
+    const reasonId = emailToggle.getAttribute('aria-describedby')
+    expect(document.getElementById(reasonId!)?.textContent).toBe(
+      'Sends a copy to your account address.'
     )
   })
 

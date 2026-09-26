@@ -74,6 +74,11 @@ class Command(BaseCommand):
         # information disclosure, so re-check effective membership per board
         # rather than trusting the stale FK. One query per distinct board.
         members_by_board = {}
+        # Hoisted: the site-admin set is identical for every board, so resolving
+        # it inside the loop would cost one query per board.
+        site_admin_ids = set(
+            User.objects.filter(can_access_all_content=True).values_list("pk", flat=True)
+        )
 
         # One query for the whole idempotency check. Reference point per card is
         # (due_date - horizon), the earliest moment this card could have entered
@@ -100,7 +105,7 @@ class Command(BaseCommand):
 
             board = card.board
             if board.pk not in members_by_board:
-                members_by_board[board.pk] = _get_effective_member_ids(board)
+                members_by_board[board.pk] = _get_effective_member_ids(board, site_admin_ids)
             if card.assignee_id not in members_by_board[board.pk]:
                 continue
 

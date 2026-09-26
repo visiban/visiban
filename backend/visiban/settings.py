@@ -635,6 +635,24 @@ NOTIFICATION_EMAIL_ENABLED = env.bool("NOTIFICATION_EMAIL_ENABLED", default=True
 # operator who did set EMAIL_TIMEOUT (or the admin-UI timeout) keeps their value.
 NOTIFICATION_EMAIL_TIMEOUT = env.int("NOTIFICATION_EMAIL_TIMEOUT", default=10)
 
+# Send notification mail from a short-lived daemon thread rather than inline.
+#
+# Default True because the alternative puts an SMTP session on the request path:
+# notification mail is dispatched from transaction.on_commit, which runs inline
+# once the atomic block exits, so a card assignment or move would block on it.
+# NOTIFICATION_EMAIL_TIMEOUT does not bound that — smtplib applies a timeout per
+# socket operation, so a tarpitting relay can spend it again at connect, EHLO,
+# STARTTLS, AUTH and every message's DATA.
+#
+# The trade is that delivery becomes explicitly best-effort: a worker recycling
+# mid-send drops that batch. That is the same bargain the rest of this feature
+# makes — a notification email is only useful promptly, and the OSS core does not
+# take a dependency on a task queue to get one out.
+#
+# Set False to send inline: management commands, where blocking is harmless, and
+# tests that assert on mail.outbox deterministically.
+NOTIFICATION_EMAIL_ASYNC = env.bool("NOTIFICATION_EMAIL_ASYNC", default=True)
+
 # Optional dedicated key for secrets encrypted at rest (#306). When unset, the
 # key is derived from SECRET_KEY — see visiban/crypto.py for why that is the
 # default rather than a mandatory variable. Validated eagerly so a malformed

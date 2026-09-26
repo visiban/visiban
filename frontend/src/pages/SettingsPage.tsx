@@ -578,10 +578,15 @@ function NotificationRow({
   const emailKey = spec.emailKey;
   const emailOn = emailKey ? prefs[emailKey] : false;
 
-  let emailHelper = "Sends a copy to your account email.";
+  // Four states, because the same sentence cannot honestly describe all of them.
+  // In particular the ON-sounding "Sends a copy..." must not appear under a
+  // switch that is off, where it reads as a claim that email is already going out.
+  let emailHelper = emailOn
+    ? "Sends a copy to your account address."
+    : "Email a copy to your account address.";
   if (emailKey && !appOn) {
     emailHelper = emailOn
-      ? "Paused while the in-app notification above is off. Your choice is kept."
+      ? "Paused while the in-app notification above is off. Your email setting is kept."
       : "Turn on the in-app notification above to enable email.";
   }
 

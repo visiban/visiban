@@ -58,7 +58,15 @@ def create_notifications(notifications, *, context=None):
     # Snapshot the context: the caller may mutate or reuse its dict, and this
     # value is read after the transaction commits.
     payload = dict(context or {})
-    transaction.on_commit(lambda: dispatch_created_notifications(created, payload))
+    # robust=True: on_commit otherwise abandons the remaining callbacks when one
+    # raises, and this callback is registered *before* the card-update and
+    # card-move broadcasts in boards/services/cards.py (the notification is built
+    # where the assignee change is detected, the broadcast at the end of the
+    # service). Without robust, a failure delivering an email would silently
+    # suppress the WebSocket frame every other client on the board is waiting for.
+    transaction.on_commit(
+        lambda: dispatch_created_notifications(created, payload), robust=True
+    )
     return created
 
 
@@ -67,7 +75,24 @@ def dispatch_created_notifications(notifications, context):
 
     Public so tests can exercise the dispatch half without a transaction, and
     so a future digest sender has a seam to reuse.
+
+    Nothing in here may raise. The write it reports on is already committed, so
+    an exception escaping this frame would surface as a 500 on a request that
+    actually succeeded — and, before ``robust=True`` was added at the
+    registration site, would also have swallowed the broadcast queued behind it.
     """
+    try:
+        _dispatch(notifications, context)
+    except Exception:
+        # Logged without a traceback: a BadHeaderError message embeds the header
+        # value, which for these messages is an address or a subject line.
+        logger.error(
+            "notification dispatch failed for %s",
+            [n.pk for n in notifications],
+        )
+
+
+def _dispatch(notifications, context):
     # bulk_create populates pks on every backend Visiban supports (PostgreSQL in
     # production and CI, SQLite >= 3.35 locally), but a row with no pk cannot be
     # delivered — a receiver would have nothing to fetch — so drop it loudly
@@ -90,12 +115,16 @@ def dispatch_created_notifications(notifications, context):
 
     try:
         deliver_notification_emails(deliverable, context)
-    except Exception:
+    except Exception as exc:
         # Delivery already catches its own SMTP failures; this is the backstop
         # for a programming error in the sender. A broken email path must not
-        # take the extension point down with it, and must never surface as a 500
-        # on a write that already committed.
-        logger.exception("notification email delivery raised; continuing")
+        # take the extension point down with it. Logged as a type name rather
+        # than a traceback because a BadHeaderError's message contains the
+        # offending header value — an address or a subject.
+        logger.error(
+            "notification email delivery raised %s; continuing to the signal",
+            type(exc).__name__,
+        )
 
     for notification in deliverable:
         responses = post_notification_created.send_robust(
@@ -120,28 +149,32 @@ def dispatch_created_notifications(notifications, context):
 
 
 def _prime_user_caches(notifications):
-    """Populate the ``recipient`` and ``actor`` FK caches in one query.
+    """Refetch the ``recipient`` and ``actor`` rows in one query.
 
-    Two of the six creation sites build rows with ``recipient_id=`` /
-    ``actor_id=`` rather than object assignment, so ``notification.recipient``
-    there is a lazy query per row. Both the email sender and every signal
-    receiver need the recipient, so resolve them all once — this is the
-    difference between one query per batch and two per notification.
+    Two purposes, and the second is why this refetches unconditionally rather
+    than only filling empty caches:
+
+    1. Two of the six creation sites build rows with ``recipient_id=`` /
+       ``actor_id=`` rather than object assignment, so ``notification.recipient``
+       there would be a lazy query per row. Both the email sender and every
+       signal receiver need it.
+    2. The other four sites hand over a User object loaded *earlier in the
+       request*, before the commit this callback runs after. Every decision the
+       email sender makes — ``is_active``, the per-event preference, the address
+       itself — is read off that object, so a stale copy means mailing somebody
+       who deactivated, opted out, or changed their address in the meantime.
+       One query per batch closes that window.
     """
     from accounts.models import User
 
-    wanted = set()
-    for n in notifications:
-        if n.recipient_id and "recipient" not in n._state.fields_cache:
-            wanted.add(n.recipient_id)
-        if n.actor_id and "actor" not in n._state.fields_cache:
-            wanted.add(n.actor_id)
+    wanted = {n.recipient_id for n in notifications if n.recipient_id}
+    wanted |= {n.actor_id for n in notifications if n.actor_id}
     if not wanted:
         return
 
     by_id = User.objects.in_bulk(wanted)
     for n in notifications:
-        if n.recipient_id in by_id and "recipient" not in n._state.fields_cache:
+        if n.recipient_id in by_id:
             n.recipient = by_id[n.recipient_id]
-        if n.actor_id in by_id and "actor" not in n._state.fields_cache:
+        if n.actor_id in by_id:
             n.actor = by_id[n.actor_id]

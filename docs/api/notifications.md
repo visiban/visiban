@@ -59,7 +59,7 @@ Notifications referencing a board the requesting user no longer has access to ar
 | `card_title` | string / null | Card title at notification time (null if card deleted) |
 | `board_id` | integer / null | ID of the related board |
 | `board_name` | string / null | Board name (null if board deleted) |
-| `action_type` | string | Machine-readable event type. One of: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`. Use this for programmatic filtering or i18n instead of parsing `verb`. |
+| `action_type` | string | Machine-readable event type. One of: `assigned`, `mentioned`, `card_moved`, `stale`, `board_invite`, `due_soon` (`due_soon` added in 1.2). Use this for programmatic filtering or i18n instead of parsing `verb`. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render `verb` as-is) rather than erroring. |
 | `read` | boolean | Always `false` — this endpoint only returns unread notifications |
 | `created_at` | string | ISO 8601 timestamp |
 

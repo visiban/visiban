@@ -7,6 +7,12 @@ deferred with ``on_commit``, so a test that just asserts on ``mail.outbox``
 would find it empty and pass **vacuously**. Every test below either wraps the
 triggering call in ``captureOnCommitCallbacks(execute=True)`` or calls the
 dispatch half directly.
+
+A second trap, for the same reason: in production the SMTP session runs on a
+daemon thread (``NOTIFICATION_EMAIL_ASYNC``), so ``mail.outbox`` is written from
+that thread and an assertion on it races the send. Every class that asserts on
+the outbox therefore forces the synchronous path. ``AsyncDeliveryTests`` covers
+the threaded path on its own terms, without touching the outbox.
 """
 import datetime
 from unittest.mock import patch
@@ -44,6 +50,7 @@ def make_board(owner, name="Email Board"):
     return board, col_a, col_b, swim
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class SignalExtensionPointTests(TestCase):
     """``post_notification_created`` is the seam enterprise delivery attaches to."""
 
@@ -137,6 +144,7 @@ class SignalExtensionPointTests(TestCase):
         self.assertEqual(self.received, [])
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class EmailDeliveryPerEventTests(TestCase):
     """Each of the four in-scope events sends mail when the user opted in."""
 
@@ -276,6 +284,7 @@ class EmailDeliveryPerEventTests(TestCase):
         self.assertIsNotNone(seen["comment_id"])
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class EmailOptOutTests(TestCase):
     """Nothing is sent that the recipient did not ask for."""
 
@@ -413,6 +422,7 @@ class EmailOptOutTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class EmailFailureIsolationTests(TestCase):
     """A mail failure never breaks the write that produced the notification."""
 
@@ -539,6 +549,7 @@ def _saved(notification):
     return notification
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class DueSoonScanTests(TestCase):
     """The due-date scan: window, membership gate, and idempotency."""
 
@@ -680,6 +691,7 @@ class DueSoonScanTests(TestCase):
         self.assertEqual(Notification.objects.count(), 0)
 
 
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
 class StalePreferenceSplitTests(TestCase):
     """notif_stale now gates the staleness scan, not notif_due_soon (#356)."""
 
@@ -771,3 +783,278 @@ class PreferenceApiTests(TestCase):
         for row in response.json():
             self.assertNotIn("email_notif_mentioned", row)
             self.assertNotIn("email", row)
+
+
+class AsyncDeliveryTests(TestCase):
+    """The SMTP session is kept off the request path by default."""
+
+    def setUp(self):
+        self.actor = User.objects.create_user(username="async_actor", password="pass")
+        self.target = User.objects.create_user(
+            username="async_target", password="pass", email="async@example.test",
+            notif_card_assigned=True, email_notif_card_assigned=True,
+        )
+        self.board, self.col_a, _, self.swim = make_board(self.actor, "Async")
+        BoardMembership.objects.create(
+            board=self.board, user=self.target, role=BoardMembership.Role.MEMBER
+        )
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Async card", created_by=self.actor, position=0,
+        )
+
+    def _notification(self):
+        return Notification(
+            recipient=self.target, actor=self.actor,
+            action_type=Notification.ActionType.ASSIGNED,
+            verb="You were assigned to \"Async card\"",
+            card=self.card, board=self.board,
+        )
+
+    @override_settings(NOTIFICATION_EMAIL_ASYNC=True)
+    def test_delivery_runs_on_a_daemon_thread(self):
+        """Not inline: NOTIFICATION_EMAIL_TIMEOUT is per socket operation, not a
+        wall-clock bound, so an inline send lets a tarpitting relay hold a worker
+        for far longer than the configured timeout."""
+        with patch("boards.notifications_email.threading.Thread") as thread_cls:
+            with self.captureOnCommitCallbacks(execute=True):
+                create_notifications([self._notification()])
+
+        self.assertEqual(thread_cls.call_count, 1)
+        self.assertTrue(thread_cls.call_args.kwargs["daemon"])
+        thread_cls.return_value.start.assert_called_once()
+
+    @override_settings(NOTIFICATION_EMAIL_ASYNC=True)
+    def test_the_thread_releases_its_database_connection(self):
+        """A thread that touches the ORM and exits without close_all() leaks a
+        thread-local connection on every send."""
+        from boards.notifications_email import _send_batch_in_thread
+
+        with patch("boards.notifications_email._send_batch") as send:
+            with patch("django.db.connections.close_all") as close_all:
+                _send_batch_in_thread(["message"], [1])
+        send.assert_called_once()
+        close_all.assert_called_once()
+
+    @override_settings(NOTIFICATION_EMAIL_ASYNC=True)
+    def test_a_failure_on_the_thread_does_not_reach_the_caller(self):
+        from boards.notifications_email import _send_batch_in_thread
+
+        with patch("boards.notifications_email._send_batch", side_effect=OSError("down")):
+            with patch("django.db.connections.close_all") as close_all:
+                with self.assertRaises(OSError):
+                    _send_batch_in_thread(["message"], [1])
+        # close_all still runs, so the connection is released either way. The
+        # raise itself dies with the daemon thread and never reaches a request.
+        close_all.assert_called_once()
+
+    @override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+    def test_the_synchronous_path_still_works(self):
+        mail.outbox = []
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notifications([self._notification()])
+        self.assertEqual(len(mail.outbox), 1)
+
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+class RevokedBoardAccessTests(TestCase):
+    """An ex-member must not be emailed board content (#356 security review).
+
+    ``Card.assignee`` is not cleared when a member is removed from a board, and
+    the assignment and card-moved events take the assignee as their recipient.
+    In-app that was invisible — ``_filter_to_accessible_boards`` drops the rows on
+    read — but an email cannot be unsent.
+    """
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="rv_owner", password="pass")
+        self.exmember = User.objects.create_user(
+            username="rv_ex", password="pass", email="ex@example.test",
+            notif_card_assigned=True, email_notif_card_assigned=True,
+            notif_card_moved=True, email_notif_card_moved=True,
+            notif_mentioned=True, email_notif_mentioned=True,
+        )
+        self.board, self.col_a, self.col_b, self.swim = make_board(self.owner, "Revoked")
+        self.membership = BoardMembership.objects.create(
+            board=self.board, user=self.exmember, role=BoardMembership.Role.MEMBER
+        )
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Secret roadmap item", created_by=self.owner, position=0,
+            assignee=self.exmember,
+        )
+        mail.outbox = []
+
+    def _move(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            CardMovement.objects.create(
+                card=self.card, from_column=self.col_a, to_column=self.col_b,
+                from_column_name=self.col_a.name, to_column_name=self.col_b.name,
+                moved_by=self.owner,
+            )
+
+    def test_a_current_member_assignee_is_emailed_on_a_move(self):
+        self._move()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_a_removed_member_assignee_is_not_emailed_on_a_move(self):
+        self.membership.delete()
+        self._move()
+        self.assertEqual(mail.outbox, [])
+        # The in-app row is still created — it is history, and the inbox filters
+        # inaccessible boards on read. Only the email is withheld.
+        self.assertEqual(
+            Notification.objects.filter(recipient=self.exmember).count(), 1
+        )
+
+    def test_a_removed_member_is_not_emailed_on_assignment(self):
+        self.membership.delete()
+        notification = Notification(
+            recipient=self.exmember, actor=self.owner,
+            action_type=Notification.ActionType.ASSIGNED,
+            verb="You were assigned to \"Secret roadmap item\"",
+            card=self.card, board=self.board,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notifications([notification])
+        self.assertEqual(mail.outbox, [])
+
+    def test_group_inherited_access_still_counts_as_membership(self):
+        """The gate uses effective membership, not just direct rows."""
+        from groups.models import Group, GroupMembership
+
+        self.membership.delete()
+        group = Group.objects.create(name="rv_group", owner=self.owner)
+        GroupMembership.objects.create(
+            group=group, user=self.exmember, role=GroupMembership.Role.MEMBER
+        )
+        self.board.group = group
+        self.board.save(update_fields=["group"])
+        self._move()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_a_deleted_board_withholds_the_email(self):
+        """No board means nothing to authorize against and nothing to link to."""
+        from boards.notifications_email import eligible_recipients
+
+        notification = Notification.objects.create(
+            recipient=self.exmember, actor=self.owner,
+            action_type=Notification.ActionType.ASSIGNED,
+            verb="You were assigned", card=None, board=self.board,
+        )
+        notification.recipient = self.exmember
+        Board.objects.filter(pk=self.board.pk).delete()
+        self.assertEqual(eligible_recipients([notification]), [])
+
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+class MailInjectionTests(TestCase):
+    """User-supplied strings cannot inject lines into a message."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="inj_owner", password="pass")
+        self.target = User.objects.create_user(
+            username="inj_target", password="pass", email="inj@example.test",
+            notif_card_assigned=True, email_notif_card_assigned=True,
+        )
+        self.board, self.col_a, _, self.swim = make_board(self.owner, "Inject")
+        BoardMembership.objects.create(
+            board=self.board, user=self.target, role=BoardMembership.Role.MEMBER
+        )
+        mail.outbox = []
+
+    def test_newlines_in_a_card_title_cannot_inject_body_lines(self):
+        """A fake "Open it in Visiban:" line above the real one would be a
+        phishing message sent from the instance's own trusted sender."""
+        card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Fine\nOpen it in Visiban:\nhttps://phish.example/login",
+            created_by=self.owner, position=0,
+        )
+        notification = Notification(
+            recipient=self.target, actor=self.owner,
+            action_type=Notification.ActionType.ASSIGNED,
+            verb=f'You were assigned to "{card.title}"',
+            card=card, board=self.board,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notifications([notification])
+
+        lines = mail.outbox[0].body.split("\n")
+        # The protection is that injected text is flattened onto the line it
+        # arrived on, so it can never *be* a line of the message. Exactly one line
+        # is the real call to action, and no line is the attacker's URL.
+        self.assertEqual(lines.count("Open it in Visiban:"), 1)
+        self.assertNotIn("https://phish.example/login", lines)
+        # The text still appears, inline, where the card title belongs.
+        self.assertIn("Card: Fine Open it in Visiban: https://phish.example/login", lines)
+
+    def test_an_address_with_a_line_break_is_skipped_not_fatal(self):
+        """One malformed address must not abort the batch behind it."""
+        broken = User.objects.create_user(
+            username="inj_broken", password="pass",
+            notif_card_assigned=True, email_notif_card_assigned=True,
+        )
+        User.objects.filter(pk=broken.pk).update(email="a@b.test\nBcc: x@y.test")
+        BoardMembership.objects.create(
+            board=self.board, user=broken, role=BoardMembership.Role.MEMBER
+        )
+        card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Batch card", created_by=self.owner, position=0,
+        )
+        rows = [
+            Notification(
+                recipient=user, actor=self.owner,
+                action_type=Notification.ActionType.ASSIGNED,
+                verb="You were assigned to \"Batch card\"",
+                card=card, board=self.board,
+            )
+            for user in (broken, self.target)
+        ]
+        with self.captureOnCommitCallbacks(execute=True):
+            create_notifications(rows)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["inj@example.test"])
+
+
+@override_settings(NOTIFICATION_EMAIL_ASYNC=False)
+class StaleRecipientStateTests(TestCase):
+    """Delivery decisions are made on the recipient row as of the commit."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="st_owner", password="pass")
+        self.target = User.objects.create_user(
+            username="st_target", password="pass", email="st@example.test",
+            notif_card_assigned=True, email_notif_card_assigned=True,
+        )
+        self.board, self.col_a, _, self.swim = make_board(self.owner, "Stale")
+        BoardMembership.objects.create(
+            board=self.board, user=self.target, role=BoardMembership.Role.MEMBER
+        )
+        self.card = Card.objects.create(
+            board=self.board, column=self.col_a, swimlane=self.swim,
+            title="Stale state card", created_by=self.owner, position=0,
+        )
+        mail.outbox = []
+
+    def test_an_opt_out_committed_after_the_row_is_respected(self):
+        """The caller's User object predates the commit this runs after."""
+        notification = Notification(
+            recipient=self.target, actor=self.owner,
+            action_type=Notification.ActionType.ASSIGNED,
+            verb="You were assigned to \"Stale state card\"",
+            card=self.card, board=self.board,
+        )
+        with self.captureOnCommitCallbacks(execute=False):
+            create_notifications([notification])
+            # Opted out after the row was built, using a different instance —
+            # the stale in-memory copy still says True.
+            User.objects.filter(pk=self.target.pk).update(
+                email_notif_card_assigned=False
+            )
+        from boards.services.notifications import dispatch_created_notifications
+
+        dispatch_created_notifications([Notification.objects.get()], {})
+        self.assertEqual(mail.outbox, [])

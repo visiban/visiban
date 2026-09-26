@@ -538,6 +538,11 @@ Returns the authenticated user's profile.
 | `maintenance_mode` | boolean | Instance-wide setting reflecting whether the instance is in read-only maintenance mode. When `true`, non-admin writes return `503` — see [Maintenance mode](admin.md#maintenance-mode). Read-only. Added in 1.2. |
 | `maintenance_message` | string | The notice to show while `maintenance_mode` is `true`. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and `""` otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2. |
 | `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
+| `notif_stale` | boolean | Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to `false`. Writable. Added in 1.2 (previously gated on `notif_due_soon`). |
+| `email_notif_card_assigned` | boolean | Also email the user when a card is assigned to them. No effect while `notif_card_assigned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_mentioned` | boolean | Also email the user when they are @mentioned. No effect while `notif_mentioned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_due_soon` | boolean | Also email the user when a card they own is due within 24 hours. No effect while `notif_due_soon` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_card_moved` | boolean | Also email the user when a card they own is moved. No effect while `notif_card_moved` is `false`. Defaults to `false`. Writable. Added in 1.2. |
 
 **Example response (excerpt)**
 

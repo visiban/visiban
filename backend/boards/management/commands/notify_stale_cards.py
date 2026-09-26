@@ -29,6 +29,10 @@ class Command(BaseCommand):
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         created_count = 0
         skipped_count = 0
+        # Accumulated across boards and dispatched once. Per-board dispatch would
+        # pay the funnel's recipient lookup and its on_commit hook once per board
+        # for no benefit — staleness is a single scan, not a per-board event.
+        all_notifications = []
 
         for board in Board.objects.prefetch_related("memberships__user"):
             cutoff = now - datetime.timedelta(days=board.staleness_threshold_days)
@@ -124,8 +128,10 @@ class Command(BaseCommand):
                     )
                     created_count += 1
 
-            if notifications_to_create:
-                create_notifications(notifications_to_create)
+            all_notifications.extend(notifications_to_create)
+
+        if all_notifications:
+            create_notifications(all_notifications)
 
         self.stdout.write(
             self.style.SUCCESS(
