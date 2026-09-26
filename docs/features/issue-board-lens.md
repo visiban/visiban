@@ -80,15 +80,32 @@ Drag the thin edge between a column and its neighbor to widen or narrow it, or d
 
 ### Columns — the horizontal dimension
 
-By default, columns are derived from the repository's **status labels** — any label whose name matches a common status prefix (for example `status: in review`, `state: blocked`, or `stage/done`). If no status labels are detected, issues fall back to two columns: **Open** and **Closed**.
+> **Changed in 1.2** — a newly configured lens now defaults to the **Pipeline** column view. Existing lenses keep whatever view they were saved with.
 
-You can override the column dimension in **Settings → Lens → Columns** and choose from:
+A newly configured lens defaults to the **Pipeline** view: it derives a Backlog → To Do → Doing → Review → Done workflow from repository state, rather than from status labels. Pipeline is the opinionated, most useful view — Status labels degrades to a plain open/closed split for repositories that have no `status::`-style labels.
+
+You can change the column dimension in **Settings → Lens → Columns** and choose from:
 
 | Option | What becomes a column |
 |---|---|
-| Status labels *(default)* | Labels that match status-style naming conventions |
+| Pipeline *(default for new lenses)* | A derived Backlog / To Do / Doing / Review / Done workflow — see [Pipeline columns](#pipeline-columns) below |
+| Status labels | Labels that match status-style naming conventions (for example `status: in review`, `state: blocked`, or `stage/done`); falls back to **Open** / **Closed** if none are detected |
 | Open / Closed | A simple two-column split based on issue state |
 | Any label | Every distinct label in the repository becomes a column |
+
+#### Pipeline columns
+
+The pipeline view derives a workflow from what's actually happening in the repository, using a first-match ladder:
+
+| Column | An issue lands here when... |
+|---|---|
+| **Backlog** | None of the below apply — an open issue with no milestone, branch, or open MR |
+| **To Do** | The issue has a milestone, but no linked branch or open MR |
+| **Doing** | A feature branch for the issue exists in the repository |
+| **Review** | An open merge/pull request references or closes the issue |
+| **Done** | The issue is closed |
+
+Each card in the pipeline view shows the branch name or MR that placed it there, so you can see the evidence at a glance without opening the issue. Branch and open-MR detection requires the repository to be on **github.com** or **gitlab.com**; GitLab reads are anonymous. Fetching this evidence only happens for the Pipeline view, bounded by the lens's shared cache — see [Pipeline column dimension](../api/git-lens.md#pipeline-column-dimension) in the API reference for the full precedence rules and payload shape.
 
 ### Swimlanes — the vertical dimension
 
@@ -151,6 +168,22 @@ To protect your provider's API rate limit — which everyone viewing the same re
 
 !!! tip
     Refresh after closing a sprint or milestone to update the board before your retrospective.
+
+---
+
+### Toolbar and view options
+
+> **Changed in 1.2**
+
+The lens shares the board's toolbar row instead of rendering its own — the pivot dropdowns, a board-style **Filters** toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between the **Board** and **Lens** tabs no longer shifts the layout. **Compact** card layout matches the board too: cards flow two-per-row rather than just shrinking, and the lens reuses your existing per-board card-layout preference.
+
+On narrow screens, the lens toolbar folds like the board's: below the large breakpoint, the card-layout toggle moves into a **Lens actions** menu instead of pushing the row into a sideways scroll. The lens also picks up the same keyboard shortcuts as the board — <kbd>F</kbd> toggles the filter row and <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> switches card layout (see [Keyboard shortcuts](keyboard-shortcuts.md)).
+
+On the lens, the same **Compact** toggle goes a step further than it does on the native board: it also strips cards down to the essentials — the issue number, state, multi-lane indicator, and title — for an at-a-glance scan. This is separate from the board's admin-set [Card density](board.md#card-density); the lens has no admin-controlled density, only this one per-user toggle.
+
+The lens also gained the native board's other view comforts, both shareable via the URL:
+
+- **Collapse** individual swimlanes, or **focus** a single lane (`?lens_collapsed=` and `?lens_focus=`).
 
 ---
 

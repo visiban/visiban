@@ -13,6 +13,9 @@ List all boards accessible to the current user.
 | `?expand=group` | Populate `group_detail` on each board with a `GroupBrief` object (see `GET /api/v1/boards/{id}/full/` for the shape). Without this parameter `group_detail` is `null`. Triggers a one-query ancestor bulk-fetch — safe to use on list responses. |
 
 ### `POST /api/v1/boards/`
+
+> **Changed in 1.2**
+
 Create a board.
 
 **Request**

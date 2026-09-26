@@ -50,6 +50,8 @@ View-tab shortcuts only fire while you are on a board route (`/boards/<id>`). Th
 
 `E` mirrors the toolbar's split-button primary action: if anything is expanded it collapses everything, otherwise it expands everything. The menu on the split button still offers granular "Hide all swimlanes / columns" options.
 
+`F` and `⌘⇧L` / `Ctrl+Shift+L` also work on the [Issue Board Lens](issue-board-lens.md) tab — the lens shares the board's toolbar, and picks up the filter-row and card-layout shortcuts along with it.
+
 ## Help
 
 | Shortcut | Action |

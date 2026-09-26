@@ -177,7 +177,13 @@ The **urgency badge** at Comfortable / Standard picks the most urgent of: Overdu
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
-Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.
+Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — the board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
+
+#### Personal density override
+
+> **Added in 1.2**
+
+Any board member — not just admins — can flip **Use my own density** in **Board Settings → Display** and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974).
 
 Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 

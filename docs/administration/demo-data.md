@@ -4,6 +4,8 @@
 
 ## Overview
 
+> **Changed in 1.2** — the board also belongs to a demo Group, and a custom field value, a file attachment, a `SavedFilter`, a group invite link, and a group label are now seeded alongside the board and cards.
+
 The `seed_demo_data` management command creates a "Visiban Demo Board" populated with realistic-looking data: five columns, ten swimlanes, ~80 cards, movement history, checklists, and comments. The board also belongs to a demo Group, and one card carries a custom field value and a file attachment; one `SavedFilter`, one group invite link, and one group label are seeded as well, so every board- and group-scoped resource family has at least one real row. It is intended for:
 
 - Local development to have a board ready without manual setup
