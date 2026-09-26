@@ -112,10 +112,12 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             definition = serializer.save(board=board, position=next_position)
             payload = CustomFieldDefinitionSerializer(definition).data
             board_id = board.id
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id, _broadcast.EVT_CUSTOM_FIELD_CREATED, payload
-                )
+            # record_board_event, not a bare on_commit broadcast: it persists a
+            # BoardEvent row so a client replaying /events/?after= learns about
+            # schema changes it missed while disconnected (#1134).
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_CUSTOM_FIELD_CREATED, payload,
+                actor_id=self.request.user.id,
             )
 
     def perform_update(self, serializer):
@@ -132,10 +134,12 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             definition = serializer.save()
             payload = CustomFieldDefinitionSerializer(definition).data
             board_id = definition.board_id
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id, _broadcast.EVT_CUSTOM_FIELD_UPDATED, payload
-                )
+            # record_board_event, not a bare on_commit broadcast: it persists a
+            # BoardEvent row so a client replaying /events/?after= learns about
+            # schema changes it missed while disconnected (#1134).
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_CUSTOM_FIELD_UPDATED, payload,
+                actor_id=self.request.user.id,
             )
 
     def perform_destroy(self, instance):
@@ -148,10 +152,12 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             # keeping orphans would resurrect them if a field of the same name
             # were recreated.
             instance.delete()
-            transaction.on_commit(
-                lambda: _broadcast.broadcast_board_event(
-                    board_id, _broadcast.EVT_CUSTOM_FIELD_DELETED, {"custom_field_uid": field_uid}
-                )
+            # record_board_event, not a bare on_commit broadcast: it persists a
+            # BoardEvent row so a client replaying /events/?after= learns about
+            # schema changes it missed while disconnected (#1134).
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_CUSTOM_FIELD_DELETED,
+                {"custom_field_uid": field_uid}, actor_id=self.request.user.id,
             )
 
     @extend_schema(
@@ -173,7 +179,7 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
         ),
         responses=CustomFieldDefinitionSerializer(many=True),
     )
-    @action(detail=False, methods=["put", "post"])
+    @action(detail=False, methods=["put", "post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
         """Reorder custom fields by a list of IDs in the desired order (admin only)."""
         board = self._require_admin()
@@ -216,10 +222,11 @@ class CustomFieldDefinitionViewSet(viewsets.ModelViewSet):
             ).data
             board_id = board.id
 
-            def _broadcast_reorder() -> None:
-                _broadcast.broadcast_board_event(
-                    board_id, _broadcast.EVT_CUSTOM_FIELD_REORDERED, {"custom_fields": list(data)}
-                )
-
-            transaction.on_commit(_broadcast_reorder)
+            # record_board_event, not a bare on_commit broadcast: it persists a
+            # BoardEvent row so a client replaying /events/?after= learns about
+            # schema changes it missed while disconnected (#1134).
+            _broadcast.record_board_event(
+                board_id, _broadcast.EVT_CUSTOM_FIELD_REORDERED,
+                {"custom_fields": list(data)}, actor_id=request.user.id,
+            )
         return Response(data)

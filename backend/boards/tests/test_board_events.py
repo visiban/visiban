@@ -269,6 +269,57 @@ class EveryEmittedEventIsPersistedTests(BoardEventTestBase):
             self.event_types(), ["saved_filter.created", "saved_filter.deleted"],
         )
 
+    def test_custom_field_events_are_persisted(self):
+        """#1134: schema changes must reach the resumable feed, not just live sockets."""
+        c = self.client_for(self.owner)
+        base = f"/api/v1/boards/{self.board.pk}/custom-fields/"
+        first = c.post(base, {"name": "One", "field_type": "text"}, format="json")
+        second = c.post(base, {"name": "Two", "field_type": "text"}, format="json")
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        renamed = c.patch(f"{base}{first.data['id']}/", {"name": "Uno"}, format="json")
+        self.assertEqual(renamed.status_code, 200)
+        reordered = c.post(
+            f"{base}reorder/", {"order": [second.data["id"], first.data["id"]]}, format="json"
+        )
+        self.assertEqual(reordered.status_code, 200)
+        deleted = c.delete(f"{base}{first.data['id']}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(
+            self.event_types(),
+            [
+                "custom_field.created",
+                "custom_field.created",
+                "custom_field.updated",
+                "custom_field.reordered",
+                "custom_field.deleted",
+            ],
+        )
+        events = self.events()
+        self.assertTrue(all(e.actor_id == self.owner.pk for e in events))
+        self.assertEqual(events[2].data["name"], "Uno")
+        self.assertEqual(
+            [f["id"] for f in events[3].data["custom_fields"]],
+            [second.data["id"], first.data["id"]],
+        )
+        self.assertEqual(events[4].data, {"custom_field_uid": first.data["uid"]})
+
+    def test_custom_field_schema_change_replays_from_a_cursor(self):
+        c = self.client_for(self.owner)
+        cursor = record_board_event(self.board.id, "card.created", {"n": 0})
+        created = c.post(
+            f"/api/v1/boards/{self.board.pk}/custom-fields/",
+            {"name": "Missed", "field_type": "number"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        resp = self.client_for(self.viewer).get(
+            f"/api/v1/boards/{self.board.pk}/events/?after={cursor}"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual([e["event"] for e in resp.data["results"]], ["custom_field.created"])
+        self.assertEqual(resp.data["results"][0]["data"]["name"], "Missed")
+
     def test_broadcast_frame_carries_the_event_id(self):
         """``event_id`` is additive: the frozen {event, data} envelope is intact."""
         self._broadcast_patcher.stop()

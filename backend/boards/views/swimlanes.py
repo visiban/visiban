@@ -226,7 +226,7 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         # (admin-only fields) are never included in the reorder response or broadcast.
         responses=SwimlaneSerializer(many=True),
     )
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], pagination_class=None)
     def reorder(self, request, board_pk=None):
         """Reorder swimlanes by accepting a list of swimlane IDs in the desired order (admin only)."""
         board, role = self._board_and_role()

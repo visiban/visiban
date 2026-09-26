@@ -39,78 +39,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "0c80f2",
-      "operation": "GET /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "a85a47",
-      "operation": "GET /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/has_usable_password/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "d533f6",
-      "operation": "GET /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "576792",
-      "operation": "GET /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/card_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0f9c62",
-      "operation": "GET /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/group_detail/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "1efbd9",
-      "operation": "GET /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/group_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "cb471d",
-      "operation": "GET /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "357ec8",
-      "operation": "GET /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema2/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "bdda6a",
       "operation": "GET /api/v1/boards/{board_pk}/cards/archived/",
       "check": "response_schema_conformance",
@@ -183,51 +111,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "5d4429",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/card_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "175fe7",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_detail/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "e1608a",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4cd994",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "6af748",
-      "operation": "GET /api/v1/boards/{id}/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "c32635",
       "operation": "GET /api/v1/boards/{id}/analytics/",
       "check": "response_schema_conformance",
@@ -242,33 +125,6 @@
       "check": "content_type_conformance",
       "failure": "UndefinedContentType",
       "signature": "text/csv",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "27e040",
-      "operation": "GET /api/v1/boards/{id}/full/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_detail/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "e2038c",
-      "operation": "GET /api/v1/boards/{id}/full/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "936e84",
-      "operation": "GET /api/v1/boards/{id}/full/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -377,33 +233,6 @@
       "check": "content_type_conformance",
       "failure": "UndefinedContentType",
       "signature": "text/html; charset=utf-8",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4e32be",
-      "operation": "PATCH /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "217abc",
-      "operation": "PATCH /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/has_usable_password/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "21673e",
-      "operation": "PATCH /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -602,51 +431,6 @@
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "7d34c9",
-      "operation": "POST /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/card_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "927eda",
-      "operation": "POST /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_detail/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b03f96",
-      "operation": "POST /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b322fa",
-      "operation": "POST /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "8a5f68",
-      "operation": "POST /api/v1/boards/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -867,51 +651,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "84b523",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/card_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "191d5a",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_detail/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0ab0f0",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/group_name/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0e38db",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/is_starred/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "e78d8a",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/member_count/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "4997f0",
       "operation": "POST /api/v1/boards/{id}/star/",
       "check": "status_code_conformance",
@@ -980,33 +719,6 @@
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b6ba39",
-      "operation": "PUT /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/git_lens_enabled/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "7f8b95",
-      "operation": "PUT /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/has_usable_password/type",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "2123cb",
-      "operation": "PUT /api/v1/auth/user/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/properties/uploads_enabled/type",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -1162,6 +874,24 @@
       "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
+    },
+    {
+      "id": "4ed6e4",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/archive/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-24",
+      "last_seen": "2026-09-24"
+    },
+    {
+      "id": "9fc85f",
+      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/unarchive/",
+      "check": "status_code_conformance",
+      "failure": "UndefinedStatusCode",
+      "signature": "400",
+      "first_seen": "2026-09-24",
+      "last_seen": "2026-09-24"
     }
   ]
 }
