@@ -1138,6 +1138,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Card density">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#personal-density-override" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Personal density override
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -4062,7 +4079,12 @@
 </table>
 <p>The <strong>urgency badge</strong> at Comfortable / Standard picks the most urgent of: Overdue → Due soon (within 72 h) → Stale (server-flagged based on the board's staleness threshold) → Just moved (within 24 h). Only one is shown; if none apply, no badge appears. For date-based urgencies the badge carries the actual date — <code>⚑ 2d late</code> for overdue, <code>⏱ Tomorrow</code> for due-soon — so the date is never lost when the standalone date pill is suppressed. Dense intentionally keeps the per-field cues — the badge is a <em>replacement</em> at lower densities, not an addition.</p>
 <p>Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the <strong>card peek</strong> (hover for 600 ms) as a single muted line — <code>Weight 5 · 3 attachments</code>. The full detail panel always shows everything.</p>
-<p>Existing boards upgraded from 1.0 are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.</p>
+<p>Existing boards upgraded from 1.0 are migrated to <strong>Dense</strong> so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — the board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).</p>
+<h4 id="personal-density-override">Personal density override<a class="headerlink" href="#personal-density-override" title="Permanent link">&para;</a></h4>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Any board member — not just admins — can flip <strong>Use my own density</strong> in <strong>Board Settings → Display</strong> and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974).</p>
 <p>Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.</p>
 <p>Click a card to open its <strong>detail panel</strong> on the right side. The panel contains all editable fields plus two tabs:</p>
 <ul>

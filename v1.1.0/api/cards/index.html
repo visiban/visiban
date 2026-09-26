@@ -3775,6 +3775,9 @@
 <h1 id="cards-api">Cards API<a class="headerlink" href="#cards-api" title="Permanent link">&para;</a></h1>
 <h2 id="cross-board-card-query">Cross-board card query<a class="headerlink" href="#cross-board-card-query" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1cards"><code>GET /api/v1/cards/</code><a class="headerlink" href="#get-apiv1cards" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
 <p>Paginated, filterable card query across every board the requesting user can access — for
 table/list views over large boards and for incremental sync (<code>?updated_since=</code>). This is
 additive: it does not change <code>GET /api/v1/boards/{board_id}/cards/</code> or <code>GET

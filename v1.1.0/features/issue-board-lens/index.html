@@ -1569,6 +1569,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Columns — the horizontal dimension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline columns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1615,6 +1632,17 @@
     <span class="md-ellipsis">
       
         Refreshing data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolbar-and-view-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Toolbar and view options
       
     </span>
   </a>
@@ -3514,8 +3542,11 @@
 <li>Sizes are remembered per board, on the device and browser you resized them in. They do not travel with a shared lens link and are not synced across devices.</li>
 </ul>
 <h3 id="columns-the-horizontal-dimension">Columns — the horizontal dimension<a class="headerlink" href="#columns-the-horizontal-dimension" title="Permanent link">&para;</a></h3>
-<p>By default, columns are derived from the repository's <strong>status labels</strong> — any label whose name matches a common status prefix (for example <code>status: in review</code>, <code>state: blocked</code>, or <code>stage/done</code>). If no status labels are detected, issues fall back to two columns: <strong>Open</strong> and <strong>Closed</strong>.</p>
-<p>You can override the column dimension in <strong>Settings → Lens → Columns</strong> and choose from:</p>
+<blockquote>
+<p><strong>Changed in 1.2</strong> — a newly configured lens now defaults to the <strong>Pipeline</strong> column view. Existing lenses keep whatever view they were saved with.</p>
+</blockquote>
+<p>A newly configured lens defaults to the <strong>Pipeline</strong> view: it derives a Backlog → To Do → Doing → Review → Done workflow from repository state, rather than from status labels. Pipeline is the opinionated, most useful view — Status labels degrades to a plain open/closed split for repositories that have no <code>status::</code>-style labels.</p>
+<p>You can change the column dimension in <strong>Settings → Lens → Columns</strong> and choose from:</p>
 <table>
 <thead>
 <tr>
@@ -3525,8 +3556,12 @@
 </thead>
 <tbody>
 <tr>
-<td>Status labels <em>(default)</em></td>
-<td>Labels that match status-style naming conventions</td>
+<td>Pipeline <em>(default for new lenses)</em></td>
+<td>A derived Backlog / To Do / Doing / Review / Done workflow — see <a href="#pipeline-columns">Pipeline columns</a> below</td>
+</tr>
+<tr>
+<td>Status labels</td>
+<td>Labels that match status-style naming conventions (for example <code>status: in review</code>, <code>state: blocked</code>, or <code>stage/done</code>); falls back to <strong>Open</strong> / <strong>Closed</strong> if none are detected</td>
 </tr>
 <tr>
 <td>Open / Closed</td>
@@ -3538,6 +3573,39 @@
 </tr>
 </tbody>
 </table>
+<h4 id="pipeline-columns">Pipeline columns<a class="headerlink" href="#pipeline-columns" title="Permanent link">&para;</a></h4>
+<p>The pipeline view derives a workflow from what's actually happening in the repository, using a first-match ladder:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>An issue lands here when...</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Backlog</strong></td>
+<td>None of the below apply — an open issue with no milestone, branch, or open MR</td>
+</tr>
+<tr>
+<td><strong>To Do</strong></td>
+<td>The issue has a milestone, but no linked branch or open MR</td>
+</tr>
+<tr>
+<td><strong>Doing</strong></td>
+<td>A feature branch for the issue exists in the repository</td>
+</tr>
+<tr>
+<td><strong>Review</strong></td>
+<td>An open merge/pull request references or closes the issue</td>
+</tr>
+<tr>
+<td><strong>Done</strong></td>
+<td>The issue is closed</td>
+</tr>
+</tbody>
+</table>
+<p>Each card in the pipeline view shows the branch name or MR that placed it there, so you can see the evidence at a glance without opening the issue. Branch and open-MR detection requires the repository to be on <strong>github.com</strong> or <strong>gitlab.com</strong>; GitLab reads are anonymous. Fetching this evidence only happens for the Pipeline view, bounded by the lens's shared cache — see <a href="../../api/git-lens/#pipeline-column-dimension">Pipeline column dimension</a> in the API reference for the full precedence rules and payload shape.</p>
 <h3 id="swimlanes-the-vertical-dimension">Swimlanes — the vertical dimension<a class="headerlink" href="#swimlanes-the-vertical-dimension" title="Permanent link">&para;</a></h3>
 <p>By default, swimlanes group issues by <strong>milestone</strong>. Issues with no milestone appear in an <strong>Ungrouped</strong> swimlane at the bottom.</p>
 <p>You can change the swimlane dimension in <strong>Settings → Lens → Swimlanes</strong>:</p>
@@ -3626,6 +3694,18 @@ the provider either way.</p>
 <p class="admonition-title">Tip</p>
 <p>Refresh after closing a sprint or milestone to update the board before your retrospective.</p>
 </div>
+<hr />
+<h3 id="toolbar-and-view-options">Toolbar and view options<a class="headerlink" href="#toolbar-and-view-options" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Changed in 1.2</strong></p>
+</blockquote>
+<p>The lens shares the board's toolbar row instead of rendering its own — the pivot dropdowns, a board-style <strong>Filters</strong> toggle, and the card-layout toggle sit on the same Row 2 as the view tabs, so switching between the <strong>Board</strong> and <strong>Lens</strong> tabs no longer shifts the layout. <strong>Compact</strong> card layout matches the board too: cards flow two-per-row rather than just shrinking, and the lens reuses your existing per-board card-layout preference.</p>
+<p>On narrow screens, the lens toolbar folds like the board's: below the large breakpoint, the card-layout toggle moves into a <strong>Lens actions</strong> menu instead of pushing the row into a sideways scroll. The lens also picks up the same keyboard shortcuts as the board — <kbd>F</kbd> toggles the filter row and <kbd>⌘⇧L</kbd> / <kbd>Ctrl+Shift+L</kbd> switches card layout (see <a href="../keyboard-shortcuts/">Keyboard shortcuts</a>).</p>
+<p>On the lens, the same <strong>Compact</strong> toggle goes a step further than it does on the native board: it also strips cards down to the essentials — the issue number, state, multi-lane indicator, and title — for an at-a-glance scan. This is separate from the board's admin-set <a href="../board/#card-density">Card density</a>; the lens has no admin-controlled density, only this one per-user toggle.</p>
+<p>The lens also gained the native board's other view comforts, both shareable via the URL:</p>
+<ul>
+<li><strong>Collapse</strong> individual swimlanes, or <strong>focus</strong> a single lane (<code>?lens_collapsed=</code> and <code>?lens_focus=</code>).</li>
+</ul>
 <hr />
 <h2 id="github-authentication">GitHub authentication<a class="headerlink" href="#github-authentication" title="Permanent link">&para;</a></h2>
 <p>GitHub reads use the OAuth account linked to the signed-in Visiban user. If your Visiban account is not connected to GitHub, the lens displays a prompt to link your account in <strong>Settings → Connected accounts</strong>.</p>
