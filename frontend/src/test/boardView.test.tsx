@@ -152,6 +152,14 @@ vi.mock('../components/Board/FilterBar', () => ({
 vi.mock('../components/Board/KeyboardShortcutsOverlay', () => ({
   default: ({ onClose }: { onClose: () => void }) => <div data-testid="shortcuts-overlay"><button onClick={onClose}>Close Shortcuts</button></div>,
 }))
+vi.mock('../api/gitLens', () => ({ getLensConnection: vi.fn() }))
+vi.mock('../components/Board/Lens/LensView', () => ({
+  default: () => <div data-testid="lens-view">Lens</div>,
+}))
+vi.mock('../components/Board/Lens/LensToolbar', () => ({
+  default: () => <div data-testid="lens-toolbar" />,
+}))
+
 vi.mock('../components/Common/Tooltip', () => ({
   /* eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double for Tooltip's loosely-typed children prop, see Tooltip.tsx */
   default: ({ content, children }: { content: string; children: React.ReactElement<any> }) =>
@@ -183,6 +191,8 @@ vi.mock('../api/cards', () => ({
 }))
 
 import { getCardStatus } from '../api/cards'
+import { getLensConnection } from '../api/gitLens'
+import { LENS_ONLY_BOARD_TOOLTIP } from '../components/Board/lensTabState'
 const mockedGetCardStatus = vi.mocked(getCardStatus)
 
 const fakeUser: User = {
@@ -1468,6 +1478,96 @@ describe('BoardView', () => {
       mockBoardContextValue = defaultContext({ board: makeBoard({ current_user_role: 'viewer' }) })
       render(<BoardView currentUser={fakeUser} />)
       expect(screen.getByTestId('swim-20')).toHaveAttribute('data-can-edit', 'false')
+    })
+  })
+
+  describe('lens default tab + Board tab de-emphasis (#1063)', () => {
+    const lensUser = { ...fakeUser, git_lens_enabled: true } as User
+    const conn = { id: 1, provider: 'gitlab', repo_slug: 'acme/widgets' } as never
+
+    beforeEach(() => {
+      vi.mocked(getLensConnection).mockResolvedValue(conn)
+    })
+
+    it('lands on the Lens tab when a lens is configured and no ?view=', async () => {
+      render(<BoardView currentUser={lensUser} />)
+      expect(await screen.findByTestId('lens-view')).toBeInTheDocument()
+      expect(screen.queryByTestId('swim-20')).not.toBeInTheDocument()
+    })
+
+    it('lands on Board when the flag is off (lens fetch skipped)', () => {
+      render(<BoardView currentUser={fakeUser} />)
+      expect(getLensConnection).not.toHaveBeenCalled()
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+    })
+
+    it('lands on Board when the flag is on but no lens is configured', async () => {
+      vi.mocked(getLensConnection).mockRejectedValue(new Error('404'))
+      render(<BoardView currentUser={lensUser} />)
+      await waitFor(() => expect(getLensConnection).toHaveBeenCalled())
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Lens' })).not.toBeInTheDocument()
+    })
+
+    it('honors explicit ?view=board even when a lens is configured', async () => {
+      mockSearchParams = new URLSearchParams('view=board')
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByRole('button', { name: 'Lens' })
+      expect(screen.getByTestId('swim-20')).toBeInTheDocument()
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+    })
+
+    it('keeps the Board default for a ?focus= deep link', async () => {
+      mockSearchParams = new URLSearchParams('focus=20')
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByRole('button', { name: 'Lens' })
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+    })
+
+    it('mutes the Board tab with zero swimlanes + lens, and it stays clickable', async () => {
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlanes: [] }) })
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByTestId('lens-view')
+      const boardTab = screen.getByRole('button', { name: 'Board' })
+      expect(boardTab).toHaveAttribute('data-deemphasized', 'true')
+      expect(boardTab).not.toBeDisabled()
+      expect(boardTab.getAttribute('data-tooltip')).toContain(LENS_ONLY_BOARD_TOOLTIP)
+      await userEvent.setup().click(boardTab)
+      expect(mockSetSearchParams).toHaveBeenCalled()
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+    })
+
+    it('a palette card-open while on the Lens tab switches to Board so CardDetail can render', async () => {
+      const card = {
+        id: 1, uid: 'carduid00001', title: 'Native Card', column: 10, swimlane: 20,
+        description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
+        position: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
+        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0,
+      } as never
+      mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByTestId('lens-view')
+      act(() => {
+        window.dispatchEvent(new CustomEvent('visiban:open-card', { detail: { cardId: 1 } }))
+      })
+      expect(screen.queryByTestId('lens-view')).not.toBeInTheDocument()
+      expect(await screen.findByTestId('card-detail')).toBeInTheDocument()
+    })
+
+    it('does NOT mute the Board tab once one native swimlane exists', async () => {
+      render(<BoardView currentUser={lensUser} />)
+      await screen.findByTestId('lens-view')
+      expect(screen.getByRole('button', { name: 'Board' })).not.toHaveAttribute('data-deemphasized')
+    })
+
+    it('does NOT mute the Board tab with zero swimlanes when there is no lens', async () => {
+      vi.mocked(getLensConnection).mockRejectedValue(new Error('404'))
+      mockBoardContextValue = defaultContext({ board: makeBoard({ swimlanes: [] }) })
+      render(<BoardView currentUser={lensUser} />)
+      await waitFor(() => expect(getLensConnection).toHaveBeenCalled())
+      expect(screen.getByRole('button', { name: 'Board' })).not.toHaveAttribute('data-deemphasized')
     })
   })
 })
