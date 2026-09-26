@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # close-milestone-issues.sh — Close all open issues in a GitLab milestone.
 #
-# Called automatically by release.sh after the tag is pushed. Can also be
+# Called automatically by release.sh after a stable tag is pushed (pre-releases
+# leave the milestone open). Can also be
 # run manually to clean up a milestone at any point:
 #
 #   scripts/close-milestone-issues.sh "1.0"

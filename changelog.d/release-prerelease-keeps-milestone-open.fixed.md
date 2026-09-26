@@ -1,0 +1,1 @@
+- `scripts/release.sh` no longer closes every remaining open issue in the milestone when the version being cut is a pre-release (`-alpha.N`, `-beta.N`, `-rc.N`). Previously the first alpha of a release would have marked all of that milestone's still-open GA blockers as done. The milestone is now closed only by the stable tag that ends it.
