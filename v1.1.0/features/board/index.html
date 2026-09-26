@@ -1285,6 +1285,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#grid-overlays" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grid overlays
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid overlays">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-a-cell-is-shaded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How a cell is shaded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#views" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4332,6 +4371,77 @@
 </tr>
 </tbody>
 </table>
+<h2 id="grid-overlays">Grid overlays<a class="headerlink" href="#grid-overlays" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>An <strong>overlay</strong> shades each cell of the board grid from a single number per cell — a
+reading layer drawn <em>on top of</em> the grid, not a different view of it. The grid keeps its
+exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop,
+card creation, and filtering all behave the same.</p>
+<p>Pick one from the <strong>Overlay</strong> dropdown in the board toolbar, next to <strong>Filters</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Overlay</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>None</strong> (default)</td>
+<td>No overlay — the board renders unchanged</td>
+</tr>
+<tr>
+<td><strong>Card count</strong></td>
+<td>How many visible cards sit in each cell, relative to the busiest cell on the board</td>
+</tr>
+</tbody>
+</table>
+<p>The choice is remembered per board in <code>localStorage</code> under <code>board:{boardId}:grid-overlay</code>,
+so it survives a reload but never follows you to another board. It is a personal reading
+preference available to every role, including viewers: turning an overlay on changes
+nothing for your teammates and writes nothing to the server.</p>
+<h3 id="how-a-cell-is-shaded">How a cell is shaded<a class="headerlink" href="#how-a-cell-is-shaded" title="Permanent link">&para;</a></h3>
+<p>Every overlay shares one scale with four steps, measured against the largest value
+currently visible on the board. A cell whose value is zero is left completely untouched,
+and when every cell with a value has the <em>same</em> value the whole board is drawn at the
+quietest step — a board where nothing stands out should not look alarming.</p>
+<p>Each step is encoded <strong>three</strong> ways, so the ordering never depends on telling colors
+apart:</p>
+<ol>
+<li><strong>Tint</strong> — a single-hue blue wash that deepens with the value. It is deliberately not
+   a green→amber→red gradient: a busy cell is not a problem, and the board already uses
+   amber and red for card aging and over-limit columns.</li>
+<li><strong>A bar along the cell's bottom edge</strong> — 1px, 2px, 3px, or 4px tall. Height, not hue.</li>
+<li><strong>The value itself</strong>, in the cell's top-right corner. While an overlay is on it
+   replaces the usual card-count badge, so the corner never shows two different numbers.</li>
+</ol>
+<p>Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of
+4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").</p>
+<p>A legend floats in the bottom-right corner of the grid whenever an overlay is active. It
+names the overlay, describes it in one line, and lists the four steps with the range of
+values actually observed in each; a step no cell landed in shows <code>—</code>. When the active
+overlay has nothing to show, the legend says so instead of showing an empty ramp. The
+legend is passive — it never intercepts a click — and it fades out while you drag. When a
+filter is what left the overlay with nothing to scale, the legend says that rather than
+claiming the board is empty.</p>
+<p>Because the overlay reads the cards that are currently <em>visible</em>, narrowing the filter bar
+re-scales it and the labels switch to "matching cards", so the shading always agrees with
+what is on screen. Hidden columns and swimlanes are excluded from the scale, so a card
+parked out of sight cannot wash out every tint on the board.</p>
+<h3 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Overlays are <strong>stackable with views, not a replacement for them</strong> — Analytics is a tab,
+  an overlay is a layer, and both can be on at once</li>
+<li>The <strong>Card count</strong> overlay is computed from the cards the board already loaded. It
+  issues no extra requests and no per-cell queries</li>
+<li>Collapsed columns and collapsed swimlanes render their compact count stubs rather than
+  full cells, so they carry no shading — but they still count toward the scale, so folding
+  a lane never silently re-shades the rest of the board</li>
+<li>The cell being dragged over is never shaded, so the drop-target highlight stays
+  unambiguous</li>
+</ul>
 <h2 id="views">Views<a class="headerlink" href="#views" title="Permanent link">&para;</a></h2>
 <p>The toolbar provides four views for the same board data:</p>
 <table>
