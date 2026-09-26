@@ -40,6 +40,11 @@ PRIVATE_FIELDS = {
     "notif_card_moved",
     "notif_comment_added",
     "notif_board_invite",
+    "notif_stale",
+    "email_notif_card_assigned",
+    "email_notif_mentioned",
+    "email_notif_due_soon",
+    "email_notif_card_moved",
     "default_board_id",
     "uploads_enabled",
 }

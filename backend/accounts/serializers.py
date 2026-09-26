@@ -199,6 +199,12 @@ class UserSerializer(serializers.ModelSerializer):
             "theme",
             "notif_card_assigned", "notif_mentioned", "notif_due_soon",
             "notif_card_moved", "notif_comment_added", "notif_board_invite",
+            "notif_stale",
+            # Email delivery opt-ins (#356). Additive and optional on PATCH, all
+            # default False — see the User model for why an upgrade must not
+            # start emailing anyone.
+            "email_notif_card_assigned", "email_notif_mentioned",
+            "email_notif_due_soon", "email_notif_card_moved",
             "default_board_id",
         ]
         read_only_fields = ["id", "is_site_admin", "can_access_all_content", "must_change_password", "must_change_username", "has_usable_password"]

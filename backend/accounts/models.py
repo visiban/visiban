@@ -438,12 +438,38 @@ class User(AbstractUser):
     must_change_password = models.BooleanField(default=False)
     must_change_username = models.BooleanField(default=False)
     timezone = models.CharField(max_length=64, blank=True, default="")
+    # --- In-app notification preferences ---------------------------------
     notif_card_assigned = models.BooleanField(default=True)
     notif_mentioned = models.BooleanField(default=True)
     notif_due_soon = models.BooleanField(default=False)
     notif_card_moved = models.BooleanField(default=False)
     notif_comment_added = models.BooleanField(default=False)
     notif_board_invite = models.BooleanField(default=True)
+    # Split out of notif_due_soon in 1.2 (#356). Staleness and "due within 24h"
+    # are different events with different audiences, and one flag could not mean
+    # both: the settings UI labeled notif_due_soon "24h warning before a card you
+    # own is due" while the only thing it actually gated was the staleness scan.
+    # Existing values are copied across in the migration, so no user's effective
+    # staleness setting changes.
+    notif_stale = models.BooleanField(default=False)
+
+    # --- Email notification preferences (#356) ----------------------------
+    # Outbound email for the same four events, opted into per event per user.
+    #
+    # All four default to False, and that is the whole safety story for the
+    # feature: an existing install that upgrades and already has SMTP configured
+    # must not suddenly start mailing every member of every board. Nothing is
+    # sent until a user turns one of these on for themselves. The asymmetry with
+    # notif_card_assigned (in-app, default True) is deliberate — an in-app badge
+    # a user can ignore is not the same commitment as mail in their inbox.
+    #
+    # Email rides on the in-app notification: the row is what triggers delivery,
+    # so an email preference is inert while its in-app counterpart is off. The
+    # settings UI disables it and says so.
+    email_notif_card_assigned = models.BooleanField(default=False)
+    email_notif_mentioned = models.BooleanField(default=False)
+    email_notif_due_soon = models.BooleanField(default=False)
+    email_notif_card_moved = models.BooleanField(default=False)
     date_format = models.CharField(max_length=16, blank=True, default="MM/DD/YYYY")
     time_format = models.CharField(max_length=4, blank=True, default="12h")
     number_locale = models.CharField(max_length=16, blank=True, default="en-US")
