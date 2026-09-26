@@ -67,3 +67,25 @@ describe('ToggleField', () => {
     expect(onChange).toHaveBeenCalledWith(true)
   })
 })
+
+describe('Toggle aria-describedby', () => {
+  it('forwards aria-describedby to the switch', () => {
+    // A disabled toggle has to be able to say why it is disabled (#356).
+    render(
+      <>
+        <Toggle checked={false} onChange={vi.fn()} disabled aria-label="Email" aria-describedby="why" />
+        <span id="why">Turn on the in-app notification above to enable email.</span>
+      </>,
+    )
+    const toggle = screen.getByRole('switch')
+    expect(toggle).toHaveAttribute('aria-describedby', 'why')
+    expect(document.getElementById('why')).toHaveTextContent(
+      'Turn on the in-app notification above to enable email.',
+    )
+  })
+
+  it('omits the attribute when no description is given', () => {
+    render(<Toggle checked={false} onChange={vi.fn()} aria-label="Plain" />)
+    expect(screen.getByRole('switch')).not.toHaveAttribute('aria-describedby')
+  })
+})

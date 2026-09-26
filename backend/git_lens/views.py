@@ -7,6 +7,7 @@ import requests
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -383,6 +384,33 @@ def _provider_error_response(exc) -> Response:
     )
 
 
+def _q(name, description):
+    """Optional string query param. Deliberately NOT declared with an ``enum``:
+    the runtime is fail-open (unrecognized values are ignored, see
+    ``_parse_filters``), so an enum would make schemathesis's negative-data
+    checks expect a 4xx the endpoint intentionally never returns. Accepted
+    values are spelled out in the description instead."""
+    return OpenApiParameter(
+        name=name, type=str, location=OpenApiParameter.QUERY, required=False,
+        description=description,
+    )
+
+
+# Every query param LensBoardView.get / _parse_filters actually reads (#1131).
+# All optional; documenting them must never make one required or change runtime
+# behavior. There is intentionally no text-search param: text filtering is
+# client-side and the server never reads it.
+LENS_BOARD_QUERY_PARAMETERS = [
+    _q("column_dim", "Override the column pivot for this request only: `status`, `state` or `pipeline`. An unrecognized value falls back to the saved connection's dimension."),
+    _q("swimlane_dim", "Override the swimlane pivot for this request only: `milestone`, `assignee` or `label`. An unrecognized value falls back to the saved connection's dimension."),
+    _q("state", "Filter by issue state: `open` or `closed`. Any other value is ignored (no state filter)."),
+    _q("milestone", "Filter to one milestone by title, or `__none__` for issues with no milestone. Trimmed, max 255 characters."),
+    _q("labels", "Comma-separated label names, AND-ed (an issue must carry every one). Trimmed, deduplicated and sorted; at most 5 (extras dropped); case-sensitive; each max 255 characters."),
+    _q("assignee", "Filter to issues assigned to a single username (single-valued by design). Trimmed, max 255 characters."),
+    _q("refresh", "`1` or `true` forces a re-fetch past the soft cache TTL. Rate-limited per user and repository; inside the cooldown the cached copy is served instead."),
+]
+
+
 class LensConnectionView(APIView):
     """Read/configure/detach the lens connection for a board.
 
@@ -464,6 +492,7 @@ class LensBoardView(APIView):
 
     permission_classes = _BOARD_PERMISSIONS
 
+    @extend_schema(parameters=LENS_BOARD_QUERY_PARAMETERS)
     def get(self, request, board_id):
         board, _role = get_board_for_user(board_id, request.user, slim=True)
         conn = LensConnection.objects.filter(board=board).first()
