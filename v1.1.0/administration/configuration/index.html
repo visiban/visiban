@@ -3718,7 +3718,7 @@
 </code></pre></div>
 <hr />
 <h2 id="email-smtp">Email (SMTP)<a class="headerlink" href="#email-smtp" title="Permanent link">&para;</a></h2>
-<p>Visiban uses Django's email backend for password resets and email verification.</p>
+<p>Visiban uses Django's email backend for password resets, email verification and — since 1.2 — <a href="../../features/notifications/#email-notifications">notification email</a>.</p>
 <p>There are two ways to configure it, and <strong>exactly one of them is in effect at a time</strong> —
 settings are never merged across the two:</p>
 <ol>
@@ -3780,6 +3780,21 @@ mail.</p>
 <td><code>EMAIL_TIMEOUT</code></td>
 <td>SMTP socket timeout, in seconds. <em>(new in 1.2)</em></td>
 <td><code>10</code></td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_ENABLED</code></td>
+<td>Master switch for outbound <strong>notification</strong> email. Set to <code>false</code> to stop notification mail instance-wide without touching per-user preferences. Password resets and email verification are unaffected — silencing notifications must not lock anyone out of account recovery. <em>(new in 1.2)</em></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_TIMEOUT</code></td>
+<td>Socket timeout floor, in seconds, for notification email only. Notification mail is sent from the card-mutation path, so an unreachable SMTP host would otherwise hang a worker; this bounds it. Applied only when neither <code>EMAIL_TIMEOUT</code> nor the admin-UI timeout is set, so a timeout you configured is never overridden. <em>(new in 1.2)</em></td>
+<td><code>10</code></td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_EMAIL_ASYNC</code></td>
+<td>Send notification mail from a background thread rather than inline on the request. Keeps a slow or unreachable SMTP host from making card actions appear to hang, at the cost of delivery being best-effort — recycling a worker mid-send drops that batch. Set to <code>false</code> to send inline. <em>(new in 1.2)</em></td>
+<td><code>true</code></td>
 </tr>
 <tr>
 <td><code>DEFAULT_FROM_EMAIL</code></td>
@@ -3853,6 +3868,15 @@ but you cannot. That makes it a site-admin-only capability with real network rea
 so grant <code>is_site_admin</code> accordingly. The action is limited to 5 attempts per hour
 per admin, always delivers to the requesting admin's own address, and every server
 change is recorded in the <a href="../../api/admin/#action-log">admin action log</a>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Notification email is off per user, not per instance</p>
+<p>Configuring SMTP does not start sending notification email. Every per-user email
+preference defaults to <strong>off</strong>, so upgrading an instance that already has working SMTP
+mails nobody until a user opts in under <strong>Settings → Notifications</strong>. Use
+<code>NOTIFICATION_EMAIL_ENABLED=false</code> if you want to be certain no notification mail can
+leave the instance regardless of what users have chosen. See
+<a href="../../features/notifications/#email-notifications">Email notifications</a>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Sender address placeholder</p>

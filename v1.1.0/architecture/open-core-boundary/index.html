@@ -3843,7 +3843,7 @@
 <h3 id="transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications (OSS) vs channel integrations (Enterprise)<a class="headerlink" href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise" title="Permanent link">&para;</a></h3>
 <p>SMTP delivery of in-app notification events (card assigned, @mention, due date, card moved) is OSS. Teams with members who are not watching the board all day need email delivery to collaborate effectively.</p>
 <p>Slack/Teams channel delivery and other third-party integrations are enterprise.</p>
-<p><strong>OSS extension point required:</strong> The OSS notification system must fire a <code>post_notification_created</code> signal so enterprise can subscribe additional delivery backends (Slack, Teams, email templates) without modifying OSS files.</p>
+<p><strong>OSS extension point:</strong> <code>post_notification_created</code> (<code>boards/signals.py</code>), shipped in 1.2 — enterprise subscribes additional delivery backends (Slack, Teams, richer email templates) without modifying OSS files. Every notification creation path in OSS routes through <code>boards.services.notifications.create_notifications</code>, which is what makes the seam complete: three of the six creation sites use <code>bulk_create</code>, which sends no <code>post_save</code>, so a per-model signal would have silently skipped them. A test in <code>boards/tests/test_extensibility.py</code> fails if a new creation site bypasses the funnel.</p>
 <p><strong>Issue:</strong> OSS transactional email tracked in #356. Enterprise channel delivery in enterprise #34.</p>
 <hr />
 <h3 id="data-retention-split">Data retention (split)<a class="headerlink" href="#data-retention-split" title="Permanent link">&para;</a></h3>
@@ -3931,9 +3931,9 @@
 <td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/custom_fields.py</code>. Separate from the card signal for the same reason as the validator list above — reusing it would mean sending <code>card=None</code> to receivers that guarantee a card.</td>
 </tr>
 <tr>
-<td><code>post_notification_created</code> signal</td>
+<td><code>post_notification_created</code> signal (<code>boards/signals.py</code>)</td>
 <td>Enterprise channel delivery (enterprise #34)</td>
-<td>Not yet implemented</td>
+<td>✅ Implemented — <code>boards/signals.py</code>, sent from <code>boards/services/notifications.py</code> (#356). <strong>Opposite dispatch convention to the two custom-field signals above:</strong> sent <em>after</em> the enclosing transaction commits (via <code>transaction.on_commit</code>) and with <code>send_robust</code>, so a receiver that raises is logged and dropped and cannot roll back the notification it is reporting or fail the request. When no transaction is open — both notification management commands, and the description-mention path — <code>on_commit</code> runs the callback immediately and synchronously, so a receiver doing network I/O owns its own timeout. Kwargs: <code>notification</code>, <code>recipient</code>, <code>actor</code>, <code>context</code> (a per-<code>action_type</code> dict carrying detail that is not reachable from the row, such as the comment body or the from/to column names).</td>
 </tr>
 <tr>
 <td><code>BaseSnapshotStorage</code> / <code>SNAPSHOT_STORAGE_BACKEND</code></td>

@@ -1296,6 +1296,89 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#email-notifications" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email notifications
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Email notifications">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#turning-it-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Turning it on
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#email-rides-on-the-in-app-notification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email rides on the in-app notification
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-an-email-contains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What an email contains
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#who-does-not-receive-email" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Who does not receive email
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-mail-fails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When mail fails
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extending-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extending delivery
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notification-data-model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3442,6 +3525,7 @@
 
 <h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
 <p>Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the <code>notify_stale_cards</code> management command.</p>
+<p>Four of these events can also be <strong>delivered by email</strong> — see <a href="#email-notifications">Email notifications</a> below.</p>
 <h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
 <p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only <strong>unread</strong> notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.</p>
 <p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
@@ -3455,37 +3539,65 @@
 <thead>
 <tr>
 <th>Trigger</th>
-<th>Default</th>
+<th>In-app default</th>
+<th>Email available</th>
+<th>Email default</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Card assigned to me</td>
 <td>On</td>
+<td>Yes</td>
+<td>Off</td>
 </tr>
 <tr>
 <td>I am @mentioned</td>
 <td>On</td>
+<td>Yes</td>
+<td>Off</td>
 </tr>
 <tr>
-<td>Due date warning</td>
+<td>Due date approaching</td>
+<td>Off</td>
+<td>Yes</td>
 <td>Off</td>
 </tr>
 <tr>
 <td>Card moved</td>
 <td>Off</td>
+<td>Yes</td>
+<td>Off</td>
 </tr>
 <tr>
-<td>Comment added</td>
+<td>Comment on a watched card</td>
 <td>Off</td>
+<td>No</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Card has gone stale</td>
+<td>Off</td>
+<td>No</td>
+<td>—</td>
 </tr>
 <tr>
 <td>Board invites</td>
 <td>On</td>
+<td>No</td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
-<p>Staleness notifications (from the <code>notify_stale_cards</code> command) are always delivered and are not user-configurable.</p>
+<blockquote>
+<p><strong>Changed in 1.2</strong>
+Staleness notifications are user-configurable, and always were — they were
+gated on the <strong>Due date approaching</strong> preference, which is not what that
+preference says it does. 1.2 splits them apart: staleness now has its own
+<strong>Card has gone stale</strong> toggle, and <strong>Due date approaching</strong> finally controls
+the due-date warning it is named after. Your existing setting was copied
+across on upgrade, so nothing you receive today changes.</p>
+</blockquote>
 <h2 id="assignment-notifications">Assignment notifications<a class="headerlink" href="#assignment-notifications" title="Permanent link">&para;</a></h2>
 <p>When a card is assigned to a user by someone else, that user receives a notification:</p>
 <blockquote>
@@ -3509,6 +3621,28 @@
 <blockquote>
 <p>""{card title}" is due soon"</p>
 </blockquote>
+<p>Recipients opt in with the <strong>Due date approaching</strong> preference. The scan runs from
+a management command rather than on a request, so schedule it the same way as the
+staleness scan:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># crontab example — run at 7am daily, before the staleness scan</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="m">0</span><span class="w"> </span><span class="m">7</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
+</code></pre></div>
+<p>Pass <code>--days N</code> to widen the window. <code>Card.due_date</code> is a date, not a timestamp,
+so the window is expressed in whole days; the default of <code>1</code> is the documented
+24-hour warning and covers cards due today or tomorrow.</p>
+<p>The command is idempotent per due date: a card is visible to it on two
+consecutive runs (due tomorrow, then due today) and produces <strong>one</strong> notification
+in total. Changing a card's due date makes it eligible again, because a
+rescheduled card is a new commitment. An assignee who has since lost access to
+the board is skipped — the assignee field is not cleared when a member is
+removed, and card titles are board content.</p>
+<div class="admonition note">
+<p class="admonition-title">Added in 1.2</p>
+<p>The due-date notification is new in 1.2 (#356). Earlier releases described it
+and shipped the preference toggle, but nothing ever created the notification.</p>
+</div>
 <h2 id="card-moved-notifications">Card moved notifications<a class="headerlink" href="#card-moved-notifications" title="Permanent link">&para;</a></h2>
 <p>When a card is moved to a different column by another user, the card's assignee is notified.</p>
 <h2 id="board-invite-notifications">Board invite notifications<a class="headerlink" href="#board-invite-notifications" title="Permanent link">&para;</a></h2>
@@ -3520,24 +3654,130 @@
 <h2 id="comment-added-notifications">Comment added notifications<a class="headerlink" href="#comment-added-notifications" title="Permanent link">&para;</a></h2>
 <p>When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).</p>
 <h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
-<p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees of stale cards.</p>
+<p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
 <h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>
 <p>Each board has a <code>staleness_threshold_days</code> setting (default: <strong>7 days</strong>). A card is stale when its last <code>CardMovement</code> record is older than this threshold (or when a card has never been moved and was created more than that many days ago).</p>
 <h3 id="stale-card-indicator">Stale card indicator<a class="headerlink" href="#stale-card-indicator" title="Permanent link">&para;</a></h3>
 <p>Cards that are stale show an amber tint overlay with reduced opacity in the board view.</p>
 <h3 id="running-the-stale-check">Running the stale check<a class="headerlink" href="#running-the-stale-check" title="Permanent link">&para;</a></h3>
 <p>The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
 </code></pre></div>
 <p>Schedule this as a daily cron job or Kubernetes CronJob in production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># crontab example — run at 8am daily</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># crontab example — run at 8am daily</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
 </code></pre></div>
+<h2 id="email-notifications">Email notifications<a class="headerlink" href="#email-notifications" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Team members who are not watching the board all day can have notifications
+delivered to their email address as well as the bell. Four events support it:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Email preference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Card assigned to me</td>
+<td><strong>Also send by email</strong> under <em>Card assigned to me</em></td>
+</tr>
+<tr>
+<td>Someone @mentions me</td>
+<td><strong>Also send by email</strong> under <em>Someone @mentions me</em></td>
+</tr>
+<tr>
+<td>Due date approaching</td>
+<td><strong>Also send by email</strong> under <em>Due date approaching</em></td>
+</tr>
+<tr>
+<td>Card I'm watching is moved</td>
+<td><strong>Also send by email</strong> under <em>Card I'm watching is moved</em></td>
+</tr>
+</tbody>
+</table>
+<h3 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h3>
+<p>Two things have to be true before any email is sent:</p>
+<ol>
+<li><strong>An administrator has configured outgoing email</strong> — either the <code>EMAIL_*</code>
+   environment variables or <strong>Admin → Settings → Email</strong>. See
+   <a href="../../administration/configuration/#email-smtp">Configuration</a>. Nothing is
+   sent, and nothing is queued, if email is unconfigured.</li>
+<li><strong>You turned the event's email toggle on</strong> in <strong>Settings → Notifications</strong>.</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Email is off by default, deliberately</p>
+<p>Every email preference defaults to <strong>off</strong>, for every user, including on an
+instance that already has working SMTP. Upgrading to 1.2 does not start
+emailing anybody. This is the only safe default: the alternative is an
+upgrade that silently mails every member of every board.</p>
+</div>
+<h3 id="email-rides-on-the-in-app-notification">Email rides on the in-app notification<a class="headerlink" href="#email-rides-on-the-in-app-notification" title="Permanent link">&para;</a></h3>
+<p>An email is a copy of the in-app notification, sent when that notification is
+created. So the in-app toggle for an event gates both: with the in-app
+notification off there is no notification to copy, and the email toggle is inert.
+The settings UI disables it and says so rather than letting you turn on something
+that would quietly do nothing.</p>
+<h3 id="what-an-email-contains">What an email contains<a class="headerlink" href="#what-an-email-contains" title="Permanent link">&para;</a></h3>
+<p>Plain text only — no HTML part, no tracking, no images. The subject is the board
+name followed by the same sentence the bell shows. The body repeats it, names the
+board and card, and links straight to the card (the same deep link the bell uses,
+so both land in the same place). A footer links to your notification settings,
+and the message carries a <code>List-Unsubscribe</code> header pointing there.</p>
+<p>Mail is sent from the address configured as the sender (<code>DEFAULT_FROM_EMAIL</code>, or
+the sender set in the admin UI). There is no separate notification sender.</p>
+<h3 id="who-does-not-receive-email">Who does not receive email<a class="headerlink" href="#who-does-not-receive-email" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Users with no email address on their account</li>
+<li>Deactivated users — their notification history is kept, their mail is not</li>
+<li>
+<p>Users whose address is unconfirmed, <strong>when</strong> the instance sets
+  <code>EMAIL_VERIFICATION=mandatory</code>. Under the default <code>optional</code> policy unverified
+  addresses are normal — the same instance already sends password-reset mail to
+  them — so they still receive notification mail.</p>
+<p>Two things follow from that default, and they are the reason to consider
+<code>mandatory</code> on a public instance. Notification mail carries board content
+(board names, card titles) to whatever address the account holder last saved,
+proved or not. And because a member can set their own address to anyone's, a
+member could point notifications at a third party who never asked for them,
+with card titles they chose. Neither gives anybody access to a board they are
+not on, but <code>EMAIL_VERIFICATION=mandatory</code> closes both, and
+<code>NOTIFICATION_EMAIL_ENABLED=false</code> closes them outright.
+- Everybody, when <code>NOTIFICATION_EMAIL_ENABLED=false</code></p>
+</li>
+</ul>
+<h3 id="when-mail-fails">When mail fails<a class="headerlink" href="#when-mail-fails" title="Permanent link">&para;</a></h3>
+<p>A delivery failure never breaks the action that caused it. Notifications are
+created inside the request's transaction; once it commits, the messages are
+handed to a background thread that sends them over a single connection with a
+socket timeout (<code>NOTIFICATION_EMAIL_TIMEOUT</code>, default 10 seconds). If the SMTP
+server is unreachable, misconfigured or rejects the credentials, the card update
+still succeeds, the in-app notification is still created, and the failure is
+logged with a sanitized error code. Logs never contain a recipient address.</p>
+<p>The send runs on a thread rather than inline because the timeout is applied per
+socket operation, not as a wall-clock total — a tarpitting relay can spend it
+again at every step of the conversation, which inline would mean a card
+assignment or drag-and-drop appearing to hang. The trade-off is that delivery is
+explicitly <strong>best-effort</strong>: restarting or recycling a worker mid-send drops that
+batch. Set <code>NOTIFICATION_EMAIL_ASYNC=false</code> to send inline instead.</p>
+<p>There is no retry and no queue: a notification email is only useful promptly, and
+a durable queue is not a dependency the OSS core takes on. If mail is failing, fix
+the SMTP configuration — <strong>Admin → Settings → Email</strong> has a <strong>Send test email</strong>
+button.</p>
+<h3 id="extending-delivery">Extending delivery<a class="headerlink" href="#extending-delivery" title="Permanent link">&para;</a></h3>
+<p>Notification creation fires a <code>post_notification_created</code> signal, which is a
+stable extension point: additional delivery backends attach to it without
+modifying any file in this repository. See
+<a href="../../architecture/open-core-boundary/#oss-extension-points-implementation-status">Open core boundary</a>.</p>
+<hr />
 <h2 id="notification-data-model">Notification data model<a class="headerlink" href="#notification-data-model" title="Permanent link">&para;</a></h2>
 <p>Each notification stores structured metadata alongside the human-readable <code>verb</code> string:</p>
 <ul>
 <li><strong><code>actor</code></strong> — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.</li>
-<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>. Useful for filtering or grouping notifications programmatically.</li>
+<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.</li>
 </ul>
 <h2 id="notification-api">Notification API<a class="headerlink" href="#notification-api" title="Permanent link">&para;</a></h2>
 <table>
@@ -3563,25 +3803,25 @@
 </tbody>
 </table>
 <p>The <code>GET /api/v1/notifications/</code> response returns an array of objects with the following shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"You were assigned to \"Deploy v2.3\""</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Deploy v2.3"</span><span class="p">,</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"You were assigned to \"Deploy v2.3\""</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Deploy v2.3"</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
 </code></pre></div>
-<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, or <code>""</code> (empty string for legacy notifications created before action types were introduced).</p>
+<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
 <div class="admonition note">
 <p class="admonition-title">Added in 1.1</p>
 <p>The <code>actor</code> field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is <code>null</code> for system-generated notifications such as staleness alerts.</p>

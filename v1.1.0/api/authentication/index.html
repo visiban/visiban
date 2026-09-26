@@ -4367,7 +4367,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
 </div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4407,6 +4407,31 @@ actually bootstraps from) returns the identical shape — both are served by
 <td>string</td>
 <td>The user's preferred color scheme. One of <code>"system"</code>, <code>"dark"</code>, or <code>"light"</code>. Defaults to <code>"system"</code>.</td>
 </tr>
+<tr>
+<td><code>notif_stale</code></td>
+<td>boolean</td>
+<td>Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to <code>false</code>. Writable. Added in 1.2 (previously gated on <code>notif_due_soon</code>).</td>
+</tr>
+<tr>
+<td><code>email_notif_card_assigned</code></td>
+<td>boolean</td>
+<td>Also email the user when a card is assigned to them. No effect while <code>notif_card_assigned</code> is <code>false</code>. Defaults to <code>false</code>. Writable. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>email_notif_mentioned</code></td>
+<td>boolean</td>
+<td>Also email the user when they are @mentioned. No effect while <code>notif_mentioned</code> is <code>false</code>. Defaults to <code>false</code>. Writable. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>email_notif_due_soon</code></td>
+<td>boolean</td>
+<td>Also email the user when a card they own is due within 24 hours. No effect while <code>notif_due_soon</code> is <code>false</code>. Defaults to <code>false</code>. Writable. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>email_notif_card_moved</code></td>
+<td>boolean</td>
+<td>Also email the user when a card they own is moved. No effect while <code>notif_card_moved</code> is <code>false</code>. Defaults to <code>false</code>. Writable. Added in 1.2.</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Example response (excerpt)</strong></p>
@@ -4423,7 +4448,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Writable fields:</strong> <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <p><strong>Request body fields</strong></p>
 <table>
 <thead>

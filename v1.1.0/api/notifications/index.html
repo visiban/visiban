@@ -3330,13 +3330,20 @@
 <h1 id="notifications-api">Notifications API<a class="headerlink" href="#notifications-api" title="Permanent link">&para;</a></h1>
 <p>Visiban creates notifications for board members when:</p>
 <ul>
-<li>A card is assigned to them (<code>notif_assigned</code>)</li>
+<li>A card is assigned to them (<code>notif_card_assigned</code>)</li>
 <li>They are @mentioned in a comment or card description (<code>notif_mentioned</code>)</li>
 <li>A card they own is moved to a different column or swimlane (<code>notif_card_moved</code>)</li>
-<li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>)</li>
+<li>A card they own is due within 24 hours (<code>notif_due_soon</code>) — <em>added in 1.2</em></li>
+<li>A card they own has not moved within the configured staleness window (<code>notif_stale</code>) — <em>added in 1.2; previously gated on <code>notif_due_soon</code></em></li>
 <li>They are invited to a board (<code>notif_board_invite</code>)</li>
 </ul>
 <p>Each notification preference can be toggled individually via <code>PATCH /api/v1/auth/me/</code>. See <a href="../authentication/">Authentication</a>.</p>
+<p>The first four events can also be delivered by email, controlled by a parallel set of
+fields on the same endpoint — <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>,
+<code>email_notif_due_soon</code>, <code>email_notif_card_moved</code> — all of which default to <code>false</code>.
+An email is a copy of the in-app notification, so an <code>email_notif_*</code> field has no effect
+while its <code>notif_*</code> counterpart is <code>false</code>. See
+<a href="../../features/notifications/#email-notifications">Email notifications</a>.</p>
 <hr />
 <h2 id="endpoints">Endpoints<a class="headerlink" href="#endpoints" title="Permanent link">&para;</a></h2>
 <h3 id="get-apiv1notifications"><code>GET /api/v1/notifications/</code><a class="headerlink" href="#get-apiv1notifications" title="Permanent link">&para;</a></h3>
@@ -3410,7 +3417,7 @@
 <tr>
 <td><code>action_type</code></td>
 <td>string</td>
-<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>. Use this for programmatic filtering or i18n instead of parsing <code>verb</code>.</td>
+<td>Machine-readable event type. One of: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> (<code>due_soon</code> added in 1.2). Use this for programmatic filtering or i18n instead of parsing <code>verb</code>. The set may grow in future releases — clients must treat an unrecognized value as a generic notification (render <code>verb</code> as-is) rather than erroring.</td>
 </tr>
 <tr>
 <td><code>read</code></td>

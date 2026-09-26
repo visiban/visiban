@@ -3445,93 +3445,98 @@
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a> ├── notif_card_moved (bool, default false — notify when a card is moved)
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a> ├── notif_comment_added (bool, default false — notify when a comment is added to an assigned card)
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a> ├── notif_board_invite (bool, default true — notify when added to a board)
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a> └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>Group
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a> ├── owner → User
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a> ├── parent → Group (nullable — null = top-level)
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a> ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a> ├── GroupInviteLink  (name, token, role, expires_at)
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a> └── GroupFavorite → User  (unique per user+group)
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>Board
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a> ├── uid  (16-char hex, unique, read-only)
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a> ├── owner → User
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a> ├── group → Group (nullable — null = personal board)
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a> ├── enforce_wip_limits (bool — block moves into over-limit columns; default true)
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a> ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a> ├── enforce_weight_limits (bool — block moves that exceed column weight budget; default true)
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a> ├── description (text, optional — board description; blank = no description)
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a> ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a> ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a> ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
-<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a> ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
-<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a> ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
-<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a> ├── BoardFavorite → User  (unique per user+board)
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a> ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a> ├── Swimlane  (uid, position, color, is_collapsed)
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a> └── Label  (uid, name, color)
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>Card
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a> ├── uid  (16-char hex, unique, read-only)
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a> ├── board → Board
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a> ├── column → Column
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a> ├── swimlane → Swimlane
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a> ├── title (str, max 500 chars)
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a> ├── description (text, optional)
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a> ├── priority (str — low | medium | high | urgent; default medium)
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a> ├── due_date (date, nullable)
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a> ├── weight (int, default 1 — used for column weight budget enforcement)
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a> ├── position (int — sort order within the cell)
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a> ├── created_by (→ User, nullable — set to null if the creator account is deleted)
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a> ├── version (int, default 1 — optimistic concurrency control; incremented on every mutation; clients send the version they have; 409 returned if the card has been modified in the meantime)
-<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a> ├── assignee → User (nullable)
-<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a> ├── labels → Label (M2M)
-<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a> ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
-<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a> ├── mentioned_user_ids (JSON — dedup guard for @mention notifications)
-<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a> ├── CardMovement  (from/to column + swimlane FKs + UIDs + names, moved_by, moved_at, movement_type)
-<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a> ├── CardComment  (author, body)
-<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a> ├── CardActivity  (event_type, from_value, to_value, actor)
-<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a> ├── CardChecklist  (text, is_checked, position)
-<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a> └── CardAttachment  (file, filename, size, uploaded_by)
-<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a>
-<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a>BoardTemplate
-<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a> ├── id (UUID)
-<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a> ├── name (str)
-<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a> ├── slug (str, unique)
-<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a> ├── description (str)
-<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a> ├── icon (str)
-<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a> ├── lane_label (str — e.g. "Account", "Project")
-<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a> ├── lane_placeholder (str — placeholder for the first-swimlane name input)
-<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a> ├── columns_json (JSON — ordered list of column dicts)
-<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a> ├── sort_order (int)
-<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a> └── is_active (bool)
-<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a>
-<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a>SavedFilter
-<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── user → User
-<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── board → Board
-<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a> ├── name (str)
-<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a> ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate)
-<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a> └── unique_together: (user, board, name)
-<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a>
-<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a>Notification
-<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a> ├── recipient → User
-<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a> ├── actor → User (nullable — the user who triggered the notification)
-<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a> ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite)
-<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a> ├── verb (str — human-readable summary)
-<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a> ├── card → Card (nullable)
-<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a> ├── board → Board (nullable)
-<a id="__codelineno-0-94" name="__codelineno-0-94" href="#__codelineno-0-94"></a> └── read (bool)
-<a id="__codelineno-0-95" name="__codelineno-0-95" href="#__codelineno-0-95"></a>
-<a id="__codelineno-0-96" name="__codelineno-0-96" href="#__codelineno-0-96"></a>InviteLink  (accounts app — site-level registration invites)
-<a id="__codelineno-0-97" name="__codelineno-0-97" href="#__codelineno-0-97"></a> ├── token_hash (str, unique — SHA-256 hash; raw token shown once at creation)
-<a id="__codelineno-0-98" name="__codelineno-0-98" href="#__codelineno-0-98"></a> ├── prefix (str — first 8 chars of raw token, safe for display)
-<a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a> ├── created_by → User (nullable)
-<a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a> ├── expires_at (datetime, nullable — null = never expires)
-<a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a> ├── single_use (bool)
-<a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a> ├── used_at (datetime, nullable)
-<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a> ├── revoked_at (datetime, nullable)
-<a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a> └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a> ├── notif_stale (bool, default false — notify when an owned card has gone stale; split from notif_due_soon in 1.2)
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a> ├── email_notif_card_assigned (bool, default false — also email the assignment notification)
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a> ├── email_notif_mentioned (bool, default false — also email the @mention notification)
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a> ├── email_notif_due_soon (bool, default false — also email the due-date notification)
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a> ├── email_notif_card_moved (bool, default false — also email the card-moved notification)
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a> └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>Group
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a> ├── owner → User
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a> ├── parent → Group (nullable — null = top-level)
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a> ├── GroupMembership → User  (role: admin | member | collaborator | viewer)
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a> ├── GroupInviteLink  (name, token, role, expires_at)
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a> └── GroupFavorite → User  (unique per user+group)
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>Board
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a> ├── uid  (16-char hex, unique, read-only)
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a> ├── owner → User
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a> ├── group → Group (nullable — null = personal board)
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a> ├── enforce_wip_limits (bool — block moves into over-limit columns; default true)
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a> ├── enforce_wip_hard (bool — hard-block mode with no admin override; default false)
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a> ├── enforce_weight_limits (bool — block moves that exceed column weight budget; default true)
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a> ├── description (text, optional — board description; blank = no description)
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a> ├── staleness_threshold_days (int, default 7 — number of days without card movement before a card is considered stale)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a> ├── stale_warning_pct (int 0–100 — yellow threshold for analytics heatmap; default 50)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a> ├── allowed_priorities (JSON — restricts available card priorities; empty = all allowed)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a> ├── share_token (UUID, nullable — public read-only share link; null = sharing disabled)
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a> ├── BoardMembership → User  (role: admin | member | collaborator | viewer)
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a> ├── BoardFavorite → User  (unique per user+board)
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a> ├── Column  (uid, position, color, wip_limit, weight_limit, allow_card_creation, is_done)
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a> ├── Swimlane  (uid, position, color, is_collapsed)
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a> └── Label  (uid, name, color)
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>Card
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a> ├── uid  (16-char hex, unique, read-only)
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a> ├── board → Board
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a> ├── column → Column
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a> ├── swimlane → Swimlane
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a> ├── title (str, max 500 chars)
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a> ├── description (text, optional)
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a> ├── priority (str — low | medium | high | urgent; default medium)
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a> ├── due_date (date, nullable)
+<a id="__codelineno-0-59" name="__codelineno-0-59" href="#__codelineno-0-59"></a> ├── weight (int, default 1 — used for column weight budget enforcement)
+<a id="__codelineno-0-60" name="__codelineno-0-60" href="#__codelineno-0-60"></a> ├── position (int — sort order within the cell)
+<a id="__codelineno-0-61" name="__codelineno-0-61" href="#__codelineno-0-61"></a> ├── created_by (→ User, nullable — set to null if the creator account is deleted)
+<a id="__codelineno-0-62" name="__codelineno-0-62" href="#__codelineno-0-62"></a> ├── version (int, default 1 — optimistic concurrency control; incremented on every mutation; clients send the version they have; 409 returned if the card has been modified in the meantime)
+<a id="__codelineno-0-63" name="__codelineno-0-63" href="#__codelineno-0-63"></a> ├── assignee → User (nullable)
+<a id="__codelineno-0-64" name="__codelineno-0-64" href="#__codelineno-0-64"></a> ├── labels → Label (M2M)
+<a id="__codelineno-0-65" name="__codelineno-0-65" href="#__codelineno-0-65"></a> ├── archived_at (datetime, nullable — soft-delete timestamp; null = active)
+<a id="__codelineno-0-66" name="__codelineno-0-66" href="#__codelineno-0-66"></a> ├── mentioned_user_ids (JSON — dedup guard for @mention notifications)
+<a id="__codelineno-0-67" name="__codelineno-0-67" href="#__codelineno-0-67"></a> ├── CardMovement  (from/to column + swimlane FKs + UIDs + names, moved_by, moved_at, movement_type)
+<a id="__codelineno-0-68" name="__codelineno-0-68" href="#__codelineno-0-68"></a> ├── CardComment  (author, body)
+<a id="__codelineno-0-69" name="__codelineno-0-69" href="#__codelineno-0-69"></a> ├── CardActivity  (event_type, from_value, to_value, actor)
+<a id="__codelineno-0-70" name="__codelineno-0-70" href="#__codelineno-0-70"></a> ├── CardChecklist  (text, is_checked, position)
+<a id="__codelineno-0-71" name="__codelineno-0-71" href="#__codelineno-0-71"></a> └── CardAttachment  (file, filename, size, uploaded_by)
+<a id="__codelineno-0-72" name="__codelineno-0-72" href="#__codelineno-0-72"></a>
+<a id="__codelineno-0-73" name="__codelineno-0-73" href="#__codelineno-0-73"></a>BoardTemplate
+<a id="__codelineno-0-74" name="__codelineno-0-74" href="#__codelineno-0-74"></a> ├── id (UUID)
+<a id="__codelineno-0-75" name="__codelineno-0-75" href="#__codelineno-0-75"></a> ├── name (str)
+<a id="__codelineno-0-76" name="__codelineno-0-76" href="#__codelineno-0-76"></a> ├── slug (str, unique)
+<a id="__codelineno-0-77" name="__codelineno-0-77" href="#__codelineno-0-77"></a> ├── description (str)
+<a id="__codelineno-0-78" name="__codelineno-0-78" href="#__codelineno-0-78"></a> ├── icon (str)
+<a id="__codelineno-0-79" name="__codelineno-0-79" href="#__codelineno-0-79"></a> ├── lane_label (str — e.g. "Account", "Project")
+<a id="__codelineno-0-80" name="__codelineno-0-80" href="#__codelineno-0-80"></a> ├── lane_placeholder (str — placeholder for the first-swimlane name input)
+<a id="__codelineno-0-81" name="__codelineno-0-81" href="#__codelineno-0-81"></a> ├── columns_json (JSON — ordered list of column dicts)
+<a id="__codelineno-0-82" name="__codelineno-0-82" href="#__codelineno-0-82"></a> ├── sort_order (int)
+<a id="__codelineno-0-83" name="__codelineno-0-83" href="#__codelineno-0-83"></a> └── is_active (bool)
+<a id="__codelineno-0-84" name="__codelineno-0-84" href="#__codelineno-0-84"></a>
+<a id="__codelineno-0-85" name="__codelineno-0-85" href="#__codelineno-0-85"></a>SavedFilter
+<a id="__codelineno-0-86" name="__codelineno-0-86" href="#__codelineno-0-86"></a> ├── user → User
+<a id="__codelineno-0-87" name="__codelineno-0-87" href="#__codelineno-0-87"></a> ├── board → Board
+<a id="__codelineno-0-88" name="__codelineno-0-88" href="#__codelineno-0-88"></a> ├── name (str)
+<a id="__codelineno-0-89" name="__codelineno-0-89" href="#__codelineno-0-89"></a> ├── state_json (JSON — serialized FilterState: search, assigneeIds, labelIds, priorities, dueDate)
+<a id="__codelineno-0-90" name="__codelineno-0-90" href="#__codelineno-0-90"></a> └── unique_together: (user, board, name)
+<a id="__codelineno-0-91" name="__codelineno-0-91" href="#__codelineno-0-91"></a>
+<a id="__codelineno-0-92" name="__codelineno-0-92" href="#__codelineno-0-92"></a>Notification
+<a id="__codelineno-0-93" name="__codelineno-0-93" href="#__codelineno-0-93"></a> ├── recipient → User
+<a id="__codelineno-0-94" name="__codelineno-0-94" href="#__codelineno-0-94"></a> ├── actor → User (nullable — the user who triggered the notification)
+<a id="__codelineno-0-95" name="__codelineno-0-95" href="#__codelineno-0-95"></a> ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon)
+<a id="__codelineno-0-96" name="__codelineno-0-96" href="#__codelineno-0-96"></a> ├── verb (str — human-readable summary)
+<a id="__codelineno-0-97" name="__codelineno-0-97" href="#__codelineno-0-97"></a> ├── card → Card (nullable)
+<a id="__codelineno-0-98" name="__codelineno-0-98" href="#__codelineno-0-98"></a> ├── board → Board (nullable)
+<a id="__codelineno-0-99" name="__codelineno-0-99" href="#__codelineno-0-99"></a> └── read (bool)
+<a id="__codelineno-0-100" name="__codelineno-0-100" href="#__codelineno-0-100"></a>
+<a id="__codelineno-0-101" name="__codelineno-0-101" href="#__codelineno-0-101"></a>InviteLink  (accounts app — site-level registration invites)
+<a id="__codelineno-0-102" name="__codelineno-0-102" href="#__codelineno-0-102"></a> ├── token_hash (str, unique — SHA-256 hash; raw token shown once at creation)
+<a id="__codelineno-0-103" name="__codelineno-0-103" href="#__codelineno-0-103"></a> ├── prefix (str — first 8 chars of raw token, safe for display)
+<a id="__codelineno-0-104" name="__codelineno-0-104" href="#__codelineno-0-104"></a> ├── created_by → User (nullable)
+<a id="__codelineno-0-105" name="__codelineno-0-105" href="#__codelineno-0-105"></a> ├── expires_at (datetime, nullable — null = never expires)
+<a id="__codelineno-0-106" name="__codelineno-0-106" href="#__codelineno-0-106"></a> ├── single_use (bool)
+<a id="__codelineno-0-107" name="__codelineno-0-107" href="#__codelineno-0-107"></a> ├── used_at (datetime, nullable)
+<a id="__codelineno-0-108" name="__codelineno-0-108" href="#__codelineno-0-108"></a> ├── revoked_at (datetime, nullable)
+<a id="__codelineno-0-109" name="__codelineno-0-109" href="#__codelineno-0-109"></a> └── use_count (int, default 0 — incremented on every successful registration, preserved after revocation)
 </code></pre></div>
 <h2 id="entity-details">Entity details<a class="headerlink" href="#entity-details" title="Permanent link">&para;</a></h2>
 <h3 id="user">User<a class="headerlink" href="#user" title="Permanent link">&para;</a></h3>
@@ -3589,6 +3594,12 @@ previously valid card writes fail, so it needs a release note, not a quiet chang
 <h3 id="notification">Notification<a class="headerlink" href="#notification" title="Permanent link">&para;</a></h3>
 <p>Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The <code>verb</code> field stores a human-readable summary. The <code>actor</code> and <code>action_type</code> fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.</p>
 <p>The <code>board_invite</code> action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the <code>card</code> FK is null for this action type.</p>
+<p>Every notification is created through <code>boards.services.notifications.create_notifications</code>,
+which after the transaction commits delivers OSS email for the four events that support it
+and then sends the <code>post_notification_created</code> signal once per row. The funnel exists
+because three of the creation sites use <code>bulk_create</code>, which sends no <code>post_save</code> — so a
+per-model signal would have been invisible to half the events. See
+<a href="../open-core-boundary/#oss-extension-points-implementation-status">Open core boundary</a>.</p>
 <h3 id="invitelink">InviteLink<a class="headerlink" href="#invitelink" title="Permanent link">&para;</a></h3>
 <p>Site-level registration invite links live in the accounts app and are distinct from <code>GroupInviteLink</code> (which controls group membership). The raw token value is generated once and never stored — only a SHA-256 hash is persisted. The raw value is returned exactly once at creation.</p>
 <p>Single-use links are consumed atomically via <code>select_for_update()</code> at registration time to prevent race-condition double-use. A soft cap of 50 active links per instance prevents token flood from a compromised admin account.</p>
