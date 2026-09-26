@@ -101,6 +101,7 @@ own header — is never mistaken for a real exemption.
 | `scripts/check-gate-selftest-parity.sh` | `gate-selftest-parity` | The meta-gate itself — see above. |
 | `scripts/check-compose-image-pins.sh` | `compose-hygiene` | Self-test plants an untagged image, an explicit `:latest`, a ported-registry reference (`host:5000/img`, whose colon must not read as a tag separator), and a first-party `${VAR}` reference that must NOT be reported. |
 | `scripts/check-compose-project-names.sh` | `compose-hygiene` | Self-test plants a missing `name:`, a duplicate name, a `${VAR:-default}` colliding on its *default* (the exact shape of the original defect), and an overlay that wrongly declares a name. |
+| `scripts/check-docs-version-accuracy.sh` | `docs-version-accuracy` (MRs, `main`, and tag pipelines) | Self-test plants a stale "Coming in" claim naming the just-released version, the same in `README.md`, an RC banner on a GA version, a wrong banner version, stale `APP_VERSION=` / README image pins, and a tag that disagrees with `frontend/package.json`; it must spare a "Coming in" claim for a future version and a "new in" label. See the [release checklist](../maintainers/index.md#release-checklist). |
 
 `scripts/assemble-changelog.sh` also ships a `--self-test` (added alongside this page,
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
