@@ -12,9 +12,11 @@
 # whose logic is perfect but which exits 0 on a missing schema is still a gate
 # that silently stops gating, which is the failure mode #1093 exists to prevent.
 #
-# Fixture runs pass --no-suppressions: the real SUPPRESSIONS table pins twelve
-# mismatches in the *real* schema, so against a synthetic fixture every one of
-# them would correctly report as stale and mask what the test is asserting.
+# Fixture runs pass --no-suppressions: the real SUPPRESSIONS and TS_ONLY_FIELDS
+# tables pin mismatches in the *real* schema, so against a synthetic fixture every
+# entry would correctly report as stale and mask what the test is asserting. That
+# flag waives both tables, which is also what makes it the strictly-stricter run
+# its --help claims.
 #
 # Run: bash scripts/tests/check-serializer-ts-parity.test.sh
 set -euo pipefail
@@ -48,29 +50,55 @@ run_gate() {
   set -e
 }
 
-# The gate maps five schema components onto five interfaces, and treats a missing
-# one as a hard error rather than a silent pass — so every fixture has to define
-# all five. These helpers emit a minimal, matching pair.
+# The gate treats a component named in COMPONENT_MAP but absent from the schema as
+# a hard error rather than a silent pass, so every fixture has to define *every*
+# mapped pair — not just the one under test. Rather than hard-code the list (which
+# went stale the moment #1139 grew it from five pairs to eighteen), read
+# COMPONENT_MAP out of the gate itself. A pair added there with no fixture support
+# then surfaces as an honest failure here instead of a stale duplicate.
+#
+# `Card` is the pair every fixture varies, so it is emitted separately and
+# excluded from the generated filler.
+# Emitted once into $TMP, then reused by every fixture. Written with plain
+# redirection rather than a bash array so this runs on macOS's bash 3.2 as well as
+# CI's bash 5 — `mapfile` is a bash 4 builtin.
+cat > "$TMP/emit_filler.py" <<'PY'
+"""Emit fixture filler for every mapped pair except Card, read from the gate itself."""
+import importlib.util
+import sys
+
+gate, ts_out, json_out = sys.argv[1:4]
+spec = importlib.util.spec_from_file_location("gate", gate)
+mod = importlib.util.module_from_spec(spec)
+sys.modules["gate"] = mod
+spec.loader.exec_module(mod)
+
+pairs = [(c, i) for c, i in sorted(mod.COMPONENT_MAP.items()) if c != "Card"]
+if not pairs:
+    sys.exit("could not read COMPONENT_MAP from the gate")
+
+with open(ts_out, "w") as fh:
+    for _, interface in pairs:
+        fh.write("export interface %s { id: number; }\n" % interface)
+with open(json_out, "w") as fh:
+    for component, _ in pairs:
+        fh.write('  "%s": {"properties": {"id": {"type": "integer"}}},\n' % component)
+PY
+"$PYTHON" "$TMP/emit_filler.py" "$GATE" "$TMP/filler.ts" "$TMP/filler.json" \
+  || { echo "FAIL: could not read COMPONENT_MAP from the gate"; exit 1; }
+
 write_types() { # write_types <path> [extra-card-field-line]
-  cat > "$1" <<TS
-export interface BoardUser { id: number; }
-export interface Board { id: number; }
-export interface Card { id: number; ${2:-} }
-export interface User { id: number; }
-export interface BoardMembership { id: number; }
-TS
+  cat "$TMP/filler.ts" > "$1"
+  echo "export interface Card { id: number; ${2:-} }" >> "$1"
 }
 
 write_schema() { # write_schema <path> <card-properties-json>
-  cat > "$1" <<JSON
-{"components": {"schemas": {
-  "BoardUser":       {"properties": {"id": {"type": "integer"}}},
-  "Board":           {"properties": {"id": {"type": "integer"}}},
-  "Card":            {"properties": $2},
-  "CurrentUser":     {"properties": {"id": {"type": "integer"}}},
-  "BoardMembership": {"properties": {"id": {"type": "integer"}}}
-}}}
-JSON
+  {
+    echo '{"components": {"schemas": {'
+    cat "$TMP/filler.json"
+    echo "  \"Card\": {\"properties\": $2}"
+    echo '}}}'
+  } > "$1"
 }
 
 # --- The gate's own self-test must pass -----------------------------------

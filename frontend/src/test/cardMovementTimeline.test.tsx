@@ -43,9 +43,14 @@ describe('CardMovementTimeline', () => {
     })
   })
 
+  // A creation movement has no origin, so the FK ids are null while the
+  // denormalized *_name / *_uid fields come back as "" — they are `null=False,
+  // blank=True` CharFields on the model, and the CardMovement interface declares
+  // them `string` for that reason (#1139). These fixtures used to send null,
+  // which the API cannot produce.
   it('renders "Created in" for initial move', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'Customer A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 1, from_column: null, from_column_name: '', from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: '', from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'Customer A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
     render(<CardMovementTimeline boardId={1} cardId={1} />)
@@ -57,7 +62,7 @@ describe('CardMovementTimeline', () => {
 
   it('renders column transitions', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 1, from_column: null, from_column_name: '', from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: '', from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
       { id: 2, from_column: 10, from_column_name: 'To Do', from_column_uid: 'c1', to_column: 11, to_column_name: 'In Progress', to_column_uid: 'c2', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: fakeUser, moved_at: '2026-01-02T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
     mockGetActivities.mockResolvedValue([])
@@ -69,7 +74,7 @@ describe('CardMovementTimeline', () => {
 
   it('shows time spent between moves', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: null, from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
+      { id: 1, from_column: null, from_column_name: '', from_column_uid: '', to_column: 10, to_column_name: 'To Do', to_column_uid: 'c1', from_swimlane: null, from_swimlane_name: '', from_swimlane_uid: '', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '', movement_type: 'move' as const },
       { id: 2, from_column: 10, from_column_name: 'To Do', from_column_uid: 'c1', to_column: 11, to_column_name: 'In Progress', to_column_uid: 'c2', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-03T00:00:00Z', notes: '', movement_type: 'move' as const },
       { id: 3, from_column: 11, from_column_name: 'In Progress', from_column_uid: 'c2', to_column: 12, to_column_name: 'Done', to_column_uid: 'c3', from_swimlane: 20, from_swimlane_name: 'A', from_swimlane_uid: 's1', to_swimlane: 20, to_swimlane_name: 'A', to_swimlane_uid: 's1', moved_by: null, moved_at: '2026-01-05T00:00:00Z', notes: '', movement_type: 'move' as const },
     ])
@@ -151,7 +156,7 @@ describe('CardMovementTimeline', () => {
 
   it('renders activity entries after toggling show all', async () => {
     mockGetMovements.mockResolvedValue([
-      { id: 1, from_column: null, from_column_name: null, to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: null, to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
+      { id: 1, from_column: null, from_column_name: '', to_column: 10, to_column_name: 'To Do', from_swimlane: null, from_swimlane_name: '', to_swimlane: 20, to_swimlane_name: 'A', moved_by: null, moved_at: '2026-01-01T00:00:00Z', notes: '' },
     ])
     mockGetActivities.mockResolvedValue([
       { id: 1, event_type: 'priority_change', from_value: 'low', to_value: 'high', actor: fakeUser, created_at: '2026-01-02T00:00:00Z' },

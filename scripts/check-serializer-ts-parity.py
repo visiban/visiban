@@ -10,8 +10,16 @@ RELATIONSHIP TO #821 — READ THIS FIRST
 --------------------------------------
 Field *names* are already checked. `backend/boards/tests/test_ts_serializer_drift.py`
 (#821, shipped in 1.1) walks 14 serializer -> interface pairs and asserts their
-read-visible field names match in both directions. It covers more pairs than this
-gate does, and it is not superseded by it.
+read-visible field names match in both directions. It is not superseded by this
+gate, and this gate is not superseded by it: #821 reads the serializer *classes*,
+so it reaches three pairs (`BoardFull`, `CardActivity`, `CardAttachment`) that
+`drf-spectacular` emits no component for and that therefore cannot be diffed
+here at all.
+
+The reverse asymmetry — this gate checking types on five pairs while #821
+name-checked fourteen — was closed by #1139. `COMPONENT_MAP` below now covers
+every pair either check can see, so a green run means "the published document
+and the interfaces agree", not "five of them do".
 
 What that test cannot see is **types**, and **what the published schema actually
 says**. It introspects the serializer classes directly (`instance.fields`), so a
@@ -73,6 +81,17 @@ false one. Deliberately not an AST parse: field names, one type expression per
 field, and rough optionality are all this needs, and a regex extractor keeps the
 gate dependency-free.
 
+TYPESCRIPT-ONLY OPTIONAL FIELDS
+-------------------------------
+One interface often stands in for several serializers of one resource —
+`Swimlane` unions the public and admin shapes, `Group` unions list and retrieve
+— and `?` is how this codebase spells "present only on some of them". Such a
+field is listed in TS_ONLY_FIELDS below with its reason. That is not a
+suppression and cites no issue, because nothing is broken; it is the same fact
+#821 records in its `extra_allowed_fields_on_ts` column. It is per pair, per
+field, conditional on the field still being optional, and self-invalidating —
+see `TsOnlyField`.
+
 SUPPRESSIONS
 ------------
 Real, already-tracked drift is recorded in SUPPRESSIONS below, spelled
@@ -133,12 +152,39 @@ EXIT_USAGE = 2
 # Schema component -> TypeScript interface. Confirmed against the generated schema:
 # there is no `User` component (the /api/v1/auth/me/ shape is `CurrentUser`), and no
 # `BoardFull` component at all, so `BoardFull` is out of scope here.
+#
+# #1139 extended this from the five pairs #1079 shipped to every pair #821
+# name-checks that `drf-spectacular` actually emits a component for, plus the
+# four same-name pairs #821 does not reach at all (`CardRelation`,
+# `CustomFieldDefinition`, `CustomFieldValue`, `GroupBrief`, `GroupLabel`). The
+# mapping is not keyed on names matching: `CurrentUser`/`User` and
+# `CardChecklist`/`CardChecklistItem` are the same resource under two spellings,
+# and leaving either out would be a coverage hole the gate's own name check
+# cannot see.
+#
+# Three #821 pairs are deliberately absent because the schema has no component
+# to diff against — `BoardFull`, `CardActivity` and `CardAttachment`. That is a
+# missing component, not a passing check; see the coverage table in
+# `docs/development/serializer-ts-parity.md`.
 COMPONENT_MAP = {
     "Board": "Board",
-    "Card": "Card",
-    "CurrentUser": "User",
     "BoardMembership": "BoardMembership",
     "BoardUser": "BoardUser",
+    "Card": "Card",
+    "CardChecklist": "CardChecklistItem",
+    "CardComment": "CardComment",
+    "CardMovement": "CardMovement",
+    "CardRelation": "CardRelation",
+    "Column": "Column",
+    "CurrentUser": "User",
+    "CustomFieldDefinition": "CustomFieldDefinition",
+    "CustomFieldValue": "CustomFieldValue",
+    "Group": "Group",
+    "GroupBrief": "GroupBrief",
+    "GroupLabel": "GroupLabel",
+    "Label": "Label",
+    "Swimlane": "Swimlane",
+    "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
 }
 
 
@@ -239,6 +285,63 @@ SUPPRESSIONS: tuple[Suppression, ...] = (
     Suppression(NULLABILITY, "Card", "created_by",
                 schema_repr="not nullable", ts_repr="nullable", issue=1138,
                 reason="null once the creating user is deleted (SET_NULL)"),
+)
+
+
+# ─── TypeScript-only fields ──────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class TsOnlyField:
+    """One **optional** TypeScript field that the mapped component may not carry.
+
+    Deliberately not a `Suppression`, and deliberately not citing an issue:
+    nothing here is drift, so there is nothing to track and nothing to fix. One
+    TypeScript interface stands in for several serializers of the same resource,
+    and `?` is how this codebase says "present only on some of them" — the same
+    meaning that already exempts an optional field from the nullability check
+    above. `Swimlane` unions the public and admin serializers; `Group` unions
+    the list and retrieve ones. #821's test models the identical fact with its
+    `extra_allowed_fields_on_ts` column, so this mirrors a reviewed convention
+    rather than inventing a second one.
+
+    Three properties keep it from becoming an allowlist:
+
+    * It is **per pair and per field**. Nothing is waived wholesale, and
+      `missing_in_schema` stays fully live for every other field on the pair.
+    * It applies **only when the TypeScript field is optional**. Drop the `?`
+      and the finding comes back, because a required field the API never sends
+      is a real defect.
+    * It is **self-invalidating**, like a suppression. If the component gains
+      the property — someone maps the admin serializer, or moves the field onto
+      the list serializer — the entry stops matching anything and the gate FAILS
+      asking for its removal, rather than sitting here forever describing a
+      state of the world that has moved on.
+    """
+
+    component: str
+    field: str
+    reason: str
+
+    def key(self) -> tuple[str, str, str]:
+        return (MISSING_IN_SCHEMA, self.component, self.field)
+
+
+TS_ONLY_FIELDS: tuple[TsOnlyField, ...] = (
+    # `Swimlane` is one interface over two serializers: SwimlaneSerializer omits
+    # contact_email and notes so a viewer-role member never receives swimlane
+    # PII or internal notes, and SwimlaneAdminSerializer adds them back. Only
+    # the former reaches the schema, because it is the one the viewset declares.
+    TsOnlyField("Swimlane", "contact_email",
+                "SwimlaneAdminSerializer only — withheld from viewers as PII"),
+    TsOnlyField("Swimlane", "notes",
+                "SwimlaneAdminSerializer only — withheld from viewers"),
+    # GroupSerializer (list) omits `ancestors` to avoid an N+1 ancestor walk
+    # across every group in a list response; GroupDetailSerializer (retrieve)
+    # adds it. The schema has both components — this gate maps `Group`, and
+    # `GroupDetail` inherits the rest of the shape from it.
+    TsOnlyField("Group", "ancestors",
+                "GroupDetailSerializer only — omitted from the list serializer to avoid an N+1"),
 )
 
 
@@ -423,6 +526,24 @@ def parse_ts_string_unions(src: str) -> dict[str, frozenset[str]]:
     One level is enough for this codebase's role unions
     (`BoardOrSiteRole = BoardRole | "site_admin"`) and stops well short of a real
     type resolver — an alias this cannot resolve simply yields no enum check.
+
+    A **leading or trailing pipe** is tolerated, because the house style for a
+    long alias is exactly that:
+
+        export type CustomFieldType =
+          | "text"
+          | "number";
+
+    Splitting that on `|` yields an empty first part, and treating the empty
+    string as an alias name to resolve made the whole alias unresolvable.
+    Unresolvable then reaches `classify_ts`, which files any capitalised bare
+    name under `object` — so a field typed with such an alias was reported as
+    `type_family: schema says string; TypeScript says object`, a pure false
+    positive, and every *real* enum comparison on that alias was silently
+    skipped. `_parse_interface_body` already guards this style for field types
+    (see its docstring); the alias parser did not, and five aliases
+    (`CustomFieldType`, `CardActivityEventType`, `CardRelationErrorCode`,
+    `EmailTestErrorCode`, `PersonalAccessTokenScope`) were affected (#1139).
     """
     clean = strip_ts_comments(src)
     raw = {m.group(1): " ".join(m.group(2).split()) for m in _TYPE_ALIAS_RE.finditer(clean)}
@@ -436,6 +557,9 @@ def parse_ts_string_unions(src: str) -> dict[str, frozenset[str]]:
         members: set[str] = set()
         for part in raw[name].split("|"):
             part = part.strip()
+            if not part:
+                # Leading/trailing pipe in the multi-line house style.
+                continue
             if len(part) >= 2 and part[0] in "\"'" and part[-1] == part[0]:
                 members.add(part[1:-1])
             else:
@@ -443,6 +567,10 @@ def parse_ts_string_unions(src: str) -> dict[str, frozenset[str]]:
                 if sub is None:
                     return None
                 members |= sub
+        if not members:
+            # Not a string union at all (e.g. `export type X = Record<string, y>`).
+            # Returning an empty set would compare as an enum of nothing.
+            return None
         out = frozenset(members)
         resolved[name] = out
         return out
@@ -676,6 +804,49 @@ def compare(schema: dict, interfaces: dict[str, dict[str, TsField]], unions: dic
     return findings, errors
 
 
+def apply_ts_only(
+    findings: list[Finding],
+    interfaces: dict[str, dict[str, TsField]],
+    allowances: tuple[TsOnlyField, ...],
+) -> tuple[list[Finding], list[TsOnlyField], list[str]]:
+    """Drop `missing_in_schema` findings covered by a `TS_ONLY_FIELDS` entry.
+
+    Runs before `apply_suppressions` and on the same shape of contract: an
+    allowance that matches nothing is stale and fails the gate. `interfaces` is
+    needed because optionality lives on the TypeScript field, not on the
+    finding — an allowance for a field someone has since made required does not
+    apply, and says so rather than quietly covering it.
+    """
+    by_key = {f.key(): f for f in findings}
+    allowed: list[TsOnlyField] = []
+    stale: list[str] = []
+    used: set[tuple[str, str, str]] = set()
+
+    for a in allowances:
+        f = by_key.get(a.key())
+        if f is None:
+            stale.append(
+                f"  TS-only allowance {a.component}.{a.field}\n"
+                f"    recorded: {a.reason}\n"
+                f"    but the schema component now carries this property. Delete this entry."
+            )
+            continue
+        ts_field = interfaces.get(f.interface, {}).get(a.field)
+        if ts_field is None or not ts_field.optional:
+            stale.append(
+                f"  TS-only allowance {a.component}.{a.field}\n"
+                f"    recorded: {a.reason}\n"
+                f"    but `{f.interface}.{a.field}` is no longer optional in TypeScript. A required\n"
+                f"    field the API never sends is a real defect — fix it, or restore the `?`."
+            )
+            continue
+        used.add(a.key())
+        allowed.append(a)
+
+    live = [f for f in findings if f.key() not in used]
+    return live, allowed, stale
+
+
 def apply_suppressions(findings: list[Finding], suppressions: tuple[Suppression, ...]) -> tuple[list[Finding], list[Suppression], list[str]]:
     """Split findings into live and suppressed, and detect stale suppressions.
 
@@ -743,7 +914,18 @@ def load_schema(path: Path | None) -> dict:
 # ─── reporting ───────────────────────────────────────────────────────────────
 
 
-def report(live: list[Finding], suppressed: list[Suppression], stale: list[str]) -> int:
+def report(
+    live: list[Finding],
+    suppressed: list[Suppression],
+    stale: list[str],
+    ts_only: list[TsOnlyField] | None = None,
+) -> int:
+    if ts_only:
+        print(f"TypeScript-only optional fields (by design, not failing) — {len(ts_only)}:")
+        for a in sorted(ts_only, key=lambda x: (x.component, x.field)):
+            print(f"  {a.component}.{a.field} — {a.reason}")
+        print()
+
     if suppressed:
         print(f"Suppressed (tracked, not failing) — {len(suppressed)}:")
         for s in sorted(suppressed, key=lambda x: (x.component, x.field)):
@@ -751,8 +933,8 @@ def report(live: list[Finding], suppressed: list[Suppression], stale: list[str])
         print()
 
     if stale:
-        print(f"STALE SUPPRESSIONS — {len(stale)}:")
-        print("The drift these mask is gone or changed. A suppression that outlives its")
+        print(f"STALE ENTRIES — {len(stale)}:")
+        print("The drift these mask is gone or changed. An entry that outlives its")
         print("reason is how a gate goes quietly green, so this is a failure.\n")
         for s in stale:
             print(s)
@@ -769,8 +951,13 @@ def report(live: list[Finding], suppressed: list[Suppression], stale: list[str])
 
     if stale or live:
         return EXIT_DRIFT
-    print("serializer <-> TypeScript parity: OK"
-          + (f" ({len(suppressed)} suppressed)" if suppressed else ""))
+    notes = []
+    if suppressed:
+        notes.append(f"{len(suppressed)} suppressed")
+    if ts_only:
+        notes.append(f"{len(ts_only)} TypeScript-only")
+    print(f"serializer <-> TypeScript parity: OK across {len(COMPONENT_MAP)} pairs"
+          + (f" ({', '.join(notes)})" if notes else ""))
     return EXIT_OK
 
 
@@ -778,6 +965,18 @@ def report(live: list[Finding], suppressed: list[Suppression], stale: list[str])
 
 _SELF_TEST_TS = '''
 export type Role = "admin" | "viewer";
+
+/* The multi-line, leading-pipe house style for a long alias. Treating the empty
+   first part as an alias name made the whole thing unresolvable, which turned
+   every field typed with it into a false `type_family` object finding and
+   silently switched off its enum check (#1139). */
+export type LeadingPipeRole =
+  | "admin"
+  | "viewer";
+
+/* Not a string union at all — must resolve to nothing rather than to an empty
+   enum, which would compare unequal against every real enum. */
+export type NotAUnion = Record<string, number>;
 
 /** A comment containing { braces } and a // slash and a "quote". */
 export interface Widget {
@@ -790,6 +989,7 @@ export interface Widget {
   owner: Thing | null;
   role: Role;
   extra_only_in_ts: string;
+  optional_only_in_ts?: string;
   untyped: string;
 }
 
@@ -869,8 +1069,19 @@ def self_test() -> int:
         w = interfaces.get("Widget", {})
         check("nested object literal did not leak its inner fields",
               "a" not in w and "b" not in w and "nested" in w)
-        check("comment braces did not corrupt parsing", len(w) == 10)
+        check("comment braces did not corrupt parsing", len(w) == 11)
         check("resolved the Role string union", unions.get("Role") == frozenset({"admin", "viewer"}))
+
+        # A leading-pipe alias must resolve. When it did not, `classify_ts` fell
+        # through to its bare-capitalised-name branch and called it an `object`,
+        # inventing a type_family finding and dropping the enum check (#1139).
+        check("resolved a multi-line leading-pipe alias",
+              unions.get("LeadingPipeRole") == frozenset({"admin", "viewer"}))
+        check("a leading-pipe alias classifies as a string enum, not an object",
+              classify_ts("LeadingPipeRole", unions).family == "string"
+              and classify_ts("LeadingPipeRole", unions).enum == frozenset({"admin", "viewer"}))
+        check("a non-union alias resolves to nothing rather than an empty enum",
+              "NotAUnion" not in unions)
 
         # A `=>` must not be read as a closing bracket. When it was, every field
         # after the first function-typed one vanished and the gate silently
@@ -936,6 +1147,33 @@ def self_test() -> int:
         gone = Suppression(TYPE_FAMILY, "Widget", "id", "string", "number", 1, "fixture")
         _, _, stale3 = apply_suppressions(findings, (gone,))
         check("a suppression for vanished drift is stale", len(stale3) == 1)
+
+        # ── TS-only allowances ────────────────────────────────────────────
+        # An optional TypeScript field absent from the component is covered.
+        check("an optional TS-only field is reported before any allowance applies",
+              (MISSING_IN_SCHEMA, "optional_only_in_ts") in kinds)
+        opt_allow = TsOnlyField("Widget", "optional_only_in_ts", "fixture")
+        live_a, allowed_a, stale_a = apply_ts_only(findings, interfaces, (opt_allow,))
+        check("an allowance removes its finding from the live set",
+              all(f.key() != opt_allow.key() for f in live_a))
+        check("an allowance is reported as allowed", len(allowed_a) == 1)
+        check("a matching allowance is not stale", not stale_a)
+        check("an allowance does not touch the other pair's findings",
+              any(f.key() == (MISSING_IN_SCHEMA, "Widget", "extra_only_in_ts") for f in live_a))
+
+        # An allowance for a REQUIRED field does not apply — that is real drift.
+        req_allow = TsOnlyField("Widget", "extra_only_in_ts", "fixture")
+        live_b, allowed_b, stale_b = apply_ts_only(findings, interfaces, (req_allow,))
+        check("an allowance for a required TS field is stale, not honored",
+              not allowed_b and len(stale_b) == 1)
+        check("the required field's finding survives the rejected allowance",
+              any(f.key() == req_allow.key() for f in live_b))
+
+        # An allowance for a field the component now carries is stale.
+        served = TsOnlyField("Widget", "name", "fixture")
+        _, allowed_c, stale_c = apply_ts_only(findings, interfaces, (served,))
+        check("an allowance for a property the schema now has is stale",
+              not allowed_c and len(stale_c) == 1)
 
         # A clean pair produces nothing.
         clean_schema = {"components": {"schemas": {"Widget": {"properties": {"id": {"type": "integer"}}}}}}
@@ -1011,9 +1249,16 @@ def main(argv: list[str]) -> int:
             print(f"  - {e}", file=sys.stderr)
         return EXIT_USAGE
 
+    # `--no-suppressions` waives the TS-only allowances too: it is documented as
+    # "report every mismatch, including tracked ones", and an audit that still
+    # hid three of them would not be the stricter run it claims to be.
+    if args.no_suppressions:
+        live, allowed, stale = findings, [], []
+    else:
+        live, allowed, stale = apply_ts_only(findings, interfaces, TS_ONLY_FIELDS)
     active = () if args.no_suppressions else SUPPRESSIONS
-    live, suppressed, stale = apply_suppressions(findings, active)
-    return report(live, suppressed, stale)
+    live, suppressed, sup_stale = apply_suppressions(live, active)
+    return report(live, suppressed, stale + sup_stale, allowed)
 
 
 if __name__ == "__main__":

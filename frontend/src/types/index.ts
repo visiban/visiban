@@ -424,18 +424,23 @@ export interface CardMovement {
   /** Identifies the card this movement belongs to — useful in board-level history lists. */
   card_uid: string;
   card_title: string;
+  // The four *_name fields are denormalized CharFields on CardMovement, kept so
+  // history still reads correctly after a column or swimlane is deleted. Like
+  // the *_uid fields below they are `null=False, blank=True, default=""` on the
+  // model, so the API returns "" — never null — when there is no origin (#1139).
+  // Every consumer already tests them for truthiness, which treats "" the same.
   from_column: number | null;
-  from_column_name: string | null;
+  from_column_name: string;
   // Backend CardMovementSerializer returns "" (not null) for missing FK UIDs.
   from_column_uid: string;
   to_column: number | null;
-  to_column_name: string | null;
+  to_column_name: string;
   to_column_uid: string;
   from_swimlane: number | null;
-  from_swimlane_name: string | null;
+  from_swimlane_name: string;
   from_swimlane_uid: string;
   to_swimlane: number | null;
-  to_swimlane_name: string | null;
+  to_swimlane_name: string;
   to_swimlane_uid: string;
   moved_by: BoardUser | null;
   moved_at: string;
