@@ -73,3 +73,60 @@ class SettingsExtensionPointTests(TestCase):
         from visiban import settings
         self.assertTrue(hasattr(settings, "INSTALLED_APPS"))
         self.assertIn("boards", settings.INSTALLED_APPS)
+
+
+class NotificationDeliveryExtensionPointTests(TestCase):
+    """``post_notification_created`` must stay attachable from outside OSS (#356).
+
+    Enterprise #34 adds Slack/Teams/webhook delivery by connecting to this
+    signal. Its name and kwargs are a 1.0+ commitment, and the receivers live in
+    a repo this one cannot grep — so the shape is pinned here rather than
+    discovered by a customer.
+    """
+
+    def test_signal_exists_and_is_a_django_signal(self):
+        from django.dispatch import Signal
+        from boards import signals
+
+        self.assertIsInstance(signals.post_notification_created, Signal)
+
+    def test_every_notification_creation_path_goes_through_the_funnel(self):
+        """No creation site may bypass ``create_notifications``.
+
+        ``bulk_create`` sends no ``post_save``, so a site that calls the manager
+        directly is invisible to every delivery backend. That hole is not
+        detectable from the enterprise side, which is why it is asserted here:
+        ``Notification.objects.create``/``bulk_create`` must appear only in the
+        funnel itself, in migrations, and in seed/test fixtures.
+        """
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parents[2]
+        allowed = {
+            # The funnel.
+            "boards/services/notifications.py",
+            # Seeded fixture data is not an event anybody asked to be told about.
+            "boards/management/commands/seed_demo_data.py",
+        }
+        offenders = []
+        for path in sorted(root.glob("**/*.py")):
+            rel = path.relative_to(root).as_posix()
+            if (
+                rel in allowed
+                or "/migrations/" in rel
+                or "/tests/" in rel
+                or rel.startswith(".venv/")
+                or "/seed_data/" in rel
+            ):
+                continue
+            text = path.read_text()
+            if "Notification.objects.create(" in text or "Notification.objects.bulk_create(" in text:
+                offenders.append(rel)
+        self.assertEqual(
+            offenders,
+            [],
+            "These modules create Notification rows without going through "
+            "boards.services.notifications.create_notifications, so "
+            "post_notification_created never fires for them: "
+            f"{offenders}",
+        )

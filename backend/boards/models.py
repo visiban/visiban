@@ -550,6 +550,11 @@ class Notification(models.Model):
         CARD_MOVED = "card_moved", "card moved"
         STALE = "stale", "stale"
         BOARD_INVITE = "board_invite", "board invite"
+        # Added in 1.2 (#356). Purely additive: ``action_type`` is a CharField
+        # with ``choices`` and no database CHECK constraint, so a new value emits
+        # no DDL and locks nothing. Existing clients that switch on the value
+        # must treat an unknown action_type as generic — the API docs say so.
+        DUE_SOON = "due_soon", "due soon"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
