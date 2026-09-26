@@ -1,7 +1,15 @@
 # Host ports are parameterized so this stack can run alongside another Compose
 # project on the same machine. Override DB_PORT / BACKEND_PORT / FRONTEND_PORT
 # (and COMPOSE_PROJECT_NAME) in .env when you need a second checkout to coexist.
-name: ${COMPOSE_PROJECT_NAME:-visiban}
+#
+# The default is `visiban-dev`, NOT `visiban`: docker-compose.prod.yml pins
+# `visiban`, both files declare a bare `pgdata:` volume, and both define `db`,
+# `valkey` and `backend`. Sharing a project name would mean sharing
+# `<project>_pgdata` — and Postgres applies POSTGRES_PASSWORD only on first
+# init, so whichever stack booted second would meet the other's password, or
+# land the dev SECRET_KEY on production data. Same-named services in one
+# project also recreate each other's containers in place on `up`.
+name: ${COMPOSE_PROJECT_NAME:-visiban-dev}
 
 services:
   db:

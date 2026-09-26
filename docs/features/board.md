@@ -177,7 +177,13 @@ The **urgency badge** at Comfortable / Standard picks the most urgent of: Overdu
 
 Fields hidden from the card face at Comfortable / Standard (weight, attachment count) still appear on the **card peek** (hover for 600 ms) as a single muted line — `Weight 5 · 3 attachments`. The full detail panel always shows everything.
 
-Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — Card density is per-board and admin-controlled.
+Existing boards upgraded from 1.0 are migrated to **Dense** so they keep their pre-1.1 visual until an admin chooses otherwise. Per-user per-field hide preferences from 1.0 (browser-stored) are silently dropped — the board admin's setting is now the default density for everyone, unless a member sets their own personal override (see below).
+
+#### Personal density override
+
+> **Added in 1.2**
+
+Any board member — not just admins — can flip **Use my own density** in **Board Settings → Display** and choose Comfortable, Standard, or Dense for their own view. This overrides the board's admin-set default without changing it for anyone else, including other admins. The override is stored in the browser (not synced across devices) and is board-scoped: turning it off, or clearing it, reverts that device to the board's admin-set default (#974).
 
 Empty cells show a dashed border to indicate they are valid drop targets even when no cards are present.
 
@@ -346,6 +352,72 @@ Saved filters are private to each user — other board members cannot see or mod
 | `GET` | `/api/v1/boards/{id}/saved-filters/` | List saved filters for the current user |
 | `POST` | `/api/v1/boards/{id}/saved-filters/` | Save a new filter preset |
 | `DELETE` | `/api/v1/boards/{id}/saved-filters/{filter_id}/` | Delete a saved filter |
+
+## Grid overlays
+
+> **Added in 1.2**
+
+An **overlay** shades each cell of the board grid from a single number per cell — a
+reading layer drawn *on top of* the grid, not a different view of it. The grid keeps its
+exact layout when an overlay is on: nothing moves, nothing is hidden, and drag-and-drop,
+card creation, and filtering all behave the same.
+
+Pick one from the **Overlay** dropdown in the board toolbar, next to **Filters**:
+
+| Overlay | What it shows |
+|---|---|
+| **None** (default) | No overlay — the board renders unchanged |
+| **Card count** | How many visible cards sit in each cell, relative to the busiest cell on the board |
+
+The choice is remembered per board in `localStorage` under `board:{boardId}:grid-overlay`,
+so it survives a reload but never follows you to another board. It is a personal reading
+preference available to every role, including viewers: turning an overlay on changes
+nothing for your teammates and writes nothing to the server.
+
+### How a cell is shaded
+
+Every overlay shares one scale with four steps, measured against the largest value
+currently visible on the board. A cell whose value is zero is left completely untouched,
+and when every cell with a value has the *same* value the whole board is drawn at the
+quietest step — a board where nothing stands out should not look alarming.
+
+Each step is encoded **three** ways, so the ordering never depends on telling colors
+apart:
+
+1. **Tint** — a single-hue blue wash that deepens with the value. It is deliberately not
+   a green→amber→red gradient: a busy cell is not a problem, and the board already uses
+   amber and red for card aging and over-limit columns.
+2. **A bar along the cell's bottom edge** — 1px, 2px, 3px, or 4px tall. Height, not hue.
+3. **The value itself**, in the cell's top-right corner. While an overlay is on it
+   replaces the usual card-count badge, so the corner never shows two different numbers.
+
+Screen readers get the reading in words — for example "Card count: 4 cards, level 3 of
+4" — and selecting an overlay is announced ("Overlay: Card count" / "Overlay off").
+
+A legend floats in the bottom-right corner of the grid whenever an overlay is active. It
+names the overlay, describes it in one line, and lists the four steps with the range of
+values actually observed in each; a step no cell landed in shows `—`. When the active
+overlay has nothing to show, the legend says so instead of showing an empty ramp. The
+legend is passive — it never intercepts a click — and it fades out while you drag. When a
+filter is what left the overlay with nothing to scale, the legend says that rather than
+claiming the board is empty.
+
+Because the overlay reads the cards that are currently *visible*, narrowing the filter bar
+re-scales it and the labels switch to "matching cards", so the shading always agrees with
+what is on screen. Hidden columns and swimlanes are excluded from the scale, so a card
+parked out of sight cannot wash out every tint on the board.
+
+### Notes
+
+- Overlays are **stackable with views, not a replacement for them** — Analytics is a tab,
+  an overlay is a layer, and both can be on at once
+- The **Card count** overlay is computed from the cards the board already loaded. It
+  issues no extra requests and no per-cell queries
+- Collapsed columns and collapsed swimlanes render their compact count stubs rather than
+  full cells, so they carry no shading — but they still count toward the scale, so folding
+  a lane never silently re-shades the rest of the board
+- The cell being dragged over is never shaded, so the drop-target highlight stays
+  unambiguous
 
 ## Views
 

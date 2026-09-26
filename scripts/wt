@@ -88,7 +88,15 @@ REPO_NAME="$(basename "$REPO_ROOT")"
 WT_BASE="${WT_BASE:-${REPO_ROOT%/*}/${REPO_NAME}-wt}"
 WT_CAP="${WT_CAP:-10}"
 WT_WARN="${WT_WARN:-8}"
-COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-$REPO_NAME}}"
+# Defaults to "<repo>-dev", not "<repo>". Compose precedence is
+# -p > COMPOSE_PROJECT_NAME > `name:` > directory basename, so an exported
+# COMPOSE_PROJECT_NAME overrides the `name:` pinned in every compose file. With
+# $REPO_NAME here, every worktree exported "visiban" — which is what
+# docker-compose.prod.yml pins, so the shared dev stack and the production stack
+# collapsed into one project, sharing <project>_pgdata and the db/valkey/backend
+# service names. Keeping the "-dev" suffix preserves the cross-worktree sharing
+# this variable exists for while staying clear of prod.
+COMPOSE_PROJECT_NAME_DEFAULT="${WT_COMPOSE_PROJECT:-${COMPOSE_PROJECT_NAME:-${REPO_NAME}-dev}}"
 WT_LOCK_LABEL="${WT_LOCK_LABEL:-status::wip}"
 WT_STASH_NS="refs/wt-stash"
 

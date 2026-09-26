@@ -230,6 +230,53 @@ describe('SelectDropdown', () => {
 })
 
 describe('SingleSelectDropdown', () => {
+  // #1147 — portalMenu escapes an `overflow-x-auto` toolbar strip, which clips an
+  // in-flow `absolute top-full` menu to the strip's own height.
+  describe('portalMenu', () => {
+    it('keeps the menu inside the component subtree by default', async () => {
+      const { container } = render(
+        <SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+      expect(container.querySelector('[role="menu"]')).not.toBeNull()
+    })
+
+    it('renders the menu outside the clipping subtree when portalMenu is set', async () => {
+      const { container } = render(
+        <SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+      const menu = screen.getByRole('menu')
+      expect(menu).toBeInTheDocument()
+      expect(container.contains(menu)).toBe(false)
+      expect((menu as HTMLElement).style.position).toBe('fixed')
+    })
+
+    it('still selects an option and closes when the menu is portaled', async () => {
+      const onChange = vi.fn()
+      render(
+        <SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={onChange} portalMenu />
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Option B' }))
+      expect(onChange).toHaveBeenCalledWith('b')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('closes a portaled menu on an outside click', async () => {
+      render(
+        <>
+          <SingleSelectDropdown label="Overlay" options={options} selected={null} onChange={() => undefined} portalMenu />
+          <button type="button">Outside</button>
+        </>
+      )
+      await userEvent.click(screen.getByRole('button', { name: /Overlay/ }))
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Outside' }))
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+  })
+
   it('renders without crashing', () => {
     render(
       <SingleSelectDropdown label="Filter" options={options} selected={null} onChange={() => undefined} />

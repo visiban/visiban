@@ -64,11 +64,16 @@ import { usePersistedFilters } from "../../hooks/usePersistedFilters";
 import { useSavedFilters } from "../../hooks/useSavedFilters";
 import { useBoardResync } from "../../hooks/useBoardResync";
 import SectionErrorBoundary from "../SectionErrorBoundary";
-import { LayoutCompactIcon, LayoutExpandedIcon } from "./toolbarIcons";
+import { LayoutCompactIcon, LayoutExpandedIcon, OverlayIcon } from "./toolbarIcons";
 import BoardActivityDrawer from "./BoardActivityDrawer";
 import type { ActivityEntry } from "./BoardActivityDrawer";
 import { useCardSearch } from "../../hooks/useCardSearch";
 import { todayInTimezone } from "../../utils/date";
+import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
+import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
+import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import { buildGridOverlayState } from "../../gridOverlays/slot";
+import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters } from "../../utils/filterCards";
 import ModalWrapper from "../shared/ModalWrapper";
 
@@ -333,6 +338,28 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // that already flows down to SwimlaneRow -> BoardCell -> CardItem.
   const [cardDensityOverride, setCardDensityOverride] = useCardDensityOverride(board.id);
   const effectiveCardDensity = cardDensityOverride ?? board.card_density;
+  // #1147 — which grid overlay is shading the cells. Board-scoped, per-user, and
+  // `none` by default, so an un-configured board is byte-for-byte the pre-#1147 one.
+  const [gridOverlayId, setGridOverlayId] = useGridOverlayPref(board.id);
+  const gridOverlay = useMemo(() => getGridOverlay(gridOverlayId), [gridOverlayId]);
+  const gridOverlayOptions = useMemo(
+    () => listGridOverlays().map((o) => ({ value: o.id, label: o.label })),
+    [],
+  );
+  // Screen-reader confirmation that the overlay changed — the tint appearing is the
+  // only other feedback, and a tint is not available to every user. Disjoint from the
+  // drag announcer below it: one fires on a pointer drag, the other on a toolbar click.
+  const [overlayAnnouncement, setOverlayAnnouncement] = useState("");
+  const handleGridOverlayChange = useCallback(
+    (next: string | null) => {
+      const resolved = resolveGridOverlayId(next);
+      setGridOverlayId(resolved);
+      setOverlayAnnouncement(
+        resolved === NONE_OVERLAY_ID ? "Overlay off" : `Overlay: ${getGridOverlay(resolved)?.label ?? resolved}`,
+      );
+    },
+    [setGridOverlayId],
+  );
   // useCardLayoutPref's setter only accepts a direct value, so keyboard
   // handlers (registered outside cardLayout's dep array) read the latest
   // layout through this ref to avoid closing over a stale value.
@@ -1237,7 +1264,17 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
   // cards are already loaded via the /full/ endpoint. The two results are intersected here.
   // Note: server search matches title+description only; client-side filterCards additionally
   // matches assignee name and label name — this is intentional (client has richer context).
-  const filteredCardIds: Set<number> | null = (() => {
+  // Use the user's stored timezone so that "Today" / "Overdue" boundaries are computed
+  // at midnight in their local time, not the browser's locale. Read on every render and
+  // passed into the memo below as a dependency rather than called inside it: it is a
+  // clock read, and caching it would freeze the day boundary for a session left open
+  // across local midnight with a due-date filter active.
+  const todayStr = todayInTimezone(userTimezone);
+
+  // Memoized (#1147): this used to be a bare IIFE that allocated a fresh Set on every
+  // render whenever a filter was active, which silently defeated any downstream useMemo
+  // keyed on it — including the grid overlay's per-cell map.
+  const filteredCardIds: Set<number> | null = useMemo(() => {
     const clientFiltersActive = hasActiveClientFilters(filters);
 
     if (!clientFiltersActive && searchMatchIds === null) return null;
@@ -1247,13 +1284,32 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       return searchMatchIds;
     }
 
-    // Use the user's stored timezone so that "Today" / "Overdue" boundaries
-    // are computed at midnight in their local time, not the browser's locale.
-    const todayStr = todayInTimezone(userTimezone);
-
     // filterCards handles the server search intersection via its searchResults param.
     return new Set(filterCards(board.cards, filters, searchMatchIds ? [...searchMatchIds] : null, todayStr));
-  })();
+  }, [filters, searchMatchIds, board.cards, todayStr]);
+
+  /**
+   * #1147 — the active overlay's per-cell values for the whole grid, built once per
+   * board render and handed down to every `SwimlaneRow`.
+   *
+   * Scope choices, both deliberate:
+   *  - *hidden* columns/swimlanes are excluded, so a card parked in a column the user
+   *    hid cannot inflate the scale and wash out every visible tint;
+   *  - *collapsed* columns/swimlanes are NOT excluded — collapsing is a reading
+   *    gesture, and re-scaling the whole board because a lane folded would make the
+   *    tints untrustworthy.
+   * Cards are the filtered (visible) set, so the overlay never contradicts the grid.
+   */
+  const gridOverlayState = useMemo(
+    () =>
+      buildGridOverlayState(gridOverlay, {
+        columns: board.columns.filter((c) => !hiddenColumnIds.has(c.id)),
+        swimlanes: board.swimlanes.filter((s) => !hiddenSwimlaneIds.has(s.id)),
+        cards: filteredCardIds ? board.cards.filter((c) => filteredCardIds.has(c.id)) : board.cards,
+        isFiltered: filteredCardIds !== null,
+      }),
+    [gridOverlay, board.columns, board.swimlanes, board.cards, hiddenColumnIds, hiddenSwimlaneIds, filteredCardIds],
+  );
 
   const handleColumnAdded = useCallback((col: Column) => {
     onColumnAdded(col);
@@ -1850,6 +1906,26 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
               )}
             </button>
           </Tooltip>
+          {/* Overlay picker (#1147). Zone 2, right after Filters: Filters changes
+              *which cards*, the overlay changes *what is drawn over the cells*.
+              Deliberately never folded into the overflow kebab — an OverflowItem
+              carries an action, not a selection, and the picker fits inside Row 2's
+              never-folded set at every supported width. `portalMenu` is required:
+              Row 2's strip is `overflow-x-auto` on an `h-10` box, which clips an
+              in-flow dropdown menu to 40px. `selected` maps None to null so the
+              trigger reads "Overlay" at rest and takes the primitive's active
+              treatment — with the overlay's own name — exactly when one is on. */}
+          <SingleSelectDropdown
+            label="Overlay"
+            triggerPrefix={OverlayIcon}
+            portalMenu
+            // Row 2 is a text-xs strip (Filters, Archived, SplitButton all text-xs) but
+            // the primitive's own base is text-sm, so this needs `!` to win.
+            className="!text-xs"
+            options={gridOverlayOptions}
+            selected={gridOverlayId === NONE_OVERLAY_ID ? null : gridOverlayId}
+            onChange={handleGridOverlayChange}
+          />
           {!foldToolbarControls && (
           <Tooltip content={
             cardLayout === "compact"
@@ -2094,6 +2170,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
       )}
 
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{dndAnnouncement}</div>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">{overlayAnnouncement}</div>
 
       <SectionErrorBoundary section="Board grid">
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} collisionDetection={collisionDetection}>
@@ -2103,6 +2180,13 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           Single scroll container — header and body share the same horizontal
           scroll so fixed-width columns always line up.
         */}
+        {/* `relative` wrapper around the scroll container ONLY (#1147) — it is what
+            the floating overlay legend anchors to. Anchoring to the flex-row above
+            would put the legend on top of the activity drawer, and anchoring inside
+            the scroller would make it scroll away from the grid it explains. Net
+            geometry is unchanged: `flex-1` moves out here, the scroller keeps its own
+            inside the new column. */}
+        <div className="relative flex-1 min-w-0 flex flex-col min-h-0">
         <div ref={setScrollEl} className="board-scroll flex-1 overflow-auto bg-sunken">
           {/*
             min-w-max wrapper — gives the sticky header row and all swimlane
@@ -2249,6 +2333,8 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                       customFieldDefinitions={board.custom_field_definitions}
                       swimlaneFieldDefinitions={board.swimlane_custom_field_definitions}
                       onCardUpdated={onCardUpdated}
+                      overlayCells={gridOverlayState?.cells}
+                      overlayLabel={gridOverlayState?.label}
                     />
                   </React.Fragment>
                 ));
@@ -2287,6 +2373,14 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           )}
           </div>{/* end min-w-max wrapper */}
         </div>{/* end board-scroll */}
+        {gridOverlayState && (
+          <GridOverlayLegend
+            state={gridOverlayState}
+            isDragging={activeCard !== null || activeColumn !== null || activeSwimlane !== null}
+            isLargeViewport={isLargeViewport}
+          />
+        )}
+        </div>{/* end legend anchor */}
 
         {drawerOpen && (
           <BoardActivityDrawer

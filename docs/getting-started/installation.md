@@ -106,6 +106,36 @@ Then restart the backend:
 docker compose restart backend
 ```
 
+### Compose project names
+
+The development and production stacks pin **different** Compose project names, and they must stay different:
+
+| File | Project name |
+|---|---|
+| `docker-compose.yml` | `${COMPOSE_PROJECT_NAME:-visiban-dev}` |
+| `docker-compose.prod.yml` | `visiban` |
+| `docker-compose.oidc.yml` | *(none — it is an overlay, and a second file's `name:` would rename the stack it extends)* |
+
+Both stacks declare a bare `pgdata:` volume and both define `db`, `valkey` and `backend`. If they resolve to the same project they share `<project>_pgdata` — and because Postgres applies `POSTGRES_PASSWORD` only on first init, whichever stack starts second meets the other's password, or the development `SECRET_KEY` lands on production data. Same-named services in one project also recreate each other's containers in place on `up`.
+
+!!! warning "Upgrading from a checkout where dev defaulted to `visiban`"
+    The development stack previously defaulted to the project name `visiban`, which is what `docker-compose.prod.yml` resolves to on a default clone. It now defaults to `visiban-dev`.
+
+    Your **production** stack is unaffected — `visiban` is exactly what it already resolved to, so the new explicit pin is a no-op.
+
+    Your **development** containers and volumes are namespaced under the old name, so the first `docker compose up` after this change starts an empty database. The old data is still there under `visiban_pgdata`; either re-seed (the usual choice for a dev database) or copy it across:
+
+    ```bash
+    docker volume ls | grep pgdata          # visiban_pgdata is the old one
+    docker compose up -d                     # creates visiban-dev_pgdata
+    # then restore a dump, or: docker run --rm -v visiban_pgdata:/from \
+    #   -v visiban-dev_pgdata:/to alpine sh -c 'cp -a /from/. /to/'
+    ```
+
+    `docker compose -p visiban up` still reaches the old stack if you need it.
+
+    `scripts/wt` exports `COMPOSE_PROJECT_NAME=visiban-dev` for the same reason — an exported variable overrides every `name:` pin, so worktrees share one development stack while staying clear of production.
+
 ### Running two Visiban stacks side-by-side
 
 If you have a second checkout of Visiban (or another Compose project that uses the same default ports), the two stacks will fight over `5432` / `8000` / `5173` on the host. The default `docker-compose.yml` reads host ports and the Compose project name from `.env` so a second checkout can coexist without changes to source.
