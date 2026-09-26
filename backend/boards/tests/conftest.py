@@ -29,7 +29,7 @@ def _make_user(username=None, password="pass", **kwargs):
 
     ``username`` defaults to a unique auto-generated name so tests that don't
     care about the username never collide.  Pass ``**kwargs`` for fields like
-    ``notif_due_soon=True``.
+    ``notif_stale=True``.
     """
     global _user_counter
     _user_counter += 1

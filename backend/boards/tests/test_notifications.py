@@ -21,8 +21,9 @@ def make_board(owner):
 
 class StaleCardNotificationTests(TestCase):
     def setUp(self):
-        # notif_due_soon=True — stale-card notifications respect this preference.
-        self.owner = User.objects.create_user(username="owner", password="pass", notif_due_soon=True)
+        # notif_stale=True — stale-card notifications respect this preference.
+        # (It was notif_due_soon before #356 split the two events apart.)
+        self.owner = User.objects.create_user(username="owner", password="pass", notif_stale=True)
         self.board, self.col_a, self.col_b, self.swim = make_board(self.owner)
         self.threshold = self.board.staleness_threshold_days
 
@@ -70,7 +71,7 @@ class StaleCardNotificationTests(TestCase):
         self.assertEqual(Notification.objects.filter(card=card).count(), 0)
 
     def test_stale_card_notifies_assignee(self):
-        assignee = User.objects.create_user(username="assignee", password="pass", notif_due_soon=True)
+        assignee = User.objects.create_user(username="assignee", password="pass", notif_stale=True)
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
         card = self._make_card(assignee=assignee)
         self._make_stale_movement(card, days_ago=self.threshold + 1)

@@ -58,9 +58,9 @@ class ArchivedCardStaleScanTests(TestCase):
     """notify_stale_cards must skip archived cards entirely."""
 
     def setUp(self):
-        # notif_due_soon=True so the owner is eligible for notifications
+        # notif_stale=True so the owner is eligible for notifications (#356)
         self.owner = User.objects.create_user(
-            username="scan_owner", password="pass", notif_due_soon=True,
+            username="scan_owner", password="pass", notif_stale=True,
         )
         self.board = _make_board(self.owner)
         self.threshold = self.board.staleness_threshold_days  # default 7

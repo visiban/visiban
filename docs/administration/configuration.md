@@ -112,7 +112,7 @@ helm upgrade --install visiban ./helm/visiban \
 
 ## Email (SMTP)
 
-Visiban uses Django's email backend for password resets and email verification.
+Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).
 
 There are two ways to configure it, and **exactly one of them is in effect at a time** —
 settings are never merged across the two:
@@ -140,6 +140,8 @@ Configure these in `.env` (Docker Compose) or as environment variables in your H
 | `EMAIL_USE_TLS` | Use STARTTLS | `true` |
 | `EMAIL_USE_SSL` | Use implicit TLS/SSL. Mutually exclusive with `EMAIL_USE_TLS`. *(new in 1.2)* | `false` |
 | `EMAIL_TIMEOUT` | SMTP socket timeout, in seconds. *(new in 1.2)* | `10` |
+| `NOTIFICATION_EMAIL_ENABLED` | Master switch for outbound **notification** email. Set to `false` to stop notification mail instance-wide without touching per-user preferences. Password resets and email verification are unaffected — silencing notifications must not lock anyone out of account recovery. *(new in 1.2)* | `true` |
+| `NOTIFICATION_EMAIL_TIMEOUT` | Socket timeout floor, in seconds, for notification email only. Notification mail is sent from the card-mutation path, so an unreachable SMTP host would otherwise hang a worker; this bounds it. Applied only when neither `EMAIL_TIMEOUT` nor the admin-UI timeout is set, so a timeout you configured is never overridden. *(new in 1.2)* | `10` |
 | `DEFAULT_FROM_EMAIL` | Sender address for outgoing emails | `noreply@example.com` |
 | `VISIBAN_SECRET_ENCRYPTION_KEY` | Optional dedicated key for secrets stored at rest. *(new in 1.2)* See [Secret rotation](secret-rotation.md#visiban_secret_encryption_key). | *(empty — derived from `DJANGO_SECRET_KEY`)* |
 
@@ -215,6 +217,14 @@ the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password — see
     so grant `is_site_admin` accordingly. The action is limited to 5 attempts per hour
     per admin, always delivers to the requesting admin's own address, and every server
     change is recorded in the [admin action log](../api/admin.md#action-log).
+
+!!! note "Notification email is off per user, not per instance"
+    Configuring SMTP does not start sending notification email. Every per-user email
+    preference defaults to **off**, so upgrading an instance that already has working SMTP
+    mails nobody until a user opts in under **Settings → Notifications**. Use
+    `NOTIFICATION_EMAIL_ENABLED=false` if you want to be certain no notification mail can
+    leave the instance regardless of what users have chosen. See
+    [Email notifications](../features/notifications.md#email-notifications).
 
 !!! note "Sender address placeholder"
     Visiban refuses to send mail from the shipped `noreply@example.com` placeholder. In

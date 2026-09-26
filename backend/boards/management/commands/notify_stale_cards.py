@@ -3,6 +3,9 @@ Scan all boards for stale cards and create in-app notifications.
 
 Idempotent: skips cards that already received a staleness notification today.
 
+Recipients opt in with the ``notif_stale`` preference (``notif_due_soon`` before
+1.2 — see #356; existing values were copied across by accounts/0030).
+
 Usage:
     python manage.py notify_stale_cards
     # Add to cron: 0 8 * * * docker compose run --rm backend python manage.py notify_stale_cards
@@ -15,6 +18,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from boards.models import Board, Card, CardMovement, Notification
+from boards.services.notifications import create_notifications
 
 
 class Command(BaseCommand):
@@ -45,8 +49,12 @@ class Command(BaseCommand):
                 ).values_list("assignee_id", flat=True).distinct()
             )
             all_candidate_ids |= assignee_ids
+            # notif_stale, not notif_due_soon (#356). The two events were sharing
+            # one flag whose own UI label described the *other* one; migration
+            # accounts/0030 copies every existing value across, so no user's
+            # effective setting changes here.
             opted_in_ids = set(
-                User.objects.filter(pk__in=all_candidate_ids, notif_due_soon=True)
+                User.objects.filter(pk__in=all_candidate_ids, notif_stale=True)
                 .values_list("pk", flat=True)
             )
 
@@ -117,7 +125,7 @@ class Command(BaseCommand):
                     created_count += 1
 
             if notifications_to_create:
-                Notification.objects.bulk_create(notifications_to_create)
+                create_notifications(notifications_to_create)
 
         self.stdout.write(
             self.style.SUCCESS(

@@ -7,9 +7,13 @@ interface ToggleProps {
   id?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
+  // A disabled control must still be able to say *why* it is disabled. Without
+  // this passthrough the explanation is visible text with nothing tying it to
+  // the switch, so a screen reader announces "dimmed" and no reason (#356).
+  "aria-describedby"?: string;
 }
 
-export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: ToggleProps) {
   return (
     <button
       type="button"
@@ -18,6 +22,7 @@ export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabe
       aria-checked={checked}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 ${

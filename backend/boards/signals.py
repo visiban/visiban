@@ -24,6 +24,9 @@ from .models import CardMovement, Card, Notification
 # Stability: this signal's name and keyword arguments are part of the 1.0+
 # extension surface. Arguments may be added; none may be removed or renamed
 # without a major version bump.
+#
+# NOTE: ``post_notification_created`` below uses the *opposite* dispatch
+# convention (post-commit, ``send_robust``). Do not assume one from the other.
 custom_field_value_changed = Signal()
 
 # Swimlane custom field value change signal (#1140) — the row-level counterpart
@@ -53,7 +56,56 @@ custom_field_value_changed = Signal()
 # Stability: this signal's name and keyword arguments are part of the 1.0+
 # extension surface. Arguments may be added; none may be removed or renamed
 # without a major version bump.
+#
+# Same in-transaction dispatch convention as the card-level signal above, and
+# the same contrast with ``post_notification_created`` below.
 swimlane_custom_field_value_changed = Signal()
+
+
+# Notification created signal (#356) — the OSS extension point for additional
+# notification *delivery* backends. OSS ships email; the enterprise repo attaches
+# Slack, Teams and webhook delivery here without editing any OSS file.
+#
+# sender:       boards.models.Notification
+# notification: the Notification row, with its pk populated
+# recipient:    the recipient User, pre-fetched so a receiver needs no FK query
+# actor:        the User who triggered the event, or None for system events
+#               (staleness and due-date scans). Also pre-fetched.
+# context:      a dict of best-effort structured detail about the originating
+#               event, keyed per ``action_type``. It exists because
+#               ``Notification`` stores only a prose ``verb`` plus card/board FKs
+#               — there is no FK to the comment or the card movement behind the
+#               event, so without this a delivery backend would have to parse
+#               English out of ``verb``. Keys currently populated:
+#                 mentioned  → source ("comment"|"description"),
+#                              comment_id, comment_body (comment source only)
+#                 card_moved → from_column_name, to_column_name
+#                 due_soon   → due_date (ISO date string)
+#               Treat every key as optional and absent-by-default: keys may be
+#               added, and no key may be removed or retyped without a major bump.
+#
+# Dispatch convention — READ THIS, it differs from the two signals above:
+#
+# * Sent from ``boards.services.notifications.create_notifications`` via
+#   ``transaction.on_commit``, so the row is committed and visible before any
+#   receiver runs. A delivery backend must not be able to roll back the very
+#   notification it is reporting, and must not re-query a row that may vanish.
+# * Sent with ``send_robust``, so a receiver that raises is logged (with its
+#   module and qualified name) and dropped. It cannot fail the request or
+#   affect other receivers. A delivery failure is never allowed to break the
+#   write that caused it.
+# * When no atomic block is open — both notification management commands, and
+#   ``notify_new_mentions``, which is itself already called from an on_commit
+#   hook — ``on_commit`` runs the callback **immediately and synchronously**.
+#   A receiver doing network I/O therefore blocks the caller and owns its own
+#   timeout. OSS email does this via ``NOTIFICATION_EMAIL_TIMEOUT``.
+# * Sent once per notification row, not once per batch, even though the rows are
+#   created with ``bulk_create``.
+#
+# Stability: this signal's name and keyword arguments are part of the 1.0+
+# extension surface. Arguments may be added; none may be removed or renamed
+# without a major version bump.
+post_notification_created = Signal()
 
 
 @receiver(post_save, sender=CardMovement)
@@ -89,23 +141,24 @@ def notify_on_card_moved(sender, instance, created, **kwargs):
             mover = "Someone"
     else:
         mover = "Someone"
-    Notification.objects.create(
-        recipient=card.assignee,
-        actor_id=instance.moved_by_id,
-        action_type=Notification.ActionType.CARD_MOVED,
-        verb=f"{mover} moved \"{card.title}\" to {to_col}",
-        card=card,
-        board=card.board,
+    # Imported here, not at module scope: boards.services.notifications imports
+    # this module for ``post_notification_created``, so a top-level import would
+    # be circular.
+    from .services.notifications import create_notifications
+
+    create_notifications(
+        [
+            Notification(
+                recipient=card.assignee,
+                actor_id=instance.moved_by_id,
+                action_type=Notification.ActionType.CARD_MOVED,
+                verb=f"{mover} moved \"{card.title}\" to {to_col}",
+                card=card,
+                board=card.board,
+            )
+        ],
+        context={
+            "from_column_name": instance.from_column_name or "",
+            "to_column_name": instance.to_column_name or "",
+        },
     )
-
-
-@receiver(post_save, sender=Card)
-def notify_on_card_assigned(sender, instance, created, **kwargs):
-    if created:
-        return
-    # Detect assignee change via update_fields hint (not always present)
-    # We use a post_save approach: compare with DB state isn't possible here,
-    # so we rely on the CardViewSet emitting a signal via update() tracking.
-    # This signal fires on every save; the view layer calls notify_assignee()
-    # directly to avoid spurious notifications.
-    pass

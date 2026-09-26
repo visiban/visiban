@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useId } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import type { Location } from "react-router-dom";
@@ -505,19 +505,146 @@ function AccessTokensTab({ user }: { user?: UserDatePrefs | null }) {
   );
 }
 
+type NotifPrefKey =
+  | "notif_card_assigned"
+  | "notif_mentioned"
+  | "notif_due_soon"
+  | "notif_card_moved"
+  | "notif_comment_added"
+  | "notif_stale";
+
+type EmailPrefKey =
+  | "email_notif_card_assigned"
+  | "email_notif_mentioned"
+  | "email_notif_due_soon"
+  | "email_notif_card_moved";
+
+type NotifPrefs = Record<NotifPrefKey, boolean> & Record<EmailPrefKey, boolean>;
+
+interface NotifRowSpec {
+  key: NotifPrefKey;
+  label: string;
+  description: string;
+  /** Omitted for events with no email counterpart in this release. */
+  emailKey?: EmailPrefKey;
+}
+
+const NOTIF_ROWS: NotifRowSpec[] = [
+  { key: "notif_card_assigned", label: "Card assigned to me", description: "When someone assigns a card to you", emailKey: "email_notif_card_assigned" },
+  { key: "notif_mentioned", label: "Someone @mentions me", description: "When you are mentioned in a comment", emailKey: "email_notif_mentioned" },
+  { key: "notif_due_soon", label: "Due date approaching", description: "24h warning before a card you own is due", emailKey: "email_notif_due_soon" },
+  { key: "notif_card_moved", label: "Card I\u2019m watching is moved", description: "When a watched card changes column", emailKey: "email_notif_card_moved" },
+  { key: "notif_comment_added", label: "Comment on a watched card", description: "When someone comments on a card you\u2019re watching" },
+  { key: "notif_stale", label: "Card has gone stale", description: "When a card you own has not moved for a while" },
+];
+
+/**
+ * One event's in-app toggle plus, where the event supports it, a subordinate
+ * email toggle.
+ *
+ * Two structural notes that are load-bearing rather than cosmetic:
+ *
+ * - The row is NOT wrapped in a single `<label>` any more. With two controls in
+ *   one label, a click on the text forwards to the first labelable descendant,
+ *   so clicking the email row's text would flip the in-app switch. Each control
+ *   gets its own `htmlFor` label around its own text block instead.
+ * - The email toggle is disabled while the in-app toggle is off, because email
+ *   delivery rides on the in-app notification row: with no notification there is
+ *   nothing to email, so an enabled-looking toggle would silently do nothing.
+ *   The stored value is deliberately left alone rather than auto-cleared — that
+ *   would need a second PATCH, could half-fail, and would throw away a choice
+ *   the user will want back when they re-enable the in-app notification.
+ *
+ * Extracted as a component so `useId` is called once per row rather than inside
+ * a `.map` callback.
+ */
+function NotificationRow({
+  spec,
+  prefs,
+  saving,
+  onToggle,
+}: {
+  spec: NotifRowSpec;
+  prefs: NotifPrefs;
+  saving: string | null;
+  onToggle: (field: NotifPrefKey | EmailPrefKey) => void;
+}) {
+  const baseId = useId();
+  const appId = `${baseId}-app`;
+  const emailId = `${baseId}-email`;
+  const reasonId = `${baseId}-reason`;
+
+  const appOn = prefs[spec.key];
+  const emailKey = spec.emailKey;
+  const emailOn = emailKey ? prefs[emailKey] : false;
+
+  let emailHelper = "Sends a copy to your account email.";
+  if (emailKey && !appOn) {
+    emailHelper = emailOn
+      ? "Paused while the in-app notification above is off. Your choice is kept."
+      : "Turn on the in-app notification above to enable email.";
+  }
+
+  return (
+    <div role="group" aria-label={spec.label} className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-4">
+        <label htmlFor={appId} className="min-w-0 cursor-pointer">
+          <span className="block text-sm text-fg">{spec.label}</span>
+          <span className="block text-xs text-fg-muted">{spec.description}</span>
+        </label>
+        <Toggle
+          id={appId}
+          checked={appOn}
+          onChange={() => onToggle(spec.key)}
+          disabled={saving === spec.key}
+          aria-label={spec.label}
+        />
+      </div>
+      {emailKey && (
+        <div className="ml-6 border-l-2 border-line pl-4 flex items-center justify-between gap-4">
+          <label
+            htmlFor={emailId}
+            className={`min-w-0 ${appOn ? "cursor-pointer" : "cursor-not-allowed"}`}
+          >
+            <span className={`block text-sm ${appOn ? "text-fg" : "text-fg-muted"}`}>
+              Also send by email
+            </span>
+            <span id={reasonId} className="block text-xs text-fg-muted">
+              {emailHelper}
+            </span>
+          </label>
+          <Toggle
+            id={emailId}
+            checked={emailOn}
+            onChange={() => onToggle(emailKey)}
+            disabled={!appOn || saving === emailKey}
+            aria-label={`Also send by email: ${spec.label}`}
+            aria-describedby={reasonId}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: (u: User) => void }) {
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const prefs = {
+  const prefs: NotifPrefs = {
     notif_card_assigned: user.notif_card_assigned ?? true,
     notif_mentioned: user.notif_mentioned ?? true,
     notif_due_soon: user.notif_due_soon ?? false,
     notif_card_moved: user.notif_card_moved ?? false,
     notif_comment_added: user.notif_comment_added ?? false,
+    notif_stale: user.notif_stale ?? false,
+    email_notif_card_assigned: user.email_notif_card_assigned ?? false,
+    email_notif_mentioned: user.email_notif_mentioned ?? false,
+    email_notif_due_soon: user.email_notif_due_soon ?? false,
+    email_notif_card_moved: user.email_notif_card_moved ?? false,
   };
 
-  const toggle = async (field: keyof typeof prefs) => {
+  const toggle = async (field: NotifPrefKey | EmailPrefKey) => {
     const newVal = !prefs[field];
     setSaving(field);
     setError(null);
@@ -531,35 +658,31 @@ function NotificationsTab({ user, onUserUpdated }: { user: User; onUserUpdated: 
     }
   };
 
-  const rows: { key: keyof typeof prefs; label: string; description: string }[] = [
-    { key: "notif_card_assigned", label: "Card assigned to me", description: "When someone assigns a card to you" },
-    { key: "notif_mentioned", label: "Someone @mentions me", description: "When you are mentioned in a comment" },
-    { key: "notif_due_soon", label: "Due date approaching", description: "24h warning before a card you own is due" },
-    { key: "notif_card_moved", label: "Card I’m watching is moved", description: "When a watched card changes column" },
-    { key: "notif_comment_added", label: "Comment on a watched card", description: "When someone comments on a card you’re watching" },
-  ];
-
   return (
     <div className="flex flex-col gap-5 max-w-lg">
       <h2 className="text-fg text-lg font-semibold">Notifications</h2>
-      <p className="text-sm text-fg-tertiary">Choose which events send you a notification.</p>
-      <div className="flex flex-col gap-3">
-        {rows.map(({ key, label, description }) => (
-          <label key={key} className="flex items-center justify-between gap-4 cursor-pointer">
-            <span>
-              <span className="block text-sm text-fg">{label}</span>
-              <span className="block text-xs text-fg-muted">{description}</span>
-            </span>
-            <Toggle
-              checked={prefs[key]}
-              onChange={() => toggle(key)}
-              disabled={saving === key}
-              aria-label={label}
-            />
-          </label>
+      <div className="flex flex-col gap-1">
+        <p className="text-sm text-fg-tertiary">
+          Choose which events notify you in the app, and which of those are also emailed to you.
+        </p>
+        <p className="text-xs text-fg-muted">
+          An email is a copy of the in-app notification, so the event must be on in the app first.
+          Emails go to your account address and are only sent if your administrator has set up
+          outgoing email.
+        </p>
+      </div>
+      <div className="flex flex-col gap-4">
+        {NOTIF_ROWS.map((spec) => (
+          <NotificationRow
+            key={spec.key}
+            spec={spec}
+            prefs={prefs}
+            saving={saving}
+            onToggle={toggle}
+          />
         ))}
       </div>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
     </div>
   );
 }

@@ -111,7 +111,7 @@ describe('SettingsPage', () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    expect(screen.getByText('Choose which events send you a notification.')).toBeInTheDocument()
+    expect(screen.getByText(/Choose which events notify you in the app/)).toBeInTheDocument()
   })
 
   it('tab navigation: clicking Appearance shows theme options', async () => {
@@ -412,7 +412,7 @@ describe('NotificationsTab', () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    expect(screen.getByText('Choose which events send you a notification.')).toBeInTheDocument()
+    expect(screen.getByText(/Choose which events notify you in the app/)).toBeInTheDocument()
     expect(screen.getByText('Card assigned to me')).toBeInTheDocument()
   })
 
@@ -425,7 +425,7 @@ describe('NotificationsTab', () => {
     expect(h2).toBeInTheDocument()
   })
 
-  it('renders all five notification preference rows', async () => {
+  it('renders every notification preference row', async () => {
     const user = userEvent.setup()
     renderSettings()
     await user.click(screen.getByText('Notifications'))
@@ -434,6 +434,7 @@ describe('NotificationsTab', () => {
     expect(screen.getByText('Due date approaching')).toBeInTheDocument()
     expect(screen.getByText(/Card I.m watching is moved/)).toBeInTheDocument()
     expect(screen.getByText('Comment on a watched card')).toBeInTheDocument()
+    expect(screen.getByText('Card has gone stale')).toBeInTheDocument()
   })
 
   it('toggles call updateCurrentUser with the new value', async () => {
@@ -441,10 +442,94 @@ describe('NotificationsTab', () => {
     mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, notif_due_soon: true })
     renderSettings()
     await user.click(screen.getByText('Notifications'))
-    const switches = screen.getAllByRole('switch')
-    // notif_due_soon is the 3rd switch (index 2), default false → clicking turns it on
-    await user.click(switches[2])
+    // Looked up by accessible name, not by index: each row now contains a second
+    // "Also send by email" switch (#356), so positional indexing silently points
+    // at a different preference than the comment claims.
+    await user.click(screen.getByRole('switch', { name: 'Due date approaching' }))
     expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ notif_due_soon: true })
+  })
+
+  it('renders an email toggle for every event that supports one', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    for (const label of [
+      'Card assigned to me',
+      'Someone @mentions me',
+      'Due date approaching',
+      'Card I\u2019m watching is moved',
+    ]) {
+      expect(screen.getByRole('switch', { name: `Also send by email: ${label}` })).toBeInTheDocument()
+    }
+  })
+
+  it('does not render an email toggle for events with no email delivery', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    expect(
+      screen.queryByRole('switch', { name: 'Also send by email: Comment on a watched card' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('switch', { name: 'Also send by email: Card has gone stale' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('email toggle sends the email_notif_* field', async () => {
+    const user = userEvent.setup()
+    mockUpdateCurrentUser.mockResolvedValueOnce({ ...fakeUser, email_notif_card_assigned: true })
+    renderSettings()
+    await user.click(screen.getByText('Notifications'))
+    await user.click(screen.getByRole('switch', { name: 'Also send by email: Card assigned to me' }))
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ email_notif_card_assigned: true })
+  })
+
+  it('email toggle is disabled and explained when the in-app toggle is off', async () => {
+    const user = userEvent.setup()
+    // notif_card_moved defaults to false, so its email toggle is inert: with no
+    // in-app notification there is no row to email.
+    renderSettings({ ...fakeUser, notif_card_moved: false })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Card I\u2019m watching is moved',
+    })
+    expect(emailToggle).toBeDisabled()
+    const reasonId = emailToggle.getAttribute('aria-describedby')
+    expect(reasonId).toBeTruthy()
+    expect(document.getElementById(reasonId!)?.textContent).toBe(
+      'Turn on the in-app notification above to enable email.'
+    )
+  })
+
+  it('a stored-on email preference reads as paused rather than off', async () => {
+    const user = userEvent.setup()
+    renderSettings({ ...fakeUser, notif_card_moved: false, email_notif_card_moved: true })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Card I\u2019m watching is moved',
+    })
+    // The value is kept, not silently cleared — flipping the in-app toggle back
+    // on restores it.
+    expect(emailToggle).toHaveAttribute('aria-checked', 'true')
+    expect(emailToggle).toBeDisabled()
+    const reasonId = emailToggle.getAttribute('aria-describedby')
+    expect(document.getElementById(reasonId!)?.textContent).toBe(
+      'Paused while the in-app notification above is off. Your choice is kept.'
+    )
+  })
+
+  it('email toggle is enabled once the in-app toggle is on', async () => {
+    const user = userEvent.setup()
+    renderSettings({ ...fakeUser, notif_card_assigned: true })
+    await user.click(screen.getByText('Notifications'))
+    const emailToggle = screen.getByRole('switch', {
+      name: 'Also send by email: Card assigned to me',
+    })
+    expect(emailToggle).not.toBeDisabled()
+    const reasonId = emailToggle.getAttribute('aria-describedby')
+    expect(document.getElementById(reasonId!)?.textContent).toBe(
+      'Sends a copy to your account email.'
+    )
   })
 
   it('shows error message when save fails', async () => {

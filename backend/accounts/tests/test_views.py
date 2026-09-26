@@ -396,6 +396,14 @@ class CurrentUserSerializerWritableFieldsTests(TestCase):
             "notif_card_moved",
             "notif_comment_added",
             "notif_board_invite",
+            "notif_stale",
+            # #356 — per-event email delivery opt-ins. Safe to expose: they are
+            # the user's own booleans, and every one of them only ever narrows or
+            # widens what that same user receives.
+            "email_notif_card_assigned",
+            "email_notif_mentioned",
+            "email_notif_due_soon",
+            "email_notif_card_moved",
             "default_board_id",
         }
 

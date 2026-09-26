@@ -312,13 +312,32 @@ class DatabaseAwareEmailBackend(BaseEmailBackend):
 
     Under ``DEBUG`` with no database configuration selected this delegates to
     the console backend, preserving today's development behavior exactly.
+
+    ``timeout`` (added for #356) is a *floor*, not an override: it is applied
+    only when the resolved configuration expresses no socket timeout of its own.
+    ``EMAIL_TIMEOUT`` defaults to ``None`` deliberately (see the note in
+    ``settings.py``), which leaves env-configured installs with no timeout at
+    all — fine for account mail sent from a form submission, not fine for
+    notification mail sent from the card-mutation path, where a blackholed SMTP
+    port would hang a worker. A caller that needs a bounded send passes one;
+    an operator who configured a timeout keeps theirs.
+
+    Django instantiates email backends via ``get_connection(**kwargs)``, and
+    ``BaseEmailBackend.__init__`` silently swallows unknown keyword arguments —
+    so this has to be accepted explicitly or it would be accepted and ignored.
     """
+
+    def __init__(self, *, timeout=None, **kwargs):
+        super().__init__(**kwargs)
+        self._timeout_floor = timeout
 
     def send_messages(self, email_messages):
         if not email_messages:
             return 0
 
         config = resolve_email_config()
+        if config.timeout is None and self._timeout_floor is not None:
+            config.timeout = self._timeout_floor
 
         if config.source == "env" and settings.DEBUG:
             backend = ConsoleEmailBackend(fail_silently=self.fail_silently)

@@ -65,6 +65,7 @@ from ..models import (
 )
 from ..permissions import SITE_ADMIN, can_modify_others_content, get_board_role
 from ..utils import notify_new_mentions
+from .notifications import create_notifications
 from .errors import (
     CardCreationNotAllowed, CardNotFound, ColumnNotFound, ForceNotPermitted,
     InvalidVersion, MoveNotPermitted, NotPermitted, SwimlaneNotFound,
@@ -437,16 +438,20 @@ def update_card(*, actor, board, card, submitted, apply, render, role=None):
                 card=card, event_type=ET.ASSIGNEE_CHANGE,
                 from_value=old_assignee_name, to_value=new_name, actor=actor,
             ))
-            # Notify the new assignee unless they opted out.
+            # Notify the new assignee unless they opted out. Routed through
+            # create_notifications so email/enterprise delivery fires after the
+            # card update commits, not inside this transaction.
             if card.assignee and card.assignee != actor and card.assignee.notif_card_assigned:
-                Notification.objects.create(
-                    recipient=card.assignee,
-                    actor=actor,
-                    action_type=Notification.ActionType.ASSIGNED,
-                    verb=f"You were assigned to \"{card.title}\"",
-                    card=card,
-                    board=card.board,
-                )
+                create_notifications([
+                    Notification(
+                        recipient=card.assignee,
+                        actor=actor,
+                        action_type=Notification.ActionType.ASSIGNED,
+                        verb=f"You were assigned to \"{card.title}\"",
+                        card=card,
+                        board=card.board,
+                    )
+                ], context={"previous_assignee_name": old_assignee_name})
         if old_description != card.description and "description" in submitted:
             activities.append(CardActivity(
                 card=card, event_type=ET.DESCRIPTION_CHANGE,

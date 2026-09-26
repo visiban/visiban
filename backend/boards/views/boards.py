@@ -33,6 +33,7 @@ from ..serializers import (
     BoardSerializer, BoardEventSerializer, BoardFullSerializer,
     BoardMembershipSerializer, SavedFilterSerializer,
 )
+from ..services.notifications import create_notifications
 from ..utils import create_template_columns, resolve_board_template
 from ._helpers import get_board_for_user, get_accessible_boards_queryset
 from .analytics import BoardAnalyticsMixin
@@ -847,13 +848,19 @@ class BoardViewSet(
             # Notify the invited user when they are newly added (not on role updates).
             # Skipped if they added themselves or have opted out of board invite notifications.
             if created and target_user != request.user and target_user.notif_board_invite:
-                Notification.objects.create(
-                    recipient=target_user,
-                    actor=request.user,
-                    action_type=Notification.ActionType.BOARD_INVITE,
-                    verb=f"{request.user.username} added you to \"{board.name}\"",
-                    board=board,
-                )
+                # Routed through create_notifications like every other event, so
+                # the post_notification_created extension point has no
+                # board-invite hole. OSS ships no email for this action_type;
+                # an enterprise delivery backend may still want it.
+                create_notifications([
+                    Notification(
+                        recipient=target_user,
+                        actor=request.user,
+                        action_type=Notification.ActionType.BOARD_INVITE,
+                        verb=f"{request.user.username} added you to \"{board.name}\"",
+                        board=board,
+                    )
+                ], context={"role": membership.role})
         # 201 for a new membership, 200 for a role update on an existing one.
         return Response(membership_data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 

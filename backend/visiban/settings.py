@@ -487,8 +487,20 @@ _warn_deprecated_env_alias("ACCOUNT_EMAIL_VERIFICATION", "EMAIL_VERIFICATION")
 ACCOUNT_EMAIL_VERIFICATION = env("EMAIL_VERIFICATION", default="optional")
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
-LOGIN_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
-ACCOUNT_LOGOUT_REDIRECT_URL = env("FRONTEND_URL", default="http://localhost:5173")
+# The public origin of the SPA. Read into a setting of its own (#356) as well as
+# the two allauth redirect settings below, because outbound mail needs to build
+# absolute links and a Django setting is the only thing a mail helper can read.
+#
+# This is a fix, not just an addition: ``accounts/forms.py`` has always done
+# ``getattr(settings, "FRONTEND_URL", "http://localhost:5173")`` to build
+# password-reset links, and until now no setting existed under that name — so the
+# getattr *always* took the fallback and every production reset link pointed at
+# localhost:5173. Its own test suite masked that by injecting the setting with
+# ``@override_settings``. The env var is unchanged, so no install has to
+# reconfigure anything.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+LOGIN_REDIRECT_URL = FRONTEND_URL
+ACCOUNT_LOGOUT_REDIRECT_URL = FRONTEND_URL
 # Guard against operator misconfiguration: a value like "//evil.com" would produce
 # a protocol-relative open redirect in confirmation emails. Fail fast at startup
 # rather than silently sending broken or exploitable links to users.
@@ -600,6 +612,28 @@ EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
 # is new configuration and therefore free to choose.
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=None)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@example.com")
+
+# --- Notification email (#356) -------------------------------------------------
+# Global off switch for outbound *notification* email. Transactional account mail
+# (password reset, email confirmation) is deliberately NOT covered: an operator
+# who silences notifications must not also lock users out of account recovery.
+# Default True so configuring SMTP is the only step needed to turn the feature
+# on; per-user preferences default to off, so a fresh upgrade still sends nothing
+# until somebody opts in.
+NOTIFICATION_EMAIL_ENABLED = env.bool("NOTIFICATION_EMAIL_ENABLED", default=True)
+
+# Socket timeout floor, in seconds, for notification email only.
+#
+# Why this exists rather than changing EMAIL_TIMEOUT: notification mail is sent
+# from the request path (via transaction.on_commit, which runs inline when no
+# atomic block is open), so a blackholed SMTP port would otherwise hang a worker
+# on every card assignment or move for as long as the OS default takes. But
+# EMAIL_TIMEOUT defaults to None on purpose — see the note above — and raising
+# that default would change behavior for existing installs' account mail, which
+# CLAUDE.md forbids. So the floor is scoped to this one sender: it applies only
+# when the resolved configuration expresses no timeout of its own, and an
+# operator who did set EMAIL_TIMEOUT (or the admin-UI timeout) keeps their value.
+NOTIFICATION_EMAIL_TIMEOUT = env.int("NOTIFICATION_EMAIL_TIMEOUT", default=10)
 
 # Optional dedicated key for secrets encrypted at rest (#306). When unset, the
 # key is derived from SECRET_KEY — see visiban/crypto.py for why that is the

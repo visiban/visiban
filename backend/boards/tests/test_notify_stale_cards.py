@@ -57,7 +57,7 @@ class NotifyStaleCardsNoStaleTest(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="owner_nostale", password="pass", notif_due_soon=True
+            username="owner_nostale", password="pass", notif_stale=True
         )
         self.board = _make_board(self.owner)
         self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
@@ -87,7 +87,7 @@ class NotifyStaleCardsHappyPathTest(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="owner_happy", password="pass", notif_due_soon=True
+            username="owner_happy", password="pass", notif_stale=True
         )
         self.board = _make_board(self.owner)
         self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
@@ -95,7 +95,7 @@ class NotifyStaleCardsHappyPathTest(TestCase):
         self.threshold = self.board.staleness_threshold_days
 
     def test_stale_card_creates_notification_for_owner(self):
-        """Owner (admin) with notif_due_soon=True receives a notification for a stale card."""
+        """Owner (admin) with notif_stale=True receives a notification for a stale card."""
         card = Card.objects.create(
             board=self.board, column=self.col, swimlane=self.swim,
             title="Old Card", created_by=self.owner, position=0,
@@ -141,7 +141,7 @@ class NotifyStaleCardsHappyPathTest(TestCase):
     def test_assignee_receives_notification(self):
         """The card assignee (if opted-in) also receives a staleness notification."""
         assignee = User.objects.create_user(
-            username="assignee_happy", password="pass", notif_due_soon=True
+            username="assignee_happy", password="pass", notif_stale=True
         )
         BoardMembership.objects.create(board=self.board, user=assignee, role=BoardMembership.Role.MEMBER)
         card = Card.objects.create(
@@ -163,7 +163,7 @@ class NotifyStaleCardsThresholdTest(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="owner_thresh", password="pass", notif_due_soon=True
+            username="owner_thresh", password="pass", notif_stale=True
         )
 
     def test_custom_threshold_shorter_triggers_earlier(self):
@@ -203,16 +203,16 @@ class NotifyStaleCardsNoMembersTest(TestCase):
     """Board with no opted-in members → no notifications created."""
 
     def setUp(self):
-        # notif_due_soon=False so no one is opted in
+        # notif_stale=False so no one is opted in
         self.owner = User.objects.create_user(
-            username="owner_noopt", password="pass", notif_due_soon=False
+            username="owner_noopt", password="pass", notif_stale=False
         )
         self.board = _make_board(self.owner)
         self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
         self.swim = Swimlane.objects.create(board=self.board, name="General", position=0)
 
     def test_no_opted_in_recipients_produces_no_notifications(self):
-        """When all members have notif_due_soon=False, no notifications are created."""
+        """When all members have notif_stale=False, no notifications are created."""
         card = Card.objects.create(
             board=self.board, column=self.col, swimlane=self.swim,
             title="Stale but no listeners", created_by=self.owner, position=0,
@@ -232,7 +232,7 @@ class NotifyStaleCardsIdempotencyTest(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="owner_idem", password="pass", notif_due_soon=True
+            username="owner_idem", password="pass", notif_stale=True
         )
         self.board = _make_board(self.owner)
         self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)
@@ -284,7 +284,7 @@ class NotifyStaleCardsStdoutTest(TestCase):
 
     def setUp(self):
         self.owner = User.objects.create_user(
-            username="owner_stdout", password="pass", notif_due_soon=True
+            username="owner_stdout", password="pass", notif_stale=True
         )
         self.board = _make_board(self.owner)
         self.col = Column.objects.create(board=self.board, name="Backlog", position=0, allow_card_creation=True)

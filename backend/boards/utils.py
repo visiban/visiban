@@ -191,6 +191,7 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
     """
     from accounts.models import User
     from .models import Card, Notification
+    from .services.notifications import create_notifications
 
     added_usernames = extract_mentions(new_text) - extract_mentions(old_text)
     if not added_usernames:
@@ -234,7 +235,14 @@ def notify_new_mentions(card, actor, old_text: str, new_text: str) -> None:
         new_ids.append(u.pk)
 
     if notifications:
-        Notification.objects.bulk_create(notifications)
+        # Write the re-notification guard BEFORE handing the batch to
+        # create_notifications. This function is always called from an
+        # on_commit hook, so no transaction is open and the nested on_commit
+        # inside create_notifications runs inline — meaning delivery happens
+        # before this line would otherwise be reached. If delivery then blocked
+        # or crashed, mentioned_user_ids would be left unwritten and the same
+        # users would be notified all over again on the next description save.
         Card.objects.filter(pk=fresh_card.pk).update(
             mentioned_user_ids=list(already_notified | set(new_ids))
         )
+        create_notifications(notifications, context={"source": "description"})
