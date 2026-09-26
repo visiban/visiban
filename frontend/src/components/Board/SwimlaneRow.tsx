@@ -7,6 +7,8 @@ import BoardCell from "./BoardCell";
 import EditSwimlaneModal from "./EditSwimlaneModal";
 import CustomFieldValueDisplay from "../Card/CustomFieldValueDisplay";
 import SwimlaneFieldsPopover from "./SwimlaneFieldsPopover";
+import { cellKey } from "../../gridOverlays/types";
+import type { GridOverlayCellState } from "../../gridOverlays/slot";
 
 interface Props {
   swimlane: Swimlane;
@@ -67,9 +69,18 @@ interface Props {
    */
   swimlaneFieldDefinitions?: SwimlaneCustomFieldDefinition[];
   onCardUpdated?: (card: Card) => void;
+  /**
+   * Grid-overlay shading for this row's cells (#1147), keyed by
+   * `cellKey(columnId, swimlaneId)`. Undefined when no overlay is active. The map is
+   * built once per board render, so the per-cell objects handed to `BoardCell` keep a
+   * stable identity for as long as the map does.
+   */
+  overlayCells?: Map<string, GridOverlayCellState>;
+  /** The active overlay's label, for cell screen-reader text. */
+  overlayLabel?: string;
 }
 
-export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onCardUpdated }: Props) {
+export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin, canEdit, closeEditorOnEnter, collapsedColumnIds, hiddenColumnIds, filteredCardIds, selectedCardIds, highlightedCardId, onToggleCardSelection, onCardClick, onCardAdded, onSwimlaneUpdated, onSwimlaneDeleted, collapsed, onToggleCollapse, onFocus, onExitFocus, isFocused, onHoverEnter, onHoverLeave, sidebarWidth, setSidebarWidth, colWidths, setColumnWidth, onInsertColumn, hoveredSepIndex, onSepHoverChange, minHeight, setSwimlaneHeight, density, userTimezone, userDateFormat, compact, staleness_threshold_days, stale_warning_pct, customFieldDefinitions, swimlaneFieldDefinitions, onCardUpdated, overlayCells, overlayLabel }: Props) {
   const [editing, setEditing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
@@ -419,6 +430,8 @@ export default function SwimlaneRow({ swimlane, columns, cards, boardId, isAdmin
                 customFieldDefinitions={customFieldDefinitions}
                 onCardUpdated={onCardUpdated}
                 width={cellWidth}
+                overlayCell={overlayCells?.get(cellKey(col.id, swimlane.id))}
+                overlayLabel={overlayLabel}
               />
             </div>
           );
