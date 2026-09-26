@@ -118,6 +118,7 @@ nav:
     - Database Migrations: development/database-migrations.md
     - CI Gate Self-Tests: development/ci-gates.md
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
+    - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
     - Suppression Markers: development/suppressions.md
     - WebSocket Event Contract: development/websocket-event-contract.md
     - Nightly Load Test: development/nightly-load-test.md

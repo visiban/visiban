@@ -101,6 +101,8 @@ own header — is never mistaken for a real exemption.
 | `scripts/check-gate-selftest-parity.sh` | `gate-selftest-parity` | The meta-gate itself — see above. |
 | `scripts/check-compose-image-pins.sh` | `compose-hygiene` | Self-test plants an untagged image, an explicit `:latest`, a ported-registry reference (`host:5000/img`, whose colon must not read as a tag separator), and a first-party `${VAR}` reference that must NOT be reported. |
 | `scripts/check-compose-project-names.sh` | `compose-hygiene` | Self-test plants a missing `name:`, a duplicate name, a `${VAR:-default}` colliding on its *default* (the exact shape of the original defect), and an overlay that wrongly declares a name. |
+| `scripts/check-rbac-coverage.py` | `rbac-coverage` | 12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See [RBAC and broadcast gates](rbac-and-broadcast-gates.md). |
+| `scripts/check-broadcast-deferral.py` | `broadcast-deferral` | 9-case self-test: a write that broadcasts nothing, a broadcast outside `on_commit`, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table. |
 
 `scripts/assemble-changelog.sh` also ships a `--self-test` (added alongside this page,
 covering the exact version-dotted-slug incident that motivated #1093), but is not wired into
