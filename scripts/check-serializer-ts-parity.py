@@ -236,9 +236,6 @@ SUPPRESSIONS: tuple[Suppression, ...] = (
     # A declared field (nested serializer, or CharField with a traversing source)
     # does not pick up `null=True` from the model the way an auto-generated
     # ModelSerializer field does, so the schema understates nullability.
-    Suppression(NULLABILITY, "Board", "group_name",
-                schema_repr="not nullable", ts_repr="nullable", issue=1138,
-                reason="null for an ungrouped board (Board.group is null=True)"),
     Suppression(NULLABILITY, "Card", "created_by",
                 schema_repr="not nullable", ts_repr="nullable", issue=1138,
                 reason="null once the creating user is deleted (SET_NULL)"),
