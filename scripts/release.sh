@@ -66,6 +66,41 @@ if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
   PREV_RC_NUM=$(( $(echo "$RC_NUM" | grep -oE '[0-9]+$') - 1 ))
   sed -i '' "s|\*\*[0-9][0-9.]*-rc\.[0-9]*\*\*|**${VERSION}**|g" docs/index.md
   sed -i '' "s|Earlier release candidates (rc\.1–rc\.[0-9]*)|Earlier release candidates (rc.1–rc.${PREV_RC_NUM})|" docs/index.md
+  # First RC of a cycle: docs/index.md still holds the GA "Latest release"
+  # banner from the previous release, so the seds above find nothing to
+  # rewrite. Convert it into the release-candidate banner (mirror of the GA
+  # branch below) so the RC verification and the docs gate both pass.
+  if ! grep -q 'is the current stable release candidate' docs/index.md; then
+    TMP_INDEX=$(mktemp)
+    awk -v ver="$VERSION" '
+      /^!!! (warning|note) "(Release candidate|Latest release)"/ {
+        print "!!! warning \"Release candidate\""
+        print "    **" ver "** is the current stable release candidate for the upcoming release. Help test it and [report issues](https://gitlab.com/visiban/visiban/-/issues) before the stable release. See the [installation guide](getting-started/installation.md) to get started."
+        skip = 1
+        next
+      }
+      skip && /^    / { next }
+      { skip = 0; print }
+    ' docs/index.md > "$TMP_INDEX" && mv "$TMP_INDEX" docs/index.md
+  fi
+elif echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  # GA: replace the release-candidate admonition (header + indented body) with
+  # the stable "Latest release" banner. Without this the GA docs shipped
+  # carrying the RC banner and it was fixed by hand every release (#1083).
+  # Also matches an existing "Latest release" banner so re-running is a no-op
+  # apart from the version. scripts/check-docs-version-accuracy.sh asserts the
+  # result in CI and on the tag pipeline.
+  TMP_INDEX=$(mktemp)
+  awk -v ver="$VERSION" -v tag="$TAG" '
+    /^!!! (warning|note) "(Release candidate|Latest release)"/ {
+      print "!!! note \"Latest release\""
+      print "    **" ver "** is the current stable release. See the [release notes](https://gitlab.com/visiban/visiban/-/releases/" tag ") for what'"'"'s new, and the [installation guide](getting-started/installation.md) to get started."
+      skip = 1
+      next
+    }
+    skip && /^    / { next }
+    { skip = 0; print }
+  ' docs/index.md > "$TMP_INDEX" && mv "$TMP_INDEX" docs/index.md
 fi
 
 # Assemble any pending changelog fragments into CHANGELOG.md before rotating
@@ -139,6 +174,22 @@ if echo "$VERSION" | grep -qE 'rc\.[0-9]+'; then
     echo "  WARN: docs/index.md does not reference ${RC_NUM} as current RC" >&2
     ERRORS=$((ERRORS + 1))
   fi
+fi
+
+# docs/index.md must carry the stable banner for a GA release
+if echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  if ! grep -qF "**${VERSION}** is the current stable release." docs/index.md \
+     || grep -qi 'release candidate' docs/index.md; then
+    echo "  WARN: docs/index.md does not carry the GA banner for ${VERSION}" >&2
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+# Cross-check with the same gate CI runs on main and on the tag pipeline
+# (stale "Coming in X" callouts, RC banner on GA, stale install pins).
+if ! scripts/check-docs-version-accuracy.sh >&2; then
+  echo "  WARN: scripts/check-docs-version-accuracy.sh reported violations (see above)" >&2
+  ERRORS=$((ERRORS + 1))
 fi
 
 # docker-compose.prod.yml must reference the release tag
