@@ -7,6 +7,15 @@
 #   TLS_MODE=letsencrypt        (letsencrypt | selfsigned | none)
 #   CERTBOT_EMAIL=admin@yourdomain.com   (required only when TLS_MODE=letsencrypt)
 
+# Pinned rather than derived from the checkout directory. Unpinned, the project
+# name comes from the directory basename — `visiban` on a default clone, which
+# is what docker-compose.yml used to default to as well. That collision shared
+# `<project>_pgdata` between the dev and production stacks and let `up` on one
+# recreate the other's `db` / `valkey` / `backend` containers in place.
+# `visiban` is exactly what a default clone already resolved to, so pinning it
+# here changes nothing for an existing install.
+name: visiban
+
 services:
   db:
     image: postgres:17-alpine
@@ -144,7 +153,13 @@ services:
   # Renews the Let's Encrypt cert every 12 hours (certbot skips if not due).
   # Only started when TLS_MODE=letsencrypt (via Compose profiles).
   certbot:
-    image: certbot/certbot
+    # Pinned: this is the only service that owns TLS issuance and renewal, and
+    # an untagged image resolves to `latest` on every `compose pull` — a silent
+    # version change in the TLS path with no diff and no pipeline event. Every
+    # sibling service here already carried a floor; this one did not.
+    # v5.8.0 is what `latest` resolved to when this was pinned (2026-09-01), so
+    # the pin is a no-op today and a floor from here on.
+    image: certbot/certbot:v5.8.0
     restart: unless-stopped
     profiles: ["letsencrypt"]
     volumes:
