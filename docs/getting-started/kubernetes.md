@@ -74,7 +74,9 @@ backend:
     useTls: true
 ```
 
-The `backend.email.*` block is required when sending password-reset and email-verification messages. To skip SMTP entirely (logs emails to stdout), set `backend.email.backend=console` and leave the other fields blank.
+Since 1.2, `backend.email.backend` defaults to `""` (unset) rather than `"smtp"`, so you can leave `backend.email.*` blank and install first — a site admin can then configure SMTP afterward from **Admin → Settings → Email**, without a redeploy. The chart's render-time check for a placeholder `fromAddress` (e.g. `noreply@example.com`) only fires when `backend.email.host` is set, so an install with the whole block blank passes.
+
+Set `backend.email.*` explicitly only if you want env-only email configuration — doing so pins the backend and **disables** the Admin → Settings → Email UI. To send mail via SMTP from values instead of the admin UI, fill in `host`, `port`, `user`, `password`, and `fromAddress`, and set `backend.email.backend: "smtp"`. `backend.email.useSsl` is also available for implicit TLS (port 465), as an alternative to `useTls`. To skip SMTP entirely (logs emails to stdout), set `backend.email.backend=console` and leave the other fields blank.
 
 !!! warning "Never commit `values.secret.yaml`"
     This file is gitignored. Keep secrets out of shell history — always use `-f values.secret.yaml` instead of `--set secret.djangoSecretKey=...`. The `--set` flag leaks values to shell history (`~/.bash_history`), `/proc/*/cmdline`, and process listings visible to other users on the host.

@@ -424,7 +424,7 @@ A focused set of usability improvements landed across two waves:
 
 > **Added in 1.2**
 
-Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid — with the swimlane dimension that native provider boards lack. Configure columns (status labels or Open/Closed) and swimlanes (milestone, label, or assignee) in board settings. The lens is off by default; operators enable it with `GIT_LENS_ENABLED=true`.
+Connect a public GitHub or GitLab repository to a board and view its issues as a read-only kanban grid — with the swimlane dimension that native provider boards lack. Columns default to a derived **Pipeline** view (Backlog → To Do → Doing → Review → Done) and can be changed to status labels, Open/Closed, or any label; swimlanes group by milestone, label, or assignee. The lens is off by default; operators enable it with `GIT_LENS_ENABLED=true`.
 
 → [Issue Board Lens](issue-board-lens.md)
 

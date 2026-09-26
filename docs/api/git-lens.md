@@ -220,6 +220,8 @@ empty values are ignored rather than rejected: a lens URL is a shareable snapsho
 that can outlive the data it points at, so a link carrying a stale value still
 renders a board instead of returning `400`.
 
+All seven parameters above are declared in the generated OpenAPI schema (`/api/schema/`) when `GIT_LENS_ENABLED=true`, each as an optional string. Accepted values are described rather than declared as an `enum`, because unrecognized values are ignored, not rejected. There is no text-search parameter to declare (see [Filtering](#filtering)).
+
 !!! note
     Ad-hoc pivot overrides via query parameters affect only the current response. The saved LensConnection on the board is not changed.
 

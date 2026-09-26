@@ -67,6 +67,7 @@ from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import User
+from boards.notifications_email import suppress_notification_email
 from boards.models import (
     Board,
     BoardMembership,
@@ -517,6 +518,16 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Seeding creates hundreds of card movements and notifications through the
+        # same funnel real events use (#356), and card movements fire their
+        # notification receiver outside any atomic block — so on a machine with
+        # working SMTP configured, seeding would send hundreds of real emails to
+        # whatever addresses the demo data contains. Nobody asked to be told
+        # about fixtures.
+        with suppress_notification_email():
+            self._seed(*args, **options)
+
+    def _seed(self, *args, **options):
         random.seed(options["seed"])
         # Movement timestamps use today's date in normal runs so analytics
         # windows (7d, 30d, 90d) always show recent data. The --export path

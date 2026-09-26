@@ -24,6 +24,12 @@ Changes take effect immediately with no restart required. Existing user sessions
 
 Feature changes take effect within approximately 60 seconds due to server-side caching. Toggling a feature does not delete or alter any existing data.
 
+### Email
+
+> **Added in 1.2**
+
+Configure the SMTP server used for password-reset and email-verification messages, without editing environment variables or restarting the backend. Available only when the deployment has not pinned `EMAIL_BACKEND`/`backend.email.backend` to an explicit value. See [Configuring SMTP from the admin UI](../administration/configuration.md#configuring-smtp-from-the-admin-ui).
+
 ### Maintenance mode
 
 > **Added in 1.2**

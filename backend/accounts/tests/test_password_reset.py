@@ -39,6 +39,26 @@ class FrontendUrlGeneratorTests(TestCase):
         uid = user_pk_to_url_str(user)
         self.assertEqual(url, f"http://localhost:5173/reset-password/{uid}/tok-en")
 
+    def test_url_reads_the_real_setting_without_an_override(self):
+        """Regression: settings.FRONTEND_URL must actually exist (#356).
+
+        ``_frontend_url_generator`` has always resolved it with
+        ``getattr(settings, "FRONTEND_URL", "http://localhost:5173")``, but until
+        #356 no setting was defined under that name — the env var was only ever
+        read into LOGIN_REDIRECT_URL. So the getattr always took the localhost
+        fallback and every production reset link pointed at a developer's laptop.
+        Every test above masks that by injecting the setting with
+        ``@override_settings``; this one deliberately does not, so the bug cannot
+        come back unnoticed.
+        """
+        from django.conf import settings
+
+        self.assertTrue(hasattr(settings, "FRONTEND_URL"))
+        user = self._make_user()
+        url = _frontend_url_generator(MagicMock(), user, "real-token")
+        self.assertTrue(url.startswith(settings.FRONTEND_URL.rstrip("/")))
+        self.assertEqual(settings.FRONTEND_URL, settings.LOGIN_REDIRECT_URL)
+
 
 class OAuthOnlyPasswordResetTests(TestCase):
     """VisibanPasswordResetForm.save() sends the alternate email for OAuth-only users."""

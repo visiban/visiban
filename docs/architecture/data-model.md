@@ -20,6 +20,11 @@ User
  ├── notif_card_moved (bool, default false — notify when a card is moved)
  ├── notif_comment_added (bool, default false — notify when a comment is added to an assigned card)
  ├── notif_board_invite (bool, default true — notify when added to a board)
+ ├── notif_stale (bool, default false — notify when an owned card has gone stale; split from notif_due_soon in 1.2)
+ ├── email_notif_card_assigned (bool, default false — also email the assignment notification)
+ ├── email_notif_mentioned (bool, default false — also email the @mention notification)
+ ├── email_notif_due_soon (bool, default false — also email the due-date notification)
+ ├── email_notif_card_moved (bool, default false — also email the card-moved notification)
  └── has_completed_tour (bool, default false — whether the user has completed the onboarding tour)
 
 Group
@@ -92,7 +97,7 @@ SavedFilter
 Notification
  ├── recipient → User
  ├── actor → User (nullable — the user who triggered the notification)
- ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite)
+ ├── action_type (str — assigned | mentioned | card_moved | stale | board_invite | due_soon)
  ├── verb (str — human-readable summary)
  ├── card → Card (nullable)
  ├── board → Board (nullable)
@@ -194,6 +199,13 @@ Saved filters are private to the owning user — there is no sharing across boar
 Notifications are created by the backend when a relevant event occurs (card assignment, @mention, card move, stale card detection, board invite). The `verb` field stores a human-readable summary. The `actor` and `action_type` fields provide structured data for grouping, filtering, and future i18n. Clicking a notification navigates to the relevant board and opens the card detail panel when the notification is tied to a card.
 
 The `board_invite` action type is created when a user is added to a board via invite link or directly by an admin. The notification links to the board rather than a card; the `card` FK is null for this action type.
+
+Every notification is created through `boards.services.notifications.create_notifications`,
+which after the transaction commits delivers OSS email for the four events that support it
+and then sends the `post_notification_created` signal once per row. The funnel exists
+because three of the creation sites use `bulk_create`, which sends no `post_save` — so a
+per-model signal would have been invisible to half the events. See
+[Open core boundary](open-core-boundary.md#oss-extension-points-implementation-status).
 
 ### InviteLink
 
