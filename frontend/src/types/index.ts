@@ -40,6 +40,15 @@ export interface User {
   notif_card_moved?: boolean;
   notif_comment_added?: boolean;
   notif_board_invite?: boolean;
+  // Split out of notif_due_soon in 1.2 (#356): that flag labels itself as the
+  // due-date warning but was the only gate on the staleness scan.
+  notif_stale?: boolean;
+  // Per-event email delivery opt-ins (#356). Optional, like every other notif_*
+  // field, and all default to false on the server.
+  email_notif_card_assigned?: boolean;
+  email_notif_mentioned?: boolean;
+  email_notif_due_soon?: boolean;
+  email_notif_card_moved?: boolean;
   close_editor_on_enter?: boolean;
   has_completed_tour?: boolean;
   /**
@@ -414,7 +423,7 @@ export interface Notification {
   board_id: number | null;
   board_name: string | null;
   // Backend enforces blank=False with ActionType choices — '' is not a valid value post-migration 0041.
-  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite';
+  action_type: 'assigned' | 'mentioned' | 'card_moved' | 'stale' | 'board_invite' | 'due_soon';
   read: boolean;
   created_at: string;
 }

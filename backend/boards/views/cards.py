@@ -28,6 +28,7 @@ from visiban.permissions import (
 
 from .. import broadcast as _broadcast
 from ..services import cards as card_services
+from ..services.notifications import create_notifications
 from ..services.errors import CardServiceError
 from ..utils import extract_mentions, _get_effective_member_ids, _get_assignable_member_ids
 from ..models import (
@@ -952,17 +953,27 @@ class CardViewSet(viewsets.ModelViewSet):
                     pk__in=eff_ids,
                     notif_mentioned=True,
                 ).exclude(pk=request.user.pk)
-                Notification.objects.bulk_create([
-                    Notification(
-                        recipient=u,
-                        actor=request.user,
-                        action_type=Notification.ActionType.MENTIONED,
-                        verb=f"{request.user.username} mentioned you in \"{card.title}\"",
-                        card=card,
-                        board=board,
-                    )
-                    for u in member_users
-                ])
+                create_notifications(
+                    [
+                        Notification(
+                            recipient=u,
+                            actor=request.user,
+                            action_type=Notification.ActionType.MENTIONED,
+                            verb=f"{request.user.username} mentioned you in \"{card.title}\"",
+                            card=card,
+                            board=board,
+                        )
+                        for u in member_users
+                    ],
+                    # The comment body is not reachable from the Notification row
+                    # (no FK), so a delivery backend that wants to quote the
+                    # mention has to be handed it here.
+                    context={
+                        "source": "comment",
+                        "comment_id": comment.pk,
+                        "comment_body": comment.body,
+                    },
+                )
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["delete"], url_path=r"comments/(?P<comment_pk>[0-9]+)")

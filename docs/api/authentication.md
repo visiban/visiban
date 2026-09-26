@@ -528,7 +528,7 @@ Returns the authenticated user's profile.
 
 **Permission:** Requires authentication.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `maintenance_mode`, `maintenance_message`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `maintenance_mode`, `maintenance_message`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
 
 | Field | Type | Description |
 |---|---|---|
@@ -538,6 +538,11 @@ Returns the authenticated user's profile.
 | `maintenance_mode` | boolean | Instance-wide setting reflecting whether the instance is in read-only maintenance mode. When `true`, non-admin writes return `503` — see [Maintenance mode](admin.md#maintenance-mode). Read-only. Added in 1.2. |
 | `maintenance_message` | string | The notice to show while `maintenance_mode` is `true`. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and `""` otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2. |
 | `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
+| `notif_stale` | boolean | Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to `false`. Writable. Added in 1.2 (previously gated on `notif_due_soon`). |
+| `email_notif_card_assigned` | boolean | Also email the user when a card is assigned to them. No effect while `notif_card_assigned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_mentioned` | boolean | Also email the user when they are @mentioned. No effect while `notif_mentioned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_due_soon` | boolean | Also email the user when a card they own is due within 24 hours. No effect while `notif_due_soon` is `false`. Defaults to `false`. Writable. Added in 1.2. |
+| `email_notif_card_moved` | boolean | Also email the user when a card they own is moved. No effect while `notif_card_moved` is `false`. Defaults to `false`. Writable. Added in 1.2. |
 
 **Example response (excerpt)**
 
@@ -558,7 +563,7 @@ Update the authenticated user's profile. All fields are optional.
 
 **Permission:** Requires authentication.
 
-**Writable fields:** `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `default_board_id`, `theme`.
+**Writable fields:** `first_name`, `last_name`, `display_name`, `avatar_url`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
 
 **Request body fields**
 
