@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/notifications/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/kaizen-yield-watch/">
       
       
-        <link rel="prev" href="../analytics/">
+        <link rel="prev" href="../suppressions/">
       
       
-        <link rel="next" href="../realtime/">
+        <link rel="next" href="../websocket-event-contract/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Notifications - Visiban</title>
+        <title>Kaizen Yield Watch - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#notifications" class="md-skip">
+        <a href="#kaizen-yield-watch" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Notifications
+              Kaizen Yield Watch
             
           </span>
         </div>
@@ -266,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -785,8 +785,6 @@
       
   
   
-    
-  
   
   
     
@@ -842,23 +840,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -876,13 +871,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -902,7 +897,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -930,7 +925,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -958,7 +953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -986,7 +981,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -1014,7 +1009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1042,7 +1037,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-relations/" class="md-nav__link">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1070,7 +1065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1095,37 +1090,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1141,269 +1109,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#notification-bell" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification bell
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-preferences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification preferences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#assignment-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Assignment notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mention-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        @mention notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#due-date-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Due date notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#card-moved-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Card moved notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#board-invite-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Board invite notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#comment-added-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Comment added notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#staleness-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Staleness notifications
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Staleness notifications">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#staleness-threshold" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Staleness threshold
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stale-card-indicator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stale card indicator
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#running-the-stale-check" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running the stale check
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#email-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Email notifications
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Email notifications">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#turning-it-on" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Turning it on
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#email-rides-on-the-in-app-notification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Email rides on the in-app notification
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#what-an-email-contains" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What an email contains
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#who-does-not-receive-email" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Who does not receive email
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-mail-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When mail fails
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#extending-delivery" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extending delivery
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-data-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification data model
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notification-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notification API
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1416,7 +1121,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1444,7 +1149,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1472,7 +1177,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1500,7 +1205,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1528,7 +1233,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1556,7 +1261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1584,7 +1289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../appearance/" class="md-nav__link">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1612,7 +1317,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1640,7 +1345,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1668,7 +1373,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1696,7 +1401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1724,7 +1429,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1770,13 +1475,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1784,7 +1486,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../rbac/" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1802,7 +1504,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1828,7 +1530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/roles/" class="md-nav__link">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1856,7 +1558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1884,7 +1586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -2388,6 +2090,8 @@
       
   
   
+    
+  
   
   
     
@@ -2433,16 +2137,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2464,13 +2171,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2714,7 +2421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2742,7 +2449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2770,7 +2477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2798,7 +2505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2826,7 +2533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -2851,10 +2558,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kaizen Yield Watch
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2870,6 +2604,92 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it counts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-the-count-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where the count lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scheduled-job" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scheduled job
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#auto-filing-issues-opt-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-filing issues (opt-in)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2882,7 +2702,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+      <a href="../websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2910,7 +2730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/nightly-load-test/" class="md-nav__link">
+      <a href="../nightly-load-test/" class="md-nav__link">
         
   
   
@@ -3553,309 +3373,84 @@
   
 
 
-<h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
-<p>Visiban surfaces in-app notifications for the following events: card assignment, @mention in a comment or description, due date warning, card moved, comment added, and board invite. Staleness alerts are delivered separately via the <code>notify_stale_cards</code> management command.</p>
-<p>Four of these events can also be <strong>delivered by email</strong> — see <a href="#email-notifications">Email notifications</a> below.</p>
-<h2 id="notification-bell">Notification bell<a class="headerlink" href="#notification-bell" title="Permanent link">&para;</a></h2>
-<p>The navbar shows a bell icon with an unread count badge. Clicking it opens a dropdown feed showing only <strong>unread</strong> notifications. Each notification is a deep link — clicking it marks it as read (removing it from the dropdown) and navigates to the relevant board and opens the card detail panel automatically.</p>
-<p>Click <strong>Mark all read</strong> to dismiss all notifications at once. Read notifications do not reappear after a page refresh or navigation.</p>
-<div class="admonition note">
-<p class="admonition-title">Notification limit</p>
-<p>The dropdown shows at most <strong>50 unread notifications</strong>. Older unread notifications beyond the 50 most recent are not shown in the UI, though they are still marked read when you click <strong>Mark all read</strong>.</p>
-</div>
-<h2 id="notification-preferences">Notification preferences<a class="headerlink" href="#notification-preferences" title="Permanent link">&para;</a></h2>
-<p>Each user can enable or disable individual notification triggers in <strong>Settings → Notifications</strong>. Preferences are saved immediately on toggle. Available toggles:</p>
+<h1 id="kaizen-yield-watch">Kaizen yield watch<a class="headerlink" href="#kaizen-yield-watch" title="Permanent link">&para;</a></h1>
+<p><code>/kaizen</code> (#1094) reads the MR <code>## Gates</code> ledger and computes per-gate yield, but only when
+someone remembers to run it. The yield watch (#1144) makes that signal continuous: a scheduled
+job keeps a running count and reports gates that have stopped finding anything. It is the same
+problem the memory-discipline rules describe: a signal that only has value if someone
+remembers to read it.</p>
+<p>It changes nothing on its own. It never edits <code>CLAUDE.md</code> or the fast-path table; that stays a
+reviewed change (deriving the table from this data is #1145).</p>
+<h2 id="what-it-counts">What it counts<a class="headerlink" href="#what-it-counts" title="Permanent link">&para;</a></h2>
+<p>For each <strong>gate</strong> and <strong>diff shape</strong> it tracks the current streak of consecutive runs that
+reported <code>0 findings</code>.</p>
 <table>
 <thead>
 <tr>
-<th>Trigger</th>
-<th>In-app default</th>
-<th>Email available</th>
-<th>Email default</th>
+<th>Ledger outcome</th>
+<th>Effect</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Card assigned to me</td>
-<td>On</td>
-<td>Yes</td>
-<td>Off</td>
+<td><code>N findings</code>, N &gt; 0</td>
+<td>run; resets the streak</td>
 </tr>
 <tr>
-<td>I am @mentioned</td>
-<td>On</td>
-<td>Yes</td>
-<td>Off</td>
+<td><code>0 findings</code></td>
+<td>run; streak + 1</td>
 </tr>
 <tr>
-<td>Due date approaching</td>
-<td>Off</td>
-<td>Yes</td>
-<td>Off</td>
+<td><code>n/a (...)</code></td>
+<td>gate did not apply; ignored</td>
 </tr>
 <tr>
-<td>Card moved</td>
-<td>Off</td>
-<td>Yes</td>
-<td>Off</td>
+<td><code>skipped (...)</code></td>
+<td>compliance signal; ignored (never conflated with <code>0 findings</code>)</td>
 </tr>
 <tr>
-<td>Comment on a watched card</td>
-<td>Off</td>
-<td>No</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Card has gone stale</td>
-<td>Off</td>
-<td>No</td>
-<td>—</td>
-</tr>
-<tr>
-<td>Board invites</td>
-<td>On</td>
-<td>No</td>
-<td>—</td>
+<td>prose / deliverable outcome</td>
+<td>no yield information; ignored</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p><strong>Changed in 1.2</strong>
-Staleness notifications are user-configurable, and always were — they were
-gated on the <strong>Due date approaching</strong> preference, which is not what that
-preference says it does. 1.2 splits them apart: staleness now has its own
-<strong>Card has gone stale</strong> toggle, and <strong>Due date approaching</strong> finally controls
-the due-date warning it is named after. Your existing setting was copied
-across on upgrade, so nothing you receive today changes.</p>
-</blockquote>
-<h2 id="assignment-notifications">Assignment notifications<a class="headerlink" href="#assignment-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card is assigned to a user by someone else, that user receives a notification:</p>
-<blockquote>
-<p>"You were assigned to "{card title}""</p>
-</blockquote>
-<h2 id="mention-notifications">@mention notifications<a class="headerlink" href="#mention-notifications" title="Permanent link">&para;</a></h2>
-<p>Typing <code>@username</code> in a card comment <strong>or description</strong> notifies the mentioned user:</p>
-<blockquote>
-<p>"{author} mentioned you in "{card title}""</p>
-</blockquote>
-<ul>
-<li>Type <code>@</code> in the comment box or description field to open an inline autocomplete dropdown filtered by username and display name</li>
-<li>Keyboard navigation: ↑↓ to move through suggestions, Enter or Tab to select, Escape to dismiss</li>
-<li>Mentions are rendered as <strong>bold blue</strong> text in saved comments and descriptions</li>
-<li>The author is never notified for their own mention</li>
-<li>Only users who are members of the board (directly, via group inheritance, or site admins) can be mentioned</li>
-<li><strong>Description re-save guard</strong> — Visiban tracks which users have already been notified for mentions on a given card's description. If you edit and re-save a description that still contains an existing <code>@username</code>, that user is not notified again. Only newly added mentions trigger a notification.</li>
-</ul>
-<h2 id="due-date-notifications">Due date notifications<a class="headerlink" href="#due-date-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card's due date is approaching (within 24 hours by default), the assignee is notified:</p>
-<blockquote>
-<p>""{card title}" is due soon"</p>
-</blockquote>
-<p>Recipients opt in with the <strong>Due date approaching</strong> preference. The scan runs from
-a management command rather than on a request, so schedule it the same way as the
-staleness scan:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># crontab example — run at 7am daily, before the staleness scan</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="m">0</span><span class="w"> </span><span class="m">7</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
+<p><code>changelog</code>, <code>docs-writer</code>, and <code>test-scaffold</code> are deliverable gates and are never tracked.
+The ledger grammar is the one in <code>scripts/kaizen_gate_ledger.py</code>, which this script imports.</p>
+<p><strong>Threshold: 10 consecutive 0-finding runs.</strong> This reuses <code>/kaizen</code>'s <code>MIN_RUNS_FOR_VERDICT</code>.
+<code>/kaizen</code> states no <em>consecutive</em> rule and has no diff-shape dimension (it computes
+per-gate totals over a window), so "consecutive" and "shape" are defined here.</p>
+<p><strong>Diff shape</strong> is the MR source-branch prefix: <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>chore</code>, or <code>other</code>.
+These mirror the rows of the fast-path table and are available from the API without fetching
+diffs. Zeros are never pooled across shapes.</p>
+<h2 id="where-the-count-lives">Where the count lives<a class="headerlink" href="#where-the-count-lives" title="Permanent link">&para;</a></h2>
+<p><code>.claude/kaizen-yield-state.json</code>, committed, like <code>backend/schemathesis-baseline.json</code>.
+CI cache and artifacts expire; a committed file is reviewable and survives. Each run folds in
+only MRs merged after the file's <code>(last_merged_at, last_iid)</code> watermark, so re-running against
+an unchanged file never double counts. The job runs with the file as its baseline and uploads
+the updated state as an artifact; commit it in a chore MR to advance the baseline. Even if
+nobody does, the next run re-derives the same result.</p>
+<h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w">                              </span><span class="c1"># report only</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--write-state<span class="w"> </span>/tmp/s.json<span class="w">   </span><span class="c1"># also emit new state</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--input<span class="w"> </span>mrs.json<span class="w">            </span><span class="c1"># offline</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python3<span class="w"> </span>scripts/kaizen_yield_watch.py<span class="w"> </span>--self-test<span class="w">                 </span><span class="c1"># gate self-test (#1093)</span>
 </code></pre></div>
-<p>Pass <code>--days N</code> to widen the window. <code>Card.due_date</code> is a date, not a timestamp,
-so the window is expressed in whole days; the default of <code>1</code> is the documented
-24-hour warning and covers cards due today or tomorrow.</p>
-<p>The command is idempotent per due date: a card is visible to it on two
-consecutive runs (due tomorrow, then due today) and produces <strong>one</strong> notification
-in total. Changing a card's due date makes it eligible again, because a
-rescheduled card is a new commitment. An assignee who has since lost access to
-the board is skipped — the assignee field is not cleared when a member is
-removed, and card titles are board content.</p>
-<div class="admonition note">
-<p class="admonition-title">Added in 1.2</p>
-<p>The due-date notification is new in 1.2 (#356). Earlier releases described it
-and shipped the preference toggle, but nothing ever created the notification.</p>
-</div>
-<h2 id="card-moved-notifications">Card moved notifications<a class="headerlink" href="#card-moved-notifications" title="Permanent link">&para;</a></h2>
-<p>When a card is moved to a different column by another user, the card's assignee is notified.</p>
-<h2 id="board-invite-notifications">Board invite notifications<a class="headerlink" href="#board-invite-notifications" title="Permanent link">&para;</a></h2>
-<p>When a user is added to a board (directly or via group membership), they receive a notification:</p>
-<blockquote>
-<p>"You were added to "{board name}""</p>
-</blockquote>
-<p>This notification appears in the bell dropdown and includes a <strong>View board →</strong> link, making it clear that clicking will navigate to the board. Users can disable board invite notifications in <strong>Settings → Notifications</strong> by toggling the <strong>Board invites</strong> preference.</p>
-<h2 id="comment-added-notifications">Comment added notifications<a class="headerlink" href="#comment-added-notifications" title="Permanent link">&para;</a></h2>
-<p>When a comment is posted on a card, the card's assignee is notified (unless they posted the comment themselves).</p>
-<h2 id="staleness-notifications">Staleness notifications<a class="headerlink" href="#staleness-notifications" title="Permanent link">&para;</a></h2>
-<p>Cards that haven't moved between columns in a configurable number of days are considered <strong>stale</strong>. The <code>notify_stale_cards</code> management command scans all boards and creates notifications for assignees and board admins of stale cards, for those who have the <strong>Card has gone stale</strong> preference on (it was <strong>Due date approaching</strong> before 1.2 — see the note in <a href="#notification-preferences">Notification preferences</a>).</p>
-<h3 id="staleness-threshold">Staleness threshold<a class="headerlink" href="#staleness-threshold" title="Permanent link">&para;</a></h3>
-<p>Each board has a <code>staleness_threshold_days</code> setting (default: <strong>7 days</strong>). A card is stale when its last <code>CardMovement</code> record is older than this threshold (or when a card has never been moved and was created more than that many days ago).</p>
-<h3 id="stale-card-indicator">Stale card indicator<a class="headerlink" href="#stale-card-indicator" title="Permanent link">&para;</a></h3>
-<p>Cards that are stale show an amber tint overlay with reduced opacity in the board view.</p>
-<h3 id="running-the-stale-check">Running the stale check<a class="headerlink" href="#running-the-stale-check" title="Permanent link">&para;</a></h3>
-<p>The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
-</code></pre></div>
-<p>Schedule this as a daily cron job or Kubernetes CronJob in production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># crontab example — run at 8am daily</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
-</code></pre></div>
-<h2 id="email-notifications">Email notifications<a class="headerlink" href="#email-notifications" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Team members who are not watching the board all day can have notifications
-delivered to their email address as well as the bell. Four events support it:</p>
-<table>
-<thead>
-<tr>
-<th>Event</th>
-<th>Email preference</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Card assigned to me</td>
-<td><strong>Also send by email</strong> under <em>Card assigned to me</em></td>
-</tr>
-<tr>
-<td>Someone @mentions me</td>
-<td><strong>Also send by email</strong> under <em>Someone @mentions me</em></td>
-</tr>
-<tr>
-<td>Due date approaching</td>
-<td><strong>Also send by email</strong> under <em>Due date approaching</em></td>
-</tr>
-<tr>
-<td>Card I'm watching is moved</td>
-<td><strong>Also send by email</strong> under <em>Card I'm watching is moved</em></td>
-</tr>
-</tbody>
-</table>
-<h3 id="turning-it-on">Turning it on<a class="headerlink" href="#turning-it-on" title="Permanent link">&para;</a></h3>
-<p>Two things have to be true before any email is sent:</p>
-<ol>
-<li><strong>An administrator has configured outgoing email</strong> — either the <code>EMAIL_*</code>
-   environment variables or <strong>Admin → Settings → Email</strong>. See
-   <a href="../../administration/configuration/#email-smtp">Configuration</a>. Nothing is
-   sent, and nothing is queued, if email is unconfigured.</li>
-<li><strong>You turned the event's email toggle on</strong> in <strong>Settings → Notifications</strong>.</li>
-</ol>
-<div class="admonition warning">
-<p class="admonition-title">Email is off by default, deliberately</p>
-<p>Every email preference defaults to <strong>off</strong>, for every user, including on an
-instance that already has working SMTP. Upgrading to 1.2 does not start
-emailing anybody. This is the only safe default: the alternative is an
-upgrade that silently mails every member of every board.</p>
-</div>
-<h3 id="email-rides-on-the-in-app-notification">Email rides on the in-app notification<a class="headerlink" href="#email-rides-on-the-in-app-notification" title="Permanent link">&para;</a></h3>
-<p>An email is a copy of the in-app notification, sent when that notification is
-created. So the in-app toggle for an event gates both: with the in-app
-notification off there is no notification to copy, and the email toggle is inert.
-The settings UI disables it and says so rather than letting you turn on something
-that would quietly do nothing.</p>
-<h3 id="what-an-email-contains">What an email contains<a class="headerlink" href="#what-an-email-contains" title="Permanent link">&para;</a></h3>
-<p>Plain text only — no HTML part, no tracking, no images. The subject is the board
-name followed by the same sentence the bell shows. The body repeats it, names the
-board and card, and links straight to the card (the same deep link the bell uses,
-so both land in the same place). A footer links to your notification settings,
-and the message carries a <code>List-Unsubscribe</code> header pointing there.</p>
-<p>Mail is sent from the address configured as the sender (<code>DEFAULT_FROM_EMAIL</code>, or
-the sender set in the admin UI). There is no separate notification sender.</p>
-<h3 id="who-does-not-receive-email">Who does not receive email<a class="headerlink" href="#who-does-not-receive-email" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Users with no email address on their account</li>
-<li>Deactivated users — their notification history is kept, their mail is not</li>
-<li>
-<p>Users whose address is unconfirmed, <strong>when</strong> the instance sets
-  <code>EMAIL_VERIFICATION=mandatory</code>. Under the default <code>optional</code> policy unverified
-  addresses are normal — the same instance already sends password-reset mail to
-  them — so they still receive notification mail.</p>
-<p>Two things follow from that default, and they are the reason to consider
-<code>mandatory</code> on a public instance. Notification mail carries board content
-(board names, card titles) to whatever address the account holder last saved,
-proved or not. And because a member can set their own address to anyone's, a
-member could point notifications at a third party who never asked for them,
-with card titles they chose. Neither gives anybody access to a board they are
-not on, but <code>EMAIL_VERIFICATION=mandatory</code> closes both, and
-<code>NOTIFICATION_EMAIL_ENABLED=false</code> closes them outright.
-- Everybody, when <code>NOTIFICATION_EMAIL_ENABLED=false</code></p>
-</li>
-</ul>
-<h3 id="when-mail-fails">When mail fails<a class="headerlink" href="#when-mail-fails" title="Permanent link">&para;</a></h3>
-<p>A delivery failure never breaks the action that caused it. Notifications are
-created inside the request's transaction; once it commits, the messages are
-handed to a background thread that sends them over a single connection with a
-socket timeout (<code>NOTIFICATION_EMAIL_TIMEOUT</code>, default 10 seconds). If the SMTP
-server is unreachable, misconfigured or rejects the credentials, the card update
-still succeeds, the in-app notification is still created, and the failure is
-logged with a sanitized error code. Logs never contain a recipient address.</p>
-<p>The send runs on a thread rather than inline because the timeout is applied per
-socket operation, not as a wall-clock total — a tarpitting relay can spend it
-again at every step of the conversation, which inline would mean a card
-assignment or drag-and-drop appearing to hang. The trade-off is that delivery is
-explicitly <strong>best-effort</strong>: restarting or recycling a worker mid-send drops that
-batch. Set <code>NOTIFICATION_EMAIL_ASYNC=false</code> to send inline instead.</p>
-<p>There is no retry and no queue: a notification email is only useful promptly, and
-a durable queue is not a dependency the OSS core takes on. If mail is failing, fix
-the SMTP configuration — <strong>Admin → Settings → Email</strong> has a <strong>Send test email</strong>
-button.</p>
-<h3 id="extending-delivery">Extending delivery<a class="headerlink" href="#extending-delivery" title="Permanent link">&para;</a></h3>
-<p>Notification creation fires a <code>post_notification_created</code> signal, which is a
-stable extension point: additional delivery backends attach to it without
-modifying any file in this repository. See
-<a href="../../architecture/open-core-boundary/#oss-extension-points-implementation-status">Open core boundary</a>.</p>
-<hr />
-<h2 id="notification-data-model">Notification data model<a class="headerlink" href="#notification-data-model" title="Permanent link">&para;</a></h2>
-<p>Each notification stores structured metadata alongside the human-readable <code>verb</code> string:</p>
-<ul>
-<li><strong><code>actor</code></strong> — the user who triggered the notification (e.g. the person who assigned the card or posted the comment). Shown in the notification feed as the actor's display name. Null for system-generated notifications such as staleness alerts.</li>
-<li><strong><code>action_type</code></strong> — a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>. Useful for filtering or grouping notifications programmatically. Values are added over time, so a client that switches on this field must fall through to a generic rendering for one it does not recognize.</li>
-</ul>
-<h2 id="notification-api">Notification API<a class="headerlink" href="#notification-api" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>GET /api/v1/notifications/</code></td>
-<td>List unread notifications for the current user (max 50)</td>
-</tr>
-<tr>
-<td><code>GET /api/v1/notifications/unread-count/</code></td>
-<td>Returns <code>{ "count": N }</code></td>
-</tr>
-<tr>
-<td><code>POST /api/v1/notifications/mark-read/</code></td>
-<td>Mark notifications as read — body: <code>{ "ids": [1, 2] }</code> or <code>{ "all": true }</code> to mark all</td>
-</tr>
-</tbody>
-</table>
-<p>The <code>GET /api/v1/notifications/</code> response returns an array of objects with the following shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"verb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"You were assigned to \"Deploy v2.3\""</span><span class="p">,</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"card_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"card_title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Deploy v2.3"</span><span class="p">,</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"board_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Engineering"</span><span class="p">,</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="nt">"actor"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice"</span><span class="p">,</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="nt">"avatar_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"action_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"assigned"</span><span class="p">,</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"read"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-27T14:00:00Z"</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">}</span>
-</code></pre></div>
-<p>The <code>action_type</code> field is a machine-readable classifier for the event. Possible values: <code>assigned</code>, <code>mentioned</code>, <code>card_moved</code>, <code>stale</code>, <code>board_invite</code>, <code>due_soon</code> <em>(added in 1.2)</em>, or <code>""</code> (empty string for legacy notifications created before action types were introduced). New values are additive; treat an unrecognized one as generic rather than as an error.</p>
-<div class="admonition note">
-<p class="admonition-title">Added in 1.1</p>
-<p>The <code>actor</code> field (the user who triggered the notification) is included in the API response as a slim user object (#1007). It is <code>null</code> for system-generated notifications such as staleness alerts.</p>
-</div>
+<h2 id="scheduled-job">Scheduled job<a class="headerlink" href="#scheduled-job" title="Permanent link">&para;</a></h2>
+<p><code>kaizen-yield-watch</code> runs only in scheduled pipelines that set <code>KAIZEN_YIELD_WATCH=true</code>
+(CI/CD, Schedules; suggested weekly). It is <code>allow_failure: true</code> and <strong>fails open</strong>: an
+inconclusive GitLab API lookup is a warning and exit 0, matching
+<code>scripts/check-suppression-issues.sh</code>.</p>
+<h2 id="auto-filing-issues-opt-in">Auto-filing issues (opt-in)<a class="headerlink" href="#auto-filing-issues-opt-in" title="Permanent link">&para;</a></h2>
+<p>Default is a dry run that prints what would be filed. To enable filing, set
+<code>KAIZEN_FILE_ISSUES=true</code> and a <code>KAIZEN_API_TOKEN</code> variable (project token, <code>api</code> scope) on the
+schedule. Each new candidate becomes one issue titled
+<code>harness: narrow `&lt;gate&gt;` trigger on &lt;shape&gt; diffs (N consecutive 0-finding runs)</code>, with the
+evidence (streak, lifetime runs, recent MRs) attached. Filing is deduplicated against open issues
+with the same title, skips gates recorded in <code>.claude/kaizen-declined.json</code>, and a pair is not
+re-raised until its streak breaks. Proposals narrow a gate's trigger; they never delete a gate.</p>
+<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
+<p><code>bash scripts/tests/kaizen_yield_watch.test.sh</code> (no network). CI runs
+<code>--self-test</code> immediately before the real invocation.</p>
 
 
 
