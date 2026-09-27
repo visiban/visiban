@@ -2618,7 +2618,10 @@ docs-deploy:
       if [ -z "$VERSION" ]; then
         # Auto-deploy from main (docs change pipeline): read version from .env.example.
         VERSION=$(grep '^APP_VERSION=' .env.example | cut -d= -f2)
-        # APP_VERSION doesn't carry the v prefix; mike entries must match release tags.
+        # .env.example now carries the v prefix (v1.1.0 — #1174), so this
+        # is normally a no-op; kept as a safety net for older trees or a
+        # manually-edited .env.example that dropped it, since mike entries
+        # must match release tags either way.
         if [ -n "$VERSION" ] && ! echo "$VERSION" | grep -q '^v'; then
           VERSION="v${VERSION}"
         fi

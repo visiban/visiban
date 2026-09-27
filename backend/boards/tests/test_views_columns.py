@@ -1,12 +1,16 @@
 """Tests for ColumnViewSet, SwimlaneViewSet, LabelViewSet, and utility views."""
+import os
+import subprocess
+import sys
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Column, Swimlane, Label, Notification
+from visiban.utils import normalize_app_version
 
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -334,3 +338,77 @@ class VersionViewTests(TestCase):
         r = self.client.get("/api/v1/version/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("version", r.json())
+
+    @override_settings(APP_VERSION="1.1.0")
+    def test_version_serves_bare_semver(self):
+        """#1174 — settings.APP_VERSION is already normalized by the time the
+        view reads it, so the view itself just needs to pass it through."""
+        r = self.client.get("/api/v1/version/")
+        self.assertEqual(r.json()["version"], "1.1.0")
+
+
+class NormalizeAppVersionTests(TestCase):
+    """#1174 — APP_VERSION doubles as the (v-prefixed) compose/Helm image
+    tag operators pin in .env, but GET /api/v1/version/ promises bare
+    semver (docs/api/version.md). override_settings can't exercise the
+    strip itself (it sets the already-computed settings value directly,
+    bypassing env parsing), so the normalizing helper is unit-tested here
+    with the raw inputs it must handle."""
+
+    def test_strips_leading_v(self):
+        self.assertEqual(normalize_app_version("v1.1.0"), "1.1.0")
+
+    def test_leaves_bare_version_unchanged(self):
+        self.assertEqual(normalize_app_version("1.1.0"), "1.1.0")
+
+    def test_leaves_dev_default_unchanged(self):
+        self.assertEqual(normalize_app_version("dev"), "dev")
+
+    def test_strips_leading_v_on_prerelease(self):
+        self.assertEqual(normalize_app_version("v1.2.0-rc.1"), "1.2.0-rc.1")
+
+
+class SettingsAppVersionWiringTests(TestCase):
+    """#1174 — proves visiban/settings.py actually applies
+    normalize_app_version() to the env value, not just that the helper
+    works in isolation (NormalizeAppVersionTests above). The already-
+    running test process imported settings.py long ago, and
+    override_settings only overwrites the already-computed attribute, so
+    neither can catch a dropped call at L634. Re-running django.setup()
+    in a subprocess with a controlled APP_VERSION re-executes settings.py
+    from scratch against it.
+
+    Negative control (run by hand, not committed): removing the
+    normalize_app_version(...) call at settings.py's APP_VERSION
+    assignment makes this test fail — it prints "v9.9.9", not "9.9.9".
+    """
+
+    def test_settings_module_normalizes_app_version_from_env(self):
+        from django.conf import settings as django_settings
+
+        subprocess_env = {**os.environ, "APP_VERSION": "v9.9.9"}
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import django, os; "
+                "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'visiban.settings'); "
+                "django.setup(); "
+                "from django.conf import settings; "
+                "print(settings.APP_VERSION)",
+            ],
+            cwd=str(django_settings.BASE_DIR),
+            env=subprocess_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(
+            result.returncode, 0, f"subprocess failed: {result.stderr}"
+        )
+        self.assertEqual(
+            result.stdout.strip(),
+            "9.9.9",
+            f"settings.py did not normalize APP_VERSION=v9.9.9 -- "
+            f"stdout={result.stdout!r} stderr={result.stderr!r}",
+        )

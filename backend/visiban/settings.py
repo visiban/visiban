@@ -5,6 +5,8 @@ import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
 
+from visiban.utils import normalize_app_version
+
 
 def _warn_deprecated_env_alias(old_name: str, new_name: str) -> None:
     """Emit a one-shot DeprecationWarning when a legacy env var is set.
@@ -633,7 +635,11 @@ REST_AUTH = {
     "PASSWORD_RESET_SERIALIZER": "accounts.serializers.VisibanPasswordResetSerializer",
 }
 
-APP_VERSION = env("APP_VERSION", default="dev")
+# APP_VERSION is set as the v-prefixed image tag operators pin in .env
+# (e.g. "v1.1.0", matching the tags CI publishes to GHCR -- #1174), but
+# GET /api/v1/version/ promises callers bare semver (docs/api/version.md).
+# Normalize here so the API contract holds regardless of which form is set.
+APP_VERSION = normalize_app_version(env("APP_VERSION", default="dev"))
 
 # ── Hosted demo mode (#1034) ─────────────────────────────────────────────────
 # Opt-in: DEMO_MODE defaults to False so existing installs are unchanged. When

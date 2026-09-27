@@ -23,8 +23,11 @@
 #      after 1.1 ships).
 #   2. Front-door state — docs/index.md must carry the current version
 #      (**X.Y.Z**) and, on a GA version, no release-candidate/beta/alpha
-#      wording; README.md pinned image tags, docs/getting-started
-#      APP_VERSION= lines and image.tag= values must equal the current version.
+#      wording; README.md pinned image tags and docs/getting-started
+#      image.tag= values must equal v<current version>. docs/getting-started
+#      APP_VERSION= lines must ALSO equal v<current> — it is the image tag
+#      operators pin (#1174), not a bare version string, and a bare
+#      APP_VERSION=<current> names a tag that does not exist on GHCR.
 #   3. Tag pipelines — when CI_COMMIT_TAG is set it must equal v<current>, so
 #      a tag cut from a tree whose release rewrite was skipped fails at tag time.
 #
@@ -149,8 +152,15 @@ EOH
       hf="${hit%%:*}"; hl="${hit#*:}"; hl="${hl%%:*}"; hv="${hit##*=}"
       case "$hit" in
         *APP_VERSION=*)
-          if [ "$hv" != "$current" ]; then
-            echo "VIOLATION: ${hf#"$root"/}:$hl — APP_VERSION=$hv does not match $current." >&2
+          # APP_VERSION is the v-prefixed image tag operators pin in .env
+          # (matches the tags CI actually publishes to GHCR — #1174), not a
+          # bare version string — that field is normalize_app_version()'d
+          # away by the backend before GET /api/v1/version/ serves it.
+          if [ "${hv#v}" != "$current" ]; then
+            echo "VIOLATION: ${hf#"$root"/}:$hl — APP_VERSION=$hv does not match v${current}." >&2
+            v=$((v + 1))
+          elif [ "$hv" = "$current" ]; then
+            echo "VIOLATION: ${hf#"$root"/}:$hl — APP_VERSION=$hv is missing the required v prefix — the image tag must be v${current}; a bare ${current} tag does not exist on GHCR." >&2
             v=$((v + 1))
           fi ;;
         *)
@@ -160,7 +170,7 @@ EOH
           fi ;;
       esac
     done <<EOH
-$(grep -rnoE '(APP_VERSION=[0-9][0-9A-Za-z.+-]*|image\.tag=v[0-9][0-9A-Za-z.+-]*)' "$root/docs/getting-started" || true)
+$(grep -rnoE '(APP_VERSION=v?[0-9][0-9A-Za-z.+-]*|image\.tag=v[0-9][0-9A-Za-z.+-]*)' "$root/docs/getting-started" || true)
 EOH
   fi
 
@@ -184,7 +194,7 @@ mk_tree() {
   printf '{\n  "version": "%s"\n}\n' "$ver" > "$d/frontend/package.json"
   printf '# Visiban\n\n!!! note "Latest release"\n    **%s** is the current stable release.\n' "$ver" > "$d/docs/index.md"
   printf 'docker pull ghcr.io/visiban/visiban/backend:%s\nCall it Coming in 9.9 someday.\n' "$tag" > "$d/README.md"
-  printf 'APP_VERSION=%s\n' "$ver" > "$d/docs/getting-started/installation.md"
+  printf 'APP_VERSION=%s\n' "$tag" > "$d/docs/getting-started/installation.md"
   printf 'Something *new in 1.0* is fine, and Ships in 9.9 is future.\n' > "$d/docs/feature.md"
 }
 
@@ -235,8 +245,15 @@ self_test() {
 
   # Stale install pins.
   mk_tree "$tmp/pins" 1.1.0
-  printf 'APP_VERSION=1.0.0\n' > "$tmp/pins/docs/getting-started/installation.md"
-  expect_fail "stale APP_VERSION in getting-started" "$tmp/pins" "APP_VERSION=1.0.0"
+  printf 'APP_VERSION=v1.0.0\n' > "$tmp/pins/docs/getting-started/installation.md"
+  expect_fail "stale APP_VERSION in getting-started" "$tmp/pins" "APP_VERSION=v1.0.0"
+
+  # Bare (unprefixed) APP_VERSION naming the current version — the tag it
+  # names does not exist on GHCR (#1174), so this must fail, not pass.
+  mk_tree "$tmp/barepin" 1.1.0
+  printf 'APP_VERSION=1.1.0\n' > "$tmp/barepin/docs/getting-started/installation.md"
+  expect_fail "bare APP_VERSION (no v) fails — that tag does not exist on GHCR" "$tmp/barepin" "v prefix"
+
   mk_tree "$tmp/readmepin" 1.1.0
   printf 'docker pull ghcr.io/visiban/visiban/backend:v1.0.0\n' > "$tmp/readmepin/README.md"
   expect_fail "stale README image tag" "$tmp/readmepin" "pinned image tag"
