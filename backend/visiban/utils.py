@@ -1,3 +1,16 @@
+def normalize_app_version(value: str) -> str:
+    """Strip a leading ``v`` so APP_VERSION always reports as bare semver.
+
+    APP_VERSION doubles as the docker-compose/Helm image tag operators pin
+    (v-prefixed, e.g. "v1.1.0", matching the tags CI actually publishes to
+    GHCR -- see #1174) and the value GET /api/v1/version/ serves callers,
+    which promises bare semver they can parse (docs/api/version.md). Accept
+    either form here so that public API contract holds regardless of which
+    one ops set APP_VERSION to.
+    """
+    return value.removeprefix("v")
+
+
 def get_client_ip(request) -> str:
     """Return the originating client IP from the request.
 

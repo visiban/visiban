@@ -190,7 +190,10 @@ RELEASE_BRANCH="chore/release-${VERSION}"
 git checkout -b "$RELEASE_BRANCH"
 
 # Update .env.example
-sed -i '' "s/^APP_VERSION=.*/APP_VERSION=${VERSION}/" .env.example
+# APP_VERSION is the v-prefixed image tag (matches the tags CI actually
+# publishes to GHCR), not the bare VERSION -- #1174. The backend strips the
+# "v" itself before serving GET /api/v1/version/ (visiban/utils.py).
+sed -i '' "s/^APP_VERSION=.*/APP_VERSION=${TAG}/" .env.example
 
 # Update docker-compose.yml (hardcoded value, not the :-dev fallback line)
 # Only replace if there's already a hardcoded value; skip if it's the ${APP_VERSION:-dev} form
@@ -209,7 +212,8 @@ sed -i '' "s|ghcr.io/visiban/visiban/backend:v[^ ]*|ghcr.io/visiban/visiban/back
 sed -i '' "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/frontend:${TAG}|g" README.md
 
 # Update docs/getting-started/installation.md APP_VERSION example
-sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${VERSION}|" docs/getting-started/installation.md
+# Same v-prefixed tag form as .env.example above -- #1174.
+sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${TAG}|" docs/getting-started/installation.md
 
 # Update docs/index.md release candidate banner
 # Matches "**MAJOR.MINOR.PATCH-rc.N**" (just the version bolded, not the whole phrase)
@@ -306,9 +310,9 @@ echo "Updated .env.example, docker-compose.yml, helm/visiban/values.yaml, fronte
 echo "Verifying version consistency..."
 ERRORS=0
 
-# .env.example must contain the version
-if ! grep -q "APP_VERSION=${VERSION}" .env.example; then
-  echo "  WARN: .env.example does not contain APP_VERSION=${VERSION}" >&2
+# .env.example must contain the v-prefixed image tag, not the bare version
+if ! grep -q "APP_VERSION=${TAG}" .env.example; then
+  echo "  WARN: .env.example does not contain APP_VERSION=${TAG}" >&2
   ERRORS=$((ERRORS + 1))
 fi
 
@@ -324,9 +328,9 @@ if ! grep -q "ghcr.io/visiban/visiban/backend:${TAG}" README.md; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# docs/getting-started/installation.md must reference the version
-if ! grep -q "APP_VERSION=${VERSION}" docs/getting-started/installation.md; then
-  echo "  WARN: docs/getting-started/installation.md does not reference APP_VERSION=${VERSION}" >&2
+# docs/getting-started/installation.md must reference the v-prefixed tag
+if ! grep -q "APP_VERSION=${TAG}" docs/getting-started/installation.md; then
+  echo "  WARN: docs/getting-started/installation.md does not reference APP_VERSION=${TAG}" >&2
   ERRORS=$((ERRORS + 1))
 fi
 

@@ -1,12 +1,13 @@
 """Tests for ColumnViewSet, SwimlaneViewSet, LabelViewSet, and utility views."""
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from boards.models import Board, BoardMembership, Column, Swimlane, Label, Notification
+from visiban.utils import normalize_app_version
 
 
 PATCH_BROADCAST = "boards.broadcast.broadcast_board_event"
@@ -334,3 +335,31 @@ class VersionViewTests(TestCase):
         r = self.client.get("/api/v1/version/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertIn("version", r.json())
+
+    @override_settings(APP_VERSION="1.1.0")
+    def test_version_serves_bare_semver(self):
+        """#1174 — settings.APP_VERSION is already normalized by the time the
+        view reads it, so the view itself just needs to pass it through."""
+        r = self.client.get("/api/v1/version/")
+        self.assertEqual(r.json()["version"], "1.1.0")
+
+
+class NormalizeAppVersionTests(TestCase):
+    """#1174 — APP_VERSION doubles as the (v-prefixed) compose/Helm image
+    tag operators pin in .env, but GET /api/v1/version/ promises bare
+    semver (docs/api/version.md). override_settings can't exercise the
+    strip itself (it sets the already-computed settings value directly,
+    bypassing env parsing), so the normalizing helper is unit-tested here
+    with the raw inputs it must handle."""
+
+    def test_strips_leading_v(self):
+        self.assertEqual(normalize_app_version("v1.1.0"), "1.1.0")
+
+    def test_leaves_bare_version_unchanged(self):
+        self.assertEqual(normalize_app_version("1.1.0"), "1.1.0")
+
+    def test_leaves_dev_default_unchanged(self):
+        self.assertEqual(normalize_app_version("dev"), "dev")
+
+    def test_strips_leading_v_on_prerelease(self):
+        self.assertEqual(normalize_app_version("v1.2.0-rc.1"), "1.2.0-rc.1")
