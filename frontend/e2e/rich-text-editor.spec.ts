@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { routeAuth, routeBoard } from './helpers'
 import { BOARD_FULL, CARD } from './fixtures/board'
 
@@ -32,6 +32,41 @@ async function routeCardWithPatchCapture(page: Page, sink: { description?: strin
       })
     }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CARD) })
+  })
+}
+
+/**
+ * Returns the text covered by the editor's own selection state, which is not
+ * necessarily the DOM selection.
+ *
+ * Why the two can differ: Shift+Arrow extends the DOM selection natively, and
+ * ProseMirror only copies it into `editor.state.selection` when the browser's
+ * asynchronous `selectionchange` event reaches its DOMObserver. A toolbar
+ * button's mousedown handler runs outside ProseMirror's own event handling, so
+ * nothing syncs the state first. `toggleBold()` therefore acts on whatever
+ * selection the state holds. A human cannot click a toolbar button inside that
+ * gap, but Playwright fires the click about 1 ms after the last keypress. On a
+ * loaded CI runner the pending `selectionchange` tasks can still be queued
+ * behind the mousedown (see #1195: a job bolded nothing, then "ut", then
+ * "dout" across its three attempts, and a later pipeline with a byte-identical
+ * frontend tree passed).
+ *
+ * Tiptap attaches the Editor instance to its root element (`dom.editor`),
+ * which lets the test wait on the real editor state instead of on a
+ * `waitForTimeout`.
+ */
+async function editorSelectedText(editor: Locator): Promise<string> {
+  return editor.evaluate((el) => {
+    type EditorLike = {
+      state: {
+        selection: { from: number; to: number }
+        doc: { textBetween(from: number, to: number): string }
+      }
+    }
+    const ed = (el as HTMLElement & { editor?: EditorLike }).editor
+    if (!ed) return ''
+    const { from, to } = ed.state.selection
+    return ed.state.doc.textBetween(from, to)
   })
 }
 
@@ -103,6 +138,9 @@ test.describe('rich text editor', () => {
     for (let i = 0; i < 'standout'.length; i++) {
       await page.keyboard.press('Shift+ArrowLeft')
     }
+    // Wait until the editor state, not just the DOM, holds the whole word. See
+    // editorSelectedText for why clicking straight after the keypresses races.
+    await expect.poll(() => editorSelectedText(editor), { timeout: 5_000 }).toBe('standout')
     await dialog.getByTitle('Bold (Ctrl+B)').click()
 
     await dialog.getByRole('button', { name: 'Save' }).click()
@@ -150,6 +188,10 @@ test.describe('rich text editor', () => {
     for (let i = 0; i < 'underlined'.length; i++) {
       await page.keyboard.press('Shift+ArrowLeft')
     }
+    // Same wait as the bold test. Without it this guard can pass vacuously: if
+    // the editor state still holds an empty selection, Ctrl+U has no text to
+    // mark, so no <u> is written even with Underline enabled.
+    await expect.poll(() => editorSelectedText(editor), { timeout: 5_000 }).toBe('underlined')
     // ControlOrMeta, not Control: Tiptap binds Mod-u, which is Cmd on macOS and
     // Ctrl on CI's Linux. A bare 'Control+u' is a no-op on macOS and would make
     // this test pass whether or not Underline is enabled.
