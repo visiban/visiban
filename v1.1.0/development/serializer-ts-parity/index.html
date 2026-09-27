@@ -2514,24 +2514,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Serializer ↔ TypeScript Parity
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -2548,102 +2530,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#why-this-gate-exists" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Why this gate exists
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it checks
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-it-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running it locally
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#when-the-gate-fails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When the gate fails
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#suppressions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suppressions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#self-test" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Self-test
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-out-of-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What is out of scope
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
       
     </li>
   
@@ -3404,19 +3290,25 @@ either one covers your change.</strong></p>
 <tr>
 <td><code>backend/boards/tests/test_ts_serializer_drift.py</code> (#821, since 1.1)</td>
 <td>The serializer classes (<code>instance.fields</code>)</td>
-<td><strong>14</strong> pairs, incl. <code>BoardFull</code>, <code>Column</code>, <code>Swimlane</code>, <code>Label</code>, <code>CardMovement</code>, <code>CardComment</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
+<td><strong>14</strong> pairs, incl. <code>BoardFull</code>, <code>CardActivity</code>, <code>CardAttachment</code></td>
 <td>Field <strong>names</strong>, both directions</td>
 </tr>
 <tr>
-<td><code>serializer-ts-parity</code> CI job (#1079, this page)</td>
+<td><code>serializer-ts-parity</code> CI job (#1079 + #1139, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>5</strong> pairs — <code>Board</code>, <code>Card</code>, <code>User</code>, <code>BoardMembership</code>, <code>BoardUser</code></td>
+<td><strong>18</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
 </table>
-<p>The older test covers more pairs; this gate covers more <em>per pair</em>. Neither supersedes the
-other, and a green run of one says nothing about the other.</p>
+<p>Neither supersedes the other, and a green run of one says nothing about the other — but since</p>
+<h1 id="1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-three-pairs">1139 the coverage gap is down to a single, structural difference: **#821 reaches three pairs<a class="headerlink" href="#1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-three-pairs" title="Permanent link">&para;</a></h1>
+<p>this gate cannot, because <code>drf-spectacular</code> emits no component for them.** See
+<a href="#coverage">Coverage</a> for the pair-by-pair table.</p>
+<p>Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
+green job read as much broader assurance than it delivered. Widening it to eighteen turned up
+nine more real mismatches on the new pairs (and one false positive caused by a defect in the
+gate's own TypeScript alias parser).</p>
 <p>The distinction that matters: #821 asks "does the serializer emit this field?" — this gate
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
 the second, and in practice several do. Eight fields on <code>Board</code> and <code>CurrentUser</code> were
@@ -3457,39 +3349,7 @@ internally consistent, with no third thing checking that they agree.</p>
 <h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
 <p>The job regenerates the OpenAPI schema with <code>drf-spectacular</code> — the same command
 <code>backend-schema-validate</code> runs, and for the same reason it needs no database — and compares
-its components against the hand-written interfaces:</p>
-<table>
-<thead>
-<tr>
-<th>Schema component</th>
-<th>TypeScript interface</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Board</code></td>
-<td><code>Board</code></td>
-</tr>
-<tr>
-<td><code>Card</code></td>
-<td><code>Card</code></td>
-</tr>
-<tr>
-<td><code>CurrentUser</code></td>
-<td><code>User</code></td>
-</tr>
-<tr>
-<td><code>BoardMembership</code></td>
-<td><code>BoardMembership</code></td>
-</tr>
-<tr>
-<td><code>BoardUser</code></td>
-<td><code>BoardUser</code></td>
-</tr>
-</tbody>
-</table>
-<p>There is no <code>User</code> component — the <code>/api/v1/auth/me/</code> shape is <code>CurrentUser</code>, which is why the
-mapping is not one-to-one by name.</p>
+its components against the hand-written interfaces.</p>
 <p>Six kinds of mismatch are reported:</p>
 <table>
 <thead>
@@ -3529,6 +3389,143 @@ mapping is not one-to-one by name.</p>
 unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
 (<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
 the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
+<h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
+<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1139 it is:</p>
+<table>
+<thead>
+<tr>
+<th>Schema component</th>
+<th>TypeScript interface</th>
+<th>Also name-checked by #821</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Board</code></td>
+<td><code>Board</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>BoardMembership</code></td>
+<td><code>BoardMembership</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>BoardUser</code></td>
+<td><code>BoardUser</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>Card</code></td>
+<td><code>Card</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CardChecklist</code></td>
+<td><code>CardChecklistItem</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CardComment</code></td>
+<td><code>CardComment</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CardMovement</code></td>
+<td><code>CardMovement</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CardRelation</code></td>
+<td><code>CardRelation</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>Column</code></td>
+<td><code>Column</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CurrentUser</code></td>
+<td><code>User</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>CustomFieldDefinition</code></td>
+<td><code>CustomFieldDefinition</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>CustomFieldValue</code></td>
+<td><code>CustomFieldValue</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>Group</code></td>
+<td><code>Group</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>GroupBrief</code></td>
+<td><code>GroupBrief</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>GroupLabel</code></td>
+<td><code>GroupLabel</code></td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>Label</code></td>
+<td><code>Label</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>Swimlane</code></td>
+<td><code>Swimlane</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>SwimlaneCustomFieldDefinition</code></td>
+<td><code>SwimlaneCustomFieldDefinition</code></td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>The mapping is <strong>not</strong> keyed on the two names matching. There is no <code>User</code> component — the
+<code>/api/v1/auth/me/</code> shape is <code>CurrentUser</code> — and <code>CardChecklist</code> is the component behind the
+<code>CardChecklistItem</code> interface. Both are one resource under two spellings, and leaving either
+out would be a hole the gate's own name check cannot see.</p>
+<h3 id="what-is-not-covered-and-why">What is not covered, and why<a class="headerlink" href="#what-is-not-covered-and-why" title="Permanent link">&para;</a></h3>
+<p>Three pairs #821 name-checks are absent here, all for the same structural reason: the schema
+has no component to diff against, so there is nothing this gate could compare.</p>
+<table>
+<thead>
+<tr>
+<th>Pair</th>
+<th>Why excluded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BoardFull</code></td>
+<td><code>drf-spectacular</code> emits no component for <code>BoardFullSerializer</code>. #821 name-checks it via serializer introspection; extending this gate there depends on the component existing first.</td>
+</tr>
+<tr>
+<td><code>CardActivity</code></td>
+<td>No component emitted.</td>
+</tr>
+<tr>
+<td><code>CardAttachment</code></td>
+<td>No component emitted.</td>
+</tr>
+</tbody>
+</table>
+<p>That is a <strong>missing component, not a passing check</strong> — the three are unchecked here, and the
+gate says nothing about their published types. Making them checkable means getting
+<code>drf-spectacular</code> to emit components for them, which needs its own issue.</p>
+<p>Everything else is deliberately in scope and mapped. There is no pair that has a component and
+an interface and is simply not checked.</p>
 <h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full check: regenerates the schema, then diffs (needs the backend venv)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py
@@ -3575,6 +3572,20 @@ quicker to edit.</p>
   schema-only.</li>
 <li><strong><code>enum_members</code></strong> — the choice sets diverged. Decide which is authoritative before editing.</li>
 </ul>
+<p>A word on <code>nullability</code>, because #1139 hit both directions of it in one branch and they have
+opposite fixes:</p>
+<ul>
+<li>The <strong>schema</strong> understates it. A declared field (nested serializer, or a <code>CharField</code> with a
+  traversing <code>source</code>) over a model FK with <code>null=True</code> publishes as non-nullable while the
+  response has always been able to carry <code>null</code>. Add <code>allow_null=True</code>. On a <code>read_only</code> field
+  that is a documentation fix, not a contract change.</li>
+<li>The <strong>TypeScript</strong> overstates it. A <code>CharField</code> with <code>null=False, blank=True, default=""</code>
+  returns <code>""</code> and never <code>null</code>, so a <code>string | null</code> interface describes a payload the API
+  cannot produce. Narrow the interface — and check the test fixtures, which tend to encode the
+  impossible shape too.</li>
+</ul>
+<p>Read the model field before choosing. The two cases look identical in the gate's output and
+the wrong fix in either direction is a lie in the opposite place.</p>
 <h2 id="suppressions">Suppressions<a class="headerlink" href="#suppressions" title="Permanent link">&para;</a></h2>
 <p>Real, already-tracked drift is recorded in the <code>SUPPRESSIONS</code> table in
 <code>scripts/check-serializer-ts-parity.py</code>, spelled <code>SUPPRESSED-UNTIL(#N)</code> to match the
@@ -3599,13 +3610,43 @@ network and no GitLab token, so it works offline and in a fork's pipeline.</p>
 <li>Do not add one for drift you could simply fix. A suppression is for a mismatch whose fix is
   out of scope for the branch in front of you, not for one that is merely inconvenient.</li>
 </ul>
+<h2 id="typescript-only-optional-fields">TypeScript-only optional fields<a class="headerlink" href="#typescript-only-optional-fields" title="Permanent link">&para;</a></h2>
+<p>A different thing from a suppression, and not interchangeable with one. Sometimes a single
+interface stands in for several serializers of one resource:</p>
+<ul>
+<li><code>Swimlane</code> unions <code>SwimlaneSerializer</code> and <code>SwimlaneAdminSerializer</code> — <code>contact_email</code> and
+  <code>notes</code> are withheld from viewer-role members as PII, and only the public serializer reaches
+  the schema.</li>
+<li><code>Group</code> unions the list and retrieve serializers — <code>ancestors</code> is on <code>GroupDetailSerializer</code>
+  only, deliberately omitted from the list one to avoid an N+1 ancestor walk per row.</li>
+</ul>
+<p><code>?</code> is how the codebase spells "present only on some of them", so these fields produce a
+<code>missing_in_schema</code> finding that is not drift. They are listed in <code>TS_ONLY_FIELDS</code> in the script
+with their reason. #821's test records the identical fact in its <code>extra_allowed_fields_on_ts</code>
+column, so this mirrors a reviewed convention rather than inventing a second one.</p>
+<p>These entries cite <strong>no issue</strong>, because nothing is broken and there is nothing to fix. Three
+properties keep the table from degenerating into an allowlist:</p>
+<ul>
+<li><strong>Per pair and per field.</strong> Nothing is waived wholesale; <code>missing_in_schema</code> stays fully live
+  for every other field on the pair.</li>
+<li><strong>Conditional on the field still being optional.</strong> Drop the <code>?</code> and the finding comes back — a
+  <em>required</em> interface field the API never sends is a real defect.</li>
+<li><strong>Self-invalidating</strong>, exactly like a suppression. If the component gains the property, the
+  entry matches nothing and the gate fails asking for its removal.</li>
+</ul>
+<p>If the mismatch is real drift rather than a serializer split, it needs a suppression and an
+issue — not an entry here.</p>
 <h2 id="self-test">Self-test<a class="headerlink" href="#self-test" title="Permanent link">&para;</a></h2>
 <p>Per the house rule in <a href="https://gitlab.com/visiban/visiban/-/issues/1093">#1093</a>, this gate
 ships a <code>--self-test</code> mode, and CI runs it <strong>immediately before</strong> the real invocation on the
 same image. A gate that has stopped detecting anything looks exactly like a clean codebase; the
 self-test builds a synthetic schema and interface carrying one instance of every finding kind,
 asserts each is caught, and asserts that a matching pair stays silent and that the suppression
-machinery both suppresses and goes stale. It needs no network and no database.</p>
+and TypeScript-only machinery both apply and go stale. It needs no network and no database.</p>
+<p><code>scripts/tests/check-serializer-ts-parity.test.sh</code> covers the command-line surface CI depends on
+— exit codes and fail-safe behavior on a missing or malformed input. Its fixtures read
+<code>COMPONENT_MAP</code> out of the gate rather than hard-coding the pair list, so adding a pair does not
+silently invalidate them.</p>
 <h2 id="what-is-out-of-scope">What is out of scope<a class="headerlink" href="#what-is-out-of-scope" title="Permanent link">&para;</a></h2>
 <p><strong>WebSocket event payloads.</strong> The <code>{event, data}</code> contract in
 <code>frontend/src/hooks/useBoardSocket.ts</code> is not schema-derived and is not checked here. The
@@ -3614,20 +3655,18 @@ serializer — a different shape that merely shares a name. Mapping the WebSocke
 would assert a correspondence that does not exist. That union stays hand-maintained;
 <a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
 separately.</p>
-<p><strong><code>BoardFull</code>.</strong> <code>drf-spectacular</code> does not currently emit a component for it, so
-<code>BoardFullSerializer</code>'s response shape is unchecked <em>here</em>. #821's test does name-check it via
-serializer introspection. Extending this gate there depends on that component existing first.</p>
+<p><strong>Pairs with no schema component.</strong> <code>BoardFull</code>, <code>CardActivity</code> and <code>CardAttachment</code> — see
+<a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
 <p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
 carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
 This gate compares <strong>response</strong> components only. A write-only field whose type drifts triggers
 the job (it is still a <code>backend/**/*</code> change) but produces no finding. If the frontend grows
 explicit request-body interfaces, mapping them is the natural extension.</p>
-<p><strong>The other ten pairs.</strong> <code>CardComment</code>, <code>CardMovement</code>, <code>CardRelation</code>, <code>Column</code>,
-<code>CustomFieldDefinition</code>, <code>CustomFieldValue</code>, <code>Group</code>, <code>GroupLabel</code>, <code>Label</code> and <code>Swimlane</code> all
-have both a schema component and a TypeScript interface, and all are name-checked by #821, but
-none get a <em>type</em> check yet. <a href="https://gitlab.com/visiban/visiban/-/issues/1139">#1139</a> tracks
-closing that gap. Until it does, a green <code>serializer-ts-parity</code> run means "the five mapped
-pairs agree", not "the API and the frontend agree".</p>
+<p><strong>Nothing else.</strong> Every schema component that has a matching TypeScript interface is mapped as
+of <a href="https://gitlab.com/visiban/visiban/-/issues/1139">#1139</a>, so a green <code>serializer-ts-parity</code>
+run now means "the published response components and the interfaces agree", not "five of them
+do". If you add a serializer <em>and</em> an interface, add the pair to <code>COMPONENT_MAP</code> in the same MR —
+the gate does not discover pairs on its own, and an unmapped pair is unchecked silently.</p>
 
 
 
