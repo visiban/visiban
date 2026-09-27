@@ -187,6 +187,19 @@ class CardQueryResponseShapeTests(TestCase):
         r = self.client.get(URL, {"page_size": 50})
         self.assertIsNone(r.data["next_cursor"])
 
+    def test_unassigned_card_with_deleted_creator_reports_null(self):
+        """#1172: assignee/created_by are nullable FKs (unassigned cards are the
+        common case; created_by is SET_NULL on user deletion) — the response
+        must actually send null for both rather than omitting or erroring."""
+        card = _make_card(self.board, self.col, self.swim, self.user, assignee=None)
+        card.created_by = None
+        card.save(update_fields=["created_by"])
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        row = next(row for row in r.data["results"] if row["id"] == card.id)
+        self.assertIsNone(row["assignee"])
+        self.assertIsNone(row["created_by"])
+
 
 class CardQueryFilterTests(TestCase):
     def setUp(self):

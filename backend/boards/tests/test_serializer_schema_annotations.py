@@ -77,6 +77,22 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
             "Card.created_by must be nullable: the FK is SET_NULL with null=True",
         )
 
+    def test_card_query_assignee_is_nullable(self):
+        """CardQuery.assignee (GET /api/v1/cards/, #1112): unassigned cards are
+        the common case, same gap CardSerializer.assignee had before #1108 (#1172)."""
+        self.assertTrue(
+            self._prop("CardQuery", "assignee").get("nullable"),
+            "CardQuery.assignee must be nullable: Card.assignee is a nullable FK",
+        )
+
+    def test_card_query_created_by_is_nullable(self):
+        """CardQuery.created_by is a SET_NULL FK, same gap CardSerializer.created_by
+        had before #1138 (#1172)."""
+        self.assertTrue(
+            self._prop("CardQuery", "created_by").get("nullable"),
+            "CardQuery.created_by must be nullable: the FK is SET_NULL with null=True",
+        )
+
     def test_group_brief_parent_name_is_nullable(self):
         """A root group has no parent, so `source="parent.name"` resolves to None."""
         self.assertTrue(
