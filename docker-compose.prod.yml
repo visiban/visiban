@@ -116,6 +116,9 @@ services:
     command: ["python", "manage.py", "run_scheduler"]
     restart: unless-stopped
     profiles: ["scheduler"]
+    # A job in progress when the service is stopped gets time to finish its
+    # current batch; the loop itself exits on SIGTERM between jobs.
+    stop_grace_period: 2m
     read_only: true
     security_opt:
       - no-new-privileges:true

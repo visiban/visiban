@@ -17,8 +17,8 @@ runs on a web request, and Visiban has no task queue. If nothing schedules them:
 |---|---|---|---|
 | `notify_due_soon` | [Due-date notifications](../features/notifications.md#due-date-notifications) for opted-in assignees | 07:00 | Yes |
 | `notify_stale_cards` | [Staleness notifications](../features/notifications.md#staleness-notifications) for opted-in users | 08:00 | Yes |
-| `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than `BOARD_EVENT_RETENTION_DAYS` (default 30) | 03:00 | No |
-| `prune_notifications` | **Deletes** notifications, read or unread, older than `NOTIFICATION_RETENTION_DAYS` (default 90) | 03:30 | No |
+| `prune_board_events` | **Deletes** [change-feed](../api/events.md) events older than the retention window (default 30 days) | 03:00 | No |
+| `prune_notifications` | **Deletes** notifications, read or unread, older than the retention window (default 90 days) | 03:30 | No |
 
 **The scheduler is off by default on both deployment paths**, so upgrading
 changes nothing until you turn it on. Once it is on, the two notification scans
@@ -52,6 +52,12 @@ Then start it:
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml logs -f scheduler
 ```
+
+A `--profile` flag on the command line **replaces** `COMPOSE_PROFILES` rather
+than adding to it (verified with Docker Compose v5.3). `init-prod.sh` starts the
+stack with `--profile letsencrypt` when `TLS_MODE=letsencrypt`, so that run does
+not start the scheduler. Run the plain `up -d` above afterwards, or pass both
+flags yourself: `--profile letsencrypt --profile scheduler`.
 
 At startup the service prints the schedule it loaded. It logs a line when each
 job starts and when it finishes.
@@ -89,8 +95,12 @@ changing any of these variables.
   every restart. A missed notification scan is a skipped day, not a backlog.
 - **A failing job does not stop the others.** The error and traceback go to
   the service log, and the next day's run happens as normal.
-- **Bad configuration stops the service at startup.** An invalid time, or
-  every job set to `off`, is an error that names the variable.
+- **Bad configuration fails at startup.** An invalid time, or every job set to
+  `off`, is an error that names the variable. Because the service has
+  `restart: unless-stopped`, this shows up as a restart loop rather than a
+  stopped container. Check `docker compose -f docker-compose.prod.yml ps
+  scheduler` for a `Restarting` status, and read the error with
+  `docker compose -f docker-compose.prod.yml logs scheduler`.
 
 Without the `scheduler` profile, you can still schedule the same commands from
 host cron:
@@ -136,6 +146,8 @@ scheduledJobs:
 | `scheduledJobs.activeDeadlineSeconds` | `3600` | A run still going after this is killed and marked failed. |
 | `scheduledJobs.backoffLimit` | `1` | Retries before a run is marked failed |
 | `scheduledJobs.startingDeadlineSeconds` | `300` | A run that cannot start within this window is skipped, not started late. |
+| `scheduledJobs.successfulJobsHistoryLimit` | `1` | Completed Jobs kept per CronJob |
+| `scheduledJobs.failedJobsHistoryLimit` | `3` | Failed Jobs kept per CronJob, for their logs |
 | `scheduledJobs.ttlSecondsAfterFinished` | `86400` | How long finished Jobs and their logs are kept |
 | `scheduledJobs.resources` | 50m/128Mi requests, 500m/512Mi limits | Container resources |
 
@@ -147,31 +159,35 @@ Valkey.
 To check on the jobs:
 
 ```bash
-kubectl get cronjobs -l app.kubernetes.io/component=scheduler
-kubectl get jobs -l app.kubernetes.io/component=scheduler
-kubectl logs job/<job-name>
+kubectl get cronjobs -n <namespace> -l app.kubernetes.io/component=scheduler
+kubectl get jobs -n <namespace> -l app.kubernetes.io/component=scheduler
+kubectl logs -n <namespace> job/<job-name>
 ```
 
 To trigger a run by hand, for example to test SMTP delivery:
 
 ```bash
-kubectl create job --from=cronjob/visiban-notify-due-soon notify-due-soon-manual
+kubectl create job -n <namespace> --from=cronjob/visiban-notify-due-soon notify-due-soon-manual
 ```
 
 ## Retention settings
 
-| Variable | Default | Minimum | Enforced by |
-|---|---|---|---|
-| `BOARD_EVENT_RETENTION_DAYS` | `30` | 1 | `prune_board_events` |
-| `NOTIFICATION_RETENTION_DAYS` | `90` | 14 | `prune_notifications` |
+| Job | Default | Minimum | Docker Compose / host cron | Helm |
+|---|---|---|---|---|
+| `prune_board_events` | 30 days | 1 | `BOARD_EVENT_RETENTION_DAYS` in `.env` | `scheduledJobs.pruneBoardEvents.args: ["--days", "N"]` |
+| `prune_notifications` | 90 days | 14 | `NOTIFICATION_RETENTION_DAYS` in `.env` | `scheduledJobs.pruneNotifications.args: ["--days", "N"]` |
 
-A retention window only takes effect once its prune job is scheduled. Until
-then, nothing is deleted.
+On Compose and host cron, the window is read from the environment variable.
+The Helm chart does not set either variable on its pods, so on Helm you set the
+window with the job's `args`. A retention window only takes effect once its
+prune job is scheduled. Until then, nothing is deleted.
 
 `prune_notifications` refuses a window shorter than 14 days. The notification
 rows are also the scans' record of what they have already sent: pruning them
 too soon would make `notify_due_soon` and `notify_stale_cards` notify, and
-email, the same card again.
+email, the same card again. The retention window must also stay **longer than**
+any `--days` you pass to `notify_due_soon`. That command logs a warning when it
+does not.
 
 Before you enable a prune job on an existing install, preview what its first
 run would delete:

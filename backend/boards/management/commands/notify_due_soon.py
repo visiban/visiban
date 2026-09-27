@@ -10,7 +10,9 @@ Usage:
     # Add to cron: 0 7 * * * docker compose run --rm backend python manage.py notify_due_soon
 """
 import datetime
+import logging
 
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
@@ -18,6 +20,8 @@ from accounts.models import User
 from boards.models import Card, Notification
 from boards.services.notifications import create_notifications
 from boards.utils import _get_effective_member_ids
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -38,6 +42,21 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         horizon = max(options["days"], 0)
+        # The de-dup below looks back `horizon` days for an earlier DUE_SOON
+        # row. If prune_notifications' retention window is not wider than that
+        # look-back, a prune can erase the record and this scan re-notifies (and
+        # re-emails) the same card. Warn rather than refuse: an install that
+        # never schedules the prune is unaffected.
+        retention = getattr(settings, "NOTIFICATION_RETENTION_DAYS", 90)
+        if horizon >= retention:
+            message = (
+                f"notify_due_soon --days {horizon} is not shorter than "
+                f"NOTIFICATION_RETENTION_DAYS ({retention}): if prune_notifications "
+                "is scheduled, it can delete the rows this scan de-duplicates "
+                "against, and cards will be notified twice."
+            )
+            logger.warning(message)
+            self.stderr.write(message)
         # timezone.localdate() rather than date.today(): the window has to be
         # anchored to the instance's TIME_ZONE, or a run near UTC midnight on a
         # non-UTC install shifts the window by a day.

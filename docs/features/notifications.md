@@ -74,6 +74,15 @@ Pass `--days N` to widen the window. `Card.due_date` is a date, not a timestamp,
 so the window is expressed in whole days; the default of `1` is the documented
 24-hour warning and covers cards due today or tomorrow.
 
+!!! warning "Keep `--days` below the notification retention window"
+    The scan checks earlier due-date notifications, up to `--days` back, so it
+    does not send the same one twice. If
+    [`prune_notifications`](#notification-retention) is scheduled with a
+    retention window that is not longer than `--days`, it can delete those
+    records, and cards get notified again. The default `--days 1` against the
+    90-day default retention is well clear. The command logs a warning when
+    `--days` is greater than or equal to `NOTIFICATION_RETENTION_DAYS`.
+
 The command is idempotent per due date: a card is visible to it on two
 consecutive runs (due tomorrow, then due today) and produces **one** notification
 in total. Changing a card's due date makes it eligible again, because a
@@ -131,7 +140,8 @@ Kubernetes, and host-cron setup.
 
 Notifications are kept until they are pruned. The `prune_notifications`
 management command deletes notifications, read or unread, older than
-`NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**). It only runs
+`NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**; on Helm, set the
+window with `scheduledJobs.pruneNotifications.args: ["--days", "N"]`). It only runs
 when you schedule it: the shipped scheduler has it **off** by default, so an
 existing install keeps every notification until you turn the prune on.
 

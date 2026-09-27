@@ -296,12 +296,14 @@ scheduledJobs:
     enabled: true
     schedule: "0 8 * * *"
     args: []
-  # Deletes board change-feed events older than BOARD_EVENT_RETENTION_DAYS (30).
+  # Deletes board change-feed events older than 30 days. The chart does not set
+  # BOARD_EVENT_RETENTION_DAYS; change the window with args: ["--days", "N"].
   pruneBoardEvents:
     enabled: false
     schedule: "0 3 * * *"
     args: []
-  # Deletes notifications older than NOTIFICATION_RETENTION_DAYS (90; minimum 14).
+  # Deletes notifications older than 90 days (minimum 14). The chart does not
+  # set NOTIFICATION_RETENTION_DAYS; change the window with args: ["--days", "N"].
   pruneNotifications:
     enabled: false
     schedule: "30 3 * * *"
