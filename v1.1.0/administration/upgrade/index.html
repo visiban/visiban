@@ -2707,6 +2707,8 @@
       
         
       
+        
+      
     
     
     
@@ -2863,6 +2865,34 @@
     
   
     Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
   
 
     
@@ -3979,6 +4009,26 @@ same name still overrides the derived one.</p>
 </div>
 </div>
 </div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Scheduled jobs ship in 1.2 — off by default</p>
+<p>1.2 adds a scheduler for <code>notify_due_soon</code>, <code>notify_stale_cards</code>,
+<code>prune_board_events</code> and the new <code>prune_notifications</code>: an opt-in <code>scheduler</code>
+service (Compose profile <code>scheduler</code>) in <code>docker-compose.prod.yml</code>, and
+<code>scheduledJobs</code> CronJobs in the Helm chart. <strong>Neither is on after an
+upgrade</strong>, and no data is pruned until you enable a prune job yourself.</p>
+<ul>
+<li>If you <strong>already schedule these commands from host cron</strong>, either keep
+  doing that or switch to the shipped scheduler. Do not do both: two
+  notification scans started in the same minute can notify a user twice.
+  Remove the cron line before you enable the shipped job.</li>
+<li>If you <strong>never scheduled them</strong>, users who turned on due-date or staleness
+  notifications have received nothing. Enable the scheduler to fix that.</li>
+<li><code>NOTIFICATION_RETENTION_DAYS</code> (default 90, minimum 14) is new. It has no
+  effect until <code>prune_notifications</code> is scheduled. Preview the first run
+  with <code>python manage.py prune_notifications --dry-run</code>.</li>
+</ul>
+<p>See <a href="../scheduled-jobs/">Scheduled Jobs</a>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Data integrity check — cards pointing at another board's column/swimlane</p>

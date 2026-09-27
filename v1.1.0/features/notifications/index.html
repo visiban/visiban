@@ -1296,6 +1296,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#notification-retention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notification retention
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#email-notifications" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3003,6 +3014,8 @@
       
         
       
+        
+      
     
     
     
@@ -3156,6 +3169,34 @@
     
   
     Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
   
 
     
@@ -3682,16 +3723,25 @@ across on upgrade, so nothing you receive today changes.</p>
 <p>""{card title}" is due soon"</p>
 </blockquote>
 <p>Recipients opt in with the <strong>Due date approaching</strong> preference. The scan runs from
-a management command rather than on a request, so schedule it the same way as the
-staleness scan:</p>
+the <code>notify_due_soon</code> management command rather than on a request, so it has to
+be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler
+(the Compose <code>scheduler</code> profile or the Helm <code>scheduledJobs.enabled</code> value), and
+<strong>nothing is sent until you do</strong>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># crontab example — run at 7am daily, before the staleness scan</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="m">0</span><span class="w"> </span><span class="m">7</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_due_soon
 </code></pre></div>
 <p>Pass <code>--days N</code> to widen the window. <code>Card.due_date</code> is a date, not a timestamp,
 so the window is expressed in whole days; the default of <code>1</code> is the documented
 24-hour warning and covers cards due today or tomorrow.</p>
+<div class="admonition warning">
+<p class="admonition-title">Keep <code>--days</code> below the notification retention window</p>
+<p>The scan checks earlier due-date notifications, up to <code>--days</code> back, so it
+does not send the same one twice. If
+<a href="#notification-retention"><code>prune_notifications</code></a> is scheduled with a
+retention window that is not longer than <code>--days</code>, it can delete those
+records, and cards get notified again. The default <code>--days 1</code> against the
+90-day default retention is well clear. The command logs a warning when
+<code>--days</code> is greater than or equal to <code>NOTIFICATION_RETENTION_DAYS</code>.</p>
+</div>
 <p>The command is idempotent per due date: a card is visible to it on two
 consecutive runs (due tomorrow, then due today) and produces <strong>one</strong> notification
 in total. Changing a card's due date makes it eligible again, because a
@@ -3723,10 +3773,26 @@ and shipped the preference toggle, but nothing ever created the notification.</p
 <p>The command is idempotent — it won't create duplicate notifications if run multiple times in the same day:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
 </code></pre></div>
-<p>Schedule this as a daily cron job or Kubernetes CronJob in production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># crontab example — run at 8am daily</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="m">0</span><span class="w"> </span><span class="m">8</span><span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span>*<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>/app<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>notify_stale_cards
+<p>It runs daily at 08:00 UTC once the shipped scheduler is turned on. See
+<a href="../../administration/scheduled-jobs/">Scheduled Jobs</a> for Docker Compose,
+Kubernetes, and host-cron setup.</p>
+<h2 id="notification-retention">Notification retention<a class="headerlink" href="#notification-retention" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Notifications are kept until they are pruned. The <code>prune_notifications</code>
+management command deletes notifications, read or unread, older than
+<code>NOTIFICATION_RETENTION_DAYS</code> (default <strong>90</strong>, minimum <strong>14</strong>; on Helm, set the
+window with <code>scheduledJobs.pruneNotifications.args: ["--days", "N"]</code>). It only runs
+when you schedule it: the shipped scheduler has it <strong>off</strong> by default, so an
+existing install keeps every notification until you turn the prune on.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># preview</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w">             </span><span class="c1"># default window</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_notifications<span class="w"> </span>--days<span class="w"> </span><span class="m">180</span><span class="w">  </span><span class="c1"># override</span>
 </code></pre></div>
+<p>The 14-day minimum is deliberate. The scheduled scans use existing
+notifications as their record of what they have already sent, so pruning more
+aggressively would make them send the same notification again.</p>
 <h2 id="email-notifications">Email notifications<a class="headerlink" href="#email-notifications" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p><strong>Added in 1.2</strong></p>

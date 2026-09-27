@@ -3039,6 +3039,8 @@
       
         
       
+        
+      
     
     
     
@@ -3192,6 +3194,34 @@
     
   
     Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
   
 
     
@@ -3968,7 +3998,17 @@
 <tr>
 <td><code>BOARD_EVENT_RETENTION_DAYS</code></td>
 <td style="text-align: center;">No</td>
-<td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own — schedule <code>manage.py prune_board_events</code> or the <code>board_events</code> table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive.</td>
+<td>How long a board <a href="../../api/events/">change feed</a> event stays readable, in days (default: <code>30</code>). Nothing expires on its own — schedule <code>manage.py prune_board_events</code> (see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>) or the <code>board_events</code> table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive.</td>
+</tr>
+<tr>
+<td><code>NOTIFICATION_RETENTION_DAYS</code></td>
+<td style="text-align: center;">No</td>
+<td>How long an in-app notification is kept, read or unread, in days (default: <code>90</code>, minimum <code>14</code>). Enforced only when <code>manage.py prune_notifications</code> is scheduled — see <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>. Unscheduled, notifications are kept forever.</td>
+</tr>
+<tr>
+<td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
+<td style="text-align: center;">No</td>
+<td>Daily run time (<code>HH:MM</code>, UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>off</code>, <code>off</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
 </tr>
 </tbody>
 </table>

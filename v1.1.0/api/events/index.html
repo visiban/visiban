@@ -2857,6 +2857,8 @@
       
         
       
+        
+      
     
     
     
@@ -3010,6 +3012,34 @@
     
   
     Maintenance Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Jobs
   
 
     
@@ -3649,9 +3679,13 @@ runs the pruner grows the <code>board_events</code> table forever</strong>:</p>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Override the window for one run</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>python<span class="w"> </span>manage.py<span class="w"> </span>prune_board_events<span class="w"> </span>--days<span class="w"> </span><span class="m">7</span>
 </code></pre></div>
-<p>Schedule it, for example nightly:</p>
+<p>Schedule it nightly. Both deployment paths ship an opt-in scheduler with this
+job <strong>off</strong> by default. To turn it on, set <code>SCHEDULE_PRUNE_BOARD_EVENTS=03:00</code>
+in <code>.env</code> for the Compose <code>scheduler</code> profile, or set
+<code>scheduledJobs.pruneBoardEvents.enabled=true</code> in Helm. You can also use host cron:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>0 3 * * * docker compose run --rm backend python manage.py prune_board_events
 </code></pre></div>
+<p>See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</p>
 <p>Deletion happens in batches (<code>--batch-size</code>, default <code>5000</code>) so a large cleanup
 does not hold locks against concurrent writers for the length of the run.</p>
 <p>See <a href="../../administration/configuration/">Configuration</a> for
