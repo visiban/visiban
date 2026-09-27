@@ -656,13 +656,14 @@ backend-schema-validate:
 # GroupDetail on several more serializers (Board, BoardFull, BoardUser,
 # CurrentUser — filed as #1123) and a separate, structural gap: most write
 # endpoints' 400 validation-error response isn't documented in the schema at
-# all (filed as #1124). Neither is a CI-config fix, so both are recorded as
+# all (filed as #1124). Neither was a CI-config fix, so both were recorded as
 # scoped, justified baseline entries in backend/schemathesis-baseline.json
 # (schemathesis's own "accepted known failures" mechanism — matched by
 # operation + check + failure-class + schema-path/status-code, never by the
 # random value schemathesis generated, so the file doesn't need touching every
 # run) rather than blocking this flip on #1119/#1123/#1124 landing first.
-# Closing any of those three issues should prune its entries
+# #1124's entries were pruned when visiban/schema_hooks.py started documenting
+# a generic 400 (#1165). Closing #1119/#1123 should prune theirs
 # (`st run ... --baseline PATH --baseline-update --baseline-prune`) so the job
 # starts catching a regression in that area again.
 #
