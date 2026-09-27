@@ -145,4 +145,5 @@ nav:
     - CI Runners: maintainers/ci-runners.md
     - Tokens and Rotation: maintainers/tokens-and-rotation.md
     - Known CI Failures: maintainers/known-ci-failures.md
+    - Hosted Demo: maintainers/demo-deploy.md
   - Changelog: changelog.md

@@ -69,13 +69,25 @@ Usage:
         MEMBER on every board, never a site or board admin, and the instance
         is seeded with uploads off and registration closed. See
         docs/administration/demo-data.md.
+
+    python manage.py seed_demo_data --force --wipe --demo-site --reset-database
+        The hosted demo's reset (#1180: the Helm chart's demo seed hook and
+        hourly reset CronJob run exactly this). Empties EVERY table first
+        (Django's ``flush``), which also deletes every session, so each
+        visitor is signed out, and removes rows a per-board ``--wipe`` cannot
+        reach (``BoardEvent.board_id`` is deliberately not a foreign key).
+        Only valid with --demo-site, which itself refuses to run unless
+        DEMO_MODE is on.
 """
 
 import csv
 import datetime
 import json
+import os
 import random
 from django.conf import settings
+from django.contrib.sites.models import Site
+from django.core.management import call_command
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 
@@ -533,6 +545,16 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--reset-database",
+            action="store_true",
+            help=(
+                "Hosted demo reset (#1180): empty EVERY table (Django's flush — "
+                "sessions included, so every visitor is signed out) before "
+                "seeding. Only valid with --demo-site, which requires "
+                "DEMO_MODE=true. Never use on an instance holding real data."
+            ),
+        )
+        parser.add_argument(
             "--with-notifications",
             action="store_true",
             help=(
@@ -598,6 +620,17 @@ class Command(BaseCommand):
                 )
             if options["export"] or options["scale"] != 1:
                 raise CommandError("--demo-site cannot be combined with --export or --scale.")
+        if options.get("reset_database"):
+            # Scoped to the demo so a copy-pasted command can never empty a real
+            # install: --demo-site (validated above) already demands DEMO_MODE.
+            if not demo_site:
+                raise CommandError("--reset-database is only valid with --demo-site.")
+            if not settings.DEBUG and not options["force"]:
+                raise CommandError(
+                    "Refusing to reset the database: DEBUG is False. Pass --force "
+                    "(only safe on a dedicated demo instance)."
+                )
+            self._reset_database()
         with suppress_notification_email():
             self._seed(*args, **options)
             if demo_site:
@@ -709,6 +742,31 @@ class Command(BaseCommand):
             self._export(board, columns, swimlanes, labels, cards)
 
     # ── Hosted demo site (#1034) ───────────────────────────────────────────────
+
+    def _reset_database(self):
+        """Empty every table, then restore the one row the seed does not create.
+
+        Why a whole-database flush rather than ``--wipe`` alone (#1180): the
+        hosted demo's reset must end every session (sessions are
+        database-backed, and the login page promises visitors they will be
+        signed out) and must not leak rows across resets — ``--wipe`` deletes
+        the seeded boards by name, which leaves sessions, ``BoardEvent`` rows
+        (``board_id`` is deliberately not a foreign key) and anything a
+        visitor created elsewhere. The retired Compose demo got the same
+        effect from ``docker compose down -v``.
+
+        ``flush`` re-runs post_migrate, which restores content types, the
+        board templates and a placeholder Site. The Site's domain is what
+        ``ensure_site_admin`` keeps in sync with SITE_DOMAIN at pod start, so
+        it is re-applied here rather than left as example.com until the next
+        backend restart.
+        """
+        call_command("flush", interactive=False, verbosity=0)
+        Site.objects.update_or_create(
+            id=settings.SITE_ID,
+            defaults={"domain": os.environ.get("SITE_DOMAIN", "localhost:8000"), "name": "Visiban"},
+        )
+        self.stdout.write("Reset the database: every table emptied, every session ended.")
 
     def _seed_demo_site(self, options):
         """Seed the try.visiban.com boards and accounts.

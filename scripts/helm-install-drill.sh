@@ -37,6 +37,11 @@
 #   7. `helm uninstall` removes everything the chart created — the property a
 #      hook-annotated PostgreSQL would have broken, and the reason #1117 was
 #      fixed with an init container rather than by hook-annotating the database.
+#   8. PUBLIC DEMO MODE (#1180): a fresh install from values-demo.yaml seeds
+#      itself through the post-install hook, `helm test` proves the fence
+#      (published sign-in 200, board create 403 `demo_read_only`, a card move
+#      200, a countdown in site-config), a reset run from the CronJob succeeds
+#      and leaves the published login working, and uninstall leaves nothing.
 #
 # Images are BUILT FROM THE WORKING TREE and side-loaded into kind, not pulled
 # from a registry. The MR pipeline's image jobs are `--no-push`, so there is no
@@ -147,6 +152,33 @@ install_args() {
 --set backend.mediaPersistence.enabled=false
 --set postgresql.primary.persistence.enabled=false
 --set ingress.enabled=false
+ARGS
+}
+
+# Public demo mode (#1180): the shipped values-demo.yaml, plus exactly what it
+# deliberately leaves out (images, secrets). Nothing else is overridden, so the
+# drill installs the reference deployment's own shape — NUM_PROXIES, the egress
+# policy, the ResourceQuota and all. The drill's CNI (kindnetd) admits the
+# NetworkPolicies and ignores them; enforcement is scripts/helm-netpol-drill.sh.
+DEMO_RELEASE="demo"
+DEMO_NAMESPACE="visiban-demo-drill"
+demo_install_args() {
+  # shellcheck disable=SC2086
+  [ -n "${EXTRA_HELM_ARGS:-}" ] && printf '%s\n' ${EXTRA_HELM_ARGS}
+  cat <<ARGS
+--namespace $DEMO_NAMESPACE
+--create-namespace
+-f $CHART/values-demo.yaml
+--set backend.image.repository=visiban-drill/backend
+--set backend.image.tag=$TAG
+--set backend.image.pullPolicy=Never
+--set frontend.image.repository=visiban-drill/frontend
+--set frontend.image.tag=$TAG
+--set frontend.image.pullPolicy=Never
+--set-string secret.djangoSecretKey=$SECRET_KEY_A
+--set-string demo.loginHint.password=drill-visitor-pw-1
+--set-string demo.adminPassword=drill-admin-password-1
+--set-string demo.memberPassword=drill-member-password-1
 ARGS
 }
 
@@ -376,5 +408,54 @@ if [ -n "$LEFTOVERS" ]; then
 fi
 ok "uninstall left nothing behind"
 
+# ---------------------------------------------------------------------------
+step "8. PUBLIC DEMO MODE: install values-demo.yaml, helm test, reset (#1180)"
+# ---------------------------------------------------------------------------
+# One `helm install --wait` of the reference demo values. --wait makes Helm wait
+# for the post-install seed hook too, so a seed that cannot migrate, cannot reach
+# the database, or refuses to run (wrong passwords, DEMO_MODE not reaching the
+# pod) fails HERE, by name, rather than as a 401 in the test below.
+# shellcheck disable=SC2046  # demo_install_args is deliberately word-split
+helm install "$DEMO_RELEASE" "$CHART" $(demo_install_args) --wait --timeout 12m \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "the demo install (values-demo.yaml) did not complete — check the demo-seed hook Job's logs above"; }
+ok "demo install completed, seed hook succeeded"
+
+# The acceptance criterion, run exactly as an operator would: sign-in 200,
+# board create 403 demo_read_only, card move 200, a countdown in site-config.
+helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m --logs \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "helm test failed on the demo install — the fence, the published login or the card-move allowlist is broken (see the demo-read-only pod output above)"; }
+ok "demo helm test passed: published login 200, board create 403 demo_read_only, card move 200"
+
+# One reset, taken from the CronJob's own template so it is the real thing. The
+# CronJob is suspended first so a scheduled run (top of the hour) cannot overlap
+# the manual one: two concurrent whole-database resets delete each other's rows.
+RESET_CRONJOB="$(kubectl -n "$DEMO_NAMESPACE" get cronjob -l app.kubernetes.io/component=demo-seed -o jsonpath='{.items[0].metadata.name}')"
+[ -n "$RESET_CRONJOB" ] || { NAMESPACE="$DEMO_NAMESPACE"; die "no demo reset CronJob in the demo install"; }
+kubectl -n "$DEMO_NAMESPACE" patch cronjob "$RESET_CRONJOB" -p '{"spec":{"suspend":true}}' >/dev/null
+kubectl -n "$DEMO_NAMESPACE" create job --from="cronjob/$RESET_CRONJOB" drill-demo-reset >/dev/null
+kubectl -n "$DEMO_NAMESPACE" wait --for=condition=complete job/drill-demo-reset --timeout=8m >/dev/null \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "the demo reset Job did not complete — a reset run fails where the install-time seed succeeded"; }
+ok "a reset run from the CronJob completed"
+
+# After a reset the published login must still open (the reset re-applies the
+# password) and the fence must still hold: the same helm test, again.
+helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m --logs \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "helm test failed AFTER a reset — the reset left the published login broken or the demo unseeded"; }
+ok "helm test passes after the reset: the published login survived it"
+
+kubectl -n "$DEMO_NAMESPACE" delete job drill-demo-reset --wait=true >/dev/null 2>&1 || true
+helm uninstall "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --wait --timeout 5m \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "helm uninstall of the demo release failed"; }
+# The seed hook deletes itself on success (hook-succeeded) — Helm does not track
+# hook resources, so a Job kept past success would be listed here.
+LEFTOVERS="$(kubectl -n "$DEMO_NAMESPACE" get deploy,statefulset,svc,secret,job,cronjob,configmap,networkpolicy,pdb,resourcequota,limitrange \
+  -l "app.kubernetes.io/instance=${DEMO_RELEASE}" -o name 2>/dev/null | grep -v '^$' || true)"
+if [ -n "$LEFTOVERS" ]; then
+  echo "  leftover objects:" >&2
+  echo "$LEFTOVERS" | sed 's/^/    /' >&2
+  NAMESPACE="$DEMO_NAMESPACE"; die "the demo uninstall left release-owned objects behind"
+fi
+ok "demo uninstall left nothing behind"
+
 echo
-echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, and uninstalls clean"
+echo "PASSED: one-shot fresh install, serves, fails closed on a placeholder key, rotates secrets in place, migrates safely at 3 replicas, uninstalls clean, and the public demo installs, proves its fence, resets and uninstalls clean"

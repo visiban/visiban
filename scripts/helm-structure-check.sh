@@ -29,9 +29,10 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4 and 6. Section 5
-# (probe paths) and section 7 (NetworkPolicy client coverage) are asserted
-# against the real chart only — see the notes on those sections.
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9 and 10.
+# Section 5 (probe paths) is asserted against the real chart only, and section 7
+# (NetworkPolicy client coverage) is fixture-covered only through the demo
+# render in section 9 — see the notes on those sections.
 
 set -euo pipefail
 
@@ -60,6 +61,19 @@ RENDER_ARGS=(
   --set scheduledJobs.pruneBoardEvents.enabled=true
   --set scheduledJobs.pruneNotifications.enabled=true
 )
+
+# Public demo mode (#1180) renders a second shape of the chart: the shipped
+# values-demo.yaml plus the secrets it deliberately leaves out. Read from the
+# chart UNDER TEST (the damaged copy during --self-test), never from CHART_DIR.
+demo_args() {
+  local chart="$1"
+  printf '%s\n' \
+    -f "$chart/values-demo.yaml" \
+    --set-string secret.djangoSecretKey=structure-check-not-a-real-secret \
+    --set-string demo.loginHint.password=structure-check-visitor-pw \
+    --set-string demo.adminPassword=structure-check-admin-pw \
+    --set-string demo.memberPassword=structure-check-member-pw
+}
 
 RELEASE="visiban"
 FAILURES=0
@@ -139,12 +153,27 @@ check_migrate_placement() {
     [ -z "$entry" ] && continue
     # Field 2 is the comma-joined hook list.
     local phases="${entry##* }"
+    # The ONE exemption (#1180): the public-demo seed Job, a POST-install/
+    # POST-upgrade hook. #1117's defect was a PRE-install hook reaching for a
+    # database Helm had not created yet; a post-install hook runs after the whole
+    # release exists and its migrate init container waits for the database. It
+    # must still delete itself on success, or it outlives `helm uninstall`.
+    if [ "$phases" = "post-install,post-upgrade" ] && [[ "$entry" == Job/*-demo-seed\ * ]]; then
+      local name="${entry#Job/}"; name="${name%% *}"
+      local policy
+      policy="$(yq "select(.kind == \"Job\" and .metadata.name == \"$name\") | .metadata.annotations.\"helm.sh/hook-delete-policy\" // \"\"" "$RENDERED")"
+      if [[ ",$policy," != *",hook-succeeded,"* ]]; then
+        fail "demo seed hook '$name' has hook-delete-policy '$policy' without hook-succeeded — Helm does not track hook resources, so a completed seed Job would outlive 'helm uninstall'"
+        bad=1
+      fi
+      continue
+    fi
     if [ "$phases" != "test" ]; then
       fail "'$entry' is an install-phase Helm hook. Hooks run before Helm creates the release's own resources (so a database client cannot reach the bundled PostgreSQL on a fresh install, #1117) and are not tracked in the release (so 'helm uninstall' leaves them behind)"
       bad=1
     fi
   done <<< "$hooks"
-  [ "$bad" -eq 0 ] && pass "no install-phase hooks — every resource is an ordinary, uninstallable release resource"
+  [ "$bad" -eq 0 ] && pass "no install-phase hooks — every resource is an ordinary, uninstallable release resource (the demo seed hook excepted, and self-deleting)"
 
   # Init container ORDER, read as a list so position is meaningful.
   local init_cmds migrate_idx=-1 bootstrap_idx=-1 idx=0
@@ -296,9 +325,11 @@ check_env_contract() {
   # this section all false positives, and a section that is always red is a
   # section nobody reads.
   local names
+  # `demo-seed` (#1180) is the public-demo seed hook: a backend-image pod with
+  # its own seed-only variables, so it is held to the same contract.
   names="$(yq 'select(.kind == "Deployment" or .kind == "Job")
                | select(.spec.template.metadata.labels."app.kubernetes.io/component"
-                        | . == "backend")
+                        | . == "backend" or . == "demo-seed")
                | .spec.template.spec.containers[].env[].name,
                  (.spec.template.spec.initContainers[]?.env[]?.name // "")' "$RENDERED" \
              | grep -vE '^(null|---)?$' | sort -u)"
@@ -614,6 +645,253 @@ check_manage_commands() {
   [ "$bad" -eq 0 ] && pass "all $count invoked manage.py commands resolve"
 }
 
+# ---------------------------------------------------------------------------
+# 9. Public demo mode (#1180): off means absent, on means one coherent shape.
+# ---------------------------------------------------------------------------
+# Three renders:
+#
+#   a) the main render (demo OFF, the default): NOTHING demo-shaped may appear —
+#      no demo-seed workload, no DEMO_* env, no demo Secret or egress policy.
+#      "helm upgrade on an existing release changes nothing" is this assertion.
+#   b) values-demo.yaml: sections 1, 3, 7 and 8 re-run against it (so the seed
+#      hook and reset CronJob are held to the same hook, env, NetworkPolicy and
+#      manage.py contracts as everything else), plus the demo invariants:
+#        - DEMO_MODE=true reaches the backend (TruePPM #3932: a chart that
+#          rendered demo mode and set the variable nowhere);
+#        - the countdown's DEMO_RESET_SCHEDULE IS the CronJob's schedule, and the
+#          CronJob runs in UTC, Forbid, like the countdown assumes;
+#        - the seed hook and the reset run the identical pod spec, and that spec
+#          is the whole-database reset command;
+#        - demo passwords reach pods only through secretKeyRef;
+#        - the egress policy selects exactly the datastore clients and opens
+#          nothing outside the cluster (no ipBlock);
+#        - the `helm test` fence probe exists and goes through the frontend.
+#   c) values-demo.yaml with demo.reset.enabled=false: no reset CronJob, and
+#      DEMO_RESET_SCHEDULE rendered EMPTY so the login page promises nothing.
+render_demo() {
+  local out="$1"; shift
+  local args=()
+  while IFS= read -r a; do
+    # `--set-json demo.loginHint=null` is applied BEFORE --set-string, so the
+    # base password below would then be set on a nil map and Helm would fail to
+    # parse the flags — for the wrong reason. Drop it for that one case.
+    if [[ "$a" == demo.loginHint.password=* && " $* " == *"demo.loginHint=null"* ]]; then
+      unset 'args[${#args[@]}-1]'
+      continue
+    fi
+    args+=("$a")
+  done < <(demo_args "$CHART_UNDER_TEST")
+  helm template "$RELEASE" "$CHART_UNDER_TEST" "${args[@]}" "$@" > "$out" 2>/tmp/helm-demo-render-err.txt
+}
+
+check_demo_mode() {
+  section "9. Public demo mode: absent by default, coherent when on (#1180)"
+
+  # (a) demo off
+  local leaks
+  leaks="$(yq '[select(.metadata.labels."app.kubernetes.io/component" == "demo-seed"
+                       or (.kind == "Secret" and (.metadata.name | test("-demo$")))
+                       or (.kind == "NetworkPolicy" and (.metadata.name | test("demo-egress$")))
+                       or (.kind == "Pod" and (.metadata.name | test("demo-read-only$"))))
+                | .kind + "/" + .metadata.name] | .[]' "$RENDERED" | grep -vE '^(---)?$' || true)"
+  if [ -n "$leaks" ]; then
+    fail "demo objects render with demo.enabled=false: $(tr '\n' ' ' <<< "$leaks")— an upgrade of an existing release would create them"
+  else
+    pass "demo.enabled=false renders no demo object"
+  fi
+  if yq '.. | select(tag == "!!map") | select(has("name") and (has("value") or has("valueFrom"))) | .name' "$RENDERED" \
+       | grep -qE '^(DEMO_[A-Z_]+|NUM_PROXIES)$'; then
+    fail "DEMO_*/NUM_PROXIES env renders with demo off and numProxies unset — the default render must be unchanged (#1180)"
+  else
+    pass "no DEMO_* or NUM_PROXIES env in the default render"
+  fi
+
+  # (b) demo on
+  local demo_rendered saved="$RENDERED"
+  demo_rendered="$(mktemp)"
+  if ! render_demo "$demo_rendered"; then
+    fail "values-demo.yaml (with its secrets supplied) does not render: $(head -3 /tmp/helm-demo-render-err.txt)"
+    rm -f "$demo_rendered"; return
+  fi
+  RENDERED="$demo_rendered"
+  echo "  (re-running sections 1, 3, 7 and 8 against the demo render)"
+  check_migrate_placement
+  check_env_contract
+  check_netpol_coverage
+  check_manage_commands
+  section "9. Public demo mode (continued)"
+
+  local backend_env
+  backend_env="$(doc Deployment 'backend$' | yq '.spec.template.spec.containers[0].env')"
+  if [ "$(yq '.[] | select(.name == "DEMO_MODE") | .value' <<< "$backend_env")" != "true" ]; then
+    fail "the backend container does not get DEMO_MODE=true in demo mode — the write fence is OFF while the login page publishes a credential"
+  else
+    pass "DEMO_MODE=true reaches the backend container"
+  fi
+
+  # The login page publishes DEMO_LOGIN_PASSWORD from the backend pod, so a
+  # rotated demo.loginHint.password must replace that pod — otherwise the page
+  # advertises the old password while the seed sets the new one.
+  if [ -z "$(doc Deployment 'backend$' | yq '.spec.template.metadata.annotations."checksum/demo-secret" // ""')" ]; then
+    fail "the backend pod template carries no checksum/demo-secret — rotating the published password would not roll the pods, and the login page would keep showing the old one"
+  else
+    pass "the demo Secret is checksummed into the backend pod template"
+  fi
+
+  local countdown cron tz policy
+  countdown="$(yq '.[] | select(.name == "DEMO_RESET_SCHEDULE") | .value' <<< "$backend_env")"
+  cron="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("demo-reset$"))) | .spec.schedule' "$RENDERED")"
+  tz="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("demo-reset$"))) | .spec.timeZone' "$RENDERED")"
+  policy="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("demo-reset$"))) | .spec.concurrencyPolicy' "$RENDERED")"
+  if [ -z "$cron" ]; then
+    fail "no demo reset CronJob renders with demo.reset.enabled=true"
+  elif [ "$countdown" != "$cron" ]; then
+    fail "the backend's DEMO_RESET_SCHEDULE ('$countdown') differs from the reset CronJob's schedule ('$cron') — visitors would be shown a countdown to a reset that does not happen then (TruePPM ADR-1197 D9)"
+  else
+    pass "DEMO_RESET_SCHEDULE and the reset CronJob share one schedule ('$cron')"
+  fi
+  if [ -n "$cron" ] && { [ "$tz" != "Etc/UTC" ] || [ "$policy" != "Forbid" ]; }; then
+    fail "the reset CronJob runs with timeZone '$tz' / concurrencyPolicy '$policy'; it must be Etc/UTC (the backend computes the countdown in UTC) and Forbid (two overlapping wipes delete each other's rows)"
+  elif [ -n "$cron" ]; then
+    pass "the reset CronJob runs in Etc/UTC with concurrencyPolicy Forbid"
+  fi
+
+  local seed_spec reset_spec
+  seed_spec="$(yq 'select(.kind == "Job" and (.metadata.name | test("demo-seed$"))) | .spec.template.spec' "$RENDERED")"
+  reset_spec="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("demo-reset$"))) | .spec.jobTemplate.spec.template.spec' "$RENDERED")"
+  if [ -z "$seed_spec" ] || [ "$seed_spec" = "null" ]; then
+    fail "no demo seed hook Job renders in demo mode"
+  elif [ "$seed_spec" != "$reset_spec" ]; then
+    fail "the reset CronJob's pod spec differs from the seed hook's — the reset must be exactly the install-time seed, or the published login can end up pointing at an account the reset did not re-password"
+  else
+    pass "the seed hook and the reset CronJob run the identical pod spec"
+  fi
+  if ! yq '.containers[0].command | join(" ")' <<< "$seed_spec" | grep -q 'manage.py seed_demo_data .*--demo-site.*--reset-database'; then
+    fail "the demo seed does not run 'seed_demo_data ... --demo-site --reset-database' — without the database reset, sessions and visitor leftovers survive the reset"
+  else
+    pass "the seed/reset command is the whole-database demo reset"
+  fi
+
+  local literal
+  literal="$(yq '.. | select(tag == "!!map") | select(has("name") and has("value")) | select(.name | test("^DEMO_.*PASSWORD$")) | .name' "$RENDERED" | grep -vE '^(---)?$' || true)"
+  if [ -n "$literal" ]; then
+    fail "demo password(s) rendered as literal env values: $(sort -u <<< "$literal" | tr '\n' ' ')— they must come from the demo Secret"
+  else
+    pass "every DEMO_*PASSWORD reaches its pod through a secretKeyRef"
+  fi
+
+  local egress selected allowed
+  egress="$(yq 'select(.kind == "NetworkPolicy" and (.metadata.name | test("demo-egress$")))' "$RENDERED")"
+  if [ -z "$egress" ]; then
+    fail "no demo egress NetworkPolicy renders in demo mode (TruePPM ADR-1197 D7)"
+  else
+    selected="$(yq '.spec.podSelector.matchExpressions[] | select(.key == "app.kubernetes.io/component") | .values[]' <<< "$egress" | sort -u)"
+    allowed="$(yq 'select(.kind == "NetworkPolicy" and (.metadata.name | test("allow-backend-postgresql$")))
+                   | [.spec.ingress[].from[].podSelector.matchLabels."app.kubernetes.io/component"] | .[]' "$RENDERED" | sort -u)"
+    if [ "$(yq '.spec.policyTypes | join(",")' <<< "$egress")" != "Egress" ]; then
+      fail "the demo egress policy does not declare policyTypes [Egress]"
+    elif [ "$selected" != "$allowed" ]; then
+      fail "the demo egress policy selects ($(tr '\n' ' ' <<< "$selected")) but the datastore clients are ($(tr '\n' ' ' <<< "$allowed")) — a datastore client outside it keeps unrestricted egress"
+    elif yq '.. | select(tag == "!!map") | select(has("ipBlock"))' <<< "$egress" | grep -q .; then
+      fail "the demo egress policy contains an ipBlock — it may only allow DNS and the release's own datastores"
+    else
+      pass "the demo egress policy covers every datastore client and opens nothing outside the cluster"
+    fi
+  fi
+
+  local probe_target
+  probe_target="$(yq 'select(.kind == "Pod" and (.metadata.name | test("demo-read-only$"))) | .spec.containers[0].env[] | select(.name == "FRONTEND") | .value' "$RENDERED")"
+  local frontend_svc
+  frontend_svc="$(yq 'select(.kind == "Service" and (.metadata.name | test("frontend$"))) | .metadata.name' "$RENDERED" | head -1)"
+  if [ -z "$probe_target" ]; then
+    fail "no demo-read-only helm test renders in demo mode — nothing proves the fence after a deploy"
+  elif [[ "$probe_target" != "http://${frontend_svc}:"* ]]; then
+    fail "the demo helm test targets '$probe_target', not the frontend Service '$frontend_svc' — it must cross the nginx a visitor's request crosses"
+  else
+    pass "the demo helm test goes through the frontend Service"
+  fi
+
+  # (c) reset disabled
+  local off_rendered
+  off_rendered="$(mktemp)"
+  if render_demo "$off_rendered" --set demo.reset.enabled=false; then
+    local off_sched off_cron
+    off_sched="$(yq 'select(.kind == "Deployment" and (.metadata.name | test("backend$"))) | .spec.template.spec.containers[0].env[] | select(.name == "DEMO_RESET_SCHEDULE") | .value' "$off_rendered")"
+    off_cron="$(yq 'select(.kind == "CronJob" and (.metadata.name | test("demo-reset$"))) | .metadata.name' "$off_rendered")"
+    if [ -n "$off_cron" ]; then
+      fail "demo.reset.enabled=false still renders the reset CronJob '$off_cron'"
+    elif [ -n "$off_sched" ]; then
+      fail "demo.reset.enabled=false renders DEMO_RESET_SCHEDULE='$off_sched' — the login page would promise a reset that never runs"
+    else
+      pass "demo.reset.enabled=false: no CronJob, DEMO_RESET_SCHEDULE rendered empty"
+    fi
+  else
+    fail "values-demo.yaml with demo.reset.enabled=false does not render: $(head -3 /tmp/helm-demo-render-err.txt)"
+  fi
+
+  RENDERED="$saved"
+  rm -f "$demo_rendered" "$off_rendered"
+}
+
+# ---------------------------------------------------------------------------
+# 10. The demo render guards fail closed (#1180).
+# ---------------------------------------------------------------------------
+# templates/_validate.tpl refuses demo values that would publish a credential
+# on a writable instance, or give a public demo a path out (SSO, SMTP, a media
+# PVC, no egress policy). A guard that stopped firing looks exactly like one
+# that never fires, so each is asserted: the render must FAIL, and fail with
+# its own message — a render that fails for an unrelated reason would otherwise
+# pass for the wrong one. The positive control is section 9's demo render.
+# Each case: name|message the render must fail with|helm flag[|helm flag...],
+# each flag one `--flag=value` token. The demo's secrets arrive as --set-string,
+# which Helm applies AFTER every --set, so a case that overrides one of them
+# must use --set-string (or --set-json, applied later still) to win.
+DEMO_GUARD_CASES=(
+  "loginHint set while demo.enabled is false|demo.loginHint is set but demo.enabled is false|--set=demo.enabled=false"
+  "loginHint.password missing|are not both set|--set-string=demo.loginHint.password="
+  "loginHint.username missing|are not both set|--set-string=demo.loginHint.username="
+  "loginHint null|are not both set|--set-json=demo.loginHint=null"
+  "username outside the charset|demo.loginHint.username may contain only|--set-string=demo.loginHint.username=vis\"itor"
+  "username collides with a seeded account|must not be admin, maya or jordan|--set-string=demo.loginHint.username=Admin"
+  "password with a quote|demo.loginHint.password must be 8-128|--set-string=demo.loginHint.password=has\"quote1"
+  "password too short|demo.loginHint.password must be 8-128|--set-string=demo.loginHint.password=short"
+  "admin password missing|demo.adminPassword is required|--set-string=demo.adminPassword="
+  "member password missing|demo.memberPassword is required|--set-string=demo.memberPassword="
+  "admin password equals the published one|must differ from demo.loginHint.password|--set-string=demo.adminPassword=structure-check-visitor-pw"
+  "OIDC configured|an SSO/OAuth provider is configured|--set=backend.oauth.oidc.serverUrl=https://idp.example.test"
+  "GitHub OAuth configured|an SSO/OAuth provider is configured|--set=backend.oauth.github.clientId=abc"
+  "SMTP backend|real SMTP is configured|--set=backend.email.backend=smtp"
+  "SMTP host|real SMTP is configured|--set=backend.email.host=smtp.example.test|--set=backend.email.fromAddress=noreply@visiban.test"
+  "media PVC writable|backend.mediaPersistence.enabled is true|--set=backend.mediaPersistence.enabled=true"
+  "DEBUG on|backend.settings.debug is|--set-string=backend.settings.debug=true"
+  "NetworkPolicy off|networkPolicy.enabled is false|--set=networkPolicy.enabled=false"
+  "external database|postgresql.enabled and/or valkey.enabled is false|--set=valkey.enabled=false"
+  "reset schedule the backend cannot evaluate|demo.reset.schedule must be a minute/hour cron|--set-string=demo.reset.schedule=0 0 1 * *"
+  "malformed user throttle rate|demo.throttle.userRate must look like|--set=demo.throttle.userRate=lots"
+)
+
+check_demo_guards() {
+  section "10. Demo render guards fail closed (#1180)"
+  local case_ name expect out bad=0
+  out="$(mktemp)"
+  for case_ in "${DEMO_GUARD_CASES[@]}"; do
+    local fields=()
+    IFS='|' read -r -a fields <<< "$case_"
+    name="${fields[0]}"
+    expect="${fields[1]}"
+    local flags=("${fields[@]:2}")
+    if render_demo "$out" "${flags[@]}"; then
+      fail "demo guard '$name' did not fire: the render SUCCEEDED with ${flags[*]}"
+      bad=1
+    elif ! grep -qF -- "$expect" /tmp/helm-demo-render-err.txt; then
+      fail "demo guard '$name' failed the render, but not with its own message ('$expect'): $(head -2 /tmp/helm-demo-render-err.txt | tr '\n' ' ')"
+      bad=1
+    fi
+  done
+  rm -f "$out"
+  [ "$bad" -eq 0 ] && pass "all ${#DEMO_GUARD_CASES[@]} demo guards refuse their render, each with its own message"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -623,6 +901,8 @@ run_all_checks() {
   check_transport_limits
   check_netpol_coverage
   check_manage_commands
+  check_demo_mode
+  check_demo_guards
 }
 
 # ---------------------------------------------------------------------------
@@ -665,6 +945,26 @@ self_test() {
     # 8b: a scheduled-job CronJob (#1157) names a command that does not exist —
     # every run fails, and nothing else connects the chart's string to the file.
     "8 renamed scheduled-job command|templates/cronjobs.yaml|s/\"command\" \"prune_notifications\"/\"command\" \"prune_notification\"/"
+    # 1 (#1180): the demo seed hook stops deleting itself on success, so a
+    # completed Job outlives `helm uninstall`.
+    "1 demo seed hook kept after success|templates/demo-seed-job.yaml|s/before-hook-creation,hook-succeeded/before-hook-creation/"
+    # 9a: a demo object leaks into the default render.
+    "9 demo Secret renders with demo off|templates/demo-secret.yaml|s/{{- if include \"visiban.demoEnabled\" . }}/{{- if true }}/"
+    # 9b: the fence is not armed on the backend.
+    "9 DEMO_MODE not true|templates/_backend-env.tpl|/- name: DEMO_MODE/{n;s/\"true\"/\"false\"/;}"
+    # 9b: the countdown and the CronJob drift apart (TruePPM ADR-1197 D9).
+    "9 reset schedule not shared with the countdown|templates/demo-reset-cronjob.yaml|s/schedule: {{ \$schedule | quote }}/schedule: \"30 * * * *\"/"
+    # 9b: the reset loses the whole-database wipe.
+    "9 reset command loses --reset-database|templates/_helpers.tpl|s/, \"--reset-database\"]/]/"
+    # 9b + 7: the seed/reset pods fall off the datastore allow-list.
+    "9 demo-seed missing from the allow-list|templates/_helpers.tpl|s/ demo-seed{{ end }}/{{ end }}/"
+    # 9b: the egress policy opens the internet.
+    "9 egress policy opened to the internet|templates/networkpolicy.yaml|s|        - namespaceSelector: {}|        - ipBlock: {cidr: 0.0.0.0/0}|"
+    # 9b: the helm test bypasses the frontend.
+    "9 demo helm test skips the frontend|templates/tests/demo-read-only.yaml|s/-frontend:{{ .Values.frontend.service.port }}/-backend:{{ .Values.backend.service.port }}/"
+    # 10: the most dangerous guard stops firing.
+    "10 loginHint-without-demo guard removed|templates/_validate.tpl|s/{{- if and (or \$user \$pass) (not (include \"visiban.demoEnabled\" .)) -}}/{{- if false -}}/"
+    "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
   )
 
   for fixture in "${fixtures[@]}"; do

@@ -47,12 +47,13 @@ operator and the pipeline verify the same invariant.
 
 ## Values overlays
 
-Two shipped overlays, both linted in CI:
+Three shipped overlays, all linted and rendered through kubeconform in CI:
 
 | File | For |
 |---|---|
 | `values-dev.yaml` | Single-node evaluation. No TLS, no persistence, emails to the pod log. Not for real data. |
 | `values-prod.yaml` | The production shape. HA replicas, TLS via cert-manager, mandatory email verification, NetworkPolicies on. Carries no secrets. |
+| `values-demo.yaml` | A public demo such as try.visiban.com: a published login behind the demo write fence, a database that resets every hour, egress denied. **Never for real data.** Carries no secrets. See [Public demo mode](#public-demo-mode). |
 
 ```bash
 helm install visiban oci://ghcr.io/visiban/charts/visiban \
@@ -101,20 +102,60 @@ objects are admitted, reported by `kubectl get netpol`, and ignored. A clean
 install on kind is therefore not evidence that these policies work. CI's
 `helm-netpol` job builds a dedicated Calico cluster for exactly this reason.
 
-The scheduled-job pods (`component: scheduler`) are already on those lists.
+The scheduled-job pods (`component: scheduler`) are already on those lists, as
+are the public-demo seed and reset pods (`component: demo-seed`) while demo mode is on.
 If you add a workload that opens a PostgreSQL or Valkey connection, add its
 `app.kubernetes.io/component` to the allow-lists at the top of
 `templates/networkpolicy.yaml` — the policies name their clients by that label,
 so a new template breaks isolation without touching the policy file.
+
+## Public demo mode
+
+`demo.enabled=true` (start from `values-demo.yaml`) turns a release into a public,
+shared demo. It is **off by default**, and with it off the chart renders exactly
+what it rendered before (`scripts/helm-structure-check.sh` section 9 asserts that),
+so `helm upgrade` on an existing release changes nothing.
+
+- **The control is the backend's write fence.** `demo.enabled` renders
+  `DEMO_MODE=true` into every container that imports Django settings, which arms
+  `DemoModeMiddleware`. Every unsafe request is refused with `403 demo_read_only`
+  except sign-in/out and card-content edits.
+- **Seed and reset.** A post-install/post-upgrade hook Job and a CronJob
+  (`demo.reset.schedule`, default hourly, always UTC) run the same pod:
+  `migrate_with_lock`, then `seed_demo_data --force --wipe --demo-site --reset-database`.
+  That **empties every table**, signs every visitor out, and re-applies the
+  published password. The schedule is also rendered as the backend's
+  `DEMO_RESET_SCHEDULE`, which drives the visitor countdown. When
+  `demo.reset.enabled=false` it is rendered empty, so the login page stops
+  promising a reset. A failed reset keeps its Job for `kubectl logs` and is never
+  a readiness signal. The reset is containment, not a control.
+- **Egress.** A NetworkPolicy limits the backend, seed/reset and scheduled-job
+  pods to DNS and the release's own PostgreSQL and Valkey. Demo mode therefore
+  requires `networkPolicy.enabled=true` and the bundled datastores.
+- **`helm test`** adds a probe that goes through the frontend Service: the
+  published sign-in answers 200, an authenticated `POST /api/v1/boards/` answers
+  403 with `demo_read_only`, a seeded card move answers 200, and `site-config`
+  publishes `demo_next_reset_at` exactly when the reset runs.
+- **Render guards** (`templates/_validate.tpl`) refuse a `loginHint` without
+  `demo.enabled`, a demo without both `loginHint` halves or with unsafe
+  characters in them, SSO/OAuth, real SMTP, a media PVC, `debug`, NetworkPolicy
+  off, and external datastores.
+- **Client IP.** Behind a tunnel or another proxy, set `backend.settings.numProxies`
+  (`NUM_PROXIES`) to the real hop count, or every visitor shares one throttle
+  bucket. `values-demo.yaml` sets `2` for a Cloudflare Tunnel.
+
+Operator guide: <https://visiban.gitlab.io/visiban/administration/demo-data/#public-demo-mode-helm>.
+The try.visiban.com runbook, with the preconditions CI cannot check, is
+`docs/maintainers/demo-deploy.md`.
 
 ## What CI checks
 
 | Job | Proves |
 |---|---|
 | `helm-lint` | Templates parse; values conform to `values.schema.json`; every overlay is valid; every settings module the chart names exists |
-| `helm-template` | Every rendered object is valid Kubernetes (`kubeconform -strict`); the deploy contract holds (`scripts/helm-structure-check.sh`) |
-| `helm-install` | The chart boots on kind, `helm test` passes, a placeholder SECRET_KEY is rejected, and secrets rotate in a single `helm upgrade` |
-| `helm-netpol` | The NetworkPolicies are actually enforced on Calico, allow exactly the intended clients, and deny the rest |
+| `helm-template` | Every rendered object is valid Kubernetes (`kubeconform -strict`), including the demo overlay with and without its reset; the deploy contract holds (`scripts/helm-structure-check.sh`), including the demo invariants and a failing render for every demo guard |
+| `helm-install` | The chart boots on kind, `helm test` passes, a placeholder SECRET_KEY is rejected, and secrets rotate in a single `helm upgrade`; then `values-demo.yaml` installs, its `helm test` proves the fence, and a reset run leaves the published login working |
+| `helm-netpol` | The NetworkPolicies are actually enforced on Calico, allow exactly the intended clients, and deny the rest; in demo mode, the backend and seed pods cannot reach anything outside the pod network |
 | `helm-publish` | On a release tag: `appVersion` matches the tag, and the chart is pushed to GHCR and Cosign-signed |
 
 Run the static ones locally:

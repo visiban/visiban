@@ -1,0 +1,203 @@
+# Public demo overlay (#1180) — the reference values for try.visiban.com.
+#
+# A fragment layered on values.yaml, like values-dev.yaml and values-prod.yaml.
+# The runbook is docs/maintainers/demo-deploy.md; the operator guide is
+# "Public demo mode" in docs/administration/demo-data.md. In short:
+#
+#     helm upgrade --install visiban-demo ./helm/visiban \
+#       --namespace visiban-demo --create-namespace \
+#       -f helm/visiban/values-demo.yaml \
+#       -f demo-secrets.yaml            # NOT committed — see SECRETS below
+#     helm test visiban-demo -n visiban-demo
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHAT THIS IS
+#
+# A throwaway, internet-facing instance that publishes a working login on its
+# login page. What makes that safe is the deployment mode, not a role:
+# DEMO_MODE arms DemoModeMiddleware (#1179), which refuses every unsafe request
+# with 403 `demo_read_only` — for every caller, site admin included — except
+# sign-in/out and card-content edits (create, edit, move, archive, checklist).
+# `helm test` proves the fence after every deploy.
+#
+# Around the fence, and NOT a substitute for it:
+#   - the seed hook and the hourly reset EMPTY EVERY TABLE and reseed, which
+#     bounds how long anything a visitor did stays visible (containment);
+#   - an egress NetworkPolicy limits the backend, seed and reset pods to DNS and
+#     the release's own PostgreSQL and Valkey;
+#   - optional ResourceQuota/LimitRange for sharing a node.
+#
+# NEVER point this at a database holding real data.
+#
+# EXPOSURE
+#
+# No Ingress: try.visiban.com reaches the frontend Service through the node's
+# existing Cloudflare Tunnel (cloudflared), as a public hostname pointing at
+# http://<release>-visiban-frontend.<namespace>.svc.cluster.local:80. The
+# frontend NetworkPolicy admits port 80 from any peer, so the tunnel pod
+# reaches it; the backend and datastores admit only this release's own
+# components, so nothing else on the node (try.trueppm.com included) can reach
+# them. Expose ONLY the frontend Service — the backend Service has no business
+# being public.
+# ─────────────────────────────────────────────────────────────────────────────
+
+backendReplicaCount: 1
+frontendReplicaCount: 1
+
+backend:
+  image:
+    # The demo needs a backend with #1179's demo mode and #1180's
+    # `seed_demo_data --reset-database`, i.e. 1.2.0 or later. Pin the release
+    # you deploy with --set backend.image.tag / frontend.image.tag.
+    tag: "v1.1.0"
+  settings:
+    debug: "false"
+    allowedHosts: "try.visiban.com"
+    corsAllowedOrigins: "https://try.visiban.com"
+    frontendUrl: "https://try.visiban.com"
+    siteDomain: "try.visiban.com"
+    # TLS terminates at Cloudflare; the browser only ever speaks HTTPS, so the
+    # cookies stay Secure.
+    forceInsecureCookies: false
+    # Visitors get no email-dependent flow (the fence refuses registration and
+    # password resets), so there is nothing to verify.
+    emailVerification: "none"
+    # THE CLIENT IP (#1180; TruePPM hit the same thing as #4017). Behind the
+    # tunnel a request travels
+    #
+    #   visitor -> Cloudflare edge -> cloudflared pod -> frontend nginx -> backend
+    #
+    # Cloudflare appends the visitor's address to X-Forwarded-For, and the
+    # frontend nginx ($proxy_add_x_forwarded_for) appends its peer, the
+    # cloudflared pod. At the backend default of 1, DRF reads the LAST entry —
+    # the tunnel pod, identical for every visitor — so the per-IP login
+    # throttle (#924) and the `anon` scope become ONE global bucket and a single
+    # crawler locks the demo for everyone. At 2 each visitor gets their own
+    # bucket, and a visitor who sends a forged X-Forwarded-For only adds entries
+    # to the LEFT of the address Cloudflare appends, so cannot pick a bucket.
+    # allauth's rate limits key on the same address (accounts/adapter.py).
+    #
+    # Set this back to 1 if you expose the frontend with NO proxy in front of
+    # it. At 2 with nothing in front, a client can choose its own bucket.
+    numProxies: 2
+  email:
+    # Pinned: never real SMTP on a public demo (_validate.tpl refuses smtp).
+    # The seed suppresses notification mail anyway.
+    backend: "console"
+    host: ""
+  # Refused in demo mode by _validate.tpl: visitors have no upload path (the
+  # fence refuses it and the seed turns uploads off), and a writable PVC would
+  # be somewhere for an upload to land if that ever regressed. Media falls back
+  # to a pod-local emptyDir.
+  mediaPersistence:
+    enabled: false
+  # Sized to share one node with try.trueppm.com (see demo.resourceQuota).
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+
+frontend:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Exposed through the Cloudflare Tunnel instead (see EXPOSURE above).
+ingress:
+  enabled: false
+
+# The demo's data is regenerated on every install, upgrade and reset, so there
+# is nothing worth persisting. An emptyDir also means a node restart comes back
+# clean and the seed hook repopulates it on the next upgrade (or the reset
+# CronJob within the hour).
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      enabled: false
+
+valkey:
+  enabled: true
+
+# Required by demo mode (_validate.tpl): the demo egress policy lives here.
+# The policies are only a claim if the node's CNI enforces them — k3s does by
+# default (its embedded kube-router policy controller) unless it was installed
+# with --disable-network-policy. Verify with the check in
+# docs/maintainers/demo-deploy.md and record the result there.
+networkPolicy:
+  enabled: true
+
+demo:
+  enabled: true
+  # REQUIRED, supplied at install time (see SECRETS). Left empty here so the
+  # render fails until they are set, rather than shipping a guessable default.
+  loginHint:
+    username: "visitor"
+    password: ""
+  adminPassword: ""
+  memberPassword: ""
+  reset:
+    enabled: true
+    # Pinned explicitly rather than inherited from values.yaml, so the cadence
+    # this deployment promises visitors is visible here and does not move if
+    # the chart default is ever retuned. Every hour, on the hour (UTC).
+    schedule: "0 * * * *"
+  throttle:
+    # SHARED-FATE CEILING, NOT A PER-VISITOR LIMIT (TruePPM ADR-1197 D6 and its
+    # 2026-09-21 correction). DRF's `user` scope counts per ACCOUNT, and every
+    # visitor is signed in as the one published account, so the normal
+    # 5000/hour is a single budget shared by everyone — at roughly 500
+    # requests/hour of polling per active visitor, about ten concurrent
+    # visitors would get the whole demo 429'd. It is raised to a level that
+    # protects the node rather than any one visitor.
+    #
+    # What bounds ONE visitor, then: before sign-in, the per-IP `anon` and
+    # `login` scopes (made genuinely per-visitor by numProxies above — Visiban's
+    # login throttle is per-IP, #924, so TruePPM's per-username T2 finding does
+    # not apply). After sign-in, only the Cloudflare IP rate-limit rule in front
+    # of the host: DRF's `anon` scope stops applying to an authenticated
+    # request. Other per-account scopes (`user_search`, `card_query`) are
+    # shared-fate the same way and are left at their normal rates.
+    userRate: "60000/hour"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+  # try.visiban.com shares a node with try.trueppm.com: cap this namespace so a
+  # runaway pod here cannot starve the other demo. The limits leave room for a
+  # rolling update (a second backend pod), a reset Job and the two `helm test`
+  # pods at once. Only valid because the release has its own namespace.
+  resourceQuota:
+    enabled: true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SECRETS
+#
+# This file bakes NO secrets. Put them in a values file that is never committed
+# (or a secret manager that renders one), e.g. demo-secrets.yaml:
+#
+#   secret:
+#     djangoSecretKey: "<python3 -c 'import secrets; print(secrets.token_hex(50))'>"
+#   postgresql:
+#     auth:
+#       password: "<openssl rand -hex 24>"      # the bundled PostgreSQL
+#   demo:
+#     loginHint:
+#       password: "<openssl rand -base64 18 | tr -d '=+/'>"   # PUBLISHED
+#     adminPassword: "<openssl rand -base64 24>"              # never published
+#     memberPassword: "<openssl rand -base64 24>"             # not published
+#
+# The login hint password is printed on the login page by design, so it is not
+# confidential — but it must differ from the admin and member passwords, which
+# the chart refuses to render otherwise.
+# ─────────────────────────────────────────────────────────────────────────────

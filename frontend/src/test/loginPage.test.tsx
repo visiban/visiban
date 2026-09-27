@@ -397,6 +397,22 @@ describe('LoginPage', () => {
     expect(banner).toHaveTextContent(`next reset at ${formatClockTime('2026-09-28T00:00:00Z')}`)
   })
 
+  it('promises no reset when none is scheduled (#1180)', async () => {
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: false,
+      demo_mode: true,
+      demo_login: { username: 'visitor', password: 'pw' },
+      demo_reset_schedule: null,
+      demo_next_reset_at: null,
+    })
+    renderLoginPage()
+    const banner = await screen.findByTestId('demo-banner')
+    expect(banner).toHaveTextContent('This is a shared demo. Other visitors can see everything you change.')
+    expect(banner).not.toHaveTextContent('Resets')
+    expect(banner).not.toHaveTextContent('erased')
+    expect(banner).not.toHaveTextContent('signed out')
+  })
+
   it('"Explore the demo" signs in with the published credential in one click (#1179)', async () => {
     const onLogin = vi.fn()
     const fakeUser = { id: 7, username: 'visitor' }
