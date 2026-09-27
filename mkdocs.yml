@@ -65,6 +65,7 @@ nav:
   - Features:
     - features/index.md
     - Board & Cards: features/board.md
+    - Import from Trello: features/trello-import.md
     - Card Archiving: features/card-archiving.md
     - Card Descriptions: features/card-descriptions.md
     - Saved Filters: features/saved-filters.md

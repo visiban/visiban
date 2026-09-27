@@ -110,6 +110,31 @@ helm upgrade --install visiban ./helm/visiban \
 
 ---
 
+## Import limits
+
+| Variable | Description | Default |
+|---|---|---|
+| `VISIBAN_IMPORT_MAX_SIZE` | Maximum size, **in bytes**, of a Trello JSON export accepted by the [Trello import wizard](../features/trello-import.md). Oversized uploads get `413`. Separate from `MAX_UPLOAD_SIZE_BYTES`, which caps attachments and native board imports. Helm: `backend.settings.importMaxSizeBytes`. *(new in 1.2)* | `26214400` (25 MB) |
+
+The import runs synchronously inside the request, so every hop in front of
+Django must accept a body this large and wait long enough for the board to be
+created:
+
+- **Docker Compose nginx** (`nginx/*.conf.template`): `client_max_body_size`
+  is `35M` (25 MB + 10 MB multipart headroom). Raise it if you raise
+  `VISIBAN_IMPORT_MAX_SIZE`. `proxy_read_timeout` on `/api/` is `90s`, well
+  above the few seconds a capped import takes.
+- **Helm**: nginx `client_max_body_size` and the ingress `proxy-body-size`
+  annotation are derived automatically from the larger of
+  `maxUploadSizeBytes` and `importMaxSizeBytes`.
+- **Your own reverse proxy / load balancer**: nginx defaults to a 1 MB body
+  limit and returns its own `413` before Visiban sees the request. Allow at
+  least `VISIBAN_IMPORT_MAX_SIZE` + 10 MB.
+- The application server (daphne) and the web client set no request timeout
+  of their own.
+
+---
+
 ## Email (SMTP)
 
 Visiban uses Django's email backend for password resets, email verification and — since 1.2 — [notification email](../features/notifications.md#email-notifications).
