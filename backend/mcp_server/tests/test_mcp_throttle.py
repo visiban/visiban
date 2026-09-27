@@ -14,6 +14,7 @@ if not settings.MCP_SERVER_ENABLED:  # pragma: no cover - exercised only in the 
     )
 
 import time
+from unittest import mock
 
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
@@ -125,13 +126,24 @@ class LimitReachedTests(ThrottleIntegrationTestCase):
 
 class ResetAfterWindowTests(ThrottleIntegrationTestCase):
     def test_the_bucket_refills_once_the_window_elapses(self):
-        with override_settings(MCP_THROTTLE_READ_RATE="1/s"):
+        # A controlled clock, not a real sleep: with a real time.sleep(1.1),
+        # the two back-to-back calls that must land in the *same* 1s window
+        # (to prove the second is throttled) can themselves be separated by
+        # more than 1s of real wall-clock time under CI/coverage-instrumented
+        # scheduling, making the "still throttled" assertion below flaky
+        # (observed in !948's pipeline). A mutable clock cell — read by every
+        # time.time() call, however many happen per request — removes that
+        # dependency on real elapsed time entirely without assuming a fixed
+        # call count.
+        clock = [time.time()]
+        with override_settings(MCP_THROTTLE_READ_RATE="1/s"), mock.patch.object(
+            throttling.time, "time", side_effect=lambda: clock[0],
+        ):
             self._call(self.raw_token)  # consumes the one call this window allows
             _, body = self._call(self.raw_token)
             self.assertEqual(self._result(body)["error"]["code"], "throttled")
 
-            time.sleep(1.1)
-
+            clock[0] += 1.1  # advance past the 1s window without a real sleep
             _, body = self._call(self.raw_token)
             self.assertNotIn("error", self._result(body))
 
