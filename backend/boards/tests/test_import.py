@@ -1148,3 +1148,103 @@ class BoardImportBulkCreateEdgeCaseTests(TestCase):
         self.assertEqual(mv.from_column_uid, "")
         self.assertEqual(mv.from_swimlane_name, "Old Lane")
         self.assertEqual(mv.from_swimlane_uid, "")
+
+    # #1185: an unhashable "priority"/"movement_type"/"event_type"/
+    # "column"/"swimlane" (a nested list or dict) crashed the respective
+    # `in <valid set>` membership test with an unhandled TypeError instead of
+    # following the value's existing invalid-value convention (fall back to
+    # a default, skip, or 400 — see the docstring above for each field).
+    _UNHASHABLE_VALUES = (["low"], {"a": 1})
+
+    def test_unhashable_priority_falls_back_to_medium(self):
+        for bad in self._UNHASHABLE_VALUES:
+            with self.subTest(priority=bad):
+                data = self._base_payload()
+                data["name"] = f"Edge Case Board {bad!r}"
+                data["cards"] = [{
+                    "title": "Bad Priority Card",
+                    "column": "Backlog",
+                    "swimlane": "Lane",
+                    "priority": bad,
+                    "weight": 1,
+                    "position": 0,
+                }]
+                resp = self._post(data)
+                self.assertEqual(resp.status_code, 201, resp.data)
+                card = Card.objects.get(board_id=resp.data["id"], title="Bad Priority Card")
+                self.assertEqual(card.priority, "medium")
+
+    def test_unhashable_movement_type_falls_back_to_move(self):
+        for bad in self._UNHASHABLE_VALUES:
+            with self.subTest(movement_type=bad):
+                data = self._base_payload()
+                data["name"] = f"Edge Case Board {bad!r}"
+                data["cards"] = [{
+                    "title": "Moved Card",
+                    "column": "Backlog",
+                    "swimlane": "Lane",
+                    "priority": "low",
+                    "weight": 1,
+                    "position": 0,
+                    "movements": [{
+                        "from_column": "Backlog",
+                        "to_column": "Backlog",
+                        "from_swimlane": "Lane",
+                        "to_swimlane": "Lane",
+                        "moved_by": None,
+                        "notes": "",
+                        "moved_at": "2026-01-01T00:00:00Z",
+                        "movement_type": bad,
+                    }],
+                }]
+                resp = self._post(data)
+                self.assertEqual(resp.status_code, 201, resp.data)
+                card = Card.objects.get(board_id=resp.data["id"], title="Moved Card")
+                mv = CardMovement.objects.filter(card=card).first()
+                self.assertIsNotNone(mv)
+                self.assertEqual(mv.movement_type, "move")
+
+    def test_unhashable_event_type_is_skipped(self):
+        for bad in self._UNHASHABLE_VALUES:
+            with self.subTest(event_type=bad):
+                data = self._base_payload()
+                data["name"] = f"Edge Case Board {bad!r}"
+                data["cards"] = [{
+                    "title": "Activity Card",
+                    "column": "Backlog",
+                    "swimlane": "Lane",
+                    "priority": "low",
+                    "weight": 1,
+                    "position": 0,
+                    "activities": [{
+                        "event_type": bad,
+                        "from_value": "low",
+                        "to_value": "medium",
+                        "actor": None,
+                    }],
+                }]
+                resp = self._post(data)
+                self.assertEqual(resp.status_code, 201, resp.data)
+                card = Card.objects.get(board_id=resp.data["id"], title="Activity Card")
+                # The unrecognised activity is skipped entirely, same as a
+                # recognised-but-invalid event_type string would be — no
+                # auto-generated activity applies here (weight == 1, no labels).
+                self.assertEqual(CardActivity.objects.filter(card=card).count(), 0)
+
+    def test_unhashable_column_returns_400(self):
+        for bad in self._UNHASHABLE_VALUES:
+            with self.subTest(column=bad):
+                data = self._base_payload()
+                data["cards"] = [{"title": "Bad Column Card", "column": bad, "swimlane": "Lane", "priority": "low", "weight": 1, "position": 0}]
+                resp = self._post(data)
+                self.assertEqual(resp.status_code, 400, resp.data)
+                self.assertIn("undefined column", resp.data["detail"])
+
+    def test_unhashable_swimlane_returns_400(self):
+        for bad in self._UNHASHABLE_VALUES:
+            with self.subTest(swimlane=bad):
+                data = self._base_payload()
+                data["cards"] = [{"title": "Bad Swimlane Card", "column": "Backlog", "swimlane": bad, "priority": "low", "weight": 1, "position": 0}]
+                resp = self._post(data)
+                self.assertEqual(resp.status_code, 400, resp.data)
+                self.assertIn("undefined swimlane", resp.data["detail"])

@@ -171,6 +171,22 @@ EXIT_USAGE = 2
 # to diff against — `CardActivity` and `CardAttachment`. That is a
 # missing component, not a passing check; see the coverage table in
 # `docs/development/serializer-ts-parity.md`.
+#
+# `CardQuery` (CardQuerySerializer, backing GET /api/v1/cards/, #1112) is also
+# absent, for a different reason: the schema HAS a component, but there is no
+# TypeScript interface for it, mapped or otherwise. `frontend/src/api/cards.ts`
+# has no caller of that endpoint yet, so nothing hand-maintains its response
+# shape on the TypeScript side. Mapping it to the closest existing interface,
+# `Card`, would not detect real drift: `CardQuery` carries every `Card` field
+# plus `board` (cross-board rows must say which board each one is on, per the
+# serializer's own docstring), so the pair would report a permanent
+# `missing_in_ts: board` finding that is not a bug — the two components
+# describe deliberately different response shapes that happen to share most of
+# their fields. `TS_ONLY_FIELDS` below covers the opposite asymmetry (a
+# TypeScript field two serializers don't all send); there is no equivalent
+# allowance for a schema-only field, and adding one for a single unused pair
+# is not worth the gate's own complexity. Revisit once a frontend consumer of
+# `GET /api/v1/cards/` exists and needs its own interface (#1172).
 COMPONENT_MAP = {
     "Board": "Board",
     "BoardFull": "BoardFull",
