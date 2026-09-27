@@ -94,6 +94,7 @@ description`. Derive from the most significant commit or the branch name.
 
 ## Requirements
 <!-- pasted from the `completeness-check` gate: | # | Requirement | Source | Evidence | Status | -->
+<!-- Omit this section only where completeness-check did not apply (a pure chore/CI-config branch). Never ship it empty. -->
 
 ## Test plan
 - [ ] <specific thing to verify manually>
