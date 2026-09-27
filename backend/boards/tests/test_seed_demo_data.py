@@ -677,6 +677,12 @@ class SeedDemoSiteTests(TestCase):
                 _seed(demo_site=True)
         self.assertFalse(Board.objects.exists())
 
+    def test_refuses_without_demo_mode(self):
+        with override_settings(DEMO_MODE=False):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+        self.assertFalse(User.objects.filter(username="admin").exists())
+
     def test_rejects_export_and_scale(self):
         with self.assertRaises(CommandError):
             _seed(demo_site=True, export=True)

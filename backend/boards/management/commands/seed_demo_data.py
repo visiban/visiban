@@ -551,6 +551,11 @@ class Command(BaseCommand):
             # Validate before touching the database: a demo site with a blank
             # admin password would be an open admin account, and --export /
             # --scale are for committed / CI fixtures, not the public demo.
+            # Require DEMO_MODE so the command can never take over (reset the
+            # password of, and promote) a pre-existing "admin" account on an
+            # ordinary install that merely has DEMO_LOGIN_PASSWORD set.
+            if not settings.DEMO_MODE:
+                raise CommandError("--demo-site requires DEMO_MODE=true.")
             if not settings.DEMO_LOGIN_PASSWORD:
                 raise CommandError(
                     "--demo-site requires the DEMO_LOGIN_PASSWORD environment variable."

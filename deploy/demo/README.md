@@ -9,6 +9,14 @@ known seed state.
 > instance holding real data, never configure SSO/OAuth or real SMTP on it, and
 > never share its database with another install.
 
+Host hardening: the published admin is a site admin, so run the host on an
+egress-restricted network (no route to cloud metadata or internal services),
+keep the repo and `reset.sh` root-owned and not group/world-writable (the cron
+entry runs as root), and keep `deploy/demo/caddy-data` unreadable by others (it
+holds the ACME account key). The Caddyfile does not replicate nginx's rate
+limits or security headers; add host-level throttling (for example fail2ban)
+if the demo sees abuse.
+
 ## What is here
 
 | File | Purpose |

@@ -85,7 +85,7 @@ It creates, alongside the normal demo board:
 - **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history
 - an **admin** account (username from `DEMO_LOGIN_USERNAME`, password from `DEMO_LOGIN_PASSWORD`, site admin) and two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
 
-Passwords come only from the environment and are re-applied on every run. The command refuses to run without `DEMO_LOGIN_PASSWORD` and cannot be combined with `--export` or `--scale`. None of the new accounts have completed the onboarding tour, so it starts on first login.
+Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD` are set and cannot be combined with `--export` or `--scale`. None of the new accounts have completed the onboarding tour, so it starts on first login.
 
 Set `DEMO_MODE=true` to show the login-page banner. See [Demo mode](configuration.md#demo-mode) for the settings, and `deploy/demo/README.md` in the repository for the Caddy, compose, and nightly-reset artifacts.
 

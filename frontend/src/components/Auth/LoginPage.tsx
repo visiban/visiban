@@ -135,8 +135,8 @@ export default function LoginPage({ onLogin }: Props) {
             className="mb-5 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
           >
             <strong className="font-semibold text-fg">This is a live demo.</strong> All data resets nightly at 00:00 UTC.
-            Use <code className="font-mono text-fg">{demoLogin.username}</code> /{" "}
-            <code className="font-mono text-fg">{demoLogin.password}</code> to sign in, or create a throwaway account.
+            Use <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
+            <code className="font-mono text-fg select-all">{demoLogin.password}</code> to sign in, or create a throwaway account.
           </div>
         )}
 
