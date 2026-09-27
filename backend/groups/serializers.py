@@ -17,6 +17,41 @@ _ANCESTOR_LIST_SCHEMA = {
     },
 }
 
+# The priority slugs a group may list in ``allowed_priorities``. One constant so
+# the published schema below and ``GroupSerializer.validate_allowed_priorities``
+# cannot drift apart — before #1139 the validator held this set inline and the
+# schema held no type at all.
+#
+# Not imported from ``boards`` (where ``Card.Priority`` and the matching
+# ``AllowedPrioritiesField`` live): ``boards.serializers`` imports
+# ``GroupBriefSerializer`` from this module, and it documents "no import cycle:
+# neither groups.serializers nor groups.models imports anything from boards" as
+# the invariant that makes that safe. A four-slug list is a much smaller cost
+# than breaking it.
+_ALLOWED_PRIORITY_SLUGS = ["low", "medium", "high", "urgent"]
+
+
+@extend_schema_field({
+    "type": "array",
+    "items": {"type": "string", "enum": _ALLOWED_PRIORITY_SLUGS},
+})
+class AllowedPrioritiesField(serializers.JSONField):
+    """``allowed_priorities`` on :class:`GroupSerializer` (#1139).
+
+    Schema-only subclass, the twin of ``boards.serializers.AllowedPrioritiesField``
+    and for the same reason: ``Group.allowed_priorities`` is a model
+    ``JSONField``, which drf-spectacular describes with no ``type`` at all, so a
+    generated client saw ``unknown``/``any`` for a field the frontend has typed
+    ``Priority[]`` all along — while the identical field on ``Board`` published
+    its real shape.
+
+    Deliberately not a ``ListField(child=ChoiceField(...))``: that would move
+    the "invalid priority" rejection out of
+    :meth:`GroupSerializer.validate_allowed_priorities` and into DRF's field
+    machinery, changing the 400 body's error shape for existing API callers,
+    which the backward-compatibility rules in `CLAUDE.md` forbid.
+    """
+
 
 class GroupLabelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -51,13 +86,25 @@ class GroupBriefSerializer(serializers.ModelSerializer):
     extra requests (#845).
     """
 
-    parent_name = serializers.CharField(source="parent.name", default=None, read_only=True)
+    # allow_null=True (#1139): a root group has no parent, so `source="parent.name"`
+    # resolves to the field-level `default=None` and the response carries
+    # `parent_name: null`. Identical to the fix #1119 made on GroupSerializer
+    # below — this class was simply missed. Schema-only; the field is read_only.
+    parent_name = serializers.CharField(
+        source="parent.name", default=None, allow_null=True, read_only=True
+    )
     ancestors = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
         fields = ["id", "name", "parent", "parent_name", "ancestors"]
 
+    # #1139: an undecorated SerializerMethodField has no inferable return type,
+    # so drf-spectacular published this list of {id, name} dicts as `string`.
+    # GroupDetailSerializer.get_ancestors already carried this decorator for the
+    # same return value; annotating it here is a documentation fix, not a change
+    # to what the method returns.
+    @extend_schema_field(_ANCESTOR_LIST_SCHEMA)
     def get_ancestors(self, obj):
         # A context-provided ``group_ancestor_map`` (id -> {"name", "parent_id"})
         # lets the caller resolve every ancestor with a single bulk query — used
@@ -93,6 +140,13 @@ class GroupSerializer(serializers.ModelSerializer):
     subgroup_count = serializers.SerializerMethodField()
     shared_labels = GroupLabelSerializer(source="labels", many=True, read_only=True)
     is_starred = serializers.SerializerMethodField()
+    # Schema-only declaration — see AllowedPrioritiesField. Mirrors the kwargs
+    # DRF derives for the model field (it has a default, so it is not required),
+    # so the runtime field behaves exactly as the auto-generated one did.
+    allowed_priorities = AllowedPrioritiesField(
+        required=False,
+        help_text=Group._meta.get_field("allowed_priorities").help_text,
+    )
 
     class Meta:
         model = Group
@@ -133,7 +187,7 @@ class GroupSerializer(serializers.ModelSerializer):
         return GroupFavorite.objects.filter(user=request.user, group=obj).exists()
 
     def validate_allowed_priorities(self, value):
-        valid = {"low", "medium", "high", "urgent"}
+        valid = set(_ALLOWED_PRIORITY_SLUGS)
         for p in value:
             if p not in valid:
                 raise serializers.ValidationError(
