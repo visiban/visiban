@@ -49,8 +49,10 @@ GitLab SaaS runner with no Docker socket at all.
 on any runner — this failure mode should no longer occur for amd64 pushes. If you see this
 error again, something has regressed the job definition back toward `docker buildx`; check
 `.gitlab-ci.yml`'s `.kaniko-push-common` template first. See
-[CI Runners](ci-runners.md#docker-image-push-no-longer-needs-a-self-hosted-runner) for the
-full history, including the arm64 gap this conversion left open (**#1084**).
+[CI Runners](ci-runners.md#docker-image-push-amd64-kaniko-arm64-native-1084) for the full
+history — including how **#1084** restored arm64 publishing via a native build on a tagged
+group runner, rather than reviving the old buildx/socket-mount approach this failure mode
+came from.
 
 ## Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"
 

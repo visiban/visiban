@@ -91,7 +91,12 @@ GitLab CI runs on every push, MR, and version tag. The pipeline validates code q
 │                                                             │
 │  deploy                                                     │
 │  │  docker-push-backend   (main branch — pushes :latest     │
-│  │  docker-push-frontend   and :<sha> to registry)          │
+│  │  docker-push-frontend   and :<sha> to registry, amd64)   │
+│  │  docker-push-*-arm64   (version tags only — native arm64 │
+│  │  docker-push-*-manifest build + multi-arch manifest list,│
+│  │                         gated on the arm64 runner being  │
+│  │                         online; see docs/maintainers/    │
+│  │                         ci-runners.md)                   │
 │  │  docs-deploy           (version tags only — mike deploy  │
 │  │                         to gh-pages; stable → "latest",  │
 │  │                         pre-release → "next" alias)      │

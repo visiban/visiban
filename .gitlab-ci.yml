@@ -2286,34 +2286,51 @@ frontend-docker-build:
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512
 
-# ─── Docker push (amd64) ──────────────────────────────────────────────────────
+# ─── Docker push (amd64 + arm64, #1084) ────────────────────────────────────────
 #
 # Builds and pushes images with kaniko — the same daemonless builder the
 # MR-time *-docker-build jobs already use. No Docker daemon, no privileged
 # mode, no self-hosted runner.
 #
-# Why this changed: these jobs previously ran `docker buildx` against a Docker
-# socket mounted by a self-hosted runner's config.toml. That runner ("nuc
-# runner", group runner 53511568) went stale on 2026-07-18; every push since has
-# been scheduled onto a GitLab SaaS runner and failed with "Cannot connect to
-# the Docker daemon at unix:///var/run/docker.sock". The last successful push
-# was 2026-06-26. kaniko removes that single point of failure — these jobs now
-# run on any runner.
+# Why this changed (history): these jobs originally ran `docker buildx`
+# against a Docker socket mounted by a self-hosted runner's config.toml. That
+# runner ("nuc runner", group runner 53511568) went stale on 2026-07-18; every
+# push since had been scheduled onto a GitLab SaaS runner and failed with
+# "Cannot connect to the Docker daemon at unix:///var/run/docker.sock". !852
+# converted these jobs to kaniko to restore amd64 publishing, but kaniko
+# cannot cross-build, so arm64 was dropped rather than left as a job that
+# would hang a release pipeline (`saas-linux-medium-arm64` resolves to
+# `no_matching_runner` on this project's plan — verified on pipeline
+# 2845582400). arm64 had not actually been published since 2026-06-26
+# regardless, because the runner that built it was gone.
 #
-# ARCHITECTURE: amd64 only.
+# ARCHITECTURE (current, #1084): amd64 (kaniko, this job) + arm64 (native
+# build on the group runner "Max1-Runner-Visiban", tag `arm64` — see
+# docs/maintainers/ci-runners.md), assembled into multi-arch manifest lists.
+# Scoped to RELEASE TAGS ONLY — ordinary main-branch merges still push
+# amd64-only :latest/:<short-sha> directly to the GitLab registry below, same
+# as before #1084. Running the native arm64 leg on every merge would be
+# expensive and isn't what any acceptance criterion asks for; the tradeoff is
+# that the GitLab-registry :latest tag is multi-arch immediately after a
+# release tag, then reverts to amd64-only on the next ordinary main merge
+# until the next release — GHCR's :latest is untouched by main merges and so
+# stays multi-arch persistently between releases.
 #
-# The buildx path this replaces also emitted linux/arm64 via QEMU emulation on
-# the self-hosted runner. kaniko cannot cross-build, so arm64 would need a
-# native arm64 runner — and `saas-linux-medium-arm64` resolves to
-# `no_matching_runner` on this project's plan (verified on pipeline 2845582400).
-# arm64 has not actually been published since 2026-06-26 regardless, because the
-# runner that built it is gone. Restoring it needs a runner that can build arm64
-# natively, so it is tracked separately in #1084 (milestone 1.2) rather than left
-# here as a job that would hang a release pipeline on no_matching_runner.
+# On a release tag, this job (kaniko, amd64) no longer pushes the final
+# :<tag>/:latest/:MAJOR.MINOR names directly — it pushes `-amd64`-suffixed
+# intermediate tags instead. `backend-docker-push-arm64` /
+# `frontend-docker-push-arm64` (below) push the matching `-arm64`-suffixed
+# tags via a native build on the arm64 runner, gated by `arm64-runner-check`
+# (fails the pipeline fast if that runner isn't online, rather than letting
+# a `tags: [arm64]` job queue forever). `backend-docker-push-manifest` /
+# `frontend-docker-push-manifest` then assemble both suffixed legs into the
+# real :<tag>/:latest/:MAJOR.MINOR manifest lists on both registries — a
+# manifest list can only reference digests in the same repository as the
+# list itself, which is why both legs push to same-repo suffixed tags
+# rather than the final names directly.
 #
-# On main-branch merges: :latest and :<short-sha> to the GitLab registry.
-# On release tags: additionally :<tag> and, for stable releases, the
-#   :MAJOR.MINOR alias — on both the GitLab registry and GHCR.
+# On main-branch merges: :latest and :<short-sha> to the GitLab registry
+# (unchanged, amd64 only — see above).
 
 .kaniko-push-common:
   stage: deploy
@@ -2322,6 +2339,17 @@ frontend-docker-build:
     entrypoint: [""]
   before_script:
     - mkdir -p /kaniko/.docker
+    - |
+      # A release tag's destinations() (below) always includes ghcr.io
+      # entries — fail loudly here, before kaniko ever starts, rather than
+      # let it fail deep in a push with a bare registry-auth error. Ordinary
+      # main-branch merges never touch ghcr.io, so this guard only fires on
+      # a tag. Matches helm-publish's identical hard-fail pattern below.
+      if [ -n "${CI_COMMIT_TAG}" ] && { [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; }; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot publish the public release image."
+        echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging."
+        exit 1
+      fi
     - |
       # Assemble a docker config covering every registry a push job may touch:
       # the GitLab registry (push), GHCR (push on tags), and Docker Hub (pull —
@@ -2338,22 +2366,32 @@ frontend-docker-build:
       fi
       printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
     - |
-      # Emit the --destination flags for one image, matching the tag set the
-      # buildx jobs published. $1 = image name under each registry root.
-      # Stable releases (no pre-release suffix) also get the :MAJOR.MINOR alias,
-      # which is what users should pin to for production stability.
+      # Emit the --destination flags for one image. $1 = image name under
+      # each registry root.
+      #
+      # The :latest / :<short-sha> GitLab-registry pushes are unconditional
+      # (every main-branch merge and every release tag) and unchanged by
+      # #1084 — plain amd64, direct.
+      #
+      # On a release tag, this NO LONGER pushes the final :<tag>/:MAJOR.MINOR
+      # names directly (#1084) — it pushes `-amd64`-suffixed intermediate
+      # tags instead, on both registries. backend-docker-push-manifest /
+      # frontend-docker-push-manifest (below) assemble those together with
+      # the arm64 leg's matching `-arm64`-suffixed tags into the real
+      # :<tag>/:latest/:MAJOR.MINOR manifest lists. Stable releases (no
+      # pre-release suffix) also get the :MAJOR.MINOR alias, which is what
+      # users should pin to for production stability.
       destinations() {
         img="$1"
         echo "--destination=${CI_REGISTRY_IMAGE}/${img}:latest"
         echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_SHORT_SHA}"
         if [ -n "${CI_COMMIT_TAG}" ]; then
-          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_TAG}"
-          echo "--destination=ghcr.io/visiban/visiban/${img}:${CI_COMMIT_TAG}"
-          echo "--destination=ghcr.io/visiban/visiban/${img}:latest"
+          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_TAG}-amd64"
+          echo "--destination=ghcr.io/visiban/visiban/${img}:${CI_COMMIT_TAG}-amd64"
           if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             MINOR="$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-            echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${MINOR}"
-            echo "--destination=ghcr.io/visiban/visiban/${img}:${MINOR}"
+            echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${MINOR}-amd64"
+            echo "--destination=ghcr.io/visiban/visiban/${img}:${MINOR}-amd64"
           fi
         fi
       }
@@ -2387,6 +2425,220 @@ frontend-docker-push:
         --snapshot-mode=redo \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
         $(destinations frontend)
+
+# ─── arm64 runner preflight (#1084) ────────────────────────────────────────────
+#
+# Fails the pipeline fast, with an actionable message, if the arm64 group
+# runner is not online — rather than letting backend-docker-push-arm64 /
+# frontend-docker-push-arm64 below (selected by `tags: [arm64]`) queue
+# forever with nothing to match. GitLab's per-job `timeout:` cannot catch
+# this: it only bounds RUNNING time, never PENDING/queued time. This project
+# already learned the underlying lesson once — `saas-linux-medium-arm64`
+# silently resolved to `no_matching_runner` on a throwaway probe rather than
+# an outright pipeline failure (see this job's history above and
+# docs/maintainers/ci-runners.md). See scripts/check-arm64-runner.sh for the
+# full rationale and self-test.
+#
+# Runs on ANY runner (no `tags:` here — it only makes one API call) and
+# `stage: .pre` + `needs: []` so it starts immediately, before every other
+# stage — it validates infrastructure, not code, so there's no reason to
+# queue behind lint/test.
+#
+# ARM64_RUNNER_ID is the group runner "Max1-Runner-Visiban" — see
+# docs/maintainers/ci-runners.md. If that runner is ever deregistered and
+# re-registered, this id changes and must be updated here.
+#
+# Requires RUNNER_STATUS_TOKEN: a PERSONAL access token (fine-grained,
+# scoped to the visiban group, "Runner: Read" permission only), stored as a
+# masked+protected CI/CD variable. GitLab Free supports neither group nor
+# project access tokens (confirmed 2026-09-27 against the live GitLab.com
+# UI), so a personal token is the only option — see
+# docs/maintainers/tokens-and-rotation.md for the tradeoff this implies.
+arm64-runner-check:
+  stage: .pre
+  needs: []
+  image: alpine:3.19
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  variables:
+    ARM64_RUNNER_ID: "56802474"
+  before_script:
+    - apk add --no-cache bash curl jq
+  script:
+    - bash scripts/check-arm64-runner.sh --self-test
+    - bash scripts/check-arm64-runner.sh "${ARM64_RUNNER_ID}"
+
+# ─── Docker push — arm64 leg (native, shell executor, #1084) ──────────────────
+#
+# Shared base for the arm64 leg of the multi-arch publish. Runs on the group
+# runner "Max1-Runner-Visiban" (tag: arm64) under the SHELL executor, NOT a
+# container image — `image:`/`services:` are meaningless under a shell
+# executor. The job runs directly against the runner host's own
+# already-installed Docker Desktop, whose engine is itself arm64 (verified
+# via a throwaway probe, MR !960 — see docs/maintainers/ci-runners.md), so
+# `docker build` here produces a NATIVE linux/arm64 image with no QEMU.
+#
+# Only pushes `-arm64`-suffixed single-arch tags and stops — see the
+# "Docker push" comment block above for why (a manifest list can only
+# reference digests in the same repository as the list itself).
+# backend-docker-push-manifest / frontend-docker-push-manifest assemble the
+# real names from both legs.
+#
+# Pushes with retry (scripts/docker-push-retry.sh): this is a persistent
+# shared host, unlike the amd64 leg's fresh kaniko container per job, so its
+# Docker daemon can accumulate cross-repo state between jobs and hit a
+# "blob unknown to registry" failure after an optimized cross-repo blob
+# mount the registry then can't resolve. Ported proactively from TruePPM,
+# which hit this in production on the same runner shape (persistent macOS
+# shell-executor host, shared Docker Desktop daemon) — not a hypothetical.
+#
+# `needs:` is declared on each concrete job below, not here: GitLab replaces
+# (does not merge) a base's `needs:` when the job extending it declares its
+# own, so declaring it here would silently drop whichever list "wins".
+.docker-publish-arm64-base:
+  stage: deploy
+  tags:
+    - arm64
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  before_script:
+    - |
+      if ! docker info > /dev/null 2>&1; then
+        echo "ERROR: Docker Desktop is not running on this arm64 runner." >&2
+        exit 1
+      fi
+    - |
+      if [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot publish the public release image." >&2
+        echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging." >&2
+        exit 1
+      fi
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+    - . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
+
+backend-docker-push-arm64:
+  extends: .docker-publish-arm64-base
+  needs:
+    - arm64-runner-check
+    - backend-test-coverage
+  script:
+    - |
+      set -euo pipefail
+      GL_IMAGE="${CI_REGISTRY_IMAGE}/backend"
+      GH_IMAGE="ghcr.io/visiban/visiban/backend"
+      docker build -f backend/Dockerfile -t "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" backend
+      push_with_retry "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GH_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      push_with_retry "${GH_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        MINOR="$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
+        docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GL_IMAGE}:${MINOR}-arm64"
+        push_with_retry "${GL_IMAGE}:${MINOR}-arm64"
+        docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GH_IMAGE}:${MINOR}-arm64"
+        push_with_retry "${GH_IMAGE}:${MINOR}-arm64"
+      fi
+
+frontend-docker-push-arm64:
+  extends: .docker-publish-arm64-base
+  needs:
+    - arm64-runner-check
+    - frontend-test
+  script:
+    - |
+      set -euo pipefail
+      GL_IMAGE="${CI_REGISTRY_IMAGE}/frontend"
+      GH_IMAGE="ghcr.io/visiban/visiban/frontend"
+      docker build -f frontend/Dockerfile --build-arg NODE_OPTIONS=--max-old-space-size=512 -t "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" frontend
+      push_with_retry "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GH_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      push_with_retry "${GH_IMAGE}:${CI_COMMIT_TAG}-arm64"
+      if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+        MINOR="$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
+        docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GL_IMAGE}:${MINOR}-arm64"
+        push_with_retry "${GL_IMAGE}:${MINOR}-arm64"
+        docker tag "${GL_IMAGE}:${CI_COMMIT_TAG}-arm64" "${GH_IMAGE}:${MINOR}-arm64"
+        push_with_retry "${GH_IMAGE}:${MINOR}-arm64"
+      fi
+
+# ─── Docker push — manifest assembly (multi-arch, #1084) ──────────────────────
+#
+# Assembles the amd64 + arm64 single-arch images the two legs above each
+# pushed under a `-amd64`/`-arm64` suffix into the real multi-arch
+# :<tag>/:latest/:MAJOR.MINOR tags, on both registries.
+#
+# `docker buildx imagetools create`, not `docker manifest create` or a
+# separate `manifest-tool` binary: imagetools operates purely against
+# registry metadata — no image pull, no local daemon required at all
+# (verified directly: `docker buildx imagetools inspect` ran cleanly with
+# zero Docker socket mounted, in a container with no dockerd). `docker
+# manifest` needs the CLI's experimental flag and a running daemon;
+# `manifest-tool` is a second pinned supply-chain binary to track and,
+# critically, refuses a source that is itself an index — which is exactly
+# what this project's arm64 leg produces, since BuildKit attaches a
+# provenance attestation to even a trivial single-arch build (observed
+# directly during #1084's runner-verification probe). imagetools merges
+# indexes correctly and pushes in one step.
+#
+# `image: docker:27-cli` (CLI only, no dockerd) rather than `docker:27` +
+# `docker:27-dind` services: this repo's convention is kaniko/daemonless
+# registry tooling, never docker:dind — and imagetools needs no daemon
+# anyway, so dind would provide nothing here.
+.docker-publish-manifest-base:
+  stage: deploy
+  image: docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
+  before_script:
+    - |
+      if [ -z "${GHCR_USER}" ] || [ -z "${GHCR_TOKEN}" ]; then
+        echo "ERROR: GHCR_USER/GHCR_TOKEN not set — cannot publish the public multi-arch manifest." >&2
+        echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging." >&2
+        exit 1
+      fi
+    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+# assemble_manifests <GitLab-registry image ref> <GHCR image ref> — one
+# imagetools create per (registry, final tag) pair, sourcing each registry's
+# OWN suffixed legs rather than mixing registries in a single manifest list.
+.manifest-script: &manifest-script |
+  set -euo pipefail
+  assemble_manifests() {
+    local gl_image="$1" gh_image="$2"
+    docker buildx imagetools create -t "${gl_image}:${CI_COMMIT_TAG}" "${gl_image}:${CI_COMMIT_TAG}-amd64" "${gl_image}:${CI_COMMIT_TAG}-arm64"
+    docker buildx imagetools create -t "${gl_image}:latest"          "${gl_image}:${CI_COMMIT_TAG}-amd64" "${gl_image}:${CI_COMMIT_TAG}-arm64"
+    docker buildx imagetools create -t "${gh_image}:${CI_COMMIT_TAG}" "${gh_image}:${CI_COMMIT_TAG}-amd64" "${gh_image}:${CI_COMMIT_TAG}-arm64"
+    docker buildx imagetools create -t "${gh_image}:latest"          "${gh_image}:${CI_COMMIT_TAG}-amd64" "${gh_image}:${CI_COMMIT_TAG}-arm64"
+    if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+      local minor
+      minor="$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
+      docker buildx imagetools create -t "${gl_image}:${minor}" "${gl_image}:${CI_COMMIT_TAG}-amd64" "${gl_image}:${CI_COMMIT_TAG}-arm64"
+      docker buildx imagetools create -t "${gh_image}:${minor}" "${gh_image}:${CI_COMMIT_TAG}-amd64" "${gh_image}:${CI_COMMIT_TAG}-arm64"
+    fi
+  }
+
+backend-docker-push-manifest:
+  extends: .docker-publish-manifest-base
+  needs:
+    - job: backend-docker-push
+      artifacts: false
+    - job: backend-docker-push-arm64
+      artifacts: false
+  script:
+    - *manifest-script
+    - assemble_manifests "${CI_REGISTRY_IMAGE}/backend" "ghcr.io/visiban/visiban/backend"
+
+frontend-docker-push-manifest:
+  extends: .docker-publish-manifest-base
+  needs:
+    - job: frontend-docker-push
+      artifacts: false
+    - job: frontend-docker-push-arm64
+      artifacts: false
+  script:
+    - *manifest-script
+    - assemble_manifests "${CI_REGISTRY_IMAGE}/frontend" "ghcr.io/visiban/visiban/frontend"
 
 # ─── Helm — publish chart to GHCR (release tags) ─────────────────────────────
 #
@@ -2455,37 +2707,19 @@ helm-publish:
       CHART_DIGEST="$(awk '/Digest: /{print $2}' /tmp/helm-push.log)"
       cosign sign --yes "ghcr.io/visiban/charts/${CHART_NAME}@${CHART_DIGEST}"
 
-# ─── GHCR manual push ─────────────────────────────────────────────────────────
+# ─── GHCR manual push — REMOVED (#1084) ────────────────────────────────────────
 #
-# Pushes :latest to GHCR on demand without running the full CI suite. Click the
-# play button on any pipeline's deploy stage to trigger.
-#
-# Builds from the commit the pipeline is running on. To push from a specific
-# branch, trigger a pipeline on that branch (glab ci run -b <branch>) and
-# click play here.
-
-ghcr-push-backend:
-  extends: .kaniko-push-common
-  when: manual
-  allow_failure: true
-  script:
-    - /kaniko/executor
-        --context=backend
-        --dockerfile=backend/Dockerfile
-        --snapshot-mode=redo
-        --destination=ghcr.io/visiban/visiban/backend:latest
-
-ghcr-push-frontend:
-  extends: .kaniko-push-common
-  when: manual
-  allow_failure: true
-  script:
-    - /kaniko/executor
-        --context=frontend
-        --dockerfile=frontend/Dockerfile
-        --snapshot-mode=redo
-        --build-arg NODE_OPTIONS=--max-old-space-size=512
-        --destination=ghcr.io/visiban/visiban/frontend:latest
+# `ghcr-push-backend` / `ghcr-push-frontend` used to push :latest to GHCR
+# on demand (kaniko, amd64-only) via the play button on any pipeline's
+# deploy stage. Removed rather than kept: once #1084 restored multi-arch
+# publishing, anyone clicking one of these would have silently overwritten
+# the multi-arch ghcr.io :latest manifest list with a single-arch amd64
+# image — a manual job nobody remembers exists is exactly how that kind of
+# regression ships. There is no arch-safe on-demand equivalent yet (it would
+# need the same runner-preflight + per-arch + manifest-assembly shape as the
+# real release path below, for a job whose entire reason to exist was being
+# cheaper than that). If an on-demand GHCR push is needed again, it must be
+# arch-proofed the same way, not resurrected as a bare kaniko destination.
 
 # ─── Scheduled — release image survival ───────────────────────────────────────
 #
@@ -2518,7 +2752,9 @@ check-release-images:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - apk add --no-cache bash git crane
+    # jq: parses crane's manifest-list JSON for the arm64-presence check
+    # (#1084 — probe_arches() in scripts/check-release-images.sh).
+    - apk add --no-cache bash git crane jq
     - |
       mkdir -p "$HOME/.docker"
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
@@ -2541,11 +2777,15 @@ check-release-images:
 # Reads release notes for the tag from CHANGELOG.md and creates a GitHub Release
 # with GHCR image references appended. rc/beta/alpha tags are marked pre-release.
 # GH_TOKEN CI variable (repo-scoped PAT) is passed through automatically.
-
+#
+# needs the *-manifest jobs (#1084), not the old *-docker-push jobs directly:
+# since #1084, backend-docker-push/frontend-docker-push only push `-amd64`
+# suffixed intermediate tags on a release tag — the real GHCR :<tag> image
+# this job links to doesn't exist until the manifest-assembly jobs run.
 github-release:
   stage: deploy
   image: alpine:3.19
-  needs: [backend-docker-push, frontend-docker-push]
+  needs: [backend-docker-push-manifest, frontend-docker-push-manifest]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:

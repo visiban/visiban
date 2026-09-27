@@ -11,11 +11,27 @@ paste a credential, stop and describe where it lives instead.
 |---|---|---|---|---|---|
 | Mirror bot PAT | GitLab PAT, Maintainer role on `visiban/visiban-enterprise` | `visiban-mirror-bot` service account | GitLab → Settings → Repository → Mirroring (push mirror URL for the OSS→enterprise mirror) | Automatic push-mirror of every branch/tag from OSS to enterprise on every push | **2027-03-10** |
 | GitHub push-mirror PAT (`visiban-gitlab-mirror`) | GitHub PAT, scope `repo` | TBD — confirm current owner before rotating | GitLab → Settings → Repository → Mirroring (push mirror URL for OSS→GitHub); **also** stored as the `GH_TOKEN` GitLab CI/CD variable (protected, masked) | Push-mirrors OSS to `github.com/visiban/visiban`; `github-release` CI job (`gh release create`, which reads `GH_TOKEN` automatically — see correction below) | **UNKNOWN** — see below |
-| GHCR push PAT (`visiban-ghcr-push`) | GitHub PAT, scope `write:packages` | TBD — confirm current owner before rotating | GitLab CI/CD variable `GHCR_TOKEN` (masked), paired with `GHCR_USER` (masked) | `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push`, `ghcr-push-backend`, `ghcr-push-frontend` — pushes images to `ghcr.io/visiban/visiban/*` | **UNKNOWN** — see below |
+| GHCR push PAT (`visiban-ghcr-push`) | GitHub PAT, scope `write:packages` | TBD — confirm current owner before rotating | GitLab CI/CD variable `GHCR_TOKEN` (masked), paired with `GHCR_USER` (masked) | `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push`, `backend-docker-push-arm64`, `frontend-docker-push-arm64`, `backend-docker-push-manifest`, `frontend-docker-push-manifest`, `helm-publish`, `check-release-images` — pushes images/charts to `ghcr.io/visiban/visiban/*` (the on-demand `ghcr-push-backend`/`ghcr-push-frontend` jobs that used to also read this were removed in #1084 — see `.gitlab-ci.yml`'s "GHCR manual push — REMOVED" comment) | **UNKNOWN** — see below |
 | `DOCS_DEPLOY_TOKEN` | GitLab token, `write_repository` scope | TBD | GitLab CI/CD variable (protected, masked) | `docs-deploy` job — `mike` pushes the versioned docs site to the `gh-pages` branch | Not tracked here — see note below |
 | MinIO `AccessKey` / `SecretKey` | S3-compatible object storage credentials | Runner infra owner | Each self-hosted runner's local `config.toml` (`[runners.cache.s3]`), referenced via env interpolation; also present as GitLab CI/CD variables `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (masked, protected) alongside `MINIO_ENDPOINT` / `MINIO_BUCKET` | Distributed CI cache shared across runners (`.npm-cache`, pip cache templates in `.gitlab-ci.yml`) | Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141) |
+| `RUNNER_STATUS_TOKEN` (#1084) | GitLab **personal** access token, fine-grained, `Runner: Read` only, scoped to the `visiban` group | Kelly Hair (`kellyhair`) — see caveat below | GitLab CI/CD variable (masked, protected) on `visiban/visiban` | `arm64-runner-check` job (`scripts/check-arm64-runner.sh`) — calls `GET /runners/:id` to confirm the arm64 group runner is online before a release tag's arm64 build job would queue | **2027-09-27** (GitLab-enforced 365-day max on this instance) |
 
-## Correction: the GitHub-release CI variable is `GH_TOKEN`, not `GITHUB_TOKEN`
+## `RUNNER_STATUS_TOKEN` is a personal token, not a scoped bot identity — and that's the ceiling, not a choice
+
+Confirmed 2026-09-27 directly against the live GitLab.com UI: **both** group access tokens
+(`visiban` group → Settings → Access Tokens) and project access tokens (`visiban/visiban` →
+Settings → Access Tokens) show "creation is not available on GitLab Free. Upgrade to
+Premium." A fine-grained personal access token, scoped at creation time to the `visiban`
+group with only the `Runner: Read` permission, is the only mechanism GitLab Free offers for a
+CI job to call an API as any kind of identity. This is recorded as a durable constraint in
+project memory (`project_gitlab_tier.md`) so it isn't rediscovered the hard way again.
+
+**Consequence:** this token is tied to a real human account (Kelly Hair's), not a
+service/bot identity like the mirror bot PAT above. If that account is ever disabled, has its
+password/2FA reset, or the person leaves, `arm64-runner-check` starts failing with an auth
+error — check this page first if that happens, since the failure mode looks identical to the
+runner actually being offline. Revisit this if the group ever moves to a paid tier: a scoped
+group/project access token would be the correct replacement, not another personal token.
 
 Some earlier notes (including this page's source issue) refer to the GitHub release token as
 `GITHUB_TOKEN`. That name is wrong for this repo. Verified directly against
@@ -80,8 +96,12 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
       - `GH_TOKEN` / `github-release`: only runs on a version-tag pipeline, so test via a
         pre-release tag or by re-running a past `github-release` job with the new variable
         value.
-      - `GHCR_TOKEN` / `GHCR_USER`: trigger the manual `ghcr-push-backend` or
-        `ghcr-push-frontend` job (CI/CD → Pipelines → play button on the deploy stage).
+      - `GHCR_TOKEN` / `GHCR_USER`: no on-demand trigger exists since #1084 removed
+        `ghcr-push-backend`/`ghcr-push-frontend` — test via a pre-release tag pipeline
+        (exercises `backend-docker-push-arm64`/`-manifest` and `helm-publish`) or re-running
+        a past `helm-publish` job with the new variable value.
+      - `RUNNER_STATUS_TOKEN`: re-run the `arm64-runner-check` job on any pipeline that has
+        one (release tags only) with the new variable value.
       - `DOCS_DEPLOY_TOKEN`: run the `docs-deploy` job manually on `main` with a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on

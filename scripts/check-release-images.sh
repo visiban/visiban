@@ -42,6 +42,21 @@
 #                        TruePPM's incident is what the check concludes, and a
 #                        gate only ever observed against a healthy registry is
 #                        indistinguishable from one that always passes.
+# RELEASE_REQUIRED_ARCHES space-separated platform architectures a release
+#                        tag's manifest must cover (default "amd64 arm64",
+#                        #1084). A ref that resolves to a plain single-
+#                        platform manifest (no `.manifests[]` entries at all)
+#                        is reported ARCH-MISSING for every required arch —
+#                        this is exactly what a manifest-assembly bug that
+#                        silently dropped the arm64 leg would look like, and
+#                        it must fail this gate the same as an absent image.
+# RELEASE_ARCH_PROBE     command that receives one image reference and
+#                        prints one architecture per line found in its
+#                        manifest list to stdout (empty output for a
+#                        single-platform manifest). Defaults to
+#                        `crane manifest | jq -r '.manifests[]?.platform.architecture'`.
+#                        Overridable for --self-test, same reasoning as
+#                        RELEASE_IMAGE_PROBE above.
 # ACCEPTED_GAPS          space-separated "<registry>/<image>:<tag>" full
 #                        references to report as SKIP instead of MISSING.
 #                        Empty by default — this gate exists to fail on
@@ -72,6 +87,8 @@ set -euo pipefail
 # invocation error, the latter must fall back to default_registries().
 RELEASE_IMAGES="${RELEASE_IMAGES:-backend frontend}"
 RELEASE_IMAGE_PROBE="${RELEASE_IMAGE_PROBE:-}"
+RELEASE_REQUIRED_ARCHES="${RELEASE_REQUIRED_ARCHES:-amd64 arm64}"
+RELEASE_ARCH_PROBE="${RELEASE_ARCH_PROBE:-}"
 ACCEPTED_GAPS="${ACCEPTED_GAPS:-}"
 
 # Resolve the newest release tag. `--sort=-v:refname` orders by version rather
@@ -145,6 +162,20 @@ probe_image() {
   fi
 }
 
+# probe_arches <ref> — prints one architecture per line found in the ref's
+# manifest list. Empty output means a plain single-platform manifest (no
+# `.manifests[]` index at all) — exactly what a manifest-assembly bug that
+# silently dropped a platform leg would produce (#1084 postscript: the
+# manifest-assembly job could go green while quietly shipping amd64-only).
+probe_arches() {
+  local ref="$1"
+  if [ -n "$RELEASE_ARCH_PROBE" ]; then
+    "$RELEASE_ARCH_PROBE" "$ref"
+  else
+    crane manifest "$ref" 2>/dev/null | jq -r '.manifests[]?.platform.architecture // empty'
+  fi
+}
+
 # verify_images <tag> — does the real work and RETURNS (never exits), so
 # --self-test can call it in-process and inspect the result without spawning
 # a subshell per case.
@@ -180,7 +211,19 @@ verify_images() {
       if is_accepted_gap "$ref"; then
         echo "  SKIP    $ref (accepted gap, see ACCEPTED_GAPS)"
       elif probe_image "$ref"; then
-        echo "  OK      $ref"
+        local arches want missing_arch=""
+        arches="$(probe_arches "$ref" 2>/dev/null || true)"
+        for want in $RELEASE_REQUIRED_ARCHES; do
+          if ! printf '%s\n' "$arches" | grep -qx "$want"; then
+            missing_arch="${missing_arch} ${want}"
+          fi
+        done
+        if [ -n "$missing_arch" ]; then
+          echo "  ARCH-MISSING $ref (missing:${missing_arch})"
+          missing="${missing} ${ref}(missing-arch:${missing_arch# })"
+        else
+          echo "  OK      $ref (${RELEASE_REQUIRED_ARCHES})"
+        fi
       else
         echo "  MISSING $ref"
         missing="${missing} ${ref}"
@@ -190,18 +233,21 @@ verify_images() {
 
   if [ -n "$missing" ]; then
     echo
-    echo "ERROR: released image(s) missing from a container registry:" >&2
+    echo "ERROR: released image(s) missing or arch-incomplete on a container registry:" >&2
     local ref_out
     for ref_out in $missing; do
       echo "  - $ref_out" >&2
     done
     echo >&2
-    echo "A published release tag must stay pullable. Check each registry's" >&2
-    echo "cleanup/retention policy — see" >&2
+    echo "A published release tag must stay pullable AND cover every required" >&2
+    echo "architecture (${RELEASE_REQUIRED_ARCHES}). For a MISSING image, check" >&2
+    echo "each registry's cleanup/retention policy — see" >&2
     echo "docs/administration/container-image-retention.md — its keep-regex" >&2
-    echo "must protect release tags (^v.*\$|^latest\$), or a scheduled sweep" >&2
-    echo "will delete them again. Re-run the tag pipeline's publish jobs" >&2
-    echo "(backend-docker-push / frontend-docker-push) to restore." >&2
+    echo "must protect release tags, or a scheduled sweep will delete them" >&2
+    echo "again. For an ARCH-MISSING image, the manifest-assembly job" >&2
+    echo "(backend-docker-push-manifest / frontend-docker-push-manifest)" >&2
+    echo "silently dropped a platform leg — re-run it, or the whole tag" >&2
+    echo "pipeline's publish jobs, to restore." >&2
     return 1
   fi
 
@@ -240,6 +286,21 @@ SH
 
   present() { : > "$PRESENT_FILE"; local ref; for ref in "$@"; do echo "$ref" >> "$PRESENT_FILE"; done; }
 
+  # Stub arch probe: prints whatever architectures $tmp/arches lists,
+  # regardless of which ref is asked about (the presence-only cases below
+  # don't care about arch — default to full coverage so they're unaffected;
+  # the dedicated arch-missing cases further down flip this).
+  cat > "$tmp/arch_probe.sh" <<'SH'
+#!/usr/bin/env bash
+cat "$ARCHES_FILE" 2>/dev/null || true
+SH
+  chmod +x "$tmp/arch_probe.sh"
+  export RELEASE_ARCH_PROBE="$tmp/arch_probe.sh"
+  export ARCHES_FILE="$tmp/arches"
+
+  arches() { : > "$ARCHES_FILE"; local a; for a in "$@"; do echo "$a" >> "$ARCHES_FILE"; done; }
+  arches amd64 arm64
+
   echo "=== check-release-images.sh --self-test ==="
 
   echo "case: both registries missing the release image"
@@ -274,6 +335,22 @@ SH
   rc=0
   out="$(verify_images "v1.2.0" 2>&1)" || rc=$?
   check "exits 0 when every image exists on every registry" "$([ "$rc" -eq 0 ] && echo 0 || echo 1)"
+
+  echo "case: image exists but the arm64 leg was silently dropped (#1084)"
+  # present() already covers every ref from the prior case; only arches()
+  # changes — this is exactly what a manifest-assembly bug that dropped the
+  # arm64 leg would produce: the tag still resolves, just to amd64 only.
+  arches amd64
+  rc=0
+  out="$(verify_images "v1.2.0" 2>&1)" || rc=$?
+  check "exits 1 (not 0) when a present image is missing a required arch" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+  check "reports ARCH-MISSING, not a plain OK" \
+    "$(echo "$out" | grep -q 'ARCH-MISSING' && echo 0 || echo 1)"
+  check "names arm64 as the missing arch" \
+    "$(echo "$out" | grep -q 'ARCH-MISSING .*missing: *arm64' && echo 0 || echo 1)"
+  check "points at the manifest-assembly job as the next step" \
+    "$(echo "$out" | grep -qi 'docker-push-manifest' && echo 0 || echo 1)"
+  arches amd64 arm64  # restore full coverage for the remaining cases
 
   echo "case: no registry configured (explicit empty override)"
   RELEASE_REGISTRIES=""
