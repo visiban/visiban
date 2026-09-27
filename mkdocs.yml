@@ -120,6 +120,7 @@ nav:
     - Serializer ↔ TypeScript Parity: development/serializer-ts-parity.md
     - RBAC & Broadcast Gates: development/rbac-and-broadcast-gates.md
     - Suppression Markers: development/suppressions.md
+    - Kaizen Yield Watch: development/kaizen-yield-watch.md
     - WebSocket Event Contract: development/websocket-event-contract.md
     - Nightly Load Test: development/nightly-load-test.md
   - Administration:

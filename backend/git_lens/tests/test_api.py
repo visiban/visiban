@@ -880,3 +880,33 @@ class LensBoardRenderTests(TestCase):
 
         second = self.client.get(self.url, HTTP_IF_NONE_MATCH=etag)
         self.assertEqual(second.status_code, status.HTTP_304_NOT_MODIFIED)
+
+
+class LensBoardSchemaParametersTests(TestCase):
+    """#1131: every query param the lens board view reads is declared in OpenAPI."""
+
+    EXPECTED = {
+        "column_dim", "swimlane_dim", "state", "milestone", "labels",
+        "assignee", "refresh",
+    }
+
+    def _params(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        op = schema["paths"]["/api/v1/git-lens/board/{board_id}/"]["get"]
+        return op["parameters"]
+
+    def test_all_filter_params_declared_optional_query_strings(self):
+        query = {p["name"]: p for p in self._params() if p["in"] == "query"}
+        self.assertEqual(set(query), self.EXPECTED)
+        for name, p in query.items():
+            self.assertFalse(p.get("required", False), name)
+            self.assertEqual(p["schema"]["type"], "string", name)
+            self.assertTrue(p.get("description"), name)
+
+    def test_no_text_search_param_declared(self):
+        # Text search is client-side; declaring it would promise server behavior.
+        names = {p["name"] for p in self._params()}
+        self.assertNotIn("text", names)
+        self.assertNotIn("q", names)

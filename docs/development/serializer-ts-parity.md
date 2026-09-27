@@ -9,11 +9,18 @@ either one covers your change.**
 
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
-| `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **14** pairs, incl. `BoardFull`, `Column`, `Swimlane`, `Label`, `CardMovement`, `CardComment`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079, this page) | The **generated OpenAPI document** | **5** pairs — `Board`, `Card`, `User`, `BoardMembership`, `BoardUser` | Names, **types**, nullability, enum membership |
+| `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **14** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
+| `serializer-ts-parity` CI job (#1079 + #1139, this page) | The **generated OpenAPI document** | **18** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
-The older test covers more pairs; this gate covers more *per pair*. Neither supersedes the
-other, and a green run of one says nothing about the other.
+Neither supersedes the other, and a green run of one says nothing about the other — but since
+#1139 the coverage gap is down to a single, structural difference: **#821 reaches three pairs
+this gate cannot, because `drf-spectacular` emits no component for them.** See
+[Coverage](#coverage) for the pair-by-pair table.
+
+Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
+green job read as much broader assurance than it delivered. Widening it to eighteen turned up
+nine more real mismatches on the new pairs (and one false positive caused by a defect in the
+gate's own TypeScript alias parser).
 
 The distinction that matters: #821 asks "does the serializer emit this field?" — this gate
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
@@ -44,18 +51,7 @@ internally consistent, with no third thing checking that they agree.
 
 The job regenerates the OpenAPI schema with `drf-spectacular` — the same command
 `backend-schema-validate` runs, and for the same reason it needs no database — and compares
-its components against the hand-written interfaces:
-
-| Schema component | TypeScript interface |
-|---|---|
-| `Board` | `Board` |
-| `Card` | `Card` |
-| `CurrentUser` | `User` |
-| `BoardMembership` | `BoardMembership` |
-| `BoardUser` | `BoardUser` |
-
-There is no `User` component — the `/api/v1/auth/me/` shape is `CurrentUser`, which is why the
-mapping is not one-to-one by name.
+its components against the hand-written interfaces.
 
 Six kinds of mismatch are reported:
 
@@ -72,6 +68,54 @@ A check is **skipped, never guessed**, when either side cannot be classified con
 unresolvable TypeScript alias produces no finding rather than a false one. Optional fields
 (`x?: T`) are exempt from the nullability check, because in this codebase `?` already carries
 the "only present under some conditions" meaning — an `?expand=` payload, for instance.
+
+## Coverage
+
+`COMPONENT_MAP` in the script is authoritative. As of #1139 it is:
+
+| Schema component | TypeScript interface | Also name-checked by #821 |
+|---|---|---|
+| `Board` | `Board` | yes |
+| `BoardMembership` | `BoardMembership` | yes |
+| `BoardUser` | `BoardUser` | yes |
+| `Card` | `Card` | yes |
+| `CardChecklist` | `CardChecklistItem` | yes |
+| `CardComment` | `CardComment` | yes |
+| `CardMovement` | `CardMovement` | yes |
+| `CardRelation` | `CardRelation` | no |
+| `Column` | `Column` | yes |
+| `CurrentUser` | `User` | yes |
+| `CustomFieldDefinition` | `CustomFieldDefinition` | no |
+| `CustomFieldValue` | `CustomFieldValue` | no |
+| `Group` | `Group` | no |
+| `GroupBrief` | `GroupBrief` | no |
+| `GroupLabel` | `GroupLabel` | no |
+| `Label` | `Label` | yes |
+| `Swimlane` | `Swimlane` | yes |
+| `SwimlaneCustomFieldDefinition` | `SwimlaneCustomFieldDefinition` | yes |
+
+The mapping is **not** keyed on the two names matching. There is no `User` component — the
+`/api/v1/auth/me/` shape is `CurrentUser` — and `CardChecklist` is the component behind the
+`CardChecklistItem` interface. Both are one resource under two spellings, and leaving either
+out would be a hole the gate's own name check cannot see.
+
+### What is not covered, and why
+
+Three pairs #821 name-checks are absent here, all for the same structural reason: the schema
+has no component to diff against, so there is nothing this gate could compare.
+
+| Pair | Why excluded |
+|---|---|
+| `BoardFull` | `drf-spectacular` emits no component for `BoardFullSerializer`. #821 name-checks it via serializer introspection; extending this gate there depends on the component existing first. |
+| `CardActivity` | No component emitted. |
+| `CardAttachment` | No component emitted. |
+
+That is a **missing component, not a passing check** — the three are unchecked here, and the
+gate says nothing about their published types. Making them checkable means getting
+`drf-spectacular` to emit components for them, which needs its own issue.
+
+Everything else is deliberately in scope and mapped. There is no pair that has a component and
+an interface and is simply not checked.
 
 ## Running it locally
 
@@ -125,6 +169,21 @@ def get_group_detail(self, obj):
   schema-only.
 - **`enum_members`** — the choice sets diverged. Decide which is authoritative before editing.
 
+A word on `nullability`, because #1139 hit both directions of it in one branch and they have
+opposite fixes:
+
+- The **schema** understates it. A declared field (nested serializer, or a `CharField` with a
+  traversing `source`) over a model FK with `null=True` publishes as non-nullable while the
+  response has always been able to carry `null`. Add `allow_null=True`. On a `read_only` field
+  that is a documentation fix, not a contract change.
+- The **TypeScript** overstates it. A `CharField` with `null=False, blank=True, default=""`
+  returns `""` and never `null`, so a `string | null` interface describes a payload the API
+  cannot produce. Narrow the interface — and check the test fixtures, which tend to encode the
+  impossible shape too.
+
+Read the model field before choosing. The two cases look identical in the gate's output and
+the wrong fix in either direction is a lie in the opposite place.
+
 ## Suppressions
 
 Real, already-tracked drift is recorded in the `SUPPRESSIONS` table in
@@ -156,6 +215,35 @@ Adding one:
 - Do not add one for drift you could simply fix. A suppression is for a mismatch whose fix is
   out of scope for the branch in front of you, not for one that is merely inconvenient.
 
+## TypeScript-only optional fields
+
+A different thing from a suppression, and not interchangeable with one. Sometimes a single
+interface stands in for several serializers of one resource:
+
+- `Swimlane` unions `SwimlaneSerializer` and `SwimlaneAdminSerializer` — `contact_email` and
+  `notes` are withheld from viewer-role members as PII, and only the public serializer reaches
+  the schema.
+- `Group` unions the list and retrieve serializers — `ancestors` is on `GroupDetailSerializer`
+  only, deliberately omitted from the list one to avoid an N+1 ancestor walk per row.
+
+`?` is how the codebase spells "present only on some of them", so these fields produce a
+`missing_in_schema` finding that is not drift. They are listed in `TS_ONLY_FIELDS` in the script
+with their reason. #821's test records the identical fact in its `extra_allowed_fields_on_ts`
+column, so this mirrors a reviewed convention rather than inventing a second one.
+
+These entries cite **no issue**, because nothing is broken and there is nothing to fix. Three
+properties keep the table from degenerating into an allowlist:
+
+- **Per pair and per field.** Nothing is waived wholesale; `missing_in_schema` stays fully live
+  for every other field on the pair.
+- **Conditional on the field still being optional.** Drop the `?` and the finding comes back — a
+  *required* interface field the API never sends is a real defect.
+- **Self-invalidating**, exactly like a suppression. If the component gains the property, the
+  entry matches nothing and the gate fails asking for its removal.
+
+If the mismatch is real drift rather than a serializer split, it needs a suppression and an
+issue — not an entry here.
+
 ## Self-test
 
 Per the house rule in [#1093](https://gitlab.com/visiban/visiban/-/issues/1093), this gate
@@ -163,7 +251,12 @@ ships a `--self-test` mode, and CI runs it **immediately before** the real invoc
 same image. A gate that has stopped detecting anything looks exactly like a clean codebase; the
 self-test builds a synthetic schema and interface carrying one instance of every finding kind,
 asserts each is caught, and asserts that a matching pair stays silent and that the suppression
-machinery both suppresses and goes stale. It needs no network and no database.
+and TypeScript-only machinery both apply and go stale. It needs no network and no database.
+
+`scripts/tests/check-serializer-ts-parity.test.sh` covers the command-line surface CI depends on
+— exit codes and fail-safe behavior on a missing or malformed input. Its fixtures read
+`COMPONENT_MAP` out of the gate rather than hard-coding the pair list, so adding a pair does not
+silently invalidate them.
 
 ## What is out of scope
 
@@ -175,9 +268,8 @@ would assert a correspondence that does not exist. That union stays hand-maintai
 [#1078](https://gitlab.com/visiban/visiban/-/issues/1078) covers WebSocket event reachability
 separately.
 
-**`BoardFull`.** `drf-spectacular` does not currently emit a component for it, so
-`BoardFullSerializer`'s response shape is unchecked *here*. #821's test does name-check it via
-serializer introspection. Extending this gate there depends on that component existing first.
+**Pairs with no schema component.** `BoardFull`, `CardActivity` and `CardAttachment` — see
+[What is not covered, and why](#what-is-not-covered-and-why).
 
 **Request bodies.** `SPECTACULAR_SETTINGS` sets `COMPONENT_SPLIT_REQUEST: True`, so the schema
 carries 34 separate `*Request` / `Patched*Request` components describing what you may *send*.
@@ -185,9 +277,8 @@ This gate compares **response** components only. A write-only field whose type d
 the job (it is still a `backend/**/*` change) but produces no finding. If the frontend grows
 explicit request-body interfaces, mapping them is the natural extension.
 
-**The other ten pairs.** `CardComment`, `CardMovement`, `CardRelation`, `Column`,
-`CustomFieldDefinition`, `CustomFieldValue`, `Group`, `GroupLabel`, `Label` and `Swimlane` all
-have both a schema component and a TypeScript interface, and all are name-checked by #821, but
-none get a *type* check yet. [#1139](https://gitlab.com/visiban/visiban/-/issues/1139) tracks
-closing that gap. Until it does, a green `serializer-ts-parity` run means "the five mapped
-pairs agree", not "the API and the frontend agree".
+**Nothing else.** Every schema component that has a matching TypeScript interface is mapped as
+of [#1139](https://gitlab.com/visiban/visiban/-/issues/1139), so a green `serializer-ts-parity`
+run now means "the published response components and the interfaces agree", not "five of them
+do". If you add a serializer *and* an interface, add the pair to `COMPONENT_MAP` in the same MR —
+the gate does not discover pairs on its own, and an unmapped pair is unchecked silently.

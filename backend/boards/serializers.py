@@ -454,6 +454,28 @@ def assert_definition_caps(
             })
 
 
+@extend_schema_field({"type": "array", "items": {"type": "string"}})
+class ChoicesField(serializers.JSONField):
+    """``choices`` on the two custom-field-definition serializers (#1139).
+
+    Schema-only subclass, exactly the pattern of :class:`AllowedPrioritiesField`
+    and :class:`CustomFieldValuesField`: ``choices_json`` is a model
+    ``JSONField``, which drf-spectacular describes with no ``type`` at all, so a
+    client generated from the schema gets ``unknown``/``any`` for a field that
+    has only ever carried a list of strings — the frontend has declared it
+    ``string[]`` since #371.
+
+    Deliberately *not* a ``ListField(child=CharField())``. Both serializers
+    validate this field in ``validate()``, where the rules are cross-field: a
+    dropdown needs at least one choice, a non-dropdown may not have any, choices
+    must be unique, and at most 100 are allowed. A ``ListField`` would move the
+    "not a list of strings" rejection into DRF's field machinery ahead of that
+    method, changing the 400 body's error shape for existing API callers — which
+    the backward-compatibility rules in `CLAUDE.md` do not allow. Declaring the
+    shape here corrects the document without touching validation.
+    """
+
+
 class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     """The board-scoped schema half of a custom field.
 
@@ -467,7 +489,7 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
     API does not need to repeat it.
     """
 
-    choices = serializers.JSONField(source="choices_json", required=False)
+    choices = ChoicesField(source="choices_json", required=False)
 
     class Meta:
         model = CustomFieldDefinition
@@ -861,7 +883,7 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
     (``show_on_row``, capped at 3 rather than 2) and ``is_admin_only``.
     """
 
-    choices = serializers.JSONField(source="choices_json", required=False)
+    choices = ChoicesField(source="choices_json", required=False)
 
     class Meta:
         model = SwimlaneCustomFieldDefinition
@@ -1010,7 +1032,14 @@ class CardMovementSerializer(serializers.ModelSerializer):
 
 
 class CardCommentSerializer(serializers.ModelSerializer):
-    author = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1139): same reason as CardMovementSerializer.moved_by
+    # above — author is a SET_NULL FK with null=True, so a comment whose author
+    # has since been deleted serializes with `author: null`. A declared nested
+    # serializer does not inherit the model's nullability the way an
+    # auto-generated ModelSerializer field does, so without this the published
+    # schema promised an object the API has always been able to omit.
+    # Schema-only: read_only, so nothing about request validation changes.
+    author = BoardUserSerializer(read_only=True, allow_null=True)
     body = serializers.CharField(max_length=10_000)
 
     class Meta:
@@ -1027,7 +1056,11 @@ class CardActivitySerializer(serializers.ModelSerializer):
 
 
 class CardChecklistSerializer(serializers.ModelSerializer):
-    created_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1139): created_by is a SET_NULL FK with null=True, and
+    # rows predating its migration carry null outright — the view layer reads
+    # that as "no ownership restriction". Same declared-nested-field gap as
+    # CardCommentSerializer.author; schema-only, the field is read_only.
+    created_by = BoardUserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = CardChecklist

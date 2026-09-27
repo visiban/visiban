@@ -13,3 +13,22 @@ belong here, committed and versioned, not in a private notes file.
 | [CI Runners](ci-runners.md) | Self-hosted runner inventory, which jobs need them and why, the untagged-fallthrough trap |
 | [Tokens and Rotation](tokens-and-rotation.md) | Every PAT and CI credential: scope, owner, storage, expiry, and how to rotate it |
 | [Known CI Failures](known-ci-failures.md) | Failure signature → root cause → fix, so the next person greps instead of re-deriving |
+
+## Release checklist
+
+The version-string half of a release is enforced by a gate rather than by memory. Do not
+re-verify these by hand; run the release and read what the gate says.
+
+- `scripts/release.sh <version>` rewrites the version-bearing files, including the
+  `docs/index.md` banner: the pre-release banner for RC tags and the stable
+  "Latest release" banner for GA tags. It then runs the docs gate as a cross-check and warns
+  if it fails.
+- CI job `docs-version-accuracy` (script `scripts/check-docs-version-accuracy.sh`) runs on
+  MRs, `main`, and tag pipelines. It reads the current version from `frontend/package.json`
+  and fails on: a `Coming in X` / `Ships in X` / `Lands in X` / `Planned for X` claim naming
+  an already-released version anywhere in `README.md`, `VISIBAN_FEATURES.md` or `docs/`; an
+  RC banner on a GA version; stale `APP_VERSION=` / image-tag pins in `README.md` and
+  `docs/getting-started/`; and a tag that does not match `frontend/package.json`.
+- A failure means fix the page (there is no allowlist). `New in X` labels are provenance and
+  are intentionally not flagged.
+
