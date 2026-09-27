@@ -149,7 +149,7 @@ work; `rbac-check` and `security-review` catch what Sonnet misses.
 `perf-check`, `security-review`, `broadcast-check`, `migration-check` read a diff
 and report findings. None needs Opus. **`completeness-check` is the exception:** it
 is read-only too, but it follows the escalation criteria above (Opus when the
-branch meets one, Sonnet otherwise) — see `.claude/skills/completeness-check/SKILL.md`.
+branch meets one, Sonnet otherwise) — see `.claude/agents/completeness-check.md`.
 
 ### The brief
 
@@ -188,12 +188,12 @@ Every agent finishes by, in order:
    `cd backend && ruff check . && python manage.py makemigrations --check --dry-run`
    for backend changes touching `models.py`.
 4. **Commit and stop — do not push yet.** Report the commit SHA and the pre-MR
-   gate ledger to the orchestrator. The orchestrator then runs
-   `completeness-check` (`.claude/skills/completeness-check/SKILL.md`) on the
-   unpushed branch with a fresh agent that did not write it, and every BLOCKER
-   and GAP is fixed on the branch or deferred to an **open** issue. Only after
-   that does the orchestrator re-brief the implementer (via `SendMessage`) to
-   push.
+   gate ledger to the orchestrator. The orchestrator then spawns
+   `Agent(subagent_type: "completeness-check")` (`.claude/agents/completeness-check.md`)
+   on the unpushed branch — a fresh agent that did not write it, model per its own
+   escalation criteria — and every BLOCKER and GAP is fixed on the branch or
+   deferred to an **open** issue. Only after that does the orchestrator re-brief
+   the implementer (via `SendMessage`) to push.
 5. **Check for a stale base, immediately before push — not at worktree
    creation.** `scripts/wt new` branches off latest `origin/main`, but the gate
    sequence above (especially an Opus completeness-check on an escalated issue)
