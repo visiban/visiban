@@ -923,3 +923,32 @@ describe('CardDetail', () => {
   })
 
 })
+
+describe('CardDetail — MR/PR link section (#352)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUpdateCard.mockImplementation((_boardId: number, _cardId: number, patch: Record<string, unknown>) =>
+      Promise.resolve({ ...makeCard(), ...patch })
+    )
+  })
+
+  it('saves a pasted link through updateCard as a full external_ref object', async () => {
+    const props = defaultProps()
+    render(<CardDetail {...props} />)
+    await userEvent.click(screen.getByRole('button', { name: '+ Link a pull or merge request' }))
+    await userEvent.click(screen.getByLabelText('URL'))
+    await userEvent.paste('https://github.com/acme/web/pull/12')
+    await userEvent.click(screen.getByRole('button', { name: 'Save link' }))
+    const ref = { provider: 'github', ref: 'acme/web#12', url: 'https://github.com/acme/web/pull/12' }
+    await waitFor(() => expect(mockUpdateCard).toHaveBeenCalledWith(1, 1, { external_ref: ref }))
+    expect(props.onUpdated).toHaveBeenCalledWith(expect.objectContaining({ external_ref: ref }))
+    expect(await screen.findByRole('link', { name: 'acme/web#12, opens in new tab' })).toBeInTheDocument()
+  })
+
+  it('hides the section from a viewer when the card has no link', () => {
+    const props = defaultProps()
+    props.board = makeBoard({ current_user_role: 'viewer' })
+    render(<CardDetail {...props} />)
+    expect(screen.queryByText('Pull / merge request')).not.toBeInTheDocument()
+  })
+})

@@ -1,6 +1,7 @@
 import uuid
 
 from django.contrib.postgres.indexes import GinIndex
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.conf import settings
@@ -1162,3 +1163,122 @@ class CardRelation(models.Model):
 
     def __str__(self):
         return f"{self.from_card_id} {self.relation_type} {self.to_card_id}"
+
+
+def _has_unsafe_chars(value):
+    """Whitespace, C0/DEL control characters, or invisible Unicode formatting.
+
+    ``str.isspace()`` misses the Cf/Zl/Zp categories (zero-width space, bidi
+    overrides), which can visually spoof a reference on the card face or hide
+    inside a URL host.
+    """
+    import unicodedata
+
+    return any(
+        ch.isspace() or ord(ch) < 32 or ord(ch) == 127
+        or unicodedata.category(ch) in ("Cf", "Zl", "Zp")
+        for ch in value
+    )
+
+
+def validate_external_ref_ref(value):
+    """Referenced by migration 0061 — do not rename or remove.
+
+    ``CardExternalRef.ref`` rule (#352): freeform, but no whitespace or
+    invisible characters. Shared by the API serializer and ``clean()``."""
+    if _has_unsafe_chars(value):
+        raise ValidationError("Must not contain whitespace, control, or formatting characters.")
+
+
+def validate_external_ref_url(value):
+    """Referenced by migration 0061 — do not rename or remove.
+
+    ``CardExternalRef.url`` rule (#352). Shared by the API serializer and
+    ``CardExternalRef.clean()`` so any writer — the REST API, JSON import, or
+    an integration writing the table directly — gets the same guarantee.
+
+    The URL is rendered as an ``href``, so anything but an absolute http(s)
+    URL with a host is an XSS vector. Backslashes are rejected because
+    browsers treat ``\\`` as ``/`` in http(s) URLs while Python's parser does
+    not, so ``http://evil.com\\github.com`` would read as one host here and
+    open another in the browser. Credentials (``user:pass@``) are rejected so
+    they are never stored or displayed. The host is deliberately not checked
+    against the provider — self-hosted forges live on arbitrary hosts.
+    """
+    from urllib.parse import urlsplit
+
+    if _has_unsafe_chars(value):
+        raise ValidationError("Must not contain whitespace, control, or formatting characters.")
+    if "\\" in value:
+        raise ValidationError("Enter a valid URL.")
+    try:
+        parts = urlsplit(value)
+        parts.port  # noqa: B018 — raises ValueError on a malformed port
+    except ValueError:
+        raise ValidationError("Enter a valid URL.")
+    # urlsplit lower-cases the scheme, so "JaVaScript:" is caught here too.
+    if parts.scheme not in ("http", "https"):
+        raise ValidationError("Only http and https URLs are allowed.")
+    if not parts.hostname:
+        raise ValidationError("Enter a valid URL.")
+    if "@" in parts.netloc:
+        raise ValidationError("URLs containing credentials are not allowed.")
+
+
+class CardExternalRef(models.Model):
+    """A card's link to a merge request / pull request on an external forge (#352).
+
+    Exposed on the card API as ``external_ref: {provider, ref, url} | null``.
+    That shape is a stable public contract from 1.2: the enterprise auto-link
+    integration reads and writes it, so the field names and value rules must
+    not change.
+
+    **Why a child table rather than a JSONField or three columns on ``cards``:**
+    the enterprise lookup is "find cards linked to provider X, ref Y". A
+    JSONField makes that an unindexable key query whose semantics differ
+    between SQLite (worktree tests) and Postgres, and three columns on
+    ``cards`` would need a concurrent index build plus a NOT VALID/VALIDATE
+    constraint dance on the busiest table. A new table is created with its
+    index for free and leaves ``cards`` untouched.
+
+    **Why OneToOne:** Phase 1 is one link per card. A later multi-link feature
+    alters this to a ForeignKey on a small table and adds an ``external_refs``
+    list to the API, keeping ``external_ref`` as the primary — additive.
+
+    Validation (http/https scheme only, no userinfo, no whitespace in ``ref``)
+    is enforced at the API boundary by ``ExternalRefSerializer`` and, for any
+    other writer, by ``clean()`` — both call the same module-level
+    validators. Callers writing rows directly must call ``full_clean()``.
+    """
+
+    class Provider(models.TextChoices):
+        GITLAB = "gitlab", "GitLab"
+        GITHUB = "github", "GitHub"
+        OTHER = "other", "Other"
+
+    card = models.OneToOneField(
+        Card, on_delete=models.CASCADE, related_name="external_ref"
+    )
+    provider = models.CharField(max_length=16, choices=Provider.choices)
+    # Freeform: "owner/repo#123" (GitHub), "group/proj!45" (GitLab), or
+    # anything for "other". Stored exactly as given — no case normalization.
+    ref = models.CharField(max_length=255, validators=[validate_external_ref_ref])
+    # CharField rather than URLField: scheme validation happens in the
+    # serializer (URLValidator restricted to http/https), and URLField's
+    # default max_length of 200 is too short for real forge URLs.
+    url = models.CharField(max_length=2048, validators=[validate_external_ref_url])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "card_external_refs"
+        indexes = [
+            # Serves the enterprise "which cards link this PR?" lookup. Deliberately
+            # NOT unique: the same PR can be linked from several cards (and boards),
+            # and a global unique constraint would leak cross-board existence of a
+            # link through the integrity error it raises.
+            models.Index(fields=["provider", "ref"], name="cardextref_provider_ref_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.provider}:{self.ref}"

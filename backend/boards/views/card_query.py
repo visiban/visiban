@@ -33,7 +33,8 @@ from visiban.pagination import CardQueryCursorPagination
 
 from ..models import Card
 from ..serializers import (
-    CustomFieldValueSerializer, LabelSerializer, _blocker_count, _card_queryset,
+    CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer, _blocker_count,
+    _card_queryset,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
@@ -86,6 +87,9 @@ class CardQuerySerializer(serializers.ModelSerializer):
     checklist_done = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
     blocker_count = serializers.SerializerMethodField()
+    # MR/PR link (#352). Read-only here for the same reason as
+    # custom_field_values above; _card_queryset() select_related()s it.
+    external_ref = ExternalRefSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Card
@@ -95,7 +99,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
             "created_by", "created_at", "updated_at", "last_moved_at",
             "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
-            "blocker_count",
+            "blocker_count", "external_ref",
         ]
         read_only_fields = fields
 

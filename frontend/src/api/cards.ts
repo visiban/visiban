@@ -1,5 +1,5 @@
 import client from "./client";
-import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue } from "../types";
+import type { Card, CardActivity, CardAttachment, CardChecklistItem, CardMovement, CardComment, CardRelation, CardRelationDirection, Priority, CardTimelineEntry, CustomFieldValue, CardExternalRef } from "../types";
 
 export interface CardPatch {
   title?: string;
@@ -16,6 +16,11 @@ export interface CardPatch {
    * sending; see `frontend/src/utils/customFieldValue.ts` for the merge helper.
    */
   custom_field_values?: CustomFieldValue[];
+  /**
+   * MR/PR link (#352). An object is a full replace (all three keys required);
+   * `null` removes the link; omit the key to leave it untouched.
+   */
+  external_ref?: CardExternalRef | null;
 }
 
 export const createCard = (boardId: number, data: {

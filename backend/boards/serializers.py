@@ -21,9 +21,10 @@ from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILI
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
-    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardRelation,
-    CustomFieldDefinition, CustomFieldValue, SavedFilter,
+    CardMovement, CardComment, CardActivity, CardAttachment, CardChecklist, CardExternalRef,
+    CardRelation, CustomFieldDefinition, CustomFieldValue, SavedFilter,
     SwimlaneCustomFieldDefinition, SwimlaneCustomFieldValue,
+    validate_external_ref_ref, validate_external_ref_url,
 )
 
 
@@ -1343,6 +1344,10 @@ def _blocker_count(card) -> int:
     ).count()
 
 
+#: Sentinel for "key not supplied" — distinct from an explicit ``null``.
+_OMITTED = object()
+
+
 def _card_queryset(qs, stale_cutoff=None):
     """Apply the standard prefetch chain required by CardSerializer.
 
@@ -1364,7 +1369,9 @@ def _card_queryset(qs, stale_cutoff=None):
     from .models import CardMovement as _CM
     qs = (
         qs
-        .select_related("board", "column", "swimlane", "assignee", "created_by")
+        # external_ref (#352) is a reverse OneToOne, so it rides the same
+        # query as a LEFT JOIN rather than costing a prefetch round-trip.
+        .select_related("board", "column", "swimlane", "assignee", "created_by", "external_ref")
         .prefetch_related(
             "labels",
             "attachments",
@@ -1402,6 +1409,46 @@ def _card_queryset(qs, stale_cutoff=None):
     return qs
 
 
+class ExternalRefSerializer(serializers.Serializer):
+    """``external_ref`` on :class:`CardSerializer` — the card's MR/PR link (#352).
+
+    Same shape on read and write: ``{provider, ref, url}``, or ``null`` for a
+    card with no link. This is a stable public contract from 1.2; the
+    enterprise auto-link integration reads and writes it.
+
+    Validation is deliberately strict because it is easy to loosen later and a
+    breaking change to tighten:
+
+    * all three keys are required whenever the object is sent — a write is a
+      full replace, never a merge (see :meth:`validate`);
+    * ``url`` must be an absolute ``http``/``https`` URL. It is rendered as a
+      link on the card face, so any other scheme (``javascript:``, ``data:``,
+      ``vbscript:``) is an XSS vector. Userinfo (``user:pass@host``) is
+      rejected so credentials are never stored or displayed. The host is
+      *not* checked against ``provider`` — self-hosted GitLab/GitHub
+      Enterprise live on arbitrary hosts;
+    * ``ref`` is freeform (``owner/repo#123``, ``group/proj!45``, ...) but may
+      not contain whitespace or control characters.
+    """
+
+    provider = serializers.ChoiceField(choices=CardExternalRef.Provider.choices)
+    # Rules live on the model module so CardExternalRef.clean() and this
+    # serializer cannot drift; DRF maps the Django ValidationError to a 400.
+    ref = serializers.CharField(max_length=255, validators=[validate_external_ref_ref])
+    url = serializers.CharField(max_length=2048, validators=[validate_external_ref_url])
+
+    def validate(self, attrs):
+        # A PATCH makes every nested field optional (DRF propagates the root's
+        # `partial` flag), which would let `{"provider": "github"}` through as
+        # a half-populated link. Require the full object regardless.
+        missing = [name for name in ("provider", "ref", "url") if name not in attrs]
+        if missing:
+            raise serializers.ValidationError(
+                {name: ["This field is required."] for name in missing}
+            )
+        return attrs
+
+
 class CardSerializer(serializers.ModelSerializer):
     labels = LabelSerializer(many=True, read_only=True)
     label_ids = serializers.PrimaryKeyRelatedField(
@@ -1431,6 +1478,10 @@ class CardSerializer(serializers.ModelSerializer):
     last_moved_at = serializers.SerializerMethodField()
     # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).
     custom_field_values = CustomFieldValuesField()
+    # MR/PR link (#352). Omitted = untouched, null = cleared, object = full
+    # replace. Stored in its own table (CardExternalRef) and applied after the
+    # row exists — see _apply_external_ref.
+    external_ref = ExternalRefSerializer(allow_null=True, required=False)
 
     def __init__(self, *args, **kwargs):
         """Scope label_ids, assignee_id, column and swimlane querysets to the current board.
@@ -1474,7 +1525,7 @@ class CardSerializer(serializers.ModelSerializer):
             "weight", "position", "created_by", "created_at", "updated_at",
             "last_moved_at", "attachment_count", "checklist_total", "checklist_done",
             "is_stale", "archived_at", "version", "custom_field_values",
-            "blocker_count",
+            "blocker_count", "external_ref",
         ]
         read_only_fields = ["uid", "created_by", "created_at", "updated_at", "archived_at", "version"]
 
@@ -1490,15 +1541,40 @@ class CardSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         pairs = validated_data.pop("custom_field_values", None)
+        external_ref = validated_data.pop("external_ref", _OMITTED)
         card = super().create(validated_data)
         self._apply_custom_field_values(card, pairs)
+        self._apply_external_ref(card, external_ref)
         return card
 
     def update(self, instance, validated_data):
         pairs = validated_data.pop("custom_field_values", None)
+        external_ref = validated_data.pop("external_ref", _OMITTED)
         card = super().update(instance, validated_data)
         self._apply_custom_field_values(card, pairs)
+        self._apply_external_ref(card, external_ref)
         return card
+
+    # -- external ref (#352) --------------------------------------------------
+    #
+    # Same placement as custom field values above, for the same reason: the
+    # child row needs the card's PK, and running inside the card service's
+    # transaction means a failure rolls the card write back and the deferred
+    # `card.updated` broadcast carries the new link.
+
+    @staticmethod
+    def _apply_external_ref(card, value):
+        if value is _OMITTED:
+            return
+        if value is None:
+            CardExternalRef.objects.filter(card=card).delete()
+            # Drop the cached reverse accessor so a re-render sees no link.
+            card._state.fields_cache.pop("external_ref", None)
+            return
+        # Full replace, never a merge — the serializer already required all
+        # three keys.
+        ref, _ = CardExternalRef.objects.update_or_create(card=card, defaults=dict(value))
+        card.external_ref = ref
 
     def _apply_custom_field_values(self, card, pairs):
         if not pairs:

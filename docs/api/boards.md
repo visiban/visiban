@@ -69,6 +69,8 @@ Delete board. Requires board owner or site admin.
 ### `GET /api/v1/boards/{id}/full/`
 Full board state — columns, swimlanes, cards, labels, members, `current_user_role`, and `capabilities`. All objects include their `uid` field. Also includes `share_token` (the board's public share UUID, returned only to `admin` and `site_admin` role members — `null` is returned to lower roles when no share link exists) and `share_token_expires_at` (ISO-8601 timestamp of the share link's expiry, or `null` for no expiry; admin-only, mirrors `share_token` visibility — added in 1.1, #804). The `capabilities` object contains boolean feature flags for enterprise-registered extension points (all `false` in OSS).
 
+Since 1.2, each card in the payload also carries `external_ref` (`{ provider, ref, url }` or `null`) — see [External ref](cards.md#external-ref-since-12).
+
 Since 1.2, also includes `custom_field_definitions` (the board's card custom field schema) and `swimlane_custom_field_definitions` (the board's [swimlane custom field](#swimlane-custom-fields-since-12) schema) — both read-only lists, available to every board role. Definition schemas disclose nothing a board reader does not already have; which of a swimlane's *values* a given role may read is decided per-definition by `is_admin_only`, not by this field.
 
 **`?expand=group` parameter:** when `?expand=group` is appended, the `group_detail` field in the response is populated with a `GroupBrief` object containing `id`, `name`, `parent` (parent group FK ID or `null`), `parent_name` (parent group display name or `null`), and `ancestors` (root-first `[{ id, name }]` chain). Without this parameter `group_detail` is `null`.
@@ -441,6 +443,8 @@ Since 1.2 the payload also carries the board's `custom_fields` schema and each c
 stays at `2` and an existing consumer is unaffected. Re-importing custom field data is not
 supported yet — the importer ignores both keys.
 
+Also since 1.2, each card carries `external_ref` (`{ provider, ref, url }`, or `null` when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.
+
 Also since 1.2, each swimlane object carries its own `custom_field_values` (keyed by
 [swimlane custom field](#swimlane-custom-fields-since-12) name), and a top-level
 `swimlane_custom_fields` array carries that schema — the row-level counterpart to
@@ -489,6 +493,7 @@ caller below `admin` — the same role gate this export already applies to a swi
       "created_at": "2026-03-01T10:00:00Z",
       "created_by": "alice",
       "custom_field_values": { "Array Type": "raid10" },
+      "external_ref": { "provider": "gitlab", "ref": "acme/webapp!45", "url": "https://gitlab.com/acme/webapp/-/merge_requests/45" },
       "comments": [{ "author": "bob", "body": "On it.", "created_at": "2026-03-02T09:00:00Z" }],
       "checklist": [{ "text": "Write tests", "is_checked": false }]
     }

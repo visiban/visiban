@@ -70,6 +70,7 @@ nav:
     - Saved Filters: features/saved-filters.md
     - Custom Fields: features/custom-fields.md
     - Card Relations: features/card-relations.md
+    - Pull & Merge Request Links: features/card-links.md
     - Analytics: features/analytics.md
     - Notifications: features/notifications.md
     - Real-time Updates: features/realtime.md

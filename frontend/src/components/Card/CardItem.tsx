@@ -11,6 +11,8 @@ import CardPeekPopover from "./CardPeekPopover";
 import CustomFieldQuickEditPopover from "./CustomFieldQuickEditPopover";
 import { choiceColor, formatCustomFieldValue, isValidForType, withCustomFieldValue } from "../../utils/customFieldValue";
 import { updateCard } from "../../api/cards";
+import { PROVIDER_LABELS, isHttpUrl } from "../../utils/externalRef";
+import ExternalRefGlyph from "./ExternalRefGlyph";
 
 
 
@@ -76,6 +78,9 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     prev.card.checklist_done !== next.card.checklist_done ||
     prev.card.is_stale !== next.card.is_stale ||
     prev.card.blocker_count !== next.card.blocker_count ||
+    prev.card.external_ref?.url !== next.card.external_ref?.url ||
+    prev.card.external_ref?.ref !== next.card.external_ref?.ref ||
+    prev.card.external_ref?.provider !== next.card.external_ref?.provider ||
     prev.card.archived_at !== next.card.archived_at ||
     prev.card.assignee?.id !== next.card.assignee?.id ||
     prev.card.labels.length !== next.card.labels.length ||
@@ -133,6 +138,10 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
   const showLastMovedText = density === "dense";
   const showRecentlyMovedDot = density === "dense";
   const showPriorityBadge = density === "dense";
+  // MR/PR badge (#352): glyph + ref at standard/dense, glyph only at
+  // comfortable (the ref is in the accessible name, title, and peek).
+  const showExternalRefText = density !== "comfortable";
+  const externalRef = card.external_ref ?? null;
   const labelLimit = density === "dense" ? 3 : density === "standard" ? 2 : 1;
   // useDraggable must be called unconditionally (hook rules). When readOnly,
   // we do not attach its ref or event listeners so the card is non-draggable.
@@ -296,7 +305,8 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
     !!urgency ||
     (showPriorityBadge && card.priority !== "low") ||
     hasVisibleCustomFieldChips ||
-    card.blocker_count > 0;
+    card.blocker_count > 0 ||
+    (!compact && !!externalRef);
 
   return (
     <>
@@ -414,6 +424,54 @@ const CardItem = memo(function CardItem({ card, onClick, overlay, selected, high
                 regardless of density. */}
             {!compact && (
               <>
+                {/* MR/PR link badge (#352) — first in the non-compact row so the
+                    right-to-left clip never hides it. A real <a> nested in the
+                    clickable card, because one-click to the PR is the point of
+                    the feature: click/pointer-down/key-down stop propagation so
+                    it never opens the card or starts a drag (no preventDefault,
+                    so cmd/middle-click still work). The href is re-checked with
+                    isHttpUrl() even though the server validates it — an href is
+                    an XSS sink. */}
+                {externalRef && (() => {
+                  const label = PROVIDER_LABELS[externalRef.provider] ?? externalRef.provider;
+                  const content = (
+                    <>
+                      {/* Glyph-only at comfortable density makes it the sole
+                          visible indicator and click target, so it steps up
+                          from the decorative w-3 size (frontend/CLAUDE.md). */}
+                      <ExternalRefGlyph className={showExternalRefText ? "w-3 h-3 shrink-0" : "w-3.5 h-3.5 shrink-0"} />
+                      {showExternalRefText && <span className="truncate font-mono">{externalRef.ref}</span>}
+                    </>
+                  );
+                  return isHttpUrl(externalRef.url) ? (
+                    <a
+                      href={externalRef.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${externalRef.ref}, ${label}, opens in new tab`}
+                      // The real host is in the tooltip because provider/ref are
+                      // free text an editor chooses — "GitHub acme/api#42" could
+                      // point anywhere, and the tooltip is where a reader checks.
+                      title={`${label} ${externalRef.ref} — ${new URL(externalRef.url).host} (opens in new tab)`}
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-xs text-info hover:underline shrink-0 max-w-[10rem] min-w-0 rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                    >
+                      {content}
+                    </a>
+                  ) : (
+                    <span
+                      role="img"
+                      aria-label={`${externalRef.ref}, ${label}`}
+                      title={`${label} ${externalRef.ref}`}
+                      className="inline-flex items-center gap-1 text-xs text-fg-muted shrink-0 max-w-[10rem] min-w-0"
+                    >
+                      {content}
+                    </span>
+                  );
+                })()}
+
                 {/* Description indicator — dense only */}
                 {showDescriptionIndicator && card.description && (
                   <svg className="w-2.5 h-2.5 text-fg-muted shrink-0" viewBox="0 0 16 16" fill="currentColor" aria-label="Has description">
