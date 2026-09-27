@@ -17,7 +17,10 @@ from accounts.serializers import BoardUserSerializer
 # does, but lazily, inside its methods).
 from groups.serializers import GroupBriefSerializer
 
-from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILITY
+from .permissions import (
+    MODERATOR_BEARING_EVENTS,
+    moderator_field_visible,
+)
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
@@ -119,13 +122,21 @@ class BoardEventSerializer(serializers.ModelSerializer):
         when the role is unknown — it can afford to, because the consumer layer
         is its second line of defense. The feed has no second line, so an
         unknown role here must mean "show less", never "show more".
+
+        A non-admin reader still sees the flag on the row that is their OWN
+        membership (#1191, mirroring the /full/ self-row exception from
+        #1173) — every other row stays stripped. The reader's id arrives as
+        ``context["reader_id"]``; a missing or anonymous reader fails closed,
+        same as an unknown role.
         """
         data = super().to_representation(instance)
         if instance.event in MODERATOR_BEARING_EVENTS:
             role = self.context.get("role")
-            if role not in ROLES_WITH_MODERATOR_VISIBILITY:
-                payload = data.get("data")
-                if isinstance(payload, dict) and "is_moderator" in payload:
+            reader_id = self.context.get("reader_id")
+            payload = data.get("data")
+            if isinstance(payload, dict) and "is_moderator" in payload:
+                subject_user_id = (payload.get("user") or {}).get("id")
+                if not moderator_field_visible(role, reader_id, subject_user_id):
                     data["data"] = {k: v for k, v in payload.items() if k != "is_moderator"}
         return data
 

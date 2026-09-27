@@ -516,10 +516,10 @@ class ReadSideStrippingTests(BoardEventTestBase):
     def setUp(self):
         super().setUp()
         self.url = f"/api/v1/boards/{self.board.pk}/events/"
-        target = _make_user("evt_mod")
+        self.target = _make_user("evt_mod")
         self.client_for(self.owner).post(
             f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": target.pk, "role": "member", "is_moderator": True},
+            {"user_id": self.target.pk, "role": "member", "is_moderator": True},
             format="json",
         )
         self.assertEqual(self.event_types(), ["member.added"])
@@ -538,6 +538,26 @@ class ReadSideStrippingTests(BoardEventTestBase):
     def test_viewer_does_not_see_is_moderator(self):
         row = self.client_for(self.viewer).get(self.url).data["results"][0]
         self.assertNotIn("is_moderator", row["data"])
+
+    def test_target_sees_is_moderator_on_own_row(self):
+        """A non-admin member promoted to moderator sees the flag on their OWN
+        row (#1191) — mirrors the /full/ self-row exception from #1173."""
+        row = self.client_for(self.target).get(self.url).data["results"][0]
+        self.assertIn("is_moderator", row["data"])
+        self.assertTrue(row["data"]["is_moderator"])
+
+    def test_target_does_not_see_is_moderator_on_other_members_rows(self):
+        """The self-row exception must not leak to a row about someone else."""
+        self.client_for(self.owner).post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.member.pk, "role": "member", "is_moderator": True},
+            format="json",
+        )
+        rows = self.client_for(self.target).get(self.url).data["results"]
+        own_row = next(r for r in rows if r["data"]["user"]["id"] == self.target.pk)
+        other_row = next(r for r in rows if r["data"]["user"]["id"] == self.member.pk)
+        self.assertIn("is_moderator", own_row["data"])
+        self.assertNotIn("is_moderator", other_row["data"])
 
     def test_stripping_matches_the_websocket_consumer_gate(self):
         """One definition, two readers — the feed and the socket cannot drift."""

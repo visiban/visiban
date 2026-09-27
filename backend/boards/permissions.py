@@ -27,6 +27,31 @@ ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 # so adding a new member event forces a look at the gate that protects it.
 MODERATOR_BEARING_EVENTS = (EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED)
 
+
+def moderator_field_visible(role, viewer_user_id, subject_user_id):
+    """Return True if a ``member.*`` row's ``is_moderator`` may be shown.
+
+    Mirrors the self-row exception ``BoardFullSerializer.get_members()`` applies
+    (#1173): a non-admin viewer sees the flag on their OWN row (they need it to
+    know whether their moderator entitlement is active) but not on anyone
+    else's (#920 — moderator status is internal trust signal). Admin/site_admin
+    viewers always see it, on every row.
+
+    ``viewer_user_id`` / ``subject_user_id`` are plain ints (or None) rather
+    than User instances so every caller — the WS consumer (scope user),
+    the change-feed serializer (context reader id), and any future reader —
+    can pass what it already has without an extra lookup. Either side being
+    unresolvable (anonymous viewer, malformed payload) fails closed: no match,
+    no reveal.
+    """
+    if role in ROLES_WITH_MODERATOR_VISIBILITY:
+        return True
+    return (
+        viewer_user_id is not None
+        and subject_user_id is not None
+        and viewer_user_id == subject_user_id
+    )
+
 # Maximum number of ancestor levels walked during group-based permission checks.
 # The cap exists to prevent unbounded query chains on deeply nested group trees
 # (e.g. a cycle caused by a data bug, or a legitimate but very deep hierarchy).

@@ -8,6 +8,7 @@ from .permissions import (
     MODERATOR_BEARING_EVENTS,
     ROLES_WITH_MODERATOR_VISIBILITY,
     get_board_role,
+    moderator_field_visible,
 )
 
 # How often (in seconds) the server sends a keepalive ping to each client.
@@ -90,12 +91,16 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # strip the field via BoardMembershipSerializer.to_representation
         # (#920); the broadcast surface needs the same gate here because it
         # has no per-subscriber filter at the serializer layer.
-        if (
-            payload.get("event") in MODERATOR_BEARING_EVENTS
-            and self._role not in ROLES_WITH_MODERATOR_VISIBILITY
-        ):
+        #
+        # A non-admin subscriber still sees the flag on the row that is their
+        # OWN membership (#1191, mirroring the /full/ self-row exception from
+        # #1173) — everyone else's row stays stripped.
+        if payload.get("event") in MODERATOR_BEARING_EVENTS:
             data = payload.get("data") or {}
-            if "is_moderator" in data:
+            subject_user_id = (data.get("user") or {}).get("id")
+            if "is_moderator" in data and not moderator_field_visible(
+                self._role, self.scope["user"].id, subject_user_id
+            ):
                 payload = {**payload, "data": {k: v for k, v in data.items() if k != "is_moderator"}}
         await self.send(text_data=json.dumps(payload))
 

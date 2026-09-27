@@ -261,6 +261,43 @@ class BoardConsumerPingTests(TestCase):
 
         asyncio.run(run())
 
+    def test_board_event_keeps_is_moderator_for_own_row_viewer(self):
+        """A non-admin subscriber still sees is_moderator on their OWN member
+        row (#1191) — mirrors the /full/ self-row exception from #1173."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 7
+        consumer._role = "viewer"
+
+        payload = {
+            "event": "member.updated",
+            "data": {"id": 9, "user": {"id": 7}, "role": "member", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert decoded["data"]["is_moderator"] is True
+
+        asyncio.run(run())
+
+    def test_board_event_still_strips_other_rows_for_own_row_viewer(self):
+        """The self-row exception must not leak to a frame about someone else."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 7
+        consumer._role = "viewer"
+
+        payload = {
+            "event": "member.updated",
+            "data": {"id": 9, "user": {"id": 8}, "role": "member", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert "is_moderator" not in decoded["data"]
+
+        asyncio.run(run())
+
     def test_board_event_does_not_filter_non_member_events(self):
         """is_moderator filter must only apply to member.added / member.updated (#978)."""
         consumer = self._make_consumer()
