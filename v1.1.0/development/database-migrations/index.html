@@ -836,6 +836,8 @@
       
         
       
+        
+      
     
     
     
@@ -1045,6 +1047,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
   
 
     
@@ -1482,7 +1512,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_22" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1504,14 +1534,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_22_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_22">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_23">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3604,6 +3634,11 @@ mention <code>AddIndex</code> at all.</p>
 <td><code>db_index=True</code> / <code>unique=True</code> inside <code>CreateModel</code></td>
 <td><strong>no</strong></td>
 <td>the table is new — no rows, no readers</td>
+</tr>
+<tr>
+<td><code>Meta.indexes</code> / <code>Meta.constraints</code> in <code>CreateModel</code> <code>options</code></td>
+<td><strong>no</strong></td>
+<td>same reason — built with the new table (e.g. <code>boards/0061_add_card_external_ref</code>)</td>
 </tr>
 <tr>
 <td><code>AddIndex</code> under <code>SeparateDatabaseAndState(state_operations=...)</code></td>

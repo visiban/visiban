@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/nightly-load-test/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/card-links/">
       
       
-        <link rel="prev" href="../websocket-event-contract/">
+        <link rel="prev" href="../card-relations/">
       
       
-        <link rel="next" href="../../administration/">
+        <link rel="next" href="../analytics/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Nightly Load Test - Visiban</title>
+        <title>Pull & Merge Request Links - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#nightly-load-test" class="md-skip">
+        <a href="#pull-merge-request-links" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Nightly Load Test
+              Pull & Merge Request Links
             
           </span>
         </div>
@@ -266,11 +266,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../features/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -310,12 +312,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -785,6 +785,8 @@
       
   
   
+    
+  
   
   
     
@@ -842,20 +844,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../features/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -873,13 +878,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -899,7 +904,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/board/" class="md-nav__link">
+      <a href="../board/" class="md-nav__link">
         
   
   
@@ -927,7 +932,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-archiving/" class="md-nav__link">
+      <a href="../card-archiving/" class="md-nav__link">
         
   
   
@@ -955,7 +960,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-descriptions/" class="md-nav__link">
+      <a href="../card-descriptions/" class="md-nav__link">
         
   
   
@@ -983,7 +988,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/saved-filters/" class="md-nav__link">
+      <a href="../saved-filters/" class="md-nav__link">
         
   
   
@@ -1011,7 +1016,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/custom-fields/" class="md-nav__link">
+      <a href="../custom-fields/" class="md-nav__link">
         
   
   
@@ -1039,7 +1044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-relations/" class="md-nav__link">
+      <a href="../card-relations/" class="md-nav__link">
         
   
   
@@ -1064,10 +1069,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../features/card-links/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1083,6 +1115,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#on-the-card-face" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        On the card face
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-and-editing-a-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding and editing a link
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Adding and editing a link">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-url-is-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the URL is read
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Permissions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-time-behavior" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real-time behavior
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#export-import-and-sharing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export, import, and sharing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1095,7 +1241,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/analytics/" class="md-nav__link">
+      <a href="../analytics/" class="md-nav__link">
         
   
   
@@ -1123,7 +1269,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/notifications/" class="md-nav__link">
+      <a href="../notifications/" class="md-nav__link">
         
   
   
@@ -1151,7 +1297,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/realtime/" class="md-nav__link">
+      <a href="../realtime/" class="md-nav__link">
         
   
   
@@ -1179,7 +1325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/card-history/" class="md-nav__link">
+      <a href="../card-history/" class="md-nav__link">
         
   
   
@@ -1207,7 +1353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/stable-uids/" class="md-nav__link">
+      <a href="../stable-uids/" class="md-nav__link">
         
   
   
@@ -1235,7 +1381,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/groups/" class="md-nav__link">
+      <a href="../groups/" class="md-nav__link">
         
   
   
@@ -1263,7 +1409,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/navigation/" class="md-nav__link">
+      <a href="../navigation/" class="md-nav__link">
         
   
   
@@ -1291,7 +1437,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
+      <a href="../keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1319,7 +1465,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/appearance/" class="md-nav__link">
+      <a href="../appearance/" class="md-nav__link">
         
   
   
@@ -1347,7 +1493,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/personal-access-tokens/" class="md-nav__link">
+      <a href="../personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1375,7 +1521,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/mcp-server/" class="md-nav__link">
+      <a href="../mcp-server/" class="md-nav__link">
         
   
   
@@ -1403,7 +1549,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/permissions/" class="md-nav__link">
+      <a href="../permissions/" class="md-nav__link">
         
   
   
@@ -1431,7 +1577,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/feature-toggles/" class="md-nav__link">
+      <a href="../feature-toggles/" class="md-nav__link">
         
   
   
@@ -1459,7 +1605,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/issue-board-lens/" class="md-nav__link">
+      <a href="../issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1505,10 +1651,13 @@
       
       
         
+          
+          
+        
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
       
         
         
@@ -1516,7 +1665,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../features/rbac/" class="md-nav__link ">
+            <a href="../rbac/" class="md-nav__link ">
               
   
   
@@ -1534,7 +1683,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1560,7 +1709,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/roles/" class="md-nav__link">
+      <a href="../rbac/roles/" class="md-nav__link">
         
   
   
@@ -1588,7 +1737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/inheritance/" class="md-nav__link">
+      <a href="../rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1616,7 +1765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../features/rbac/managing/" class="md-nav__link">
+      <a href="../rbac/managing/" class="md-nav__link">
         
   
   
@@ -2120,8 +2269,6 @@
       
   
   
-    
-  
   
   
     
@@ -2169,19 +2316,16 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -2203,13 +2347,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2453,7 +2597,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../testing/" class="md-nav__link">
+      <a href="../../development/testing/" class="md-nav__link">
         
   
   
@@ -2481,7 +2625,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../database-migrations/" class="md-nav__link">
+      <a href="../../development/database-migrations/" class="md-nav__link">
         
   
   
@@ -2509,7 +2653,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ci-gates/" class="md-nav__link">
+      <a href="../../development/ci-gates/" class="md-nav__link">
         
   
   
@@ -2537,7 +2681,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../serializer-ts-parity/" class="md-nav__link">
+      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2565,7 +2709,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
         
   
   
@@ -2593,7 +2737,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../suppressions/" class="md-nav__link">
+      <a href="../../development/suppressions/" class="md-nav__link">
         
   
   
@@ -2621,7 +2765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kaizen-yield-watch/" class="md-nav__link">
+      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
         
   
   
@@ -2649,7 +2793,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../websocket-event-contract/" class="md-nav__link">
+      <a href="../../development/websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2674,37 +2818,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Nightly Load Test
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../development/nightly-load-test/" class="md-nav__link">
         
   
   
@@ -2720,120 +2837,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-covers" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it covers
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-fixture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The fixture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#auth" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Auth
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#running-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Running it
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-schedule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The schedule
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#budget-derivation-the-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Budget derivation — the rule
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Budget derivation — the rule">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#re-deriving-the-baseline-do-this-at-every-release-and-whenever-the-fixture-size-changes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Re-deriving the baseline (do this at every release, and whenever the fixture size changes)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#failure-notifications" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Failure notifications
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3491,166 +3494,162 @@
   
 
 
-<h1 id="nightly-load-test">Nightly load test<a class="headerlink" href="#nightly-load-test" title="Permanent link">&para;</a></h1>
-<p>A query-count guard is not a latency guard. <code>perf-check</code> (static N+1 review) and <code>perf-bench</code>
-(query counts on demand) both measure query <em>count</em> — a regression from a missing index, a
-data-volume change, or a query-plan flip can leave the query count and query text identical
-while making the same queries slower. Neither of those gates can see that class of regression.
-This page describes the job that can: a nightly, schedule-only CI job (<code>nightly-load-test</code> in
-<code>.gitlab-ci.yml</code>) that measures real wall-clock p50/p95/p99 latency against a large seeded
-fixture and fails the pipeline if any covered endpoint exceeds its committed budget.</p>
-<div class="admonition info">
-<p class="admonition-title">Where this came from</p>
-<p>Filed as #1082 from a TruePPM audit finding: a real p95 regression (<code>GET /tasks/</code> at
-3.3x baseline) was "fixed" by a query-count guard that its own description said could not
-detect that class of regression — the fix never touched the actual root cause, and the
-regression sat inside a budget loose enough to hide it. See the issue for the full
-postmortem.</p>
-</div>
-<h2 id="what-it-covers">What it covers<a class="headerlink" href="#what-it-covers" title="Permanent link">&para;</a></h2>
+<h1 id="pull-merge-request-links">Pull &amp; Merge Request Links<a class="headerlink" href="#pull-merge-request-links" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Attach a pull request or merge request to a card so anyone looking at the board can
+jump straight from the work item to the code. Each card carries <strong>one</strong> link, with a
+provider (GitHub, GitLab, or Other) and a short reference such as <code>acme/web#12</code> or
+<code>group/project!45</code>.</p>
+<p>The link works with any http or https URL, so self-hosted GitLab and other code
+hosts are supported. The link is also available through the REST API — see
+<a href="#api">API</a>.</p>
+<hr />
+<h2 id="on-the-card-face">On the card face<a class="headerlink" href="#on-the-card-face" title="Permanent link">&para;</a></h2>
+<p>A card with a link shows a small pull-request glyph at the <strong>start</strong> of its metadata
+row, before any other indicator.</p>
 <table>
 <thead>
 <tr>
-<th>Endpoint</th>
-<th>Path</th>
-<th>Volume sensitivity</th>
+<th>Card density</th>
+<th>What the badge shows</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Board fetch</td>
-<td><code>GET /api/v1/boards/{id}/full/</code></td>
-<td>Serializes every card on the board, unpaginated — the single most volume-sensitive read in the product</td>
+<td>Comfortable</td>
+<td>The glyph only</td>
 </tr>
 <tr>
-<td>Card search</td>
-<td><code>GET /api/v1/cards/?search=...</code></td>
-<td>Exercises the <code>pg_trgm</code> GIN indexes added in migration <code>0030_card_trigram_search_indexes</code></td>
+<td>Standard</td>
+<td>The glyph and the reference, truncated if long</td>
 </tr>
 <tr>
-<td>Card timeline</td>
-<td><code>GET /api/v1/boards/{board_id}/cards/{id}/timeline/</code></td>
-<td>Exercises the composite indexes added in migration <code>0045_add_activity_comment_composite_indexes</code></td>
-</tr>
-<tr>
-<td>Notifications list</td>
-<td><code>GET /api/v1/notifications/</code></td>
-<td>The highest-QPS authenticated endpoint in the product — the frontend polls it every 15-30s</td>
-</tr>
-<tr>
-<td>Notifications unread count</td>
-<td><code>GET /api/v1/notifications/unread-count/</code></td>
-<td>Same polling cadence as the list endpoint</td>
+<td>Dense</td>
+<td>The glyph and the reference, truncated if long</td>
 </tr>
 </tbody>
 </table>
-<p><code>perf-check</code> and <code>perf-bench</code> are unchanged and still run where they already did — this job is
-additive, not a replacement. <code>perf-check</code>'s own description
-(<a href="https://gitlab.com/visiban/visiban/-/blob/main/.claude/agents/perf-check.md"><code>.claude/agents/perf-check.md</code></a>)
-now states this division of labor explicitly: a query-count guard does not satisfy a latency
-budget.</p>
-<h2 id="the-fixture">The fixture<a class="headerlink" href="#the-fixture" title="Permanent link">&para;</a></h2>
-<p>The job seeds a dedicated, larger board — never the real demo board — with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>backend
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--scale<span class="w"> </span><span class="m">20</span><span class="w"> </span>--with-notifications
-</code></pre></div>
-<ul>
-<li><code>--scale 20</code> replicates the demo board's 10-swimlane layout 20 times: <strong>200 swimlanes,
-  ~2,400 cards</strong> (11-13 cards per swimlane, same distribution <code>seed_demo_data</code> always uses —
-  see its docstring). The board is named <strong>"Visiban Load Test Board"</strong>, distinct from
-  <code>"Visiban Demo Board"</code>, so this job can never collide with or overwrite the weekly
-  <code>seed-demo-data</code> refresh job's data, in CI or on the shared demo environment.</li>
-<li><code>--with-notifications</code> seeds 60 unread <code>Notification</code> rows for the <code>demo2</code> user — more than
-  the 50-row cap <code>NotificationListView</code> / <code>NotificationUnreadCountView</code> apply, so the job
-  exercises the same "more unread than the cap" path a busy real inbox hits.</li>
-<li><strong>A fixture size with no stated card/swimlane count is meaningless</strong> — a p95 number is only
-  interpretable next to the data volume it was measured against. <code>nightly-load-test-results.json</code>
-  (the job's artifact) always records the fixture's actual card and swimlane count alongside
-  the timings, and <code>backend/nightly-load-test-baseline.json</code> records what the committed budgets
-  were derived against.</li>
-</ul>
-<p><code>--scale &gt; 1</code> never combines with <code>--export</code> — the large fixture is regenerated fresh in an
-ephemeral CI database on every run and is never meant to be committed to <code>sample-boards/</code>.</p>
-<h2 id="auth">Auth<a class="headerlink" href="#auth" title="Permanent link">&para;</a></h2>
-<p>The job reuses <code>manage.py provision_fuzz_token</code> (already used by <code>backend-schema-fuzz</code>) to mint
-a scoped, non-admin Personal Access Token for <code>demo2</code> and writes it to a CI-only file
-(<code>VISIBAN_LOAD_TEST_TOKEN_FILE</code>, mode <code>0600</code>, never logged). No credential is hardcoded anywhere
-in the job or the script — this follows the same "no hardcoded credentials" rule as every other
-backend job in <code>.gitlab-ci.yml</code>.</p>
-<h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python<span class="w"> </span>scripts/nightly_load_test.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--base-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--token-file<span class="w"> </span>/tmp/visiban_load_test_token<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--budget-file<span class="w"> </span>backend/nightly-load-test-baseline.json<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--iterations<span class="w"> </span><span class="m">40</span><span class="w"> </span>--warmup<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--output<span class="w"> </span>nightly-load-test-results.json
-</code></pre></div>
-<p>For each endpoint: 5 warmup requests (discarded), then 40 timed requests. Percentiles use
-nearest-rank (no interpolation), so every reported number was an actually-observed latency, not
-a synthetic average of two samples. The job fails (<code>sys.exit(1)</code>) if any endpoint's measured p95
-exceeds its budget, and always writes the full per-endpoint results as a CI artifact
-(<code>nightly-load-test-results.json</code>, kept 90 days) regardless of pass/fail.</p>
-<p>Like every bespoke gate script in this repo, it ships a <code>--self-test</code> mode
-(<code>python scripts/nightly_load_test.py --self-test</code>) that proves the percentile calculation and
-budget-comparison logic still fire on a known-bad and known-good input, run in CI immediately
-before the real invocation — see <a href="../ci-gates/">CI gate self-tests</a>.</p>
-<h2 id="the-schedule">The schedule<a class="headerlink" href="#the-schedule" title="Permanent link">&para;</a></h2>
-<p>Configure once in GitLab: <strong>CI/CD → Schedules → New schedule</strong></p>
-<ul>
-<li>Target branch: <code>main</code></li>
-<li>Cron: <code>0 3 * * *</code> (daily at 03:00 UTC)</li>
-<li>Variables: <code>LOAD_TEST_SCHEDULE=true</code></li>
-</ul>
-<p>The job can also be run manually at any time (advisory — <code>allow_failure: true</code> on the manual
-path only; the scheduled run is blocking) via "Run pipeline" or the job's manual play button.</p>
-<h2 id="budget-derivation-the-rule">Budget derivation — the rule<a class="headerlink" href="#budget-derivation-the-rule" title="Permanent link">&para;</a></h2>
-<p><strong>Budgets are committed to the repo, in <code>backend/nightly-load-test-baseline.json</code>, and every
-<code>budget_p95_ms</code> must trace to a <code>measured_p95_ms</code> via a stated formula — never a round number
-picked because it looked reasonable.</strong> TruePPM's postmortem is explicit about why: its 2000ms
-budget was loose enough that a 2x regression (683-851ms baseline &rarr; 1330ms) sat inside it
-without ever firing.</p>
-<p>The formula this repo uses:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>budget_p95_ms = ceil(measured_p95_ms * 1.4 / 5) * 5
-</code></pre></div>
-<ul>
-<li><strong>1.4x</strong> is the midpoint of the 1.3-1.5x range #1082 specifies — tight enough that a
-  meaningful regression still trips the budget, loose enough to absorb ordinary CI-runner
-  noise between runs.</li>
-<li>Rounding up to the nearest <strong>5ms</strong> gives the comparison a small amount of headroom for
-  measurement jitter without the number itself being arbitrary — it is still fully determined
-  by the measured baseline, just not reported to sub-millisecond precision.</li>
-</ul>
-<h3 id="re-deriving-the-baseline-do-this-at-every-release-and-whenever-the-fixture-size-changes">Re-deriving the baseline (do this at every release, and whenever the fixture size changes)<a class="headerlink" href="#re-deriving-the-baseline-do-this-at-every-release-and-whenever-the-fixture-size-changes" title="Permanent link">&para;</a></h3>
+<p>At Comfortable density, hover the glyph to see the provider and reference — for
+example "GitHub acme/web#12 — github.com (opens in new tab)", which always shows the real host the link opens. The reference also appears in the
+hover peek as "GitHub acme/web#12".</p>
+<p>The badge is <strong>hidden in the Compact (single-line) card layout</strong>, which has no room
+for it. Open the card to see the link.</p>
+<p>Click the badge to open the link in a new tab. The card itself does not open.
+Cmd-click, Ctrl-click, and middle-click behave like any other link.</p>
+<hr />
+<h2 id="adding-and-editing-a-link">Adding and editing a link<a class="headerlink" href="#adding-and-editing-a-link" title="Permanent link">&para;</a></h2>
+<p>Open a card and find the <strong>Pull / merge request</strong> section in the <em>Details</em> tab,
+directly after <strong>Relations</strong>.</p>
 <ol>
-<li>Trigger the <code>nightly-load-test</code> job (wait for the schedule, or run it manually).</li>
-<li>Download its <code>nightly-load-test-results.json</code> artifact.</li>
-<li>For each endpoint, recompute <code>budget_p95_ms</code> from that run's <code>p95_ms</code> using the formula
-   above.</li>
-<li>Update <code>backend/nightly-load-test-baseline.json</code>'s <code>measured_p95_ms</code>, <code>measured_p99_ms</code>, and
-   <code>budget_p95_ms</code> fields, its top-level <code>measured_at</code>, and its <code>fixture</code> block if the fixture
-   size changed. Recompute the whole file in one pass — never hand-adjust a single
-   <code>budget_p95_ms</code> without also updating the <code>measured_p95_ms</code> it supposedly came from.</li>
-<li>Flip <code>status</code> from <code>"provisional"</code> to <code>"ci-derived"</code> the first time this is done from a real
-   scheduled pipeline run (see the note below).</li>
+<li>Click <strong>+ Link a pull or merge request</strong>.</li>
+<li>Paste the URL. Visiban fills in the provider and reference for you (see below).</li>
+<li>Adjust the provider or reference if needed.</li>
+<li>Click <strong>Save link</strong>.</li>
 </ol>
-<div class="admonition warning">
-<p class="admonition-title">The baseline committed alongside #1082 is provisional</p>
-<p><code>backend/nightly-load-test-baseline.json</code>'s numbers were measured locally — against a real
-PostgreSQL 17 instance with the <code>pg_trgm</code> indexes active, using the same seed command and
-the same <code>scripts/nightly_load_test.py</code> the CI job runs, so they are genuine measurements,
-not invented — but on a development machine, not a GitLab CI runner. <strong>A number measured on
-a laptop is not a CI baseline</strong>: runner CPU/IO characteristics differ, and this is exactly
-the distinction the issue this job implements is about. Re-derive from the first real
-scheduled <code>nightly-load-test</code> run after this lands, following the steps above, and flip
-<code>status</code> to <code>"ci-derived"</code> at that point. Until then, treat every budget in that file as a
-reasonable starting point, not a proven-tight one.</p>
+<p>Click <strong>Cancel</strong> to discard the change. Pressing <strong>Escape</strong> also cancels the edit; a
+second <strong>Escape</strong> closes the panel.</p>
+<p>On an existing link, use <strong>Edit</strong> to change it or <strong>Remove</strong> to delete it. Remove
+happens immediately, with no confirmation, because the link is easy to add again.</p>
+<h3 id="how-the-url-is-read">How the URL is read<a class="headerlink" href="#how-the-url-is-read" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>URL you paste</th>
+<th>Provider</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>github.com/owner/repo/pull/N</code></td>
+<td>GitHub</td>
+<td><code>owner/repo#N</code></td>
+</tr>
+<tr>
+<td>Any GitLab URL containing <code>/-/merge_requests/N</code>, including self-hosted GitLab</td>
+<td>GitLab</td>
+<td><code>namespace/project!N</code></td>
+</tr>
+<tr>
+<td>Any other http or https URL</td>
+<td>Other</td>
+<td>You type it</td>
+</tr>
+</tbody>
+</table>
+<p>GitLab subgroups are kept, so <code>group/subgroup/project!45</code> stays intact.</p>
+<p>You can override the detected provider and reference at any time.</p>
+<hr />
+<h2 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Only <strong>http</strong> and <strong>https</strong> URLs are accepted. For anything else the panel shows
+  "Enter a valid http or https URL." and <strong>Save link</strong> stays disabled.</li>
+<li>URLs that contain a username or password are rejected.</li>
+<li>The URL can be up to 2048 characters.</li>
+<li>The reference is required, cannot contain spaces, and can be up to 255 characters.</li>
+<li>Each card holds one link. To link a different pull request, edit the existing one.</li>
+</ul>
+<hr />
+<h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
+<p>Linking follows the same rules as editing any other card field.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>View and click the link</th>
+<th>Add / edit / remove</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Viewer</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Collaborator</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Member</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Admin</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>Members are subject to the board's "edit only cards you created" rule unless they are
+a moderator or admin.</p>
+<p>Viewers and collaborators see the link and can click it, but get no edit controls.
+When a card has no link, they do not see the section at all.</p>
+<hr />
+<h2 id="real-time-behavior">Real-time behavior<a class="headerlink" href="#real-time-behavior" title="Permanent link">&para;</a></h2>
+<p>Adding, changing, or removing a link updates the card on everyone's board
+immediately, over the same channel as every other card change. See
+<a href="../realtime/">Real-time Updates</a>.</p>
+<hr />
+<h2 id="export-import-and-sharing">Export, import, and sharing<a class="headerlink" href="#export-import-and-sharing" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>JSON board export</strong> includes the link, and <strong>JSON import</strong> restores it.</li>
+<li><strong>CSV export</strong> does not include the link.</li>
+<li><strong>Public share links do not show the link.</strong> Pull request URLs can reveal private
+  repository names, so anonymous visitors never see them.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Adding, changing, or removing a link is not recorded in the card's activity
+history in this release.</p>
 </div>
-<h2 id="failure-notifications">Failure notifications<a class="headerlink" href="#failure-notifications" title="Permanent link">&para;</a></h2>
-<p>The scheduled run is blocking (not <code>allow_failure</code>), so a budget violation fails the pipeline.
-GitLab emails every project maintainer who has "Failed pipeline" notifications enabled
-(<strong>Profile → Notifications → Global notification level → "Watch"</strong>, or per-project under
-<strong>Project → Notification settings</strong>) — the same mechanism the weekly CVE scan
-(<code>backend-dep-scan</code> / <code>frontend-dep-scan</code>) already relies on.</p>
+<hr />
+<h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
+<p>See the <a href="../../api/cards/#external-ref-since-12">Cards API</a> for the link fields.</p>
 
 
 

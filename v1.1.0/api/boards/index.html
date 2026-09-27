@@ -836,6 +836,8 @@
       
         
       
+        
+      
     
     
     
@@ -1045,6 +1047,34 @@
     
   
     Card Relations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/card-links/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pull & Merge Request Links
   
 
     
@@ -1482,7 +1512,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_22" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1504,14 +1534,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_22_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_22">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_23">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4407,6 +4437,7 @@
 <p>Delete board. Requires board owner or site admin.</p>
 <h3 id="get-apiv1boardsidfull"><code>GET /api/v1/boards/{id}/full/</code><a class="headerlink" href="#get-apiv1boardsidfull" title="Permanent link">&para;</a></h3>
 <p>Full board state — columns, swimlanes, cards, labels, members, <code>current_user_role</code>, and <code>capabilities</code>. All objects include their <code>uid</code> field. Also includes <code>share_token</code> (the board's public share UUID, returned only to <code>admin</code> and <code>site_admin</code> role members — <code>null</code> is returned to lower roles when no share link exists) and <code>share_token_expires_at</code> (ISO-8601 timestamp of the share link's expiry, or <code>null</code> for no expiry; admin-only, mirrors <code>share_token</code> visibility — added in 1.1, #804). The <code>capabilities</code> object contains boolean feature flags for enterprise-registered extension points (all <code>false</code> in OSS).</p>
+<p>Since 1.2, each card in the payload also carries <code>external_ref</code> (<code>{ provider, ref, url }</code> or <code>null</code>) — see <a href="../cards/#external-ref-since-12">External ref</a>.</p>
 <p>Since 1.2, also includes <code>custom_field_definitions</code> (the board's card custom field schema) and <code>swimlane_custom_field_definitions</code> (the board's <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> schema) — both read-only lists, available to every board role. Definition schemas disclose nothing a board reader does not already have; which of a swimlane's <em>values</em> a given role may read is decided per-definition by <code>is_admin_only</code>, not by this field.</p>
 <p><strong><code>?expand=group</code> parameter:</strong> when <code>?expand=group</code> is appended, the <code>group_detail</code> field in the response is populated with a <code>GroupBrief</code> object containing <code>id</code>, <code>name</code>, <code>parent</code> (parent group FK ID or <code>null</code>), <code>parent_name</code> (parent group display name or <code>null</code>), and <code>ancestors</code> (root-first <code>[{ id, name }]</code> chain). Without this parameter <code>group_detail</code> is <code>null</code>.</p>
 <h3 id="get-apiv1boardsidevents"><code>GET /api/v1/boards/{id}/events/</code><a class="headerlink" href="#get-apiv1boardsidevents" title="Permanent link">&para;</a></h3>
@@ -5059,6 +5090,7 @@ for an exporter below <code>admin</code> — its existence is not disclosed, the
 <code>custom_field_values</code>, keyed by field name. Both are <strong>additive</strong>, so <code>schema_version</code>
 stays at <code>2</code> and an existing consumer is unaffected. Re-importing custom field data is not
 supported yet — the importer ignores both keys.</p>
+<p>Also since 1.2, each card carries <code>external_ref</code> (<code>{ provider, ref, url }</code>, or <code>null</code> when unset). On import it is restored after validation against the same rules as the card API; invalid entries are silently dropped. CSV export and import do not carry it.</p>
 <p>Also since 1.2, each swimlane object carries its own <code>custom_field_values</code> (keyed by
 <a href="#swimlane-custom-fields-since-12">swimlane custom field</a> name), and a top-level
 <code>swimlane_custom_fields</code> array carries that schema — the row-level counterpart to
@@ -5105,11 +5137,12 @@ caller below <code>admin</code> — the same role gate this export already appli
 <a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="w">      </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-01T10:00:00Z"</span><span class="p">,</span>
 <a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="w">      </span><span class="nt">"created_by"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
 <a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a><span class="w">      </span><span class="nt">"custom_field_values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"Array Type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"raid10"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">      </span><span class="nt">"comments"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"body"</span><span class="p">:</span><span class="w"> </span><span class="s2">"On it."</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-02T09:00:00Z"</span><span class="w"> </span><span class="p">}],</span>
-<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">      </span><span class="nt">"checklist"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
-<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">    </span><span class="p">}</span>
-<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="p">}</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="w">      </span><span class="nt">"external_ref"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"provider"</span><span class="p">:</span><span class="w"> </span><span class="s2">"gitlab"</span><span class="p">,</span><span class="w"> </span><span class="nt">"ref"</span><span class="p">:</span><span class="w"> </span><span class="s2">"acme/webapp!45"</span><span class="p">,</span><span class="w"> </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://gitlab.com/acme/webapp/-/merge_requests/45"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="w">      </span><span class="nt">"comments"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"author"</span><span class="p">:</span><span class="w"> </span><span class="s2">"bob"</span><span class="p">,</span><span class="w"> </span><span class="nt">"body"</span><span class="p">:</span><span class="w"> </span><span class="s2">"On it."</span><span class="p">,</span><span class="w"> </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-03-02T09:00:00Z"</span><span class="w"> </span><span class="p">}],</span>
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="w">      </span><span class="nt">"checklist"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="nt">"text"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Write tests"</span><span class="p">,</span><span class="w"> </span><span class="nt">"is_checked"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}]</span>
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="get-apiv1boardsidexport-history"><code>GET /api/v1/boards/{id}/export-history/</code><a class="headerlink" href="#get-apiv1boardsidexport-history" title="Permanent link">&para;</a></h3>
 <p>Return recent successful board exports for audit purposes (#842). Requires board <code>admin</code> or <code>site_admin</code> role — other roles (including board owners who are not also admins) receive <code>403 Forbidden</code> with body <code>{"detail": "Export history is restricted to board admins."}</code>. Failed exports (permission denied, rate limited) are not logged.</p>
