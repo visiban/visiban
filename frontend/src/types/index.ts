@@ -159,7 +159,8 @@ export interface BoardMembership {
   id: number;
   user: BoardUser;
   role: BoardRole;
-  is_moderator: boolean;
+  /** Omitted for a requester below admin/site_admin (#920) — not always present. */
+  is_moderator?: boolean;
   joined_at: string;
 }
 
@@ -175,7 +176,8 @@ export interface EffectiveBoardMember {
   id: number | null;
   user: BoardUser;
   role: BoardOrSiteRole;
-  is_moderator: boolean;
+  /** Omitted for a requester below admin/site_admin (#920) — not always present. */
+  is_moderator?: boolean;
   joined_at: string;
 }
 
