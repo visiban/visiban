@@ -14,6 +14,20 @@ paste a credential, stop and describe where it lives instead.
 | GHCR push PAT (`visiban-ghcr-push`) | GitHub PAT, scope `write:packages` | TBD — confirm current owner before rotating | GitLab CI/CD variable `GHCR_TOKEN` (masked), paired with `GHCR_USER` (masked) | `.kaniko-push-common` / `backend-docker-push`, `frontend-docker-push`, `ghcr-push-backend`, `ghcr-push-frontend` — pushes images to `ghcr.io/visiban/visiban/*` | **UNKNOWN** — see below |
 | `DOCS_DEPLOY_TOKEN` | GitLab token, `write_repository` scope | TBD | GitLab CI/CD variable (protected, masked) | `docs-deploy` job — `mike` pushes the versioned docs site to the `gh-pages` branch | Not tracked here — see note below |
 | MinIO `AccessKey` / `SecretKey` | S3-compatible object storage credentials | Runner infra owner | Each self-hosted runner's local `config.toml` (`[runners.cache.s3]`), referenced via env interpolation; also present as GitLab CI/CD variables `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` (masked, protected) alongside `MINIO_ENDPOINT` / `MINIO_BUCKET` | Distributed CI cache shared across runners (`.npm-cache`, pip cache templates in `.gitlab-ci.yml`) | Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141) |
+| `RUNNERS_READ_TOKEN` | GitLab PAT, scope `read_api`, at least Reporter on the group | TBD — a maintainer with Reporter+ on the group | GitLab CI/CD variable (masked, protected) | `arm64-runner-preflight` job (#1084) — queries `GET /projects/:id/runners?scope=online&tag_list=arm64` to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang `pending` with no matching runner | Not tracked here — record on issue when created |
+
+## `RUNNERS_READ_TOKEN`
+
+Added in **#1084** for `arm64-runner-preflight`. The GitLab Runners API is not part of the
+CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
+`CI_JOB_TOKEN` the way most other jobs in this file do for registry pushes — it needs an
+actual PAT with `read_api` scope, owned by someone with at least Reporter access to the
+group (so the read covers the group-level `Max1-Runner-Visiban` runner). Create it at
+GitLab → Settings → Access Tokens (or a personal access token, if no suitable group/project
+token type covers `read_api` at group scope), store it as a masked + protected CI/CD
+variable named `RUNNERS_READ_TOKEN`, and record its expiry in the inventory row above in the
+same MR that creates it — do not leave this row's expiry blank the way the two GitHub PATs'
+were.
 
 ## Correction: the GitHub-release CI variable is `GH_TOKEN`, not `GITHUB_TOKEN`
 
@@ -86,6 +100,10 @@ its `config.toml` follows the interpolated form — do not hardcode the values a
         `DOCS_VERSION` set (see the job's comment block in `.gitlab-ci.yml`).
       - Mirror bot PAT: push any commit to `main` and confirm it appears on
         `visiban/visiban-enterprise` shortly after.
+      - `RUNNERS_READ_TOKEN`: re-run a past `arm64-runner-preflight` job (CI/CD → Pipelines →
+        find a release-tag pipeline → retry that job), or trigger a new pipeline on a
+        pre-release tag; it should log "OK: N online runner(s) tagged arm64" rather than the
+        "RUNNERS_READ_TOKEN not set" or Runners-API-error message.
 4. Record the new expiry in this page's inventory table in the same MR that rotates the
    credential — do not leave the row stale.
 5. If a rotation fails partway, GitLab emails project maintainers after 3 consecutive mirror
