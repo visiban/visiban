@@ -406,7 +406,7 @@ fi
 # and re-accumulate on main after the next pull.
 git add CHANGELOG.md .env.example docker-compose.yml docker-compose.prod.yml \
         frontend/package.json README.md docs/index.md docs/getting-started/installation.md \
-        helm/visiban/values.yaml changelog.d/
+        docs/getting-started/kubernetes.md helm/visiban/values.yaml changelog.d/
 git commit -m "chore: release ${TAG}"
 git push -u origin "$RELEASE_BRANCH"
 
