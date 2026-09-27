@@ -436,6 +436,7 @@ ml-6 border-l-2 border-line pl-4
 2. The stored value is **never auto-cleared**. Clearing it needs a second write that can half-fail, and it discards a choice the user will want back the moment they re-enable the parent. The disabled switch stays visibly ON and the reason line says it is paused and kept.
 3. Dim the label to `text-fg-muted` only. No new opacity modifier — the switch's own `disabled:opacity-40` is the sole dimming.
 4. Never use this for a **multi-control** block. Those stay conditionally rendered.
+5. **Use `ariaDisabled`, not `disabled`, on the switch whenever the reason line is the "why is this off" case rather than a transient in-flight save (#1159).** Native `disabled` removes the control from the tab order, so a sighted keyboard user never reaches the reason text a screen-reader browse-mode user sees. `Toggle` supports `ariaDisabled` as an opt-in: the switch stays focusable, click and keyboard (Space/Enter) activation are both ignored, and the same disabled visual styling is kept. Keep plain `disabled` for genuinely transient states (e.g. a save in flight) that have no reason line to reach.
 
 Reference implementation: `NotificationRow` in `SettingsPage.tsx`.
 
