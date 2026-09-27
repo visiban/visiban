@@ -49,8 +49,36 @@ GitLab SaaS runner with no Docker socket at all.
 on any runner — this failure mode should no longer occur for amd64 pushes. If you see this
 error again, something has regressed the job definition back toward `docker buildx`; check
 `.gitlab-ci.yml`'s `.kaniko-push-common` template first. See
-[CI Runners](ci-runners.md#docker-image-push-no-longer-needs-a-self-hosted-runner) for the
-full history, including the arm64 gap this conversion left open (**#1084**).
+[CI Runners](ci-runners.md#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner)
+for the full history, including how the arm64 gap this conversion left open was closed in
+**#1084**.
+
+## arm64 Docker push jobs pending forever with no runner picking them up
+
+**Signature:** `backend-docker-push-arm64` / `frontend-docker-push-arm64` sit `pending`
+indefinitely on a release tag pipeline, with no error — or `arm64-runner-preflight` fails
+with "no online runner tagged 'arm64' found".
+
+**Root cause:** the dedicated Apple Silicon runner (`Max1-Runner-Visiban`, id `56802474`,
+see [CI Runners](ci-runners.md#inventory)) is offline or its `arm64` tag was removed. GitLab
+has no native "pending too long" job failure — a job `timeout:` only covers execution time
+once a runner has picked up the job, not queue time — so without a preflight check, this
+looks identical to a slow pipeline rather than an infrastructure problem. This is the same
+`no_matching_runner` shape that caused `saas-linux-medium-arm64` to hang before !852 dropped
+arm64 from the kaniko conversion (verified on pipeline `2845582400`).
+
+**Fix:** `arm64-runner-preflight` (added in **#1084**) queries the Runners API before either
+arm64 leg is scheduled and fails within seconds with a clear message if no runner tagged
+`arm64` is online, instead of letting the pipeline hang. If it fires, bring the runner back
+online (check the host's power/network and that the `gitlab-runner` service is running) and
+re-run the pipeline — do not raise a job `timeout:` to work around this, it will not help.
+If the preflight job itself fails with a `RUNNERS_READ_TOKEN`-related error, see
+[Tokens and Rotation](tokens-and-rotation.md#runners_read_token).
+
+**Do not misread the runner's reported architecture:** GitLab's Runners API reports
+`architecture: amd64` for this runner (the `gitlab-runner` binary runs under Rosetta) even
+though the host and every image it builds are genuinely native arm64 — this is a red herring,
+not evidence the wrong runner picked up the job.
 
 ## Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"
 

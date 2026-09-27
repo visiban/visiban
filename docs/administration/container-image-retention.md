@@ -59,6 +59,18 @@ this policy against Visiban's actual tag set:
   `main` ever goes 90+ days without a merge to either image *and* 10 other tags get pushed in
   the meantime, `latest` becomes eligible for the sweep — a scenario the policy does not rule
   out, only makes unlikely under normal development cadence.
+- **Known tradeoff, not yet addressed: per-arch `-amd64`/`-arm64` tags accumulate forever.**
+  Since #1084, each release tag also pushes `:<tag>-amd64` and `:<tag>-arm64` on both
+  registries — the source images `backend-manifest` / `frontend-manifest` combine into the
+  real multi-arch `:<tag>` / `:latest` / `:MAJOR.MINOR`. On the GitLab registry,
+  `name_regex_keep: "v.*"` matches these too (they start with `v`), so they're protected
+  from the sweep the same as the real release tags — meaning they're never cleaned up,
+  not just protected from premature deletion. On GHCR there is no cleanup at all (see below),
+  so they accumulate there unconditionally. Neither is a correctness problem — the per-arch
+  tags are only ever consumed by the manifest-assembly job, immediately after being pushed —
+  but it is unbounded storage growth with no code path that reclaims it. Tracked in **#1196**
+  (delete the per-arch tags after manifest assembly, or exclude them from the keep-regex);
+  not fixed by #1084 itself.
 
 **This change does not modify the policy.** Changing a GitLab project setting is an
 outward-facing admin action outside this branch's scope (#1074). If you want to close the
@@ -88,7 +100,9 @@ Checked 2026-09-27: this repository's only GitHub Actions workflow is
 `.github/workflows/issue-bridge.yml` (unrelated — bridges GitLab issues to GitHub for
 visibility). **No workflow deletes GHCR package versions**, so GHCR-published `backend`/
 `frontend` images are not subject to any automated retention here — they persist until
-someone deletes them by hand.
+someone deletes them by hand. This includes the per-arch `-amd64`/`-arm64` tags #1084 added
+(see the GitLab registry section above) — GHCR has no keep-regex to even consider excluding
+them from, so they accumulate unconditionally until #1196 is addressed.
 
 The `gh` CLI used for this audit was authenticated but its token lacked the `read:packages`
 scope needed to list package versions directly (`gh api orgs/visiban/packages` → 403). That
@@ -132,8 +146,11 @@ whenever the next release attempt failed to pull.
 
 If this job goes red, it means a released, documented version is not pullable from the named
 registry. Check that registry's retention/cleanup policy first (see the sections above), then
-re-run that tag's `backend-docker-push` / `frontend-docker-push` publish jobs to restore the
-image.
+re-run that tag's publish jobs to restore the image — `backend-docker-push` /
+`frontend-docker-push` (amd64) and, since #1084, also `backend-docker-push-arm64` /
+`frontend-docker-push-arm64` and `backend-manifest` / `frontend-manifest`, or the referenced
+tag will come back as an amd64-only single-arch manifest rather than the multi-arch list it's
+supposed to be.
 
 ## Digest pinning
 
