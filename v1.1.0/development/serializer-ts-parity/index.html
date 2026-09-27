@@ -3685,8 +3685,24 @@ has no component to diff against, so there is nothing this gate could compare.</
 <p>That is a <strong>missing component, not a passing check</strong> — the two are unchecked here, and the
 gate says nothing about their published types. Making them checkable means getting
 <code>drf-spectacular</code> to emit components for them, which needs its own issue.</p>
-<p>Everything else is deliberately in scope and mapped. There is no pair that has a component and
-an interface and is simply not checked.</p>
+<p>One further pair is absent for the opposite reason — the schema has a component but there is
+no TypeScript interface to diff it against:</p>
+<table>
+<thead>
+<tr>
+<th>Pair</th>
+<th>Why excluded</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CardQuery</code> (<code>CardQuerySerializer</code>, <code>GET /api/v1/cards/</code>, #1112)</td>
+<td>No TypeScript interface exists — <code>frontend/src/api/cards.ts</code> has no caller of this endpoint yet. Mapping it to the closest interface, <code>Card</code>, would not work: <code>CardQuery</code> sends every <code>Card</code> field plus <code>board</code> by design (a cross-board list must say which board each row is on), so the pair would report a permanent <code>missing_in_ts: board</code> finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172).</td>
+</tr>
+</tbody>
+</table>
+<p>Everything else is deliberately in scope and mapped. There is no pair that has a component, an
+interface, and is simply not checked.</p>
 <h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Full check: regenerates the schema, then diffs (needs the backend venv)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>python3<span class="w"> </span>scripts/check-serializer-ts-parity.py
