@@ -3433,10 +3433,13 @@ gate's own TypeScript alias parser).</p>
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
 the second, and in practice several do. Eight fields on <code>Board</code> and <code>CurrentUser</code> were
 published as <code>string</code> while returning ints, bools and nested objects (#1135); <code>BoardFull.members</code>
-sends rows the <code>BoardMembership</code> component forbids (#1137); two nullable fields are declared
-non-nullable (#1138). Every one of those passes #821's name check, because the serializer
-really does emit the field — it is the <em>published type</em> that is wrong, and the published type
-is what an external consumer generates a client from.</p>
+sends rows the <code>BoardMembership</code> component forbids (#1137); a nullable field was declared
+non-nullable (#1138, fixed — a declared serializer field does not inherit <code>null=True</code> from the
+model the way an auto-generated one does; <code>Board.group_name</code> had the same symptom but was
+already fixed by earlier, unrelated work before #1138's branch existed). Every one of those
+passes #821's name check, because
+the serializer really does emit the field — it is the <em>published type</em> that is wrong, and the
+published type is what an external consumer generates a client from.</p>
 <h2 id="why-this-gate-exists">Why this gate exists<a class="headerlink" href="#why-this-gate-exists" title="Permanent link">&para;</a></h2>
 <p>The frontend's view of the API lives in <code>frontend/src/types/index.ts</code> as hand-written
 interfaces. The backend's lives in DRF serializers, and what the outside world sees lives in
