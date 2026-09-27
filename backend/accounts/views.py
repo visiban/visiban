@@ -106,10 +106,17 @@ class ThrottledPasswordResetConfirmView(DjRestAuthPasswordResetConfirmView):
 class LoginRateThrottle(SimpleRateThrottle):
     """Defense-in-depth rate limit for the login endpoint, keyed on IP (#924).
 
-    The allauth ``ACCOUNT_RATE_LIMITS`` setting is the primary gate — it locks
-    failed logins to 5 per 5 minutes per IP.  Without an additional cap an
-    attacker rotating across many usernames could still issue up to the global
-    DRF anonymous ceiling (currently 300/hour) before being throttled.
+    This is the per-IP layer only. The allauth ``ACCOUNT_RATE_LIMITS`` setting
+    (5 failed attempts / 5 min, keyed per-account since #1199) is the per-account
+    gate, and the two are complementary, not one "primary" and one "backstop":
+    this throttle stops an attacker rotating across many accounts from one IP;
+    ACCOUNT_RATE_LIMITS stops an attacker rotating across many IPs at one
+    account. Before #1199, that per-account gate never actually engaged on this
+    endpoint (see accounts.serializers.LoginSerializer), so in practice this was
+    the only real cap — that has been fixed, but this throttle's own per-IP
+    ceiling is still needed independently: without it, an attacker rotating
+    across many usernames could issue up to the global DRF anonymous ceiling
+    (currently 300/hour) before being throttled.
 
     This scope applies the same per-IP limit whether the request is anonymous
     or carries a stale session cookie, so it cannot be bypassed by toggling
@@ -126,7 +133,12 @@ class LoginRateThrottle(SimpleRateThrottle):
 
 
 class ThrottledLoginView(DjRestAuthLoginView):
-    """dj-rest-auth LoginView with a project-specific rate limit applied (#924)."""
+    """dj-rest-auth LoginView with a project-specific per-IP rate limit applied (#924).
+
+    The per-account lockout lives in ``ACCOUNT_RATE_LIMITS`` / the
+    ``accounts.serializers.LoginSerializer`` set as ``REST_AUTH["LOGIN_SERIALIZER"]``
+    (#1199) — this throttle only adds the per-IP layer on top.
+    """
 
     throttle_classes = [LoginRateThrottle]
 

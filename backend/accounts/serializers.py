@@ -1,4 +1,5 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
@@ -91,6 +92,43 @@ class RegistrationSerializer(RegisterSerializer):
         required=False,
         validators=[UsernameFormatValidator()],
     )
+
+
+class LoginSerializer(DjRestAuthLoginSerializer):
+    """Authenticate through allauth's adapter instead of bare Django auth (#1199).
+
+    dj-rest-auth's own ``authenticate()`` calls ``django.contrib.auth.authenticate()``
+    directly. That bypasses ``allauth.account.adapter.DefaultAccountAdapter
+    .pre_authenticate()`` — the only place ``ACCOUNT_RATE_LIMITS["login_failed"]`` is
+    ever consumed — so the per-account lockout allauth is configured for never
+    actually engaged on this endpoint (the SPA/API login path every real client
+    uses). Only the coarser, per-IP ``LoginRateThrottle`` (#924) applied, which does
+    nothing against a distributed attacker spreading failed attempts across many
+    source IPs at one target account.
+
+    Routing through ``get_adapter(request).authenticate()`` instead reuses allauth's
+    own pre_authenticate -> authenticate -> rollback-on-success sequence, so this
+    view now shares the same per-account bucket allauth's own login views consume.
+    It also sidesteps the missing-``AUTHENTICATION_BACKENDS``-entry half of the bug:
+    the adapter still ultimately calls Django's ``authenticate()`` for the actual
+    credential check, so backend registration is unchanged from before, but the
+    rate-limit consult/rollback bookkeeping around it no longer depends on it.
+
+    On lockout, ``pre_authenticate()`` raises ``django.core.exceptions.
+    ValidationError`` (code ``too_many_login_attempts``) *before* the password is
+    checked at all, with allauth's own generic "too many attempts" message -- it
+    never reveals whether the account exists, and the account/email used as the
+    rate-limit key is SHA-256-hashed by allauth before it ever reaches the cache,
+    so nothing PII-bearing is logged. DRF's default field validation converts that
+    Django-style ``ValidationError`` into a plain 400 response automatically, same
+    as any other login validation failure.
+    """
+
+    def authenticate(self, **kwargs):
+        from allauth.account.adapter import get_adapter
+
+        request = self.context["request"]
+        return get_adapter(request).authenticate(request, **kwargs)
 
 
 class VisibanPasswordResetSerializer(PasswordResetSerializer):

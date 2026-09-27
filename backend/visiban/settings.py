@@ -389,8 +389,10 @@ REST_FRAMEWORK = {
         # Email verification: HMAC keys are not brute-forceable; scope exists for
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",
-        # Login: defense-in-depth ceiling applied on top of the allauth
-        # ACCOUNT_RATE_LIMITS gate (5 failed attempts / 5 min per IP).
+        # Login: defense-in-depth ceiling applied alongside the allauth
+        # ACCOUNT_RATE_LIMITS gate (5 failed attempts / 5 min PER ACCOUNT, #1199 —
+        # this throttle is the separate per-IP layer, not "on top of" a per-IP
+        # allauth gate as previously described here).
         # 20/hour matches the verify_email pattern and prevents an attacker from
         # rotating across many usernames within the global anon throttle (#924).
         "login": "9999/hour" if DEBUG else "20/hour",
@@ -564,9 +566,16 @@ if not DEBUG and not (
         "Set FRONTEND_URL to your public frontend origin before starting."
     )
 # Explicit login rate limits — locks in brute-force protection independent of
-# allauth version defaults. 5 failed attempts per 5 minutes per IP.
+# allauth version defaults. 5 failed attempts per 5 minutes, per account
+# (the "/key" suffix — allauth's rate strings default to per-IP when no scope
+# is given, which is what this looked like before #1199: the string parsed as
+# an IP-scoped limit, not the per-account lockout the comment claimed). This is
+# the ONLY per-account defense against a distributed brute-force attacker
+# (many source IPs, one target account) — see accounts.serializers.LoginSerializer
+# for why it previously never engaged at all on the real login endpoint, and
+# LoginRateThrottle in accounts/views.py for the separate, coarser per-IP cap.
 ACCOUNT_RATE_LIMITS = {
-    "login_failed": "5/300s",
+    "login_failed": "5/300s/key",
 }
 
 SOCIALACCOUNT_PROVIDERS = {
@@ -633,6 +642,11 @@ REST_AUTH = {
     # SPA rather than reversing 'password_reset_confirm' (a Django built-in URL
     # name that Visiban does not register).
     "PASSWORD_RESET_SERIALIZER": "accounts.serializers.VisibanPasswordResetSerializer",
+    # dj-rest-auth's default LoginSerializer.authenticate() calls Django's bare
+    # authenticate(), bypassing allauth's ratelimit-consuming adapter entirely —
+    # the per-account login_failed lockout below never fired on this endpoint
+    # (#1199). Our subclass routes through get_adapter().authenticate() instead.
+    "LOGIN_SERIALIZER": "accounts.serializers.LoginSerializer",
 }
 
 # APP_VERSION is set as the v-prefixed image tag operators pin in .env

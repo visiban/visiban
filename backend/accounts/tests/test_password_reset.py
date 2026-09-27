@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from allauth.account.forms import default_token_generator
 from allauth.account.utils import user_pk_to_url_str
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -259,3 +260,78 @@ class LoginThrottleStructureTests(TestCase):
         match = resolve("/api/v1/auth/login/")
         view_cls = getattr(match.func, "view_class", None) or getattr(match.func, "cls", None)
         self.assertIs(view_cls, ThrottledLoginView)
+
+
+class LoginPerAccountLockoutTests(TestCase):
+    """#1199 — the allauth per-account ``login_failed`` lockout must actually
+    engage on ``POST /api/v1/auth/login/``.
+
+    Before #1199, dj-rest-auth's ``LoginSerializer.authenticate()`` called
+    ``django.contrib.auth.authenticate()`` directly, which never reached
+    allauth's ``pre_authenticate()`` / ``ratelimit.consume(action="login_failed")``
+    hook. These tests exercise the real endpoint end-to-end and vary the source
+    IP per attempt specifically to prove the lockout is keyed on the account,
+    not the caller's IP (NUM_PROXIES=1, so the IP DRF/allauth resolve is the
+    last hop of X-Forwarded-For) — a distributed attacker is exactly the gap
+    #1199 closes.
+    """
+
+    PASSWORD = "correct-horse-battery-staple-1"
+
+    def setUp(self):
+        self.client = APIClient()
+        self.victim = User.objects.create_user(
+            username="lockout_victim", email="victim@example.com", password=self.PASSWORD
+        )
+        self.other = User.objects.create_user(
+            username="lockout_other", email="other@example.com", password=self.PASSWORD
+        )
+        # allauth's ratelimit.consume() reads/writes Django's default cache
+        # directly (not DRF's throttle cache) — clear it so no prior test's
+        # login_failed usage bleeds into these, and clear again after so this
+        # test's lockout state doesn't bleed into whatever runs next.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _post_login(self, username, password, ip):
+        return self.client.post(
+            "/api/v1/auth/login/",
+            {"username": username, "password": password},
+            format="json",
+            HTTP_X_FORWARDED_FOR=ip,
+            REMOTE_ADDR=ip,
+        )
+
+    def test_successful_login_still_works(self):
+        r = self._post_login(self.other.username, self.PASSWORD, "203.0.113.1")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertIn("key", r.json())
+
+    def test_failed_attempts_from_many_ips_lock_the_account(self):
+        # ACCOUNT_RATE_LIMITS["login_failed"] = "5/300s/key" — 5 failed attempts
+        # exhausts the bucket. Each attempt comes from a distinct IP.
+        for i in range(5):
+            r = self._post_login(self.victim.username, "wrong-password", f"198.51.100.{i + 1}")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        # A 6th attempt, from yet another new IP, with the CORRECT password —
+        # must still be refused because the account (not the IP) is locked.
+        r = self._post_login(self.victim.username, self.PASSWORD, "198.51.100.99")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        detail = str(r.json())
+        self.assertIn("Too many", detail)
+        # No user-enumeration signal: the lockout message must not name the
+        # account or otherwise differ from what an unknown username would get.
+        self.assertNotIn(self.victim.username, detail)
+        self.assertNotIn(self.victim.email, detail)
+
+    def test_other_account_is_unaffected_by_a_locked_account(self):
+        for i in range(5):
+            self._post_login(self.victim.username, "wrong-password", f"192.0.2.{i + 1}")
+        # Confirm the victim account is indeed locked before checking isolation.
+        locked = self._post_login(self.victim.username, self.PASSWORD, "192.0.2.99")
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST, locked.content)
+
+        r = self._post_login(self.other.username, self.PASSWORD, "192.0.2.100")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertIn("key", r.json())
