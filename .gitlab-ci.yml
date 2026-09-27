@@ -2282,6 +2282,58 @@ frontend-docker-build:
   script:
     - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512
 
+# ─── TEMPORARY: arm64 group runner verification probe (#1084) ─────────────────
+#
+# Not part of the real fix. #1084's own history shows a runner tag cannot be
+# trusted from its GitLab `tag_list` alone — the previous attempt trusted
+# `saas-linux-medium-arm64` and only discovered `no_matching_runner` when a
+# throwaway probe job actually tried to schedule on it. This job is that same
+# kind of probe for the newly-registered group runner "Max1-Runner-Visiban"
+# (id 56802474, tags: arm, arm64, apple, macosx, mac, ios) before trusting it
+# for the real multi-arch restore.
+#
+# Modeled on TruePPM's `ci:arm64-smoke` (#3407/#3990): run on the tagged
+# runner, then assert `docker image inspect --format '{{.Architecture}}'`
+# actually says arm64 rather than assuming the tag is accurate. TruePPM's
+# variant builds their real Dockerfiles; this one only needs a scratch image
+# to answer the one open question here (does this runner produce native
+# arm64?), so it skips their trivy/syft/registry-push machinery entirely.
+#
+# GitLab reports this runner as platform=darwin but architecture=amd64, which
+# is what you'd see if the installed gitlab-runner binary is the amd64 build
+# running under Rosetta 2 on Apple Silicon (or, less likely, a genuine Intel
+# Mac mistagged as arm64) — the gitlab-runner agent's own GOARCH does not
+# necessarily match what Docker Desktop's daemon builds. Hence: don't trust
+# the tag, build something and inspect it.
+#
+# Remove this job (and this comment block) once #1084 verification is
+# recorded — it must never survive into main.
+ci:arm64-runner-probe:
+  stage: .pre
+  tags:
+    - arm64
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  needs: []
+  script:
+    - set -euo pipefail
+    - echo "CI_RUNNER_ID=${CI_RUNNER_ID} CI_RUNNER_DESCRIPTION=${CI_RUNNER_DESCRIPTION}"
+    - uname -a
+    - docker version
+    - |
+      if ! docker info > /dev/null 2>&1; then
+        echo "ERROR: no Docker daemon reachable on this runner."
+        exit 1
+      fi
+    - |
+      mkdir -p /tmp/arm64-probe && cd /tmp/arm64-probe
+      printf 'FROM scratch\nCOPY probe /probe\n' > Dockerfile
+      echo probe > probe
+      docker build -t arm64-probe:local .
+      ARCH="$(docker image inspect arm64-probe:local --format '{{.Architecture}}')"
+      echo "built image architecture: ${ARCH}"
+      [ "$ARCH" = "arm64" ] || { echo "ERROR: expected arm64, got ${ARCH}"; exit 1; }
+
 # ─── Docker push (amd64) ──────────────────────────────────────────────────────
 #
 # Builds and pushes images with kaniko — the same daemonless builder the
