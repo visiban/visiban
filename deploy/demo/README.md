@@ -47,7 +47,7 @@ if the demo sees abuse.
    sudo install -m 0644 deploy/demo/visiban-demo-reset.cron /etc/cron.d/visiban-demo-reset
    ```
 
-`reset.sh` refuses to run unless `DEMO_MODE=true` is set in `.env`, so a stray
+`reset.sh` refuses to run unless `.env` contains an unquoted `DEMO_MODE=true` line (a quoted or padded value is rejected), so a stray
 cron entry cannot wipe a real install.
 
 ## What gets seeded

@@ -248,7 +248,7 @@ Demo mode shows a "This is a live demo" banner above the login form, with the de
 | `DEMO_MODE` | `false` | Show the demo banner on the login page. |
 | `DEMO_LOGIN_USERNAME` | `admin` | Username shown in the banner. `seed_demo_data --demo-site` creates the admin account with this name. |
 | `DEMO_LOGIN_PASSWORD` | *(empty)* | Password shown in the banner and set on the seeded admin account. With no value the banner is not shown. |
-| `DEMO_MEMBER_PASSWORD` | *(empty)* | Password for the two seeded member accounts. Never published. |
+| `DEMO_MEMBER_PASSWORD` | *(empty)* | Password for the two seeded member accounts. Never published. Required by `seed_demo_data --demo-site`. |
 
 !!! danger "The credentials are public by design"
     When `DEMO_MODE` is on, `DEMO_LOGIN_USERNAME` and `DEMO_LOGIN_PASSWORD` are returned to anyone by `GET /api/v1/auth/site-config/`. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.

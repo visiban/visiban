@@ -677,6 +677,27 @@ class SeedDemoSiteTests(TestCase):
                 _seed(demo_site=True)
         self.assertFalse(Board.objects.exists())
 
+    def test_refuses_without_member_password(self):
+        with override_settings(DEMO_MEMBER_PASSWORD=""):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+        self.assertFalse(Board.objects.exists())
+
+    def test_wipe_resets_tour_flag_and_password_for_existing_users(self):
+        _seed(demo_site=True)
+        User.objects.filter(username__in=["admin", "maya"]).update(has_completed_tour=True)
+        _seed(demo_site=True, wipe=True)
+        for username in ("admin", "maya"):
+            self.assertFalse(User.objects.get(username=username).has_completed_tour, username)
+
+    def test_second_run_without_wipe_skips_existing_boards(self):
+        _seed(demo_site=True)
+        out, _ = _seed(demo_site=True)
+        self.assertIn("already exists", out)
+        for name in self.BOARD_NAMES:
+            self.assertEqual(Board.objects.filter(name=name).count(), 1)
+            self.assertEqual(Card.objects.filter(board__name=name).count(), 20)
+
     def test_refuses_without_demo_mode(self):
         with override_settings(DEMO_MODE=False):
             with self.assertRaises(CommandError):

@@ -64,7 +64,7 @@ Usage:
         history) plus an admin and two member accounts. Passwords come from
         the DEMO_LOGIN_PASSWORD and DEMO_MEMBER_PASSWORD environment
         variables (never from source); the command refuses to run without
-        DEMO_LOGIN_PASSWORD. See deploy/demo/README.md.
+        DEMO_LOGIN_PASSWORD or DEMO_MEMBER_PASSWORD. See deploy/demo/README.md.
 """
 
 import csv
@@ -560,6 +560,12 @@ class Command(BaseCommand):
                 raise CommandError(
                     "--demo-site requires the DEMO_LOGIN_PASSWORD environment variable."
                 )
+            # The demo promises two usable member accounts; an unusable
+            # password would silently ship two accounts nobody can sign in to.
+            if not settings.DEMO_MEMBER_PASSWORD:
+                raise CommandError(
+                    "--demo-site requires the DEMO_MEMBER_PASSWORD environment variable."
+                )
             if options["export"] or options["scale"] != 1:
                 raise CommandError("--demo-site cannot be combined with --export or --scale.")
         with suppress_notification_email():
@@ -729,11 +735,10 @@ class Command(BaseCommand):
                 },
             )
             user.is_site_admin = is_admin
-            if password:
-                user.set_password(password)
-            else:
-                user.set_unusable_password()
-            # has_completed_tour stays False so the onboarding tour runs on first login.
+            user.set_password(password)
+            # Reset on every run: --wipe deletes boards, not users, so an account
+            # that finished the tour yesterday would otherwise never see it again.
+            user.has_completed_tour = False
             user.save()
             users[key] = user
         return users
