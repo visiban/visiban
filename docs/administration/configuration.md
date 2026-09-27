@@ -63,7 +63,7 @@ Create a server-side `.env` file alongside `docker-compose.prod.yml`:
 
 | Variable | Description |
 |---|---|
-| `APP_VERSION` | Image tag to pull, e.g. `v1.0.0`. Defaults to `latest` if unset. |
+| `APP_VERSION` | Image tag to pull, e.g. `v1.1.0`. **Required** — the compose file fails to start if unset; it no longer falls back to the mutable `latest` tag (see [Container image retention](container-image-retention.md)). `.env.example` ships a pinned value. |
 | `DB_PASSWORD` | PostgreSQL password — required, no default; the compose file will error on startup if missing |
 | `REDIS_PASSWORD` | Valkey authentication password — required in production; the Valkey service starts with `--requirepass` and `REDIS_URL`/`REDIS_CACHE_URL` are built from this value. Generate with: `openssl rand -base64 32` |
 | `DJANGO_SECRET_KEY` | Production Django signing key — must be unique and kept secret |

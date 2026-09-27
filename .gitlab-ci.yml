@@ -2483,6 +2483,54 @@ ghcr-push-frontend:
         --build-arg NODE_OPTIONS=--max-old-space-size=512
         --destination=ghcr.io/visiban/visiban/frontend:latest
 
+# ─── Scheduled — release image survival ───────────────────────────────────────
+#
+# TruePPM's beta-readiness audit #0 (🔴 URGENT, see #1074): a GitLab
+# container-registry cleanup policy with no keep-regex deleted the released
+# v0.3.0-alpha.3 backend/frontend images days after that release shipped —
+# confirmed 404, no version-pinned install possible, rollback impossible. The
+# publish jobs had gone green; the images vanished afterward, from a project
+# setting that lives outside this repo and that no pipeline asserts. There is
+# no commit to review and no job that goes red on its own when that happens —
+# the only way to notice is to go look, on a schedule.
+#
+# Checks the newest vX.Y.Z release's backend/frontend images on BOTH
+# registries Visiban publishes to (${CI_REGISTRY_IMAGE} and
+# ghcr.io/visiban/visiban — see
+# docs/administration/container-image-retention.md for the retention setting
+# recorded on each). Runs on every scheduled pipeline, same slot helm-install
+# and helm-netpol already use, so this needs no new schedule infrastructure.
+# Deliberately NOT allow_failure (unlike those two): a self-hoster who cannot
+# pull the version the docs told them to run has no working install, so a
+# missing image is a release defect and must read red.
+#
+# `crane` (go-containerregistry) inspects manifests without a daemon or a
+# pull — kaniko-free, matching the rest of this repo's registry tooling.
+# Same docker-config auth shape as .kaniko-push-common, read-only here.
+check-release-images:
+  stage: deploy
+  needs: []
+  image: alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  before_script:
+    - apk add --no-cache bash git crane
+    - |
+      mkdir -p "$HOME/.docker"
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_TOKEN}" ]; then
+        AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > "$HOME/.docker/config.json"
+    # Scheduled pipelines otherwise clone at the project's default depth,
+    # which may not include every historical tag — fetch them explicitly so
+    # resolve_latest_release_tag() sees the real newest release.
+    - git fetch origin --tags --force
+  script:
+    - bash scripts/check-release-images.sh --self-test
+    - bash scripts/check-release-images.sh
+
 # ─── GitHub Release ────────────────────────────────────────────────────────────
 #
 # Runs only on version tag pipelines, after both images are confirmed pushed.

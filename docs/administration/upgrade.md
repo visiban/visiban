@@ -430,6 +430,35 @@ touched — so it is zero-downtime and requires no operator action.
     back to a column/swimlane on its own board via the API or admin, or archive it) since the
     correct destination cannot be inferred automatically.
 
+!!! warning "`APP_VERSION` is now required in `.env` — no more silent `latest` fallback"
+    `docker-compose.prod.yml` previously resolved `${APP_VERSION:-latest}` on the `backend`,
+    `backend-init`, `scheduler` and `frontend-build` services when `.env` did not set
+    `APP_VERSION`. 1.2 makes it fail-closed instead
+    (`${APP_VERSION:?APP_VERSION must be set in .env — see .env.example}`), matching the
+    `DB_PASSWORD`/`REDIS_PASSWORD`/`DOMAIN` pattern the rest of the file already uses. This
+    closes the gap TruePPM's audit named directly (#1074): the documented production path
+    pulled a mutable tag that could not be verified or rolled back, while every release image
+    is scanned, SBOM'd and signed **by digest**.
+
+    **If your `.env` already sets `APP_VERSION`** — the documented path since `.env.example`
+    has always shipped one — this changes nothing; `docker compose pull`/`up` resolve to the
+    exact same tag as before.
+
+    **If your `.env` does not set `APP_VERSION`** (a hand-rolled `.env` that skipped this line,
+    or one where it was later removed), `docker compose pull`/`up -d` and `init-prod.sh` now
+    fail immediately with a message telling you to set it, instead of silently resolving to
+    whatever `latest` currently points at. Add the line before upgrading:
+
+    ```bash
+    echo "APP_VERSION=v1.2.0" >> .env   # pin to the release you are deploying
+    ```
+
+    A scheduled CI job (`check-release-images`) now also runs on every scheduled CI pipeline
+    to verify that the newest released `backend`/`frontend` image tag is still pullable from
+    both the GitLab registry and GHCR — see
+    [Container image retention](container-image-retention.md). How often that actually is
+    depends on the project's configured pipeline schedule(s), not on this code.
+
 ### Upgrading to 1.1.x
 
 !!! warning "Removed env-var aliases — rename before upgrading"

@@ -11,10 +11,13 @@
 # not catch it and a gate does.
 #
 # SCOPE: third-party images only — a reference with no `${` in it. First-party
-# images are deliberately `${APP_VERSION:-latest}` so an operator selects the
-# release through .env, and whether that default should be `latest` is a
-# separate question. This gate takes no position on it and must not be widened
-# to, or it will re-open a settled decision as a pipeline failure.
+# images use `${APP_VERSION}` so an operator selects the release through .env;
+# since #1074 that reference is required/fail-closed
+# (`${APP_VERSION:?...}`), not defaulted to `latest`. Whether APP_VERSION
+# itself is actually set is `docker compose config`'s job to enforce at
+# startup, not this gate's — this gate only checks THIRD-PARTY pins, so it
+# takes no position on first-party `${...}` references and must not be
+# widened to, or it will re-open a settled decision as a pipeline failure.
 #
 # Usage:  scripts/check-compose-image-pins.sh [--self-test]
 # Exit:   0 all third-party images pinned · 1 at least one unpinned
@@ -117,8 +120,11 @@ if [[ "${1:-}" == "--self-test" ]]; then
   fi
 
   # Case 4: a ${VAR} first-party reference is NOT reported (scope guard).
+  # Uses the current fail-closed form (#1074) — the guard checks for `${`
+  # presence, not exact contents, so this would pass either way, but the
+  # fixture should still read as what the file actually contains.
   cp "$REPO_ROOT"/docker-compose.prod.yml "$tmp/docker-compose.prod.yml"
-  printf '\n  probe:\n    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}\n' >> "$tmp/docker-compose.prod.yml"
+  printf '\n  probe:\n    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set}\n' >> "$tmp/docker-compose.prod.yml"
   if ! run_check "$tmp" >/dev/null 2>&1; then
     echo "SELF-TEST FAILED: a first-party \${APP_VERSION} reference was reported; it is out of scope." >&2
     exit 1
@@ -150,8 +156,9 @@ An untagged image resolves to `latest`, so the version changes under the stack
 on any `docker compose pull` with no diff and no pipeline event. Pin it to a
 released tag, matching the sibling services in the same file.
 
-First-party images are intentionally `${APP_VERSION:-latest}` and are not
-checked here — see the SCOPE note at the top of this script.
+First-party images use `${APP_VERSION}` (required/fail-closed since #1074,
+not defaulted to `latest`) and are not checked here — see the SCOPE note at
+the top of this script.
 MSG
   exit 1
 fi

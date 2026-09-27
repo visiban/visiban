@@ -281,13 +281,26 @@ if ! grep -q "^## \[${VERSION}\] — ${TODAY}$" CHANGELOG.md; then
   exit 1
 fi
 
-# Pin docker-compose.prod.yml and Helm chart to the release version so users
-# deploying from the tag get the exact matching image, not "latest".
-sed -i '' "s|ghcr.io/visiban/visiban/backend:.*\"|ghcr.io/visiban/visiban/backend:${TAG}\"|" docker-compose.prod.yml
-sed -i '' "s|ghcr.io/visiban/visiban/frontend:.*\"|ghcr.io/visiban/visiban/frontend:${TAG}\"|" docker-compose.prod.yml
+# Pin the Helm chart to the release version so users deploying the chart get
+# the exact matching image, not a moving tag.
+#
+# docker-compose.prod.yml is deliberately NOT rewritten here (#1074).  It used
+# to be a candidate for the same treatment — two `sed` lines used to try to
+# replace the backend/frontend image references with a literal ${TAG}, but
+# they matched a quoted `"...:${APP_VERSION:-...}"` form this file has not
+# used since before `${APP_VERSION:-latest}` templating was introduced, so
+# they had been silently no-op-ing every release (the WARN check below caught
+# the resulting drift, but only as a review-time warning, never a blocker).
+# Rewriting the compose file's image line per release would also remove the
+# operator's ability to select a version via `.env` — the deliberate design
+# check-compose-image-pins.sh documents ("an operator selects the release
+# through .env"). The fix for the mutable-`latest` default is instead
+# fail-closed `${APP_VERSION:?...}` in docker-compose.prod.yml itself; see the
+# consistency check below, which now guards THAT instead of a release-tag pin
+# that was never actually happening.
 sed -i '' "s|^  tag: .*|  tag: \"${TAG}\"|" helm/visiban/values.yaml
 
-echo "Updated .env.example, docker-compose.yml, docker-compose.prod.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md"
+echo "Updated .env.example, docker-compose.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md"
 
 # Verify version consistency across key files
 echo "Verifying version consistency..."
@@ -342,9 +355,15 @@ if ! scripts/check-docs-version-accuracy.sh >&2; then
   ERRORS=$((ERRORS + 1))
 fi
 
-# docker-compose.prod.yml must reference the release tag
-if ! grep -q "visiban/backend:${TAG}" docker-compose.prod.yml; then
-  echo "  WARN: docker-compose.prod.yml does not reference backend image ${TAG}" >&2
+# docker-compose.prod.yml must still fail closed on a missing APP_VERSION —
+# not have drifted back to a silent `:-latest`/`:-` default (#1074). This
+# replaces a release-tag-pin check that had been silently passing/warning on
+# a rewrite (see the comment above the Helm pin, above) that was not actually
+# happening; check-compose-image-pins.sh deliberately does not cover this
+# (first-party ${APP_VERSION} references are out of its scope), so this is
+# the only gate that would catch that regression.
+if [[ "$(grep -c 'APP_VERSION:?' docker-compose.prod.yml)" -lt 4 ]]; then
+  echo "  WARN: docker-compose.prod.yml no longer fail-closes on APP_VERSION in all 4 places (backend-init/backend/scheduler/frontend-build) — check it has not reverted to a silent 'latest' default" >&2
   ERRORS=$((ERRORS + 1))
 fi
 
