@@ -215,6 +215,14 @@ sed -i '' "s|ghcr.io/visiban/visiban/frontend:v[^ ]*|ghcr.io/visiban/visiban/fro
 # Same v-prefixed tag form as .env.example above -- #1174.
 sed -i '' "s|^APP_VERSION=.*|APP_VERSION=${TAG}|" docs/getting-started/installation.md
 
+# Update docs/getting-started/kubernetes.md `helm upgrade --set ...image.tag=`
+# examples -- same v-prefixed tag form, and the same drift #1174 fixed for
+# installation.md. Anchored on `backend.image.tag=`/`frontend.image.tag=`
+# specifically so this does not touch the unrelated prose mention of
+# `backend.image.tag`/`frontend.image.tag` a few lines below the example.
+sed -i '' "s|backend\.image\.tag=v[^ ]*|backend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
+sed -i '' "s|frontend\.image\.tag=v[^ ]*|frontend.image.tag=${TAG}|" docs/getting-started/kubernetes.md
+
 # Update docs/index.md release candidate banner
 # Matches "**MAJOR.MINOR.PATCH-rc.N**" (just the version bolded, not the whole phrase)
 # and "Earlier release candidates (rc.1–rc.N) are superseded..."
@@ -304,7 +312,7 @@ fi
 # that was never actually happening.
 sed -i '' "s|^  tag: .*|  tag: \"${TAG}\"|" helm/visiban/values.yaml
 
-echo "Updated .env.example, docker-compose.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md"
+echo "Updated .env.example, docker-compose.yml, helm/visiban/values.yaml, frontend/package.json, CHANGELOG.md, README.md, docs/index.md, docs/getting-started/installation.md, docs/getting-started/kubernetes.md"
 
 # Verify version consistency across key files
 echo "Verifying version consistency..."
@@ -331,6 +339,17 @@ fi
 # docs/getting-started/installation.md must reference the v-prefixed tag
 if ! grep -q "APP_VERSION=${TAG}" docs/getting-started/installation.md; then
   echo "  WARN: docs/getting-started/installation.md does not reference APP_VERSION=${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+
+# docs/getting-started/kubernetes.md `helm upgrade --set ...image.tag=` examples
+# must reference the v-prefixed tag too (#1174)
+if ! grep -q "backend.image.tag=${TAG}" docs/getting-started/kubernetes.md; then
+  echo "  WARN: docs/getting-started/kubernetes.md does not reference backend.image.tag=${TAG}" >&2
+  ERRORS=$((ERRORS + 1))
+fi
+if ! grep -q "frontend.image.tag=${TAG}" docs/getting-started/kubernetes.md; then
+  echo "  WARN: docs/getting-started/kubernetes.md does not reference frontend.image.tag=${TAG}" >&2
   ERRORS=$((ERRORS + 1))
 fi
 

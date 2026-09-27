@@ -442,7 +442,10 @@ touched — so it is zero-downtime and requires no operator action.
 
     **If your `.env` already sets `APP_VERSION`** — the documented path since `.env.example`
     has always shipped one — this changes nothing; `docker compose pull`/`up` resolve to the
-    exact same tag as before.
+    exact same tag as before. `GET /api/v1/version/` now always returns bare semver
+    (`1.2.0`) even when `APP_VERSION=v1.2.0` (#1174) — previously it echoed `APP_VERSION`
+    verbatim, so a `v`-pinned install got `v1.1.0` back — so a script comparing the
+    endpoint's response to `$APP_VERSION` should strip a leading `v` before comparing.
 
     **If your `.env` does not set `APP_VERSION`** (a hand-rolled `.env` that skipped this line,
     or one where it was later removed), `docker compose pull`/`up -d` and `init-prod.sh` now
