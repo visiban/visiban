@@ -235,8 +235,8 @@ dockerfile-lint:
 
 # ─── Compose — shipped-stack hygiene ──────────────────────────────────────────
 #
-# Two gates over the compose files an operator actually runs. Both are cheap,
-# both cover a defect that was live in this repo, and neither is visible in a
+# Gates over the compose/nginx files an operator actually runs. All are cheap,
+# all cover a defect that was live in this repo, and none is visible in a
 # diff review:
 #
 #   * image pins — `certbot/certbot` shipped untagged in docker-compose.prod.yml
@@ -245,6 +245,10 @@ dockerfile-lint:
 #   * project names — docker-compose.prod.yml pinned no `name:` and dev defaulted
 #     to `visiban`, so on a default clone both resolved to the same project,
 #     sharing `visiban_pgdata` and the `db`/`valkey`/`backend` service names.
+#   * nginx HSTS rendering — nginx/app.conf.template hardcoded a 2-year HSTS
+#     header for both TLS_MODE=letsencrypt and selfsigned, contradicting the
+#     docs and ignoring an operator-set SECURE_HSTS_SECONDS; init-prod.sh now
+#     renders it via scripts/render-nginx-hsts.sh (#1201).
 #
 # Each runs its `--self-test` first, per #1093: a gate observed only on a clean
 # tree is indistinguishable from one that always passes.
@@ -257,6 +261,9 @@ compose-hygiene:
     - changes:
         - docker-compose*.yml
         - scripts/check-compose-*.sh
+        - nginx/app.conf.template
+        - init-prod.sh
+        - scripts/render-nginx-hsts.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
@@ -266,6 +273,7 @@ compose-hygiene:
     - bash scripts/check-compose-image-pins.sh
     - bash scripts/check-compose-project-names.sh --self-test
     - bash scripts/check-compose-project-names.sh
+    - bash scripts/render-nginx-hsts.sh --self-test
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 

@@ -47,10 +47,11 @@ server {
     # which contradicted the docs (selfsigned promises no HSTS by default so a
     # browser that has been told to trust the self-signed cert doesn't get
     # pinned to it for two years) and ignored an operator's SECURE_HSTS_SECONDS.
-    # init-prod.sh renders the line below in its place from SECURE_HSTS_SECONDS —
-    # the same env var Django's SecurityMiddleware reads — so there is one
-    # source of truth for the value. See docs/getting-started/installation.md
-    # (TLS modes) for the per-mode default.
+    # init-prod.sh calls scripts/render-nginx-hsts.sh, which renders the line
+    # below in its place from SECURE_HSTS_SECONDS — the same env var Django's
+    # SecurityMiddleware reads — so there is one source of truth for the
+    # value. See docs/getting-started/installation.md (TLS modes) for the
+    # per-mode default.
     __HSTS_HEADER_PLACEHOLDER__
     add_header X-Frame-Options           "DENY" always;
     add_header X-Content-Type-Options    "nosniff" always;
