@@ -85,12 +85,24 @@ Uses an existing Secret if postgresql.auth.existingSecret is set.
 
 {{/*
 Database URL — built from postgresql subchart or externalDatabase values.
+
+The credentials are percent-encoded: a password containing "/", "@", ":", "?"
+or "#" otherwise splits the URL in the wrong place, and the backend dies at
+import with an error that quotes part of the password. `openssl rand -base64`
+emits "/" in roughly half of its outputs. urlquery encodes a space as "+",
+which the backend's URL parser would keep literally, so it is rewritten to
+%20 (a literal "+" is already %2B by then). Alphanumeric credentials render
+unchanged.
 */}}
+{{- define "visiban.urlCredential" -}}
+{{- . | urlquery | replace "+" "%20" }}
+{{- end }}
+
 {{- define "visiban.databaseUrl" -}}
 {{- if .Values.postgresql.enabled }}
-{{- printf "postgres://%s:%s@%s-postgresql:5432/%s" .Values.postgresql.auth.username .Values.postgresql.auth.password .Release.Name .Values.postgresql.auth.database }}
+{{- printf "postgres://%s:%s@%s-postgresql:5432/%s" (include "visiban.urlCredential" .Values.postgresql.auth.username) (include "visiban.urlCredential" .Values.postgresql.auth.password) .Release.Name .Values.postgresql.auth.database }}
 {{- else }}
-{{- printf "postgres://%s:%s@%s:%d/%s" .Values.externalDatabase.username .Values.externalDatabase.password .Values.externalDatabase.host (.Values.externalDatabase.port | int) .Values.externalDatabase.database }}
+{{- printf "postgres://%s:%s@%s:%d/%s" (include "visiban.urlCredential" .Values.externalDatabase.username) (include "visiban.urlCredential" .Values.externalDatabase.password) .Values.externalDatabase.host (.Values.externalDatabase.port | int) .Values.externalDatabase.database }}
 {{- end }}
 {{- end }}
 

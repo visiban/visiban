@@ -50,7 +50,7 @@ Django uses `SECRET_KEY` to sign cookies, sessions, CSRF tokens, and password re
 
     ```bash
     # Docker Compose (production)
-    docker compose -f docker-compose.prod.yml up -d --build backend
+    docker compose -f docker-compose.prod.yml up -d backend
 
     # Kubernetes
     kubectl rollout restart deployment/visiban-backend -n visiban

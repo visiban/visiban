@@ -39,11 +39,15 @@ docker compose -f docker-compose.prod.yml exec db \
 
 Store the backup outside the container. A local file on the host is sufficient for most deployments; offsite storage is recommended for production.
 
-### 2. Pull the new image and rebuild
+### 2. Point `APP_VERSION` at the new release and pull it
+
+The production stack runs the released images named by `APP_VERSION` in `.env`
+and builds nothing locally, so changing that line is what selects the new
+version — without it, `pull` fetches the version you already run.
 
 ```bash
+# In .env: APP_VERSION=vX.Y.Z   (the release you are upgrading to)
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml build --no-cache backend frontend-build
 ```
 
 ### 3. Run migrations
@@ -161,16 +165,13 @@ the authoring rules.
 !!! warning
     Running `migrate` inside the container startup command is unsafe when `backendReplicaCount > 1`.
 
-The default `docker-compose.prod.yml` backend command is:
-
-```yaml
-command: >
-  sh -c "python manage.py migrate &&
-         python manage.py ensure_site_admin &&
-         daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"
-```
-
-This is convenient for single-server deployments: the one backend container migrates and then starts. However, if you scale the backend to more than one replica — whether via Docker Swarm, Kubernetes, or a second Compose host — every replica races to apply the same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.
+`docker-compose.prod.yml` already keeps migrations out of the backend container: the
+one-shot `backend-init` service runs `migrate` and `collectstatic`, and `backend` starts only
+after it exits successfully. The backend container itself runs only the idempotent
+`ensure_site_admin` bootstrap before `daphne`. The risk below applies if you replace that
+layout with a startup command that migrates — for example on Docker Swarm, a second Compose
+host, or a hand-written Kubernetes manifest — because then every replica races to apply the
+same migrations on startup. Django's migration executor is not safe to run concurrently: two containers applying the same migration at the same time will conflict at the database level and may leave the schema in an inconsistent state.
 
 **Recommended approach for multi-replica deployments:**
 
@@ -667,13 +668,13 @@ touched — so it is zero-downtime and requires no operator action.
 
     ```bash
     # Generate a strong random password and insert it into .env
-    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -base64 32)|" .env
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -hex 32)|" .env
     ```
 
     Or generate a value manually and add it:
 
     ```bash
-    openssl rand -base64 32
+    openssl rand -hex 32   # hex, not base64: a "/" in the password breaks the redis:// URL
     # Copy the output, then add to .env:
     REDIS_PASSWORD=<generated value>
     ```

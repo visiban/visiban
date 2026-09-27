@@ -34,6 +34,23 @@ set +a
 # later) error on the first `up`/`pull`.
 : "${APP_VERSION:?Set APP_VERSION=vX.Y.Z in .env — see .env.example for the version this checkout was released with. It no longer defaults to the mutable 'latest' tag.}"
 
+# docker-compose.prod.yml splices these passwords raw into postgres:// and
+# redis:// URLs, and Compose cannot percent-encode. A "/", "?", "#" or "%" (or
+# whitespace) moves the host into the path and the backend cannot start.
+# `openssl rand -base64` emits "/" in about half of its outputs, so refuse early
+# with the fix rather than after the images are pulled.
+for var in DB_PASSWORD REDIS_PASSWORD; do
+  if [[ -z "${!var:-}" ]]; then
+    echo "ERROR: Set ${var} in .env — generate one with: openssl rand -hex 32"
+    exit 1
+  fi
+  if [[ "${!var}" =~ [/?#%[:space:]] ]]; then
+    echo "ERROR: ${var} contains a character (/ ? # % or whitespace) that breaks the"
+    echo "       connection URL it is placed into. Regenerate it with: openssl rand -hex 32"
+    exit 1
+  fi
+done
+
 TLS_MODE="${TLS_MODE:-letsencrypt}"
 
 # ---------------------------------------------------------------------------
@@ -88,7 +105,7 @@ case "${TLS_MODE}" in
       docker run --rm \
         -p 80:80 \
         -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
-        certbot/certbot certonly --standalone \
+        certbot/certbot:v5.8.0 certonly --standalone \
         --email "${CERTBOT_EMAIL}" \
         --agree-tos \
         --no-eff-email \
@@ -167,6 +184,13 @@ if [[ "${TLS_MODE}" == "letsencrypt" ]]; then
 else
   docker compose ${COMPOSE_ARGS} up -d
 fi
+
+# nginx renders nginx/active.conf.template and loads the certificate only when
+# it starts, and `up -d` leaves a running nginx alone because its own compose
+# config never changes. Without this restart, re-running this script to switch
+# TLS_MODE or to pick up a regenerated certificate silently kept serving the
+# old config.
+docker compose ${COMPOSE_ARGS} restart nginx >/dev/null
 
 echo ""
 case "${TLS_MODE}" in

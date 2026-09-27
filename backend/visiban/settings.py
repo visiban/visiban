@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+from urllib.parse import urlparse
 import environ
 from django.core.exceptions import ImproperlyConfigured
 from pathlib import Path
@@ -208,11 +209,37 @@ if _TESTING:
         }
     }
 else:
+    _REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+    _REDIS_CACHE_URL = env("REDIS_CACHE_URL", default="redis://localhost:6379/1")
+    # A password containing "/", "@", ":", "?" or "#" spliced raw into the URL
+    # (docker-compose.prod.yml builds these from REDIS_PASSWORD) moves the host
+    # into the path. Nothing fails here — the backend just boots pointing at no
+    # host and every WebSocket and cache call fails later, far from the cause.
+    # Fail at startup instead, and never echo the URL: it carries the password.
+    for _name, _url in (("REDIS_URL", _REDIS_URL), ("REDIS_CACHE_URL", _REDIS_CACHE_URL)):
+        _parsed = urlparse(_url)
+        try:
+            _parsed.port  # noqa: B018 — raises ValueError on a malformed port
+            # An empty netloc (redis:///0) is a valid "default host" URL; a
+            # netloc that yields no hostname is the broken-password case.
+            _bad = (
+                _parsed.scheme in ("redis", "rediss")
+                and bool(_parsed.netloc)
+                and not _parsed.hostname
+            )
+        except ValueError:
+            _bad = True
+        if _bad:
+            raise ImproperlyConfigured(
+                f"{_name} could not be parsed into a host. If its password contains "
+                "any of / @ : ? # % or a space, percent-encode them, or generate the "
+                "password with `openssl rand -hex 32`."
+            )
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+                "hosts": [_REDIS_URL],
             },
         },
     }
@@ -222,12 +249,26 @@ else:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": env("REDIS_CACHE_URL", default="redis://localhost:6379/1"),
+            "LOCATION": _REDIS_CACHE_URL,
         }
     }
 
+# Same failure class as the Redis URLs above, but louder: a "/" in the password
+# (docker-compose.prod.yml splices DB_PASSWORD in raw) makes the parser read the
+# text before it as the port, and its ValueError quotes that text — a fragment
+# of the database password, printed to the container log. Re-raise without the
+# original message (`from None` also drops the chained traceback).
+try:
+    _DEFAULT_DB = env.db("DATABASE_URL")
+except ValueError:
+    raise ImproperlyConfigured(
+        "DATABASE_URL could not be parsed. If its password contains any of "
+        "/ @ : ? # % or a space, percent-encode them, or generate the password "
+        "with `openssl rand -hex 32`."
+    ) from None
+
 DATABASES = {
-    "default": env.db("DATABASE_URL"),
+    "default": _DEFAULT_DB,
 }
 
 AUTH_USER_MODEL = "accounts.User"

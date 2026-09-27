@@ -89,7 +89,7 @@ Set `backend.email.*` explicitly only if you want env-only email configuration â
     sed -i "s|djangoSecretKey:.*|djangoSecretKey: \"${DJANGO_KEY}\"|" helm/visiban/values.secret.yaml
 
     # Generate PostgreSQL password
-    PG_PASS=$(openssl rand -base64 32)
+    PG_PASS=$(openssl rand -hex 32)
     sed -i "s|password:.*# strong random password|password: \"${PG_PASS}\"  # strong random password|" helm/visiban/values.secret.yaml
     ```
 
@@ -278,6 +278,11 @@ externalDatabase:
 
 valkey:
   enabled: false
+
+# The chart percent-encodes the username and password when it builds the
+# connection URL, so give them verbatim. (Before this was fixed, a password
+# containing "/" broke the URL; if you percent-encoded yours by hand to work
+# around that, put the plain value back before upgrading, or it is encoded twice.)
 
 externalRedis:
   url: "redis://valkey.example.com:6379/0"

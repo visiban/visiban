@@ -51,19 +51,20 @@ services:
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a $$REDIS_PASSWORD --no-auth-warning ping"]
+      test: ["CMD-SHELL", "valkey-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  # Runs migrations, collectstatic, and admin bootstrap once before the backend
-  # starts. Exits 0 on success; the backend service waits for this to complete.
+  # Runs migrations and collectstatic once before the backend starts. Exits 0 on
+  # success; the backend service waits for this to complete. The admin
+  # bootstrap (ensure_site_admin) runs in the backend container instead — see
+  # the comment there.
   backend-init:
     image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
     command: >
       sh -c "python manage.py migrate --noinput &&
-             python manage.py collectstatic --noinput &&
-             python manage.py ensure_site_admin"
+             python manage.py collectstatic --noinput"
     env_file:
       - .env
     environment:
@@ -81,7 +82,13 @@ services:
 
   backend:
     image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
-    command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "visiban.asgi:application"]
+    # ensure_site_admin runs HERE, not in backend-init: it writes the one-time
+    # admin password to /tmp/visiban_admin_password, and a file written in the
+    # one-shot backend-init container vanished with it — so the documented
+    # `exec backend cat /tmp/visiban_admin_password` found nothing and a fresh
+    # install had no way to its first login. It is idempotent (a no-op once a
+    # site admin exists), so running it on every start is safe.
+    command: ["sh", "-c", "python manage.py ensure_site_admin && exec daphne -b 0.0.0.0 -p 8000 visiban.asgi:application"]
     restart: unless-stopped
     read_only: true
     security_opt:
@@ -100,8 +107,14 @@ services:
     depends_on:
       backend-init:
         condition: service_completed_successfully
+    # The probe sends Host: $DOMAIN — the Host nginx forwards for real traffic,
+    # and one ALLOWED_HOSTS must already contain. A bare urlopen() sent
+    # Host: localhost, which ALLOWED_HOSTS=<your domain> rejects with a 400, so
+    # the backend never turned healthy and nginx (which waits on it) never
+    # started. Adding localhost to ALLOWED_HOSTS instead would let any client
+    # reach Django with that Host through nginx's catch-all server block.
     healthcheck:
-      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/health/liveness/\")'"]
+      test: ["CMD-SHELL", "python -c 'import os, urllib.request as u; u.urlopen(u.Request(\"http://localhost:8000/api/health/liveness/\", headers={\"Host\": os.environ[\"DOMAIN\"]}))'"]
       interval: 15s
       timeout: 5s
       start_period: 30s
@@ -157,6 +170,9 @@ services:
       - /var/cache/nginx
       - /var/run
       - /tmp
+      # The rendered config is written here at startup; the rest of the root
+      # filesystem stays read-only.
+      - /etc/nginx/conf.d
     ports:
       - "80:80"
       - "443:443"
@@ -164,12 +180,16 @@ services:
     # based on TLS_MODE. envsubst renders it at container startup.
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN must be set in .env}
-    command: >
-      /bin/sh -c
-      "envsubst '$${DOMAIN}'
-       < /etc/nginx/templates/default.conf.template
-       > /etc/nginx/conf.d/default.conf
-       && nginx -g 'daemon off;'"
+    # Exec form on one line on purpose. The previous folded (`>`) scalar kept
+    # the newlines of its more-indented continuation lines, so sh ran the
+    # redirections as separate commands and died on a bare `&&` — nginx
+    # crash-looped on every install.
+    #
+    # The background loop reloads nginx every 6 hours so a certificate the
+    # certbot service renewed is actually served; nginx otherwise keeps the
+    # certificate it loaded at startup until that one expires. A reload with
+    # nothing changed is a no-op.
+    command: ["/bin/sh", "-c", "envsubst '$${DOMAIN}' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf || exit 1; (while :; do sleep 6h; nginx -s reload; done) & exec nginx -g 'daemon off;'"]
     volumes:
       - ./nginx/active.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./certbot/conf:/etc/letsencrypt:ro
