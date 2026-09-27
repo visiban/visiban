@@ -2042,11 +2042,13 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
     user = BoardUserSerializer(read_only=True)
     role = serializers.ChoiceField(choices=EFFECTIVE_BOARD_ROLE_CHOICES, read_only=True)
     # Not read_only: drf-spectacular marks every read-only field required, and
-    # get_members() omits this one for viewers below admin (#920). Schema-only,
-    # so nothing can write through it.
+    # get_members() omits this one for viewers below admin (#920), except on
+    # the requesting user's own row (#1173). Schema-only, so nothing can
+    # write through it.
     is_moderator = serializers.BooleanField(
         required=False,
-        help_text="Present only when the requesting user is an admin or site admin.",
+        help_text="Present when the requesting user is an admin or site admin, "
+                  "or on the row belonging to the requesting user themselves.",
     )
     joined_at = serializers.DateTimeField(read_only=True)
 
@@ -2349,7 +2351,10 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 # non-admin member promoted to moderator would never see their
                 # own moderator controls (#1173). Reveal it only for the row
                 # that is the requesting user; every other non-admin-visible
-                # row still omits it.
+                # row still omits it. The WS member.* broadcasts and the
+                # change-feed reader (BoardEventSerializer) have the same
+                # self-row gap and do not yet have this exception — tracked
+                # separately as #1191.
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)
         return result
