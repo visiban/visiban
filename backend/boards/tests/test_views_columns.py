@@ -90,6 +90,51 @@ class ColumnCRUDTests(TestCase):
         new_pos = Column.objects.get(pk=r.json()["id"]).position
         self.assertGreater(new_pos, col2.position)
 
+    def test_create_column_duplicate_name_returns_400_not_500(self):
+        # Reproduces #1166: IntegrityError on unique_together(board, name) at
+        # perform_create previously reached the database unguarded.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/",
+            {"name": self.col.name, "color": "#123456"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+
+    @patch(PATCH_BROADCAST)
+    def test_update_column_duplicate_name_returns_400_not_500(self, _):
+        # Reproduces #1166: IntegrityError on unique_together(board, name) at
+        # perform_update previously reached the database unguarded.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{col2.id}/",
+            {"name": self.col.name},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+
+    @patch(PATCH_BROADCAST)
+    def test_update_column_duplicate_position_returns_400_not_500(self, _):
+        # Reproduces #1166: IntegrityError on unique_together(board, position) at
+        # perform_update previously reached the database unguarded.
+        col2 = Column.objects.create(board=self.board, name="Col2", position=1)
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/columns/{col2.id}/",
+            {"position": self.col.position},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("position", r.json())
+
+    def test_reorder_columns_with_non_integer_id_returns_400_not_500(self):
+        # Reproduces #1166: ValueError from int("not-an-id") previously reached
+        # the caller unguarded.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/columns/reorder/",
+            {"order": ["not-an-id"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+
 
 # ---------------------------------------------------------------------------
 # Swimlanes
@@ -136,6 +181,17 @@ class SwimlaneCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
+    def test_reorder_swimlanes_with_non_integer_id_returns_400_not_500(self):
+        # Reproduces #1166: ValueError from int("not-an-id") previously reached
+        # the caller unguarded.
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/swimlanes/reorder/",
+            {"order": ["not-an-id"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("order", r.json())
+
 
 # ---------------------------------------------------------------------------
 # Labels
@@ -158,6 +214,18 @@ class LabelCRUDTests(TestCase):
         self.assertEqual(r.json()["name"], "Bug")
 
     @patch(PATCH_BROADCAST)
+    def test_create_label_duplicate_name_returns_400_not_500(self, _):
+        # Reproduces #1166: IntegrityError on unique_together(board, name) at
+        # perform_create previously reached the database unguarded.
+        Label.objects.create(board=self.board, name="Bug", color="#F00")
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/labels/",
+            {"name": "Bug", "color": "#FF0000"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
+
+    @patch(PATCH_BROADCAST)
     def test_update_label(self, _):
         label = Label.objects.create(board=self.board, name="Bug", color="#F00")
         r = self.client.patch(
@@ -166,6 +234,21 @@ class LabelCRUDTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(r.json()["name"], "Feature")
+
+    @patch(PATCH_BROADCAST)
+    def test_update_label_duplicate_name_returns_400_not_500(self, _):
+        # Reproduces #1166: IntegrityError on unique_together(board, name) at
+        # perform_update previously reached the database unguarded. The issue's
+        # AC only listed POST, but perform_update was hardened the same way
+        # since the same constraint applies to a rename.
+        Label.objects.create(board=self.board, name="Bug", color="#F00")
+        label2 = Label.objects.create(board=self.board, name="Feature", color="#0F0")
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/labels/{label2.id}/",
+            {"name": "Bug"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.json())
 
     @patch(PATCH_BROADCAST)
     def test_delete_label(self, _):

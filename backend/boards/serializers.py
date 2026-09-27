@@ -156,6 +156,36 @@ class ColumnSerializer(serializers.ModelSerializer):
         fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation", "is_done"]
         read_only_fields = ["uid"]
 
+    def validate(self, attrs):
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is not None:
+            instance = self.instance
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = Column.objects.filter(board=board, name=name)
+                if instance is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A column with this name already exists on this board."
+                    })
+            # Position is only checked on update: on create the viewset always
+            # overrides it with the next free slot (see ColumnViewSet.perform_create),
+            # so a client-supplied value there is discarded before it can collide.
+            if instance is not None and "position" in attrs:
+                position = attrs["position"]
+                clash = Column.objects.filter(board=board, position=position).exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "position": "A column already occupies this position on this board."
+                    })
+        return attrs
+
 
 @extend_schema_field({
     "type": "array",
@@ -391,6 +421,26 @@ class LabelSerializer(serializers.ModelSerializer):
         model = Label
         fields = ["id", "uid", "name", "color"]
         read_only_fields = ["uid"]
+
+    def validate(self, attrs):
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is not None:
+            instance = self.instance
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = Label.objects.filter(board=board, name=name)
+                if instance is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A label with this name already exists on this board."
+                    })
+        return attrs
 
 
 # ---------------------------------------------------------------------------
@@ -1756,7 +1806,15 @@ class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
-    group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
+    # A SerializerMethodField, not `CharField(source="group.name", default=None)`:
+    # DRF's Field.get_default() unconditionally raises SkipField() whenever the
+    # root serializer is bound with partial=True (see fields.py), regardless of
+    # whether a `default` was set. A dotted source through a nullable `group` FK
+    # falls back to get_default() to resolve the None traversal, so on every
+    # PATCH (partial update) the field silently vanished from the response
+    # instead of serializing as null (#1166). SerializerMethodField calls the
+    # method directly and never consults get_default(), so it is immune to it.
+    group_name = serializers.SerializerMethodField(allow_null=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     allowed_priorities = AllowedPrioritiesField(
@@ -1933,6 +1991,9 @@ class BoardSerializer(serializers.ModelSerializer):
         if hasattr(obj, "_card_count"):
             return obj._card_count
         return obj.cards.count()
+
+    def get_group_name(self, obj) -> str | None:
+        return obj.group.name if obj.group_id else None
 
     def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):

@@ -17,7 +17,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from boards.models import Board, BoardMembership
+from boards.models import Board, BoardExportLog, BoardMembership
 from boards.serializers import BoardFullSerializer, BoardSerializer
 from boards.tests.conftest import _make_board
 from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonschema
@@ -71,6 +71,58 @@ class BoardSchemaContractTests(TestCase):
         resp = self.client.get("/api/v1/boards/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self._assert_valid(resp.json(), self._response_schema("/api/v1/boards/"))
+
+    def test_board_patch_without_group_matches_schema(self):
+        """Reproduces #1166: on a partial update, DRF's Field.get_default()
+        unconditionally raises SkipField() (see fields.py), so a dotted-source
+        CharField resolving a null `group` FK via its `default` silently
+        vanished from the PATCH response instead of serializing as null.
+        """
+        board = _make_board(self.user)
+        resp = self.client.patch(f"/api/v1/boards/{board.pk}/", {"name": "Renamed"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        body = resp.json()
+        self.assertIn("group_name", body)
+        self.assertIsNone(body["group_name"])
+        self._assert_valid(
+            body, self._response_schema("/api/v1/boards/{id}/", method="patch")
+        )
+
+    def test_board_patch_with_group_matches_schema(self):
+        """Sibling of the ungrouped case above: on a grouped board, a partial
+        update must still resolve `group_name` to the group's actual name (not
+        null, not absent) — the SkipField()-under-partial pitfall only bites
+        the None-FK traversal, but this proves get_group_name() also does the
+        right thing for the non-None path under partial=True.
+        """
+        board = _make_board(self.user)
+        board.group = Group.objects.create(name="Team", owner=self.user)
+        board.save(update_fields=["group"])
+        resp = self.client.patch(f"/api/v1/boards/{board.pk}/", {"name": "Renamed"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        body = resp.json()
+        self.assertEqual(body["group_name"], "Team")
+        self._assert_valid(
+            body, self._response_schema("/api/v1/boards/{id}/", method="patch")
+        )
+
+    def test_export_history_matches_schema(self):
+        """Reproduces #1166: with no `@extend_schema(responses=...)` on the
+        action, drf-spectacular fell back to the viewset's default
+        `BoardSerializer` for the response — but this action actually returns
+        a paginated list of `BoardExportLog` rows, an unrelated shape, so every
+        real response failed schema conformance.
+        """
+        board = _make_board(self.user)
+        BoardExportLog.objects.create(
+            board=board, actor=self.user,
+            role_at_export="admin", export_format="json", row_count=1,
+        )
+        resp = self.client.get(f"/api/v1/boards/{board.pk}/export-history/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self._assert_valid(
+            resp.json(), self._response_schema("/api/v1/boards/{id}/export-history/")
+        )
 
     def test_board_full_redeclared_fields_are_typed(self):
         """BoardFull redeclares Board's fields; they must be typed there too.

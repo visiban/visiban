@@ -1601,6 +1601,17 @@ class BoardImportExportMixin:
         )
         return response
 
+    @extend_schema(
+        summary="Board export history",
+        description="Admin only. Recent export audit log entries for this board, newest first.",
+        # Without this, drf-spectacular falls back to the viewset's default
+        # `serializer_class` (BoardSerializer) for the response, which does not
+        # match what this action actually returns and fails schema-conformance
+        # checks (#1166). `many=True` plus the view's configured paginator is
+        # what tells drf-spectacular to wrap it in the {count, offset, page_size,
+        # results} envelope `get_paginated_response()` produces.
+        responses=BoardExportLogSerializer(many=True),
+    )
     @action(detail=True, methods=["get"], url_path="export-history")
     def export_history(self, request, pk=None):
         """Return recent ``BoardExportLog`` rows for this board (#842).
