@@ -4,6 +4,15 @@ interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  // Opt-in alternative to `disabled` (#1159). Native `disabled` removes the
+  // element from the tab order, so a reason shown alongside it (via
+  // `aria-describedby`) is reachable only in screen-reader browse mode, never
+  // by keyboard focus. `ariaDisabled` keeps the switch focusable and renders
+  // `aria-disabled` instead of the native attribute; click and keyboard
+  // (Space/Enter) activation are both ignored, and the same disabled visual
+  // styling is kept. Use this whenever a disabled reason is shown next to the
+  // switch; keep plain `disabled` everywhere else.
+  ariaDisabled?: boolean;
   id?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -13,7 +22,8 @@ interface ToggleProps {
   "aria-describedby"?: string;
 }
 
-export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: ToggleProps) {
+export function Toggle({ checked, onChange, disabled, ariaDisabled, id, "aria-label": ariaLabel, "aria-labelledby": ariaLabelledBy, "aria-describedby": ariaDescribedBy }: ToggleProps) {
+  const inertToActivation = disabled || ariaDisabled;
   return (
     <button
       type="button"
@@ -24,10 +34,17 @@ export function Toggle({ checked, onChange, disabled, id, "aria-label": ariaLabe
       aria-labelledby={ariaLabelledBy}
       aria-describedby={ariaDescribedBy}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
+      aria-disabled={ariaDisabled ? true : undefined}
+      onClick={() => {
+        // Guards both mouse click and keyboard activation: a native <button>
+        // fires a click event for Space/Enter, so blocking here is enough —
+        // no separate onKeyDown handler is needed (#1159).
+        if (inertToActivation) return;
+        onChange(!checked);
+      }}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-40 ${
-        checked ? "bg-primary" : "bg-surface-active"
-      }`}
+        ariaDisabled ? "cursor-not-allowed opacity-40" : ""
+      } ${checked ? "bg-primary" : "bg-surface-active"}`}
     >
       <span
         className={`inline-block h-3.5 w-3.5 rounded-full bg-fg shadow transition-transform ${

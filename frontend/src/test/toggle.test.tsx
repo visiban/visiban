@@ -89,3 +89,49 @@ describe('Toggle aria-describedby', () => {
     expect(screen.getByRole('switch')).not.toHaveAttribute('aria-describedby')
   })
 })
+
+describe('Toggle ariaDisabled', () => {
+  it('stays in the tab order (unlike native disabled)', () => {
+    render(<Toggle checked={false} onChange={vi.fn()} ariaDisabled aria-label="Email" />)
+    const toggle = screen.getByRole('switch')
+    expect(toggle).not.toBeDisabled()
+    expect(toggle).not.toHaveAttribute('disabled')
+    toggle.focus()
+    expect(toggle).toHaveFocus()
+  })
+
+  it('renders aria-disabled="true"', () => {
+    render(<Toggle checked={false} onChange={vi.fn()} ariaDisabled aria-label="Email" />)
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('omits aria-disabled when not set', () => {
+    render(<Toggle checked={false} onChange={vi.fn()} aria-label="Email" />)
+    expect(screen.getByRole('switch')).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('ignores click activation', async () => {
+    const onChange = vi.fn()
+    render(<Toggle checked={false} onChange={onChange} ariaDisabled aria-label="Email" />)
+    await userEvent.setup().click(screen.getByRole('switch'))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('ignores keyboard activation (Enter and Space) while focused', async () => {
+    const onChange = vi.fn()
+    render(<Toggle checked={false} onChange={onChange} ariaDisabled aria-label="Email" />)
+    const user = userEvent.setup()
+    const toggle = screen.getByRole('switch')
+    toggle.focus()
+    await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('keeps native disabled behavior unchanged when ariaDisabled is not used', () => {
+    render(<Toggle checked={false} onChange={vi.fn()} disabled aria-label="Email" />)
+    const toggle = screen.getByRole('switch')
+    expect(toggle).toBeDisabled()
+    expect(toggle).not.toHaveAttribute('aria-disabled')
+  })
+})

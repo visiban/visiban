@@ -70,6 +70,13 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
             "CardChecklist.created_by must be nullable: SET_NULL, and pre-migration rows are null",
         )
 
+    def test_card_created_by_is_nullable(self):
+        """Card.created_by is a SET_NULL FK — a deleted creator yields null (#1138)."""
+        self.assertTrue(
+            self._prop("Card", "created_by").get("nullable"),
+            "Card.created_by must be nullable: the FK is SET_NULL with null=True",
+        )
+
     def test_group_brief_parent_name_is_nullable(self):
         """A root group has no parent, so `source="parent.name"` resolves to None."""
         self.assertTrue(
