@@ -176,10 +176,12 @@ export default function LoginPage({ onLogin }: Props) {
   const nextResetLabel = demoNextResetAt ? formatClockTime(demoNextResetAt) : "";
   // The cadence sentence is derived from the server's cron, never assumed:
   // only the hourly schedule may promise "every hour, on the hour". Any other
-  // schedule (e.g. the nightly Compose path) falls back to a cadence-neutral
-  // sentence; the exact next reset time below is always accurate.
+  // schedule falls back to a cadence-neutral sentence; the exact next reset
+  // time below is always accurate. No `=== null` fallback here (#1180): an
+  // absent schedule now means "no reset scheduled" and is handled entirely by
+  // the nextResetLabel branch below, not by assuming an hourly cadence.
   const cadenceText =
-    demoResetSchedule === null || demoResetSchedule === "0 * * * *" || demoResetSchedule === "@hourly"
+    demoResetSchedule === "0 * * * *" || demoResetSchedule === "@hourly"
       ? "Resets every hour, on the hour"
       : "Resets on a regular schedule";
 
@@ -230,7 +232,7 @@ export default function LoginPage({ onLogin }: Props) {
                   local time). Everything you change is erased and you will be signed out.
                 </>
               ) : (
-                <>Other visitors can see everything you change.</>
+                <>Other visitors can see and change everything here, and it is never reset.</>
               )}
             </p>
             <button
