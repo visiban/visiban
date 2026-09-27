@@ -766,7 +766,7 @@ backend-schema-fuzz:
     # Fresh seed per run for coverage, but recorded up front (a crash before
     # st's own summary would otherwise lose it) and pinned via FUZZ_SEED to replay.
     - echo "${FUZZ_SEED:-$(python3 -c 'import secrets; print(secrets.randbits(64))')}" > /tmp/fuzz_seed
-    - echo "backend-schema-fuzz seed=$(cat /tmp/fuzz_seed)  (replay: run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
+    - echo "backend-schema-fuzz seed=$(cat /tmp/fuzz_seed)  (to replay, run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
     - |
       st run http://localhost:8000/api/schema/ \
         --seed "$(cat /tmp/fuzz_seed)" \
