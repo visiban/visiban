@@ -1536,6 +1536,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate limiting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#self-hosted-docker-compose-deployment-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3667,6 +3678,11 @@
 </tbody>
 </table>
 <p>Both resources are read-only and require only the <code>mcp:read</code> scope. See <a href="../../api/mcp/#resources">API Reference — MCP Server — Resources</a> for the exact response shape.</p>
+<h2 id="rate-limiting">Rate limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>Every tool call and resource read counts against a per-token limit (<code>300/min</code> by default, configurable via <code>MCP_THROTTLE_READ_RATE</code>), and <code>list_cards</code>/<code>board://{board_id}</code> additionally count against a tighter, second limit for expensive reads (<code>30/min</code> by default, <code>MCP_THROTTLE_COMPUTE_RATE</code>). Limits are per token, not per IP, and hold across every backend replica. A call over the limit gets a structured error with a <code>retry_after</code> hint instead of hanging or 500ing. See <a href="../../api/mcp/#rate-limiting">API Reference — MCP Server — Rate limiting</a> for the exact settings, defaults, and error shape.</p>
 <h2 id="self-hosted-docker-compose-deployment-notes">Self-hosted / Docker Compose deployment notes<a class="headerlink" href="#self-hosted-docker-compose-deployment-notes" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The <code>/mcp</code> endpoint is served on the same port as the Django app — no additional container, process, or ingress rule is needed. If you terminate TLS behind a reverse proxy, disable response buffering on the <code>/mcp</code> location (the bundled Nginx templates and Helm chart already do this).</li>

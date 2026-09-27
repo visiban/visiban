@@ -2132,6 +2132,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#rate-limiting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate limiting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Rate limiting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#throttled-tool-calls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Throttled tool calls
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#throttled-resource-reads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Throttled resource reads
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#connecting-a-client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3867,9 +3906,59 @@
 </table>
 <p>Authentication is enforced at the transport layer, before any MCP protocol frame is parsed — an unauthenticated caller cannot reach the protocol machinery at all. The <code>401</code> body is a JSON-RPC error envelope so that spec-compliant clients surface a useful message.</p>
 <hr />
+<h2 id="rate-limiting">Rate limiting<a class="headerlink" href="#rate-limiting" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
+<p>DRF's request throttles (<code>DEFAULT_THROTTLE_RATES</code>) never apply to <code>/mcp</code> — the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. <code>/mcp</code> instead has its own per-token limiter, keyed on the presented Personal Access Token (never on IP, and never on the raw token value), so limits hold regardless of which network or proxy a caller connects through, and hold across every backend replica because they share the same cache backend the REST throttles already use.</p>
+<p>Two limits stack on every call:</p>
+<table>
+<thead>
+<tr>
+<th>Bucket</th>
+<th>Applies to</th>
+<th>Default</th>
+<th>Setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline (read)</td>
+<td>Every tool call and every resource read</td>
+<td><code>300/min</code> per token</td>
+<td><code>MCP_THROTTLE_READ_RATE</code></td>
+</tr>
+<tr>
+<td>Compute</td>
+<td><code>list_cards</code> and <code>board://{board_id}</code> only, <strong>in addition to</strong> the baseline limit above</td>
+<td><code>30/min</code> per token</td>
+<td><code>MCP_THROTTLE_COMPUTE_RATE</code></td>
+</tr>
+</tbody>
+</table>
+<p>A call to <code>list_cards</code> or <code>board://{board_id}</code> spends a unit from <strong>both</strong> buckets; every other tool/resource spends only the baseline unit. There is no <code>DEBUG</code>-time bypass — unlike the REST throttle rates, these apply the same way in local development, since a runaway loop in an agent under development is exactly the case the compute bucket exists to catch.</p>
+<p>This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.</p>
+<p>Both settings accept the same <code>&lt;count&gt;/&lt;period&gt;</code> syntax as DRF's throttle rates (<code>m</code>/<code>min</code>, <code>h</code>/<code>hour</code>, <code>s</code>/<code>sec</code>, <code>d</code>/<code>day</code> — e.g. <code>"300/min"</code>, <code>"20/hour"</code>). An operator who never sets either variable still gets the defaults above, not an unlimited server. A rate string that fails to parse raises <code>ImproperlyConfigured</code> at startup rather than silently disabling the limit.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">MCP_THROTTLE_READ_RATE</span><span class="o">=</span><span class="m">300</span>/min
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">MCP_THROTTLE_COMPUTE_RATE</span><span class="o">=</span><span class="m">30</span>/min
+</code></pre></div>
+<h3 id="throttled-tool-calls">Throttled tool calls<a class="headerlink" href="#throttled-tool-calls" title="Permanent link">&para;</a></h3>
+<p>A tool call over its limit returns a structured error as an ordinary result, exactly like every other tool-level error documented above — never a <code>429</code> or a transport-level failure:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"throttled"</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Rate limit exceeded for this token (mcp_read). Retry after 12 second(s)."</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">"retry_after"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>retry_after</code> is a whole number of seconds; an agent should wait at least that long before retrying the same call.</p>
+<h3 id="throttled-resource-reads">Throttled resource reads<a class="headerlink" href="#throttled-resource-reads" title="Permanent link">&para;</a></h3>
+<p>Resources have no structured-error return path (see <a href="#resource-errors">Resource errors</a> below), so a throttled <code>board://</code>/<code>card://</code> read surfaces the same way any other resource failure does: as a JSON-RPC-level error whose message includes the retry hint, e.g. <code>Rate limit exceeded for this token (mcp_compute). Retry after 4 second(s).</code> — rather than as a <code>{"error": {...}}</code> payload in the resource's content.</p>
+<hr />
 <h2 id="connecting-a-client">Connecting a client<a class="headerlink" href="#connecting-a-client" title="Permanent link">&para;</a></h2>
 <p>Point any MCP client at the endpoint with the token as a Bearer credential. For example, with the reference inspector:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>npx<span class="w"> </span>@modelcontextprotocol/inspector
 </code></pre></div>
 <p>Then connect to <code>http://localhost:8000/mcp</code> using <strong>Streamable HTTP</strong> transport, adding the <code>Authorization: Bearer vbn_...</code> header. The inspector will list the server and its tools.</p>
 <hr />
@@ -3940,20 +4029,20 @@
 </tbody>
 </table>
 <p><strong>Example</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">[</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p">{</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5930ca070e34672b"</span><span class="p">,</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform Roadmap"</span><span class="p">,</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 delivery"</span><span class="p">,</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">"column_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">"swimlane_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">    </span><span class="nt">"card_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725480+00:00"</span><span class="p">,</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">    </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725490+00:00"</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">[</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">"uid"</span><span class="p">:</span><span class="w"> </span><span class="s2">"5930ca070e34672b"</span><span class="p">,</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Platform Roadmap"</span><span class="p">,</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">"description"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Q3 delivery"</span><span class="p">,</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">"role"</span><span class="p">:</span><span class="w"> </span><span class="s2">"admin"</span><span class="p">,</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="nt">"column_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">    </span><span class="nt">"swimlane_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="nt">"card_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="nt">"created_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725480+00:00"</span><span class="p">,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">    </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-14T05:13:39.725490+00:00"</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="p">]</span>
 </code></pre></div>
 <h4 id="which-boards-are-returned">Which boards are returned<a class="headerlink" href="#which-boards-are-returned" title="Permanent link">&para;</a></h4>
 <p>The tool applies exactly the same access rule as <code>GET /api/v1/boards/</code>, so an agent sees the same boards the user sees in the web UI. A board is included when the user owns it, holds a membership on it, inherits access through a group, or is a site admin with access to all content.</p>
@@ -3996,14 +4085,14 @@
 <p><strong>Added in 1.2</strong></p>
 </blockquote>
 <p>A tool that can fail for a reason other than "your token can't reach <code>/mcp</code> at all" (a bad id, a role or scope that may not write, a WIP limit) returns a structured error as an ordinary result — never a <code>500</code>, and never an unstructured exception message. The result carries a top-level <code>error</code> key instead of the tool's normal payload:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="p">}</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"wip_limit_exceeded"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">"column_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"In Progress"</span><span class="p">,</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"current_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"wip_limit"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="p">}</span>
 </code></pre></div>
 <p>Every error has a <code>code</code> your agent can branch on. The common ones:</p>
 <table>
@@ -4033,6 +4122,10 @@
 <tr>
 <td><code>maintenance_mode</code></td>
 <td>The instance is in <a href="../admin/#maintenance-mode">maintenance mode</a> and your token does not belong to a site admin. Only ever returned by the write tools below (<code>create_card</code>, <code>move_card</code>, <code>update_card</code>, <code>archive_card</code>) — the read tools (<code>list_boards</code>, <code>list_columns</code>, <code>list_swimlanes</code>, <code>list_cards</code>) keep working regardless. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>throttled</code></td>
+<td>Your token has exceeded its per-token rate limit. Carries a <code>retry_after</code> (seconds) — see <a href="#rate-limiting">Rate limiting</a>. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>validation_error</code></td>
@@ -4189,6 +4282,7 @@
 <h3 id="resource-errors">Resource errors<a class="headerlink" href="#resource-errors" title="Permanent link">&para;</a></h3>
 <p>Resources fail differently from tools. A tool that cannot complete returns a structured <code>{"error": {"code": ...}}</code> result (see <a href="#tool-errors">Tool errors</a> above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like <code>No Board matches the given query.</code> or <code>No Card matches the given query.</code></p>
 <p>That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the <code>board_not_found</code>/<code>card_not_found</code> tool error codes already document above. There is no way to distinguish the two cases from the response, by design.</p>
+<p>The same "raise, don't return" rule applies to a throttled resource read — see <a href="#throttled-resource-reads">Throttled resource reads</a> above.</p>
 <hr />
 <h2 id="roadmap">Roadmap<a class="headerlink" href="#roadmap" title="Permanent link">&para;</a></h2>
 <p>Phase 1 covers connectivity, authentication, board discovery, full card CRUD, and the <code>board://</code>/<code>card://</code> resources (this release). A full setup guide is tracked separately. Analytics tools and OAuth 2.1 are planned for the Enterprise edition.</p>
