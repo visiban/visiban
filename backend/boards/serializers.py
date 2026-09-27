@@ -1721,6 +1721,17 @@ def _expand_requested(context, name):
     return name in {p.strip() for p in raw.split(",") if p.strip()}
 
 
+# Cap on the raw length of a submitted `allowed_priorities` list, checked
+# before any iteration (#1169 — the same hardening applied to the twin
+# GroupSerializer.validate_allowed_priorities in groups/serializers.py, since
+# this field is independently reachable and writable via PATCH/PUT
+# /api/v1/boards/{id}/, not just via a group's board-defaults copy). No
+# legitimate client sends anywhere near this many entries; 100 is a fixed
+# ceiling rather than a multiple of the valid-slug count, so it doesn't shift
+# if a priority is ever added.
+_MAX_ALLOWED_PRIORITIES_LENGTH = 100
+
+
 @extend_schema_field({
     "type": "array",
     "items": {"type": "string", "enum": [p[0] for p in Card.Priority.choices]},
@@ -1825,6 +1836,15 @@ class BoardSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "allowed_priorities must be a list of priority values."
             )
+        # Reject an absurdly long list before the `any(...)` scan below (#1169
+        # L1) — otherwise a list of a million valid-but-repeated entries (e.g.
+        # "low") pays the full O(n) scan on every write instead of being
+        # rejected in O(1).
+        if len(value) > _MAX_ALLOWED_PRIORITIES_LENGTH:
+            raise serializers.ValidationError(
+                "allowed_priorities may have at most "
+                f"{_MAX_ALLOWED_PRIORITIES_LENGTH} entries."
+            )
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
@@ -1832,7 +1852,17 @@ class BoardSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
-        return value
+        # De-duplicate, preserving first-occurrence order (backward
+        # compatible — a request with duplicates validated and stored as-is
+        # before this change, so it must keep returning 200; only the stored
+        # list shrinks, bounding it by the number of valid priorities).
+        seen = set()
+        deduped = []
+        for v in value:
+            if v not in seen:
+                seen.add(v)
+                deduped.append(v)
+        return deduped
 
     def validate(self, attrs):
         # `template` is validated at the object level (rather than a normal
