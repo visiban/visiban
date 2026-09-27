@@ -97,7 +97,10 @@ class BoardConsumer(AsyncWebsocketConsumer):
         # #1173) — everyone else's row stays stripped.
         if payload.get("event") in MODERATOR_BEARING_EVENTS:
             data = payload.get("data") or {}
-            subject_user_id = (data.get("user") or {}).get("id")
+            # `user` shape is whatever the writer stored — never assume a dict
+            # (a malformed payload must fail closed, not raise).
+            subject = data.get("user")
+            subject_user_id = subject.get("id") if isinstance(subject, dict) else None
             if "is_moderator" in data and not moderator_field_visible(
                 self._role, self.scope["user"].id, subject_user_id
             ):

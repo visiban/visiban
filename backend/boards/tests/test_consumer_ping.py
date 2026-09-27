@@ -298,6 +298,26 @@ class BoardConsumerPingTests(TestCase):
 
         asyncio.run(run())
 
+    def test_board_event_malformed_user_field_fails_closed_not_500(self):
+        """A `user` value that isn't a dict (legacy/malformed payload) must
+        strip is_moderator for a non-admin subscriber, not raise (#1191
+        hardening)."""
+        consumer = self._make_consumer()
+        consumer.scope["user"].id = 5
+        consumer._role = "viewer"
+
+        payload = {
+            "event": "member.updated",
+            "data": {"id": 9, "user": "not-a-dict", "role": "member", "is_moderator": True},
+        }
+
+        async def run():
+            await consumer.board_event({"payload": payload})
+            decoded = json.loads(consumer.send.call_args.kwargs["text_data"])
+            assert "is_moderator" not in decoded["data"]
+
+        asyncio.run(run())
+
     def test_board_event_does_not_filter_non_member_events(self):
         """is_moderator filter must only apply to member.added / member.updated (#978)."""
         consumer = self._make_consumer()

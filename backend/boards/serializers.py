@@ -135,7 +135,11 @@ class BoardEventSerializer(serializers.ModelSerializer):
             reader_id = self.context.get("reader_id")
             payload = data.get("data")
             if isinstance(payload, dict) and "is_moderator" in payload:
-                subject_user_id = (payload.get("user") or {}).get("id")
+                # The feed replays arbitrarily old rows, so `user` is whatever
+                # shape was stored at write time — never assume it is a dict
+                # (a malformed/legacy row must fail closed, not 500).
+                subject = payload.get("user")
+                subject_user_id = subject.get("id") if isinstance(subject, dict) else None
                 if not moderator_field_visible(role, reader_id, subject_user_id):
                     data["data"] = {k: v for k, v in payload.items() if k != "is_moderator"}
         return data
@@ -2338,12 +2342,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         # Hide is_moderator from non-admin viewers (#920).  Resolve the
         # requesting user's role once here rather than in the per-row loop.
-        from .permissions import get_board_role, SITE_ADMIN
+        from .permissions import get_board_role, moderator_field_visible
         viewer_role = self.context.get("role")
         request = self.context.get("request")
         if viewer_role is None and request and request.user.is_authenticated:
             viewer_role = get_board_role(request.user, obj)
-        is_admin_viewer = viewer_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
         requesting_user_id = request.user.id if request and request.user.is_authenticated else None
 
@@ -2357,20 +2360,20 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 "role": entry["role"],
                 "joined_at": entry["joined_at"],
             }
-            if is_admin_viewer or entry["user"].pk == requesting_user_id:
-                # #920 hides is_moderator from non-admin viewers because it's an
-                # internal trust tier that shouldn't leak to OTHER members. But
-                # hiding it on the requester's OWN row breaks the feature it
-                # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
-                # BulkActionToolbar.tsx) check `is_moderator` on the current
-                # user's row to decide whether to show moderator-only UI, so a
-                # non-admin member promoted to moderator would never see their
-                # own moderator controls (#1173). Reveal it only for the row
-                # that is the requesting user; every other non-admin-visible
-                # row still omits it. The WS member.* broadcasts and the
-                # change-feed reader (BoardEventSerializer) have the same
-                # self-row gap and do not yet have this exception — tracked
-                # separately as #1191.
+            # #920 hides is_moderator from non-admin viewers because it's an
+            # internal trust tier that shouldn't leak to OTHER members. But
+            # hiding it on the requester's OWN row breaks the feature it
+            # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
+            # BulkActionToolbar.tsx) check `is_moderator` on the current
+            # user's row to decide whether to show moderator-only UI, so a
+            # non-admin member promoted to moderator would never see their
+            # own moderator controls (#1173). moderator_field_visible() reveals
+            # it only for the row that is the requesting user; every other
+            # non-admin-visible row still omits it. The WS member.* broadcasts
+            # (BoardConsumer.board_event) and the change-feed reader
+            # (BoardEventSerializer.to_representation) call the same helper,
+            # so all three surfaces share one definition of the rule (#1191).
+            if moderator_field_visible(viewer_role, requesting_user_id, entry["user"].pk):
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)
         return result

@@ -559,6 +559,13 @@ class ReadSideStrippingTests(BoardEventTestBase):
         self.assertIn("is_moderator", own_row["data"])
         self.assertNotIn("is_moderator", other_row["data"])
 
+    def test_site_admin_sees_is_moderator(self):
+        """can_access_all_content resolves to SITE_ADMIN regardless of board
+        membership (#920/#1191) — must see is_moderator on every row."""
+        site_admin = _make_user("evt_site_admin", can_access_all_content=True)
+        row = self.client_for(site_admin).get(self.url).data["results"][0]
+        self.assertIn("is_moderator", row["data"])
+
     def test_stripping_matches_the_websocket_consumer_gate(self):
         """One definition, two readers — the feed and the socket cannot drift."""
         from boards.consumers import _ROLES_WITH_MODERATOR_VISIBILITY
@@ -570,6 +577,20 @@ class ReadSideStrippingTests(BoardEventTestBase):
         from boards.serializers import BoardEventSerializer
 
         row = BoardEventSerializer(self.events()[0], context={}).data
+        self.assertNotIn("is_moderator", row["data"])
+
+    def test_malformed_user_field_fails_closed_not_500(self):
+        """A row whose stored `user` is not a dict (old/legacy shape, or a bug
+        upstream) must strip is_moderator for a non-admin reader instead of
+        raising (#1191 hardening)."""
+        record_board_event(
+            self.board.id,
+            "member.updated",
+            {"id": 99, "user": "not-a-dict", "role": "member", "is_moderator": True},
+        )
+        resp = self.client_for(self.member).get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        row = next(r for r in resp.data["results"] if r["data"].get("id") == 99)
         self.assertNotIn("is_moderator", row["data"])
 
 
