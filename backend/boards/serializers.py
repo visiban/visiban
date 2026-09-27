@@ -403,6 +403,29 @@ class LabelSerializer(serializers.ModelSerializer):
 # models"), and it is what lets a value be typed at all.
 # ---------------------------------------------------------------------------
 
+
+def reject_nul_byte(value, *, field_label):
+    """Raise a field-shaped ``ValidationError`` if ``value`` contains NUL (#1184).
+
+    ``name``, ``help_text``, and each ``choices`` entry all end up in a
+    Postgres text or JSON column (``choices_json``), and Postgres refuses to
+    store a string containing ``\\x00`` outright — psycopg2 raises
+    ``django.db.utils.DataError`` rather than anything DRF's field validation
+    catches first. Left unchecked, that surfaces as an unhandled 500 instead
+    of the 400 every other invalid-input path on these serializers returns
+    (found by ``backend-schema-fuzz`` fuzzing an embedded NUL into a dropdown
+    choice). Called from both :class:`CustomFieldDefinitionSerializer` and
+    :class:`SwimlaneCustomFieldDefinitionSerializer` — same gap, same shape,
+    same fix, per the "validator hooks... shared outright" pattern already
+    documented on :class:`SwimlaneCustomFieldDefinition`.
+    """
+    if isinstance(value, str) and "\x00" in value:
+        raise serializers.ValidationError(
+            f"{field_label} must not contain NUL (0x00) characters."
+        )
+    return value
+
+
 def assert_definition_caps(
     board,
     *,
@@ -504,7 +527,10 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         name = (value or "").strip()
         if not name:
             raise serializers.ValidationError("Name cannot be blank.")
-        return name
+        return reject_nul_byte(name, field_label="Name")
+
+    def validate_help_text(self, value):
+        return reject_nul_byte(value, field_label="Help text")
 
     def validate_field_type(self, value):
         """Freeze ``field_type`` once a card already holds a value for it (#1121).
@@ -562,7 +588,12 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "choices": "Every choice must be a non-empty string."
                     })
-                cleaned.append(choice.strip())
+                choice = choice.strip()
+                if "\x00" in choice:
+                    raise serializers.ValidationError({
+                        "choices": "Choices must not contain NUL (0x00) characters."
+                    })
+                cleaned.append(choice)
             if len(set(cleaned)) != len(cleaned):
                 raise serializers.ValidationError({
                     "choices": "Choices must be unique."
@@ -899,7 +930,10 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         name = (value or "").strip()
         if not name:
             raise serializers.ValidationError("Name cannot be blank.")
-        return name
+        return reject_nul_byte(name, field_label="Name")
+
+    def validate_help_text(self, value):
+        return reject_nul_byte(value, field_label="Help text")
 
     def validate_field_type(self, value):
         """Freeze ``field_type`` once a swimlane already holds a value for it.
@@ -954,7 +988,12 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "choices": "Every choice must be a non-empty string."
                     })
-                cleaned.append(choice.strip())
+                choice = choice.strip()
+                if "\x00" in choice:
+                    raise serializers.ValidationError({
+                        "choices": "Choices must not contain NUL (0x00) characters."
+                    })
+                cleaned.append(choice)
             if len(set(cleaned)) != len(cleaned):
                 raise serializers.ValidationError({
                     "choices": "Choices must be unique."
