@@ -7,6 +7,7 @@ import requests
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
@@ -28,7 +29,9 @@ from visiban.permissions import (
     MustNotHavePendingUsernameChange,
 )
 
-from . import providers
+from accounts.admin_views import _ADMIN_PERMISSIONS
+
+from . import metrics, providers
 from .models import LensConnection
 from .serializers import (
     _VALID_COLUMN_DIMS,
@@ -161,9 +164,12 @@ LENS_USER_FETCH_BUDGET = LENS_FETCH_BUDGET * 4
 # passed (45 >= 30) while the guarantee this comment claims was false for every
 # pipeline fetch. Keep every outbound leg represented here: the assert is the only
 # thing standing between a page-cap bump and a lock that expires mid-fetch.
-_WORST_CASE_FETCH_SECONDS = (
-    providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1
-) * providers.REQUEST_TIMEOUT
+#
+# The call count is named separately because the admin usage endpoint (#1061)
+# reports it as the per-fetch bound; one constant means the reported bound and the
+# lock guarantee can never disagree.
+_WORST_CASE_CALLS_PER_FETCH = providers.MAX_PAGES + 2 * providers.MAX_AUX_PAGES + 1
+_WORST_CASE_FETCH_SECONDS = _WORST_CASE_CALLS_PER_FETCH * providers.REQUEST_TIMEOUT
 assert LENS_FETCH_LOCK_TTL >= _WORST_CASE_FETCH_SECONDS, (
     "LENS_FETCH_LOCK_TTL must exceed the worst-case provider fetch duration "
     "((MAX_PAGES + 2 * MAX_AUX_PAGES + 1) * REQUEST_TIMEOUT)"
@@ -570,7 +576,11 @@ class LensBoardView(APIView):
             conn.provider, conn.repo_slug, column_dim, swimlane_dim, user_scope, filters
         )
         entry = cache.get(key)
+        # Every return below records exactly one board outcome (#1061), so the admin
+        # usage view can show how much of the read load the cache absorbed.
+        provider = conn.provider
         if not force and entry is not None and time.time() < entry["soft_expires"]:
+            metrics.record_board(provider, "cache_fresh")
             return _board_response(entry["payload"], request)  # fresh
 
         # Past this point every path hits the provider, so spend the budget first —
@@ -578,7 +588,9 @@ class LensBoardView(APIView):
         # security-review finding).
         if not _claim_fetch_budget(conn, request.user):
             if entry is not None:
+                metrics.record_board(provider, "budget_exhausted_stale")
                 return _board_response(entry["payload"], request)  # stale beats 429
+            metrics.record_board(provider, "budget_exhausted_429")
             return Response(
                 {
                     "detail": "Too many lens refreshes for this repository. Try again shortly.",
@@ -591,6 +603,7 @@ class LensBoardView(APIView):
         holding_lock = cache.add(_lock_key(key), "1", LENS_FETCH_LOCK_TTL)
         if entry is not None and not holding_lock:
             # Another request is already revalidating — serve the stale copy now.
+            metrics.record_board(provider, "cache_stale_locked")
             return _board_response(entry["payload"], request)
 
         try:
@@ -612,7 +625,9 @@ class LensBoardView(APIView):
                 )
             if entry is not None:
                 # Degrade to the last good copy instead of failing the board.
+                metrics.record_board(provider, "error_stale")
                 return _board_response(entry["payload"], request)
+            metrics.record_board(provider, "error")
             return _provider_error_response(exc)
         finally:
             if holding_lock:
@@ -624,4 +639,61 @@ class LensBoardView(APIView):
             {"payload": payload, "soft_expires": time.time() + LENS_CACHE_SOFT_TTL},
             LENS_CACHE_FILTERED_HARD_TTL if filters.active else LENS_CACHE_HARD_TTL,
         )
+        metrics.record_board(provider, "fetched")
         return _board_response(payload, request)
+
+
+def lens_bounds() -> dict:
+    """The static limits that make the lens's outbound rate provably bounded.
+
+    Echoed by the admin usage endpoint next to the observed counters, so an admin
+    can compare "what happened" with "the most that can happen" without reading
+    source. Derived from the live constants, never restated.
+    """
+    return {
+        "fetch_budget_per_user_repo": LENS_FETCH_BUDGET,
+        "fetch_budget_per_user": LENS_USER_FETCH_BUDGET,
+        "fetch_budget_window_seconds": LENS_FETCH_BUDGET_WINDOW,
+        "force_refresh_cooldown_seconds": LENS_FORCE_REFRESH_COOLDOWN,
+        "cache_soft_ttl_seconds": LENS_CACHE_SOFT_TTL,
+        "cache_hard_ttl_seconds": LENS_CACHE_HARD_TTL,
+        "cache_filtered_hard_ttl_seconds": LENS_CACHE_FILTERED_HARD_TTL,
+        "max_issue_pages": providers.MAX_PAGES,
+        "max_aux_pages": providers.MAX_AUX_PAGES,
+        "per_page": providers.PER_PAGE,
+        "request_timeout_seconds": providers.REQUEST_TIMEOUT,
+        "max_outbound_calls_per_fetch": _WORST_CASE_CALLS_PER_FETCH,
+        # One user can cause at most this many outbound calls per budget window,
+        # across every repository and every path (cold keys, refresh, filters).
+        "max_outbound_calls_per_user_per_window": (
+            LENS_USER_FETCH_BUDGET * _WORST_CASE_CALLS_PER_FETCH
+        ),
+    }
+
+
+class LensUsageAdminView(APIView):
+    """Site-admin view of the lens's outbound GitHub/GitLab API usage (#1061).
+
+    Read-only operational telemetry, not an audit log: approximate hourly counters
+    kept in the cache for 24 hours (see ``git_lens.metrics``), plus the static
+    bounds from ``lens_bounds()``. Mounted only when ``GIT_LENS_ENABLED`` is on —
+    with the feature off there is nothing to report and the route 404s.
+
+    ``_ADMIN_PERMISSIONS`` is imported, not redeclared, so this route carries the
+    exact chain every other ``/api/v1/admin/`` endpoint does (including the
+    forced-flow gates #1110 found missing), and PAT callers need the ``admin``
+    scope via ``TokenHasScope``.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+
+    @extend_schema(
+        responses={200: OpenApiTypes.OBJECT},
+        description=(
+            "Outbound GitHub/GitLab API call counters and cache outcomes for the "
+            "Issue Board Lens over the last 24 hours, plus the static limits that "
+            "bound them. Site admins only."
+        ),
+    )
+    def get(self, request):
+        return Response({**metrics.snapshot(), "bounds": lens_bounds()})
