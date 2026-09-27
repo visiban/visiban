@@ -205,7 +205,7 @@ Run migrations as a dedicated pre-deploy step before scaling up any application 
           restartPolicy: Never
           containers:
             - name: migrate
-              image: registry.example.com/visiban-backend:1.1.0
+              image: registry.example.com/visiban-backend:v1.1.0
               command: ["python", "manage.py", "migrate"]
               envFrom:
                 - secretRef:

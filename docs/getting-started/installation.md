@@ -353,8 +353,11 @@ TLS_MODE=letsencrypt
 DOMAIN=yourdomain.com                   # required — must match your DNS A record
 CERTBOT_EMAIL=admin@yourdomain.com     # required — used for cert expiry alerts
 
-# App version — set to the version you are deploying (see CHANGELOG.md)
-APP_VERSION=1.1.0
+# App version — pin to a released tag, e.g. v1.1.0 (see CHANGELOG.md).
+# GHCR only publishes v-prefixed tags (v1.1.0) plus a MAJOR.MINOR alias (1.1)
+# for stable releases — a bare 1.1.0 tag does not exist and the pull will fail.
+# Use 1.1 instead of v1.1.0 to auto-follow 1.1.x patch releases.
+APP_VERSION=v1.1.0
 ```
 
 !!! tip "Using `TLS_MODE=none` behind an external load balancer"
