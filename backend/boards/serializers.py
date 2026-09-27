@@ -1906,7 +1906,12 @@ class BoardSerializer(serializers.ModelSerializer):
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
-        if any(v not in valid for v in value):
+        # `not isinstance(v, str)` must short-circuit before `v not in valid`:
+        # a nested list/dict item is unhashable and crashes the membership
+        # test with an unhandled TypeError instead of a normal 400 (#1185).
+        # Mirrors GroupSerializer.validate_allowed_priorities' per-item
+        # isinstance guard for the same failure mode (#1165).
+        if any(not isinstance(v, str) or v not in valid for v in value):
             raise serializers.ValidationError(
                 f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
