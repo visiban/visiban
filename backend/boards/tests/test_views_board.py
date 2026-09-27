@@ -404,6 +404,31 @@ class AllowedPrioritiesValidationTests(TestCase):
         self.board.refresh_from_db()
         self.assertEqual(self.board.allowed_priorities, ["low"])
 
+    def test_unhashable_nested_item_rejected_not_500_on_patch(self):
+        # #1185: a nested list/dict item is unhashable, so `v not in valid`
+        # crashed with an unhandled TypeError ('unhashable type: ...') instead
+        # of a normal 400.
+        for bad_item in (["low"], {"low": True}, 1, None):
+            with self.subTest(item=bad_item):
+                r = self.client.patch(
+                    f"/api/v1/boards/{self.board.id}/",
+                    {"allowed_priorities": ["low", bad_item]},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("allowed_priorities", r.data)
+
+    def test_unhashable_nested_item_rejected_not_500_on_post(self):
+        for bad_item in (["low"], {"low": True}, 1, None):
+            with self.subTest(item=bad_item):
+                r = self.client.post(
+                    "/api/v1/boards/",
+                    {"name": "New Board", "allowed_priorities": ["low", bad_item]},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("allowed_priorities", r.data)
+
 
 class CardDensityValidationTests(TestCase):
     """#961: per-board card_density choice validation and round-trip."""
