@@ -123,6 +123,33 @@ misdiagnose as one — see [Known CI Failures](known-ci-failures.md#oidc-smoke-d
 for the actual root cause (an IPv6/HTTPS-required mismatch, not a slow boot or a runner
 problem).
 
+## Dependency Proxy
+
+Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml` (and the kaniko `FROM`
+pulls, via each Dockerfile's `BASE_REGISTRY` build arg) resolves through the GitLab Dependency
+Proxy rather than pulling `docker.io` anonymously — see
+[Known CI Failures](known-ci-failures.md#docker-hub-429-too-many-requests-on-image-pulls)
+(#1198) for why. This requires:
+
+1. **The Dependency Proxy enabled for the `visiban` group** — Settings → Packages and
+   Registries → Dependency Proxy. This is a one-time, human-applied group setting; nothing in
+   this repo can turn it on, and a fresh group (or a self-hosted GitLab instance forking this
+   project) needs it enabled before CI will go green.
+2. **No runner configuration change for `image:`/`services:` pulls** — the runner
+   authenticates to `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}` automatically using the
+   predefined `CI_DEPENDENCY_PROXY_*` variables GitLab injects into every job; there is nothing
+   to add to a runner's `config.toml` for this.
+3. **A job that pulls images itself, rather than via `image:`/`services:`, must log in
+   explicitly.** kaniko's `/kaniko/.docker/config.json` and the helm-drill `docker:dind`
+   daemon (`.helm-drill-base` before_script: `docker login "$CI_DEPENDENCY_PROXY_SERVER" -u
+   "$CI_DEPENDENCY_PROXY_USER" -p "$CI_DEPENDENCY_PROXY_PASSWORD"`) both do this — a new job
+   added later that shells out to `docker pull`/`docker build` against a Docker Hub image
+   needs the same treatment, or it will silently fall back to an anonymous pull.
+
+Third-party registries (`quay.io`'s Keycloak image, `ghcr.io`/`gcr.io` for trivy/kaniko,
+`mcr.microsoft.com`'s Playwright image) are out of scope — GitLab's Dependency Proxy only
+mirrors Docker Hub, so these keep pulling directly.
+
 ## Related open items
 
 - **#1084** — resolved: native arm64 image publishing restored via `Max1-Runner-Visiban` +

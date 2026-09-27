@@ -142,7 +142,7 @@ default:
 cache-warm-pip:
   stage: deploy
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   cache:
@@ -159,7 +159,7 @@ cache-warm-pip:
 cache-warm-pip-test:
   stage: deploy
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   cache:
@@ -176,7 +176,7 @@ cache-warm-pip-test:
 cache-warm-npm:
   stage: deploy
   needs: [frontend-test]
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -200,7 +200,7 @@ cache-warm-npm:
 
 shellcheck:
   stage: lint
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   before_script:
     - apk add --no-cache shellcheck
   rules:
@@ -219,7 +219,7 @@ shellcheck:
 dockerfile-lint:
   stage: lint
   image:
-    name: hadolint/hadolint:v2.15.1-alpine
+    name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/hadolint/hadolint:v2.15.1-alpine
     entrypoint: [""]
   rules:
     - changes:
@@ -262,7 +262,7 @@ dockerfile-lint:
 compose-hygiene:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - changes:
         - docker-compose*.yml
@@ -290,7 +290,7 @@ compose-hygiene:
 backend-lint:
   extends: .pip-cache
   stage: lint
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -329,7 +329,7 @@ backend-test:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   parallel: 3
   rules:
     - changes:
@@ -338,9 +338,9 @@ backend-test:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -402,7 +402,7 @@ backend-test:
 backend-test-coverage:
   stage: test
   needs: [backend-test, backend-test-git-lens, backend-test-mcp]
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -452,7 +452,7 @@ backend-diff-coverage:
   extends: .pip-cache
   stage: test
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -482,14 +482,14 @@ migration-check:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -525,7 +525,7 @@ migration-check:
 migration-numbering-check:
   stage: test
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -546,7 +546,7 @@ backend-schema-validate:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -690,7 +690,7 @@ backend-schema-fuzz:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   allow_failure: false
   # Baseline identities include the *check name*, and one failure class can come
   # from more than one check: an empty-body response trips MissingContentType under
@@ -718,9 +718,9 @@ backend-schema-fuzz:
         - backend/**/urls.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -834,7 +834,7 @@ backend-test-git-lens:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   # Runs whenever backend-test-coverage runs, not only on git_lens changes.
   # The coverage combine job `needs` this job's data file; if it were absent
   # from the pipeline, every git_lens line would score 0% and the total would
@@ -847,9 +847,9 @@ backend-test-git-lens:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/redis:7-alpine
       alias: redis
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -901,7 +901,7 @@ backend-test-mcp:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -909,9 +909,9 @@ backend-test-mcp:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/redis:7-alpine
       alias: redis
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -977,7 +977,7 @@ oidc-smoke:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/accounts/**/*
@@ -995,9 +995,9 @@ oidc-smoke:
       variables:
         KEYCLOAK_ADMIN: admin
         KEYCLOAK_ADMIN_PASSWORD: admin
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -1100,7 +1100,7 @@ oidc-smoke:
 helm-lint:
   stage: lint
   image:
-    name: alpine/helm:3.16.4
+    name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine/helm:3.16.4
     entrypoint: [""]
   <<: *rules-helm
   variables:
@@ -1157,7 +1157,7 @@ helm-lint:
 helm-template:
   stage: lint
   image:
-    name: alpine/helm:3.16.4
+    name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine/helm:3.16.4
     entrypoint: [""]
   <<: *rules-helm
   variables:
@@ -1250,9 +1250,9 @@ helm-template:
 .helm-drill-base: &helm-drill-base
   stage: test
   interruptible: false
-  image: docker:27-cli
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/docker:27-cli
   services:
-    - docker:27-dind
+    - ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/docker:27-dind
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_HOST: "tcp://docker:2376"
@@ -1286,6 +1286,13 @@ helm-template:
     - curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
     - kind version && kubectl version --client=true 2>/dev/null | head -1 && helm version --short
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
+    # This dind daemon is a fresh, un-authenticated container per job (#1198)
+    # — unlike the runner's own image:/services: pulls, which the runner
+    # authenticates to the Dependency Proxy automatically, nothing logs THIS
+    # daemon in. Base images, kindest/node, and in-cluster chart images are
+    # all pulled here anonymously otherwise. helm-install-drill.sh and
+    # helm-netpol-drill.sh rely on this login for every docker pull they do.
+    - docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" -p "$CI_DEPENDENCY_PROXY_PASSWORD"
 
 helm-install:
   # Boots the chart and asserts it SERVES. ONE `helm install --wait` of the
@@ -1368,7 +1375,7 @@ helm-netpol:
 frontend-lint:
   extends: .npm-cache
   stage: lint
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   variables:
     # Cap below available RAM so V8 GCs aggressively instead of OOM-killing.
     # 1500 MB caused exit 137 on the 2 GB runner; 512 MB forces earlier GC.
@@ -1399,7 +1406,7 @@ frontend-lint:
 gate-selftest-parity:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1421,7 +1428,7 @@ gate-selftest-parity:
 docs-version-accuracy:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1438,7 +1445,7 @@ frontend-test:
   extends: .npm-cache
   stage: test
   needs: []
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   variables:
     # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
     NODE_OPTIONS: "--max-old-space-size=512"
@@ -1491,7 +1498,7 @@ serializer-ts-parity:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -1532,7 +1539,7 @@ serializer-ts-parity:
 frontend-diff-coverage:
   stage: test
   needs: [frontend-test]
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1572,7 +1579,7 @@ added-files-coverage-check:
     - job: frontend-test
       artifacts: true
       optional: true
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1598,7 +1605,7 @@ added-files-coverage-check:
 added-files-coverage-check-self-test:
   stage: test
   needs: []
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1669,7 +1676,7 @@ playwright-e2e:
 ws-event-reachability:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1710,7 +1717,7 @@ ws-event-reachability:
 rbac-coverage:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1759,7 +1766,7 @@ rbac-coverage:
 broadcast-deferral:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1806,7 +1813,7 @@ broadcast-deferral:
 changelog-check:
   extends: .on-mr
   stage: lint
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   before_script:
     - apk add --no-cache git
   script:
@@ -1890,7 +1897,7 @@ changelog-check:
 suppressions-check:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1915,7 +1922,7 @@ suppressions-check:
 kaizen-yield-watch:
   stage: lint
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $KAIZEN_YIELD_WATCH == "true"'
@@ -1950,7 +1957,7 @@ backend-sast:
   # waiting for the whole stage (including the 40-45min helm drills) to
   # finish first.
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1999,7 +2006,7 @@ frontend-sast:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2048,7 +2055,7 @@ backend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2074,7 +2081,7 @@ frontend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2104,7 +2111,7 @@ backend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   before_script:
     - pip install --quiet -r backend/requirements.txt pip-licenses
   script:
@@ -2116,7 +2123,7 @@ frontend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:20-alpine
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -2212,7 +2219,7 @@ dep-scan-osv:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: alpine:3.20
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -2261,7 +2268,7 @@ gitleaks-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: alpine:3.20
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -2299,15 +2306,19 @@ backend-docker-build:
   before_script:
     - mkdir -p /kaniko/.docker
     - |
+      # The Dockerfile's FROM now resolves through the GitLab Dependency Proxy
+      # (#1198) via --build-arg BASE_REGISTRY below, so kaniko needs proxy
+      # credentials, not Docker Hub ones, to pull it. DOCKERHUB_USERNAME/TOKEN
+      # is kept as a fallback auth entry in case a FROM line is ever pointed
+      # back at docker.io directly.
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
       if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        printf '{"auths":{"https://index.docker.io/v1/":{"auth":"%s"}}}' \
-          "$(printf '%s:%s' "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')" \
-          > /kaniko/.docker/config.json
-      else
-        printf '{}' > /kaniko/.docker/config.json
+        AUTHS="${AUTHS},\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
       fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push --snapshot-mode=redo
+    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push --snapshot-mode=redo --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
 
 frontend-docker-build:
   stage: test
@@ -2323,15 +2334,17 @@ frontend-docker-build:
   before_script:
     - mkdir -p /kaniko/.docker
     - |
+      # See backend-docker-build above: the Dockerfile's FROM now resolves
+      # through the GitLab Dependency Proxy (#1198) via --build-arg
+      # BASE_REGISTRY below.
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
       if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        printf '{"auths":{"https://index.docker.io/v1/":{"auth":"%s"}}}' \
-          "$(printf '%s:%s' "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')" \
-          > /kaniko/.docker/config.json
-      else
-        printf '{}' > /kaniko/.docker/config.json
+        AUTHS="${AUTHS},\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
       fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512
+    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512 --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
 
 # ─── Docker push (amd64 + arm64) ───────────────────────────────────────────────
 #
@@ -2387,12 +2400,15 @@ frontend-docker-build:
     - mkdir -p /kaniko/.docker
     - |
       # Assemble a docker config covering every registry a push job may touch:
-      # the GitLab registry (push), GHCR (push on tags), and Docker Hub (pull —
-      # the Dockerfiles' base images; anonymous pulls are rate limited). Each
-      # entry is added only when its credentials are present, so a fork without
-      # GHCR_TOKEN still builds and pushes to its own registry.
+      # the GitLab registry (push), GHCR (push on tags), the GitLab Dependency
+      # Proxy (pull — the Dockerfiles' base images now resolve through it via
+      # --build-arg BASE_REGISTRY, #1198), and Docker Hub directly as a
+      # fallback. Each entry is added only when its credentials are present,
+      # so a fork without GHCR_TOKEN still builds and pushes to its own
+      # registry.
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
       AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      AUTHS="${AUTHS},\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
       if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_TOKEN}" ]; then
         AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
       fi
@@ -2445,6 +2461,7 @@ backend-docker-push:
         --context=backend \
         --dockerfile=backend/Dockerfile \
         --snapshot-mode=redo \
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX} \
         $(destinations backend)
 
 frontend-docker-push:
@@ -2460,6 +2477,7 @@ frontend-docker-push:
         --dockerfile=frontend/Dockerfile \
         --snapshot-mode=redo \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX} \
         $(destinations frontend)
 
 # ─── Docker push — arm64 preflight (#1084) ────────────────────────────────────
@@ -2489,7 +2507,7 @@ frontend-docker-push:
 # host and every image it builds being genuinely native arm64.
 arm64-runner-preflight:
   stage: deploy
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   needs: []
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
@@ -2656,7 +2674,7 @@ frontend-docker-push-arm64:
 # hardcoded path.
 .manifest-tool-common:
   stage: deploy
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
@@ -2754,7 +2772,7 @@ frontend-manifest:
 helm-publish:
   stage: deploy
   image:
-    name: alpine/helm:3.16.4
+    name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine/helm:3.16.4
     entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
@@ -2820,6 +2838,7 @@ ghcr-push-backend:
         --context=backend
         --dockerfile=backend/Dockerfile
         --snapshot-mode=redo
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
         --destination=ghcr.io/visiban/visiban/backend:latest
 
 ghcr-push-frontend:
@@ -2832,6 +2851,7 @@ ghcr-push-frontend:
         --dockerfile=frontend/Dockerfile
         --snapshot-mode=redo
         --build-arg NODE_OPTIONS=--max-old-space-size=512
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
         --destination=ghcr.io/visiban/visiban/frontend:latest
 
 # ─── Scheduled — release image survival ───────────────────────────────────────
@@ -2861,7 +2881,7 @@ ghcr-push-frontend:
 check-release-images:
   stage: deploy
   needs: []
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
@@ -2894,7 +2914,7 @@ check-release-images:
 
 github-release:
   stage: deploy
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   needs: [backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
@@ -2949,7 +2969,7 @@ github-release:
 
 docs-deploy:
   stage: deploy
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   needs: []
   variables:
     DOCS_VERSION: ""
@@ -3038,7 +3058,7 @@ docs-deploy:
 
 cleanup-merged-branches:
   stage: deploy
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   needs: []
   before_script:
     - apk add --no-cache git
@@ -3085,7 +3105,7 @@ cleanup-merged-branches:
 seed-demo-data:
   stage: deploy
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   environment:
     name: demo
     deployment_tier: staging
@@ -3135,11 +3155,11 @@ seed-export-check:
   extends: .pip-cache
   stage: lint
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -3193,11 +3213,11 @@ nightly-load-test:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.12-slim
   services:
-    - name: postgres:17-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -3267,7 +3287,7 @@ nightly-load-test:
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
 pages:
   stage: deploy
-  image: alpine:3.19
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/alpine:3.19
   needs: []
   script:
     - cp -r . public

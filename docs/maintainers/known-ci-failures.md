@@ -119,4 +119,43 @@ main pipelines were red for exactly this reason (#1165).
 5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
 the serializer or annotation fixed. Replay with the pipeline variable `FUZZ_SEED=<n>` or
 `st replay <id>`. Full triage steps: [`docs/api/openapi.md`](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake).
+
+## Docker Hub `429 Too Many Requests` on image pulls
+
+**Signature:** a job fails resolving a Docker Hub image, e.g.
+
+```
+ERROR: failed to solve: python:3.12-slim: failed to resolve source metadata for
+docker.io/library/python:3.12-slim: unexpected status from HEAD request to
+https://registry-1.docker.io/v2/library/python/manifests/3.12-slim: 429 Too Many Requests
+```
+
+Observed on `helm-install` and `helm-netpol` (job 16766757152/153, 2026-09-27), but the same
+signature can surface on any job that pulls a Docker Hub image — a runner `image:`/`services:`
+entry, a kaniko `FROM`, or a live pull inside a `helm-install`/`helm-netpol` kind cluster.
+
+**Root cause:** self-hosted runners pull Docker Hub images **anonymously** from a shared IP,
+which hits Docker Hub's anonymous-pull rate limit. The helm drills are the worst offender:
+each one boots a fresh `docker:dind` daemon with no credentials and no image cache, then pulls
+the full base-image + `kindest/node` + in-cluster (postgres/valkey) set again from the runner's
+IP.
+
+**Fix (#1198):** every `image:`/`services:` entry in `.gitlab-ci.yml` that points at Docker Hub
+now resolves through the GitLab Dependency Proxy
+(`${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/<image>`), which the runner authenticates to
+automatically. The Dockerfiles take a `BASE_REGISTRY` build arg (default `docker.io/library`,
+unchanged for local/contributor builds) that CI's kaniko jobs point at the same prefix. The
+`.helm-drill-base` before_script logs the dind daemon itself in to
+`$CI_DEPENDENCY_PROXY_SERVER`, and `scripts/helm-install-drill.sh` /
+`scripts/helm-netpol-drill.sh` pull `kindest/node` and the in-cluster postgres/valkey/busybox
+images through the proxy before side-loading them with `kind load docker-image`, so nothing
+inside the kind cluster does a live Docker Hub pull either.
+
+**Requires:** the Dependency Proxy enabled for the `visiban` group (Settings → Packages and
+Registries → Dependency Proxy) — a one-time, human-applied group setting, not something a
+pipeline can turn on. If this signature reappears, check that setting first before assuming the
+proxy rewrite regressed. Third-party registries (`quay.io`, `ghcr.io`, `gcr.io`,
+`mcr.microsoft.com`) are **not** routed through the proxy — GitLab's Dependency Proxy only
+mirrors Docker Hub — so a 429 from one of those is a different problem. See
+[CI Runners](ci-runners.md#dependency-proxy) for the runner-side requirement.
 Known still-open defects it can hit: #1166.

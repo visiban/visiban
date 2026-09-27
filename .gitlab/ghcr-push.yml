@@ -27,8 +27,11 @@ stages:
   before_script:
     - mkdir -p /kaniko/.docker
     - >-
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}"
+      # The Dockerfile's FROM resolves through the GitLab Dependency Proxy via
+      # --build-arg BASE_REGISTRY below (#1198), so kaniko needs proxy
+      # credentials to pull it, alongside the existing GHCR push credentials.
+      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
+      "${GHCR_USER}" "${GHCR_TOKEN}" "${CI_DEPENDENCY_PROXY_SERVER}" "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}"
       > /kaniko/.docker/config.json
     # Switch the working tree to the requested branch so the image is built
     # from the right source regardless of which commit this pipeline was
@@ -44,6 +47,7 @@ ghcr-push-backend:
         --dockerfile=backend/Dockerfile
         --destination=ghcr.io/${GHCR_USER}/visiban/backend:latest
         --snapshot-mode=redo
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
 
 ghcr-push-frontend:
   extends: .ghcr-push-base
@@ -54,3 +58,4 @@ ghcr-push-frontend:
         --destination=ghcr.io/${GHCR_USER}/visiban/frontend:latest
         --snapshot-mode=redo
         --build-arg NODE_OPTIONS=--max-old-space-size=512
+        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
