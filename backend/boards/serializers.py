@@ -156,6 +156,36 @@ class ColumnSerializer(serializers.ModelSerializer):
         fields = ["id", "uid", "name", "position", "color", "wip_limit", "weight_limit", "allow_card_creation", "is_done"]
         read_only_fields = ["uid"]
 
+    def validate(self, attrs):
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is not None:
+            instance = self.instance
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = Column.objects.filter(board=board, name=name)
+                if instance is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A column with this name already exists on this board."
+                    })
+            # Position is only checked on update: on create the viewset always
+            # overrides it with the next free slot (see ColumnViewSet.perform_create),
+            # so a client-supplied value there is discarded before it can collide.
+            if instance is not None and "position" in attrs:
+                position = attrs["position"]
+                clash = Column.objects.filter(board=board, position=position).exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "position": "A column already occupies this position on this board."
+                    })
+        return attrs
+
 
 @extend_schema_field({
     "type": "array",
@@ -392,6 +422,26 @@ class LabelSerializer(serializers.ModelSerializer):
         fields = ["id", "uid", "name", "color"]
         read_only_fields = ["uid"]
 
+    def validate(self, attrs):
+        board = self.context.get("board") or (self.instance.board if self.instance else None)
+        if board is not None:
+            instance = self.instance
+            # unique_together(board, name) is not reachable by DRF's automatic
+            # UniqueTogetherValidator — `board` is not a serializer field (it is
+            # supplied by the viewset from the URL), so without this check a
+            # duplicate name reaches the database and surfaces as a 500 rather
+            # than a 400 naming the field.
+            name = attrs.get("name", instance.name if instance else None)
+            if name is not None:
+                clash = Label.objects.filter(board=board, name=name)
+                if instance is not None:
+                    clash = clash.exclude(pk=instance.pk)
+                if clash.exists():
+                    raise serializers.ValidationError({
+                        "name": "A label with this name already exists on this board."
+                    })
+        return attrs
+
 
 # ---------------------------------------------------------------------------
 # Custom fields (#371)
@@ -402,6 +452,29 @@ class LabelSerializer(serializers.ModelSerializer):
 # split is the project rule ("validate at the boundary, not in views or
 # models"), and it is what lets a value be typed at all.
 # ---------------------------------------------------------------------------
+
+
+def reject_nul_byte(value, *, field_label):
+    """Raise a field-shaped ``ValidationError`` if ``value`` contains NUL (#1184).
+
+    ``name``, ``help_text``, and each ``choices`` entry all end up in a
+    Postgres text or JSON column (``choices_json``), and Postgres refuses to
+    store a string containing ``\\x00`` outright — psycopg2 raises
+    ``django.db.utils.DataError`` rather than anything DRF's field validation
+    catches first. Left unchecked, that surfaces as an unhandled 500 instead
+    of the 400 every other invalid-input path on these serializers returns
+    (found by ``backend-schema-fuzz`` fuzzing an embedded NUL into a dropdown
+    choice). Called from both :class:`CustomFieldDefinitionSerializer` and
+    :class:`SwimlaneCustomFieldDefinitionSerializer` — same gap, same shape,
+    same fix, per the "validator hooks... shared outright" pattern already
+    documented on :class:`SwimlaneCustomFieldDefinition`.
+    """
+    if isinstance(value, str) and "\x00" in value:
+        raise serializers.ValidationError(
+            f"{field_label} must not contain NUL (0x00) characters."
+        )
+    return value
+
 
 def assert_definition_caps(
     board,
@@ -504,7 +577,10 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
         name = (value or "").strip()
         if not name:
             raise serializers.ValidationError("Name cannot be blank.")
-        return name
+        return reject_nul_byte(name, field_label="Name")
+
+    def validate_help_text(self, value):
+        return reject_nul_byte(value, field_label="Help text")
 
     def validate_field_type(self, value):
         """Freeze ``field_type`` once a card already holds a value for it (#1121).
@@ -562,7 +638,12 @@ class CustomFieldDefinitionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "choices": "Every choice must be a non-empty string."
                     })
-                cleaned.append(choice.strip())
+                choice = choice.strip()
+                if "\x00" in choice:
+                    raise serializers.ValidationError({
+                        "choices": "Choices must not contain NUL (0x00) characters."
+                    })
+                cleaned.append(choice)
             if len(set(cleaned)) != len(cleaned):
                 raise serializers.ValidationError({
                     "choices": "Choices must be unique."
@@ -899,7 +980,10 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
         name = (value or "").strip()
         if not name:
             raise serializers.ValidationError("Name cannot be blank.")
-        return name
+        return reject_nul_byte(name, field_label="Name")
+
+    def validate_help_text(self, value):
+        return reject_nul_byte(value, field_label="Help text")
 
     def validate_field_type(self, value):
         """Freeze ``field_type`` once a swimlane already holds a value for it.
@@ -954,7 +1038,12 @@ class SwimlaneCustomFieldDefinitionSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({
                         "choices": "Every choice must be a non-empty string."
                     })
-                cleaned.append(choice.strip())
+                choice = choice.strip()
+                if "\x00" in choice:
+                    raise serializers.ValidationError({
+                        "choices": "Choices must not contain NUL (0x00) characters."
+                    })
+                cleaned.append(choice)
             if len(set(cleaned)) != len(cleaned):
                 raise serializers.ValidationError({
                     "choices": "Choices must be unique."
@@ -1682,6 +1771,17 @@ def _expand_requested(context, name):
     return name in {p.strip() for p in raw.split(",") if p.strip()}
 
 
+# Cap on the raw length of a submitted `allowed_priorities` list, checked
+# before any iteration (#1169 — the same hardening applied to the twin
+# GroupSerializer.validate_allowed_priorities in groups/serializers.py, since
+# this field is independently reachable and writable via PATCH/PUT
+# /api/v1/boards/{id}/, not just via a group's board-defaults copy). No
+# legitimate client sends anywhere near this many entries; 100 is a fixed
+# ceiling rather than a multiple of the valid-slug count, so it doesn't shift
+# if a priority is ever added.
+_MAX_ALLOWED_PRIORITIES_LENGTH = 100
+
+
 @extend_schema_field({
     "type": "array",
     "items": {"type": "string", "enum": [p[0] for p in Card.Priority.choices]},
@@ -1706,7 +1806,15 @@ class BoardSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     member_count = serializers.SerializerMethodField()
     card_count = serializers.SerializerMethodField()
-    group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
+    # A SerializerMethodField, not `CharField(source="group.name", default=None)`:
+    # DRF's Field.get_default() unconditionally raises SkipField() whenever the
+    # root serializer is bound with partial=True (see fields.py), regardless of
+    # whether a `default` was set. A dotted source through a nullable `group` FK
+    # falls back to get_default() to resolve the None traversal, so on every
+    # PATCH (partial update) the field silently vanished from the response
+    # instead of serializing as null (#1166). SerializerMethodField calls the
+    # method directly and never consults get_default(), so it is immune to it.
+    group_name = serializers.SerializerMethodField(allow_null=True)
     group_detail = serializers.SerializerMethodField()
     is_starred = serializers.SerializerMethodField()
     allowed_priorities = AllowedPrioritiesField(
@@ -1786,6 +1894,15 @@ class BoardSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "allowed_priorities must be a list of priority values."
             )
+        # Reject an absurdly long list before the `any(...)` scan below (#1169
+        # L1) — otherwise a list of a million valid-but-repeated entries (e.g.
+        # "low") pays the full O(n) scan on every write instead of being
+        # rejected in O(1).
+        if len(value) > _MAX_ALLOWED_PRIORITIES_LENGTH:
+            raise serializers.ValidationError(
+                "allowed_priorities may have at most "
+                f"{_MAX_ALLOWED_PRIORITIES_LENGTH} entries."
+            )
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
@@ -1793,7 +1910,17 @@ class BoardSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
-        return value
+        # De-duplicate, preserving first-occurrence order (backward
+        # compatible — a request with duplicates validated and stored as-is
+        # before this change, so it must keep returning 200; only the stored
+        # list shrinks, bounding it by the number of valid priorities).
+        seen = set()
+        deduped = []
+        for v in value:
+            if v not in seen:
+                seen.add(v)
+                deduped.append(v)
+        return deduped
 
     def validate(self, attrs):
         # `template` is validated at the object level (rather than a normal
@@ -1864,6 +1991,9 @@ class BoardSerializer(serializers.ModelSerializer):
         if hasattr(obj, "_card_count"):
             return obj._card_count
         return obj.cards.count()
+
+    def get_group_name(self, obj) -> str | None:
+        return obj.group.name if obj.group_id else None
 
     def get_is_starred(self, obj) -> bool:
         if hasattr(obj, "_is_starred"):

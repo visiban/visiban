@@ -1,8 +1,8 @@
 """LabelViewSet — CRUD endpoints for labels on a board."""
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from accounts.permissions import TokenHasScope
@@ -52,25 +52,48 @@ class LabelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Label.objects.filter(board=self._board())
 
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        # LabelSerializer.validate() needs the board to check unique_together(board,
+        # name) — `board` is not a serializer field, so without this the serializer
+        # skips the check and only the IntegrityError catch below fires.
+        ctx["board"] = self._board()
+        return ctx
+
     def perform_create(self, serializer):
         board, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        with transaction.atomic():
-            label = serializer.save(board=board)
-            label_data = LabelSerializer(label).data
-            board_id = board.id
-            _broadcast.record_board_event(board_id, _broadcast.EVT_LABEL_CREATED, label_data, actor_id=self.request.user.id)
+        try:
+            with transaction.atomic():
+                label = serializer.save(board=board)
+                label_data = LabelSerializer(label).data
+                board_id = board.id
+                _broadcast.record_board_event(board_id, _broadcast.EVT_LABEL_CREATED, label_data, actor_id=self.request.user.id)
+        except IntegrityError:
+            # Belt and braces for the race the serializer's validate() cannot fully
+            # close (two concurrent creates can both pass validation before either
+            # commits): the unique_together(board, name) constraint caught it, so
+            # report it the way the serializer would have rather than as a 500.
+            raise ValidationError(
+                {"name": "A label with this name already exists on this board."}
+            ) from None
 
     def perform_update(self, serializer):
         _, role = self._board_and_role()
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
-        with transaction.atomic():
-            label = serializer.save()
-            label_data = LabelSerializer(label).data
-            board_id = label.board_id
-            _broadcast.record_board_event(board_id, _broadcast.EVT_LABEL_UPDATED, label_data, actor_id=self.request.user.id)
+        try:
+            with transaction.atomic():
+                label = serializer.save()
+                label_data = LabelSerializer(label).data
+                board_id = label.board_id
+                _broadcast.record_board_event(board_id, _broadcast.EVT_LABEL_UPDATED, label_data, actor_id=self.request.user.id)
+        except IntegrityError:
+            # Same race as perform_create.
+            raise ValidationError(
+                {"name": "A label with this name already exists on this board."}
+            ) from None
 
     def perform_destroy(self, instance):
         _, role = self._board_and_role()

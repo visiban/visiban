@@ -1,9 +1,15 @@
-"""Regression tests for #1165: malformed ``allowed_priorities`` must 400, never 500.
+"""Regression tests for #1165 and #1169.
 
+#1165: malformed ``allowed_priorities`` must 400, never 500.
 ``backend-schema-fuzz`` sent ``POST /api/v1/groups/`` a body whose
 ``allowed_priorities`` was not a list of strings; ``validate_allowed_priorities``
 iterated it and set-tested each item, which raised ``TypeError`` (not iterable /
 unhashable) and surfaced as a 500.
+
+#1169: hardening notes from the post-merge security review of !932. A list
+with no length cap and no de-duplication meant an authenticated user could
+send (and have stored and broadcast) a list of up to ~1M repeated entries,
+and an invalid value was echoed into the 400 body in full.
 """
 from django.test import TestCase
 from rest_framework import status
@@ -68,3 +74,57 @@ class AllowedPrioritiesValidationTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
         self.assertEqual(response.json()["allowed_priorities"], ["low", "urgent"])
+
+    def test_duplicates_deduplicated_preserving_order(self):
+        # Backward compatible: a request with duplicates validated and was
+        # stored as-is before #1169 — it must still return 200, but the
+        # stored/echoed list is now de-duplicated (first occurrence kept).
+        response = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G", "allowed_priorities": ["low", "urgent", "low", "high", "urgent"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+        self.assertEqual(
+            response.json()["allowed_priorities"], ["low", "urgent", "high"]
+        )
+        group = Group.objects.get(name="G")
+        self.assertEqual(group.allowed_priorities, ["low", "urgent", "high"])
+
+    def test_oversized_list_rejected_before_iteration(self):
+        # A list far longer than any legitimate client would send (#1169 L1)
+        # must be rejected cheaply, without depending on any per-item work.
+        response = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G", "allowed_priorities": ["low"] * 1000},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.content)
+        self.assertIn("allowed_priorities", response.json())
+        self.assertIn("at most", str(response.json()["allowed_priorities"]))
+
+    def test_list_at_cap_still_accepted(self):
+        # A list right at the documented cap (all duplicates, so it collapses
+        # to a single stored slug) must not be rejected.
+        response = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G", "allowed_priorities": ["low"] * 100},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.content)
+        self.assertEqual(response.json()["allowed_priorities"], ["low"])
+
+    def test_invalid_value_echoed_is_truncated(self):
+        # #1169 L2: an invalid string used to be echoed back in full (up to
+        # ~20MB) in the 400 body. It must now be truncated.
+        huge_bad_value = "x" * 5000
+        response = self.client.post(
+            "/api/v1/groups/",
+            {"name": "G", "allowed_priorities": [huge_bad_value]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.content)
+        body = str(response.json())
+        self.assertLess(len(body), 1000)
+        self.assertNotIn(huge_bad_value, body)
+        self.assertIn("x" * 50, body)

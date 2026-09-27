@@ -233,6 +233,16 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
         if role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
             raise PermissionDenied
         order = request.data.get("order", [])
+        try:
+            # Cast IDs to int — request JSON sends strings, DB PKs are ints. Done
+            # before opening the transaction: a non-integer entry (or a body where
+            # `order` isn't even a list) previously reached int() unguarded and
+            # surfaced as a 500 instead of a 400 naming the field.
+            order_ints = [int(sid) for sid in order]
+        except (TypeError, ValueError):
+            raise ValidationError(
+                {"order": "order must be a list of integer swimlane IDs."}
+            ) from None
         with transaction.atomic():
             # Lock the board row before updating positions to prevent two
             # concurrent reorder requests from interleaving their UPDATE
@@ -246,8 +256,6 @@ class SwimlaneViewSet(viewsets.ModelViewSet):
             # bulk_update replaces N single-row UPDATEs with one query regardless of
             # swimlane count.  Swimlane has no unique_together on position so a single
             # pass is safe (contrast with ColumnViewSet.reorder which needs two passes).
-            # Cast IDs to int — request JSON sends strings, DB PKs are ints.
-            order_ints = [int(sid) for sid in order]
             lanes = list(Swimlane.objects.filter(board=board, pk__in=order_ints).only("id", "position"))
             id_to_lane = {sl.pk: sl for sl in lanes}
             for pos, swimlane_id in enumerate(order_ints):

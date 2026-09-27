@@ -126,6 +126,36 @@ class SwimlaneCustomFieldDefinitionCrudTests(SwimlaneCustomFieldTestBase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("name", r.data)
 
+    def test_nul_byte_in_name_is_a_400_not_a_500(self):
+        """Postgres refuses NUL in text/JSON columns (#1184: backend-schema-fuzz
+
+        found this the hard way, as an embedded NUL in a dropdown choice on
+        this same endpoint surfacing as an unhandled 500 DataError).
+        """
+        r = self.client.post(self.url, {"name": "Reg\x00ion"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.data)
+
+    def test_nul_byte_in_help_text_is_a_400_not_a_500(self):
+        r = self.client.post(
+            self.url, {"name": "Region", "help_text": "us\x00e it"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("help_text", r.data)
+
+    def test_nul_byte_in_a_dropdown_choice_is_a_400_not_a_500(self):
+        r = self.client.post(
+            self.url,
+            {
+                "name": "Tier",
+                "field_type": "dropdown",
+                "choices": ["EMEA", "AP\x00AC"],
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("choices", r.data)
+
     def test_a_row_field_may_share_a_name_with_a_card_field(self):
         """The two sets are independent, so "Owner" on both is legal.
 

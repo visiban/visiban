@@ -165,6 +165,41 @@ class CustomFieldDefinitionCrudTests(CustomFieldTestBase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_nul_byte_in_name_is_a_400_not_a_500(self):
+        """Postgres refuses NUL in text/JSON columns (#1184: backend-schema-fuzz
+
+        found this on the swimlane twin of this serializer as an embedded NUL
+        in a dropdown choice surfacing as an unhandled 500 DataError; the two
+        serializers share the same validation gap).
+        """
+        r = self.client.post(
+            self._fields_url(), {"name": "Arr\x00ay"}, format="json"
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", r.data)
+
+    def test_nul_byte_in_help_text_is_a_400_not_a_500(self):
+        r = self.client.post(
+            self._fields_url(),
+            {"name": "Array Type", "help_text": "us\x00e it"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("help_text", r.data)
+
+    def test_nul_byte_in_a_dropdown_choice_is_a_400_not_a_500(self):
+        r = self.client.post(
+            self._fields_url(),
+            {
+                "name": "Array Type",
+                "field_type": "dropdown",
+                "choices": ["raid", "ra\x00id10"],
+            },
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("choices", r.data)
+
     def test_update_changes_name_and_help_text(self):
         definition = _definition(self.board, name="Old")
         r = self.client.patch(
