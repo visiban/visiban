@@ -30,6 +30,40 @@ _ANCESTOR_LIST_SCHEMA = {
 # than breaking it.
 _ALLOWED_PRIORITY_SLUGS = ["low", "medium", "high", "urgent"]
 
+# Cap on the *raw* length of a submitted ``allowed_priorities`` list, checked
+# before any iteration or set-membership test (#1169, hardening note from the
+# post-merge security review of !932 / #1165). The field is a bare JSONField
+# with no DRF-level bound, reachable by any authenticated user on
+# ``POST /api/v1/groups/`` and by group admins on update, and bounded only by
+# nginx ``client_max_body_size`` — a list of a million ``"low"`` strings would
+# otherwise validate, get stored, get broadcast in group events, and get
+# copied onto every board created in the group (GroupViewSet.boards(),
+# ~L550-553). No legitimate client sends anywhere near this many entries; 100
+# is a generous multiple of the four valid slugs, chosen as a fixed ceiling
+# rather than a multiple of len(valid) so it stays constant if slugs are ever
+# added.
+_MAX_ALLOWED_PRIORITIES_LENGTH = 100
+
+# Cap on how much of an invalid value is echoed back into a 400 error message.
+# Without this, a client sending an oversized invalid string sees that string
+# reflected in full (up to the same body-size ceiling as above) in the
+# response body (#1169 L2).
+_ECHO_TRUNCATE_LENGTH = 50
+
+
+def _truncate_for_error(value, limit=_ECHO_TRUNCATE_LENGTH):
+    """Render a client-supplied value for safe inclusion in a 400 message.
+
+    Uses ``repr()`` rather than manual ``f"'{value}'"`` quoting so a value
+    containing a quote or control character can't make the surrounding
+    message ambiguous, and truncates first so an oversized string is never
+    echoed back in full.
+    """
+    text = str(value)
+    if len(text) > limit:
+        text = text[:limit] + "…"
+    return repr(text)
+
 
 @extend_schema_field({
     "type": "array",
@@ -194,6 +228,22 @@ class GroupSerializer(serializers.ModelSerializer):
         # TypeError, which surfaces as a 500 instead of a 400 (#1165).
         if not isinstance(value, list):
             raise serializers.ValidationError("Expected a list of priority strings.")
+        # Reject an absurdly long list before iterating it at all (#1169 L1) —
+        # see _MAX_ALLOWED_PRIORITIES_LENGTH above for why. This must run
+        # before the per-item loop so the cost of rejecting is O(1), not O(n).
+        if len(value) > _MAX_ALLOWED_PRIORITIES_LENGTH:
+            raise serializers.ValidationError(
+                "allowed_priorities may have at most "
+                f"{_MAX_ALLOWED_PRIORITIES_LENGTH} entries."
+            )
+        # De-duplicate, preserving first-occurrence order. A request with
+        # duplicates validated and stored as-is before this change (backward
+        # compatibility — CLAUDE.md), so it must keep returning 200 rather
+        # than start rejecting; only the *stored* list shrinks, which also
+        # bounds it by len(_ALLOWED_PRIORITY_SLUGS) regardless of how many
+        # times a client repeats one entry (#1169 L1).
+        seen = set()
+        deduped = []
         for p in value:
             if not isinstance(p, str):
                 raise serializers.ValidationError(
@@ -201,10 +251,16 @@ class GroupSerializer(serializers.ModelSerializer):
                     f"Choose from: {', '.join(sorted(valid))}."
                 )
             if p not in valid:
+                # Truncate before echoing — an invalid value can be up to the
+                # same size as the request body (#1169 L2).
                 raise serializers.ValidationError(
-                    f"'{p}' is not a valid priority. Choose from: {', '.join(sorted(valid))}."
+                    f"{_truncate_for_error(p)} is not a valid priority. "
+                    f"Choose from: {', '.join(sorted(valid))}."
                 )
-        return value
+            if p not in seen:
+                seen.add(p)
+                deduped.append(p)
+        return deduped
 
     def validate_default_board_member_role(self, value):
         valid = {c[0] for c in Group.DefaultMemberRole.choices}

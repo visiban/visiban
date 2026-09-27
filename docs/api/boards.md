@@ -47,7 +47,7 @@ Get board summary. Response includes:
 | `member_count` | integer | Number of direct board members |
 | `card_count` | integer | Number of active (non-archived) cards |
 | `staleness_threshold_days` | integer | Days without movement before a card is considered stale (default: 7) |
-| `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed |
+| `allowed_priorities` | array / null | Permitted priority values for cards on this board (e.g. `["low", "medium", "high"]`); `null` means all priorities are allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `enforce_wip_limits` | boolean | When `true`, card moves that would exceed a column's WIP limit return `409 Conflict` (default: `true` for new boards) |
 | `enforce_wip_hard` | boolean | When `true`, WIP limits cannot be overridden by any role — all users are blocked (default: `false`) |
 | `enforce_weight_limits` | boolean | When `true`, card moves that would exceed a column's weight limit return `409 Conflict` (default: `true` for new boards) |

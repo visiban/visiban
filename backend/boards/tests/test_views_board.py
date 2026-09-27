@@ -368,6 +368,42 @@ class AllowedPrioritiesValidationTests(TestCase):
                 self.board.refresh_from_db()
                 self.assertIsInstance(self.board.allowed_priorities, list)
 
+    @patch(PATCH_BROADCAST)
+    def test_duplicates_deduplicated_preserving_order(self, _):
+        # #1169: backward compatible — a request with duplicates validated
+        # and was stored as-is before this change, so it must still 200; only
+        # the stored list is de-duplicated (first occurrence kept).
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low", "high", "low", "urgent", "high"]},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.allowed_priorities, ["low", "high", "urgent"])
+
+    def test_oversized_list_rejected_before_scan(self):
+        # #1169 L1: a list far longer than any legitimate client would send
+        # must be rejected cheaply, before the any(...) validity scan.
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low"] * 1000},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("at most", str(r.data))
+
+    @patch(PATCH_BROADCAST)
+    def test_list_at_cap_still_accepted(self, _):
+        r = self.client.patch(
+            f"/api/v1/boards/{self.board.id}/",
+            {"allowed_priorities": ["low"] * 100},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.board.refresh_from_db()
+        self.assertEqual(self.board.allowed_priorities, ["low"])
+
 
 class CardDensityValidationTests(TestCase):
     """#961: per-board card_density choice validation and round-trip."""
