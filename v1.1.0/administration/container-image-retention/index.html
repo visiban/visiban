@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/architecture/api-versioning/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/administration/container-image-retention/">
       
       
-        <link rel="prev" href="../open-core-boundary/">
+        <link rel="prev" href="../media-security/">
       
       
-        <link rel="next" href="../decisions/">
+        <link rel="next" href="../secret-rotation/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>API Versioning - Visiban</title>
+        <title>Container Image Retention - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#api-versioning" class="md-skip">
+        <a href="#container-image-retention" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              API Versioning
+              Container Image Retention
             
           </span>
         </div>
@@ -310,13 +310,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../architecture/" class="md-tabs__link">
           
   
   
@@ -334,11 +332,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../administration/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -2150,8 +2150,6 @@
       
   
   
-    
-  
   
   
     
@@ -2199,23 +2197,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../architecture/" class="md-nav__link ">
               
   
   
@@ -2233,13 +2228,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2259,7 +2254,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../overview/" class="md-nav__link">
+      <a href="../../architecture/overview/" class="md-nav__link">
         
   
   
@@ -2287,7 +2282,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../data-model/" class="md-nav__link">
+      <a href="../../architecture/data-model/" class="md-nav__link">
         
   
   
@@ -2315,7 +2310,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deployment/" class="md-nav__link">
+      <a href="../../architecture/deployment/" class="md-nav__link">
         
   
   
@@ -2343,7 +2338,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../scaling/" class="md-nav__link">
+      <a href="../../architecture/scaling/" class="md-nav__link">
         
   
   
@@ -2371,7 +2366,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../service-layer/" class="md-nav__link">
+      <a href="../../architecture/service-layer/" class="md-nav__link">
         
   
   
@@ -2399,7 +2394,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../open-core-boundary/" class="md-nav__link">
+      <a href="../../architecture/open-core-boundary/" class="md-nav__link">
         
   
   
@@ -2424,37 +2419,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    API Versioning
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../architecture/api-versioning/" class="md-nav__link">
         
   
   
@@ -2470,81 +2438,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#url-path-versioning-apiv1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        URL path versioning — /api/v1/
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#backward-compatibility-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Backward-compatibility policy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#pagination-shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Pagination shape
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#how-deprecation-works" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How deprecation works
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#future-versioning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Future versioning
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2557,7 +2450,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../decisions/" class="md-nav__link">
+      <a href="../../architecture/decisions/" class="md-nav__link">
         
   
   
@@ -2841,6 +2734,8 @@
       
   
   
+    
+  
   
   
     
@@ -2880,20 +2775,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../administration/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2911,13 +2809,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2937,7 +2835,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -2965,7 +2863,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/site-admins/" class="md-nav__link">
+      <a href="../site-admins/" class="md-nav__link">
         
   
   
@@ -2993,7 +2891,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/admin-panel/" class="md-nav__link">
+      <a href="../admin-panel/" class="md-nav__link">
         
   
   
@@ -3021,7 +2919,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+      <a href="../maintenance-mode/" class="md-nav__link">
         
   
   
@@ -3049,7 +2947,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+      <a href="../scheduled-jobs/" class="md-nav__link">
         
   
   
@@ -3077,7 +2975,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/authentication/" class="md-nav__link">
+      <a href="../authentication/" class="md-nav__link">
         
   
   
@@ -3105,7 +3003,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/demo-data/" class="md-nav__link">
+      <a href="../demo-data/" class="md-nav__link">
         
   
   
@@ -3133,7 +3031,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/django-admin/" class="md-nav__link">
+      <a href="../django-admin/" class="md-nav__link">
         
   
   
@@ -3161,7 +3059,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/media-security/" class="md-nav__link">
+      <a href="../media-security/" class="md-nav__link">
         
   
   
@@ -3186,10 +3084,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../administration/container-image-retention/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3205,6 +3130,120 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-this-page-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why this page exists
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gitlab-container-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitLab container registry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ghcr-github-container-registry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GHCR (GitHub Container Registry)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-scheduled-check-check-release-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The scheduled check: check-release-images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#digest-pinning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Digest pinning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Digest pinning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#finding-the-digest-for-a-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding the digest for a release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinning-docker-composeprodyml-by-digest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinning docker-compose.prod.yml by digest
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pinning-the-helm-chart-by-digest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pinning the Helm chart by digest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3217,7 +3256,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/secret-rotation/" class="md-nav__link">
+      <a href="../secret-rotation/" class="md-nav__link">
         
   
   
@@ -3245,7 +3284,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/upgrade/" class="md-nav__link">
+      <a href="../upgrade/" class="md-nav__link">
         
   
   
@@ -3273,7 +3312,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+      <a href="../zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -3512,104 +3551,173 @@
   
 
 
-<h1 id="api-versioning">API Versioning<a class="headerlink" href="#api-versioning" title="Permanent link">&para;</a></h1>
-<h2 id="url-path-versioning-apiv1">URL path versioning — <code>/api/v1/</code><a class="headerlink" href="#url-path-versioning-apiv1" title="Permanent link">&para;</a></h2>
-<p>All Visiban API endpoints are served under the <code>/api/v1/</code> prefix (e.g. <code>/api/v1/boards/</code>, <code>/api/v1/auth/login/</code>). This is implemented using DRF's <code>URLPathVersioning</code> with <code>DEFAULT_VERSION = "v1"</code> and <code>ALLOWED_VERSIONS = ["v1"]</code>.</p>
-<p>Requests to an unsupported version (e.g. <code>/api/v2/</code>) receive <code>406 Not Acceptable</code>.</p>
-<p>A small number of infrastructure-level endpoints are intentionally unversioned:</p>
-<table>
-<thead>
-<tr>
-<th>Endpoint</th>
-<th>Reason</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>GET /api/health/liveness/</code></td>
-<td>Infrastructure health probes must not change URL across releases</td>
-</tr>
-<tr>
-<td><code>GET /api/health/readiness/</code></td>
-<td>Same</td>
-</tr>
-<tr>
-<td><code>GET /api/share/&lt;token&gt;/</code></td>
-<td>Externally shared URLs embedded in emails and bookmarks must remain stable</td>
-</tr>
-<tr>
-<td><code>/api/schema/</code>, <code>/api/schema/swagger-ui/</code>, <code>/api/schema/redoc/</code></td>
-<td>Schema introspection endpoints; clients use the versioned base paths within the schema</td>
-</tr>
-</tbody>
-</table>
-<h2 id="backward-compatibility-policy">Backward-compatibility policy<a class="headerlink" href="#backward-compatibility-policy" title="Permanent link">&para;</a></h2>
-<p>The URL prefix is the version signal for clients. Within a major version, the following changes are <strong>never</strong> made in a patch or minor release:</p>
-<table>
-<thead>
-<tr>
-<th>Change type</th>
-<th>Rule</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Remove or rename a response field</td>
-<td>Never — add new fields, deprecate old ones, never delete</td>
-</tr>
-<tr>
-<td>Change a field's type</td>
-<td>Never (e.g. string → integer, nullable → required) without a major version bump</td>
-</tr>
-<tr>
-<td>Remove an endpoint</td>
-<td>Never — endpoints receive a <code>410 Gone</code> response with a deprecation notice for at least one minor release first</td>
-</tr>
-<tr>
-<td>Add a required query parameter to an existing endpoint</td>
-<td>Never — new parameters must be optional with a sensible default</td>
-</tr>
-<tr>
-<td>Add a required body field to an existing endpoint</td>
-<td>Never — new body fields must be optional with a sensible default</td>
-</tr>
-</tbody>
-</table>
-<p>These rules are enforced by code review and are documented in <code>CLAUDE.md</code> so they apply to every contribution.</p>
-<h2 id="pagination-shape">Pagination shape<a class="headerlink" href="#pagination-shape" title="Permanent link">&para;</a></h2>
-<p>All paginated list endpoints return a consistent envelope:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"count"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">"offset"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">"page_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">50</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="err">...</span><span class="p">]</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">}</span>
+<h1 id="container-image-retention">Container image retention<a class="headerlink" href="#container-image-retention" title="Permanent link">&para;</a></h1>
+<p>Visiban publishes <code>backend</code> and <code>frontend</code> images to <strong>two</strong> registries on every release:
+the GitLab container registry (<code>${CI_REGISTRY_IMAGE}</code>, i.e. <code>registry.gitlab.com/visiban/visiban</code>)
+and GHCR (<code>ghcr.io/visiban/visiban</code>). Both registries can run their own cleanup/retention
+policy, configured outside this repository — in the GitLab project settings UI, or (for
+GHCR, if ever added) a GitHub Actions workflow. Neither shows up in a diff, so a policy that
+deletes a released image is invisible until someone goes looking for the 404.</p>
+<h2 id="why-this-page-exists">Why this page exists<a class="headerlink" href="#why-this-page-exists" title="Permanent link">&para;</a></h2>
+<p>TruePPM's beta-readiness audit found this as its single most urgent finding: a GitLab
+container-registry cleanup policy (<code>keep_n=1</code>, <code>name_regex=".*"</code>, <strong>no keep-regex</strong>) matched
+every tag and protected none. Its daily sweep deleted the released <code>v0.3.0-alpha.3</code>
+<code>api</code>/<code>web</code> images weeks after that release shipped — confirmed 404, live. No version-pinned
+install of the current release was possible, and rollback was impossible. The publish jobs
+had gone green; the policy that erased their output afterward lived entirely in the GitLab
+UI, asserted by nothing in the repo.</p>
+<p>Separately, Red-team finding M17 in the same audit: the documented production compose path
+defaulted <code>APP_VERSION</code> to <code>latest</code> — a mutable tag — while every release image was scanned,
+SBOM'd and signed <strong>by digest</strong>. Pulling <code>latest</code> in production could never be verified
+against that signature or rolled back to a specific artifact. See
+<a href="../upgrade/#upgrading-to-12x">Upgrading → <code>APP_VERSION</code> is now required</a> for how Visiban
+closed that half; this page covers the registry-retention half and digest pinning.</p>
+<h2 id="gitlab-container-registry">GitLab container registry<a class="headerlink" href="#gitlab-container-registry" title="Permanent link">&para;</a></h2>
+<p>Recorded 2026-09-27 via:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.container_expiration_policy'</span>
 </code></pre></div>
-<p>Query parameters: <code>?offset=0&amp;page_size=50</code> (max <code>200</code>). This shape is stable for the lifetime of <code>v1</code>.</p>
-<h2 id="how-deprecation-works">How deprecation works<a class="headerlink" href="#how-deprecation-works" title="Permanent link">&para;</a></h2>
-<p>When a field or endpoint needs to be removed in a future release:</p>
-<ol>
-<li>
-<p><strong>Announce deprecation</strong> — add <code>Deprecation</code> and <code>Sunset</code> response headers to the relevant endpoint for at least one minor release before removing the behavior:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Deprecation: true
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Sunset: &lt;ISO 8601 date of planned removal&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"cadence"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1d"</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"keep_n"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"older_than"</span><span class="p">:</span><span class="w"> </span><span class="s2">"90d"</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"name_regex"</span><span class="p">:</span><span class="w"> </span><span class="s2">".*"</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"name_regex_keep"</span><span class="p">:</span><span class="w"> </span><span class="s2">"v.*"</span><span class="p">,</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="nt">"next_run_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-09-26T23:52:16.652Z"</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="p">}</span>
 </code></pre></div>
-</li>
-<li>
-<p><strong>Document in CHANGELOG</strong> — the deprecation notice must appear in <code>CHANGELOG.md</code> under the release that introduced the headers, and the planned removal must appear under the release that performs it.</p>
-</li>
-<li>
-<p><strong>Remove after the sunset date</strong> — the field or endpoint may be removed once the sunset release has shipped. Clients that read the <code>Sunset</code> header have advance notice to update.</p>
-</li>
-</ol>
-<p>For endpoints being retired, return <code>410 Gone</code> with a JSON body explaining what replaced it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This endpoint was removed in 1.x.0. Use /api/v1/replacement/ instead."</span><span class="p">,</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"docs"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://docs.visiban.com/api/replacement/"</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="p">}</span>
+<p>A tag matching <code>name_regex_keep</code> is <strong>never</strong> swept, regardless of age or the <code>keep_n</code>/
+<code>older_than</code> count-and-age limits that apply to everything else <code>name_regex</code> matches. Reading
+this policy against Visiban's actual tag set:</p>
+<ul>
+<li><strong><code>v*</code> release tags are unconditionally protected.</strong> <code>name_regex_keep: "v.*"</code> matches every
+  <code>vX.Y.Z</code>(-alpha/beta/rc.N) tag this repo's kaniko push jobs create, so a released tag
+  cannot be reaped by this policy no matter how old it gets or how many other tags have been
+  pushed since. This is the exact gap TruePPM's incident exploited — it is closed here.</li>
+<li><strong><code>latest</code> is <em>not</em> unconditionally protected.</strong> <code>name_regex_keep: "v.*"</code> does not match
+  the literal string <code>latest</code>. It survives today only because <code>backend-docker-push</code> /
+  <code>frontend-docker-push</code> re-push <code>:latest</code> on every <code>main</code>-branch merge, which almost always
+  keeps it inside <code>keep_n: 10</code> most-recently-pushed or younger than <code>older_than: 90d</code>. If
+  <code>main</code> ever goes 90+ days without a merge to either image <em>and</em> 10 other tags get pushed in
+  the meantime, <code>latest</code> becomes eligible for the sweep — a scenario the policy does not rule
+  out, only makes unlikely under normal development cadence.</li>
+</ul>
+<p><strong>This change does not modify the policy.</strong> Changing a GitLab project setting is an
+outward-facing admin action outside this branch's scope (#1074). If you want to close the
+<code>latest</code> gap, the exact call is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span>--method<span class="w"> </span>PUT<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>--header<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span>--input<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'EOF'</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="s">{"container_expiration_policy_attributes": {"name_regex_keep": "^(v.*|latest)\\z"}}</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="s">EOF</span>
 </code></pre></div>
-<h2 id="future-versioning">Future versioning<a class="headerlink" href="#future-versioning" title="Permanent link">&para;</a></h2>
-<p>When a breaking change is unavoidable, a <code>/api/v2/</code> prefix will be introduced. Both versions will be served in parallel for at least one minor release cycle to allow integrators to migrate. Until a breaking change is required, only <code>v1</code> exists — there is no <code>/api/v2/</code> today.</p>
+<p>Verify afterward with the same <code>jq '.container_expiration_policy'</code> read above. (Using <code>\z</code>
+rather than <code>$</code> anchors the regex to the true end of string, not "end of line" — GitLab's
+cleanup policy regex is a Ruby <code>Regexp</code>, where <code>$</code> also matches before a trailing newline.)</p>
+<h2 id="ghcr-github-container-registry">GHCR (GitHub Container Registry)<a class="headerlink" href="#ghcr-github-container-registry" title="Permanent link">&para;</a></h2>
+<p>GHCR has <strong>no per-package automatic retention/cleanup policy setting</strong> at all, on any GitHub
+plan — unlike GitLab's project-level <code>container_expiration_policy</code>, there is no equivalent
+API field or UI toggle to query. The only way GHCR images get swept is a workflow that
+explicitly deletes package versions (typically <code>actions/delete-package-versions</code> in a GitHub
+Actions workflow).</p>
+<p>Checked 2026-09-27: this repository's only GitHub Actions workflow is
+<code>.github/workflows/issue-bridge.yml</code> (unrelated — bridges GitLab issues to GitHub for
+visibility). <strong>No workflow deletes GHCR package versions</strong>, so GHCR-published <code>backend</code>/
+<code>frontend</code> images are not subject to any automated retention here — they persist until
+someone deletes them by hand.</p>
+<p>The <code>gh</code> CLI used for this audit was authenticated but its token lacked the <code>read:packages</code>
+scope needed to list package versions directly (<code>gh api orgs/visiban/packages</code> → 403). That
+is a token-scope gap, not a "no packages" result — an operator who wants to confirm GHCR's
+current package list and any manual deletions should do one of:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Re-authenticate gh with package read access, then list:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>gh<span class="w"> </span>auth<span class="w"> </span>refresh<span class="w"> </span>-h<span class="w"> </span>github.com<span class="w"> </span>-s<span class="w"> </span>read:packages
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>gh<span class="w"> </span>api<span class="w"> </span><span class="s2">"orgs/visiban/packages?package_type=container"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Or check in the browser (no scope needed — it's your own org):</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># https://github.com/orgs/visiban/packages</span>
+</code></pre></div>
+<p>If a retention workflow is ever added for GHCR, record its keep-rule here in the same shape
+as the GitLab section above, including whether it protects <code>v*</code> tags and <code>latest</code>
+unconditionally.</p>
+<h2 id="the-scheduled-check-check-release-images">The scheduled check: <code>check-release-images</code><a class="headerlink" href="#the-scheduled-check-check-release-images" title="Permanent link">&para;</a></h2>
+<p>Both of the above are point-in-time reads — nothing re-verifies them as either registry's
+tag set or policy changes. <code>scripts/check-release-images.sh</code> (ported from TruePPM's own fix
+for this incident) runs on every scheduled CI pipeline as the <code>check-release-images</code> job and
+fails — <strong>not <code>allow_failure</code></strong> — if the newest released <code>vX.Y.Z</code> <code>backend</code> or <code>frontend</code>
+image is missing from <em>either</em> <code>${CI_REGISTRY_IMAGE}</code> or <code>ghcr.io/visiban/visiban</code>. This is
+the check that would have caught TruePPM's incident the morning it happened, rather than
+whenever the next release attempt failed to pull.</p>
+<ul>
+<li><strong>Not <code>allow_failure</code>.</strong> A self-hoster who cannot pull the version the docs told them to
+  run has no working install — that is a release defect, not an informational signal.</li>
+<li><strong><code>RELEASE_IMAGE_PROBE</code></strong> lets the decision logic (which registry, which image, which tag,
+  what counts as missing) be unit-tested with a stub, without a daemon or live registry
+  credentials — see the script's <code>--self-test</code> mode and
+  <a href="../../development/ci-gates/">CI gate self-tests</a>.</li>
+<li><strong><code>ACCEPTED_GAPS</code></strong> is the escape hatch for a documented, permanent, single-reference
+  exception (e.g. an old pre-release image intentionally never republished) — set per-entry
+  by the CI job with a comment naming the decision issue, never defaulted in the script.</li>
+<li>The probe itself uses <code>crane manifest &lt;ref&gt;</code> (no daemon, no image pull, no <code>docker:dind</code>) —
+  consistent with the rest of this repo's kaniko-based, daemonless registry tooling.</li>
+</ul>
+<p>If this job goes red, it means a released, documented version is not pullable from the named
+registry. Check that registry's retention/cleanup policy first (see the sections above), then
+re-run that tag's <code>backend-docker-push</code> / <code>frontend-docker-push</code> publish jobs to restore the
+image.</p>
+<h2 id="digest-pinning">Digest pinning<a class="headerlink" href="#digest-pinning" title="Permanent link">&para;</a></h2>
+<p>Both <code>docker-compose.prod.yml</code> and the Helm chart select images by <strong>tag</strong> (<code>APP_VERSION</code> /
+<code>values.yaml</code>'s <code>tag:</code>). A tag is a mutable pointer — even a <code>v1.1.0</code> tag that is never
+intentionally overwritten, but registries let it be recreated (an operator who suspects a
+GHCR/GitLab-side re-push, or who wants the strongest possible guarantee that the image bytes
+they run are the exact ones that were scanned and signed, can pin by <strong>digest</strong> instead.</p>
+<p>Every release image is content-addressed by its digest (a <code>sha256:...</code> hash of the image
+manifest) at the point it is pushed — that digest is what CI's SBOM/scan/sign steps actually
+operate on, and it cannot change without the digest itself changing.</p>
+<h3 id="finding-the-digest-for-a-release">Finding the digest for a release<a class="headerlink" href="#finding-the-digest-for-a-release" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Via crane (no docker pull required):</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>crane<span class="w"> </span>digest<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Via docker, if you already have docker available:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>docker<span class="w"> </span>buildx<span class="w"> </span>imagetools<span class="w"> </span>inspect<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0<span class="w"> </span>--format<span class="w"> </span><span class="s1">'{{.Manifest.Digest}}'</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Via the GitLab UI: Deploy → Container Registry → backend → the tag's row shows its digest.</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Via the GitHub UI: the package's page (https://github.com/orgs/visiban/packages/container/visiban%2Fbackend)</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1"># lists each version's digest.</span>
+</code></pre></div>
+<h3 id="pinning-docker-composeprodyml-by-digest">Pinning <code>docker-compose.prod.yml</code> by digest<a class="headerlink" href="#pinning-docker-composeprodyml-by-digest" title="Permanent link">&para;</a></h3>
+<p>Digest references use <code>@sha256:...</code> instead of (or in addition to) a tag, and — unlike
+<code>${APP_VERSION}</code> — are not something <code>docker-compose.prod.yml</code> can templatize per-service from
+a single <code>.env</code> variable, since compose does not let you combine a variable-selected tag with
+a fixed digest suffix on the same image reference. Pin all three backend-image lines
+(<code>backend-init</code>, <code>backend</code>, <code>scheduler</code>) and the frontend line by editing your local copy of
+<code>docker-compose.prod.yml</code> directly, replacing e.g.:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend:${APP_VERSION:?...}</span>
+</code></pre></div>
+<p>with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend@sha256:&lt;digest&gt;</span>
+</code></pre></div>
+<p>This intentionally opts out of <code>APP_VERSION</code> entirely for that service — you are now pinned
+to one specific, immutable artifact until you edit the file again for the next upgrade. Keep
+a note of which <code>vX.Y.Z</code> tag that digest corresponds to (e.g. in a comment on the same line)
+since <code>docker compose ps</code>/<code>images</code> will only show the digest, not the version.</p>
+<h3 id="pinning-the-helm-chart-by-digest">Pinning the Helm chart by digest<a class="headerlink" href="#pinning-the-helm-chart-by-digest" title="Permanent link">&para;</a></h3>
+<p>The chart templates render <code>image: "{{ .repository }}:{{ .tag }}"</code> — there is no separate
+<code>digest</code> values key. Docker/OCI image references accept a tag <strong>and</strong> a digest together
+(<code>repo:tag@digest</code>; the digest wins when both are present, and the tag stays as the
+human-readable label), so append the digest directly onto <code>tag</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">backend</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/backend</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="nt">frontend</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">image</span><span class="p">:</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="nt">repository</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ghcr.io/visiban/visiban/frontend</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">    </span><span class="nt">tag</span><span class="p">:</span><span class="w"> </span><span class="s">"v1.1.0@sha256:&lt;digest&gt;"</span>
+</code></pre></div>
+<p><code>values.schema.json</code> only rejects the literal value <code>latest</code> for these two <code>tag</code> fields
+(#542 — so an upgrade can never leave replicas on two different builds); a <code>tag@digest</code>
+string passes that check unchanged.</p>
 
 
 

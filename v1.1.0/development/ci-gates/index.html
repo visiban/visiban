@@ -2919,6 +2919,8 @@
       
         
       
+        
+      
     
     
     
@@ -3212,6 +3214,34 @@
     
   
     Media Storage Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../administration/container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
   
 
     
@@ -3685,6 +3715,11 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>scripts/check-broadcast-deferral.py</code></td>
 <td><code>broadcast-deferral</code></td>
 <td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table.</td>
+</tr>
+<tr>
+<td><code>scripts/check-release-images.sh</code></td>
+<td><code>check-release-images</code> (scheduled pipelines only)</td>
+<td>Ported from TruePPM's beta-readiness incident #0 (#1074): a registry cleanup policy with no keep-regex deleted a released image days after it shipped, with no commit to review and no job that went red on its own. 13-case self-test over a stubbed <code>RELEASE_IMAGE_PROBE</code> — both registries missing, one registry healthy, both healthy, an explicit empty <code>RELEASE_REGISTRIES</code> override, no resolvable <code>v*</code> tag, and <code>ACCEPTED_GAPS</code> skipping only the named reference. Unlike <code>osv-severity-gate.sh</code>, there is no separate <code>scripts/tests/</code> regression file — the in-script self-test already exercises every branch of the (small) decision logic, so a second copy of the same fixtures would just be duplicate maintenance. See <a href="../../administration/container-image-retention/">Container image retention</a>.</td>
 </tr>
 </tbody>
 </table>

@@ -2769,6 +2769,8 @@
       
         
       
+        
+      
     
     
     
@@ -3315,6 +3317,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../container-image-retention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Container Image Retention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../secret-rotation/" class="md-nav__link">
         
   
@@ -3778,7 +3808,7 @@
 <tbody>
 <tr>
 <td><code>APP_VERSION</code></td>
-<td>Image tag to pull, e.g. <code>v1.0.0</code>. Defaults to <code>latest</code> if unset.</td>
+<td>Image tag to pull, e.g. <code>v1.1.0</code>. <strong>Required</strong> — the compose file fails to start if unset; it no longer falls back to the mutable <code>latest</code> tag (see <a href="../container-image-retention/">Container image retention</a>). <code>.env.example</code> ships a pinned value.</td>
 </tr>
 <tr>
 <td><code>DB_PASSWORD</code></td>
