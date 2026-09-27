@@ -50,13 +50,21 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Strip ``is_moderator`` from the response when the requesting user is
-        not an admin or site_admin (#920).
+        not an admin/site_admin and not the row's own subject (#920/#1173).
 
         Moderator status is an internal trust tier — admins promote a member to
         moderator so they can edit/delete other members' content.  Exposing the
         flag to viewers and members reveals organisational signal that should
-        not be visible at those roles.  Admin reads (members panel, member POST
-        response) keep the field.
+        not be visible at those roles, on rows that belong to someone else.
+        Admin reads (members panel, member POST response) keep the field on
+        every row; a non-admin sees it only on their own row — the same rule
+        ``moderator_field_visible()`` applies for ``BoardFullSerializer``,
+        ``BoardConsumer``, and ``BoardEventSerializer`` (#1191). This
+        serializer's only caller (the admin-only members POST endpoint,
+        ``views/boards.py``) always resolves ``role`` to admin/site_admin
+        before instantiating this serializer, so the self-row branch is inert
+        there today — but a future non-admin-readable caller gets the correct
+        behavior for free rather than restating the tuple check.
 
         The broadcast surface (``member.added`` / ``member.updated`` events)
         does not filter at the serializer layer because it has no
@@ -68,17 +76,21 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
         view) or falls back to ``get_board_role`` when a request and board are
         available in context.  In contexts where the role cannot be resolved
         (e.g. broadcast payloads built without a request) the field is kept —
-        the consumer-layer filter is the second line of defense.
+        the consumer-layer filter is the second line of defense. Once a role
+        *is* known, visibility is decided by ``moderator_field_visible()``,
+        which fails closed if the viewer id cannot be resolved.
         """
         data = super().to_representation(instance)
-        from .permissions import get_board_role, SITE_ADMIN
+        from .permissions import get_board_role
         role = self.context.get("role")
         request = self.context.get("request")
         board = self.context.get("board")
         if role is None and request and board and request.user.is_authenticated:
             role = get_board_role(request.user, board)
-        if role is not None and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            data.pop("is_moderator", None)
+        if role is not None:
+            viewer_id = request.user.id if request and request.user.is_authenticated else None
+            if not moderator_field_visible(role, viewer_id, instance.user_id):
+                data.pop("is_moderator", None)
         return data
 
 
@@ -2342,7 +2354,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         # Hide is_moderator from non-admin viewers (#920).  Resolve the
         # requesting user's role once here rather than in the per-row loop.
-        from .permissions import get_board_role, moderator_field_visible
+        from .permissions import get_board_role
         viewer_role = self.context.get("role")
         request = self.context.get("request")
         if viewer_role is None and request and request.user.is_authenticated:
@@ -2369,10 +2381,10 @@ class BoardFullSerializer(serializers.ModelSerializer):
             # non-admin member promoted to moderator would never see their
             # own moderator controls (#1173). moderator_field_visible() reveals
             # it only for the row that is the requesting user; every other
-            # non-admin-visible row still omits it. The WS member.* broadcasts
-            # (BoardConsumer.board_event) and the change-feed reader
-            # (BoardEventSerializer.to_representation) call the same helper,
-            # so all three surfaces share one definition of the rule (#1191).
+            # non-admin-visible row still omits it. BoardMembershipSerializer,
+            # BoardConsumer.board_event, and BoardEventSerializer.to_representation
+            # call the same helper, so all four surfaces share one definition
+            # of the rule (#1191).
             if moderator_field_visible(viewer_role, requesting_user_id, entry["user"].pk):
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)

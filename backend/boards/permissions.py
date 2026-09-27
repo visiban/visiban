@@ -11,16 +11,12 @@ logger = logging.getLogger(__name__)
 
 SITE_ADMIN = "site_admin"
 
-# Roles that may see ``is_moderator`` on a ``member.*`` payload.
-#
-# Moderator status is an internal trust tier (#920/#978) and there are now three
-# surfaces that must apply the identical gate: the REST members panel
-# (``BoardMembershipSerializer.to_representation``), the WebSocket fan-out
-# (``BoardConsumer.board_event``, which filters per subscriber because the
-# serializer has no recipient), and the board change feed
-# (``BoardEventSerializer``, which filters per reader for the same reason).
-# The tuple lives here, at the same level as ``SITE_ADMIN``, so those three
-# cannot drift apart — a fourth reader must import it rather than restate it.
+# Roles that may see ``is_moderator`` on every row of a ``member.*`` payload,
+# regardless of whose row it is. Below this, a viewer may still see the flag on
+# their OWN row — that self-row exception lives in ``moderator_field_visible()``
+# below, not here. Nothing should compare a role against this tuple directly to
+# decide visibility; call ``moderator_field_visible()`` instead, or the self-row
+# case silently regresses to the old #920 behavior (#1191).
 ROLES_WITH_MODERATOR_VISIBILITY = (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
 # Event types whose payload carries ``is_moderator``. Kept beside the role tuple
@@ -31,11 +27,23 @@ MODERATOR_BEARING_EVENTS = (EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED)
 def moderator_field_visible(role, viewer_user_id, subject_user_id):
     """Return True if a ``member.*`` row's ``is_moderator`` may be shown.
 
-    Mirrors the self-row exception ``BoardFullSerializer.get_members()`` applies
-    (#1173): a non-admin viewer sees the flag on their OWN row (they need it to
-    know whether their moderator entitlement is active) but not on anyone
-    else's (#920 — moderator status is internal trust signal). Admin/site_admin
-    viewers always see it, on every row.
+    This is the single rule (#920/#1173/#1191): a non-admin viewer sees the
+    flag on their OWN row (they need it to know whether their moderator
+    entitlement is active) but not on anyone else's (moderator status is
+    internal trust signal). Admin/site_admin viewers always see it, on every
+    row. Four surfaces call this function rather than restating the rule:
+
+    - ``BoardFullSerializer.get_members()`` — ``/full/`` members array
+    - ``BoardMembershipSerializer.to_representation`` — REST members POST response
+    - ``BoardConsumer.board_event`` — ``member.added``/``member.updated`` WS frames
+      (filters per subscriber because the serializer has no recipient)
+    - ``BoardEventSerializer.to_representation`` — board change-feed replay
+      (filters per reader for the same reason)
+
+    A fifth reader of ``is_moderator`` must call this helper rather than
+    reimplement the self-row check or compare a role against
+    ``ROLES_WITH_MODERATOR_VISIBILITY`` directly — that is exactly the gap
+    #1191 closed on the WS/feed surfaces after #1173 fixed only ``/full/``.
 
     ``viewer_user_id`` / ``subject_user_id`` are plain ints (or None) rather
     than User instances so every caller — the WS consumer (scope user),

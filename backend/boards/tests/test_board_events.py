@@ -566,12 +566,39 @@ class ReadSideStrippingTests(BoardEventTestBase):
         row = self.client_for(site_admin).get(self.url).data["results"][0]
         self.assertIn("is_moderator", row["data"])
 
-    def test_stripping_matches_the_websocket_consumer_gate(self):
-        """One definition, two readers — the feed and the socket cannot drift."""
-        from boards.consumers import _ROLES_WITH_MODERATOR_VISIBILITY
-        from boards.permissions import ROLES_WITH_MODERATOR_VISIBILITY
+    def test_all_surfaces_call_the_shared_moderator_visibility_rule(self):
+        """No drift is possible: BoardFullSerializer.get_members(),
+        BoardMembershipSerializer.to_representation, BoardEventSerializer.to_representation
+        (this feed), and BoardConsumer.board_event all resolve to the exact
+        same ``moderator_field_visible`` object rather than each restating
+        the #920/#1173 rule (#1191) — and this spies on it to prove the three
+        serializers.py callers actually invoke it, not just import it."""
+        import boards.serializers as serializers_module
+        import boards.consumers as consumers_module
+        from boards.permissions import moderator_field_visible as shared_rule
 
-        self.assertIs(_ROLES_WITH_MODERATOR_VISIBILITY, ROLES_WITH_MODERATOR_VISIBILITY)
+        self.assertIs(serializers_module.moderator_field_visible, shared_rule)
+        self.assertIs(consumers_module.moderator_field_visible, shared_rule)
+
+        with patch("boards.serializers.moderator_field_visible", wraps=shared_rule) as spy:
+            # BoardEventSerializer.to_representation, via the change feed.
+            self.client_for(self.member).get(self.url)
+            feed_calls = spy.call_count
+            self.assertGreater(feed_calls, 0)
+
+            # BoardFullSerializer.get_members(), via /full/.
+            self.client_for(self.member).get(f"/api/v1/boards/{self.board.pk}/full/")
+            self.assertGreater(spy.call_count, feed_calls)
+            full_calls = spy.call_count
+
+            # BoardMembershipSerializer.to_representation, via the admin-only
+            # members POST response.
+            self.client_for(self.owner).post(
+                f"/api/v1/boards/{self.board.pk}/members/",
+                {"user_id": self.viewer.pk, "role": "member", "is_moderator": True},
+                format="json",
+            )
+            self.assertGreater(spy.call_count, full_calls)
 
     def test_unknown_role_fails_closed(self):
         from boards.serializers import BoardEventSerializer
