@@ -4439,7 +4439,7 @@
 <tr>
 <td><code>allowed_priorities</code></td>
 <td>array / null</td>
-<td>Permitted priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all priorities are allowed</td>
+<td>Permitted priority values for cards on this board (e.g. <code>["low", "medium", "high"]</code>); <code>null</code> means all priorities are allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with <code>400 Bad Request</code>.</td>
 </tr>
 <tr>
 <td><code>enforce_wip_limits</code></td>
