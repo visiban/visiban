@@ -3115,6 +3115,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Hosted demo instance">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#threat-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Threat model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3703,10 +3720,28 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <p>It creates, alongside the normal demo board:</p>
 <ul>
 <li><strong>Software Team</strong> (Backlog / In Progress / Review / Done), <strong>Marketing Campaigns</strong>, and <strong>Hiring Pipeline</strong> boards, 20 cards each, with comments, assignees, labels, and movement history</li>
-<li>an <strong>admin</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, password from <code>DEMO_LOGIN_PASSWORD</code>, site admin) and two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</li>
+<li>the <strong>published visitor</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, default <code>visitor</code>; password from <code>DEMO_LOGIN_PASSWORD</code>) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While <code>DEMO_MODE</code> is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment <code>DEMO_MODE</code> is turned off rather than living on as a stored permission</li>
+<li>a site <strong>admin</strong> account (<code>admin</code>, password from <code>DEMO_ADMIN_PASSWORD</code>, <strong>never published</strong>) that owns the seeded boards</li>
+<li>two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</li>
 </ul>
-<p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code>, <code>DEMO_LOGIN_PASSWORD</code>, and <code>DEMO_MEMBER_PASSWORD</code> are all set, and cannot be combined with <code>--export</code> or <code>--scale</code>. The onboarding tour flag is reset on every run, so the tour starts on first login after each reset.</p>
-<p>Set <code>DEMO_MODE=true</code> to show the login-page banner. See <a href="../configuration/#demo-mode">Demo mode</a> for the settings, and <code>deploy/demo/README.md</code> in the repository for the Caddy, compose, and nightly-reset artifacts.</p>
+<p>It also turns file uploads off and sets registration to <strong>closed</strong>.</p>
+<p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code> and <code>DEMO_LOGIN_PASSWORD</code>, <code>DEMO_ADMIN_PASSWORD</code> and <code>DEMO_MEMBER_PASSWORD</code> are all set, refuses an admin password equal to the published one, refuses a <code>DEMO_LOGIN_USERNAME</code> that names another seeded account, and cannot be combined with <code>--export</code> or <code>--scale</code>. The onboarding tour is marked <strong>completed</strong> for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.</p>
+<p>See <a href="../configuration/#demo-mode">Demo mode</a> for the settings. The deployment itself — the hourly reset CronJob, the egress NetworkPolicy and the post-deploy fence check — ships in the Helm chart (#1180).</p>
+<h3 id="threat-model">Threat model<a class="headerlink" href="#threat-model" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Added in 1.2</strong> (#1179).</p>
+</blockquote>
+<p>A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Two facts shape the design:</p>
+<ul>
+<li><strong>Role is not a control.</strong> <code>POST /api/v1/boards/</code> and <code>POST /api/v1/groups/{id}/boards/</code> make <em>any</em> authenticated caller the ADMIN of the board they create. A published credential of any role is therefore one request away from owning something. Seeding a harmless role cannot hold.</li>
+<li><strong>The guarantee is a deployment mode.</strong> With <code>DEMO_MODE=true</code>, <code>DemoModeMiddleware</code> refuses every request whose method is not <code>GET</code>, <code>HEAD</code> or <code>OPTIONS</code> — including <code>TRACE</code> and unknown verbs — for <strong>every caller</strong>, a site admin and anonymous clients included, unless it is on a short, pinned allowlist. A route added in a later release is refused by construction until someone deliberately adds it. The same rule covers allauth's <code>/accounts/</code> tree, <code>/admin/</code>, and <code>/mcp</code> (every MCP write tool is refused).</li>
+</ul>
+<p>A refusal is <code>403</code> with a stable body:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"demo_read_only"</span><span class="p">,</span><span class="w"> </span><span class="nt">"detail"</span><span class="p">:</span><span class="w"> </span><span class="s2">"This is a shared demo — this change can't be saved here. ..."</span><span class="p">}</span>
+</code></pre></div>
+<p><strong>What a visitor can do:</strong> sign in and out, watch live updates, and create, edit (including custom-field values), move, archive and restore cards, and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions.</p>
+<p><strong>What a visitor cannot do:</strong> create, rename or delete boards, columns, swimlanes, labels or custom fields; delete cards; comment; upload attachments; add card relations; change their profile, password or preferences; mint personal access tokens; register, request a password reset (so the demo cannot be used as an email relay), or use invites and groups; connect a lens; import; or reach anything under the admin API. The SPA disables the most visible of these controls up front with the reason ("This is a shared demo — …"), and shows a toast if any other refusal reaches it.</p>
+<p><strong>The reset is containment, not a control.</strong> Every hour, on the hour (<code>DEMO_RESET_SCHEDULE</code>), the reset job wipes the <strong>whole database</strong> and reseeds it. That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example <code>BoardEvent</code>, whose <code>board_id</code> is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.</p>
 <h2 id="demo-data-and-real-data">Demo data and real data<a class="headerlink" href="#demo-data-and-real-data" title="Permanent link">&para;</a></h2>
 <p>Demo records carry no special marker. A demo card looks identical to a real card at the database level — same fields, same UID format, same <code>archived_at</code> behavior. This means:</p>
 <ul>
@@ -3717,23 +3752,23 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 </ul>
 <h2 id="cleaning-up-accidental-seeding">Cleaning up accidental seeding<a class="headerlink" href="#cleaning-up-accidental-seeding" title="Permanent link">&para;</a></h2>
 <p>If <code>seed_demo_data</code> is run against a production database by mistake:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># In a Django shell (python manage.py shell)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">groups.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">Group</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Workspace"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># In a Django shell (python manage.py shell)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">groups.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">Group</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Workspace"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>This cascade-deletes all columns, swimlanes, labels, custom fields, saved filters, attachments, cards, movements, and comments associated with the demo board, and the Group delete cascade-removes its invite links and group labels. Neither step removes the demo user accounts. To remove those:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__in</span><span class="o">=</span><span class="p">[</span><span class="s2">"demo1"</span><span class="p">,</span> <span class="s2">"demo2"</span><span class="p">,</span> <span class="s2">"demo3"</span><span class="p">,</span> <span class="s2">"demo4"</span><span class="p">,</span> <span class="s2">"demo5"</span><span class="p">])</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__in</span><span class="o">=</span><span class="p">[</span><span class="s2">"demo1"</span><span class="p">,</span> <span class="s2">"demo2"</span><span class="p">,</span> <span class="s2">"demo3"</span><span class="p">,</span> <span class="s2">"demo4"</span><span class="p">,</span> <span class="s2">"demo5"</span><span class="p">])</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>Run both steps inside a transaction if you want to roll back on failure:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="gitlab-ci-setup-for-automated-demo-refresh">GitLab CI setup for automated demo refresh<a class="headerlink" href="#gitlab-ci-setup-for-automated-demo-refresh" title="Permanent link">&para;</a></h2>
 <p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.</p>
@@ -3807,7 +3842,7 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <p>If you are using the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you will need to delete the board that was created.</p>
 <h3 id="identifying-test-boards-in-development">Identifying test boards in development<a class="headerlink" href="#identifying-test-boards-in-development" title="Permanent link">&para;</a></h3>
 <p>If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. <code>TEST: My Board</code>) so they can be found and deleted in bulk:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>This is a convention, not an enforced constraint, and relies on the person creating the test data using the prefix consistently.</p>
 

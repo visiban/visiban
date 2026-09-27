@@ -4547,7 +4547,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <code>CurrentUserSerializer</code>. This section documents the fields once, under <code>/auth/me/</code>.</p>
 </div>
 <p><strong>Permission:</strong> Requires authentication.</p>
-<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
+<p><strong>Response fields include:</strong> <code>id</code>, <code>username</code>, <code>email</code>, <code>first_name</code>, <code>last_name</code>, <code>display_name</code>, <code>avatar_url</code>, <code>is_site_admin</code>, <code>can_access_all_content</code>, <code>uploads_enabled</code>, <code>maintenance_mode</code>, <code>maintenance_message</code>, <code>demo_mode</code>, <code>demo_next_reset_at</code>, <code>must_change_password</code>, <code>must_change_username</code>, <code>has_usable_password</code>, <code>has_completed_tour</code>, <code>timezone</code>, <code>date_format</code>, <code>time_format</code>, <code>number_locale</code>, <code>close_editor_on_enter</code>, <code>notif_card_assigned</code>, <code>notif_mentioned</code>, <code>notif_due_soon</code>, <code>notif_card_moved</code>, <code>notif_comment_added</code>, <code>notif_board_invite</code>, <code>notif_stale</code>, <code>email_notif_card_assigned</code>, <code>email_notif_mentioned</code>, <code>email_notif_due_soon</code>, <code>email_notif_card_moved</code>, <code>default_board_id</code>, <code>theme</code>.</p>
 <table>
 <thead>
 <tr>
@@ -4581,6 +4581,16 @@ actually bootstraps from) returns the identical shape — both are served by
 <td><code>maintenance_message</code></td>
 <td>string</td>
 <td>The notice to show while <code>maintenance_mode</code> is <code>true</code>. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and <code>""</code> otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>demo_mode</code></td>
+<td>boolean</td>
+<td>Whether the instance is a public hosted demo (<code>DEMO_MODE</code>). When <code>true</code>, unsafe requests outside a small allowlist return <code>403</code> with <code>code: "demo_read_only"</code> — see <a href="../../administration/demo-data/#hosted-demo-instance">Hosted demo instance</a>. Read-only. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>demo_next_reset_at</code></td>
+<td>string (ISO 8601 UTC) or null</td>
+<td>The next scheduled demo reset, computed server-side from <code>DEMO_RESET_SCHEDULE</code>. <code>null</code> unless <code>demo_mode</code> is <code>true</code>. Read-only. Added in 1.2.</td>
 </tr>
 <tr>
 <td><code>theme</code></td>
@@ -4701,8 +4711,10 @@ actually bootstraps from) returns the identical shape — both are served by
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
 <a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="p">}</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -4737,6 +4749,18 @@ actually bootstraps from) returns the identical shape — both are served by
 <td>object or null</td>
 <td><code>{"username", "password"}</code> / <code>null</code></td>
 <td>Demo credentials shown on the login page. Non-null only when <code>demo_mode</code> is <code>true</code> <strong>and</strong> <code>DEMO_LOGIN_PASSWORD</code> is set. See <a href="../../administration/demo-data/#hosted-demo-instance">Demo data</a>.</td>
+</tr>
+<tr>
+<td><code>demo_reset_schedule</code></td>
+<td>string or null</td>
+<td>e.g. <code>"0 * * * *"</code> / <code>null</code></td>
+<td>Cron expression of the demo reset (<code>DEMO_RESET_SCHEDULE</code>). Non-null only when <code>demo_mode</code> is <code>true</code>. Added in 1.2.</td>
+</tr>
+<tr>
+<td><code>demo_next_reset_at</code></td>
+<td>string or null</td>
+<td>ISO 8601 UTC / <code>null</code></td>
+<td>The next reset instant, computed server-side from the schedule so clients need no cron parser. Non-null only when <code>demo_mode</code> is <code>true</code>. Added in 1.2.</td>
 </tr>
 </tbody>
 </table>
