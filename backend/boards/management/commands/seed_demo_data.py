@@ -625,9 +625,13 @@ class Command(BaseCommand):
             # install: --demo-site (validated above) already demands DEMO_MODE.
             if not demo_site:
                 raise CommandError("--reset-database is only valid with --demo-site.")
-            if not settings.DEBUG and not options["force"]:
+            # --force is required unconditionally (not just when DEBUG is False):
+            # DEBUG-gating this was a latent foot-gun (security-review, #1180) — a
+            # destructive flush should never be one flag away from running just
+            # because DEBUG happens to be on, on any deployment shape.
+            if not options["force"]:
                 raise CommandError(
-                    "Refusing to reset the database: DEBUG is False. Pass --force "
+                    "Refusing to reset the database: --reset-database requires --force "
                     "(only safe on a dedicated demo instance)."
                 )
             self._reset_database()

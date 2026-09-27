@@ -859,3 +859,14 @@ class SeedResetDatabaseTests(TransactionTestCase):
         with override_settings(DEBUG=False), self.assertRaises(CommandError):
             _seed(demo_site=True, reset_database=True)
         self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+
+    def test_reset_database_requires_force_even_when_debug_true(self):
+        # security-review (#1180): --force is required unconditionally, not
+        # only when DEBUG is False — DEBUG-gating it was a latent foot-gun
+        # (a destructive flush one flag away from running on any deployment
+        # shape that happened to have DEBUG on). The class default here is
+        # DEBUG=True, so this omits the DEBUG=False override deliberately.
+        _seed()
+        with self.assertRaises(CommandError):
+            _seed(demo_site=True, reset_database=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())

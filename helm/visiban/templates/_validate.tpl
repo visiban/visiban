@@ -117,6 +117,9 @@ refused here rather than escaped wherever it is used.
 {{- if or (not .Values.postgresql.enabled) (not .Values.valkey.enabled) -}}
 {{- fail "\n\nVisiban: demo.enabled is true but postgresql.enabled and/or valkey.enabled is false.\nThe demo egress policy allows only DNS and the release's OWN bundled PostgreSQL and Valkey pods; it has no rule for an external database, so rendering it would cut the backend off from its datastore. Use the bundled datastores for a demo.\n" -}}
 {{- end -}}
+{{- if kindIs "invalid" .Values.backend.settings.numProxies -}}
+{{- fail "\n\nVisiban: demo.enabled is true but backend.settings.numProxies is not set.\nLeaving it unset silently keeps NUM_PROXIES=1: behind a reverse proxy chain (e.g. a Cloudflare Tunnel in front of this chart's own frontend nginx), that collapses every visitor onto the tunnel's own address, so the per-IP login/anon throttles become one shared bucket — the exact DoS this setting exists to prevent (#1180).\n\nSet it to the number of trusted proxies between the internet and this chart's frontend Service (values-demo.yaml sets 2 for a Cloudflare Tunnel; use 1 if the frontend Service is exposed directly, with nothing in front of it):\n    --set backend.settings.numProxies=2\n" -}}
+{{- end -}}
 {{- if include "visiban.demoResetEnabled" . -}}
 {{- if not (regexMatch "^(@(hourly|daily|midnight)|[0-9*/,-]+ [0-9*/,-]+ \\* \\* \\*)$" (include "visiban.demoResetSchedule" .)) -}}
 {{- fail "\n\nVisiban: demo.reset.schedule must be a minute/hour cron expression such as \"0 * * * *\" (day-of-month, month and day-of-week must be *), or @hourly/@daily/@midnight.\nThe backend derives the countdown visitors see from the same string and refuses to start on anything else.\n" -}}
