@@ -118,6 +118,32 @@ describe('ArchivedCardsPanel', () => {
     expect(screen.queryByText('Old feature')).not.toBeInTheDocument()
   })
 
+  describe('hosted demo visitor (#1179)', () => {
+    const visitor = {
+      id: 99, username: 'visitor', email: '', first_name: '', last_name: '', avatar_url: '',
+      display_name: 'Visitor', is_site_admin: false, must_change_password: false, must_change_username: false,
+    }
+    const memberBoard: BoardFull = {
+      ...fakeBoard,
+      current_user_role: 'member',
+      members: [{ id: 2, user: visitor, role: 'member', is_moderator: false, joined_at: '' }],
+    }
+
+    it('a demo member can restore a card someone else archived', async () => {
+      mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+      render(<ArchivedCardsPanel board={memberBoard} onClose={vi.fn()} onUnarchived={vi.fn()} currentUser={{ ...visitor, demo_mode: true }} />)
+      await waitFor(() => screen.getByText('Old feature'))
+      expect(screen.getByText('Unarchive')).toBeInTheDocument()
+    })
+
+    it('outside demo mode the same plain member cannot', async () => {
+      mockGetArchivedCards.mockResolvedValue(makePage([archivedCard]))
+      render(<ArchivedCardsPanel board={memberBoard} onClose={vi.fn()} onUnarchived={vi.fn()} currentUser={visitor} />)
+      await waitFor(() => screen.getByText('Old feature'))
+      expect(screen.queryByText('Unarchive')).not.toBeInTheDocument()
+    })
+  })
+
   it('calls onClose when the close button is clicked', async () => {
     mockGetArchivedCards.mockResolvedValue(makePage([]))
     const onClose = vi.fn()

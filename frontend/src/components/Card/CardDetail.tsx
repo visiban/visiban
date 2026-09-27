@@ -21,6 +21,7 @@ import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
+import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON } from "../../constants/demoCopy";
 
 interface Props {
   card: Card;
@@ -226,6 +227,8 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   };
 
   const handleComment = async () => {
+    // Demo (#1179): never attempted, so the typed text is simply kept.
+    if (demoMode) return;
     if (!commentBody.trim()) return;
     const c = await addCardComment(board.id, card.id, commentBody.trim());
     setComments((prev) => [...prev, c]);
@@ -325,6 +328,16 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
   const canEdit = role === "site_admin" || role === "admin" || role === "member";
   const canManageLabels = role === "site_admin" || role === "admin";
   const canComment = canEdit || role === "collaborator";
+  // Hosted demo (#1179): the server fence refuses comments and uploads, so
+  // those controls are aria-disabled up front with the reason — never native
+  // `disabled`, which would drop them from the tab order and hide the reason
+  // from keyboard users. Copy uses the fixed demo lead (frontend/CLAUDE.md).
+  const demoMode = currentUser?.demo_mode === true;
+  const uploadsBlockedReason = demoMode
+    ? DEMO_UPLOAD_REASON
+    : currentUser?.uploads_enabled === false
+      ? "File uploads are disabled by the site administrator."
+      : null;
 
   // Ownership gating: members can only delete/archive cards they created,
   // unless they have admin, site_admin, or is_moderator entitlement.
@@ -335,8 +348,20 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
     role === "admin" || role === "site_admin" || isModerator;
   const isCardOwner =
     currentUser != null && localCard.created_by?.id === currentUser.id;
-  const canDeleteOrArchive = canEdit && (isCardOwner || canModifyOthersContent);
-  const canAssign = canEdit && (isCardOwner || canModifyOthersContent);
+  // Hosted demo (#1179): the server lets the published visitor (a plain
+  // MEMBER) archive, unarchive and reassign cards others created, via a
+  // DEMO_MODE-gated carve-out in boards.permissions. Mirror that here as a
+  // display heuristic only (`demoMode && member`) — the server stays the
+  // authority, and the frontend never replicates its username check. Widened
+  // ONLY for writes the demo fence allows.
+  const canModifyOthersContentInDemo =
+    (demoMode && role === "member") || canModifyOthersContent;
+  const canArchive = canEdit && (isCardOwner || canModifyOthersContentInDemo);
+  const canAssign = canEdit && (isCardOwner || canModifyOthersContentInDemo);
+  // Delete is NOT widened, and is hidden outright in demo mode: card DELETE is
+  // not on DEMO_ALLOWED_WRITES, so the fence refuses it even for the visitor's
+  // own cards — showing it would only produce a refusal.
+  const canDelete = !demoMode && canEdit && (isCardOwner || canModifyOthersContent);
 
   const canDeleteComment = (c: CardComment): boolean =>
     (c.author !== null && currentUser !== null && c.author.id === currentUser.id) ||
@@ -504,6 +529,9 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                         })),
                     ]}
                     disabled={!canAssign}
+                    // Never shown to the demo visitor: canAssign is widened for
+                    // a demo member (canModifyOthersContentInDemo), so this
+                    // moderator-only reason cannot misdescribe the demo.
                     disabledReason="Assigning cards requires Moderator or Admin access"
                     className="w-full"
                   />
@@ -910,13 +938,18 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                   </button>
                   {attachmentsOpen && canComment && (
                     <>
-                      {currentUser?.uploads_enabled === false ? (
-                        <span
-                          title="File uploads are disabled by the site administrator."
-                          className="text-xs text-fg-faint font-medium cursor-not-allowed"
+                      {uploadsBlockedReason ? (
+                        // A real, focusable button (not the old title-only span)
+                        // so keyboard and screen-reader users reach the reason.
+                        <button
+                          type="button"
+                          aria-disabled="true"
+                          aria-describedby="card-upload-blocked-reason"
+                          onClick={(e) => e.preventDefault()}
+                          className="text-xs text-fg-faint font-medium cursor-not-allowed rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           + Upload
-                        </span>
+                        </button>
                       ) : (
                         <>
                           <button
@@ -932,6 +965,11 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     </>
                   )}
                 </div>
+                {attachmentsOpen && canComment && uploadsBlockedReason && (
+                  <p id="card-upload-blocked-reason" className="text-xs text-fg-muted mb-2">
+                    {uploadsBlockedReason}
+                  </p>
+                )}
                 {attachmentsOpen && (attachments.length === 0 ? (
                   <p className="text-xs text-fg-faint italic">No attachments.</p>
                 ) : (<>
@@ -1033,10 +1071,19 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                       rows={2}
                       className="w-full text-sm bg-surface border border-line rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-emphasis focus:border-transparent resize-none text-fg-secondary placeholder-fg-muted"
                     />
+                    {demoMode && (
+                      <p id="card-comment-demo-reason" className="text-xs text-fg-muted">
+                        {DEMO_COMMENT_REASON}
+                      </p>
+                    )}
                     <div className="flex justify-end">
                       <button
                         onClick={handleComment}
-                        className="text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded hover:bg-button-primary-hover transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                        aria-disabled={demoMode ? true : undefined}
+                        aria-describedby={demoMode ? "card-comment-demo-reason" : undefined}
+                        className={`text-sm bg-button-primary text-on-primary px-4 py-1.5 rounded transition font-medium focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                          demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"
+                        }`}
                       >
                         Comment
                       </button>
@@ -1055,14 +1102,24 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
         </div>
 
         {/* Footer */}
-        {canDeleteOrArchive && (
+        {(canArchive || canDelete) && (
           <div className="px-5 py-3 border-t border-line flex items-center justify-between">
-            <button onClick={handleArchive} className="text-xs text-fg-muted hover:text-warning transition">
-              Archive card
-            </button>
-            <button onClick={handleDelete} className="text-xs text-fg-faint hover:text-danger transition">
-              Delete card
-            </button>
+            {canArchive ? (
+              <button
+                onClick={handleArchive}
+                className="text-xs text-fg-muted hover:text-warning transition focus:outline-none focus:ring-2 focus:ring-warning-emphasis rounded"
+              >
+                Archive card
+              </button>
+            ) : <span />}
+            {canDelete && (
+              <button
+                onClick={handleDelete}
+                className="text-xs text-fg-faint hover:text-danger transition focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+              >
+                Delete card
+              </button>
+            )}
           </div>
         )}
       </div>

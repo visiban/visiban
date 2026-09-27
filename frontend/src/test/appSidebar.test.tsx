@@ -621,3 +621,42 @@ describe('AppSidebar', () => {
     expect(screen.queryByText('Sprint Board')).not.toBeInTheDocument()
   })
 })
+
+describe('AppSidebar — hosted demo (#1179)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(listGroups).mockResolvedValue([])
+    vi.mocked(listStarredGroups).mockResolvedValue([])
+    vi.mocked(listBoards).mockResolvedValue([])
+    vi.mocked(listStarredBoards).mockResolvedValue([])
+  })
+
+  it('New board and New group are aria-disabled, focusable, carry the reason, and open nothing', async () => {
+    const user = userEvent.setup()
+    render(<AppSidebar user={{ ...fakeUser, demo_mode: true }} />)
+    const newBoard = screen.getByRole('button', { name: /^New board\./ })
+    expect(newBoard).toHaveAttribute('aria-disabled', 'true')
+    expect(newBoard).not.toBeDisabled()
+    expect(newBoard).toHaveAttribute('title', "This is a shared demo — boards can't be created here.")
+    expect(newBoard).toHaveAccessibleName("New board. This is a shared demo — boards can't be created here.")
+    newBoard.focus()
+    expect(newBoard).toHaveFocus()
+    await user.click(newBoard)
+    expect(screen.queryByTestId('create-board-modal')).not.toBeInTheDocument()
+
+    const newGroup = screen.getByRole('button', { name: /^New group\./ })
+    expect(newGroup).toHaveAttribute('aria-disabled', 'true')
+    await user.click(newGroup)
+    expect(screen.queryByTestId('create-group-modal')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByLabelText('Loading')).not.toBeInTheDocument())
+  })
+
+  it('is unchanged outside demo mode', async () => {
+    const user = userEvent.setup()
+    render(<AppSidebar user={fakeUser} />)
+    const newBoard = screen.getByRole('button', { name: /New board/ })
+    expect(newBoard).not.toHaveAttribute('aria-disabled')
+    await user.click(newBoard)
+    expect(screen.getByTestId('create-board-modal')).toBeInTheDocument()
+  })
+})

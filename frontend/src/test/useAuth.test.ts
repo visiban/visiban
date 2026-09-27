@@ -262,3 +262,43 @@ describe('useAuth — current-user resync on tab focus (#783)', () => {
     expect(result.current.user).not.toBeNull()
   })
 })
+
+describe('useAuth — hosted demo (#1179)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    sessionStorage.clear()
+  })
+
+  it('stashes the next reset instant for a demo user, and clears it for a non-demo user', async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...fakeUser, demo_mode: true, demo_next_reset_at: '2026-09-27T13:00:00Z' })
+    const { result, unmount } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).not.toBeNull())
+    expect(sessionStorage.getItem('demo_next_reset_at')).toBe('2026-09-27T13:00:00Z')
+    unmount()
+
+    mockGetCurrentUser.mockResolvedValue({ ...fakeUser, demo_mode: false, demo_next_reset_at: null })
+    const second = renderHook(() => useAuth())
+    await waitFor(() => expect(second.result.current.user).not.toBeNull())
+    expect(sessionStorage.getItem('demo_next_reset_at')).toBeNull()
+  })
+
+  it('a deliberate logout forgets the stashed reset instant', async () => {
+    mockGetCurrentUser.mockResolvedValue({ ...fakeUser, demo_mode: true, demo_next_reset_at: '2026-09-27T13:00:00Z' })
+    mockLogout.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).not.toBeNull())
+    await act(async () => { await result.current.logout() })
+    expect(sessionStorage.getItem('demo_next_reset_at')).toBeNull()
+  })
+
+  it('the tab-focus resync merges the demo fields too', async () => {
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: true, configurable: true })
+    mockGetCurrentUser.mockResolvedValue({ ...fakeUser, demo_mode: false, demo_next_reset_at: null })
+    const { result } = renderHook(() => useAuth())
+    await waitFor(() => expect(result.current.user).not.toBeNull())
+    mockGetCurrentUser.mockResolvedValue({ ...fakeUser, demo_mode: true, demo_next_reset_at: '2026-09-27T14:00:00Z' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await waitFor(() => expect(result.current.user?.demo_mode).toBe(true))
+    expect(result.current.user?.demo_next_reset_at).toBe('2026-09-27T14:00:00Z')
+  })
+})
