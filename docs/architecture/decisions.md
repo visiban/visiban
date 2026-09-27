@@ -39,6 +39,22 @@ Two design choices keep the WebSocket layer correct:
 
 ---
 
+## MCP server (in-process, not a REST client)
+
+The MCP server is mounted inside the same ASGI app as Django, at `/mcp`. It is not a separate package that calls the REST API.
+
+An earlier decision (#511, 2026-09-14) went the other way, to keep a single surface and avoid duplicated authorization logic. It was superseded on 2026-09-27, once the reasons behind it had been addressed in-process:
+
+- **One permission path.** MCP tools resolve access with the same `get_board_role()` / `get_board_roles()` helpers the REST views use. There is no second copy of the role precedence ladder to audit or let drift.
+- **One write path.** MCP writes go through the card-mutation service layer and validate with `CardSerializer`, exactly like REST writes, so validation and side effects (movement records, broadcasts) cannot diverge.
+- **No extra process.** A separate package would be one more thing for a self-hoster to deploy, version, and keep in step with the API — the operational cost the guiding principle above avoids.
+
+Token scopes and the instance switch (`MCP_SERVER_ENABLED`, off by default) are enforced server-side, so they apply however the server is transported.
+
+The one deliberate difference is the **read shape**: MCP returns an agent-friendly card representation (assignee email, label names, nested column and swimlane names) rather than the REST payload. Because that shape is hand-written, it needs a parity test so a new `CardSerializer` field is either exposed to agents or explicitly excluded, never silently missing (#1176).
+
+---
+
 ## PostgreSQL 17
 
 The audit trail is the defining feature of Visiban. A `CardMovement` record must commit atomically with the card position update — either both rows land or neither does. PostgreSQL's ACID guarantees make this straightforward. An eventually consistent store would require compensating logic to achieve the same correctness guarantee.
