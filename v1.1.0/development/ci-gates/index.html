@@ -2133,6 +2133,8 @@
       
         
       
+        
+      
     
     
     
@@ -2660,6 +2662,34 @@
     
   
     Serializer ↔ TypeScript Parity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rbac-and-broadcast-gates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
   
 
     
@@ -3555,6 +3585,16 @@ own header — is never mistaken for a real exemption.</p>
 <td><code>scripts/check-docs-version-accuracy.sh</code></td>
 <td><code>docs-version-accuracy</code> (MRs, <code>main</code>, and tag pipelines)</td>
 <td>Self-test plants a stale "Coming in" claim naming the just-released version, the same in <code>README.md</code>, an RC banner on a GA version, a wrong banner version, stale <code>APP_VERSION=</code> / README image pins, and a tag that disagrees with <code>frontend/package.json</code>; it must spare a "Coming in" claim for a future version and a "new in" label. See the <a href="../../maintainers/#release-checklist">release checklist</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-rbac-coverage.py</code></td>
+<td><code>rbac-coverage</code></td>
+<td>12-case self-test over a synthetic view tree: a dropped auth gate, a missing role gate, a write that never resolves a role, an unscoped board-child lookup, a raw membership lookup, and a stale entry in each recorded-exception table. See <a href="../rbac-and-broadcast-gates/">RBAC and broadcast gates</a>.</td>
+</tr>
+<tr>
+<td><code>scripts/check-broadcast-deferral.py</code></td>
+<td><code>broadcast-deferral</code></td>
+<td>9-case self-test: a write that broadcasts nothing, a broadcast outside <code>on_commit</code>, a commit hook holding an ORM instance, an emit in a loop, and a stale entry in each recorded-exception table.</td>
 </tr>
 </tbody>
 </table>

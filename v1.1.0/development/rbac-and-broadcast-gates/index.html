@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/card-relations/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/development/rbac-and-broadcast-gates/">
       
       
-        <link rel="prev" href="../custom-fields/">
+        <link rel="prev" href="../serializer-ts-parity/">
       
       
-        <link rel="next" href="../analytics/">
+        <link rel="next" href="../suppressions/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Card Relations - Visiban</title>
+        <title>RBAC & Broadcast Gates - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#card-relations" class="md-skip">
+        <a href="#rbac-and-broadcast-gates" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Card Relations
+              RBAC & Broadcast Gates
             
           </span>
         </div>
@@ -266,13 +266,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../features/" class="md-tabs__link">
           
   
   
@@ -312,10 +310,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../../architecture/" class="md-tabs__link">
           
   
@@ -785,8 +785,6 @@
       
   
   
-    
-  
   
   
     
@@ -842,23 +840,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../features/" class="md-nav__link ">
               
   
   
@@ -876,13 +871,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -902,7 +897,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board/" class="md-nav__link">
+      <a href="../../features/board/" class="md-nav__link">
         
   
   
@@ -930,7 +925,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-archiving/" class="md-nav__link">
+      <a href="../../features/card-archiving/" class="md-nav__link">
         
   
   
@@ -958,7 +953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-descriptions/" class="md-nav__link">
+      <a href="../../features/card-descriptions/" class="md-nav__link">
         
   
   
@@ -986,7 +981,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../saved-filters/" class="md-nav__link">
+      <a href="../../features/saved-filters/" class="md-nav__link">
         
   
   
@@ -1014,7 +1009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../custom-fields/" class="md-nav__link">
+      <a href="../../features/custom-fields/" class="md-nav__link">
         
   
   
@@ -1039,37 +1034,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Card Relations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../features/card-relations/" class="md-nav__link">
         
   
   
@@ -1085,120 +1053,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#the-blocked-indicator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The blocked indicator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#viewing-and-editing-relations" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Viewing and editing relations
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Viewing and editing relations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#adding-a-relation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Adding a relation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#removing-a-relation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Removing a relation
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#permissions" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Permissions
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#limits" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Limits
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#real-time-behavior" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Real-time behavior
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1211,7 +1065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analytics/" class="md-nav__link">
+      <a href="../../features/analytics/" class="md-nav__link">
         
   
   
@@ -1239,7 +1093,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../notifications/" class="md-nav__link">
+      <a href="../../features/notifications/" class="md-nav__link">
         
   
   
@@ -1267,7 +1121,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../realtime/" class="md-nav__link">
+      <a href="../../features/realtime/" class="md-nav__link">
         
   
   
@@ -1295,7 +1149,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../card-history/" class="md-nav__link">
+      <a href="../../features/card-history/" class="md-nav__link">
         
   
   
@@ -1323,7 +1177,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../stable-uids/" class="md-nav__link">
+      <a href="../../features/stable-uids/" class="md-nav__link">
         
   
   
@@ -1351,7 +1205,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../groups/" class="md-nav__link">
+      <a href="../../features/groups/" class="md-nav__link">
         
   
   
@@ -1379,7 +1233,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../navigation/" class="md-nav__link">
+      <a href="../../features/navigation/" class="md-nav__link">
         
   
   
@@ -1407,7 +1261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../keyboard-shortcuts/" class="md-nav__link">
+      <a href="../../features/keyboard-shortcuts/" class="md-nav__link">
         
   
   
@@ -1435,7 +1289,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../appearance/" class="md-nav__link">
+      <a href="../../features/appearance/" class="md-nav__link">
         
   
   
@@ -1463,7 +1317,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../personal-access-tokens/" class="md-nav__link">
+      <a href="../../features/personal-access-tokens/" class="md-nav__link">
         
   
   
@@ -1491,7 +1345,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../mcp-server/" class="md-nav__link">
+      <a href="../../features/mcp-server/" class="md-nav__link">
         
   
   
@@ -1519,7 +1373,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../permissions/" class="md-nav__link">
+      <a href="../../features/permissions/" class="md-nav__link">
         
   
   
@@ -1547,7 +1401,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../feature-toggles/" class="md-nav__link">
+      <a href="../../features/feature-toggles/" class="md-nav__link">
         
   
   
@@ -1575,7 +1429,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../issue-board-lens/" class="md-nav__link">
+      <a href="../../features/issue-board-lens/" class="md-nav__link">
         
   
   
@@ -1621,13 +1475,10 @@
       
       
         
-          
-          
-        
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
@@ -1635,7 +1486,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../rbac/" class="md-nav__link ">
+            <a href="../../features/rbac/" class="md-nav__link ">
               
   
   
@@ -1653,7 +1504,7 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="">
+              <label class="md-nav__link " for="__nav_3_22" id="__nav_3_22_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
@@ -1679,7 +1530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/roles/" class="md-nav__link">
+      <a href="../../features/rbac/roles/" class="md-nav__link">
         
   
   
@@ -1707,7 +1558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/inheritance/" class="md-nav__link">
+      <a href="../../features/rbac/inheritance/" class="md-nav__link">
         
   
   
@@ -1735,7 +1586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../rbac/managing/" class="md-nav__link">
+      <a href="../../features/rbac/managing/" class="md-nav__link">
         
   
   
@@ -2239,6 +2090,8 @@
       
   
   
+    
+  
   
   
     
@@ -2286,16 +2139,19 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
           <div class="md-nav__link md-nav__container">
@@ -2317,13 +2173,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2567,7 +2423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/testing/" class="md-nav__link">
+      <a href="../testing/" class="md-nav__link">
         
   
   
@@ -2595,7 +2451,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/database-migrations/" class="md-nav__link">
+      <a href="../database-migrations/" class="md-nav__link">
         
   
   
@@ -2623,7 +2479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/ci-gates/" class="md-nav__link">
+      <a href="../ci-gates/" class="md-nav__link">
         
   
   
@@ -2651,7 +2507,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/serializer-ts-parity/" class="md-nav__link">
+      <a href="../serializer-ts-parity/" class="md-nav__link">
         
   
   
@@ -2676,10 +2532,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../development/rbac-and-broadcast-gates/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    RBAC & Broadcast Gates
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2695,6 +2578,142 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-these-two-and-not-the-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why these two, and not the agents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-still-belongs-to-the-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What still belongs to the agents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes-and-why-there-are-four" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes — and why there are four
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recorded-exceptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded exceptions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Recorded exceptions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-rbac-coveragepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check-rbac-coverage.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#check-broadcast-deferralpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        check-broadcast-deferral.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-rbac-coverage-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What rbac-coverage checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-broadcast-deferral-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What broadcast-deferral checks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running them
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-done-here" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not done here
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2707,7 +2726,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/suppressions/" class="md-nav__link">
+      <a href="../suppressions/" class="md-nav__link">
         
   
   
@@ -2735,7 +2754,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/kaizen-yield-watch/" class="md-nav__link">
+      <a href="../kaizen-yield-watch/" class="md-nav__link">
         
   
   
@@ -2763,7 +2782,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/websocket-event-contract/" class="md-nav__link">
+      <a href="../websocket-event-contract/" class="md-nav__link">
         
   
   
@@ -2791,7 +2810,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/nightly-load-test/" class="md-nav__link">
+      <a href="../nightly-load-test/" class="md-nav__link">
         
   
   
@@ -3434,143 +3453,237 @@
   
 
 
-<h1 id="card-relations">Card Relations<a class="headerlink" href="#card-relations" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p><strong>Added in 1.2</strong></p>
-</blockquote>
-<p>Link two cards on the same board to record that one depends on the other. A card
-that something is waiting on carries a red indicator on the board, so you can see
-what is stuck without opening anything.</p>
-<p>Three relation directions are available:</p>
+<h1 id="rbac-and-broadcast-gates">RBAC and broadcast gates<a class="headerlink" href="#rbac-and-broadcast-gates" title="Permanent link">&para;</a></h1>
+<p>Two CI jobs, <code>rbac-coverage</code> and <code>broadcast-deferral</code>, assert statically what the
+<code>rbac-check</code> and <code>broadcast-check</code> agent gates previously asserted by reading the diff and
+reasoning about it (#1143).</p>
 <table>
 <thead>
 <tr>
-<th>Direction</th>
-<th>Meaning</th>
-<th>Affects the board indicator</th>
+<th>Job</th>
+<th>Script</th>
+<th>Asserts</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Blocked by</strong></td>
-<td>The other card has to land before this one can move</td>
-<td>Yes — on this card</td>
+<td><code>rbac-coverage</code></td>
+<td><code>scripts/check-rbac-coverage.py</code></td>
+<td>Every board/group-scoped endpoint has an authentication gate, resolves the caller's role through the shared resolver, and applies a minimum-role check on every write action</td>
 </tr>
 <tr>
-<td><strong>Blocks</strong></td>
-<td>This card has to land before the other one can move</td>
-<td>Yes — on the other card</td>
-</tr>
-<tr>
-<td><strong>Relates to</strong></td>
-<td>The two cards are associated, with no ordering implied</td>
-<td>No</td>
+<td><code>broadcast-deferral</code></td>
+<td><code>scripts/check-broadcast-deferral.py</code></td>
+<td>Every board/group-scoped write broadcasts; every raw broadcast is deferred to <code>transaction.on_commit()</code>; no commit hook holds an ORM row; no emit call sits in a loop over rows of one channel</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Blocks</strong> and <strong>Blocked by</strong> are the same link seen from opposite ends. Record
-"A is blocked by B" and card B automatically shows "Blocks A" — there is nothing
-to keep in sync by hand.</p>
-<hr />
-<h2 id="the-blocked-indicator">The blocked indicator<a class="headerlink" href="#the-blocked-indicator" title="Permanent link">&para;</a></h2>
-<p>A card with at least one unfinished blocker shows a red ⊖ glyph at the start of
-its metadata row. With more than one blocker, the count appears next to it.</p>
-<p>The indicator appears at <strong>every card density</strong> and in both the Compact and
-Expanded card layouts, because seeing blocked work while scanning a column is the
-point of the feature. Hovering shows the exact count ("Blocked by 2 cards").</p>
-<p>Only <strong>Blocked by</strong> relations count. A card that blocks other cards is not itself
-blocked, and <strong>Relates to</strong> never contributes.</p>
-<p>Blockers that have been <strong>archived</strong> stop counting — an archived card is not on
-the board, so it cannot be what is holding work up. The relation itself is kept
-and shown in the card detail panel (struck through, marked <em>Archived</em>) so you can
-see why and remove it.</p>
-<hr />
-<h2 id="viewing-and-editing-relations">Viewing and editing relations<a class="headerlink" href="#viewing-and-editing-relations" title="Permanent link">&para;</a></h2>
-<p>Open a card and find the <strong>Relations</strong> section in the <em>Details</em> tab, between
-Weight and Checklist. It groups links under <strong>Blocked by</strong>, <strong>Blocks</strong>, and
-<strong>Relates to</strong>, in that order — what you are waiting on first.</p>
-<p>Each row shows the linked card's title and the column it is currently sitting in,
-which usually answers "is my blocker done yet?" without another click. Click a
-title to open that card; the panel switches to it.</p>
-<p>The section starts expanded when the card has any relations and collapsed when it
-has none.</p>
-<h3 id="adding-a-relation">Adding a relation<a class="headerlink" href="#adding-a-relation" title="Permanent link">&para;</a></h3>
-<ol>
-<li>Click <strong>+ Add relation</strong>.</li>
-<li>Pick the direction — <strong>Blocked by</strong> (the default), <strong>Blocks</strong>, or <strong>Relates to</strong>.</li>
-<li>Type at least two characters to search the board's cards, and pick one.</li>
-</ol>
-<p>The picker stays open after each link so you can add several in a row. Cards that
-cannot be linked — the card itself, and anything already linked in a way that
-would conflict — are left out of the results.</p>
-<h3 id="removing-a-relation">Removing a relation<a class="headerlink" href="#removing-a-relation" title="Permanent link">&para;</a></h3>
-<p>Hover a relation row and click <strong>✕</strong>. Either card can remove the link; both show
-it. There is no confirmation step — the relation is trivially re-addable.</p>
-<hr />
-<h2 id="permissions">Permissions<a class="headerlink" href="#permissions" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Role</th>
-<th>View relations</th>
-<th>Add / remove</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Viewer</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Collaborator</td>
-<td>Yes</td>
-<td>No</td>
-</tr>
-<tr>
-<td>Member</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-<tr>
-<td>Admin</td>
-<td>Yes</td>
-<td>Yes</td>
-</tr>
-</tbody>
-</table>
-<p>A relation changes how a <em>different</em> card reads on the board for everyone, so
-adding and removing requires at least the Member role — one tier stricter than
-comments, attachments, and checklist items, which collaborators can edit.
-Viewers and collaborators see relations but no controls.</p>
-<p>Any member can remove any relation, including one someone else created. A member
-can already edit both of the cards a relation links, so restricting the unlink to
-its author would not protect anything.</p>
-<hr />
-<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
+<p>Both run in the <code>test</code> stage with <code>needs: []</code>, take well under a second on the whole
+backend, and — like every bespoke gate here — run their own <code>--self-test</code> immediately
+before the real invocation (see <a href="../ci-gates/">CI gate self-tests</a>).</p>
+<h2 id="why-these-two-and-not-the-agents">Why these two, and not the agents<a class="headerlink" href="#why-these-two-and-not-the-agents" title="Permanent link">&para;</a></h2>
+<p>Both agents were checking largely mechanical conditions on every relevant MR. The
+project already had four precedents for converting exactly that into a deterministic
+job — <code>migration-numbering-check</code>, <code>serializer-ts-parity</code>, <code>suppressions-check</code> and
+<code>ws-event-reachability</code> (#1078) — all grep/AST-based, all comfortably under 30s.</p>
+<p>What the conversion actually buys is <strong>not</strong> pipeline time: the sampled pipeline's wall
+clock is dominated by <code>backend-schema-fuzz</code> and the <code>backend-test</code> shards, and two more
+sub-second jobs queue into existing slack. What it buys is the agent latency and tokens
+removed from the pre-MR gate batch in a development session, plus two things an agent
+round-trip cannot give you:</p>
 <ul>
-<li><strong>Same board only.</strong> Relations cannot span boards.</li>
-<li><strong>A card cannot be linked to itself.</strong></li>
-<li><strong>Two cards cannot block each other.</strong> Longer chains (A blocks B blocks C
-  blocks A) are not detected and are permitted.</li>
-<li><strong>Relations are not carried by board export or import.</strong> A board exported and
-  re-imported loses its relations.</li>
-<li><strong>Blockers are not cleared automatically.</strong> Moving a blocking card to a done
-  column does not remove the relation or the indicator — archive the card, or
-  remove the relation, when the dependency is resolved.</li>
+<li><strong>It runs on every push, not when someone remembers.</strong> An agent gate fires because a
+  human or a harness decided the diff warranted it.</li>
+<li><strong>Its blind spots are code.</strong> The recorded-exception tables below are grep-able,
+  reviewable and blame-able. A paragraph an agent did not write leaves no trace at all.</li>
 </ul>
-<hr />
-<h2 id="real-time-behavior">Real-time behavior<a class="headerlink" href="#real-time-behavior" title="Permanent link">&para;</a></h2>
-<p>Adding or removing a relation updates both cards for everyone viewing the board
-immediately, over the same WebSocket channel as every other card change. See
-<a href="../realtime/">Real-time Updates</a>.</p>
-<p>Relations are visible on <strong>public share links</strong> only as the blocked indicator —
-anonymous visitors see that a card is blocked and by how many cards, but not the
-relation list, who created it, or when.</p>
-<hr />
-<h2 id="api">API<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
-<p>See <a href="../../api/cards/#relations-since-12">Cards API → Relations</a> for the
-<code>blocker_count</code> field and the relation endpoints.</p>
+<h2 id="what-still-belongs-to-the-agents">What still belongs to the agents<a class="headerlink" href="#what-still-belongs-to-the-agents" title="Permanent link">&para;</a></h2>
+<p>The scripts cover the mechanical conditions and <strong>only</strong> those. These stay with
+<code>rbac-check</code> and <code>broadcast-check</code>, because they require knowing what a resource means:</p>
+<ul>
+<li>Is admin the <em>right</em> minimum role for this particular resource? The script asserts that
+  <em>a</em> gate exists, not that it draws the line in the right place.</li>
+<li>Group-inheritance correctness beyond "the shared resolver was used".</li>
+<li>Cross-board isolation beyond the mechanical lookup-scoping case below.</li>
+<li>The per-recipient field-leak check: does this broadcast payload carry a field the REST
+  serializer strips for some roles? That needs the serializer's role logic, not its call
+  graph.</li>
+<li>Payload completeness, and whether the right channel was chosen.</li>
+</ul>
+<p>Event <strong>naming</strong> and the emitted ↔ documented ↔ handled three-way match are owned by
+<a href="../websocket-event-contract/"><code>ws-event-reachability</code></a> and deliberately not re-checked.</p>
+<h2 id="exit-codes-and-why-there-are-four">Exit codes — and why there are four<a class="headerlink" href="#exit-codes-and-why-there-are-four" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>0  clean
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>1  findings — the gate failed
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>2  could not run (missing tree, unparseable source, bad usage) — fails closed
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>3  unhandled pattern — hand it to the agent
+</code></pre></div>
+<p>Exit 2 and exit 3 are the two that matter, and both exist so that <em>not looking</em> can never
+be mistaken for <em>looking and finding nothing</em>. A gate that stops detecting anything does
+not fail; it goes green forever and looks exactly like a clean codebase.</p>
+<p><strong>Exit 3 is a failure, not a pass.</strong> It means the script found a view or a broadcast whose
+shape it cannot classify — <code>permission_classes</code> computed at run time, an
+<code>on_commit(HOOKS[0])</code> registration, a gate that may live in a module the script does not
+read. The CI job fails and tells you which agent to run. After running it you either fix
+the gap or record what the agent found in the script's <code>AGENT_REVIEWED</code> table. What you
+must not do is widen a detector until the defer goes away.</p>
+<h2 id="recorded-exceptions">Recorded exceptions<a class="headerlink" href="#recorded-exceptions" title="Permanent link">&para;</a></h2>
+<p>Neither script carries a suppression comment in the source tree; exceptions live in tables
+in the scripts themselves, the same convention <code>check-serializer-ts-parity.py</code>'s
+<code>SUPPRESSIONS</code> follows. Every table is <strong>self-invalidating</strong>: when the condition that made
+an entry necessary is gone, the entry itself becomes a finding and asks to be deleted. An
+exception cannot outlive its reason.</p>
+<h3 id="check-rbac-coveragepy"><code>check-rbac-coverage.py</code><a class="headerlink" href="#check-rbac-coveragepy" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Records</th>
+<th>The reason must say</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PUBLIC_BY_DESIGN</code></td>
+<td>Views with deliberately no authentication gate</td>
+<td>What stands in for authentication. "Public" alone is not a design.</td>
+</tr>
+<tr>
+<td><code>VIEWER_PERMITTED_WRITES</code></td>
+<td>Write actions whose minimum role really is any board member</td>
+<td>Why the write is safe for a viewer — in practice, that the row is the caller's own per-user state</td>
+</tr>
+<tr>
+<td><code>AGENT_REVIEWED</code></td>
+<td>Views the script cannot classify</td>
+<td>What the <code>rbac-check</code> agent found</td>
+</tr>
+</tbody>
+</table>
+<p>Current entries: the two container health probes and the public share link
+(<code>PUBLIC_BY_DESIGN</code>); board starring and the two saved-filter actions, all per-user state
+(<code>VIEWER_PERMITTED_WRITES</code>); the invite-link join flow, where the capability token is the
+authorization and no role ladder applies (<code>AGENT_REVIEWED</code>).</p>
+<h3 id="check-broadcast-deferralpy"><code>check-broadcast-deferral.py</code><a class="headerlink" href="#check-broadcast-deferralpy" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Table</th>
+<th>Records</th>
+<th>The reason must say</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NO_BROADCAST_BY_DESIGN</code></td>
+<td>Writes that deliberately broadcast nothing</td>
+<td>Why no other connected client needs to know</td>
+</tr>
+<tr>
+<td><code>LOOP_FANOUT_BY_DESIGN</code></td>
+<td>Emit calls inside a loop</td>
+<td>What the loop iterates — channels, or rows on one channel</td>
+</tr>
+<tr>
+<td><code>AGENT_REVIEWED</code></td>
+<td>Emit sites the script cannot classify</td>
+<td>What the <code>broadcast-check</code> agent found</td>
+</tr>
+</tbody>
+</table>
+<p>Current entries: invite-link creation, which has no event type because a group-channel
+frame reaches every subscriber and the payload carries the raw token
+(<code>NO_BROADCAST_BY_DESIGN</code>); and five loops that iterate channels or distinct cards —
+admin bulk delete, the blocked-peer fan-out, relation changes, and the post-commit
+membership eviction (<code>LOOP_FANOUT_BY_DESIGN</code>).</p>
+<h2 id="what-rbac-coverage-checks">What <code>rbac-coverage</code> checks<a class="headerlink" href="#what-rbac-coverage-checks" title="Permanent link">&para;</a></h2>
+<p>Scope: <code>backend/boards/views/</code>, <code>backend/groups/views.py</code>, <code>backend/git_lens/views.py</code>.</p>
+<p><code>backend/accounts/views.py</code> is deliberately <strong>out of scope</strong>. It is the
+authentication/session surface — login throttles, password reset, email confirmation, PAT
+management — governed by per-view rules rather than the admin/member/viewer ladder, with
+several views public by design. Auth-surface review stays with <code>security-review</code> and the
+agent.</p>
+<ol>
+<li><strong>Authentication gate.</strong> <code>permission_classes</code> resolves to a list containing
+   <code>IsAuthenticated</code>. A module-level alias (<code>permission_classes = _BOARD_PERMISSIONS</code>) is
+   resolved; a <code>get_permissions()</code> method is read for the same name. Declaring nothing at
+   all is a finding: the convention since #989/#1050 is to enumerate the chain explicitly
+   so a change to <code>DEFAULT_PERMISSION_CLASSES</code> cannot silently drop a gate with no diff.</li>
+<li><strong>Membership check.</strong> Every write handler reaches <code>get_board_for_user</code>,
+   <code>get_board_role</code>, <code>_require_group_*</code> or another shared resolver — transitively, through
+   same-class methods and same-module functions, and through <code>get_object()</code> for a viewset
+   whose <code>get_queryset()</code> is access-scoped. Resolving access from a raw
+   <code>BoardMembership.objects.get()</code> instead is its own finding: that path skips the
+   group-inheritance rungs of the precedence ladder.</li>
+<li><strong>Minimum-role check.</strong> Every write action applies a role gate — a comparison against a
+   role constant, a <code>_require_*</code> helper, or an explicit <code>role=</code> hand-off to the services
+   layer that owns the ladder (<code>backend/boards/services/cards.py</code>).</li>
+<li><strong>Cross-board isolation, mechanical slice.</strong> A <code>get_object_or_404(Card, pk=pk)</code> on a
+   model with a direct <code>board</code> or <code>card</code> foreign key, with no scoping keyword and no
+   pre-filtered queryset, is a cross-board IDOR: the pk space is global, the resource is
+   not. The scoped-model set is derived from <code>backend/boards/models.py</code> at run time, so a
+   new board-scoped model is covered the first time the gate runs after it lands.</li>
+</ol>
+<p>Two traps worth knowing, because both produced a <em>silently clean</em> gate while it was being
+written, which is the exact failure class this page exists to guard against:</p>
+<ul>
+<li><code>if self._cached_board_role is None:</code> — the per-request cache probe every board-scoped
+  viewset opens with — mentions <code>role</code> and is emphatically not a role gate. A comparison
+  whose only comparator is <code>None</code>/<code>True</code>/<code>False</code> is never treated as one.</li>
+<li><code>ast.walk</code> on a <code>FunctionDef</code> descends into its <code>@action(...)</code> and <code>@extend_schema(...)</code>
+  decorators. Counting those made every decorated action look as though its gate might be
+  hiding inside <code>action()</code>.</li>
+</ul>
+<h2 id="what-broadcast-deferral-checks">What <code>broadcast-deferral</code> checks<a class="headerlink" href="#what-broadcast-deferral-checks" title="Permanent link">&para;</a></h2>
+<p>Scope: <code>backend/boards</code>, <code>backend/groups</code>, <code>backend/git_lens</code>, excluding tests, migrations
+and seed data. The call graph is built over all of it, so a view handler that delegates to
+the services layer is resolved rather than guessed at.</p>
+<ol>
+<li><strong>Every write broadcasts.</strong> A write handler on a board/group-scoped view reaches
+   <code>broadcast_board_event</code> / <code>broadcast_group_event</code> / <code>record_board_event</code> on some path.</li>
+<li><strong>Every broadcast is deferred.</strong> A raw <code>broadcast_*_event()</code> sits inside a callable
+   registered with <code>transaction.on_commit()</code> — transitively, so
+   <code>on_commit(lambda: _broadcast_star(starred=True))</code> defers everything <code>_broadcast_star</code>
+   does. <code>record_board_event</code> satisfies this by construction: it persists the feed row in
+   the caller's transaction and registers the deferred publish itself, which is why it is
+   the preferred form.</li>
+<li><strong>No ORM instance in a commit hook.</strong> A hook that reads a live row out of the enclosing
+   scope carries an object that may be stale by the time the hook fires. The payload is
+   built inside the atomic block and captured through default arguments
+   (<code>def _send(bid=board_id, pl=payload):</code>). The script only reports a free variable it
+   can <em>show</em> holds an ORM row — assigned from a manager call, or a handler parameter named
+   <code>board</code>/<code>card</code>/<code>instance</code>/… — so a plain int read from the enclosing scope is untidy but
+   not a finding.</li>
+<li><strong>No broadcast storm.</strong> An emit inside a <code>for</code>/<code>while</code> is a finding unless the loop is
+   recorded in <code>LOOP_FANOUT_BY_DESIGN</code> with the channels it iterates.</li>
+</ol>
+<p>The trap here: resolving every call by bare name alone made <code>instance.delete()</code> in
+<code>LabelViewSet.perform_destroy</code> edge to <code>LensConnectionView.delete</code>, which <em>does</em> broadcast
+— so a handler that broadcast nothing came back clean. A method on a name the function
+itself bound is never a call into the module-level call graph.</p>
+<h2 id="running-them">Running them<a class="headerlink" href="#running-them" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>python3<span class="w"> </span>scripts/check-rbac-coverage.py<span class="w">                  </span><span class="c1"># scan the real tree</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>python3<span class="w"> </span>scripts/check-rbac-coverage.py<span class="w"> </span>--self-test<span class="w">      </span><span class="c1"># prove the detectors still fire</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>python3<span class="w"> </span>scripts/check-broadcast-deferral.py
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python3<span class="w"> </span>scripts/check-broadcast-deferral.py<span class="w"> </span>--self-test
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>bash<span class="w"> </span>scripts/tests/check-rbac-coverage.test.sh<span class="w">          </span><span class="c1"># CLI surface + exit codes</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>bash<span class="w"> </span>scripts/tests/check-broadcast-deferral.test.sh
+</code></pre></div>
+<p><code>--root DIR</code> points either script at a tree other than the checkout it lives in; that is
+how the test wrappers build drifted copies without touching the working tree.</p>
+<p><code>check-broadcast-deferral.py</code> loads its Django/DRF AST primitives from
+<code>check-rbac-coverage.py</code> by file path rather than restating them. #1107's lesson in this
+repository is explicit about the alternative: <code>mcp_server/tools.py</code> once carried a second
+copy of the role-precedence rules under a "must be kept in step with it" comment, which
+was an admission that nothing enforced it.</p>
+<h2 id="not-done-here">Not done here<a class="headerlink" href="#not-done-here" title="Permanent link">&para;</a></h2>
+<p>The <code>CLAUDE.md</code> pre-MR gate cluster still lists <code>rbac-check</code> and <code>broadcast-check</code> as
+agent calls. That instruction lives in the user's global <code>~/.claude/CLAUDE.md</code>, not in this
+repository, so no merge request against this repo can change it — and #1143 gates the
+change on "once both scripts are trusted" in any case. Narrow the agent invocations once
+these jobs have a few releases of clean runs behind them; until then, running both is
+belt and braces rather than waste.</p>
 
 
 
