@@ -81,3 +81,23 @@ NOTE: Email backend is "console" — outgoing emails are written to the backend
   pod's stdout instead of being delivered. Suitable for staging or air-gapped
   clusters; configure backend.email.* with real SMTP values for production.
 {{- end }}
+
+{{- if not .Values.scheduledJobs.enabled }}
+
+NOTE: Scheduled jobs are off (scheduledJobs.enabled=false). Nothing runs the
+  due-date and staleness notification scans, so users who turn on those
+  notification preferences receive nothing, and the notifications and board
+  change-feed tables are never pruned. Turn the scans on with:
+    --set scheduledJobs.enabled=true
+  Prune jobs delete data and are enabled separately — see
+  docs/administration/scheduled-jobs.md. Remove any host cron lines that run
+  the same commands first.
+{{- else }}
+
+Scheduled jobs (CronJobs, times in {{ .Values.scheduledJobs.timeZone | default "the cluster controller's zone (usually UTC)" }}):
+{{- range $key := list "notifyDueSoon" "notifyStaleCards" "pruneBoardEvents" "pruneNotifications" }}
+{{- $cfg := index $.Values.scheduledJobs $key }}
+  - {{ $key }}: {{ if $cfg.enabled }}"{{ $cfg.schedule }}"{{ else }}off{{ end }}
+{{- end }}
+  List them: kubectl get cronjobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=scheduler
+{{- end }}

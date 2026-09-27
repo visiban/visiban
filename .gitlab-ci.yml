@@ -1142,7 +1142,9 @@ helm-template:
     # Render the way a real deploy is shaped — a pinned tag, NetworkPolicies on
     # (they are off by default, and section 7 of the structure check needs them)
     # and OIDC configured, since the OIDC env block is behind a conditional and
-    # is exactly where #1038's blocker 1 lived.
+    # is exactly where #1038's blocker 1 lived. The scheduled-job CronJobs
+    # (#1157) are off by default, so they are switched on here — otherwise
+    # kubeconform never sees templates/cronjobs.yaml render at all.
     - |
       helm template visiban helm/visiban \
         --set-string secret.djangoSecretKey=ci-not-a-real-secret \
@@ -1150,6 +1152,9 @@ helm-template:
         --set backend.email.backend=console \
         --set networkPolicy.enabled=true \
         --set backend.oauth.oidc.serverUrl=https://idp.ci.local/realms/visiban \
+        --set scheduledJobs.enabled=true \
+        --set scheduledJobs.pruneBoardEvents.enabled=true \
+        --set scheduledJobs.pruneNotifications.enabled=true \
         > /tmp/rendered.yaml
     # -ignore-missing-schemas: no CRDs are rendered today, but the flag keeps a
     # future ServiceMonitor/PrometheusRule from turning this into a hard red

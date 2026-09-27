@@ -231,7 +231,9 @@ A template with comments is at `frontend/.env.local.example`.
 | `TLS_MODE` | No | TLS mode for the production Docker stack: `letsencrypt` (default), `selfsigned`, or `none`. See [TLS modes](#tls-modes). |
 | `FORCE_INSECURE_COOKIES` | No | Set `true` to disable `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` for plain-HTTP deployments. Automatically set by `init-prod.sh` when `TLS_MODE=none`. Default: `false`. |
 | `MAX_UPLOAD_SIZE_BYTES` | No | Maximum file size for card attachment uploads in bytes (default: `10485760` — 10 MB). Increase for teams with large attachment needs; decrease to limit storage use. |
-| `BOARD_EVENT_RETENTION_DAYS` | No | How long a board [change feed](../api/events.md) event stays readable, in days (default: `30`). Nothing expires on its own — schedule `manage.py prune_board_events` or the `board_events` table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive. |
+| `BOARD_EVENT_RETENTION_DAYS` | No | How long a board [change feed](../api/events.md) event stays readable, in days (default: `30`). Nothing expires on its own — schedule `manage.py prune_board_events` (see [Scheduled Jobs](../administration/scheduled-jobs.md)) or the `board_events` table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive. |
+| `NOTIFICATION_RETENTION_DAYS` | No | How long an in-app notification is kept, read or unread, in days (default: `90`, minimum `14`). Enforced only when `manage.py prune_notifications` is scheduled — see [Scheduled Jobs](../administration/scheduled-jobs.md). Unscheduled, notifications are kept forever. |
+| `SCHEDULE_NOTIFY_DUE_SOON`, `SCHEDULE_NOTIFY_STALE_CARDS`, `SCHEDULE_PRUNE_BOARD_EVENTS`, `SCHEDULE_PRUNE_NOTIFICATIONS` | No | Daily run time (`HH:MM`, UTC, or `off`) for each job of the opt-in Compose `scheduler` service. Defaults: `07:00`, `08:00`, `off`, `off`. Read only by `manage.py run_scheduler`. See [Scheduled Jobs](../administration/scheduled-jobs.md). |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 

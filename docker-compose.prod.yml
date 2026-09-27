@@ -105,6 +105,36 @@ services:
       start_period: 30s
       retries: 3
 
+  # Runs the daily maintenance commands (#1157) — notify_due_soon at 07:00 UTC
+  # and notify_stale_cards at 08:00 UTC by default; the prune jobs only when
+  # their SCHEDULE_* variable is set. See docs/administration/scheduled-jobs.md.
+  # Opt-in via the `scheduler` profile, so an existing `docker compose up -d`
+  # starts exactly what it did before. Enable it with COMPOSE_PROFILES=scheduler
+  # in .env (comma-separate if you also use letsencrypt), then `up -d` again.
+  scheduler:
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
+    command: ["python", "manage.py", "run_scheduler"]
+    restart: unless-stopped
+    profiles: ["scheduler"]
+    # A job in progress when the service is stopped gets time to finish its
+    # current batch; the loop itself exits on SIGTERM between jobs.
+    stop_grace_period: 2m
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://visiban:${DB_PASSWORD:?DB_PASSWORD must be set — do not use a default in production}@db:5432/visiban
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/0
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/1
+      DEBUG: "false"
+    depends_on:
+      backend-init:
+        condition: service_completed_successfully
+
   # Copies the pre-built frontend assets from the release image into the shared
   # volume so nginx can serve them. Exits immediately after the copy completes.
   # nginx waits for this service to complete before starting.

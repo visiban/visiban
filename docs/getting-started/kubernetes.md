@@ -362,6 +362,23 @@ When `backendReplicaCount > 1`, the chart automatically:
 
 See the [Scaling guide](../architecture/scaling.md) for component-by-component tuning advice.
 
+## Scheduled jobs
+
+The due-date and staleness notification scans, and the retention prunes, run as
+Kubernetes CronJobs rendered from `scheduledJobs` in `values.yaml`. They are
+**off by default**, so an install that has not enabled them sends no due-date or
+staleness notifications:
+
+```bash
+helm upgrade visiban helm/visiban --namespace visiban --reuse-values \
+  --set scheduledJobs.enabled=true
+```
+
+That schedules `notify_due_soon` (07:00) and `notify_stale_cards` (08:00). The
+two prune jobs delete data and are enabled individually. See
+[Scheduled Jobs](../administration/scheduled-jobs.md) for every key, and for how
+to check and trigger runs.
+
 ## Health check endpoints
 
 The backend exposes two health endpoints used by liveness and readiness probes:

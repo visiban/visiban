@@ -61,19 +61,27 @@ When a card's due date is approaching (within 24 hours by default), the assignee
 > ""{card title}" is due soon"
 
 Recipients opt in with the **Due date approaching** preference. The scan runs from
-a management command rather than on a request, so schedule it the same way as the
-staleness scan:
+the `notify_due_soon` management command rather than on a request, so it has to
+be scheduled. It runs daily at 07:00 UTC once you turn on the shipped scheduler
+(the Compose `scheduler` profile or the Helm `scheduledJobs.enabled` value), and
+**nothing is sent until you do**. See [Scheduled Jobs](../administration/scheduled-jobs.md).
 
 ```bash
 python manage.py notify_due_soon
-
-# crontab example — run at 7am daily, before the staleness scan
-0 7 * * * cd /app && python manage.py notify_due_soon
 ```
 
 Pass `--days N` to widen the window. `Card.due_date` is a date, not a timestamp,
 so the window is expressed in whole days; the default of `1` is the documented
 24-hour warning and covers cards due today or tomorrow.
+
+!!! warning "Keep `--days` below the notification retention window"
+    The scan checks earlier due-date notifications, up to `--days` back, so it
+    does not send the same one twice. If
+    [`prune_notifications`](#notification-retention) is scheduled with a
+    retention window that is not longer than `--days`, it can delete those
+    records, and cards get notified again. The default `--days 1` against the
+    90-day default retention is well clear. The command logs a warning when
+    `--days` is greater than or equal to `NOTIFICATION_RETENTION_DAYS`.
 
 The command is idempotent per due date: a card is visible to it on two
 consecutive runs (due tomorrow, then due today) and produces **one** notification
@@ -122,12 +130,30 @@ The command is idempotent — it won't create duplicate notifications if run mul
 python manage.py notify_stale_cards
 ```
 
-Schedule this as a daily cron job or Kubernetes CronJob in production:
+It runs daily at 08:00 UTC once the shipped scheduler is turned on. See
+[Scheduled Jobs](../administration/scheduled-jobs.md) for Docker Compose,
+Kubernetes, and host-cron setup.
+
+## Notification retention
+
+> **Added in 1.2**
+
+Notifications are kept until they are pruned. The `prune_notifications`
+management command deletes notifications, read or unread, older than
+`NOTIFICATION_RETENTION_DAYS` (default **90**, minimum **14**; on Helm, set the
+window with `scheduledJobs.pruneNotifications.args: ["--days", "N"]`). It only runs
+when you schedule it: the shipped scheduler has it **off** by default, so an
+existing install keeps every notification until you turn the prune on.
 
 ```bash
-# crontab example — run at 8am daily
-0 8 * * * cd /app && python manage.py notify_stale_cards
+python manage.py prune_notifications --dry-run   # preview
+python manage.py prune_notifications             # default window
+python manage.py prune_notifications --days 180  # override
 ```
+
+The 14-day minimum is deliberate. The scheduled scans use existing
+notifications as their record of what they have already sent, so pruning more
+aggressively would make them send the same notification again.
 
 ## Email notifications
 

@@ -19,8 +19,12 @@ exhausted, while rendering, linting and installing clean on kindnetd throughout.
 #1117 removed that Job: migrations now run as the `migrate` init container of the
 backend pod, which carries the backend pod's labels, so `backend` already covers
 them. Adding `migrate` back would select nothing.
+
+`scheduler` is the pods of the scheduled-job CronJobs (templates/cronjobs.yaml,
+#1157): they run management commands that read and write PostgreSQL. Listed
+even when scheduledJobs is off — a label that selects no pod widens nothing.
 */ -}}
-{{- $datastoreClients := list "backend" }}
+{{- $datastoreClients := list "backend" "scheduler" }}
 {{- $backendClients := list "frontend" "test" }}
 # Default deny all ingress — pods must be explicitly allowed.
 apiVersion: networking.k8s.io/v1
