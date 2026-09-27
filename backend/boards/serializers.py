@@ -791,7 +791,15 @@ def _normalize_custom_field_value(definition, raw):
             )
         return text
 
-    return text
+    # TEXT falls through to here, as does any field type this function does not
+    # special-case above. Unlike NUMBER/DATE/CHECKBOX/DROPDOWN, none of which can
+    # carry a NUL past their own parsing, free text can — and Postgres refuses to
+    # store a string containing "\x00" outright (DataError, not a ValidationError),
+    # the same gap #1184 closed on the definition serializers (see
+    # reject_nul_byte's docstring). CardSerializer's and SwimlaneSerializer's
+    # writable custom_field_values both funnel through this one function, so this
+    # single check covers both write paths (#1188).
+    return reject_nul_byte(text, field_label=definition.name)
 
 
 def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FIELD_VALIDATORS"):
