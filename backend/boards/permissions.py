@@ -1,5 +1,7 @@
 import logging
 
+from django.conf import settings
+
 from rest_framework.permissions import BasePermission
 
 from .broadcast import EVT_MEMBER_ADDED, EVT_MEMBER_UPDATED
@@ -268,6 +270,28 @@ def get_board_roles(user, boards):
     return roles
 
 
+def _is_demo_visitor(role, user):
+    """True for the published hosted-demo account while DEMO_MODE is on (#1179).
+
+    Every seeded demo card is created by the demo admin, so without this the
+    ownership gate would let the visitor edit only cards they created. The
+    carve-out lives HERE, keyed on the live setting, rather than as a seeded
+    ``BoardMembership.is_moderator=True`` row: a persistent row would keep
+    moderator rights if an operator ever turned DEMO_MODE off on the same
+    database without reseeding, whereas this vanishes with the setting — the
+    same "the deployment, not the account" principle as DemoModeMiddleware,
+    which still refuses every write this could otherwise widen (deleting
+    cards, comments, attachments). Scoped to a plain MEMBER so it can never
+    lift a collaborator or viewer.
+    """
+    if getattr(settings, "DEMO_MODE", False) is not True:
+        return False
+    published = (getattr(settings, "DEMO_LOGIN_USERNAME", "") or "").lower()
+    if not published or role != BoardMembership.Role.MEMBER:
+        return False
+    return (getattr(user, "username", "") or "").lower() == published
+
+
 def can_modify_others_content(board, role, user):
     """Return True if the user may edit/delete/archive content created by others.
 
@@ -290,6 +314,8 @@ def can_modify_others_content(board, role, user):
     if role in (BoardMembership.Role.ADMIN, SITE_ADMIN):
         return True
     if board.owner_id == user.id:
+        return True
+    if _is_demo_visitor(role, user):
         return True
     membership = getattr(board, "_cached_membership", None)
     # Verify whose membership the cache holds before trusting its moderator

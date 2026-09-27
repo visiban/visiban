@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { checkAndFlagDemoReset } from "../utils/demoReset";
 
 export type BoardEvent = {
   event: string;
@@ -123,6 +124,14 @@ export function useBoardSocket(
         // Auth rejection — stop here, no reconnect
         if (e.code === 4001 || e.code === 4003) {
           setStatus("failed");
+          // Hosted demo (#1179): an idle visitor watching a board makes no
+          // REST call, so the socket is the only thing that notices the
+          // scheduled reset ended the session. If the reset time has passed,
+          // route them to the login page's "demo was reset" notice through
+          // the same event the REST 401 path uses, instead of a dead socket.
+          if (checkAndFlagDemoReset()) {
+            window.dispatchEvent(new Event("auth:sessionExpired"));
+          }
           return;
         }
         // Normal unmount close — status stays as-is; component is gone

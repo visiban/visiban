@@ -1906,7 +1906,12 @@ class BoardSerializer(serializers.ModelSerializer):
         if not value:
             return value
         valid = {p[0] for p in Card.Priority.choices}
-        if any(v not in valid for v in value):
+        # `not isinstance(v, str)` must short-circuit before `v not in valid`:
+        # a nested list/dict item is unhashable and crashes the membership
+        # test with an unhandled TypeError instead of a normal 400 (#1185).
+        # Mirrors GroupSerializer.validate_allowed_priorities' per-item
+        # isinstance guard for the same failure mode (#1165).
+        if any(not isinstance(v, str) or v not in valid for v in value):
             raise serializers.ValidationError(
                 f"Invalid priority value. Must be one of: {sorted(valid)}."
             )
@@ -2042,11 +2047,13 @@ class EffectiveBoardMemberSerializer(serializers.Serializer):
     user = BoardUserSerializer(read_only=True)
     role = serializers.ChoiceField(choices=EFFECTIVE_BOARD_ROLE_CHOICES, read_only=True)
     # Not read_only: drf-spectacular marks every read-only field required, and
-    # get_members() omits this one for viewers below admin (#920). Schema-only,
-    # so nothing can write through it.
+    # get_members() omits this one for viewers below admin (#920), except on
+    # the requesting user's own row (#1173). Schema-only, so nothing can
+    # write through it.
     is_moderator = serializers.BooleanField(
         required=False,
-        help_text="Present only when the requesting user is an admin or site admin.",
+        help_text="Present when the requesting user is an admin or site admin, "
+                  "or on the row belonging to the requesting user themselves.",
     )
     joined_at = serializers.DateTimeField(read_only=True)
 
@@ -2327,6 +2334,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
             viewer_role = get_board_role(request.user, obj)
         is_admin_viewer = viewer_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
+        requesting_user_id = request.user.id if request and request.user.is_authenticated else None
+
         result = []
         for entry in seen.values():
             # Use BoardUserSerializer so private per-user fields (notification prefs,
@@ -2337,7 +2346,20 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 "role": entry["role"],
                 "joined_at": entry["joined_at"],
             }
-            if is_admin_viewer:
+            if is_admin_viewer or entry["user"].pk == requesting_user_id:
+                # #920 hides is_moderator from non-admin viewers because it's an
+                # internal trust tier that shouldn't leak to OTHER members. But
+                # hiding it on the requester's OWN row breaks the feature it
+                # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
+                # BulkActionToolbar.tsx) check `is_moderator` on the current
+                # user's row to decide whether to show moderator-only UI, so a
+                # non-admin member promoted to moderator would never see their
+                # own moderator controls (#1173). Reveal it only for the row
+                # that is the requesting user; every other non-admin-visible
+                # row still omits it. The WS member.* broadcasts and the
+                # change-feed reader (BoardEventSerializer) have the same
+                # self-row gap and do not yet have this exception — tracked
+                # separately as #1191.
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)
         return result

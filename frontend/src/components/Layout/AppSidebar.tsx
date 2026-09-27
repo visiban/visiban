@@ -10,6 +10,7 @@ import { buildSidebarTree } from "../../utils/groupTree";
 import type { SidebarTreeNode } from "../../utils/groupTree";
 import { useRecentBoardsPref } from "../../hooks/useRecentBoardsPref";
 import Spinner from "../Common/Spinner";
+import { DEMO_NEW_BOARD_REASON, DEMO_NEW_GROUP_REASON } from "../../constants/demoCopy";
 
 interface Props {
   user: User;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, onMobileClose }: Props) {
+  const demoMode = user.demo_mode === true;
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -605,16 +607,29 @@ export default function AppSidebar({ user, starVersion = 0, mobileOpen = false, 
       {/* Footer: new board / new group */}
       {!collapsed && (
         <div className="shrink-0 border-t border-line px-3 py-2 flex flex-col gap-1">
+          {/* Hosted demo (#1179): board and group creation are refused by the
+              server fence, so both are aria-disabled with the reason folded into
+              title + aria-label (compact nav — no room for a reason line). */}
           <button
-            onClick={() => setShowCreateBoard(true)}
-            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            onClick={() => { if (!demoMode) setShowCreateBoard(true); }}
+            aria-disabled={demoMode ? true : undefined}
+            aria-label={demoMode ? `New board. ${DEMO_NEW_BOARD_REASON}` : undefined}
+            title={demoMode ? DEMO_NEW_BOARD_REASON : undefined}
+            className={`flex items-center gap-1.5 text-xs text-fg-tertiary transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
+              demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg"
+            }`}
           >
             <span className="text-base leading-none">+</span>
             <span>New board</span>
           </button>
           <button
-            onClick={() => setShowCreateGroup(true)}
-            className="flex items-center gap-1.5 text-xs text-fg-tertiary hover:text-fg transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+            onClick={() => { if (!demoMode) setShowCreateGroup(true); }}
+            aria-disabled={demoMode ? true : undefined}
+            aria-label={demoMode ? `New group. ${DEMO_NEW_GROUP_REASON}` : undefined}
+            title={demoMode ? DEMO_NEW_GROUP_REASON : undefined}
+            className={`flex items-center gap-1.5 text-xs text-fg-tertiary transition text-left focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
+              demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg"
+            }`}
           >
             <span className="text-base leading-none">+</span>
             <span>New group</span>

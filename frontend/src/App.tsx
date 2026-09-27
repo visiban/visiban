@@ -14,6 +14,8 @@ import InlineBoardName from "./components/Board/InlineBoardName";
 import MoveBlockedToast from "./components/Board/MoveBlockedToast";
 import GlobalCommandPalette from "./components/Common/GlobalCommandPalette";
 import MaintenanceBanner from "./components/Common/MaintenanceBanner";
+import DemoModeBar from "./components/Common/DemoModeBar";
+import DemoWriteBlockedToast from "./components/Board/DemoWriteBlockedToast";
 import Dashboard from "./pages/Dashboard";
 import GroupDetail from "./pages/GroupDetail";
 import JoinPage from "./pages/JoinPage";
@@ -137,6 +139,17 @@ export default function App() {
                       isSiteAdmin={user.is_site_admin}
                     />
                   )}
+                  {/* Hosted-demo bar (#1179). Same slot convention as the
+                      maintenance notice; the two are mutually exclusive
+                      deployment states (one Helm values file), so no guard. */}
+                  {user.demo_mode && user.demo_next_reset_at && (
+                    <DemoModeBar nextResetAt={user.demo_next_reset_at} />
+                  )}
+                  {/* Fallback for any demo refusal that still reaches the API
+                      (#1179). Mounted at the shell, not beside the board-only
+                      MoveBlockedToast, so a refusal on the dashboard or the
+                      settings page explains itself too. */}
+                  {user.demo_mode && <DemoWriteBlockedToast />}
                   {/* Mobile navigation bar — visible below lg breakpoint only */}
                   <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-sunken border-b border-line shrink-0">
                     <button

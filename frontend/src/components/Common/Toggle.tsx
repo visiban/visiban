@@ -61,15 +61,29 @@ interface ToggleFieldProps {
   label: string;
   description?: string;
   disabled?: boolean;
+  /**
+   * Forwarded to the inner Toggle's `ariaDisabled` (#1179): keeps the switch
+   * focusable while inert, so a reason tied to it via `aria-describedby`
+   * stays reachable by keyboard. The row's own click handler honors it too —
+   * without that, clicking the LABEL TEXT next to an ostensibly inert switch
+   * would still flip it. Optional and off by default, so existing consumers
+   * are unaffected.
+   */
+  ariaDisabled?: boolean;
+  "aria-describedby"?: string;
   labelSize?: "sm" | "xs";
 }
 
-export function ToggleField({ checked, onChange, label, description, disabled, labelSize = "sm" }: ToggleFieldProps) {
+export function ToggleField({ checked, onChange, label, description, disabled, ariaDisabled, "aria-describedby": ariaDescribedBy, labelSize = "sm" }: ToggleFieldProps) {
   const id = useId();
   const labelId = `${id}-label`;
+  const inert = disabled || ariaDisabled;
 
   return (
-    <div className="flex items-center justify-between cursor-pointer" onClick={() => !disabled && onChange(!checked)}>
+    <div
+      className={`flex items-center justify-between ${inert ? "cursor-not-allowed" : "cursor-pointer"}`}
+      onClick={() => !inert && onChange(!checked)}
+    >
       <div className="min-w-0 pr-4">
         <span id={labelId} className={`${labelSize === "xs" ? "text-xs" : "text-sm"} text-fg-secondary`}>{label}</span>
         {description && (
@@ -80,7 +94,9 @@ export function ToggleField({ checked, onChange, label, description, disabled, l
         checked={checked}
         onChange={onChange}
         disabled={disabled}
+        ariaDisabled={ariaDisabled}
         aria-labelledby={labelId}
+        aria-describedby={ariaDescribedBy}
       />
     </div>
   );

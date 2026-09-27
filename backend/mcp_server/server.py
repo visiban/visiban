@@ -39,6 +39,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_maintenance_state
+from visiban.demo import DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_DETAIL
 
 from . import throttling, tools
 from .context import get_current_scopes, get_current_user
@@ -129,15 +130,30 @@ def _require_maintenance_off():
     }}
 
 
+def _require_demo_off():
+    """Return a structured denial dict while ``DEMO_MODE`` is on, else None (#1179).
+
+    ``/mcp`` is mounted outside Django's handler, so ``DemoModeMiddleware``
+    never sees it. Unlike the REST fence there is no allowlist here: every MCP
+    write is refused, a site admin's included — the demo has no use for agent
+    writes, and PAT creation is already refused by the REST fence, so this is
+    defense in depth. A settings read only, so no ``sync_to_async`` is needed.
+    """
+    if getattr(settings, "DEMO_MODE", False) is False:
+        return None
+    return {"error": {"code": DEMO_READ_ONLY_CODE, "detail": DEMO_READ_ONLY_DETAIL}}
+
+
 async def _deny_write():
     """Run every gate a write tool must pass; return a denial dict or None.
 
-    Both gates run through this one helper so a future write tool cannot
-    accidentally pick up the scope check and miss the maintenance check. The
+    Every gate runs through this one helper so a future write tool cannot
+    accidentally pick up the scope check and miss the demo fence (#1179) or
+    the maintenance check. The
     maintenance check is wrapped in ``sync_to_async`` because it reads the
     Django cache (and, on a cold cache, the database), which is blocking.
     """
-    denial = _require_write_scope()
+    denial = _require_write_scope() or _require_demo_off()
     if denial is not None:
         return denial
     return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()

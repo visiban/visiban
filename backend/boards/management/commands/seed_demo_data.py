@@ -61,10 +61,14 @@ Usage:
         Hosted demo instance (#1034, try.visiban.com). In addition to the
         normal demo board, seeds Software / Marketing / Hiring boards
         (20 cards each, with comments, assignees, labels, and movement
-        history) plus an admin and two member accounts. Passwords come from
-        the DEMO_LOGIN_PASSWORD and DEMO_MEMBER_PASSWORD environment
-        variables (never from source); the command refuses to run without
-        DEMO_LOGIN_PASSWORD or DEMO_MEMBER_PASSWORD. See deploy/demo/README.md.
+        history) plus a site admin, the published visitor account and two
+        member accounts. Passwords come from the DEMO_LOGIN_PASSWORD
+        (visitor, published), DEMO_ADMIN_PASSWORD (admin, never published) and
+        DEMO_MEMBER_PASSWORD environment variables (never from source); the
+        command refuses to run without all three. #1179: the visitor is a
+        MEMBER on every board, never a site or board admin, and the instance
+        is seeded with uploads off and registration closed. See
+        docs/administration/demo-data.md.
 """
 
 import csv
@@ -75,7 +79,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
 
-from accounts.models import User
+from accounts.models import SiteSetting, User
 from boards.notifications_email import suppress_notification_email
 from boards.models import (
     Board,
@@ -521,8 +525,9 @@ class Command(BaseCommand):
             action="store_true",
             help=(
                 "Also seed the hosted-demo content (#1034): Software, Marketing "
-                "and Hiring boards plus an admin and two member accounts. "
-                "Passwords are read from DEMO_LOGIN_PASSWORD / "
+                "and Hiring boards plus a site admin, the published visitor "
+                "account and two member accounts. Passwords are read from "
+                "DEMO_LOGIN_PASSWORD / DEMO_ADMIN_PASSWORD / "
                 "DEMO_MEMBER_PASSWORD. Off by default — the default output "
                 "(and the committed --export snapshot) is unchanged."
             ),
@@ -565,6 +570,31 @@ class Command(BaseCommand):
             if not settings.DEMO_MEMBER_PASSWORD:
                 raise CommandError(
                     "--demo-site requires the DEMO_MEMBER_PASSWORD environment variable."
+                )
+            # #1179: the site admin has its own, unpublished password. Refuse a
+            # missing one (an open admin account) and one equal to the
+            # published password (which would publish the admin credential).
+            if not settings.DEMO_ADMIN_PASSWORD:
+                raise CommandError(
+                    "--demo-site requires the DEMO_ADMIN_PASSWORD environment variable."
+                )
+            if settings.DEMO_ADMIN_PASSWORD == settings.DEMO_LOGIN_PASSWORD:
+                raise CommandError(
+                    "DEMO_ADMIN_PASSWORD must differ from DEMO_LOGIN_PASSWORD: "
+                    "the login password is published on the login page."
+                )
+            # The published username must not be one of the other seeded
+            # accounts, or the seeder would publish (and re-password) the site
+            # admin or a member under the visitor's name.
+            reserved = {
+                username.lower()
+                for key, (username, *_rest) in DEMO_SITE_USERS.items()
+                if key != "visitor"
+            }
+            if settings.DEMO_LOGIN_USERNAME.lower() in reserved:
+                raise CommandError(
+                    f"DEMO_LOGIN_USERNAME={settings.DEMO_LOGIN_USERNAME!r} collides with a "
+                    "seeded non-visitor account; use a dedicated name such as 'visitor'."
                 )
             if options["export"] or options["scale"] != 1:
                 raise CommandError("--demo-site cannot be combined with --export or --scale.")
@@ -691,17 +721,14 @@ class Command(BaseCommand):
             Board.objects.filter(name__in=[b["name"] for b in DEMO_SITE_BOARDS]).delete()
 
         users = self._ensure_demo_site_users()
+        self._lock_down_site_settings()
         # Let the demo accounts see the main demo board too, so a first login
         # lands on more than the three new boards.
         main = Board.objects.filter(name=BOARD_NAME).first()
         if main:
             for key, user in users.items():
                 BoardMembership.objects.get_or_create(
-                    board=main,
-                    user=user,
-                    defaults={
-                        "role": BoardMembership.Role.ADMIN if key == "admin" else BoardMembership.Role.MEMBER
-                    },
+                    board=main, user=user, defaults=self._demo_site_membership(key),
                 )
 
         for spec in DEMO_SITE_BOARDS:
@@ -721,9 +748,13 @@ class Command(BaseCommand):
         """
         users = {}
         for key, (username, first, last, is_admin) in DEMO_SITE_USERS.items():
-            if is_admin:
+            if key == "visitor":
+                # The one PUBLISHED account (#1179): SiteConfigView prints
+                # exactly this pair, so seed from the same settings.
                 username = settings.DEMO_LOGIN_USERNAME
                 password = settings.DEMO_LOGIN_PASSWORD
+            elif is_admin:
+                password = settings.DEMO_ADMIN_PASSWORD
             else:
                 password = settings.DEMO_MEMBER_PASSWORD
             user, _ = User.objects.get_or_create(
@@ -736,12 +767,48 @@ class Command(BaseCommand):
             )
             user.is_site_admin = is_admin
             user.set_password(password)
-            # Reset on every run: --wipe deletes boards, not users, so an account
-            # that finished the tour yesterday would otherwise never see it again.
-            user.has_completed_tour = False
+            # The published visitor (#1179) is seeded with the tour already
+            # completed: finishing the tour saves via PATCH /api/v1/auth/me/,
+            # which the demo fence refuses (it is not on DEMO_ALLOWED_WRITES), so
+            # an auto-running tour would end every visitor's first minute on a
+            # refusal toast. A visitor is evaluating the product, not onboarding
+            # onto a team. The unpublished accounts keep the old behavior: reset
+            # on every run, since --wipe deletes boards, not users, and an
+            # account that finished the tour yesterday would otherwise never see
+            # it again.
+            user.has_completed_tour = key == "visitor"
             user.save()
             users[key] = user
         return users
+
+    @staticmethod
+    def _demo_site_membership(key):
+        """Membership fields for a demo-site account on a seeded board.
+
+        The visitor (#1179) is a plain MEMBER — never ADMIN, and deliberately
+        not a moderator. Editing the admin-created seeded cards is granted by
+        the DEMO_MODE-gated carve-out in boards.permissions._is_demo_visitor
+        instead, so the grant disappears the moment DEMO_MODE is off rather
+        than persisting as a row in this database.
+        """
+        if key == "admin":
+            return {"role": BoardMembership.Role.ADMIN}
+        return {"role": BoardMembership.Role.MEMBER}
+
+    def _lock_down_site_settings(self):
+        """Uploads off, registration closed (#1179).
+
+        Uploads would let the demo's domain host arbitrary files until the next
+        reset, and self-registration is how a visitor would mint an account the
+        seeder did not create. DemoModeMiddleware refuses both writes anyway;
+        seeding the settings too makes the SPA hide the affordances instead of
+        offering them and refusing.
+        """
+        setting = SiteSetting.get()
+        setting.uploads_enabled = False
+        setting.registration_mode = SiteSetting.RegistrationMode.CLOSED
+        # SiteSetting.save() invalidates the cached reads of both values.
+        setting.save()
 
     def _create_demo_site_board(self, spec, users):
         admin = users["admin"]
@@ -750,9 +817,7 @@ class Command(BaseCommand):
         )
         for user_key, user in users.items():
             BoardMembership.objects.create(
-                board=board,
-                user=user,
-                role=BoardMembership.Role.ADMIN if user_key == "admin" else BoardMembership.Role.MEMBER,
+                board=board, user=user, **self._demo_site_membership(user_key),
             )
         columns = [
             Column.objects.create(
@@ -800,7 +865,10 @@ class Command(BaseCommand):
         Every card gets a created event so the History tab is never empty.
         Mirrors _add_movement_history but with deterministic offsets.
         """
-        mover = list(users.values())[idx % len(users)]
+        # The visitor is excluded: it is every visitor at once, so seeded
+        # history attributed to it would read as the current visitor's moves.
+        people = [u for key, u in users.items() if key != "visitor"]
+        mover = people[idx % len(people)]
         lane = card.swimlane
         step = 4 + idx % 3
         age = step * (col_i + 1) + 2 + idx % 5

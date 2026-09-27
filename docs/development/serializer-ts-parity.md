@@ -120,8 +120,15 @@ That is a **missing component, not a passing check** — the two are unchecked h
 gate says nothing about their published types. Making them checkable means getting
 `drf-spectacular` to emit components for them, which needs its own issue.
 
-Everything else is deliberately in scope and mapped. There is no pair that has a component and
-an interface and is simply not checked.
+One further pair is absent for the opposite reason — the schema has a component but there is
+no TypeScript interface to diff it against:
+
+| Pair | Why excluded |
+|---|---|
+| `CardQuery` (`CardQuerySerializer`, `GET /api/v1/cards/`, #1112) | No TypeScript interface exists — `frontend/src/api/cards.ts` has no caller of this endpoint yet. Mapping it to the closest interface, `Card`, would not work: `CardQuery` sends every `Card` field plus `board` by design (a cross-board list must say which board each row is on), so the pair would report a permanent `missing_in_ts: board` finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172). |
+
+Everything else is deliberately in scope and mapped. There is no pair that has a component, an
+interface, and is simply not checked.
 
 ## Running it locally
 

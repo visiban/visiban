@@ -83,11 +83,36 @@ python manage.py seed_demo_data --force --wipe --demo-site
 It creates, alongside the normal demo board:
 
 - **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history
-- an **admin** account (username from `DEMO_LOGIN_USERNAME`, password from `DEMO_LOGIN_PASSWORD`, site admin) and two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
+- the **published visitor** account (username from `DEMO_LOGIN_USERNAME`, default `visitor`; password from `DEMO_LOGIN_PASSWORD`) — a plain MEMBER on every seeded board, never a site admin, board admin or moderator. While `DEMO_MODE` is on, this one account may also edit and archive cards other people created (every seeded card belongs to the admin); that exception is read from the setting at request time, so it disappears the moment `DEMO_MODE` is turned off rather than living on as a stored permission
+- a site **admin** account (`admin`, password from `DEMO_ADMIN_PASSWORD`, **never published**) that owns the seeded boards
+- two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
 
-Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true`, `DEMO_LOGIN_PASSWORD`, and `DEMO_MEMBER_PASSWORD` are all set, and cannot be combined with `--export` or `--scale`. The onboarding tour flag is reset on every run, so the tour starts on first login after each reset.
+It also turns file uploads off and sets registration to **closed**.
 
-Set `DEMO_MODE=true` to show the login-page banner. See [Demo mode](configuration.md#demo-mode) for the settings, and `deploy/demo/README.md` in the repository for the Caddy, compose, and nightly-reset artifacts.
+Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` and `DEMO_MEMBER_PASSWORD` are all set, refuses an admin password equal to the published one, refuses a `DEMO_LOGIN_USERNAME` that names another seeded account, and cannot be combined with `--export` or `--scale`. The onboarding tour is marked **completed** for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
+
+See [Demo mode](configuration.md#demo-mode) for the settings. The deployment itself — the hourly reset CronJob, the egress NetworkPolicy and the post-deploy fence check — ships in the Helm chart (#1180).
+
+### Threat model
+
+> **Added in 1.2** (#1179).
+
+A public demo publishes a working login. Everything that account can do, the whole internet can do, and it can do it to every other visitor. Two facts shape the design:
+
+- **Role is not a control.** `POST /api/v1/boards/` and `POST /api/v1/groups/{id}/boards/` make *any* authenticated caller the ADMIN of the board they create. A published credential of any role is therefore one request away from owning something. Seeding a harmless role cannot hold.
+- **The guarantee is a deployment mode.** With `DEMO_MODE=true`, `DemoModeMiddleware` refuses every request whose method is not `GET`, `HEAD` or `OPTIONS` — including `TRACE` and unknown verbs — for **every caller**, a site admin and anonymous clients included, unless it is on a short, pinned allowlist. A route added in a later release is refused by construction until someone deliberately adds it. The same rule covers allauth's `/accounts/` tree, `/admin/`, and `/mcp` (every MCP write tool is refused).
+
+A refusal is `403` with a stable body:
+
+```json
+{"code": "demo_read_only", "detail": "This is a shared demo — this change can't be saved here. ..."}
+```
+
+**What a visitor can do:** sign in and out, watch live updates, and create, edit (including custom-field values), move, archive and restore cards, and add, tick and remove checklist items. Each move is recorded in the card's History, which is the point of the demo. Allowed writes still pass normal board permissions.
+
+**What a visitor cannot do:** create, rename or delete boards, columns, swimlanes, labels or custom fields; delete cards; comment; upload attachments; add card relations; change their profile, password or preferences; mint personal access tokens; register, request a password reset (so the demo cannot be used as an email relay), or use invites and groups; connect a lens; import; or reach anything under the admin API. The SPA disables the most visible of these controls up front with the reason ("This is a shared demo — …"), and shows a toast if any other refusal reaches it.
+
+**The reset is containment, not a control.** Every hour, on the hour (`DEMO_RESET_SCHEDULE`), the reset job wipes the **whole database** and reseeds it. That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example `BoardEvent`, whose `board_id` is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.
 
 ## Demo data and real data
 

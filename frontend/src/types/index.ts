@@ -24,6 +24,10 @@ export interface SiteConfig {
   demo_mode: boolean;
   /** Demo credentials for the login banner; null unless demo_mode and a password are configured. */
   demo_login: { username: string; password: string } | null;
+  /** Cron expression of the demo reset (DEMO_RESET_SCHEDULE, #1179); null unless demo_mode. */
+  demo_reset_schedule?: string | null;
+  /** Next demo reset, ISO 8601 UTC, computed server-side (#1179); null unless demo_mode. */
+  demo_next_reset_at?: string | null;
 }
 
 export interface User {
@@ -91,6 +95,18 @@ export interface User {
    * string of its own. Plain text: render as a text node, never as HTML.
    */
   maintenance_message?: string;
+  /**
+   * Whether the instance is a public hosted demo (#1179). While true, the
+   * server's demo fence refuses every write except card create/edit/move,
+   * archive and checklist changes, answering 403 `demo_read_only`.
+   */
+  demo_mode?: boolean;
+  /**
+   * Next scheduled demo reset, ISO 8601 UTC, computed server-side from the
+   * reset cron. Null unless demo_mode. A fixed instant for the session's life:
+   * the reset that would change it also ends the session.
+   */
+  demo_next_reset_at?: string | null;
 }
 
 /** A scope a personal access token can carry. Strictly non-hierarchical — no

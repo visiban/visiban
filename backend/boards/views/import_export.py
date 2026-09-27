@@ -387,14 +387,20 @@ class BoardImportExportMixin:
         _valid_col_names = {_c.get("name", "") for _c in data.get("columns", [])}
         _valid_sw_names = {_s.get("name", "") for _s in data.get("swimlanes", [])}
         for _ci, _card in enumerate(data.get("cards", [])):
-            if _card.get("column") not in _valid_col_names:
+            # isinstance guard must short-circuit before the set membership
+            # test: an unhashable "column"/"swimlane" (list/dict) crashes
+            # `in _valid_col_names` with an unhandled TypeError instead of
+            # this clean 400 (#1185).
+            _col_ref = _card.get("column")
+            if not isinstance(_col_ref, str) or _col_ref not in _valid_col_names:
                 return Response(
-                    {"detail": f"Card at index {_ci} references undefined column: {_card.get('column')!r}"},
+                    {"detail": f"Card at index {_ci} references undefined column: {_col_ref!r}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if _card.get("swimlane") not in _valid_sw_names:
+            _sw_ref = _card.get("swimlane")
+            if not isinstance(_sw_ref, str) or _sw_ref not in _valid_sw_names:
                 return Response(
-                    {"detail": f"Card at index {_ci} references undefined swimlane: {_card.get('swimlane')!r}"},
+                    {"detail": f"Card at index {_ci} references undefined swimlane: {_sw_ref!r}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -494,7 +500,12 @@ class BoardImportExportMixin:
                     continue
 
                 priority = card_data.get("priority", "medium")
-                if priority not in valid_priorities:
+                # isinstance guard must short-circuit before the membership
+                # test: an unhashable priority (list/dict) crashes `in
+                # valid_priorities` with an unhandled TypeError instead of
+                # falling back to the default like any other invalid value
+                # (#1185).
+                if not isinstance(priority, str) or priority not in valid_priorities:
                     priority = "medium"
 
                 assignee_username = card_data.get("assignee")
@@ -628,9 +639,14 @@ class BoardImportExportMixin:
                         user_map.get(moved_by_username.lower()) if moved_by_username else None
                     ) or request.user
                     raw_movement_type = mv_data.get("movement_type", CardMovement.MovementType.MOVE)
+                    # isinstance guard must short-circuit before the membership
+                    # test: an unhashable movement_type (list/dict) crashes `in
+                    # valid_movement_types` with an unhandled TypeError instead
+                    # of falling back to the default like any other invalid
+                    # value (#1185).
                     movement_type = (
                         raw_movement_type
-                        if raw_movement_type in valid_movement_types
+                        if isinstance(raw_movement_type, str) and raw_movement_type in valid_movement_types
                         else CardMovement.MovementType.MOVE
                     )
                     movements_to_create.append((
@@ -658,7 +674,11 @@ class BoardImportExportMixin:
                 # Imported activity log entries (field-change history)
                 for act_data in card_data.get("activities", []):
                     event_type = act_data.get("event_type", "")
-                    if event_type not in valid_event_types:
+                    # isinstance guard must short-circuit before the membership
+                    # test: an unhashable event_type (list/dict) crashes `in
+                    # valid_event_types` with an unhandled TypeError instead of
+                    # being skipped like any other unknown event type (#1185).
+                    if not isinstance(event_type, str) or event_type not in valid_event_types:
                         continue
                     actor_username = act_data.get("actor")
                     actor = (

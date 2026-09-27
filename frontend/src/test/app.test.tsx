@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from '../App'
 import type { User } from '../types'
@@ -282,5 +282,34 @@ describe('App — maintenance banner (#783)', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false, logout: vi.fn(), updateUser: vi.fn() })
     render(<MemoryRouter><App /></MemoryRouter>)
     expect(screen.queryByText('Maintenance mode is active.')).not.toBeInTheDocument()
+  })
+})
+
+describe('App — hosted demo shell (#1179)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('mounts the demo bar and the fallback toast listener for a demo user', () => {
+    mockUseAuth.mockReturnValue({
+      user: { ...fakeUser, demo_mode: true, demo_next_reset_at: new Date(Date.now() + 30 * 60_000).toISOString() },
+      loading: false, logout: vi.fn(), updateUser: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.getByTestId('demo-mode-bar')).toHaveTextContent('Shared demo')
+    act(() => {
+      window.dispatchEvent(new CustomEvent('auth:demoWriteBlocked', { detail: { message: "This is a shared demo — this change can't be saved here." } }))
+    })
+    expect(screen.getByTestId('demo-write-blocked-toast')).toBeInTheDocument()
+  })
+
+  it('renders neither outside demo mode', () => {
+    mockUseAuth.mockReturnValue({ user: fakeUser, loading: false, logout: vi.fn(), updateUser: vi.fn() })
+    render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>)
+    expect(screen.queryByTestId('demo-mode-bar')).not.toBeInTheDocument()
+    act(() => {
+      window.dispatchEvent(new CustomEvent('auth:demoWriteBlocked', { detail: { message: 'x' } }))
+    })
+    expect(screen.queryByTestId('demo-write-blocked-toast')).not.toBeInTheDocument()
   })
 })

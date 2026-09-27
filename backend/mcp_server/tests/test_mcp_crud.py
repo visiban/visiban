@@ -526,3 +526,40 @@ class MaintenanceModeTests(CrudToolsTestCase):
         )
         self.assertNotIn("error", result)
         self.assertTrue(Card.objects.filter(title="After").exists())
+
+
+class DemoModeTests(CrudToolsTestCase):
+    """The hosted-demo fence must reach MCP writes too (#1179).
+
+    ``/mcp`` is mounted outside Django's handler, so ``DemoModeMiddleware``
+    never sees it; ``_require_demo_off`` inside ``_deny_write`` is the guard.
+    Unlike maintenance mode there is no site-admin exemption and no allowlist.
+    """
+
+    def test_every_write_tool_is_refused_even_for_a_site_admin(self):
+        from django.test import override_settings
+
+        self.user.is_site_admin = True
+        self.user.save(update_fields=["is_site_admin"])
+        card = _make_card(self.column, self.swimlane, title="Untouched")
+        calls = {
+            "create_card": dict(
+                board_id=self.board.id, column_id=self.column.id,
+                swimlane_id=self.swimlane.id, title="Nope",
+            ),
+            "move_card": dict(card_id=card.id, to_column_id=self.other_column.id),
+            "update_card": dict(card_id=card.id, title="Renamed"),
+            "archive_card": dict(card_id=card.id),
+        }
+        with override_settings(DEMO_MODE=True):
+            for name, arguments in calls.items():
+                with self.subTest(tool=name):
+                    result = self._call(name, self.write_token, **arguments)
+                    self.assertEqual(result["error"]["code"], "demo_read_only")
+            # Reads still work.
+            listed = self._call("list_columns", self.write_token, board_id=self.board.id)
+            self.assertNotIn("error", listed if isinstance(listed, dict) else {})
+        card.refresh_from_db()
+        self.assertEqual(card.title, "Untouched")
+        self.assertIsNone(card.archived_at)
+        self.assertFalse(Card.objects.filter(title="Nope").exists())

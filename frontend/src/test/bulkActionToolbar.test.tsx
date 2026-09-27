@@ -622,3 +622,70 @@ describe('BulkActionToolbar', () => {
     expect(deselect.tagName.toLowerCase()).toBe('button')
   })
 })
+
+describe('BulkActionToolbar — hosted demo visitor (#1179)', () => {
+  const visitor = {
+    id: 99, username: 'visitor', email: '', first_name: '', last_name: '', avatar_url: '',
+    display_name: 'Visitor', is_site_admin: false, must_change_password: false, must_change_username: false,
+    demo_mode: true,
+  }
+  const memberBoard = (): BoardFull => ({
+    ...makeBoard(),
+    current_user_role: 'member',
+    members: [{ id: 2, user: visitor, role: 'member', is_moderator: false, joined_at: '' }],
+  })
+
+  beforeEach(() => { vi.clearAllMocks() })
+
+  it('can archive cards others created', async () => {
+    mockArchiveCard.mockImplementation((_b: number, id: number) => Promise.resolve({ id }))
+    const onCardsArchived = vi.fn()
+    render(
+      <BulkActionToolbar
+        board={memberBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={onCardsArchived}
+        onClearSelection={vi.fn()}
+        currentUser={visitor}
+      />
+    )
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Archive' }))
+    await waitFor(() => expect(mockArchiveCard).toHaveBeenCalledTimes(2))
+  })
+
+  it('hides bulk Delete in demo mode (card delete is not on the demo allowlist, own cards included)', () => {
+    const board = memberBoard()
+    board.cards = board.cards.map((c) => ({ ...c, created_by: { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' } }))
+    render(
+      <BulkActionToolbar
+        board={board}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+        currentUser={visitor}
+      />
+    )
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/You can only delete cards you created/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument()
+  })
+
+  it('still shows bulk Delete outside demo mode', () => {
+    render(
+      <BulkActionToolbar
+        board={memberBoard()}
+        selectedCardIds={new Set([100, 101])}
+        onCardsUpdated={vi.fn()}
+        onCardsDeleted={vi.fn()}
+        onCardsArchived={vi.fn()}
+        onClearSelection={vi.fn()}
+        currentUser={{ ...visitor, demo_mode: false }}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+  })
+})

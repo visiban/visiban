@@ -296,8 +296,14 @@ class BoardFullMembersSchemaTests(TestCase):
         self._validate(body, self._response_schema())
 
     def test_non_admin_view_without_is_moderator_validates(self):
+        """Non-admin viewer's own row keeps is_moderator (#1173 self-row
+        exception); every other row still omits it (#920 invariant)."""
         body = self._full(self.viewer)
-        self.assertTrue(all("is_moderator" not in m for m in body["members"]))
+        own_row = next(m for m in body["members"] if m["user"]["username"] == "viewer")
+        self.assertIn("is_moderator", own_row)
+        self.assertFalse(own_row["is_moderator"])
+        other_rows = [m for m in body["members"] if m["user"]["username"] != "viewer"]
+        self.assertTrue(all("is_moderator" not in m for m in other_rows))
         self._validate(body, self._response_schema())
 
     def test_synthesized_rows_do_not_fit_the_strict_membership_schema(self):

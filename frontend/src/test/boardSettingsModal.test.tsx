@@ -1133,3 +1133,71 @@ describe('BoardSettingsModal — Export history (#842)', () => {
     await waitFor(() => expect(screen.getByText(/Could not load export history/i)).toBeInTheDocument())
   })
 })
+
+// ─── Hosted demo (#1179) ───────────────────────────────────────────────────
+
+describe('BoardSettingsModal — hosted demo (#1179)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPatchBoard.mockResolvedValue({})
+  })
+
+  it('shows ONE shared notice and makes admin controls inert but focusable', async () => {
+    const user = userEvent.setup()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} />)
+    const notice = document.getElementById('board-settings-demo-notice')
+    expect(notice).toHaveTextContent("This is a shared demo — settings can't be changed here.")
+    expect(notice).toHaveAttribute('role', 'note')
+
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    expect(screen.getAllByText("This is a shared demo — settings can't be changed here.")).toHaveLength(1)
+    const region = screen.getByTestId('demo-inert')
+    expect(region).toHaveAttribute('role', 'group')
+    expect(region).toHaveAttribute('aria-disabled', 'true')
+    expect(region).toHaveAttribute('aria-describedby', 'board-settings-demo-notice')
+
+    const input = screen.getByRole('spinbutton', { name: /stale card threshold/i })
+    expect(input).not.toBeDisabled()
+    input.focus()
+    expect(input).toHaveFocus()
+    await user.type(input, '21')
+    await user.tab()
+    expect(input).toHaveValue(7)
+    expect(mockPatchBoard).not.toHaveBeenCalled()
+  })
+
+  it('blocks a toggle click inside the region', async () => {
+    const user = userEvent.setup()
+    const onUpdateBoardSettings = vi.fn()
+    render(
+      <BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={vi.fn()} onUpdateBoardSettings={onUpdateBoardSettings} />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Rules' }))
+    for (const sw of screen.getAllByRole('switch')) {
+      await user.click(sw)
+    }
+    expect(onUpdateBoardSettings).not.toHaveBeenCalled()
+    expect(mockPatchBoard).not.toHaveBeenCalled()
+  })
+
+  it('tabs and Close still work in demo mode', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} demoMode onClose={onClose} />)
+    await user.click(screen.getByRole('button', { name: 'Data' }))
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('a non-admin visitor sees no notice and no inert region (nothing admin to explain)', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={false} demoMode onClose={vi.fn()} />)
+    expect(document.getElementById('board-settings-demo-notice')).toBeNull()
+    expect(screen.queryByTestId('demo-inert')).not.toBeInTheDocument()
+  })
+
+  it('renders no demo notice or wrapper outside demo mode', () => {
+    render(<BoardSettingsModal board={fakeBoard} isAdmin={true} onClose={vi.fn()} />)
+    expect(document.getElementById('board-settings-demo-notice')).toBeNull()
+    expect(screen.queryByTestId('demo-inert')).not.toBeInTheDocument()
+  })
+})

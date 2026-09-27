@@ -289,3 +289,29 @@ describe('Dashboard', () => {
     })
   })
 })
+
+describe('Dashboard — hosted demo (#1179)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockListBoards.mockResolvedValue([])
+    mockListGroups.mockResolvedValue([])
+  })
+
+  it('+ New board and Import are aria-disabled with the fixed-lead reason', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <Dashboard user={{ ...fakeUser, demo_mode: true }} onLogout={vi.fn()} onUserUpdated={vi.fn()} />
+      </MemoryRouter>
+    )
+    const newBoard = await screen.findByRole('button', { name: /^New board\./ })
+    expect(newBoard).toHaveAttribute('aria-disabled', 'true')
+    expect(newBoard).toHaveAttribute('title', "This is a shared demo — boards can't be created here.")
+    const importBtn = screen.getByRole('button', { name: /^Import\./ })
+    expect(importBtn).toHaveAttribute('aria-disabled', 'true')
+    expect(importBtn).toHaveAttribute('title', "This is a shared demo — boards can't be imported here.")
+    await user.click(newBoard)
+    await user.click(importBtn)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})

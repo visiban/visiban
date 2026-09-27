@@ -67,8 +67,13 @@ export default function ArchivedCardsPanel({ board, onClose, onUnarchived, curre
   const isModerator = board.members.some(
     (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
   );
+  // Hosted demo (#1179): the published visitor (a plain MEMBER) may restore
+  // cards others archived — the server's DEMO_MODE-gated carve-out in
+  // boards.permissions allows it and unarchive is on DEMO_ALLOWED_WRITES.
+  // Display heuristic only; the server stays the authority.
   const canModifyOthersContent =
-    role === "admin" || role === "site_admin" || isModerator;
+    role === "admin" || role === "site_admin" || isModerator ||
+    (currentUser?.demo_mode === true && role === "member");
   const canUnarchive = (card: Card) =>
     (role === "site_admin" || role === "admin" || role === "member") &&
     ((currentUser != null && card.created_by?.id === currentUser.id) || canModifyOthersContent);
