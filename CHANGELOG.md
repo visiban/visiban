@@ -12,8 +12,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [1.1.0] — 2026-06-06
 
----
-
 ## [1.1.0-rc.3] — 2026-06-06
 
 ---
@@ -414,8 +412,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - HSTS subdomain coverage is now enabled in production to prevent protocol-downgrade cookie theft on subdomains (#697)
 - Updated vite from 7.3.1 to 7.3.2 to fix three high-severity dev-server CVEs (GHSA-4w7w-66w2-5vf9, GHSA-v2wj-q39q-566r, GHSA-p9ff-h696-f583).
 ## [1.0.0] — 2026-04-12
-
----
 
 ## [1.0.0-rc.12] — 2026-04-12
 
