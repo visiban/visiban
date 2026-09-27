@@ -54,11 +54,19 @@ export default function LoginPage({ onLogin }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
+  const [demoLogin, setDemoLogin] = useState<{ username: string; password: string } | null>(null);
   const [hasInviteToken, setHasInviteToken] = useState(() => !!sessionStorage.getItem("invite_token"));
 
   useEffect(() => {
     getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
-    getSiteConfig().then((c) => setRegistrationOpen(c.registration_open)).catch(() => setRegistrationOpen(true));
+    getSiteConfig()
+      .then((c) => {
+        setRegistrationOpen(c.registration_open);
+        // Demo banner (#1034): only when the server says demo mode is on AND
+        // supplied credentials — a demo without credentials has nothing to show.
+        setDemoLogin(c.demo_mode && c.demo_login ? c.demo_login : null);
+      })
+      .catch(() => setRegistrationOpen(true));
 
     // Handle auth_error from OAuth callback redirect.
     const authError = searchParams.get("auth_error");
@@ -118,6 +126,19 @@ export default function LoginPage({ onLogin }: Props) {
             <p className="text-sm text-fg-secondary text-center mt-3">Complete your registration</p>
           )}
         </div>
+
+        {/* Live-demo callout (#1034) — informational, so the primary-emphasis tint, not the amber degraded-state treatment */}
+        {demoLogin && (
+          <div
+            role="note"
+            data-testid="demo-banner"
+            className="mb-5 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+          >
+            <strong className="font-semibold text-fg">This is a live demo.</strong> All data resets nightly at 00:00 UTC.
+            Use <code className="font-mono text-fg">{demoLogin.username}</code> /{" "}
+            <code className="font-mono text-fg">{demoLogin.password}</code> to sign in, or create a throwaway account.
+          </div>
+        )}
 
         {/* Email/password form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3 mb-5">

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LoginPage from '../components/Auth/LoginPage'
@@ -356,5 +356,37 @@ describe('LoginPage', () => {
       const alert = await screen.findByRole('alert')
       expect(alert).toBeInTheDocument()
     })
+  })
+
+  // ── Demo banner (#1034) ────────────────────────────────────────────────────
+
+  it('shows the demo banner with credentials from site-config', async () => {
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: true,
+      demo_mode: true,
+      demo_login: { username: 'admin', password: 'pw-from-config' },
+    })
+    renderLoginPage()
+    const banner = await screen.findByTestId('demo-banner')
+    expect(banner).toHaveTextContent('This is a live demo.')
+    expect(banner).toHaveTextContent('All data resets nightly at 00:00 UTC.')
+    expect(banner).toHaveTextContent('admin')
+    expect(banner).toHaveTextContent('pw-from-config')
+  })
+
+  it('does not show the demo banner when demo mode is off', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: false, demo_login: null })
+    renderLoginPage()
+    await screen.findByRole('button', { name: /sign in/i })
+    await waitFor(() => expect(mockGetSiteConfig).toHaveBeenCalled())
+    expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument()
+  })
+
+  it('does not show the demo banner when demo mode has no credentials', async () => {
+    mockGetSiteConfig.mockResolvedValue({ registration_open: true, demo_mode: true, demo_login: null })
+    renderLoginPage()
+    await screen.findByRole('button', { name: /sign in/i })
+    await waitFor(() => expect(mockGetSiteConfig).toHaveBeenCalled())
+    expect(screen.queryByTestId('demo-banner')).not.toBeInTheDocument()
   })
 })

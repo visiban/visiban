@@ -616,3 +616,87 @@ class SeedNotificationsTests(TestCase):
         board = Board.objects.get(name=LOAD_TEST_BOARD_NAME)
         demo2 = User.objects.get(username="demo2")
         self.assertTrue(Notification.objects.filter(recipient=demo2, board=board).exists())
+
+
+@override_settings(
+    DEBUG=True,
+    DEMO_MODE=True,
+    DEMO_LOGIN_USERNAME="admin",
+    DEMO_LOGIN_PASSWORD="test-admin-pw-1",
+    DEMO_MEMBER_PASSWORD="test-member-pw-1",
+)
+class SeedDemoSiteTests(TestCase):
+    """#1034: --demo-site seeds the hosted-demo boards and accounts."""
+
+    BOARD_NAMES = ["Software Team", "Marketing Campaigns", "Hiring Pipeline"]
+
+    def test_seeds_three_boards_with_twenty_cards_each(self):
+        _seed(demo_site=True)
+        for name in self.BOARD_NAMES:
+            board = Board.objects.get(name=name)
+            self.assertEqual(board.cards.count(), 20, name)
+            self.assertEqual(board.columns.count(), 4, name)
+            self.assertTrue(board.columns.filter(is_done=True).exists(), name)
+            self.assertGreater(board.labels.count(), 0, name)
+
+    def test_software_board_columns_match_spec(self):
+        _seed(demo_site=True)
+        board = Board.objects.get(name="Software Team")
+        names = list(board.columns.order_by("position").values_list("name", flat=True))
+        self.assertEqual(names, ["Backlog", "In Progress", "Review", "Done"])
+
+    def test_cards_have_comments_assignees_labels_and_history(self):
+        _seed(demo_site=True)
+        for name in self.BOARD_NAMES:
+            cards = Card.objects.filter(board__name=name)
+            self.assertTrue(cards.filter(comments__isnull=False).exists(), name)
+            self.assertTrue(cards.filter(assignee__isnull=False).exists(), name)
+            self.assertTrue(cards.filter(labels__isnull=False).exists(), name)
+            # Every card has at least its "created" movement.
+            self.assertFalse(cards.filter(movements__isnull=True).exists(), name)
+
+    def test_accounts_use_env_passwords_and_admin_flag(self):
+        _seed(demo_site=True)
+        admin = User.objects.get(username="admin")
+        self.assertTrue(admin.is_site_admin)
+        self.assertTrue(admin.check_password("test-admin-pw-1"))
+        self.assertFalse(admin.has_completed_tour)  # tour triggers on first login
+        for username in ("maya", "jordan"):
+            member = User.objects.get(username=username)
+            self.assertFalse(member.is_site_admin)
+            self.assertTrue(member.check_password("test-member-pw-1"))
+
+    @override_settings(DEMO_LOGIN_USERNAME="showcase")
+    def test_admin_username_follows_setting(self):
+        _seed(demo_site=True)
+        self.assertTrue(User.objects.get(username="showcase").is_site_admin)
+
+    def test_refuses_without_admin_password(self):
+        with override_settings(DEMO_LOGIN_PASSWORD=""):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+        self.assertFalse(Board.objects.exists())
+
+    def test_rejects_export_and_scale(self):
+        with self.assertRaises(CommandError):
+            _seed(demo_site=True, export=True)
+        with self.assertRaises(CommandError):
+            _seed(demo_site=True, scale=2)
+
+    def test_demo_site_still_requires_force_when_debug_false(self):
+        with override_settings(DEBUG=False):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+
+    def test_wipe_rerun_is_idempotent(self):
+        _seed(demo_site=True)
+        _seed(demo_site=True, wipe=True)
+        for name in self.BOARD_NAMES:
+            self.assertEqual(Board.objects.filter(name=name).count(), 1)
+            self.assertEqual(Card.objects.filter(board__name=name).count(), 20)
+        self.assertEqual(User.objects.filter(username="admin").count(), 1)
+
+    def test_without_flag_no_demo_site_content(self):
+        _seed()
+        self.assertFalse(Board.objects.filter(name__in=self.BOARD_NAMES).exists())
+        self.assertFalse(User.objects.filter(username="admin").exists())
