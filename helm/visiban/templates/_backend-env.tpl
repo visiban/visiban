@@ -88,6 +88,10 @@ Invocation: {{ include "visiban.backendEnv" . }}
   values.yaml. Caught by scripts/helm-structure-check.sh section 6.
   */}}
   value: {{ $ctx.Values.backend.settings.maxUploadSizeBytes | int64 | quote }}
+- name: VISIBAN_IMPORT_MAX_SIZE
+  {{- /* int64 before quote for the same float64-coercion reason as above. */}}
+  {{- /* default: `helm upgrade --reuse-values` from a pre-1.2 release has no importMaxSizeBytes key, which would otherwise render "0". */}}
+  value: {{ $ctx.Values.backend.settings.importMaxSizeBytes | default 26214400 | int64 | quote }}
 {{- if eq $ctx.Values.backend.email.backend "smtp" }}
 - name: EMAIL_HOST_PASSWORD
   valueFrom:

@@ -68,7 +68,12 @@
             "adminAllowedIPs": { "type": "string" },
             "emailVerification": { "type": "string", "enum": ["optional", "mandatory", "none"] },
             "maxUploadSizeBytes": {
-              "description": "MAX_UPLOAD_SIZE_BYTES. Both transport limits (nginx client_max_body_size, ingress proxy-body-size) are derived from this plus 10 MB of framing headroom.",
+              "description": "MAX_UPLOAD_SIZE_BYTES. Both transport limits (nginx client_max_body_size, ingress proxy-body-size) are derived from the larger of this and importMaxSizeBytes, plus 10 MB of framing headroom.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "importMaxSizeBytes": {
+              "description": "VISIBAN_IMPORT_MAX_SIZE — maximum Trello JSON export size for the board import wizard, in bytes. Also feeds the derived transport limits.",
               "type": "integer",
               "minimum": 1
             }

@@ -74,3 +74,21 @@ as an isolated event, check the runner's health (`glab api
 changes to running on every `backend-test-coverage` run, so the self-hosted runner is drawn
 on roughly 3x more often than before. A previously-rare transient failure mode becomes a
 more visible source of pipeline noise.
+
+## `backend-schema-fuzz` failing intermittently — this is NOT a known flake
+
+**Signature:** `backend-schema-fuzz` is red on one pipeline and green on the next, on an
+endpoint the MR never touched, e.g. `Undocumented HTTP status code` on a `POST`/`PUT`, or a
+`500` on `POST /api/v1/groups/`.
+
+**Root cause:** a real defect (or an undocumented response) that only some random seeds reach.
+The job draws a fresh seed each run; a failing case is deterministic for its input, so a green
+re-run means a different seed did not hit it — not that the code is fine. On 2026-09-26 three
+main pipelines were red for exactly this reason (#1165).
+
+**Fix:** do **not** retry it and do not add a `schemathesis-baseline.json` entry. Read the job's
+`FAILURES` section (operation, status, `Test Case ID`) and the `seed=` line the job prints. A
+5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
+the serializer or annotation fixed. Replay with the pipeline variable `FUZZ_SEED=<n>` or
+`st replay <id>`. Full triage steps: [`docs/api/openapi.md`](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake).
+Known still-open defects it can hit: #1166.

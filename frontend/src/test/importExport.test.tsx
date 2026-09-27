@@ -21,6 +21,18 @@ describe('ImportBoardModal', () => {
     expect(screen.getByText('Cancel')).toBeInTheDocument()
   })
 
+  it('shows the Trello link only when onSwitchToTrello is provided', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
+    expect(screen.queryByRole('button', { name: 'Import a Trello export' })).not.toBeInTheDocument()
+    unmount()
+
+    const onSwitch = vi.fn()
+    render(<ImportBoardModal onImport={onImport} onCancel={onCancel} onSwitchToTrello={onSwitch} />)
+    await user.click(screen.getByRole('button', { name: 'Import a Trello export' }))
+    expect(onSwitch).toHaveBeenCalledTimes(1)
+  })
+
   it('has a hidden file input that accepts .json and .csv', () => {
     render(<ImportBoardModal onImport={onImport} onCancel={onCancel} />)
 
