@@ -338,3 +338,38 @@ class MapPathParametersTests(TestCase):
         result = _hooks().map_path_parameters(context, {})
 
         self.assertEqual(result, {})
+
+
+class FilterFailureTests(TestCase):
+    """The narrow drop of the ASGI server's bare multipart 400 (#1165)."""
+
+    @staticmethod
+    def _response(status=400, body=b"", response_headers=None, request_type="multipart/form-data; boundary=x"):
+        return SimpleNamespace(
+            status_code=status,
+            content=body,
+            headers=response_headers or {},
+            request=SimpleNamespace(headers={"Content-Type": [request_type]}),
+        )
+
+    def _keep(self, response):
+        return _hooks().filter_failure(None, None, None, response)
+
+    def test_drops_bare_400_for_a_multipart_request(self):
+        self.assertFalse(self._keep(self._response()))
+
+    def test_keeps_400_with_a_body(self):
+        self.assertTrue(self._keep(self._response(body=b'{"a": ["bad"]}')))
+
+    def test_keeps_400_that_has_a_response_content_type(self):
+        self.assertTrue(
+            self._keep(self._response(response_headers={"Content-Type": ["application/json"]}))
+        )
+
+    def test_keeps_bare_400_for_a_non_multipart_request(self):
+        self.assertTrue(self._keep(self._response(request_type="application/json")))
+
+    def test_keeps_other_statuses_even_when_bodiless_multipart(self):
+        for status in (200, 204, 500, 502):
+            with self.subTest(status=status):
+                self.assertTrue(self._keep(self._response(status=status)))

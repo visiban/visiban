@@ -317,3 +317,39 @@ def map_path_parameters(context, path_parameters):
         if param_name in result and real_value is not None:
             result[param_name] = real_value
     return result
+
+
+def _is_server_layer_multipart_rejection(case, response):
+    """True for the bare, bodiless 400 the ASGI server gives a malformed multipart body.
+
+    Twisted (under daphne) pre-parses ``multipart/form-data`` request bodies
+    itself and, when it cannot, answers ``400`` with no body and no
+    ``Content-Type`` and drops the connection — before Django or DRF is
+    reached. The application never sees the request and cannot shape that
+    response, so it is neither a defect nor something the OpenAPI document
+    could describe. Fuzzing produces such bodies constantly (it is a
+    negative-test of the request media type), so leaving them to the baseline
+    made the job pass or fail depending on which operation the random seed
+    happened to send one to — a flake by construction (#1165).
+    """
+    if response.status_code != 400 or response.content:
+        return False
+    if any(name.lower() == "content-type" for name in response.headers):
+        return False
+    request_type = ""
+    for name, value in response.request.headers.items():
+        if name.lower() == "content-type":
+            request_type = value[0] if isinstance(value, (list, tuple)) else value
+    return str(request_type).lower().startswith("multipart/form-data")
+
+
+@schemathesis.hook
+def filter_failure(context, failure, case, response):
+    """Drop only the server-layer multipart rejection; keep every other failure.
+
+    Deliberately narrow — status 400, empty body, no response Content-Type,
+    *and* a multipart request — so an application 400/500 with a missing
+    Content-Type, or a 400 to a non-multipart body, is still reported. Returning
+    True means "keep this failure".
+    """
+    return not _is_server_layer_multipart_rejection(case, response)
