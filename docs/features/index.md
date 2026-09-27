@@ -231,7 +231,7 @@ Settings are accessed from the avatar menu in the top-right navbar.
 | Number format | US (1,234.56) · European (1.234,56) · French (1 234,56) · Indian (1,23,456) |
 | Timezone | Any IANA timezone; defaults to browser-detected on first save |
 
-**Appearance** — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and persisted in `localStorage`.
+**Appearance** — theme switcher: System (follows OS preference), Dark, or Light. Applied immediately and synced to your account, so it follows you to your other browsers and devices on their next load. See [Appearance](appearance.md) for the full behavior.
 
 **Notifications** — per-trigger toggles (card assigned, @mentioned, due date warning, card moved, comment added).
 

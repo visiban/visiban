@@ -10,15 +10,16 @@ Visiban supports a per-user appearance preference with three options:
 | **Dark** | Always use the dark palette, regardless of OS preference. |
 | **Light** | Always use the light palette, regardless of OS preference. |
 
-The preference is stored per user and synchronises across every device you are logged into.
+The preference is stored with your account, so it follows you to every browser and device you sign in on — see [below](#changing-your-appearance) for when it takes effect.
 
 ## Changing your appearance
 
-1. Click your avatar in the top-right corner and open **Settings**.
-2. Under **Appearance**, choose one of the three options.
-3. The change takes effect immediately — no page reload.
+1. Click your avatar in the top-right corner and select **Profile & preferences**.
+2. Open the **Appearance** tab in the Settings sidebar.
+3. Under **Theme**, choose one of the three options.
+4. The change takes effect immediately — no page reload.
 
-Your choice is remembered across logins and propagates to other browsers and devices within a few seconds.
+Your choice is remembered across logins. It syncs instantly to any other tab open in the same browser, and to your other browsers and devices the next time each one loads or reloads Visiban — there is no live push between already-open sessions on different devices.
 
 ## System (auto) option
 
@@ -51,9 +52,4 @@ Administrators who wish to hide the Light option — for example, on an install-
 
 ## What's next
 
-Two related enhancements are tracked on the roadmap but are not part of the initial light-theme release:
-
-- **User-picked accent colors** — choose a custom accent color used for primary actions and active states, independent of light/dark.
-- **Admin-configured install-wide palettes** — instance administrators will be able to brand Visiban with a custom palette that applies to all users.
-
-Both are scheduled as independent features; see the project issue tracker for timing.
+A custom color scheme option is under discussion in [#251](https://gitlab.com/visiban/visiban/-/issues/251), with no committed timing.
