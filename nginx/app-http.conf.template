@@ -24,7 +24,10 @@ server {
     add_header X-Content-Type-Options    "nosniff" always;
     add_header Content-Security-Policy   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws: wss:; font-src 'self'; frame-ancestors 'none'" always;
 
-    client_max_body_size 20M;
+    # Must clear the largest application upload cap plus multipart framing:
+    # VISIBAN_IMPORT_MAX_SIZE (25 MB Trello imports, #456) + 10 MB headroom.
+    # If you raise VISIBAN_IMPORT_MAX_SIZE or MAX_UPLOAD_SIZE_BYTES, raise this.
+    client_max_body_size 35M;
 
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;

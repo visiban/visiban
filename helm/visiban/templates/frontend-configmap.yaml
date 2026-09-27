@@ -22,7 +22,8 @@ data:
         add_header X-Frame-Options           SAMEORIGIN always;
         add_header X-Content-Type-Options    nosniff always;
 
-        # Transport body limit — derived from backend.settings.maxUploadSizeBytes
+        # Transport body limit — derived from the larger of
+        # backend.settings.maxUploadSizeBytes and importMaxSizeBytes
         # so the edge always accepts a request Django is still willing to reject
         # itself, with a message naming the real cap. A hardcoded limit below the
         # app cap 413s the upload here and Django never sees it.

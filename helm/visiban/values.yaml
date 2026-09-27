@@ -44,6 +44,10 @@ backend:
     # (+10 MB of multipart framing headroom), so raising it raises the whole
     # path at once — see visiban.transportBodyLimitMB in _helpers.tpl.
     maxUploadSizeBytes: 10485760
+    # Maximum Trello JSON export accepted by the board import wizard, in bytes
+    # (default 25 MB). Wired to VISIBAN_IMPORT_MAX_SIZE. The transport limits
+    # are derived from the LARGER of this and maxUploadSizeBytes.
+    importMaxSizeBytes: 26214400
 
   # SMTP / email backend.  Required to send password reset and email
   # verification messages.  When backend == "console" emails are written to
@@ -149,7 +153,8 @@ ingress:
   enabled: true
   className: "nginx"
   # The nginx.ingress.kubernetes.io/proxy-body-size annotation is added
-  # automatically from backend.settings.maxUploadSizeBytes; set it here only to
+  # automatically from backend.settings.maxUploadSizeBytes / importMaxSizeBytes
+  # (whichever is larger); set it here only to
   # override the derived value.
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"

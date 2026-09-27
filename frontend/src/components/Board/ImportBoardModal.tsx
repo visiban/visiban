@@ -4,6 +4,8 @@ import ModalWrapper from "../shared/ModalWrapper";
 interface Props {
   onImport: (file: File, name?: string) => Promise<void>;
   onCancel: () => void;
+  /** When provided, shows a link that switches to the Trello import wizard (#456). */
+  onSwitchToTrello?: () => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -21,7 +23,7 @@ function detectFormat(file: File): "JSON" | "CSV" | "Unknown" {
   return "Unknown";
 }
 
-export default function ImportBoardModal({ onImport, onCancel }: Props) {
+export default function ImportBoardModal({ onImport, onCancel, onSwitchToTrello }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -80,9 +82,22 @@ export default function ImportBoardModal({ onImport, onCancel }: Props) {
         <div className="px-6 py-5 space-y-4">
           {/* Size limit notice */}
           <div className="flex gap-2.5 bg-surface-hover/50 border border-line-strong rounded-lg px-3 py-2.5 text-xs text-fg-secondary">
-            <span className="shrink-0 text-fg-tertiary mt-px">ℹ</span>
+            <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
             <span>Imports are limited to <strong className="text-fg">500 cards</strong>, <strong className="text-fg">50 columns</strong>, and <strong className="text-fg">100 swimlanes</strong>. For larger boards, split into smaller boards before importing.</span>
           </div>
+
+          {onSwitchToTrello && !submitting && (
+            <p className="text-xs text-fg-tertiary">
+              Coming from Trello?{" "}
+              <button
+                type="button"
+                onClick={onSwitchToTrello}
+                className="text-info hover:underline focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+              >
+                Import a Trello export
+              </button>
+            </p>
+          )}
 
           {/* File input */}
           <div>

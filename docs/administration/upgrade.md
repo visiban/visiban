@@ -322,11 +322,30 @@ touched — so it is zero-downtime and requires no operator action.
     `nginx.ingress.kubernetes.io/proxy-body-size` annotation — the last two with
     10 MB of multipart-framing headroom.
 
-    At the chart defaults all three resolve to exactly what 1.1 shipped, so **no
-    existing install changes behavior**. If you previously raised the limit, set
+    With only this change, all three resolve to exactly what 1.1 shipped at the
+    chart defaults. The Trello import cap below raises the two transport limits
+    to 35 MB; the application's attachment cap is unchanged. If you previously raised the limit, set
     `backend.settings.maxUploadSizeBytes` instead of editing the annotation and
     the nginx config separately; a hand-set `ingress.annotations` entry of the
     same name still overrides the derived one.
+
+!!! note "Default transport body limit raised from 20 MB to 35 MB (Trello import)"
+    1.2 adds a [Trello import](../features/trello-import.md) that accepts exports
+    up to `VISIBAN_IMPORT_MAX_SIZE` (default 25 MB, Helm:
+    `backend.settings.importMaxSizeBytes`). So those uploads reach Visiban
+    instead of dying at the edge, the transport limits are now derived from the
+    **larger** of `maxUploadSizeBytes` and `importMaxSizeBytes` plus 10 MB:
+
+    - **Helm:** nginx `client_max_body_size` and the ingress `proxy-body-size`
+      annotation go from `20M` to `35M` at the chart defaults.
+    - **Docker Compose:** `nginx/app.conf.template` and
+      `nginx/app-http.conf.template` now set `client_max_body_size 35M`.
+
+    Attachment uploads are still capped at `MAX_UPLOAD_SIZE_BYTES` (10 MB) by
+    the application, so this does not let larger attachments through. If you
+    run your own reverse proxy in front of Visiban, raise its body limit to at
+    least 35 MB for Trello imports to work — see
+    [Import limits](configuration.md#import-limits).
 
 !!! note "Service renamed: Redis → Valkey (container and Helm chart)"
     Visiban 1.2 replaces the Redis container with **Valkey** (the BSD-3-licensed, Linux Foundation fork of Redis). Valkey is wire-compatible with Redis 7+ — the RESP protocol is identical — so **no env var changes are required**.

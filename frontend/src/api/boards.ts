@@ -1,5 +1,6 @@
 import client from "./client";
-import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition } from "../types";
+import type { Board, BoardFull, BoardExportLogEntry, BoardMembership, BoardTemplate, BoardPublic, CardMovement, Column, Swimlane, Label, ShareActionResponse, CustomFieldDefinition, CustomFieldType, SwimlaneCustomFieldDefinition, TrelloImportMapping, TrelloImportPreview, TrelloImportResult } from "../types";
+import type { AxiosProgressEvent } from "axios";
 
 export type BoardRole = "admin" | "member" | "collaborator" | "viewer";
 
@@ -173,6 +174,50 @@ export const importBoard = (file: File, name?: string, groupId?: number) => {
   if (name) formData.append('name', name);
   if (groupId) formData.append('group_id', String(groupId));
   return client.post<Board>('/api/v1/boards/import/', formData).then((r) => r.data);
+};
+
+// Trello import (#456). Stateless two-step flow: preview with dry_run, then
+// re-upload the same file with the chosen mapping to confirm.
+const TRELLO_IMPORT_URL = "/api/v1/boards/import/trello/";
+
+interface TrelloRequestOptions {
+  groupId?: number;
+  signal?: AbortSignal;
+  onUploadProgress?: (e: AxiosProgressEvent) => void;
+}
+
+export const previewTrelloImport = (file: File, opts: TrelloRequestOptions = {}) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (opts.groupId) formData.append("group_id", String(opts.groupId));
+  return client
+    .post<TrelloImportPreview>(`${TRELLO_IMPORT_URL}?dry_run=true`, formData, {
+      signal: opts.signal,
+      onUploadProgress: opts.onUploadProgress,
+    })
+    .then((r) => r.data);
+};
+
+export const confirmTrelloImport = (
+  file: File,
+  params: { name?: string; mapping: TrelloImportMapping; fileSha256?: string },
+  opts: TrelloRequestOptions = {},
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.name) formData.append("name", params.name);
+  if (opts.groupId) formData.append("group_id", String(opts.groupId));
+  formData.append("mapping", JSON.stringify(params.mapping));
+  if (params.fileSha256) formData.append("file_sha256", params.fileSha256);
+  return client
+    .post<TrelloImportResult>(`${TRELLO_IMPORT_URL}?confirm=true`, formData, {
+      signal: opts.signal,
+      onUploadProgress: opts.onUploadProgress,
+      // The import runs synchronously server-side; allow a large board time
+      // to finish rather than inheriting any future global default.
+      timeout: 300_000,
+    })
+    .then((r) => r.data);
 };
 
 // Share link

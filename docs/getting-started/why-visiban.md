@@ -90,7 +90,7 @@ cards in columns. Trello's power-up ecosystem is enormous and Visiban has nothin
 trail. Trello's swimlanes are a view option rather than a data model, and its activity log is not
 built for cycle-time analysis.
 
-Visiban imports Trello JSON exports directly — see [Installation](installation.md).
+Visiban imports Trello JSON exports directly — see [Import from Trello](../features/trello-import.md).
 
 ### vs. Linear
 

@@ -497,6 +497,9 @@ Click **Import** on the dashboard to create a new board from a previously export
 
 An optional board name override can be specified at import time.
 
+!!! tip "Coming from Trello?"
+    Use **Import a Trello export** instead. See [Import from Trello](trello-import.md).
+
 !!! warning "Import limits"
     To prevent runaway server load, imports are rejected if the file exceeds any of these limits:
 
