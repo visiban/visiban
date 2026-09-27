@@ -12,9 +12,9 @@ Field *names* are already checked. `backend/boards/tests/test_ts_serializer_drif
 (#821, shipped in 1.1) walks 14 serializer -> interface pairs and asserts their
 read-visible field names match in both directions. It is not superseded by this
 gate, and this gate is not superseded by it: #821 reads the serializer *classes*,
-so it reaches three pairs (`BoardFull`, `CardActivity`, `CardAttachment`) that
-`drf-spectacular` emits no component for and that therefore cannot be diffed
-here at all.
+so it reaches two pairs (`CardActivity`, `CardAttachment`) that `drf-spectacular`
+emits no component for and that therefore cannot be diffed here at all.
+(`BoardFull` was a third until #1137 gave `/full/` its own component.)
 
 The reverse asymmetry — this gate checking types on five pairs while #821
 name-checked fourteen — was closed by #1139. `COMPONENT_MAP` below now covers
@@ -150,8 +150,13 @@ EXIT_DRIFT = 1
 EXIT_USAGE = 2
 
 # Schema component -> TypeScript interface. Confirmed against the generated schema:
-# there is no `User` component (the /api/v1/auth/me/ shape is `CurrentUser`), and no
-# `BoardFull` component at all, so `BoardFull` is out of scope here.
+# there is no `User` component (the /api/v1/auth/me/ shape is `CurrentUser`).
+#
+# #1137 published `/full/` as its own `BoardFull` component, with `members`
+# items as `EffectiveBoardMember` — the effective roster, whose synthesized rows
+# carry `id: null` and `role: "site_admin"`. `BoardMembership` stays the strict
+# shape of a real membership row (`/members/`), and the TypeScript side mirrors
+# the same split, so both pairs are mapped.
 #
 # #1139 extended this from the five pairs #1079 shipped to every pair #821
 # name-checks that `drf-spectacular` actually emits a component for, plus the
@@ -162,12 +167,13 @@ EXIT_USAGE = 2
 # and leaving either out would be a coverage hole the gate's own name check
 # cannot see.
 #
-# Three #821 pairs are deliberately absent because the schema has no component
-# to diff against — `BoardFull`, `CardActivity` and `CardAttachment`. That is a
+# Two #821 pairs are deliberately absent because the schema has no component
+# to diff against — `CardActivity` and `CardAttachment`. That is a
 # missing component, not a passing check; see the coverage table in
 # `docs/development/serializer-ts-parity.md`.
 COMPONENT_MAP = {
     "Board": "Board",
+    "BoardFull": "BoardFull",
     "BoardMembership": "BoardMembership",
     "BoardUser": "BoardUser",
     "Card": "Card",
@@ -179,6 +185,7 @@ COMPONENT_MAP = {
     "CurrentUser": "User",
     "CustomFieldDefinition": "CustomFieldDefinition",
     "CustomFieldValue": "CustomFieldValue",
+    "EffectiveBoardMember": "EffectiveBoardMember",
     "Group": "Group",
     "GroupBrief": "GroupBrief",
     "GroupLabel": "GroupLabel",
@@ -261,22 +268,11 @@ class Suppression:
 
 
 # Every entry names a specific, already-filed issue. Do not add one without an
-# issue, and do not add one for drift you could simply fix. In all twelve cases
-# below the hand-written TypeScript is CORRECT and the schema is wrong — which is
-# why none of them is fixed by editing `frontend/src/types/index.ts`.
+# issue, and do not add one for drift you could simply fix. Past entries were all
+# cases where the hand-written TypeScript was CORRECT and the schema was wrong —
+# fixed in the serializer, never by editing `frontend/src/types/index.ts`.
 SUPPRESSIONS: tuple[Suppression, ...] = (
-    # ── #1137: BoardFull.members is an effective roster, not BoardMembership rows ──
-    # BoardFullSerializer.get_members() synthesizes entries for group-inherited
-    # members, the board owner, and site admins, with no membership row behind
-    # them. Those carry `id: null` and `role: "site_admin"`, neither of which the
-    # model-derived BoardMembership component admits. No fix in flight.
-    Suppression(NULLABILITY, "BoardMembership", "id",
-                schema_repr="not nullable", ts_repr="nullable", issue=1137,
-                reason="synthesized roster rows carry id: null"),
-    Suppression(ENUM_MEMBERS, "BoardMembership", "role",
-                schema_repr="admin|collaborator|member|viewer",
-                ts_repr="admin|collaborator|member|site_admin|viewer", issue=1137,
-                reason="synthesized roster rows carry role: site_admin"),
+    # Empty: #1135, #1137 and #1138 each fixed the schema rather than suppress it.
 )
 
 
@@ -631,10 +627,15 @@ def _clean_enum(enum: frozenset[str] | None) -> frozenset[str] | None:
     value a read returns, so comparing it against a frontend union would flag
     every blankable choice field in the codebase for no benefit. The enum check
     compares the real choice members only.
+
+    `None` is dropped for the same reason: a nullable choice field gets a
+    `NullEnum` (`[null]`) branch, and null-ness is already compared by the
+    nullability check (#1137 — `BoardFull.current_user_role` was the first
+    mapped field to carry one).
     """
     if enum is None:
         return None
-    cleaned = enum - {""}
+    cleaned = enum - {"", None}
     return cleaned or None
 
 

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { BoardMembership } from "../../types";
+import type { EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 
 interface Props {
   value: string;
   onChange: (val: string) => void;
   onSubmit?: () => void;
-  members: BoardMembership[];
+  members: EffectiveBoardMember[];
   placeholder?: string;
   rows?: number;
   className?: string;

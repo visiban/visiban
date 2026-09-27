@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardMembership, CardDensity, CustomFieldDefinition, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import { userDisplayName } from "../../types";
@@ -88,7 +88,7 @@ function RoleTooltip() {
 
 export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [members, setMembers] = useState<BoardMembership[]>(board.members);
+  const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const [deleteInput, setDeleteInput] = useState("");

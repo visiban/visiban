@@ -1881,6 +1881,46 @@ class BoardSerializer(serializers.ModelSerializer):
         return obj.favorites.filter(user=request.user).exists()
 
 
+# Every role a row of the *effective* roster can carry: the four membership
+# roles plus ``site_admin``, which exists only on synthesized rows (#1137).
+EFFECTIVE_BOARD_ROLE_CHOICES = [*BoardMembership.Role.choices, ("site_admin", "Site admin")]
+
+
+class EffectiveBoardMemberSerializer(serializers.Serializer):
+    """Schema-only description of one ``BoardFull.members`` row (#1137).
+
+    Never instantiated at runtime — ``BoardFullSerializer.get_members()`` builds
+    the rows itself. It exists so the published OpenAPI document tells the truth
+    about them.
+
+    Why this is not ``BoardMembershipSerializer``: ``members`` on ``/full/`` is the
+    board's *effective roster*, not its membership rows. ``get_members()`` also
+    synthesizes entries for group-inherited members, the board owner and site
+    admins, none of which has a ``BoardMembership`` row on this board — so those
+    entries carry ``id: null``, and site admins carry ``role: "site_admin"``, a
+    value ``BoardMembership.Role`` does not contain. Describing ``/full/`` with the
+    ``BoardMembership`` component would declare both impossible; widening that
+    component instead would loosen ``/boards/{id}/members/``, whose rows are
+    always real memberships and never carry either.
+    """
+
+    id = serializers.IntegerField(
+        allow_null=True, read_only=True,
+        help_text="BoardMembership id, or null for a member with no membership row "
+                  "on this board (group-inherited, board owner, or site admin).",
+    )
+    user = BoardUserSerializer(read_only=True)
+    role = serializers.ChoiceField(choices=EFFECTIVE_BOARD_ROLE_CHOICES, read_only=True)
+    # Not read_only: drf-spectacular marks every read-only field required, and
+    # get_members() omits this one for viewers below admin (#920). Schema-only,
+    # so nothing can write through it.
+    is_moderator = serializers.BooleanField(
+        required=False,
+        help_text="Present only when the requesting user is an admin or site admin.",
+    )
+    joined_at = serializers.DateTimeField(read_only=True)
+
+
 class BoardFullSerializer(serializers.ModelSerializer):
     owner = BoardUserSerializer(read_only=True)
     columns = ColumnSerializer(many=True, read_only=True)
@@ -1888,6 +1928,10 @@ class BoardFullSerializer(serializers.ModelSerializer):
     cards = serializers.SerializerMethodField()
     labels = LabelSerializer(many=True, read_only=True)
     members = serializers.SerializerMethodField()
+    # Schema only: the model JSONField would otherwise publish with no type now
+    # that BoardFull is a component (#1137). Output is identical — a read-only
+    # JSONField returns the stored value unchanged either way.
+    allowed_priorities = AllowedPrioritiesField(read_only=True)
     group_name = serializers.CharField(source="group.name", default=None, read_only=True, allow_null=True)
     group_detail = serializers.SerializerMethodField()
     current_user_role = serializers.SerializerMethodField()
@@ -1973,6 +2017,9 @@ class BoardFullSerializer(serializers.ModelSerializer):
             }
         return super().to_representation(instance)
 
+    # Admin requesters additionally receive contact_email/notes (the admin
+    # serializer); `Swimlane` describes the fields every role gets.
+    @extend_schema_field(SwimlaneSerializer(many=True))
     def get_swimlanes(self, obj):
         """Serialize swimlanes with role-appropriate field exposure.
 
@@ -1999,6 +2046,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
         lanes = obj.swimlanes.prefetch_related(_swimlane_custom_field_prefetch())
         return serializer_class(lanes, many=True, context=self.context).data
 
+    @extend_schema_field(CardSerializer(many=True))
     def get_cards(self, obj):
         """Return only active (non-archived) cards for the board view.
 
@@ -2040,6 +2088,10 @@ class BoardFullSerializer(serializers.ModelSerializer):
         ctx = {**self.context, "board": obj, "_member_ids": member_ids, "_assignable_member_ids": assignable_ids, "_board_labels_qs": board_labels_qs}
         return CardSerializer(qs, many=True, context=ctx).data
 
+    # Schema only (#1137): these rows are the effective roster, not
+    # BoardMembership rows — see EffectiveBoardMemberSerializer for why they get
+    # their own component. Runtime output is unaffected.
+    @extend_schema_field(EffectiveBoardMemberSerializer(many=True))
     def get_members(self, obj):
         """Return the effective member list for @mention autocomplete and the members panel.
 
@@ -2160,6 +2212,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             result.append(row)
         return result
 
+    @extend_schema_field(serializers.ChoiceField(choices=EFFECTIVE_BOARD_ROLE_CHOICES, allow_null=True))
     def get_current_user_role(self, obj):
         # Reuse the role already resolved by the view (threaded via context) to
         # avoid a second get_board_role() call on the same request.
@@ -2199,6 +2252,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 role = get_board_role(request.user, obj)
         return role
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_share_token(self, obj):
         """Return the share token only to board admins; return null for all other roles.
 
@@ -2211,6 +2265,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             return str(obj.share_token) if obj.share_token else None
         return None
 
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_share_token_expires_at(self, obj):
         """Expose the share-link TTL only to board admins; null for all others.
 
@@ -2224,6 +2279,7 @@ class BoardFullSerializer(serializers.ModelSerializer):
             return obj.share_token_expires_at.isoformat() if obj.share_token_expires_at else None
         return None
 
+    @extend_schema_field({"type": "object", "additionalProperties": {"type": "boolean"}})
     def get_capabilities(self, obj):
         """Return feature flags for enterprise-registered extension points.
 
