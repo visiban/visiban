@@ -139,8 +139,10 @@ Transport body limit, in whole megabytes (#1116).
 The edge must accept a request that the APPLICATION is still willing to reject
 itself — otherwise an over-cap upload dies at nginx or the ingress controller
 with a bare 413 and Django never sees it, so the user gets no message naming the
-real limit. Derived from backend.settings.maxUploadSizeBytes (the value wired
-into MAX_UPLOAD_SIZE_BYTES) plus 10 MB of multipart-framing headroom, so raising
+real limit. Derived from the larger of backend.settings.maxUploadSizeBytes (the
+value wired into MAX_UPLOAD_SIZE_BYTES) and backend.settings.importMaxSizeBytes
+(VISIBAN_IMPORT_MAX_SIZE, Trello import #456) plus 10 MB of multipart-framing
+headroom, so raising
 the application cap raises both transport limits with it and the two cannot
 drift apart.
 
@@ -149,7 +151,7 @@ templates/ingress.yaml (nginx.ingress.kubernetes.io/proxy-body-size).
 scripts/helm-structure-check.sh asserts both rendered limits clear the app cap.
 */}}
 {{- define "visiban.transportBodyLimitMB" -}}
-{{- $bytes := .Values.backend.settings.maxUploadSizeBytes | int -}}
+{{- $bytes := max (.Values.backend.settings.maxUploadSizeBytes | int) (.Values.backend.settings.importMaxSizeBytes | default 26214400 | int) | int -}}
 {{- $mb := div $bytes 1048576 -}}
 {{- if gt (mod $bytes 1048576) 0 -}}
 {{- $mb = add1 $mb -}}

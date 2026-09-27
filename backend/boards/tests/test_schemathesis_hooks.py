@@ -369,6 +369,12 @@ class FilterFailureTests(TestCase):
     def test_keeps_bare_400_for_a_non_multipart_request(self):
         self.assertTrue(self._keep(self._response(request_type="application/json")))
 
+    def test_matches_when_request_headers_are_plain_strings(self):
+        """schemathesis's requests transport gives str values; other transports give lists."""
+        response = self._response()
+        response.request.headers = {"content-type": "multipart/form-data; boundary=x"}
+        self.assertFalse(self._keep(response))
+
     def test_keeps_other_statuses_even_when_bodiless_multipart(self):
         for status in (200, 204, 500, 502):
             with self.subTest(status=status):

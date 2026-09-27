@@ -633,6 +633,17 @@ glab api "projects/:id/jobs/<job-id>/trace" | grep -iE "failed|✘|\.spec\.ts|Er
 Never blanket-retry a red pipeline to make it green — retry only a job you have
 positively identified as a known flake.
 
+**`backend-schema-fuzz` is never a known flake (#1165, #1168).** It runs
+schemathesis with a fresh random seed, so which input it explores varies per run,
+but a case that fails is deterministic for its input: a green re-run only means a
+different seed missed it. Three main pipelines went red on 2026-09-26 for real
+defects (a `POST /groups/` 500 and two undocumented 400s) and "passed on retry".
+Treat a red `backend-schema-fuzz` as a real stop even when the failing endpoint is
+nowhere in the landing MRs' diffs: read the job's `FAILURES` section, find the
+operation and status, and hand it to the user with the seed the job printed.
+Never retry it to unblock a landing. See `docs/api/openapi.md` ("A red
+`backend-schema-fuzz` job is never a flake").
+
 Rules for Phase B:
 
 - **Merges are serial; the next update+push may overlap.** Serializing the

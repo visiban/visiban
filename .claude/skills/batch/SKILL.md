@@ -139,7 +139,9 @@ work; `rbac-check` and `security-review` catch what Sonnet misses.
 
 **Read-only gates always run on Sonnet.** `regression-check`, `rbac-check`,
 `perf-check`, `security-review`, `broadcast-check`, `migration-check` read a diff
-and report findings. None needs Opus.
+and report findings. None needs Opus. **`completeness-check` is the exception:** it
+is read-only too, but it follows the escalation criteria above (Opus when the
+branch meets one, Sonnet otherwise) — see `.claude/skills/completeness-check/SKILL.md`.
 
 ### The brief
 
@@ -177,18 +179,27 @@ Every agent finishes by, in order:
    and `npx tsc -p tsconfig.app.json --noEmit` for frontend changes;
    `cd backend && ruff check . && python manage.py makemigrations --check --dry-run`
    for backend changes touching `models.py`.
-4. Push the branch.
-5. **Open the MR itself**, reproducing the `mr` skill's format by running
+4. **Commit and stop — do not push yet.** Report the commit SHA and the pre-MR
+   gate ledger to the orchestrator. The orchestrator then runs
+   `completeness-check` (`.claude/skills/completeness-check/SKILL.md`) on the
+   unpushed branch with a fresh agent that did not write it, and every BLOCKER
+   and GAP is fixed on the branch or deferred to an **open** issue. Only after
+   that does the orchestrator re-brief the implementer (via `SendMessage`) to
+   push.
+5. **Push, then open the MR itself**, reproducing the `mr` skill's format by running
    `glab mr create` directly. `/mr` is `disable-model-invocation` — an agent
    cannot call it and must not try. `.claude/skills/mr/SKILL.md` is the
    canonical format for both paths.
-6. Include `Closes #NNN` in the MR description, and a `## Gates` section with one
-   `gate: <name> — <N> findings` line per gate run. `0 findings` is a real
+6. Include `Closes #NNN` in the MR description, the `completeness-check`
+   `## Requirements` table, and a `## Gates` section with one
+   `gate: <name> — <N> findings` line per gate run (including
+   `completeness-check — <N> findings (model: <sonnet|opus>)`). `0 findings` is a real
    outcome; never omit a zero, and never conflate `n/a` with `skipped`.
 7. **Never merge.** Hand back the MR URL and stop.
 
-The agent reports back: MR URL, the gate ledger, the commit SHA, and anything it
-deliberately left undone.
+The agent reports back twice: after step 4 (commit SHA and the pre-MR gate
+ledger, unpushed), and at the end (MR URL, the full gate ledger, the commit SHA,
+and anything it deliberately left undone).
 
 ## Step 6 — Verify before you believe it
 
@@ -227,7 +238,8 @@ Do not merge anything. Do not start another wave without being asked.
 
 ## Cost rules, condensed
 
-- **Sonnet unless escalation criteria are met**; read-only gates always Sonnet.
+- **Sonnet unless escalation criteria are met**; read-only gates always Sonnet
+  (except `completeness-check`, which follows the same escalation criteria).
 - **Cap the wave** (default 5, WIP cap 10). A wave much larger than that is past
   the point where the issues are genuinely independent.
 - **Verify commits, don't trust summaries** — an empty agent is pure loss, and a
@@ -236,7 +248,8 @@ Do not merge anything. Do not start another wave without being asked.
   agent has to rediscover is re-read on every subsequent turn of that agent.
 - **Scoped tests only.** Never the full suite inside an agent.
 - **Pre-MR gates as one parallel batch**, never serially — see `CLAUDE.md`'s
-  "Pre-MR gate batch" section.
+  "Pre-MR gate batch" section. Then `completeness-check` once, serially, **before
+  push** — it audits the branch the batch's fixes produced.
 - **Apply only the gates the diff earns** — `CLAUDE.md`'s fast-path table is
   authoritative. A bugfix with a known root cause does not need `architect`.
 - **No re-delegation** from inside an agent.
