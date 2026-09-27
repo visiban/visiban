@@ -396,6 +396,25 @@ REST_FRAMEWORK = {
     },
 }
 
+# MCP per-token rate limits (#1177). DRF's DEFAULT_THROTTLE_RATES above never
+# apply to /mcp: the MCP server is mounted in-process at the ASGI level and
+# calls tool functions directly, not through a DRF view (see
+# mcp_server/asgi_mount.py's module docstring). These are consumed by
+# mcp_server.throttling.McpTokenBucket, keyed on the presented personal access
+# token's own primary key (never IP, never the raw token value) and reusing
+# this same cache backend so limits hold across daphne workers. Two stacked
+# buckets:
+#   - MCP_THROTTLE_READ_RATE: the baseline applied to EVERY tool/resource call.
+#   - MCP_THROTTLE_COMPUTE_RATE: an ADDITIONAL, tighter cap opted into per-tool
+#     for expensive reads (list_cards, board_snapshot) — a call to one of
+#     those spends a unit from both buckets, not one or the other.
+# Deliberately no DEBUG-time bypass (unlike DEFAULT_THROTTLE_RATES above): a
+# runaway loop in an agent under local development is exactly the case the
+# compute bucket exists to catch, and MCP has no interactive-user polling
+# pattern to accommodate the way the REST "user" scope does.
+MCP_THROTTLE_READ_RATE = env("MCP_THROTTLE_READ_RATE", default="300/min")
+MCP_THROTTLE_COMPUTE_RATE = env("MCP_THROTTLE_COMPUTE_RATE", default="30/min")
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Visiban API",
     "DESCRIPTION": "REST API for the Visiban Kanban board. Full OpenAPI 3.0 spec.",

@@ -85,6 +85,12 @@ If the server doesn't appear, double-check the URL includes `/mcp`, the token is
 
 Both resources are read-only and require only the `mcp:read` scope. See [API Reference — MCP Server — Resources](../api/mcp.md#resources) for the exact response shape.
 
+## Rate limiting
+
+> **Added in 1.2**
+
+Every tool call and resource read counts against a per-token limit (`300/min` by default, configurable via `MCP_THROTTLE_READ_RATE`), and `list_cards`/`board://{board_id}` additionally count against a tighter, second limit for expensive reads (`30/min` by default, `MCP_THROTTLE_COMPUTE_RATE`). Limits are per token, not per IP, and hold across every backend replica. A call over the limit gets a structured error with a `retry_after` hint instead of hanging or 500ing. See [API Reference — MCP Server — Rate limiting](../api/mcp.md#rate-limiting) for the exact settings, defaults, and error shape.
+
 ## Self-hosted / Docker Compose deployment notes
 
 - The `/mcp` endpoint is served on the same port as the Django app — no additional container, process, or ingress rule is needed. If you terminate TLS behind a reverse proxy, disable response buffering on the `/mcp` location (the bundled Nginx templates and Helm chart already do this).

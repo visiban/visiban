@@ -20,7 +20,17 @@ Later waves register their tools here too:
     the SDK treats the two as distinct registries with different failure
     semantics (see tools.py's "Resources (#513)" section for the structured-
     error-vs-raise distinction this forces).
+
+    #1177 throttling — every tool and resource below is registered with
+    ``@_throttled()`` (or ``@_throttled(compute=True)``) directly under its
+    ``@mcp.tool()``/``@mcp.resource()`` decorator. A future tool that omits it
+    is caught by ``test_mcp_throttle.py``'s coverage test, which exhausts the
+    shared baseline bucket via one registered tool and then asserts every
+    OTHER registered tool/resource is also denied — a tool reachable without
+    going through ``_throttled()`` would pass through unthrottled and fail
+    that assertion.
 """
+import functools
 import logging
 
 from asgiref.sync import sync_to_async
@@ -30,7 +40,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from accounts.models import SCOPE_MCP_WRITE, get_maintenance_message, get_maintenance_state
 
-from . import tools
+from . import throttling, tools
 from .context import get_current_scopes, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -133,6 +143,60 @@ async def _deny_write():
     return await sync_to_async(_require_maintenance_off, thread_sensitive=True)()
 
 
+def _throttled(*, compute=False, as_resource=False):
+    """Wrap an MCP tool/resource function with per-token throttling (#1177).
+
+    Applied at every ``@mcp.tool()``/``@mcp.resource()`` registration in
+    :func:`build_mcp_server` below, directly under that decorator — the module
+    docstring's "#1177 throttling" note explains what protects a future
+    registration that forgets it.
+
+    Runs BEFORE every other gate (``_deny_write``, and the RBAC checks inside
+    ``tools.py``) so an over-limit caller is turned away without spending a
+    query on those. The baseline bucket (``throttling.check_read``) applies to
+    every wrapped call; the compute bucket (``throttling.check_compute``) is
+    ADDITIONAL and only checked when ``compute=True``, for the calls #1177
+    names as expensive (``list_cards``, ``board_snapshot``). A compute-bucket
+    call spends a unit from both buckets, never one or the other.
+
+    ``as_resource`` must be set for the two ``@mcp.resource()``-registered
+    functions (``board_resource``, ``card_resource``). Tools signal a denial
+    by RETURNING the structured ``{"error": {...}}`` dict — the established
+    convention every other gate here (``_require_write_scope``,
+    ``_require_maintenance_off``) already uses, and what keeps ``isError``
+    false with the denial visible in ``structuredContent``. Resources cannot
+    use that channel at all: per tools.py's "Resources (#513)" section, the
+    pinned SDK treats ANY non-exception return from a resource function —
+    including this exact dict — as successful content and JSON-serializes it
+    verbatim, which would make a throttled call look like a 200 whose payload
+    happens to be an error. Raising is the only way a resource can surface a
+    real failure, so ``as_resource=True`` raises ``ValueError`` with the same
+    detail text (including the retry hint) instead of returning it, mirroring
+    ``board_snapshot``/``card_detail``'s own not-found convention.
+
+    ``functools.wraps`` is not just cosmetic here: FastMCP's
+    ``Tool.from_function``/``ResourceTemplate.from_function`` build the JSON
+    schema via ``inspect.signature(fn)``, which follows a wrapper's
+    ``__wrapped__`` attribute by default — so the generic ``(*args, **kwargs)``
+    signature below never reaches the schema builder; the original function's
+    real parameters and ``_TOOL_OUTPUT``/``dict`` return annotation do, and the
+    tool's declared input/output schema is unaffected by being wrapped.
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        async def wrapper(*args, **kwargs):
+            denial = await throttling.check_read()
+            if denial is None and compute:
+                denial = await throttling.check_compute()
+            if denial is not None:
+                if as_resource:
+                    raise ValueError(denial["error"]["detail"])
+                return denial
+            return await fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _build_transport_security():
     """Bind MCP's DNS-rebinding protection to Django's own host/origin config.
 
@@ -197,7 +261,8 @@ def build_mcp_server():
             "their effective role and column, swimlane, and card counts."
         ),
     )
-    async def list_boards() -> list[dict]:
+    @_throttled()
+    async def list_boards() -> _TOOL_OUTPUT:
         # The tool surface is async (the MCP server runs on the event loop),
         # but the implementation is sync ORM code. thread_sensitive=True keeps
         # it on the sync worker thread that owns Django's DB connection, and
@@ -211,6 +276,7 @@ def build_mcp_server():
         name="list_columns",
         description="List a board's columns (id, name, position, color, wip_limit, card_count), ordered by position.",
     )
+    @_throttled()
     async def list_columns(board_id: int) -> _TOOL_OUTPUT:
         return await sync_to_async(tools.list_columns, thread_sensitive=True)(board_id=board_id)
 
@@ -221,6 +287,7 @@ def build_mcp_server():
             "ordered by position. contact_email is included only for admin/site_admin callers."
         ),
     )
+    @_throttled()
     async def list_swimlanes(board_id: int) -> _TOOL_OUTPUT:
         return await sync_to_async(tools.list_swimlanes, thread_sensitive=True)(board_id=board_id)
 
@@ -231,6 +298,7 @@ def build_mcp_server():
             "(email), priority, or label (name); include_archived defaults to false."
         ),
     )
+    @_throttled(compute=True)
     async def list_cards(
         board_id: int,
         column_id: int | None = None,
@@ -268,6 +336,7 @@ def build_mcp_server():
             "read it."
         ),
     )
+    @_throttled(compute=True, as_resource=True)
     async def board_resource(board_id: int) -> dict:
         return await sync_to_async(tools.board_snapshot, thread_sensitive=True)(board_id=board_id)
 
@@ -281,6 +350,7 @@ def build_mcp_server():
             "card's board."
         ),
     )
+    @_throttled(as_resource=True)
     async def card_resource(card_id: int) -> dict:
         return await sync_to_async(tools.card_detail, thread_sensitive=True)(card_id=card_id)
 
@@ -295,6 +365,7 @@ def build_mcp_server():
             "is given. Requires admin or member board role and the mcp:write scope."
         ),
     )
+    @_throttled()
     async def create_card(
         board_id: int,
         column_id: int,
@@ -324,6 +395,7 @@ def build_mcp_server():
             "override. Requires admin or member board role and the mcp:write scope."
         ),
     )
+    @_throttled()
     async def move_card(
         card_id: int,
         to_column_id: int | None = None,
@@ -346,6 +418,7 @@ def build_mcp_server():
             "role and the mcp:write scope."
         ),
     )
+    @_throttled()
     async def update_card(
         card_id: int,
         title: str | None = None,
@@ -370,6 +443,7 @@ def build_mcp_server():
             "mcp:write scope."
         ),
     )
+    @_throttled()
     async def archive_card(card_id: int) -> _TOOL_OUTPUT:
         denial = await _deny_write()
         if denial is not None:

@@ -21,7 +21,8 @@ from accounts.authentication import (
 )
 
 from .context import (
-    reset_current_scopes, reset_current_user, set_current_scopes, set_current_user,
+    reset_current_scopes, reset_current_token_id, reset_current_user,
+    set_current_scopes, set_current_token_id, set_current_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,8 +143,15 @@ class BearerAuthMiddleware:
         # this point, never None. Frozen so a tool cannot accidentally mutate
         # the shared PAT-scopes list through the context carrier.
         scopes_token = set_current_scopes(frozenset(pat.scopes))
+        # Bound alongside user/scopes, in the same authenticated block, so the
+        # three carriers can never disagree about which request they describe
+        # (#1177). Keying on the PAT's own primary key rather than deriving one
+        # from the raw token means the throttle never touches, stores, or logs
+        # the credential itself — only an opaque integer identity.
+        token_id_token = set_current_token_id(pat.pk)
         try:
             await self.app(scope, receive, send)
         finally:
+            reset_current_token_id(token_id_token)
             reset_current_scopes(scopes_token)
             reset_current_user(user_token)

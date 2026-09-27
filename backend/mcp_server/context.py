@@ -86,3 +86,39 @@ def get_current_scopes():
             "No MCP scope set bound to this context. An MCP tool was invoked "
             "without passing through the Bearer authentication middleware."
         )
+
+
+# The presented PAT's primary key, used ONLY to key the per-token rate-limit
+# buckets in :mod:`mcp_server.throttling` (#1177) — never the raw token value
+# or anything else identity-bearing, and never logged.
+#
+# Unlike ``_current_user``/``_current_scopes`` above, this ContextVar carries
+# a default of ``None`` instead of raising ``LookupError`` when unbound. That
+# is a deliberate difference, not an oversight: the throttle is a defense-in-
+# depth layer, and its own fail-closed rule (#1075) is "deny when identity is
+# missing", not "crash the request". Returning ``None`` lets
+# ``McpTokenBucket.check()`` make that denial itself and hand back the same
+# structured ``{"error": {...}}`` shape every other tool-level failure uses,
+# instead of an unhandled ``RuntimeError`` propagating out of a rate-limit
+# check and turning a 429-shaped outcome into a 500-shaped one.
+_current_token_id: ContextVar = ContextVar("mcp_current_token_id", default=None)
+
+
+def set_current_token_id(token_id):
+    """Bind *token_id* (the PAT's primary key) to the current context."""
+    return _current_token_id.set(token_id)
+
+
+def reset_current_token_id(token):
+    """Restore the previous value bound by :func:`set_current_token_id`."""
+    _current_token_id.reset(token)
+
+
+def get_current_token_id():
+    """Return the presented PAT's primary key, or ``None`` if unbound.
+
+    ``None`` is a legitimate, expected return here — see the ContextVar's own
+    comment above for why this differs from :func:`get_current_user` and
+    :func:`get_current_scopes`.
+    """
+    return _current_token_id.get()
