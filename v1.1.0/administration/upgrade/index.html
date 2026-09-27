@@ -3897,7 +3897,7 @@ see the <a href="../zero-downtime-upgrade/">Zero-Downtime Upgrade Playbook</a>.<
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="nt">restartPolicy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Never</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">containers</span><span class="p">:</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">migrate</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">registry.example.com/visiban-backend:1.1.0</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">          </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">registry.example.com/visiban-backend:v1.1.0</span>
 <a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">          </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"python"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"manage.py"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"migrate"</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">          </span><span class="nt">envFrom</span><span class="p">:</span>
 <a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">secretRef</span><span class="p">:</span>
@@ -4170,7 +4170,10 @@ pulled a mutable tag that could not be verified or rolled back, while every rele
 is scanned, SBOM'd and signed <strong>by digest</strong>.</p>
 <p><strong>If your <code>.env</code> already sets <code>APP_VERSION</code></strong> — the documented path since <code>.env.example</code>
 has always shipped one — this changes nothing; <code>docker compose pull</code>/<code>up</code> resolve to the
-exact same tag as before.</p>
+exact same tag as before. <code>GET /api/v1/version/</code> now always returns bare semver
+(<code>1.2.0</code>) even when <code>APP_VERSION=v1.2.0</code> (#1174) — previously it echoed <code>APP_VERSION</code>
+verbatim, so a <code>v</code>-pinned install got <code>v1.1.0</code> back — so a script comparing the
+endpoint's response to <code>$APP_VERSION</code> should strip a leading <code>v</code> before comparing.</p>
 <p><strong>If your <code>.env</code> does not set <code>APP_VERSION</code></strong> (a hand-rolled <code>.env</code> that skipped this line,
 or one where it was later removed), <code>docker compose pull</code>/<code>up -d</code> and <code>init-prod.sh</code> now
 fail immediately with a message telling you to set it, instead of silently resolving to

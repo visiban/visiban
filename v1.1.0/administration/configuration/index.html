@@ -3808,7 +3808,7 @@
 <tbody>
 <tr>
 <td><code>APP_VERSION</code></td>
-<td>Image tag to pull, e.g. <code>v1.1.0</code>. <strong>Required</strong> — the compose file fails to start if unset; it no longer falls back to the mutable <code>latest</code> tag (see <a href="../container-image-retention/">Container image retention</a>). <code>.env.example</code> ships a pinned value.</td>
+<td>Image tag to pull, e.g. <code>v1.1.0</code>. <strong>Required</strong> — the compose file fails to start if unset; it no longer falls back to the mutable <code>latest</code> tag (see <a href="../container-image-retention/">Container image retention</a>). <code>.env.example</code> ships a pinned value. The backend strips only a leading <code>v</code> before serving it back — <code>GET /api/v1/version/</code> reports bare semver (e.g. <code>1.1.0</code>) when <code>APP_VERSION</code> is pinned to a release tag; a non-release value such as <code>latest</code> or <code>dev</code> is served back verbatim (see <a href="../../api/version/">Version API</a>).</td>
 </tr>
 <tr>
 <td><code>DB_PASSWORD</code></td>
