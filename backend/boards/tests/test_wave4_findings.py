@@ -16,16 +16,27 @@ from groups.models import Group, GroupMembership
 
 
 class IsModeratorVisibilityTests(TestCase):
-    """#920 — moderator status must not leak to non-admin board members."""
+    """#920 — moderator status must not leak to non-admin board members.
+
+    #1173 — the self-row exception: a non-admin's OWN row must still carry
+    is_moderator, or the moderator-only UI (CardDetail, ArchivedCardsPanel,
+    BulkActionToolbar all check `m.is_moderator` for the current user) never
+    appears for a member an admin promoted to moderator. The #920 invariant
+    (hidden on every OTHER non-admin-visible row) must hold unchanged.
+    """
 
     def setUp(self):
         self.admin = User.objects.create_user(username="adm", password="x")
         self.viewer = User.objects.create_user(username="view", password="x")
         self.member = User.objects.create_user(username="mem", password="x")
+        self.plain_member = User.objects.create_user(username="mem2", password="x")
         self.board = Board.objects.create(name="B", owner=self.admin)
         BoardMembership.objects.create(board=self.board, user=self.admin, role=BoardMembership.Role.ADMIN)
         BoardMembership.objects.create(
             board=self.board, user=self.member, role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=self.plain_member, role=BoardMembership.Role.MEMBER,
         )
         BoardMembership.objects.create(board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER)
         Column.objects.create(board=self.board, name="C", position=0)
@@ -44,20 +55,52 @@ class IsModeratorVisibilityTests(TestCase):
         self.assertIn("is_moderator", moderator_row)
         self.assertTrue(moderator_row["is_moderator"])
 
+    def test_admin_sees_is_moderator_on_every_row(self):
+        # #1173: the admin view is unchanged by the self-row exception.
+        members = self._members_response(self.admin)
+        for row in members:
+            self.assertIn("is_moderator", row, f"Admin must see is_moderator on every row; missing on {row}")
+
     def test_viewer_does_not_see_is_moderator_field(self):
+        # #1173: the self-row exception applies to the viewer's own row too
+        # (it always shows False there, since is_moderator can't be granted
+        # to a viewer), but every OTHER row must still omit the field.
         members = self._members_response(self.viewer)
         for row in members:
+            if row["user"]["id"] == self.viewer.id:
+                continue
             self.assertNotIn(
                 "is_moderator", row,
                 f"Viewer must not see is_moderator (#920); leaked on row {row}",
             )
 
-    def test_member_does_not_see_is_moderator_field(self):
+    def test_non_admin_moderator_sees_own_is_moderator_true(self):
+        # #1173: a real (non-admin) moderator must see is_moderator on their
+        # own row, or moderator-only UI stays hidden from themselves.
+        members = self._members_response(self.member)
+        own_row = next(m for m in members if m["user"]["id"] == self.member.id)
+        self.assertIn("is_moderator", own_row)
+        self.assertTrue(own_row["is_moderator"])
+
+    def test_non_admin_non_moderator_sees_own_is_moderator_false(self):
+        # #1173: the self-row exception reveals the real value rather than
+        # only ever showing True — a non-moderator member's own row carries
+        # is_moderator: False instead of omitting the field.
+        members = self._members_response(self.plain_member)
+        own_row = next(m for m in members if m["user"]["id"] == self.plain_member.id)
+        self.assertIn("is_moderator", own_row)
+        self.assertFalse(own_row["is_moderator"])
+
+    def test_member_does_not_see_is_moderator_on_other_rows(self):
+        # #920 invariant preserved: the #1173 self-row exception must not
+        # leak is_moderator on rows belonging to OTHER members.
         members = self._members_response(self.member)
         for row in members:
+            if row["user"]["id"] == self.member.id:
+                continue
             self.assertNotIn(
                 "is_moderator", row,
-                f"Member must not see is_moderator (#920); leaked on row {row}",
+                f"Member must not see is_moderator on another member's row (#920); leaked on row {row}",
             )
 
 
