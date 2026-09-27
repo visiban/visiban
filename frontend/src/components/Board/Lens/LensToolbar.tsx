@@ -180,18 +180,23 @@ export default function LensToolbar({
       )}
 
       <div className="w-px h-4 bg-surface-hover mx-1" aria-hidden="true" />
-      {/* Lens-specific pivot controls — to the right of the board-shared zone. */}
+      {/* Lens-specific pivot controls — to the right of the board-shared zone.
+          `portalMenu` is required here for the same reason as the board's Overlay
+          picker (#1147): Row 2 is `overflow-x-auto` on an `h-10` box, which clips
+          an in-flow `absolute top-full` menu to the strip's own height (#1161). */}
       <SingleSelectDropdown
         label="Columns: Status"
         options={COLUMN_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Columns: ${o.label}` }))}
         selected={columnDim}
         onChange={(v) => setPivot({ column_dim: v ?? connection.column_dim })}
+        portalMenu
       />
       <SingleSelectDropdown
         label="Swimlanes: Milestone"
         options={SWIMLANE_DIM_OPTIONS.map((o) => ({ value: o.value, label: `Swimlanes: ${o.label}` }))}
         selected={swimlaneDim}
         onChange={(v) => setPivot({ swimlane_dim: v ?? connection.swimlane_dim })}
+        portalMenu
       />
       {foldToolbarControls && overflowItems.length > 0 && (
         <div className="shrink-0 pl-1 ml-1 border-l border-line flex items-center">
