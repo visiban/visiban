@@ -79,11 +79,21 @@ glab issue list --repo visiban/visiban --state closed --label "$WORKING_RELEASE"
 
 ---
 
+## Step 0.75 — State the expected cost before launching
+
+Before spawning anything, tell the user the audit type, how many agents it will launch (4 for a targeted type, 14 across 3 waves for `full`), and a rough token estimate. Give them the chance to narrow scope to one phase instead. This matters more here than in a normal gate batch: `full` is the single largest fan-out in this project's harness, and a wandering agent inside it is expensive precisely because nothing scopes its read to a branch diff — it is reading the whole codebase.
+
+Record the run's **actual** total (from each agent's usage report) in Step 2's consolidated report, under the summary line, so the next estimate has a real baseline instead of a guess.
+
+---
+
 ## Step 1 — Run the audit
 
 For each agent below, the prompt must be written for **full codebase audit mode** — not "what changed in this branch". Frame every prompt as: "Audit the full Visiban codebase as if preparing the **$WORKING_RELEASE** public release. Identify any issues that would become public commitments we can't easily reverse once $WORKING_RELEASE ships."
 
 The phrasing "public commitment" still applies even after 1.0 — every minor release freezes the API, WS event schema, settings names, and DB migration pattern for that release line.
+
+**Only this orchestrator launches agents.** Every prompt sent to `architect`, `security-review`, `ux-design`, or any other agent that itself carries the `Agent` tool must include this line verbatim: "Do not spawn subagents; do the audit directly with Read/Grep/Bash." A two-agent audit has escalated to sixteen because nothing told the agent not to delegate — full-codebase mode makes every scoping cue the agent would normally take from a branch diff absent, so the temptation to fan out further is higher here than in a day-to-day gate. Watch each agent's usage as results come back: one running past ~250k tokens, or about twice its peers in the same wave, is signaling a runaway. Investigate it before trusting its findings, rather than folding them into the report as-is.
 
 ### `security`
 Run in parallel:
@@ -104,6 +114,8 @@ Run in parallel:
 Run in parallel:
 1. **api-docs** — Full API surface audit. Every endpoint, serializer field, permission rule, and query parameter must be reflected in `docs/api/`. Flag any missing, stale, or incomplete documentation.
 2. **docs** — Full documentation audit. Check `docs/features/`, `docs/getting-started/`, and `docs/administration/` for completeness. Every user-visible feature must have a doc page with correct version callouts and enterprise callouts where applicable.
+
+   **Scope of this phase: it is not a claims review.** It checks that a doc page exists, that changelog entries have a matching doc update, and that version/enterprise callouts are present. It does **not** check that a feature claimed in the docs actually exists as described, that an edition or licensing claim is true, or that a copy-paste command in the doc runs as written. Report which classes were checked and say plainly that those three were not — never summarize the result as "docs reviewed" or "docs verified."
 
 ### `contracts`
 Run in parallel:
@@ -173,6 +185,7 @@ Then produce a consolidated report using this format:
 ### Summary
 🔴 Blocking: N   🟡 Should-fix: N   🟢 Clean: N
 Tracking: N tracked · N matched closed · N untracked
+Cost: ~N tokens across N agents (estimated ~N before launch)
 
 ### 🔴 Blocking findings
 (issues that must be resolved before the $WORKING_RELEASE tag is cut — each annotated with its tracking tag)

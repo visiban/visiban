@@ -3,6 +3,152 @@
 # Example: ./scripts/release.sh 0.2.0-beta.1
 set -euo pipefail
 
+# ─── CHANGELOG rotation ──────────────────────────────────────────────────────
+#
+# rotate_changelog <file> <version> <date>  — writes the rotated file to stdout.
+#
+# ONE pass, not a `sed` rename followed by an `awk` prepend. The two-step version
+# renamed the `## [Unreleased]` heading in place and then wrote a fresh
+# `## [Unreleased]` + `---` above it — but the `---` divider that had been sitting
+# UNDER the old Unreleased heading did not move, so it landed between the newly
+# released heading and its first entry (or, on an empty Unreleased, immediately
+# above the next heading with nothing between). It reproduces itself at every
+# subsequent release and is invisible in review because the result is still
+# valid markdown — see the cleanup in CHANGELOG.md's 1.0.0 and 1.1.0 sections.
+rotate_changelog() {
+  awk -v version="$2" -v date="$3" '
+    # Rename the Unreleased heading to this version and emit a fresh Unreleased
+    # block above it, then swallow the separator that belonged to the OLD
+    # Unreleased block: blank lines and at most one `---` immediately after the
+    # heading we just renamed.
+    /^## \[Unreleased\]/ && !seen {
+      print "## [Unreleased]"
+      print ""
+      print "---"
+      print ""
+      print "## [" version "] — " date
+      seen = 1
+      eating = 1
+      next
+    }
+    eating && /^[[:space:]]*$/     { next }
+    eating && /^---[[:space:]]*$/  { eating = 0; next }
+    eating                         { eating = 0; print "" }
+    { print }
+  ' "$1"
+}
+
+# ─── Already-published guard ─────────────────────────────────────────────────
+#
+# refuse_if_published <remote> <tag>  — returns 1 (with a message) when the tag
+# already exists on <remote>.
+#
+# The local `git tag` check below only sees tags this clone has fetched. A tag
+# another machine or session already pushed is otherwise discovered only when
+# the publish job fails after the tag is pushed — which is also the moment the
+# milestone was just closed. An unreachable remote fails closed rather than
+# silently proceeding as if the tag were absent.
+refuse_if_published() {
+  local remote="$1" tag="$2" listing
+  if ! listing="$(git ls-remote --tags "$remote" "refs/tags/${tag}" 2>/dev/null)"; then
+    echo "Error: could not list tags on ${remote} — check connectivity before releasing" >&2
+    return 1
+  elif [[ -n "$listing" ]]; then
+    echo "Error: tag ${tag} already exists on ${remote}" >&2
+    return 1
+  fi
+}
+
+if [[ "${1:-}" == "--self-test" ]]; then
+  rc=0; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+  _rot_case() { # <label> <input> <expected>
+    printf '%s\n' "$2" > "$tmp/in.md"
+    local got; got="$(rotate_changelog "$tmp/in.md" 0.3.0 2026-09-05)"
+    if [[ "$got" == "$3" ]]; then
+      echo "SELF-TEST OK: $1"
+    else
+      echo "SELF-TEST FAILED: $1" >&2
+      echo "--- got ---"    >&2; printf '%s\n' "$got" >&2
+      echo "--- wanted ---" >&2; printf '%s\n' "$3"   >&2
+      rc=1
+    fi
+  }
+
+  # The regression: the divider under Unreleased must NOT follow the heading
+  # into the released section.
+  _rot_case "a divider under Unreleased stays with Unreleased" \
+'## [Unreleased]
+
+---
+
+### Added
+- new thing
+
+## [0.2.0] — 2026-08-29' \
+'## [Unreleased]
+
+---
+
+## [0.3.0] — 2026-09-05
+
+### Added
+- new thing
+
+## [0.2.0] — 2026-08-29'
+
+  _rot_case "no divider under Unreleased still rotates cleanly" \
+'## [Unreleased]
+
+### Added
+- new thing
+
+## [0.2.0] — 2026-08-29' \
+'## [Unreleased]
+
+---
+
+## [0.3.0] — 2026-09-05
+
+### Added
+- new thing
+
+## [0.2.0] — 2026-08-29'
+
+  # An empty Unreleased (nothing new since the last RC) must not leave an
+  # orphan divider under the newly-released heading — the exact defect fixed
+  # in CHANGELOG.md's 1.0.0 and 1.1.0 sections.
+  _rot_case "an empty Unreleased rotates with no orphan divider" \
+'## [Unreleased]
+
+---
+
+## [0.2.0] — 2026-08-29' \
+'## [Unreleased]
+
+---
+
+## [0.3.0] — 2026-09-05
+
+## [0.2.0] — 2026-08-29'
+
+  # refuse_if_published: a tag already on the remote refuses; a clean remote
+  # passes; an unreachable remote fails closed.
+  git init -q --bare "$tmp/origin.git"
+  git -C "$tmp" init -q work && git -C "$tmp/work" -c user.email=t@t -c user.name=t commit -q --allow-empty -m x
+  git -C "$tmp/work" tag v9.9.9 && git -C "$tmp/work" push -q "$tmp/origin.git" v9.9.9
+  _pub_case() { # <label> <want-rc> <remote> <tag>
+    local got=0
+    refuse_if_published "$3" "$4" 2>/dev/null || got=1
+    if [[ "$got" == "$2" ]]; then echo "SELF-TEST OK: $1"; else echo "SELF-TEST FAILED: $1" >&2; rc=1; fi
+  }
+  _pub_case "tag already on the remote refuses" 1 "$tmp/origin.git" v9.9.9
+  _pub_case "new tag on a clean remote passes" 0 "$tmp/origin.git" v1.0.0
+  _pub_case "unreachable remote fails closed" 1 "$tmp/nope.git" v1.0.0
+
+  [[ $rc -eq 0 ]] && echo "release: self-test passed."
+  exit $rc
+fi
+
 VERSION="${1:-}"
 if [[ -z "$VERSION" ]]; then
   echo "Usage: $0 <version>  (e.g. 0.2.0-beta.1)" >&2
@@ -24,11 +170,18 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
-# Check tag doesn't already exist
-if git tag | grep -q "^${TAG}$"; then
+# Check tag doesn't already exist.
+#
+# A here-string, not `git tag | grep -q`: under `set -o pipefail`, `grep -q`
+# exits at its first match and SIGPIPEs `git tag`, the pipeline reports 141,
+# and an EXISTING tag reads as absent — a race on how much `git` flushed
+# before the pipe closed, so it passes on a repo with few tags and fails once
+# there are enough that `grep` matches before `git tag` finishes writing.
+if grep -qxF "$TAG" <<<"$(git tag)"; then
   echo "Error: tag $TAG already exists" >&2
   exit 1
 fi
+refuse_if_published "${RELEASE_REMOTE:-origin}" "$TAG" || exit 1
 
 # Create release branch from latest main
 git checkout main
@@ -118,18 +271,15 @@ fi
 RELEASE_NOTES=$(awk '/^## \[Unreleased\]/{found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md \
   | sed '/^[[:space:]]*$/d' | sed '/^---[[:space:]]*$/d')
 
-sed -i '' "s/## \[Unreleased\]/## [${VERSION}] — ${TODAY}/" CHANGELOG.md
-
-# Prepend fresh [Unreleased] block
+# Single pass — see rotate_changelog above for why a rename-then-prepend
+# two-step leaves a self-perpetuating orphan divider.
 TMP=$(mktemp)
-awk -v version="$VERSION" -v date="$TODAY" '
-  /^## \[[0-9]/ && !done {
-    print "## [Unreleased]\n"
-    print "---\n"
-    done=1
-  }
-  { print }
-' CHANGELOG.md > "$TMP" && mv "$TMP" CHANGELOG.md
+rotate_changelog CHANGELOG.md "$VERSION" "$TODAY" > "$TMP" && mv "$TMP" CHANGELOG.md
+
+if ! grep -q "^## \[${VERSION}\] — ${TODAY}$" CHANGELOG.md; then
+  echo "Error: CHANGELOG rotation did not produce a [${VERSION}] section" >&2
+  exit 1
+fi
 
 # Pin docker-compose.prod.yml and Helm chart to the release version so users
 # deploying from the tag get the exact matching image, not "latest".
@@ -220,36 +370,87 @@ git push -u origin "$RELEASE_BRANCH"
 
 echo "Pushed branch $RELEASE_BRANCH"
 
-# Create MR and merge
+# Create MR
 echo "Creating merge request..."
 MR_URL=$(glab mr create --title "chore: release ${TAG}" \
   --description "Bump APP_VERSION to ${VERSION} and rotate CHANGELOG." \
   --target-branch main --yes 2>&1 | grep -oE 'https://[^ ]+')
-
-echo "Waiting for pipeline..."
-sleep 5
-
 MR_NUM=$(echo "$MR_URL" | grep -oE '[0-9]+$')
-glab mr merge "$MR_NUM" --yes --when-pipeline-succeeds 2>&1 || true
 
-# Wait for merge to complete
-echo "Waiting for merge..."
-for _ in $(seq 1 60); do
-  STATE=$(glab mr view "$MR_NUM" 2>&1 | grep '^state:' | awk '{print $2}')
-  if [[ "$STATE" == "merged" ]]; then
-    break
-  fi
+# Wait for the MR pipeline to reach a terminal state, THEN merge — a plain
+# `glab mr merge`, not `--when-pipeline-succeeds`. The latter asks GitLab to
+# watch for us and fired at least once before GitLab had created the pipeline
+# object yet (nothing was there to watch), which 405s and nothing retries it —
+# the release then sits merged-looking in the terminal but not actually merged.
+# Polling for the pipeline's own status ourselves removes that race.
+echo "Waiting for MR !${MR_NUM}'s pipeline..."
+PIPELINE_STATUS=""
+for _ in $(seq 1 180); do  # up to 30 minutes at 10s intervals
+  PIPELINE_STATUS=$(glab api "projects/:id/merge_requests/${MR_NUM}" 2>/dev/null \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print((d.get('head_pipeline') or {}).get('status') or '')" 2>/dev/null || true)
+  case "$PIPELINE_STATUS" in
+    success) break ;;
+    failed|canceled)
+      echo "Error: MR !${MR_NUM} pipeline ${PIPELINE_STATUS}. Fix on the branch and re-run, or merge manually once green." >&2
+      exit 1
+      ;;
+  esac
   sleep 10
 done
 
+if [[ "$PIPELINE_STATUS" != "success" ]]; then
+  echo "Error: MR !${MR_NUM} pipeline did not reach success within 30 minutes (last seen: '${PIPELINE_STATUS}'). Check manually: glab mr view ${MR_NUM}" >&2
+  exit 1
+fi
+
+echo "Pipeline green. Merging MR !${MR_NUM}..."
+glab mr merge "$MR_NUM" --yes
+
+# Wait for the merge to actually land.
+echo "Waiting for merge to complete..."
+STATE=""
+for _ in $(seq 1 30); do
+  STATE=$(glab mr view "$MR_NUM" 2>&1 | grep '^state:' | awk '{print $2}')
+  [[ "$STATE" == "merged" ]] && break
+  sleep 5
+done
+
 if [[ "$STATE" != "merged" ]]; then
-  echo "Error: MR !${MR_NUM} did not merge in time. Merge manually, then tag." >&2
+  echo "Error: MR !${MR_NUM} did not merge. Merge manually, then tag." >&2
+  exit 1
+fi
+
+git checkout main
+git pull origin main
+
+# The MR pipeline going green is not the same promise as the branch pipeline
+# at this commit going green — pipelines trigger per ref, so a `push` pipeline
+# on `main` can run a different job set (via `rules:`) than the
+# `merge_request_event` pipeline that just passed. Tagging from a commit whose
+# own branch pipeline never ran, or failed, publishes from an unproven state —
+# confirm the pipeline AT THIS COMMIT, not merely the newest one on the branch.
+MERGE_SHA=$(git rev-parse HEAD)
+echo "Confirming main's own pipeline at ${MERGE_SHA:0:8}..."
+MAIN_PIPELINE_STATUS=""
+for _ in $(seq 1 90); do  # up to 15 minutes
+  MAIN_PIPELINE_STATUS=$(glab api "projects/:id/pipelines?sha=${MERGE_SHA}&per_page=1" 2>/dev/null \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print((d[0]['status'] if d else ''))" 2>/dev/null || true)
+  case "$MAIN_PIPELINE_STATUS" in
+    success) break ;;
+    failed|canceled)
+      echo "Error: main's pipeline at ${MERGE_SHA:0:8} ${MAIN_PIPELINE_STATUS}. Do not tag a commit whose own pipeline failed — fix forward and re-run." >&2
+      exit 1
+      ;;
+  esac
+  sleep 10
+done
+
+if [[ "$MAIN_PIPELINE_STATUS" != "success" ]]; then
+  echo "Error: main's pipeline at ${MERGE_SHA:0:8} did not reach success within 15 minutes (last seen: '${MAIN_PIPELINE_STATUS}'). Check manually before tagging: glab ci list --ref main" >&2
   exit 1
 fi
 
 # Tag the merged result
-git checkout main
-git pull origin main
 git tag "$TAG"
 git push origin "$TAG"
 

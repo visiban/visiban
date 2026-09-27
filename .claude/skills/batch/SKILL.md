@@ -58,12 +58,20 @@ lens`), take them and skip the ask.
 glab issue list --milestone <M> --label <L> --per-page 100
 ```
 
+`--per-page 100` is a first page, not a result set. A milestone with more open
+issues than that truncates silently here, and the issues you never see are
+indistinguishable from issues that do not exist. When the count comes back at
+exactly the page size, re-read it with
+`glab api --paginate "projects/:id/issues?milestone=<M>&labels=<L>&state=opened&per_page=100"`
+— which emits one JSON array **per page, concatenated**, so decode it with a
+`raw_decode` loop rather than `json.load`.
+
 Then filter, in this order:
 
 1. **Drop anything already claimed** — a `status::wip` label, or an issue number
    that already has an open MR. `scripts/wt new` refuses a claimed issue (see
-   `scripts/wt help`), but check first so you are not selecting work you cannot
-   start.
+   `scripts/wt help`), and `scripts/check-issue-collision.sh` backstops it at
+   push time — but check first so you are not selecting work you cannot start.
 2. **Drop anything blocked** on an unmerged branch or an unanswered 🔴 question
    from a prior `architect`/`ux-design` review.
 3. **Prefer issues with an identified root cause.** An issue whose body already

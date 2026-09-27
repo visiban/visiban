@@ -42,6 +42,24 @@ Before running the script:
       "Memory discipline" section for why it matters at a release boundary. If it fails, fix the
       index (restore or remove the dangling entry; trim `MEMORY.md` toward the archive) before
       proceeding — do not tag a release on top of a broken index.
+- [ ] **Every credential the tag-triggered publish jobs need already exists.** Check
+      `glab variable list` for `GHCR_USER`, `GHCR_TOKEN`, and `GH_TOKEN` (a masked value will
+      not print, its existence will). A missing one fails **after** the tag is pushed, which is
+      the one moment in this process when nothing can be un-done cheaply. If any is missing or
+      its expiry is unknown, check `docs/maintainers/tokens-and-rotation.md` before proceeding.
+- [ ] **Inventory every tag-only job that changed since the last tag.** A tag pipeline runs the
+      CI config as it stood at the tag commit, and jobs gated on `$CI_COMMIT_TAG` (the kaniko
+      image push, the GitHub release job, the docs deploy) run nowhere else — a job edited since
+      the previous `v*` tag has never run in its current form. List them:
+      ```bash
+      git diff "$(git describe --tags --abbrev=0 --match 'v*')"..HEAD -- .gitlab-ci.yml
+      ```
+      and read the hunks for anything whose `rules:` matches `$CI_COMMIT_TAG`. Report each
+      changed one as **unproven until the tag** and watch it first in Step 3's verification.
+- [ ] **Days and commits since the last `v*` tag.** If about four weeks, or several hundred
+      non-merge commits, have passed without a tag, say so in the pre-flight summary — a cut
+      that large carries untested publish-path changes and a large diff surface at once.
+      Informational only; it does not block the cut.
 
 ## Step 1b — Documentation audit
 
@@ -61,18 +79,29 @@ Do not proceed to Step 2 until the docs audit is complete. A release with stale 
 ```
 
 The script will automatically:
-1. Create a `chore/release-{version}` branch from `main`
-2. Update `.env.example` and `docker-compose.yml` with the new version
-3. Rotate `CHANGELOG.md` — moves `[Unreleased]` to `[vX.Y.Z] — YYYY-MM-DD`, prepends a fresh `[Unreleased]` block
-4. Commit and push the branch
-5. Create an MR targeting `main`
-6. Wait for the pipeline to go green
-7. Merge the MR
-8. Tag the merge commit
-9. Create a GitLab release with notes from the CHANGELOG
-10. Deploy docs via `mike deploy --push --update-aliases`
+1. Refuse if the tag already exists locally, on the remote (`git ls-remote`, `origin` unless
+   `RELEASE_REMOTE` overrides it), or the local tag-listing check itself was ambiguous —
+   fails closed rather than proceeding as if the tag were absent
+2. Create a `chore/release-{version}` branch from `main`
+3. Update `.env.example` and `docker-compose.yml` with the new version
+4. Rotate `CHANGELOG.md` — moves `[Unreleased]` to `[vX.Y.Z] — YYYY-MM-DD`, prepends a fresh
+   `[Unreleased]` block, in a single pass (no intermediate state that could leave a stray
+   `---` divider behind)
+5. Commit and push the branch
+6. Create an MR targeting `main`, then **poll the MR's own pipeline status directly** until
+   it reaches `success` (not `glab mr merge --when-pipeline-succeeds`, which asks GitLab to
+   watch for us and has 405'd when fired before GitLab had created the pipeline object yet)
+7. Merge the MR only once that pipeline is confirmed green
+8. **Confirm the pipeline at the merge commit itself** — on `main`, at that exact SHA — is
+   also green before tagging. A merge-request pipeline going green is not the same promise
+   as the subsequent `push` pipeline on `main`, which can run a different job set
+9. Tag the merge commit and push the tag
+10. Create a GitLab release with notes from the CHANGELOG
 
-Do not interrupt the script. If it fails, read the error output before taking any action.
+Do not interrupt the script. If it fails, read the error output before taking any action —
+each failure mode above prints what to check or do manually. The tag pipeline itself (not
+this script) then deploys docs via `mike deploy --push --update-aliases` once the tag lands;
+that is the tag-only job flagged in Step 1's pre-flight inventory if it changed recently.
 
 ## Step 3 — Post-release verification
 
@@ -80,3 +109,15 @@ Do not interrupt the script. If it fails, read the error output before taking an
 - [ ] Confirm docs.visiban.com shows the new version:
   - Stable releases publish under the `latest` alias
   - Pre-releases publish under the `next` alias
+- [ ] **A default, unpinned install actually resolves to this release** — not merely "the
+      publish job succeeded". Registries rank by semver, and a plain `X.Y.Z` outranks every
+      `X.Y.Z-rc.N`/`X.Y.Z-beta.N` **forever**, so one bad stable artifact keeps winning
+      against every pre-release published after it — republishing under a new version does
+      not fix what an unpinned consumer already gets. Check what actually resolves:
+      - `docker pull ghcr.io/visiban/visiban/backend` with no tag (defaults to `latest`) —
+        confirm it is this version
+      - `helm show chart oci://ghcr.io/visiban/charts/visiban` with no `--version` — confirm
+        the chart's default `appVersion`/image tag is this version and that image exists
+      If either resolves to something else or broken, say so in the release notes rather than
+      leaving a consumer to discover it — the bad artifact usually needs a permission no
+      pipeline has to delete.
