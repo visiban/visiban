@@ -20,6 +20,8 @@ vi.mock('../api/boards', () => ({
   createBoard: vi.fn(),
   deleteBoard: vi.fn(),
   importBoard: vi.fn(),
+  previewTrelloImport: vi.fn(),
+  confirmTrelloImport: vi.fn(),
   listBoardTemplates: vi.fn().mockResolvedValue([]),
 }))
 
@@ -136,6 +138,17 @@ describe('Dashboard', () => {
     await screen.findByText('Import')
     await user.click(screen.getByText('Import'))
     expect(screen.getByText('Import Board')).toBeInTheDocument()
+  })
+
+  it('switches from the import modal to the Trello import wizard', async () => {
+    const user = userEvent.setup()
+    renderDashboard()
+    await screen.findByText('Import')
+    await user.click(screen.getByText('Import'))
+    await user.click(screen.getByRole('button', { name: 'Import a Trello export' }))
+    expect(screen.queryByText('Import Board')).not.toBeInTheDocument()
+    expect(screen.getByText('Import from Trello')).toBeInTheDocument()
+    expect(screen.getByText('Step 1 of 2 · Choose file')).toBeInTheDocument()
   })
 
   it('opens create group modal on new group click', async () => {

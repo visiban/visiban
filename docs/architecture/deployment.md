@@ -231,7 +231,7 @@ The chart ships with default annotations for nginx-ingress that match the Docker
 
 | Annotation | Default | Why |
 |---|---|---|
-| `nginx.ingress.kubernetes.io/proxy-body-size` | `20m` | Matches the `client_max_body_size` in the Docker Compose Nginx config. Without this, the ingress controller's default (1m) rejects file uploads before they reach the backend. |
+| `nginx.ingress.kubernetes.io/proxy-body-size` | `35m` (derived) | Derived from the larger of `backend.settings.maxUploadSizeBytes` and `backend.settings.importMaxSizeBytes` plus 10 MB, matching the `client_max_body_size` in the Docker Compose Nginx config (`35M`). Without this, the ingress controller's default (1m) rejects file uploads and Trello imports before they reach the backend. |
 | `nginx.ingress.kubernetes.io/proxy-read-timeout` | `86400` | WebSocket connections idle for up to 24 hours. The default (60s) kills idle WebSocket connections. |
 | `nginx.ingress.kubernetes.io/proxy-send-timeout` | `86400` | Matches the read timeout for symmetry on WebSocket connections. |
 

@@ -72,7 +72,9 @@ silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
 open, because the chart is not the authority on what is valid inside them.
 
 **Upload limits are derived, not set in three places.**
-`backend.settings.maxUploadSizeBytes` sets the application cap and *also* drives
+`backend.settings.maxUploadSizeBytes` (attachments and native board imports) and
+`backend.settings.importMaxSizeBytes` (Trello imports, `VISIBAN_IMPORT_MAX_SIZE`,
+default 25 MB) set the application caps; the larger of the two *also* drives
 the nginx `client_max_body_size` and the ingress `proxy-body-size` annotation,
 each with 10 MB of multipart-framing headroom. Raise the one value and the whole
 path moves with it; a transport limit below the app cap would 413 uploads at the

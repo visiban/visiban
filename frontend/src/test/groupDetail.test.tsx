@@ -45,6 +45,8 @@ vi.mock('../api/groups', () => ({
 
 vi.mock('../api/boards', () => ({
   importBoard: vi.fn(),
+  previewTrelloImport: vi.fn(),
+  confirmTrelloImport: vi.fn(),
 }))
 
 vi.mock('../api/notifications', () => ({
