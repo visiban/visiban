@@ -188,7 +188,18 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def validate_allowed_priorities(self, value):
         valid = set(_ALLOWED_PRIORITY_SLUGS)
+        # The field is a bare JSONField, so ``value`` is whatever JSON the client
+        # sent. Without this guard an int/dict/bool is not iterable and a nested
+        # list/dict item is unhashable in the ``in valid`` test below — both raise
+        # TypeError, which surfaces as a 500 instead of a 400 (#1165).
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Expected a list of priority strings.")
         for p in value:
+            if not isinstance(p, str):
+                raise serializers.ValidationError(
+                    "Every priority must be a string. "
+                    f"Choose from: {', '.join(sorted(valid))}."
+                )
             if p not in valid:
                 raise serializers.ValidationError(
                     f"'{p}' is not a valid priority. Choose from: {', '.join(sorted(valid))}."

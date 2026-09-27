@@ -91,3 +91,77 @@ class AddStandardErrorResponsesTests(TestCase):
             board_list["401"]["content"]["application/json"]["schema"]["properties"]["detail"]["type"],
             "string",
         )
+
+
+class ValidationErrorResponseTests(TestCase):
+    """The generic 400 envelope (#1165, #1124)."""
+
+    def _run(self, path_item):
+        result = {"paths": {"/x/": path_item}}
+        add_standard_error_responses(result, generator=None, request=None, public=True)
+        return result["paths"]["/x/"]
+
+    def test_documents_400_on_body_methods_even_without_a_declared_request_body(self):
+        """Views with no serializer have no requestBody, but DRF still parses one."""
+        paths = self._run({
+            method: {"responses": {"200": {"description": "OK"}}}
+            for method in ("post", "put", "patch")
+        })
+        for method in ("post", "put", "patch"):
+            schema = paths[method]["responses"]["400"]["content"]["application/json"]["schema"]
+            self.assertEqual(
+                [branch["type"] for branch in schema["oneOf"]], ["object", "array"]
+            )
+
+    def test_documents_400_on_operations_with_query_parameters(self):
+        paths = self._run({
+            "get": {
+                "parameters": [{"name": "state", "in": "query"}],
+                "responses": {"200": {"description": "OK"}},
+            },
+        })
+        self.assertIn("400", paths["get"]["responses"])
+
+    def test_does_not_document_400_where_the_server_cannot_return_one(self):
+        """A path-parameter-only lookup either resolves or 404s."""
+        paths = self._run({
+            "get": {
+                "parameters": [{"name": "id", "in": "path"}, {"name": "X", "in": "header"}],
+                "responses": {"200": {"description": "OK"}},
+            },
+            "delete": {"responses": {"204": {"description": "No content"}}},
+        })
+        self.assertNotIn("400", paths["get"]["responses"])
+        self.assertNotIn("400", paths["delete"]["responses"])
+
+    def test_does_not_overwrite_a_declared_400(self):
+        custom_400 = {"description": "Specific body", "content": {}}
+        paths = self._run({
+            "post": {
+                "requestBody": {"content": {}},
+                "responses": {"200": {"description": "OK"}, "400": custom_400},
+            },
+        })
+        self.assertIs(paths["post"]["responses"]["400"], custom_400)
+
+
+class GeneratedSchemaDocuments400Tests(TestCase):
+    """End-to-end against the real generated schema, not a hand-built dict.
+
+    The fuzz job's baseline used to carry a per-operation entry for every write
+    endpoint whose 400 was undocumented, so any seed that reached a new one went
+    red. Assert the class is closed at the source.
+    """
+
+    def test_every_write_operation_documents_400(self):
+        from drf_spectacular.generators import SchemaGenerator
+
+        schema = SchemaGenerator().get_schema(request=None, public=True)
+        missing = [
+            f"{method.upper()} {path}"
+            for path, item in schema["paths"].items()
+            for method, op in item.items()
+            if method in ("post", "put", "patch")
+            and "400" not in op["responses"]
+        ]
+        self.assertEqual(missing, [])

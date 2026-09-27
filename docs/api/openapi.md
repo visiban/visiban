@@ -85,6 +85,41 @@ operation already declares — the card-mutation 409s (`WipLimitExceeded`, `Vers
 etc. — see `boards/services/errors.py`) and the move/comments/checklist/share/members
 `@extend_schema` blocks from #1108 still win.
 
+**Validation errors (`400`).** The same hook documents a `400` on every operation that reads
+client input — one that takes a body (`POST`/`PUT`/`PATCH`) or query parameters — using DRF's validation-error
+shape: an object keyed by field name (or `detail`), or an array of messages
+([#1165](https://gitlab.com/visiban/visiban/-/issues/1165), closing the gap tracked in
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124)). A path-parameter-only lookup
+cannot answer `400`, so it is not documented there. Because it is a whole-class rule, a new
+write endpoint gets its `400` for free and never needs a per-operation baseline entry.
+
+**Server-layer multipart rejections are filtered, not baselined.** When a request's
+`Content-Type` is `multipart/form-data` but the body is malformed, the ASGI server
+(Twisted, under daphne) answers a bare `400` — no body, no `Content-Type` — before Django or
+DRF runs, so the application cannot shape or document it. Fuzzing sends such bodies at every
+POST, and baselining them one operation at a time made the job's result depend on which
+operation the seed happened to pick. `schemathesis_hooks.py`'s `filter_failure` hook drops
+exactly that shape (status `400`, empty body, no response `Content-Type`, multipart request)
+and nothing else, so an application `400`/`500`, or a bare `400` to a non-multipart body, is
+still reported.
+
+#### A red `backend-schema-fuzz` job is never a flake
+
+The job uses a fresh random seed each run so it keeps exploring new inputs, but a failing
+case is deterministic for its input: a green re-run only means a different seed did not reach
+it. Do **not** retry the job or add a baseline entry to turn it green. (Only runner-infrastructure
+failures are auto-retried, by the pipeline-wide `default:` block.)
+
+1. Read the `FAILURES` section of the job log for the operation, status, and `Test Case ID`.
+2. A **5xx** is an endpoint bug — validation belongs in the serializer and must answer `400`,
+   never raise. An **undocumented 4xx** means declaring the response (`@extend_schema`, or a
+   `schema_hooks.py` rule if it is a whole class). A **schema mismatch** means fixing the
+   serializer or its annotation.
+3. Replay it: the job prints `seed=<n>` at the start and the failure block ends with an
+   `st replay <id>` line. Re-run the job with the pipeline variable `FUZZ_SEED=<n>` to pin the
+   same seed. Locally, boot the app against `seed_demo_data` and run
+   `st run <url>/api/schema/ --seed <n> ...` with the flags from the job.
+
 **Path-parameter seeding.** `backend/schemathesis_hooks.py`, loaded via the job's
 `SCHEMATHESIS_HOOKS` variable, substitutes real ids pulled from `seed_demo_data`'s board for
 `board_pk`/`id`/etc. on nested board-resource routes — otherwise a randomly-generated id
@@ -106,13 +141,14 @@ surfaced the schema-accuracy bug #1108 fixed on `CardSerializer` and #1119 is tr
 `Group`/`GroupDetail` on several more serializers — filed as
 [#1123](https://gitlab.com/visiban/visiban/-/issues/1123) — plus a structural gap where most
 write endpoints' `400` validation-error response isn't documented at all — filed as
-[#1124](https://gitlab.com/visiban/visiban/-/issues/1124). Neither blocks this flip: both are
+[#1124](https://gitlab.com/visiban/visiban/-/issues/1124). Neither blocked this flip: both were
 recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
 ([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
-touching on every run) alongside #1119's still-open findings. Closing #1119/#1123/#1124 should
-prune the corresponding entries (`st run ... --baseline-update --baseline-prune`) so the job
-resumes catching regressions in that area.
+touching on every run) alongside #1119's still-open findings. The `400` entries were pruned
+once the generic `400` rule above landed (#1165); closing #1119/#1123 should prune theirs too
+(`st run ... --baseline-update --baseline-prune`) so the job resumes catching regressions in
+that area.
 
 ## Versioning
 

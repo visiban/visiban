@@ -237,15 +237,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "33451d",
-      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "2e786b",
       "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
       "check": "response_schema_conformance",
@@ -264,101 +255,11 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "cd9316",
-      "operation": "PATCH /api/v1/boards/{board_pk}/columns/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f7cedf",
-      "operation": "PATCH /api/v1/boards/{board_pk}/custom-fields/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-21",
-      "last_seen": "2026-09-21"
-    },
-    {
-      "id": "d51e52",
-      "operation": "PATCH /api/v1/boards/{board_pk}/labels/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "e57a1d",
-      "operation": "PATCH /api/v1/boards/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "1eb14e",
       "operation": "PATCH /api/v1/groups/{id}/",
       "check": "response_schema_conformance",
       "failure": "JsonSchemaError",
       "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4e7c08",
-      "operation": "PATCH /api/v1/groups/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "22faf7",
-      "operation": "PATCH /api/v1/groups/{id}/board-defaults/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "902232",
-      "operation": "POST /api/v1/auth/change-password/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4def95",
-      "operation": "POST /api/v1/auth/choose-username/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "00a0be",
-      "operation": "POST /api/v1/auth/login/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f484a8",
-      "operation": "POST /api/v1/auth/password/change/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -372,33 +273,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "82842c",
-      "operation": "POST /api/v1/auth/password/reset/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "67dbfa",
-      "operation": "POST /api/v1/auth/password/reset/confirm/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "57531f",
-      "operation": "POST /api/v1/auth/registration/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "72c48f",
       "operation": "POST /api/v1/auth/registration/resend-email/",
       "check": "status_code_conformance",
@@ -408,173 +282,11 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "f065c1",
-      "operation": "POST /api/v1/auth/registration/resend-email/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "239333",
-      "operation": "POST /api/v1/auth/registration/verify-email/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "a9fe64",
       "operation": "POST /api/v1/auth/ws-ticket/",
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ffe633",
-      "operation": "POST /api/v1/boards/import/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "2fab81",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "84bf52",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/attachments/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "d7b774",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/checklist/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "98a156",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/comments/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "0831fb",
-      "operation": "POST /api/v1/boards/{board_pk}/columns/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "61871d",
-      "operation": "POST /api/v1/boards/{board_pk}/columns/reorder/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "f7cedf",
-      "operation": "PATCH /api/v1/boards/{board_pk}/custom-fields/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-21",
-      "last_seen": "2026-09-21"
-    },
-    {
-      "id": "a23064",
-      "operation": "POST /api/v1/boards/{board_pk}/custom-fields/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ebb12e",
-      "operation": "POST /api/v1/boards/{board_pk}/custom-fields/reorder/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ff8b06",
-      "operation": "PUT /api/v1/boards/{board_pk}/custom-fields/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-21",
-      "last_seen": "2026-09-21"
-    },
-    {
-      "id": "7a9d35",
-      "operation": "POST /api/v1/boards/{board_pk}/labels/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "44f7fe",
-      "operation": "POST /api/v1/boards/{board_pk}/swimlane-custom-fields/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-20",
-      "last_seen": "2026-09-20"
-    },
-    {
-      "id": "b8873e",
-      "operation": "POST /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-20",
-      "last_seen": "2026-09-20"
-    },
-    {
-      "id": "8fc3e8",
-      "operation": "POST /api/v1/boards/{board_pk}/swimlanes/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "89c4c9",
-      "operation": "POST /api/v1/boards/{board_pk}/swimlanes/reorder/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -606,24 +318,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "66c7a8",
-      "operation": "POST /api/v1/boards/{id}/move-group/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-20",
-      "last_seen": "2026-09-20"
-    },
-    {
-      "id": "1dc638",
-      "operation": "POST /api/v1/boards/{id}/saved-filters/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "12ae3c",
       "operation": "POST /api/v1/boards/{id}/share/",
       "check": "content_type_conformance",
@@ -651,15 +345,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "4997f0",
-      "operation": "POST /api/v1/boards/{id}/star/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-20",
-      "last_seen": "2026-09-20"
-    },
-    {
       "id": "7f2373",
       "operation": "POST /api/v1/groups/{id}/boards/",
       "check": "status_code_conformance",
@@ -678,29 +363,11 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "da6e23",
-      "operation": "POST /api/v1/groups/{id}/invite-links/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "30504f",
       "operation": "POST /api/v1/groups/{id}/labels/",
       "check": "status_code_conformance",
       "failure": "UndefinedStatusCode",
       "signature": "201",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "aaa589",
-      "operation": "POST /api/v1/groups/{id}/labels/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
     },
@@ -712,186 +379,6 @@
       "signature": "201",
       "first_seen": "2026-09-16",
       "last_seen": "2026-09-16"
-    },
-    {
-      "id": "37645b",
-      "operation": "POST /api/v1/groups/{id}/transfer-ownership/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "67e4f1",
-      "operation": "PUT /api/v1/auth/user/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "339dfe",
-      "operation": "PUT /api/v1/boards/{board_pk}/cards/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ad6283",
-      "operation": "PUT /api/v1/boards/{board_pk}/columns/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ff8b06",
-      "operation": "PUT /api/v1/boards/{board_pk}/custom-fields/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-21",
-      "last_seen": "2026-09-21"
-    },
-    {
-      "id": "e2741b",
-      "operation": "PUT /api/v1/boards/{board_pk}/labels/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "2d0793",
-      "operation": "PUT /api/v1/boards/{board_pk}/swimlane-custom-fields/reorder/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-20",
-      "last_seen": "2026-09-20"
-    },
-    {
-      "id": "414410",
-      "operation": "PUT /api/v1/boards/{board_pk}/swimlanes/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "6ad048",
-      "operation": "PUT /api/v1/boards/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "596834",
-      "operation": "PATCH /api/v1/boards/{board_pk}/cards/{id}/checklist/{item_pk}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "ab3ef3",
-      "operation": "PUT /api/v1/groups/{id}/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "63918d",
-      "operation": "GET /api/v1/cards/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "6ba086",
-      "operation": "POST /api/v1/boards/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4a036f",
-      "operation": "PATCH /api/v1/auth/user/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "b1d535",
-      "operation": "POST /api/v1/groups/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "7973b6",
-      "operation": "POST /api/v1/groups/{id}/boards/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "dbe1e3",
-      "operation": "POST /api/v1/groups/{id}/star/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "a1cb06",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/relations/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
-      "id": "4ed6e4",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/archive/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-24",
-      "last_seen": "2026-09-24"
-    },
-    {
-      "id": "9fc85f",
-      "operation": "POST /api/v1/boards/{board_pk}/cards/{id}/unarchive/",
-      "check": "status_code_conformance",
-      "failure": "UndefinedStatusCode",
-      "signature": "400",
-      "first_seen": "2026-09-24",
-      "last_seen": "2026-09-24"
     }
   ]
 }

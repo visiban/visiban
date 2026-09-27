@@ -680,6 +680,20 @@ backend-schema-fuzz:
   # content_type_conformance AND under response_schema_conformance (which bundles it
   # with MalformedJson). Baseline both identities or the finding still fails the job
   # deterministically — this is not flakiness, so there is no retry here (#1120).
+  # A red run here is a REAL, replayable defect — never a flake (#1165). The seed
+  # only chooses *which* part of the input space this run explores; a case that
+  # fails is deterministic for its input, so a green re-run just means a different
+  # seed missed it. Three main pipelines went red on 2026-09-26 for exactly this
+  # reason (a POST /groups/ 500 and two undocumented 400s) and "passed on retry".
+  # Therefore:
+  #   * the only retries are the `default:` ones for runner-infrastructure
+  #     failures (`runner_system_failure`/`stuck_or_timeout_failure`); an
+  #     assertion failure is never retried;
+  #   * the seed is generated here, printed, and overridable with FUZZ_SEED so
+  #     the exact failing run can be replayed (see docs/api/openapi.md);
+  #   * `after_script` prints the triage steps on failure.
+  # Do not "fix" a red run by re-running it or by baselining it: fix the endpoint
+  # (a 5xx) or declare the response in the schema (an undocumented 4xx).
   rules:
     - changes:
         - backend/**/views/**/*
@@ -749,8 +763,13 @@ backend-schema-fuzz:
     # does not run in this job — following that redirect is a "Connection refused"
     # NonFatalError, and any NonFatalError exits `st run` 1. Their redirect
     # behavior is covered by accounts/tests/test_email_confirm.py instead.
+    # Fresh seed per run for coverage, but recorded up front (a crash before
+    # st's own summary would otherwise lose it) and pinned via FUZZ_SEED to replay.
+    - echo "${FUZZ_SEED:-$(python3 -c 'import secrets; print(secrets.randbits(64))')}" > /tmp/fuzz_seed
+    - echo "backend-schema-fuzz seed=$(cat /tmp/fuzz_seed)  (to replay, run the pipeline with variable FUZZ_SEED=$(cat /tmp/fuzz_seed))"
     - |
       st run http://localhost:8000/api/schema/ \
+        --seed "$(cat /tmp/fuzz_seed)" \
         -H "Authorization: Token $(cat ${VISIBAN_FUZZ_TOKEN_FILE})" \
         --exclude-path-regex 'confirm-email' \
         --checks response_schema_conformance,status_code_conformance,content_type_conformance \
@@ -762,6 +781,26 @@ backend-schema-fuzz:
         --report junit \
         --report-junit-path schemathesis-junit.xml \
         --no-color
+  after_script:
+    - |
+      if [ "$CI_JOB_STATUS" = "failed" ]; then
+        cat <<EOF
+      ============================================================================
+      backend-schema-fuzz FAILED — treat this as a REAL defect, not a flake.
+      A different seed passing does not mean the endpoint is fine; it means that
+      seed did not reach the failing input (#1165).
+        1. Find the failing operation and status in the "FAILURES" section above.
+        2. 5xx            -> fix the endpoint: validation belongs in the serializer
+                             and must answer 400, never raise.
+           undocumented 4xx -> declare the response (@extend_schema, or a
+                             visiban/schema_hooks.py rule if it is a whole class).
+           schema mismatch -> fix the serializer or the annotation.
+        3. Reproduce: 'st replay <Test Case ID>' with the request in the log, or
+           re-run this job with variable FUZZ_SEED=$(cat /tmp/fuzz_seed 2>/dev/null).
+        4. Do NOT retry the job or add a baseline entry to turn it green.
+      ============================================================================
+      EOF
+      fi
   artifacts:
     reports:
       junit: schemathesis-junit.xml

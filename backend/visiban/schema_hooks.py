@@ -21,10 +21,9 @@ _ERROR_ENVELOPE_SCHEMA = {
     "required": ["detail"],
 }
 
-# status code -> (description, schema). 400 is deliberately absent: validation
-# failures are either a serializer's field-keyed error dict (shape varies per
-# serializer) or one of the CardServiceError bodies, and both are meant to be
-# declared per-endpoint rather than papered over with a generic shape here.
+# status code -> (description, schema). 400 is handled separately below: it is
+# only ever possible on an operation that reads client input, and its body shape
+# varies, so it gets its own (deliberately loose) envelope.
 _STANDARD_ERROR_RESPONSES = {
     "401": (
         "Authentication credentials were not provided, or are invalid/expired.",
@@ -44,7 +43,54 @@ _STANDARD_ERROR_RESPONSES = {
     ),
 }
 
+# What DRF renders for a ``ValidationError`` / ``ParseError`` (#1165, #1124):
+#   * ``{"<field>": ["msg", ...], ...}`` from a serializer (values may nest for
+#     child serializers / ``many=True``),
+#   * ``["msg", ...]`` for a non-field error raised on a list or a bare field,
+#   * ``{"detail": "msg"}`` for a malformed body (``ParseError``).
+# There is no single stricter shape that is true for every endpoint, so the
+# schema says exactly that much: an object or an array. Endpoints whose 400 has
+# a specific body (the ``CardServiceError`` family) still declare it with
+# ``@extend_schema`` and are never overwritten here.
+_VALIDATION_ERROR_SCHEMA = {
+    "oneOf": [
+        {"type": "object", "additionalProperties": True},
+        {"type": "array", "items": {}},
+    ],
+}
+
+_VALIDATION_ERROR_DESCRIPTION = (
+    "The request was malformed or failed validation. The body is DRF's "
+    "validation-error shape: an object keyed by field name (or ``detail``), "
+    "or a list of messages."
+)
+
 _HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete"})
+
+
+_BODY_METHODS = frozenset({"post", "put", "patch"})
+
+
+def _reads_client_input(method, operation):
+    """True if the operation parses a request body or declares query parameters.
+
+    Those are the only operations that can answer 400: a bare path-parameter
+    lookup either resolves or is a 404, so documenting a 400 there would claim
+    a response the server cannot produce. Header/cookie parameters are not
+    counted for the same reason.
+
+    Keyed on the HTTP method, not on a ``requestBody`` entry: a view that
+    declares no serializer has no ``requestBody`` in the schema, but DRF still
+    parses the body and answers 400 to a malformed one (the fuzz job hit exactly
+    that on several auth and swimlane endpoints).
+    """
+    if method in _BODY_METHODS or "requestBody" in operation:
+        return True
+    return any(
+        param.get("in") == "query"
+        for param in operation.get("parameters", [])
+        if isinstance(param, dict)
+    )
 
 
 def add_standard_error_responses(result, generator, request, public):
@@ -67,6 +113,13 @@ def add_standard_error_responses(result, generator, request, public):
             if method not in _HTTP_METHODS:
                 continue
             responses = operation.setdefault("responses", {})
+            if "400" not in responses and _reads_client_input(method, operation):
+                responses["400"] = {
+                    "description": _VALIDATION_ERROR_DESCRIPTION,
+                    "content": {
+                        "application/json": {"schema": _VALIDATION_ERROR_SCHEMA}
+                    },
+                }
             for status_code, (description, schema) in _STANDARD_ERROR_RESPONSES.items():
                 if status_code in responses:
                     continue
