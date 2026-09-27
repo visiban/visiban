@@ -17,10 +17,11 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from boards.models import Board, BoardMembership
 from boards.serializers import BoardFullSerializer, BoardSerializer
 from boards.tests.conftest import _make_board
 from boards.tests.test_move_schema_contract import _openapi3_nullable_to_jsonschema
-from groups.models import Group
+from groups.models import Group, GroupMembership
 
 
 class BoardSchemaContractTests(TestCase):
@@ -74,16 +75,16 @@ class BoardSchemaContractTests(TestCase):
     def test_board_full_redeclared_fields_are_typed(self):
         """BoardFull redeclares Board's fields; they must be typed there too.
 
-        `/full/` is documented against `Board` today, so `BoardFull` never
-        reaches the generated schema and cannot be checked through it. Assert
-        on the serializer's own declarations (what drf-spectacular reads) and
-        on the live value's type instead.
+        Since #1137 `/full/` is documented against its own `BoardFull`
+        component, so the live body is validated through the generated schema
+        as well as through the serializer's own declarations.
         """
         board = _make_board(self.user)
         resp = self.client.get(f"/api/v1/boards/{board.pk}/full/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertIsInstance(resp.json()["is_starred"], bool)
         self.assertIsNone(resp.json()["group_name"])
+        self._assert_valid(resp.json(), self._response_schema("/api/v1/boards/{id}/full/"))
 
         self.assertIs(get_type_hints(BoardFullSerializer.get_is_starred)["return"], bool)
         fields = BoardFullSerializer().fields
@@ -126,3 +127,174 @@ class BoardSchemaContractTests(TestCase):
         self._assert_valid(
             resp.json(), self._response_schema("/api/v1/auth/user/", "patch")
         )
+
+
+class BoardFullMembersSchemaTests(TestCase):
+    """`/full/`'s `members` is the effective roster, not membership rows (#1137).
+
+    `get_members()` synthesizes rows for group-inherited members, the board
+    owner and site admins, with `id: null` and (for site admins)
+    `role: "site_admin"`. The schema must admit those on `/full/` while
+    `/members/` — real rows only — keeps the strict `BoardMembership` shape.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.schema = SchemaGenerator().get_schema(request=None, public=True)
+        cls.components = cls.schema["components"]["schemas"]
+
+    def setUp(self):
+        self.owner = User.objects.create_user(username="owner", password="pass")
+        self.direct = User.objects.create_user(username="direct", password="pass")
+        self.viewer = User.objects.create_user(username="viewer", password="pass")
+        self.inherited = User.objects.create_user(username="inherited", password="pass")
+        self.site_admin = User.objects.create_user(
+            username="siteadmin", password="pass", can_access_all_content=True,
+        )
+        group = Group.objects.create(name="Team", owner=self.owner)
+        GroupMembership.objects.get_or_create(
+            group=group, user=self.inherited, defaults={"role": GroupMembership.Role.MEMBER},
+        )
+        # Deliberately no membership row for the owner: that is one of the
+        # three synthesized-row paths.
+        self.board = Board.objects.create(name="Roster", owner=self.owner, group=group)
+        BoardMembership.objects.create(
+            board=self.board, user=self.direct, role=BoardMembership.Role.ADMIN, is_moderator=True,
+        )
+        BoardMembership.objects.create(
+            board=self.board, user=self.viewer, role=BoardMembership.Role.VIEWER,
+        )
+        self.client = APIClient()
+
+    def _full(self, user):
+        self.client.force_authenticate(user)
+        resp = self.client.get(f"/api/v1/boards/{self.board.pk}/full/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        return resp.json()
+
+    def _validate(self, body, schema_fragment):
+        combined = _openapi3_nullable_to_jsonschema({**schema_fragment, "components": self.schema["components"]})
+        jsonschema.validate(instance=body, schema=combined)
+
+    def _ref(self, schema):
+        return schema["$ref"].rsplit("/", 1)[-1]
+
+    def _enum_of(self, prop):
+        return self.components[self._ref(prop["allOf"][0])]["enum"]
+
+    # ── schema shape ─────────────────────────────────────────────────────────
+
+    def test_full_is_documented_as_boardfull_with_operation_id_unchanged(self):
+        op = self.schema["paths"]["/api/v1/boards/{id}/full/"]["get"]
+        self.assertEqual(op["operationId"], "api_v1_boards_full_retrieve")
+        body = op["responses"]["200"]["content"]["application/json"]["schema"]
+        self.assertEqual(self._ref(body), "BoardFull")
+        members = self.components["BoardFull"]["properties"]["members"]
+        self.assertEqual(members["type"], "array")
+        self.assertEqual(self._ref(members["items"]), "EffectiveBoardMember")
+
+    def test_effective_member_admits_null_id_and_site_admin_role(self):
+        props = self.components["EffectiveBoardMember"]["properties"]
+        self.assertTrue(props["id"].get("nullable"))
+        self.assertEqual(
+            sorted(self._enum_of(props["role"])),
+            ["admin", "collaborator", "member", "site_admin", "viewer"],
+        )
+        # Omitted for requesters below admin (#920), so it must not be required.
+        self.assertNotIn("is_moderator", self.components["EffectiveBoardMember"]["required"])
+
+    def test_members_endpoint_keeps_the_strict_membership_schema(self):
+        op = self.schema["paths"]["/api/v1/boards/{id}/members/"]["post"]
+        for code in ("200", "201"):
+            body = op["responses"][code]["content"]["application/json"]["schema"]
+            self.assertEqual(self._ref(body), "BoardMembership")
+        props = self.components["BoardMembership"]["properties"]
+        self.assertFalse(props["id"].get("nullable", False))
+        self.assertIn("id", self.components["BoardMembership"]["required"])
+        self.assertEqual(self._ref(props["role"]), "RoleEnum")
+        self.assertNotIn("site_admin", self.components["RoleEnum"]["enum"])
+
+    def test_existing_enum_component_names_are_preserved(self):
+        """Adding a second `role` choice set must not rename published enums.
+
+        drf-spectacular's own collision handling would hash-suffix *both*
+        `role` enums; `visiban.schema_hooks.pin_named_enums` prevents that.
+        """
+        self.assertEqual(
+            sorted(self.components["RoleEnum"]["enum"]), ["admin", "collaborator", "member", "viewer"],
+        )
+        self.assertIn("DefaultBoardMemberRoleEnum", self.components)
+        self.assertEqual(
+            self.components["EffectiveBoardRoleEnum"]["enum"],
+            ["admin", "member", "collaborator", "viewer", "site_admin"],
+        )
+        suffixed = [n for n in self.components if n.startswith("Role") and n != "RoleEnum"]
+        self.assertEqual(suffixed, [])
+
+    # ── live response vs schema ──────────────────────────────────────────────
+
+    def test_synthesized_rows_validate_against_full_schema(self):
+        body = self._full(self.direct)  # admin requester: is_moderator present
+        by_user = {m["user"]["username"]: m for m in body["members"]}
+        self.assertIsNone(by_user["owner"]["id"])
+        self.assertIsNone(by_user["inherited"]["id"])
+        self.assertIsNone(by_user["siteadmin"]["id"])
+        self.assertEqual(by_user["siteadmin"]["role"], "site_admin")
+        self._validate(body, self._response_schema())
+
+    def test_non_admin_view_without_is_moderator_validates(self):
+        body = self._full(self.viewer)
+        self.assertTrue(all("is_moderator" not in m for m in body["members"]))
+        self._validate(body, self._response_schema())
+
+    def test_synthesized_rows_do_not_fit_the_strict_membership_schema(self):
+        """The reason `/full/` needs its own component, pinned as a test."""
+        body = self._full(self.direct)
+        site_admin_row = next(m for m in body["members"] if m["role"] == "site_admin")
+        with self.assertRaises(jsonschema.ValidationError):
+            self._validate(site_admin_row, {"$ref": "#/components/schemas/BoardMembership"})
+
+    def test_members_endpoint_response_validates_against_strict_schema(self):
+        self.client.force_authenticate(self.direct)
+        newcomer = User.objects.create_user(username="newcomer", password="pass")
+        resp = self.client.post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": newcomer.pk, "role": "member"}, format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertIsNotNone(resp.json()["id"])
+        self._validate(resp.json(), {"$ref": "#/components/schemas/BoardMembership"})
+
+    # ── wire format unchanged ────────────────────────────────────────────────
+
+    def test_response_body_is_unchanged(self):
+        """#1137 is schema-only: pin the exact wire shape it must not alter."""
+        body = self._full(self.direct)
+        self.assertEqual(list(body), [
+            "id", "uid", "name", "description", "owner", "group", "group_name", "group_detail",
+            "columns", "swimlanes", "cards", "labels", "members", "custom_field_definitions",
+            "swimlane_custom_field_definitions", "staleness_threshold_days", "stale_warning_pct",
+            "allowed_priorities", "enforce_wip_limits", "enforce_wip_hard", "enforce_weight_limits",
+            "export_min_role", "card_density", "show_wip_at_limit", "created_at", "updated_at",
+            "current_user_role", "is_starred", "share_token", "share_token_expires_at", "capabilities",
+        ])
+        self.assertIsInstance(body["allowed_priorities"], list)
+        self.assertEqual(body["current_user_role"], "admin")
+        by_user = {m["user"]["username"]: m for m in body["members"]}
+        self.assertEqual(
+            {name: (row["id"] is None, row["role"], sorted(row)) for name, row in by_user.items()},
+            {
+                "direct": (False, "admin", ["id", "is_moderator", "joined_at", "role", "user"]),
+                "viewer": (False, "viewer", ["id", "is_moderator", "joined_at", "role", "user"]),
+                "inherited": (True, "member", ["id", "is_moderator", "joined_at", "role", "user"]),
+                "owner": (True, "admin", ["id", "is_moderator", "joined_at", "role", "user"]),
+                "siteadmin": (True, "site_admin", ["id", "is_moderator", "joined_at", "role", "user"]),
+            },
+        )
+        self.assertIs(by_user["direct"]["is_moderator"], True)
+        self.assertIs(by_user["siteadmin"]["is_moderator"], False)
+
+    def _response_schema(self):
+        op = self.schema["paths"]["/api/v1/boards/{id}/full/"]["get"]
+        return op["responses"]["200"]["content"]["application/json"]["schema"]

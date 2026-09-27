@@ -154,11 +154,30 @@ export function userDisplayName(user: Pick<User, "display_name" | "username"> & 
   return user.display_name || user.first_name || user.username;
 }
 
+/** A real membership row, as `/boards/{id}/members/` returns it. */
 export interface BoardMembership {
+  id: number;
+  user: BoardUser;
+  role: BoardRole;
+  /** Omitted for a requester below admin/site_admin (#920) — not always present. */
+  is_moderator?: boolean;
+  joined_at: string;
+}
+
+/**
+ * One row of `BoardFull.members` — the board's *effective* roster, not its
+ * membership rows (#1137). Group-inherited members, the board owner and site
+ * admins are included with no membership row behind them, so `id` is `null`
+ * for those and site admins carry `role: "site_admin"`. Every `BoardMembership`
+ * is a valid `EffectiveBoardMember`, which is what lets a `/members/` response
+ * be merged straight into `board.members`.
+ */
+export interface EffectiveBoardMember {
   id: number | null;
   user: BoardUser;
   role: BoardOrSiteRole;
-  is_moderator: boolean;
+  /** Omitted for a requester below admin/site_admin (#920) — not always present. */
+  is_moderator?: boolean;
   joined_at: string;
 }
 
@@ -623,7 +642,7 @@ export interface BoardFull {
   swimlanes: Swimlane[];
   cards: Card[];
   labels: Label[];
-  members: BoardMembership[];
+  members: EffectiveBoardMember[];
   custom_field_definitions: CustomFieldDefinition[];
   /** The board's swimlane-row field schema (#1140). Independent of the card schema above. */
   swimlane_custom_field_definitions: SwimlaneCustomFieldDefinition[];

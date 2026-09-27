@@ -409,6 +409,8 @@ SPECTACULAR_SETTINGS = {
     # response_schema_conformance check has something to validate against
     # instead of silently skipping undocumented error responses (#1080).
     "POSTPROCESSING_HOOKS": [
+        # Must run before postprocess_schema_enums — see the hook's docstring (#1137).
+        "visiban.schema_hooks.pin_named_enums",
         "drf_spectacular.hooks.postprocess_schema_enums",
         "visiban.schema_hooks.add_standard_error_responses",
     ],

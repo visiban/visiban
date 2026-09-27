@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BoardFull, BoardMembership } from "../../types";
+import type { BoardFull, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import { setBoardMember, removeBoardMember } from "../../api/boards";
 import type { BoardRole } from "../../api/boards";
@@ -9,7 +9,7 @@ import ModalWrapper from "../shared/ModalWrapper";
 interface Props {
   board: BoardFull;
   onClose: () => void;
-  onMembersChanged: (members: BoardMembership[]) => void;
+  onMembersChanged: (members: EffectiveBoardMember[]) => void;
 }
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
@@ -25,7 +25,7 @@ const ROLE_OPTIONS = ROLES.map((r) => ({
 }));
 
 export default function BoardMembersModal({ board, onClose, onMembersChanged }: Props) {
-  const [members, setMembers] = useState<BoardMembership[]>(board.members);
+  const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<number | null>(null);
 

@@ -129,15 +129,6 @@
       "last_seen": "2026-09-16"
     },
     {
-      "id": "fe705c",
-      "operation": "GET /api/v1/boards/{id}/full/",
-      "check": "response_schema_conformance",
-      "failure": "JsonSchemaError",
-      "signature": "x-bundled/schema1/required",
-      "first_seen": "2026-09-16",
-      "last_seen": "2026-09-16"
-    },
-    {
       "id": "0a9a4c",
       "operation": "GET /api/v1/boards/{id}/movements/",
       "check": "response_schema_conformance",

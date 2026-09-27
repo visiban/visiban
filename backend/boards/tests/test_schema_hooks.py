@@ -165,3 +165,57 @@ class GeneratedSchemaDocuments400Tests(TestCase):
             and "400" not in op["responses"]
         ]
         self.assertEqual(missing, [])
+
+
+class PinNamedEnumsTests(TestCase):
+    """visiban.schema_hooks.pin_named_enums (#1137)."""
+
+    def _generator(self):
+        from types import SimpleNamespace
+
+        from drf_spectacular.plumbing import ComponentRegistry
+        return SimpleNamespace(registry=ComponentRegistry())
+
+    def _result(self, role_prop, current_prop=None):
+        schemas = {"EffectiveBoardMember": {"type": "object", "properties": {"role": role_prop}}}
+        if current_prop is not None:
+            schemas["BoardFull"] = {"type": "object", "properties": {"current_user_role": current_prop}}
+        return {"components": {"schemas": schemas}}
+
+    def test_lifts_inline_enum_into_named_component(self):
+        from visiban.schema_hooks import pin_named_enums
+        gen = self._generator()
+        result = self._result({"type": "string", "enum": ["admin", "site_admin"], "readOnly": True})
+        pin_named_enums(result, gen, None, True)
+        prop = result["components"]["schemas"]["EffectiveBoardMember"]["properties"]["role"]
+        self.assertEqual(prop, {
+            "readOnly": True, "allOf": [{"$ref": "#/components/schemas/EffectiveBoardRoleEnum"}],
+        })
+        built = gen.registry.build({})
+        self.assertEqual(built["schemas"]["EffectiveBoardRoleEnum"], {"enum": ["admin", "site_admin"], "type": "string"})
+
+    def test_nullable_enum_gets_null_branch(self):
+        from visiban.schema_hooks import pin_named_enums
+        gen = self._generator()
+        enum = {"type": "string", "enum": ["admin", "site_admin"]}
+        result = self._result(dict(enum), {**enum, "enum": ["admin", "site_admin", None], "nullable": True})
+        pin_named_enums(result, gen, None, True)
+        prop = result["components"]["schemas"]["BoardFull"]["properties"]["current_user_role"]
+        self.assertTrue(prop["nullable"])
+        self.assertEqual(prop["oneOf"], [
+            {"$ref": "#/components/schemas/EffectiveBoardRoleEnum"},
+            {"$ref": "#/components/schemas/NullEnum"},
+        ])
+
+    def test_conflicting_choice_sets_for_one_name_raise(self):
+        from visiban.schema_hooks import pin_named_enums
+        result = self._result({"type": "string", "enum": ["admin"]}, {"type": "string", "enum": ["viewer"]})
+        with self.assertRaises(ValueError):
+            pin_named_enums(result, self._generator(), None, True)
+
+    def test_missing_or_already_referenced_property_is_left_alone(self):
+        from visiban.schema_hooks import pin_named_enums
+        ref = {"allOf": [{"$ref": "#/components/schemas/Whatever"}]}
+        result = self._result(dict(ref))
+        pin_named_enums(result, self._generator(), None, True)
+        self.assertEqual(result["components"]["schemas"]["EffectiveBoardMember"]["properties"]["role"], ref)

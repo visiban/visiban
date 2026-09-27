@@ -10,7 +10,7 @@ import { Markdown } from "tiptap-markdown";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
-import type { BoardMembership, BoardUser } from "../../types";
+import type { BoardUser, EffectiveBoardMember } from "../../types";
 import { userDisplayName } from "../../types";
 import MentionList from "./MentionList";
 import type { MentionListRef } from "./MentionList";
@@ -20,7 +20,7 @@ interface Props {
   onSave: (value: string) => void;
   readOnly?: boolean;
   placeholder?: string;
-  members?: BoardMembership[];
+  members?: EffectiveBoardMember[];
   minHeight?: string;
   /** When true, shows explicit Save + Cancel buttons instead of blur-to-save */
   showActions?: boolean;
@@ -196,7 +196,7 @@ export default function RichTextEditor({
   const originalValueRef = useRef(value);
   // Keep the latest members list accessible in the suggestion closure without
   // recreating the Tiptap editor whenever the members prop changes.
-  const membersRef = useRef<BoardMembership[] | undefined>(members);
+  const membersRef = useRef<EffectiveBoardMember[] | undefined>(members);
   // Set to true for one microtask tick when the mention-suggestion popup handles
   // an Escape key. Prevents the same keypress from also cancelling edit mode.
   const mentionJustClosedRef = useRef(false);

@@ -128,3 +128,62 @@ def add_standard_error_responses(result, generator, request, public):
                     "content": {"application/json": {"schema": schema}},
                 }
     return result
+
+
+# (component, property) -> enum component name, for enums whose auto-derived
+# name would collide (#1137).
+#
+# drf-spectacular's ``postprocess_schema_enums`` names an enum after its
+# property. ``BoardFull.members[].role`` (EffectiveBoardMember) and
+# ``BoardMembership.role`` are both called ``role`` but carry different choice
+# sets — the effective roster adds ``site_admin``. On that collision the
+# built-in hook renames *both* enums with a hash suffix, which would silently
+# rename the long-published ``RoleEnum`` out from under every generated client.
+# ``ENUM_NAME_OVERRIDES`` cannot fix it either: overrides are keyed by choice
+# set, and ``RoleEnum``'s set is shared with ``DefaultBoardMemberRoleEnum``, so
+# pinning one name collapses the other into it.
+#
+# Lifting these enums into their own named component *before* the built-in
+# hook runs removes them from its collision analysis entirely, so every
+# existing enum keeps exactly the name it had.
+_PINNED_ENUMS = {
+    ("EffectiveBoardMember", "role"): "EffectiveBoardRoleEnum",
+    ("BoardFull", "current_user_role"): "EffectiveBoardRoleEnum",
+}
+
+
+def pin_named_enums(result, generator, request, public):
+    """Lift each ``_PINNED_ENUMS`` property's inline enum into a named component.
+
+    Must be listed before ``drf_spectacular.hooks.postprocess_schema_enums``.
+    The replacement mirrors what the built-in hook emits (``allOf`` a ref, or
+    ``oneOf`` with ``NullEnum`` when the field is nullable), so the published
+    shape is indistinguishable from an auto-named enum.
+    """
+    from drf_spectacular.plumbing import ResolvedComponent
+
+    def register(name, schema):
+        # Through the registry, not straight into ``result``: the built-in enum
+        # hook rebuilds ``result["components"]`` from the registry when it runs.
+        component = ResolvedComponent(name=name, type=ResolvedComponent.SCHEMA, schema=schema, object=name)
+        generator.registry.register_on_missing(component)
+        registered = generator.registry[component].schema
+        if registered != schema:
+            raise ValueError(f"{name} is pinned with {schema}, but already holds {registered}")
+        return component.ref
+
+    schemas = result.get("components", {}).get("schemas", {})
+    for (component, prop), enum_name in _PINNED_ENUMS.items():
+        props = schemas.get(component, {}).get("properties", {})
+        prop_schema = props.get(prop)
+        if not prop_schema or "enum" not in prop_schema:
+            continue
+        values = [v for v in prop_schema["enum"] if v not in ("", None)]
+        ref = register(enum_name, {"enum": values, "type": prop_schema.get("type", "string")})
+        rest = {k: v for k, v in prop_schema.items() if k not in ("type", "enum", "x-spec-enum-id")}
+        if None in prop_schema["enum"]:
+            null_ref = register("NullEnum", {"enum": [None]})
+            props[prop] = {**rest, "oneOf": [ref, null_ref]}
+        else:
+            props[prop] = {**rest, "allOf": [ref]}
+    return result

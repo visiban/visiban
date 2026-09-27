@@ -10,11 +10,12 @@ either one covers your change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **14** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139, this page) | The **generated OpenAPI document** | **18** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139, this page) | The **generated OpenAPI document** | **20** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
 Neither supersedes the other, and a green run of one says nothing about the other — but since
-#1139 the coverage gap is down to a single, structural difference: **#821 reaches three pairs
-this gate cannot, because `drf-spectacular` emits no component for them.** See
+#1139 the coverage gap is down to a single, structural difference: **#821 reaches two pairs
+this gate cannot, because `drf-spectacular` emits no component for them** (a third, `BoardFull`,
+gained a component in #1137). See
 [Coverage](#coverage) for the pair-by-pair table.
 
 Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
@@ -26,7 +27,8 @@ The distinction that matters: #821 asks "does the serializer emit this field?" �
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
 the second, and in practice several do. Eight fields on `Board` and `CurrentUser` were
 published as `string` while returning ints, bools and nested objects (#1135); `BoardFull.members`
-sends rows the `BoardMembership` component forbids (#1137); a nullable field was declared
+sent rows the `BoardMembership` component forbids (#1137, fixed by publishing `BoardFull` with
+its own `EffectiveBoardMember` row component); a nullable field was declared
 non-nullable (#1138, fixed — a declared serializer field does not inherit `null=True` from the
 model the way an auto-generated one does; `Board.group_name` had the same symptom but was
 already fixed by earlier, unrelated work before #1138's branch existed). Every one of those
@@ -74,11 +76,12 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 
 ## Coverage
 
-`COMPONENT_MAP` in the script is authoritative. As of #1139 it is:
+`COMPONENT_MAP` in the script is authoritative. As of #1137 it is:
 
 | Schema component | TypeScript interface | Also name-checked by #821 |
 |---|---|---|
 | `Board` | `Board` | yes |
+| `BoardFull` | `BoardFull` | yes |
 | `BoardMembership` | `BoardMembership` | yes |
 | `BoardUser` | `BoardUser` | yes |
 | `Card` | `Card` | yes |
@@ -90,6 +93,7 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `CurrentUser` | `User` | yes |
 | `CustomFieldDefinition` | `CustomFieldDefinition` | no |
 | `CustomFieldValue` | `CustomFieldValue` | no |
+| `EffectiveBoardMember` | `EffectiveBoardMember` | no |
 | `Group` | `Group` | no |
 | `GroupBrief` | `GroupBrief` | no |
 | `GroupLabel` | `GroupLabel` | no |
@@ -104,16 +108,15 @@ out would be a hole the gate's own name check cannot see.
 
 ### What is not covered, and why
 
-Three pairs #821 name-checks are absent here, all for the same structural reason: the schema
+Two pairs #821 name-checks are absent here, both for the same structural reason: the schema
 has no component to diff against, so there is nothing this gate could compare.
 
 | Pair | Why excluded |
 |---|---|
-| `BoardFull` | `drf-spectacular` emits no component for `BoardFullSerializer`. #821 name-checks it via serializer introspection; extending this gate there depends on the component existing first. |
 | `CardActivity` | No component emitted. |
 | `CardAttachment` | No component emitted. |
 
-That is a **missing component, not a passing check** — the three are unchecked here, and the
+That is a **missing component, not a passing check** — the two are unchecked here, and the
 gate says nothing about their published types. Making them checkable means getting
 `drf-spectacular` to emit components for them, which needs its own issue.
 
@@ -271,7 +274,7 @@ would assert a correspondence that does not exist. That union stays hand-maintai
 [#1078](https://gitlab.com/visiban/visiban/-/issues/1078) covers WebSocket event reachability
 separately.
 
-**Pairs with no schema component.** `BoardFull`, `CardActivity` and `CardAttachment` — see
+**Pairs with no schema component.** `CardActivity` and `CardAttachment` — see
 [What is not covered, and why](#what-is-not-covered-and-why).
 
 **Request bodies.** `SPECTACULAR_SETTINGS` sets `COMPONENT_SPLIT_REQUEST: True`, so the schema

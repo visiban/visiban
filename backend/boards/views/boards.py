@@ -500,6 +500,12 @@ class BoardViewSet(
             transaction.on_commit(_broadcast_move)
         return Response(board_data)
 
+    # Without this the action inherits the viewset's serializer_class, and the
+    # schema described /full/ as a plain `Board` — a shape it does not return
+    # (no card_count/member_count; columns, cards, members, ... undocumented).
+    # Publishing the real serializer is what lets `members` carry its own
+    # effective-roster component (#1137). Schema only; the body is unchanged.
+    @extend_schema(responses=BoardFullSerializer)
     @action(detail=True, methods=["get"])
     def full(self, request, pk=None):
         """Return the full board state: columns, swimlanes, cards, labels, and members.

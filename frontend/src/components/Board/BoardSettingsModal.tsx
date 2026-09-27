@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import ModalWrapper from "../shared/ModalWrapper";
 import SelectDropdown from "../Common/SelectDropdown";
 import RoleInfoTooltip from "../Common/RoleInfoTooltip";
-import type { BoardFull, BoardMembership, CardDensity, CustomFieldDefinition, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
+import type { BoardFull, CardDensity, CustomFieldDefinition, EffectiveBoardMember, LensConnection, SwimlaneCustomFieldDefinition, User } from "../../types";
 import BoardSettingsFieldsTab from "./BoardSettingsFieldsTab";
 import BoardSettingsSwimlaneFieldsTab from "./BoardSettingsSwimlaneFieldsTab";
 import { userDisplayName } from "../../types";
@@ -88,7 +88,7 @@ function RoleTooltip() {
 
 export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [members, setMembers] = useState<BoardMembership[]>(board.members);
+  const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
   const [pendingRemove, setPendingRemove] = useState<number | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
@@ -478,9 +478,9 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                           <label className="flex items-center gap-1.5 cursor-pointer select-none">
                             <input
                               type="checkbox"
-                              checked={m.is_moderator}
+                              checked={m.is_moderator ?? false}
                               disabled={isDisabled}
-                              onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator)}
+                              onChange={() => handleModeratorToggle(m.user.id, m.role as BoardRole, m.is_moderator ?? false)}
                               className="rounded border-line-strong bg-surface-hover text-info focus:ring-primary-emphasis focus:ring-offset-0 w-3.5 h-3.5"
                             />
                             <span className="text-xs text-fg-tertiary">Moderator</span>
