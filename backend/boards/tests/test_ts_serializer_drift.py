@@ -40,6 +40,7 @@ from boards.serializers import (
     CardMovementSerializer,
     CardSerializer,
     ColumnSerializer,
+    ExternalRefSerializer,
     LabelSerializer,
     SwimlaneAdminSerializer,
     SwimlaneCustomFieldDefinitionSerializer,
@@ -79,6 +80,8 @@ _DRIFT_PAIRS: list[tuple[type, str, set[str]]] = [
     (CardAttachmentSerializer, "CardAttachment", set()),
     (BoardMembershipSerializer, "BoardMembership", set()),
     (BoardUserSerializer, "BoardUser", set()),
+    # Card MR/PR link (#352) — nested under Card.external_ref.
+    (ExternalRefSerializer, "CardExternalRef", set()),
 ]
 
 

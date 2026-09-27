@@ -19,6 +19,7 @@ import Avatar from "../Common/Avatar";
 import ModalWrapper from "../shared/ModalWrapper";
 import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
+import CardExternalRefSection from "./CardExternalRefSection";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
 
 interface Props {
@@ -784,6 +785,17 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                     blocker_count: Math.max(0, c.blocker_count + delta),
                   }))
                 }
+              />
+
+              {/* MR/PR link (#352) — right after relations: both are "what this
+                  card connects to". Renders its own trailing divider, and
+                  nothing at all for a read-only reader when no link is set.
+                  `save` rolls back and rethrows, so the section can show the
+                  server's validation error inline. */}
+              <CardExternalRefSection
+                externalRef={localCard.external_ref}
+                canEdit={canEdit}
+                onSave={(next) => save({ external_ref: next })}
               />
 
               {/* Checklist */}

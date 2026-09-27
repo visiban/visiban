@@ -252,6 +252,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Maximum upload size. Operators can override via MAX_UPLOAD_SIZE_BYTES env var.
 MAX_UPLOAD_SIZE = env.int("MAX_UPLOAD_SIZE_BYTES", default=10 * 1024 * 1024)
 
+# Maximum Trello JSON export accepted by POST /api/boards/import/trello/ (#456),
+# in bytes. Separate from MAX_UPLOAD_SIZE because Trello exports of large boards
+# routinely exceed the 10 MB attachment cap. The import runs synchronously, so
+# per-import count caps in boards/services/trello_import.py bound the work, not
+# this value alone. Reverse proxies must allow bodies at least this large.
+VISIBAN_IMPORT_MAX_SIZE = env.int("VISIBAN_IMPORT_MAX_SIZE", default=25 * 1024 * 1024)
+
 # X-Accel-Redirect (Nginx sendfile) for media downloads. Default: enabled in
 # production, disabled in development. Operators on platforms that don't mount
 # the media volume on Nginx (e.g. the Helm chart, where only the backend mounts
@@ -363,6 +370,10 @@ REST_FRAMEWORK = {
         "choose_username": "9999/hour" if DEBUG else "10/min",
         # Board import: each import can create up to 500 cards; cap prevents DB flooding.
         "board_import": "9999/hour" if DEBUG else "10/hour",
+        # Trello import previews (#456): the wizard re-previews on every mapping
+        # change, so previews get their own looser budget; confirmed Trello
+        # imports share "board_import" above.
+        "board_import_preview": "9999/hour" if DEBUG else "60/hour",
         # Board export: responses can be tens of MB; cap prevents programmatic hammering.
         "board_export": "9999/hour" if DEBUG else "20/hour",
         # Email verification: HMAC keys are not brute-forceable; scope exists for

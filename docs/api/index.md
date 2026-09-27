@@ -7,7 +7,7 @@ Visiban exposes a REST JSON API. All endpoints require an authenticated session 
 | Reference | Description |
 |---|---|
 | [Authentication](authentication.md) | Login, logout, OAuth flows, session auth, Personal Access Tokens (PATs), WebSocket tickets |
-| [Boards API](boards.md) | Boards, columns, swimlanes, labels, and board member management |
+| [Boards API](boards.md) | Boards, columns, swimlanes, labels, board member management, and board export/import (including Trello import, since 1.2) |
 | [Cards API](cards.md) | Cards, move endpoint, comments, attachments, checklists, and activity |
 | [Groups API](groups.md) | Groups, subgroups, group members, and invite links |
 | [Notifications API](notifications.md) | List unread notifications, mark as read, and get unread count |

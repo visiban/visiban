@@ -32,7 +32,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
     last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
     is_stale: false, archived_at: null, version: 1, custom_field_values: [],
-    blocker_count: 0,
+    blocker_count: 0, external_ref: null,
     ...overrides,
   }
 }

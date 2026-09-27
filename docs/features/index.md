@@ -48,10 +48,11 @@ Click any card to open a side panel with full context:
 - **Checklist** — sub-tasks with progress tracking
 - **Attachments** — upload files directly to a card (up to 10 MB each)
 - **Description** — rich text editor with bold, italic, code, lists, headings, blockquote, and text color; type `@username` to mention a board member and send them a notification
+- **Pull / merge request** — link a GitHub or GitLab PR/MR to the card
 - **Comments** — threaded discussion visible to collaborators and above
 - **History tab** — full movement timeline and activity log
 
-→ [Card History](card-history.md) · [Card Descriptions](card-descriptions.md)
+→ [Card History](card-history.md) · [Card Descriptions](card-descriptions.md) · [Pull & Merge Request Links](card-links.md)
 
 ---
 
@@ -61,7 +62,9 @@ Select multiple cards at once and apply bulk actions — move to a column, assig
 
 Export your board as CSV or JSON for backup or analysis, or import a previously exported board to recreate it with all its structure and cards. Import accepts lowercase and snake_case column headers (e.g. `title`, `due_date`) so files from external tools import cleanly without manual editing.
 
-→ [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export-import)
+Coming from Trello? Import a Trello board JSON export into a new board, with a preview of how lists, labels, checklists, comments, and members will map before anything is created.
+
+→ [Board & Cards](board.md#bulk-card-operations) · [Export & Import](board.md#export-import) · [Import from Trello](trello-import.md)
 
 ---
 
