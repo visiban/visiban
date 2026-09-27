@@ -2467,6 +2467,13 @@ arm64-runner-check:
   script:
     - bash scripts/check-arm64-runner.sh --self-test
     - bash scripts/check-arm64-runner.sh "${ARM64_RUNNER_ID}"
+    # docker-push-retry.sh is sourced (not invoked directly) from
+    # .docker-publish-arm64-base below, which gate-selftest-parity's static
+    # scan still requires a --self-test call for (see
+    # docs/development/ci-gates.md). Its self-test needs no docker daemon —
+    # DOCKER_PUSH_CMD stubs it — so it runs cleanly on this plain alpine job
+    # rather than needing the arm64 runner itself.
+    - bash scripts/docker-push-retry.sh --self-test
 
 # ─── Docker push — arm64 leg (native, shell executor, #1084) ──────────────────
 #
@@ -2513,9 +2520,20 @@ arm64-runner-check:
         echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging." >&2
         exit 1
       fi
-    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    # --password-stdin, not -p: this runner is persistent/shared (see the
+    # class comment above), so a password on the command line would sit in
+    # `ps` output for any concurrently-scheduled job on the same host to read.
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
     - . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
+  # Persistent shared host, not a disposable container — clear the
+  # credential store this job wrote to so it doesn't outlive the job for
+  # whatever else gets scheduled onto the same runner next. `after_script`
+  # runs even if `script:` failed, unlike a trailing script line; `|| true`
+  # so a logout failure never masks the job's real pass/fail result.
+  after_script:
+    - docker logout "${CI_REGISTRY}" || true
+    - docker logout ghcr.io || true
 
 backend-docker-push-arm64:
   extends: .docker-publish-arm64-base
@@ -2596,7 +2614,10 @@ frontend-docker-push-arm64:
         echo "Configure both under Settings → CI/CD → Variables (Masked + Protected) before tagging." >&2
         exit 1
       fi
-    - docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
+    # --password-stdin, not -p, for consistency with .docker-publish-arm64-base
+    # (never put a credential on a command line — this job's own container is
+    # disposable, but the habit should hold everywhere in this file).
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
     - echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
 # assemble_manifests <GitLab-registry image ref> <GHCR image ref> — one
