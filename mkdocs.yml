@@ -136,6 +136,7 @@ nav:
     - Demo Data: administration/demo-data.md
     - Django Admin: administration/django-admin.md
     - Media Storage Security: administration/media-security.md
+    - Container Image Retention: administration/container-image-retention.md
     - Secret Rotation: administration/secret-rotation.md
     - Upgrading: administration/upgrade.md
     - Zero-Downtime Upgrade Playbook: administration/zero-downtime-upgrade.md

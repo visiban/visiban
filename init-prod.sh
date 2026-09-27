@@ -27,6 +27,13 @@ set +a
 
 : "${DOMAIN:?Set DOMAIN=yourdomain.com in .env}"
 
+# docker-compose.prod.yml itself now fails closed on a missing APP_VERSION too
+# (${APP_VERSION:?...}, #1074) — no more silent fallback to the mutable
+# `latest` tag. Checking it here as well gives a clear, early failure before
+# any docker/certbot work starts, rather than compose's own (also clear, but
+# later) error on the first `up`/`pull`.
+: "${APP_VERSION:?Set APP_VERSION=vX.Y.Z in .env — see .env.example for the version this checkout was released with. It no longer defaults to the mutable 'latest' tag.}"
+
 TLS_MODE="${TLS_MODE:-letsencrypt}"
 
 # ---------------------------------------------------------------------------

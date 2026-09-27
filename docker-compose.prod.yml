@@ -2,7 +2,9 @@
 # then: docker compose -f docker-compose.prod.yml up -d
 #
 # Required .env variables (in addition to the standard ones):
-#   APP_VERSION=v1.0.0          (image tag to pull; defaults to "latest" if unset)
+#   APP_VERSION=v1.1.0          (image tag to pull; REQUIRED — see #1074. No longer
+#                                defaults to the mutable "latest" tag; .env.example
+#                                ships a pinned value)
 #   DOMAIN=yourdomain.com
 #   TLS_MODE=letsencrypt        (letsencrypt | selfsigned | none)
 #   CERTBOT_EMAIL=admin@yourdomain.com   (required only when TLS_MODE=letsencrypt)
@@ -57,7 +59,7 @@ services:
   # Runs migrations, collectstatic, and admin bootstrap once before the backend
   # starts. Exits 0 on success; the backend service waits for this to complete.
   backend-init:
-    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
@@ -78,7 +80,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
     command: ["daphne", "-b", "0.0.0.0", "-p", "8000", "visiban.asgi:application"]
     restart: unless-stopped
     read_only: true
@@ -112,7 +114,7 @@ services:
   # starts exactly what it did before. Enable it with COMPOSE_PROFILES=scheduler
   # in .env (comma-separate if you also use letsencrypt), then `up -d` again.
   scheduler:
-    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:-latest}
+    image: ghcr.io/visiban/visiban/backend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
     command: ["python", "manage.py", "run_scheduler"]
     restart: unless-stopped
     profiles: ["scheduler"]
@@ -139,7 +141,7 @@ services:
   # volume so nginx can serve them. Exits immediately after the copy completes.
   # nginx waits for this service to complete before starting.
   frontend-build:
-    image: ghcr.io/visiban/visiban/frontend:${APP_VERSION:-latest}
+    image: ghcr.io/visiban/visiban/frontend:${APP_VERSION:?APP_VERSION must be set in .env — see .env.example. Pin it to a released tag (e.g. v1.1.0); it no longer silently falls back to the mutable 'latest' tag (#1074)}
     entrypoint: ["/bin/sh", "-c"]
     command: ["cp -r /usr/share/nginx/html/. /dist/"]
     volumes:

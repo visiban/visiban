@@ -374,7 +374,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 - Services: `db` (Postgres 17 Alpine), `valkey` (Valkey 8 Alpine — the Redis-compatible, BSD-licensed fork), `backend` (daphne ASGI), `frontend-build` (init container that copies SPA assets into a shared volume), `nginx` (1.27 Alpine), `certbot` (auto-renewing Let's Encrypt every 12 hours)
 - `DB_PASSWORD` is mandatory — the compose file fails fast with a descriptive error if unset; no insecure default
 - `DOMAIN` is mandatory — nginx config is rendered at container startup via `envsubst` so the host never needs to run it manually
-- `APP_VERSION` env var controls which image tag is pulled (defaults to `latest`)
+- `APP_VERSION` env var controls which image tag is pulled — required; the compose file fails fast if unset rather than resolving to the mutable `latest` tag
 - Backend health-checked at `/api/health/liveness/` before nginx starts
 - `certbot` container auto-renews every 12 hours; nginx serves `/.well-known/acme-challenge/` for ACME verification
 
