@@ -2537,10 +2537,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#outgoing-webhooks-enterprise" class="md-nav__link">
+  <a href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Outgoing webhooks (Enterprise)
+        Outgoing webhooks (OSS) vs webhook operations (Enterprise)
       
     </span>
   </a>
@@ -3635,10 +3635,16 @@
 <td>#344</td>
 </tr>
 <tr>
-<td>Outgoing webhooks</td>
+<td>Outgoing webhooks (per-board, signed, best-effort)</td>
+<td>OSS</td>
+<td>Minimum integration surface for a team tool; delivered from the change feed with no task queue. Reversed from Enterprise on 2026-04-15</td>
+<td>#863</td>
+</tr>
+<tr>
+<td>Webhook operations layer (guaranteed delivery, delivery log + replay, account-wide subscriptions, delivery audit)</td>
 <td>Enterprise</td>
-<td>Integration with external services; small teams can work inside Visiban without them</td>
-<td>#345→enterprise</td>
+<td>Reliability and support tooling for hosted and large operators; basic webhooks work without it</td>
+<td>enterprise #44</td>
 </tr>
 <tr>
 <td>Saved filters per user per board</td>
@@ -3707,10 +3713,10 @@
 <td>#352 Phase 1</td>
 </tr>
 <tr>
-<td>Auto PR-to-card link via webhooks</td>
-<td>Enterprise</td>
-<td>Depends on enterprise webhook feature</td>
-<td>#352 Phase 2</td>
+<td>Auto PR-to-card link from commits/PRs</td>
+<td>OSS</td>
+<td>Superseded #352 Phase 2 once outgoing webhooks stopped being Enterprise; rescoped as a per-board <em>inbound</em> webhook from the git provider. The auto-transition-on-merge slice still needs an enterprise-check before build (see #857)</td>
+<td>#857</td>
 </tr>
 <tr>
 <td>URL filter state persistence (bookmarkable views)</td>
@@ -3972,17 +3978,16 @@
 <p>The OSS analytics page must expose an <code>ANALYTICS_EXTENSIONS</code> registration point so enterprise can add panels without modifying OSS view files.</p>
 <p><strong>Issue:</strong> #341</p>
 <hr />
-<h3 id="outgoing-webhooks-enterprise">Outgoing webhooks (Enterprise)<a class="headerlink" href="#outgoing-webhooks-enterprise" title="Permanent link">&para;</a></h3>
-<p>Outgoing webhooks are classified enterprise. A small team can track work end-to-end inside Visiban without pushing events to external systems.</p>
-<p><strong>OSS extension point required:</strong> The OSS core must fire card-level signals so enterprise can subscribe the webhook dispatcher without wrapping individual view methods:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># boards/signals.py — required before enterprise webhook feature (#39) can be built</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">post_card_created</span>    <span class="c1"># sender=Card, kwargs: card, actor</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">post_card_moved</span>      <span class="c1"># sender=Card, kwargs: card, from_column, to_column, actor</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">post_card_closed</span>     <span class="c1"># sender=Card, kwargs: card, actor</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">post_card_updated</span>    <span class="c1"># sender=Card, kwargs: card, changed_fields, actor</span>
-</code></pre></div>
-<p>A <code>VISIBAN_WEBHOOK_BACKEND</code> registration pattern must also be defined in OSS settings.</p>
-<p><strong>Issue:</strong> enterprise #39 (transferred from OSS #345).</p>
+<h3 id="outgoing-webhooks-oss-vs-webhook-operations-enterprise">Outgoing webhooks (OSS) vs webhook operations (Enterprise)<a class="headerlink" href="#outgoing-webhooks-oss-vs-webhook-operations-enterprise" title="Permanent link">&para;</a></h3>
+<p>Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the <a href="../../api/events/">board change feed</a> by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling. On 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.</p>
+<p>The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. These make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers that need exact delivery can poll the change feed directly.</p>
+<p><strong>OSS extension points:</strong></p>
+<ul>
+<li><strong>The change feed</strong> (#1114, shipped in 1.2) is the delivery source. It is durable, ordered, and replayable by cursor, and it covers every board event type. The Enterprise dispatcher reads it exactly as the OSS one does.</li>
+<li><strong><code>BOARD_EVENT_HOOKS</code></strong> (<code>boards/hooks.py</code>, planned in #863) is a list-append hook called on commit from <code>record_board_event()</code> with <code>(board_id, event_type, event_id)</code>. It is a nudge only ("check the feed now"), so a missed call self-heals from the cursor.</li>
+</ul>
+<p>The earlier design, <code>post_card_created/moved/closed/updated</code> signals plus a <code>VISIBAN_WEBHOOK_BACKEND</code> setting, is <strong>superseded and will not be built</strong>. The change feed covers far more than four card events. For in-process card lifecycle reactions (such as automation), use <code>CARD_MUTATION_HOOKS</code>.</p>
+<p><strong>Issue:</strong> OSS webhooks in #863. Enterprise operations layer in enterprise #44. Slack/Teams channel apps are separate — see <a href="#transactional-email-notifications-oss-vs-channel-integrations-enterprise">Transactional email notifications vs channel integrations</a>.</p>
 <hr />
 <h3 id="pats-oss-vs-service-account-tokens-enterprise">PATs (OSS) vs service account tokens (Enterprise)<a class="headerlink" href="#pats-oss-vs-service-account-tokens-enterprise" title="Permanent link">&para;</a></h3>
 <p>OSS Personal Access Tokens are user-tied and limited to 10 per user. Since 1.2 they also carry <a href="../../features/personal-access-tokens/#scopes">scopes</a> (<code>read</code>, <code>write</code>, <code>admin</code>, <code>mcp:read</code>, <code>mcp:write</code>), so a token can be issued with less authority than its owner. They are sufficient for small teams doing CI/CD automation and for granting an AI agent least-privilege access.</p>
@@ -4031,18 +4036,33 @@
 <td>Not yet implemented</td>
 </tr>
 <tr>
-<td><code>post_card_created/moved/closed/updated</code> signals</td>
-<td>Enterprise webhooks (enterprise #39), automation (enterprise #8)</td>
-<td>Not yet implemented</td>
+<td><code>post_card_created/moved/closed/updated</code> signals (superseded)</td>
+<td>—</td>
+<td>Superseded, will not be built: card lifecycle is covered by <code>CARD_MUTATION_HOOKS</code> (below) and every board event by the change feed (#1114)</td>
 </tr>
 <tr>
-<td><code>VISIBAN_WEBHOOK_BACKEND</code> setting</td>
-<td>Enterprise webhooks</td>
-<td>Not yet implemented</td>
+<td><code>VISIBAN_WEBHOOK_BACKEND</code> setting (superseded)</td>
+<td>—</td>
+<td>Superseded, will not be built: webhooks are OSS (#863); the Enterprise operations layer (enterprise #44) consumes the change feed and <code>BOARD_EVENT_HOOKS</code></td>
+</tr>
+<tr>
+<td><code>CARD_MUTATION_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
+<td>Enterprise automation (enterprise #69) and any in-process reaction to card create/update/move/delete/archive/restore</td>
+<td>✅ Implemented — <code>boards/hooks.py</code>, fired on commit from <code>boards/services/cards.py</code>; pinned by <code>boards/tests/test_card_mutation_hooks.py</code></td>
+</tr>
+<tr>
+<td>Board change feed (<code>GET /api/v1/boards/{id}/events/</code>)</td>
+<td>OSS webhooks (#863), Enterprise webhook operations (enterprise #44), any out-of-process consumer</td>
+<td>✅ Implemented — #1114, contract in <a href="../../api/events/"><code>docs/api/events.md</code></a></td>
+</tr>
+<tr>
+<td><code>BOARD_EVENT_HOOKS</code> list (<code>boards/hooks.py</code>)</td>
+<td>Enterprise webhook operations (enterprise #44) — wake signal for a queue-backed dispatcher</td>
+<td>Not yet implemented — planned in #863</td>
 </tr>
 <tr>
 <td><code>VISIBAN_AUTOMATION_BACKEND</code> setting</td>
-<td>Enterprise automation (enterprise #8)</td>
+<td>Enterprise automation (enterprise #69)</td>
 <td>Not yet implemented</td>
 </tr>
 <tr>
