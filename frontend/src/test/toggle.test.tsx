@@ -135,3 +135,37 @@ describe('Toggle ariaDisabled', () => {
     expect(toggle).not.toHaveAttribute('aria-disabled')
   })
 })
+
+describe('ToggleField ariaDisabled passthrough (#1179)', () => {
+  it('forwards ariaDisabled and aria-describedby to the switch, which stays focusable', () => {
+    render(
+      <>
+        <ToggleField checked={false} onChange={vi.fn()} label="Density" ariaDisabled aria-describedby="why" />
+        <p id="why">This is a shared demo — settings can't be changed here.</p>
+      </>,
+    )
+    const toggle = screen.getByRole('switch')
+    expect(toggle).toHaveAttribute('aria-disabled', 'true')
+    expect(toggle).not.toBeDisabled()
+    expect(toggle).toHaveAccessibleDescription("This is a shared demo — settings can't be changed here.")
+    toggle.focus()
+    expect(toggle).toHaveFocus()
+  })
+
+  it('ignores clicks on the switch AND on the label text while ariaDisabled', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<ToggleField checked={false} onChange={onChange} label="Density" ariaDisabled />)
+    await user.click(screen.getByRole('switch'))
+    await user.click(screen.getByText('Density'))
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('leaves existing consumers unchanged when the prop is omitted', async () => {
+    const onChange = vi.fn()
+    render(<ToggleField checked={false} onChange={onChange} label="Density" />)
+    expect(screen.getByRole('switch')).not.toHaveAttribute('aria-disabled')
+    await userEvent.setup().click(screen.getByText('Density'))
+    expect(onChange).toHaveBeenCalledWith(true)
+  })
+})

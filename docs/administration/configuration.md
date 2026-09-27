@@ -266,14 +266,18 @@ the two, set `VISIBAN_SECRET_ENCRYPTION_KEY` before storing a password — see
 
 > **Added in 1.2** — for public demo instances only.
 
-Demo mode shows a "This is a live demo" banner above the login form, with the demo credentials, and is **off by default**; existing installs are unaffected.
+Demo mode turns an instance into a public, shared demo: the login page offers a one-click "Explore the demo" sign-in with a published account, an in-app bar counts down to the next reset, and a deny-by-default write fence refuses every change except creating, editing and moving cards. It is **off by default**; existing installs are unaffected.
 
 | Variable | Default | Description |
 |---|---|---|
-| `DEMO_MODE` | `false` | Show the demo banner on the login page. |
-| `DEMO_LOGIN_USERNAME` | `admin` | Username shown in the banner. `seed_demo_data --demo-site` creates the admin account with this name. |
-| `DEMO_LOGIN_PASSWORD` | *(empty)* | Password shown in the banner and set on the seeded admin account. With no value the banner is not shown. |
+| `DEMO_MODE` | `false` | Arm demo mode and its write fence. Parsed strictly: an unrecognized value such as `ture` refuses to start rather than silently leaving the fence off. |
+| `DEMO_LOGIN_USERNAME` | `visitor` | The **published** account. `seed_demo_data --demo-site` creates it as a non-admin member on every seeded board. Must not be `admin`, `maya` or `jordan`. |
+| `DEMO_LOGIN_PASSWORD` | *(empty)* | Password of the published account, shown on the login page. With no value no credential is shown. |
+| `DEMO_ADMIN_PASSWORD` | *(empty)* | Password of the seeded site admin (`admin`). **Never published**, and must differ from `DEMO_LOGIN_PASSWORD`. Required by `seed_demo_data --demo-site`. |
 | `DEMO_MEMBER_PASSWORD` | *(empty)* | Password for the two seeded member accounts. Never published. Required by `seed_demo_data --demo-site`. |
+| `DEMO_RESET_SCHEDULE` | `0 * * * *` | Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be `*`. An expression the backend cannot evaluate refuses to start while `DEMO_MODE` is on. |
+
+If `DEMO_LOGIN_USERNAME` or `DEMO_LOGIN_PASSWORD` is set while `DEMO_MODE` is off, startup logs a warning: nothing is published, but the fence is not armed either.
 
 !!! danger "The credentials are public by design"
     When `DEMO_MODE` is on, `DEMO_LOGIN_USERNAME` and `DEMO_LOGIN_PASSWORD` are returned to anyone by `GET /api/v1/auth/site-config/`. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.

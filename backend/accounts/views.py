@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from visiban.demo import demo_next_reset_at_iso
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -365,6 +366,13 @@ class SiteConfigView(APIView):
             "registration_mode": setting.registration_mode,
             "demo_mode": settings.DEMO_MODE,
             "demo_login": self._demo_login(),
+            # #1179: the reset cadence and the next reset instant, both null
+            # unless DEMO_MODE is on (same gating shape as _demo_login). The
+            # instant is computed server-side from the same cron value the
+            # reset CronJob runs on, so the login-page countdown cannot drift
+            # from the real reset and the SPA needs no cron parser.
+            "demo_reset_schedule": settings.DEMO_RESET_SCHEDULE if settings.DEMO_MODE else None,
+            "demo_next_reset_at": demo_next_reset_at_iso(),
         })
 
     @staticmethod

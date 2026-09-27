@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LoginPage from '../components/Auth/LoginPage'
+import { formatClockTime } from '../utils/date'
 
 vi.mock('../api/auth', () => ({
   login: vi.fn(),
@@ -360,18 +361,91 @@ describe('LoginPage', () => {
 
   // ── Demo banner (#1034) ────────────────────────────────────────────────────
 
-  it('shows the demo banner with credentials from site-config', async () => {
+  it('shows the demo banner with credentials and the next reset time from site-config', async () => {
     mockGetSiteConfig.mockResolvedValue({
       registration_open: true,
       demo_mode: true,
-      demo_login: { username: 'admin', password: 'pw-from-config' },
+      demo_login: { username: 'visitor', password: 'pw-from-config' },
+      demo_next_reset_at: '2026-09-27T13:00:00Z',
     })
     renderLoginPage()
     const banner = await screen.findByTestId('demo-banner')
-    expect(banner).toHaveTextContent('This is a live demo.')
-    expect(banner).toHaveTextContent('All data resets nightly at 00:00 UTC.')
-    expect(banner).toHaveTextContent('admin')
+    expect(banner).toHaveAttribute('role', 'note')
+    expect(banner).toHaveTextContent('This is a shared demo.')
+    expect(banner).toHaveTextContent('Resets every hour, on the hour')
+    expect(banner).toHaveTextContent(`next reset at ${formatClockTime('2026-09-27T13:00:00Z')} (your local time)`)
+    expect(banner).toHaveTextContent('Everything you change is erased and you will be signed out.')
+    // The old hardcoded nightly copy and the throwaway-account line are gone (#1179).
+    expect(banner).not.toHaveTextContent('00:00 UTC')
+    expect(banner).not.toHaveTextContent('throwaway')
+    expect(banner).toHaveTextContent('visitor')
     expect(banner).toHaveTextContent('pw-from-config')
+  })
+
+  it('never promises "every hour" for a non-hourly reset schedule', async () => {
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: false,
+      demo_mode: true,
+      demo_login: { username: 'visitor', password: 'pw' },
+      demo_reset_schedule: '0 0 * * *',
+      demo_next_reset_at: '2026-09-28T00:00:00Z',
+    })
+    renderLoginPage()
+    const banner = await screen.findByTestId('demo-banner')
+    expect(banner).toHaveTextContent('Resets on a regular schedule')
+    expect(banner).not.toHaveTextContent('every hour')
+    expect(banner).toHaveTextContent(`next reset at ${formatClockTime('2026-09-28T00:00:00Z')}`)
+  })
+
+  it('"Explore the demo" signs in with the published credential in one click (#1179)', async () => {
+    const onLogin = vi.fn()
+    const fakeUser = { id: 7, username: 'visitor' }
+    mockLogin.mockResolvedValue({})
+    mockGetCurrentUser.mockResolvedValue(fakeUser)
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: false,
+      demo_mode: true,
+      demo_login: { username: 'visitor', password: 'pw-from-config' },
+      demo_next_reset_at: '2026-09-27T13:00:00Z',
+    })
+    render(
+      <MemoryRouter>
+        <LoginPage onLogin={onLogin} />
+      </MemoryRouter>
+    )
+    const explore = await screen.findByRole('button', { name: 'Explore the demo' })
+    await userEvent.setup().click(explore)
+    // Same login endpoint as the manual form — no separate demo auth path.
+    await waitFor(() => expect(mockLogin).toHaveBeenCalledWith('visitor', 'pw-from-config'))
+    await waitFor(() => expect(onLogin).toHaveBeenCalledWith(fakeUser))
+    // The manual form was never cross-disabled.
+    expect(screen.getByRole('button', { name: 'Sign in' })).not.toBeDisabled()
+  })
+
+  it('"Explore the demo" surfaces a login failure in its own error slot', async () => {
+    mockLogin.mockRejectedValue({ response: { data: { non_field_errors: ['Demo is resetting.'] } } })
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: false,
+      demo_mode: true,
+      demo_login: { username: 'visitor', password: 'pw' },
+      demo_next_reset_at: null,
+    })
+    renderLoginPage()
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Explore the demo' }))
+    const banner = screen.getByTestId('demo-banner')
+    expect(await within(banner).findByRole('alert')).toHaveTextContent('Demo is resetting.')
+  })
+
+  it('shows the one-shot "demo was reset" notice after a reset, then clears it (#1179)', async () => {
+    sessionStorage.setItem('demo_reset_notice_at', '2026-09-27T13:00:00Z')
+    const { unmount } = renderLoginPage()
+    const notice = screen.getByTestId('demo-reset-notice')
+    expect(notice).toHaveAttribute('role', 'status')
+    expect(notice).toHaveTextContent(`The demo was reset at ${formatClockTime('2026-09-27T13:00:00Z')} — explore again.`)
+    await waitFor(() => expect(sessionStorage.getItem('demo_reset_notice_at')).toBeNull())
+    unmount()
+    renderLoginPage()
+    expect(screen.queryByTestId('demo-reset-notice')).not.toBeInTheDocument()
   })
 
   it('does not show the demo banner when demo mode is off', async () => {

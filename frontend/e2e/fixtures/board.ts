@@ -46,6 +46,8 @@ export const USER = {
   uploads_enabled: false,
   maintenance_mode: false,
   maintenance_message: '',
+  demo_mode: false,
+  demo_next_reset_at: null,
 }
 
 export const COLUMN_TODO = {
@@ -196,6 +198,8 @@ export const SITE_CONFIG = {
   registration_mode: 'closed' as const,
   demo_mode: false,
   demo_login: null,
+  demo_reset_schedule: null,
+  demo_next_reset_at: null,
 }
 
 export const AUTH_PROVIDERS = {

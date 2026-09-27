@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentUser, logout as apiLogout } from "../api/auth";
 import { useVisibilityResync } from "./useVisibilityResync";
+import { stashDemoNextReset } from "../utils/demoReset";
 import type { User } from "../types";
 
 export function useAuth() {
@@ -13,6 +14,17 @@ export function useAuth() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  // Hosted demo (#1179): keep the next reset instant in sessionStorage while
+  // signed in, so an auth failure after it can be recognized as the reset
+  // (utils/demoReset.ts) rather than shown as a generic expired session. Keyed
+  // on every user change, so it covers bootstrap, login and the tab-focus
+  // resync alike. Deliberately NOT cleared when user becomes null: the 401
+  // interceptor reads it just before that happens.
+  useEffect(() => {
+    if (!user) return;
+    stashDemoNextReset(user.demo_mode ? user.demo_next_reset_at : null);
+  }, [user]);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -86,6 +98,9 @@ export function useAuth() {
                 ...current,
                 maintenance_mode: fresh.maintenance_mode,
                 maintenance_message: fresh.maintenance_message,
+                // Demo state (#1179) rides the same resync: no polling hook.
+                demo_mode: fresh.demo_mode,
+                demo_next_reset_at: fresh.demo_next_reset_at,
               }
             : current,
         ),
@@ -98,6 +113,9 @@ export function useAuth() {
 
   const logout = async () => {
     await apiLogout();
+    // A deliberate sign-out is not a reset; forget the instant so a later
+    // auth failure in this tab cannot be misread as one.
+    stashDemoNextReset(null);
     sessionStorage.removeItem("pendingJoinToken");
     sessionStorage.removeItem("returnTo");
     setUser(null);

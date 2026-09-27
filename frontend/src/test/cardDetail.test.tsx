@@ -67,7 +67,7 @@ vi.mock('../components/Card/RichTextEditor', () => ({
   ),
 }))
 
-import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations } from '../api/cards'
+import { updateCard, getCardComments, getCardAttachments, getChecklist, updateChecklistItem, deleteChecklistItem, getCardRelations, addCardComment } from '../api/cards'
 
 const mockUpdateCard = updateCard as ReturnType<typeof vi.fn>
 const mockGetCardRelations = getCardRelations as ReturnType<typeof vi.fn>
@@ -347,14 +347,44 @@ describe('CardDetail', () => {
     expect(btn.tagName).toBe('BUTTON')
   })
 
-  it('renders disabled upload text when uploads_enabled is false', () => {
+  it('renders an aria-disabled upload button with a visible reason when uploads_enabled is false', () => {
     render(<CardDetail {...defaultProps()} currentUser={{ ...fakeUser, uploads_enabled: false }} />)
-    const el = screen.getByText('+ Upload')
-    expect(el).toBeInTheDocument()
-    // Must not be an interactive button
-    expect(el.tagName).not.toBe('BUTTON')
+    // #1179: a real, focusable button (no longer a title-only span), so the
+    // reason reaches keyboard and screen-reader users.
+    const el = screen.getByRole('button', { name: '+ Upload' })
+    expect(el).toHaveAttribute('aria-disabled', 'true')
+    expect(el).not.toBeDisabled()
     expect(el.className).toContain('cursor-not-allowed')
-    expect((el as HTMLElement).title).toContain('disabled')
+    expect(el).toHaveAccessibleDescription('File uploads are disabled by the site administrator.')
+  })
+
+  describe('hosted demo (#1179)', () => {
+    const demoUser = { ...fakeUser, demo_mode: true, demo_next_reset_at: '2026-09-27T13:00:00Z' }
+
+    it('upload shows the demo reason, taking precedence over uploads-disabled', () => {
+      render(<CardDetail {...defaultProps()} currentUser={{ ...demoUser, uploads_enabled: false }} />)
+      const el = screen.getByRole('button', { name: '+ Upload' })
+      expect(el).toHaveAttribute('aria-disabled', 'true')
+      expect(el).toHaveAccessibleDescription('This is a shared demo — file uploads are off here.')
+      expect(screen.queryByText('File uploads are disabled by the site administrator.')).not.toBeInTheDocument()
+    })
+
+    it('comment submit is aria-disabled, keyboard-reachable, explains why, and keeps typed text', async () => {
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} currentUser={demoUser} />)
+      const textarea = screen.getByTestId('mention-textarea')
+      await user.type(textarea, 'draft thought')
+      const submit = screen.getByRole('button', { name: 'Comment' })
+      expect(submit).toHaveAttribute('aria-disabled', 'true')
+      expect(submit).not.toBeDisabled()
+      expect(submit).toHaveAccessibleDescription("This is a shared demo — comments aren't saved here.")
+      submit.focus()
+      expect(submit).toHaveFocus()
+      await user.click(submit)
+      await user.keyboard('{Enter}')
+      expect(addCardComment).not.toHaveBeenCalled()
+      expect(textarea).toHaveValue('draft thought')
+    })
   })
 
   it('renders comments section', () => {
@@ -437,6 +467,55 @@ describe('CardDetail', () => {
     render(<CardDetail {...props} currentUser={modUser} />)
     expect(screen.getByText('Delete card')).toBeInTheDocument()
     expect(screen.getByText('Archive card')).toBeInTheDocument()
+  })
+
+  describe('hosted demo visitor on a card someone else created (#1179)', () => {
+    const visitor: User = { ...fakeUser, id: 99, username: 'visitor', demo_mode: true, demo_next_reset_at: '2026-09-27T13:00:00Z' }
+    const demoProps = (role: 'member' | 'collaborator' = 'member') => {
+      const props = defaultProps()
+      props.board = makeBoard({
+        current_user_role: role,
+        custom_field_definitions: [],
+        swimlane_custom_field_definitions: [],
+        members: [{ id: 2, user: visitor, role, is_moderator: false, joined_at: '' }],
+      })
+      props.card = makeCard({ created_by: { id: 1, username: 'admin', display_name: 'Admin', avatar_url: '' } })
+      return props
+    }
+
+    it('shows Archive and an enabled assignee picker, and hides Delete (not on the fence allowlist)', () => {
+      render(<CardDetail {...demoProps()} currentUser={visitor} />)
+      expect(screen.getByRole('button', { name: 'Archive card' })).toBeInTheDocument()
+      expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox')).not.toBeDisabled()
+      expect(screen.queryByText('Assigning cards requires Moderator or Admin access')).not.toBeInTheDocument()
+    })
+
+    it('hides Delete in demo mode even on a card the visitor created', () => {
+      const props = demoProps()
+      props.card = makeCard({ created_by: { id: 99, username: 'visitor', display_name: 'Visitor', avatar_url: '' } })
+      render(<CardDetail {...props} currentUser={visitor} />)
+      expect(screen.getByRole('button', { name: 'Archive card' })).toBeInTheDocument()
+      expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
+    })
+
+    it('does not widen a collaborator', () => {
+      render(<CardDetail {...demoProps('collaborator')} currentUser={visitor} />)
+      expect(screen.queryByText('Archive card')).not.toBeInTheDocument()
+    })
+
+    it('outside demo mode a plain member still sees neither Archive nor Delete on others\' cards', () => {
+      render(<CardDetail {...demoProps()} currentUser={{ ...visitor, demo_mode: false }} />)
+      expect(screen.queryByText('Archive card')).not.toBeInTheDocument()
+      expect(screen.queryByText('Delete card')).not.toBeInTheDocument()
+      expect(screen.getByRole('combobox')).toBeDisabled()
+    })
+  })
+
+  it('Archive and Delete buttons carry focus rings', () => {
+    render(<CardDetail {...defaultProps()} />)
+    expect(screen.getByRole('button', { name: 'Archive card' }).className).toContain('focus:ring-warning-emphasis')
+    expect(screen.getByRole('button', { name: 'Delete card' }).className).toContain('focus:ring-danger-emphasis')
   })
 
   it('hides comment input for viewer', () => {

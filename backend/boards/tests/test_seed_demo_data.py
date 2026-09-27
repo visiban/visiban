@@ -621,8 +621,9 @@ class SeedNotificationsTests(TestCase):
 @override_settings(
     DEBUG=True,
     DEMO_MODE=True,
-    DEMO_LOGIN_USERNAME="admin",
-    DEMO_LOGIN_PASSWORD="test-admin-pw-1",
+    DEMO_LOGIN_USERNAME="visitor",
+    DEMO_LOGIN_PASSWORD="test-visitor-pw-1",
+    DEMO_ADMIN_PASSWORD="test-admin-pw-1",
     DEMO_MEMBER_PASSWORD="test-member-pw-1",
 )
 class SeedDemoSiteTests(TestCase):
@@ -659,17 +660,77 @@ class SeedDemoSiteTests(TestCase):
         _seed(demo_site=True)
         admin = User.objects.get(username="admin")
         self.assertTrue(admin.is_site_admin)
+        # #1179: the admin's password is its own, never the published one.
         self.assertTrue(admin.check_password("test-admin-pw-1"))
-        self.assertFalse(admin.has_completed_tour)  # tour triggers on first login
+        self.assertFalse(admin.check_password("test-visitor-pw-1"))
+        visitor = User.objects.get(username="visitor")
+        self.assertTrue(visitor.check_password("test-visitor-pw-1"))
+        # #1179: the tour's completion PATCH is refused by the demo fence, so the
+        # published visitor is seeded with it done — it must never auto-run.
+        self.assertTrue(visitor.has_completed_tour)
+        self.assertFalse(admin.has_completed_tour)  # unpublished accounts: tour on first login
         for username in ("maya", "jordan"):
             member = User.objects.get(username=username)
             self.assertFalse(member.is_site_admin)
             self.assertTrue(member.check_password("test-member-pw-1"))
 
     @override_settings(DEMO_LOGIN_USERNAME="showcase")
-    def test_admin_username_follows_setting(self):
+    def test_visitor_username_follows_setting(self):
         _seed(demo_site=True)
-        self.assertTrue(User.objects.get(username="showcase").is_site_admin)
+        showcase = User.objects.get(username="showcase")
+        self.assertFalse(showcase.is_site_admin)
+        self.assertTrue(showcase.check_password("test-visitor-pw-1"))
+        self.assertFalse(User.objects.filter(username="visitor").exists())
+
+    def test_published_account_is_not_an_admin_and_reaches_every_board(self):
+        """#1179 seed contract: the credential on the login page holds no authority."""
+        _seed(demo_site=True)
+        visitor = User.objects.get(username="visitor")
+        self.assertFalse(visitor.is_site_admin)
+        self.assertFalse(visitor.is_staff)
+        self.assertFalse(visitor.is_superuser)
+        self.assertFalse(
+            BoardMembership.objects.filter(user=visitor, role=BoardMembership.Role.ADMIN).exists()
+        )
+        self.assertFalse(Board.objects.filter(owner=visitor).exists())
+        boards = Board.objects.all()
+        self.assertGreaterEqual(boards.count(), 4)  # the demo board + the three demo-site boards
+        for board in boards:
+            membership = BoardMembership.objects.get(board=board, user=visitor)
+            self.assertEqual(membership.role, BoardMembership.Role.MEMBER, board.name)
+            # No persistent moderator grant: editing seeded cards comes from the
+            # DEMO_MODE-gated carve-out in boards.permissions, which self-disarms.
+            self.assertFalse(membership.is_moderator, board.name)
+
+    def test_visitor_is_not_attributed_seeded_content(self):
+        _seed(demo_site=True)
+        visitor = User.objects.get(username="visitor")
+        self.assertFalse(CardMovement.objects.filter(moved_by=visitor).exists())
+        self.assertFalse(Card.objects.filter(assignee=visitor).exists())
+
+    def test_locks_down_uploads_and_registration(self):
+        from accounts.models import SiteSetting
+
+        _seed(demo_site=True)
+        setting = SiteSetting.get()
+        self.assertFalse(setting.uploads_enabled)
+        self.assertEqual(setting.registration_mode, SiteSetting.RegistrationMode.CLOSED)
+
+    def test_refuses_without_separate_admin_password(self):
+        with override_settings(DEMO_ADMIN_PASSWORD=""):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+        with override_settings(DEMO_ADMIN_PASSWORD="test-visitor-pw-1"):
+            with self.assertRaises(CommandError):
+                _seed(demo_site=True)
+        self.assertFalse(Board.objects.exists())
+
+    def test_refuses_published_username_that_collides_with_admin(self):
+        for name in ("admin", "Admin", "maya"):
+            with self.subTest(name=name), override_settings(DEMO_LOGIN_USERNAME=name):
+                with self.assertRaises(CommandError):
+                    _seed(demo_site=True)
+        self.assertFalse(Board.objects.exists())
 
     def test_refuses_without_admin_password(self):
         with override_settings(DEMO_LOGIN_PASSWORD=""):
@@ -686,9 +747,12 @@ class SeedDemoSiteTests(TestCase):
     def test_wipe_resets_tour_flag_and_password_for_existing_users(self):
         _seed(demo_site=True)
         User.objects.filter(username__in=["admin", "maya"]).update(has_completed_tour=True)
+        User.objects.filter(username="visitor").update(has_completed_tour=False)
         _seed(demo_site=True, wipe=True)
         for username in ("admin", "maya"):
             self.assertFalse(User.objects.get(username=username).has_completed_tour, username)
+        # The visitor is re-pinned to "done" on every run (#1179).
+        self.assertTrue(User.objects.get(username="visitor").has_completed_tour)
 
     def test_second_run_without_wipe_skips_existing_boards(self):
         _seed(demo_site=True)

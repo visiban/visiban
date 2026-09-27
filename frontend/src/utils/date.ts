@@ -307,3 +307,16 @@ export function formatDueDate(
   if (daysUntil <= 6) return { label: `Due in ${daysUntil} days`, overdue: false };
   return { label: `Due ${formatDateStr(date, dateFormat)}`, overdue: false };
 }
+
+/**
+ * Formats an ISO instant as a short browser-local clock time ("3:00 PM" /
+ * "15:00", per the browser locale). Used for the demo reset time (#1179) on
+ * the login page and in the in-app demo bar — deliberately browser-local
+ * rather than the user's timezone preference, because the login page has no
+ * user yet and both surfaces must show the same time.
+ */
+export function formatClockTime(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}

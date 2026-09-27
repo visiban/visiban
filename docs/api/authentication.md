@@ -528,7 +528,7 @@ Returns the authenticated user's profile.
 
 **Permission:** Requires authentication.
 
-**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `maintenance_mode`, `maintenance_message`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
+**Response fields include:** `id`, `username`, `email`, `first_name`, `last_name`, `display_name`, `avatar_url`, `is_site_admin`, `can_access_all_content`, `uploads_enabled`, `maintenance_mode`, `maintenance_message`, `demo_mode`, `demo_next_reset_at`, `must_change_password`, `must_change_username`, `has_usable_password`, `has_completed_tour`, `timezone`, `date_format`, `time_format`, `number_locale`, `close_editor_on_enter`, `notif_card_assigned`, `notif_mentioned`, `notif_due_soon`, `notif_card_moved`, `notif_comment_added`, `notif_board_invite`, `notif_stale`, `email_notif_card_assigned`, `email_notif_mentioned`, `email_notif_due_soon`, `email_notif_card_moved`, `default_board_id`, `theme`.
 
 | Field | Type | Description |
 |---|---|---|
@@ -537,6 +537,8 @@ Returns the authenticated user's profile.
 | `uploads_enabled` | boolean | Instance-wide setting reflecting whether file attachment uploads are currently permitted. When `false`, the attachment UI is hidden and upload attempts return `403`. |
 | `maintenance_mode` | boolean | Instance-wide setting reflecting whether the instance is in read-only maintenance mode. When `true`, non-admin writes return `503` — see [Maintenance mode](admin.md#maintenance-mode). Read-only. Added in 1.2. |
 | `maintenance_message` | string | The notice to show while `maintenance_mode` is `true`. Always non-empty in that case (the server substitutes a built-in default for a blank operator message), and `""` otherwise. Plain text — render it as text, never as HTML. Read-only. Added in 1.2. |
+| `demo_mode` | boolean | Whether the instance is a public hosted demo (`DEMO_MODE`). When `true`, unsafe requests outside a small allowlist return `403` with `code: "demo_read_only"` — see [Hosted demo instance](../administration/demo-data.md#hosted-demo-instance). Read-only. Added in 1.2. |
+| `demo_next_reset_at` | string (ISO 8601 UTC) or null | The next scheduled demo reset, computed server-side from `DEMO_RESET_SCHEDULE`. `null` unless `demo_mode` is `true`. Read-only. Added in 1.2. |
 | `theme` | string | The user's preferred color scheme. One of `"system"`, `"dark"`, or `"light"`. Defaults to `"system"`. |
 | `notif_stale` | boolean | Receive an in-app notification when a card you own has not moved within the board's staleness window. Defaults to `false`. Writable. Added in 1.2 (previously gated on `notif_due_soon`). |
 | `email_notif_card_assigned` | boolean | Also email the user when a card is assigned to them. No effect while `notif_card_assigned` is `false`. Defaults to `false`. Writable. Added in 1.2. |
@@ -610,7 +612,9 @@ Returns site-level configuration. This endpoint is public — no authentication 
   "registration_open": true,
   "registration_mode": "open",
   "demo_mode": false,
-  "demo_login": null
+  "demo_login": null,
+  "demo_reset_schedule": null,
+  "demo_next_reset_at": null
 }
 ```
 
@@ -620,6 +624,8 @@ Returns site-level configuration. This endpoint is public — no authentication 
 | `registration_mode` | string | `"open"` / `"invite_only"` / `"closed"` | The configured registration policy |
 | `demo_mode` | boolean | `true` / `false` | Whether the instance runs as a public demo (`DEMO_MODE` env var; default `false`). |
 | `demo_login` | object or null | `{"username", "password"}` / `null` | Demo credentials shown on the login page. Non-null only when `demo_mode` is `true` **and** `DEMO_LOGIN_PASSWORD` is set. See [Demo data](../administration/demo-data.md#hosted-demo-instance). |
+| `demo_reset_schedule` | string or null | e.g. `"0 * * * *"` / `null` | Cron expression of the demo reset (`DEMO_RESET_SCHEDULE`). Non-null only when `demo_mode` is `true`. Added in 1.2. |
+| `demo_next_reset_at` | string or null | ISO 8601 UTC / `null` | The next reset instant, computed server-side from the schedule so clients need no cron parser. Non-null only when `demo_mode` is `true`. Added in 1.2. |
 
 Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
 

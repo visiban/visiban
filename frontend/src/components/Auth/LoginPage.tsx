@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { login as apiLogin, register as apiRegister, getCurrentUser, getAuthProviders, getSiteConfig } from "../../api/auth";
 import type { User } from "../../types";
+import { formatClockTime } from "../../utils/date";
+import { DEMO_RESET_NOTICE_KEY } from "../../utils/demoReset";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
@@ -40,6 +42,16 @@ interface Props {
   onLogin: (user: User) => void;
 }
 
+/** First human-readable message from an auth error response, or a generic fallback. */
+function loginErrorMessage(err: unknown): string {
+  const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+  if (data) {
+    const first = Object.values(data).flat()[0];
+    return typeof first === "string" ? first : "Something went wrong.";
+  }
+  return "Something went wrong.";
+}
+
 export default function LoginPage({ onLogin }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -55,7 +67,32 @@ export default function LoginPage({ onLogin }: Props) {
   const [providers, setProviders] = useState<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null } | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [demoLogin, setDemoLogin] = useState<{ username: string; password: string } | null>(null);
+  const [demoNextResetAt, setDemoNextResetAt] = useState<string | null>(null);
+  const [demoResetSchedule, setDemoResetSchedule] = useState<string | null>(null);
+  // Separate from `submitting` so the one-click demo sign-in and the manual
+  // form never disable each other (#1179).
+  const [submittingDemo, setSubmittingDemo] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  // One-shot "the demo was reset" notice (#1179), left by utils/demoReset.ts
+  // when an auth failure followed the scheduled reset. Read here without
+  // clearing — StrictMode double-invokes initializers, and a read-and-clear
+  // would hand the second call nothing — and cleared by the effect below.
+  const [resetNoticeAt] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem(DEMO_RESET_NOTICE_KEY);
+    } catch {
+      return null;
+    }
+  });
   const [hasInviteToken, setHasInviteToken] = useState(() => !!sessionStorage.getItem("invite_token"));
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(DEMO_RESET_NOTICE_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
 
   useEffect(() => {
     getAuthProviders().then(setProviders).catch(() => setProviders({ google: false, github: false, gitlab: false, oidc: false, oidc_name: null }));
@@ -65,6 +102,8 @@ export default function LoginPage({ onLogin }: Props) {
         // Demo banner (#1034): only when the server says demo mode is on AND
         // supplied credentials — a demo without credentials has nothing to show.
         setDemoLogin(c.demo_mode && c.demo_login ? c.demo_login : null);
+        setDemoNextResetAt(c.demo_mode ? c.demo_next_reset_at ?? null : null);
+        setDemoResetSchedule(c.demo_mode ? c.demo_reset_schedule ?? null : null);
       })
       .catch(() => setRegistrationOpen(true));
 
@@ -95,27 +134,54 @@ export default function LoginPage({ onLogin }: Props) {
     setSubmitting(true);
     try {
       if (mode === "login") {
-        await apiLogin(loginField, password);
+        await performLogin(loginField, password);
       } else {
         const inviteToken = sessionStorage.getItem("invite_token") || undefined;
         await apiRegister(loginField, password, confirm, inviteToken);
         sessionStorage.removeItem("invite_token");
         setHasInviteToken(false);
+        onLogin(await getCurrentUser());
       }
-      const user = await getCurrentUser();
-      onLogin(user);
     } catch (err: unknown) {
-      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-      if (data) {
-        const first = Object.values(data).flat()[0];
-        setError(typeof first === "string" ? first : "Something went wrong.");
-      } else {
-        setError("Something went wrong.");
-      }
+      setError(loginErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
+
+  /**
+   * Sign in through the one login endpoint and hand the fresh user up. Shared
+   * by the manual form and the one-click demo button (#1179) — the demo uses
+   * the same path as everyone else, never a separate auth route.
+   */
+  const performLogin = async (username: string, pw: string) => {
+    await apiLogin(username, pw);
+    const user = await getCurrentUser();
+    onLogin(user);
+  };
+
+  const handleExploreDemo = async () => {
+    if (!demoLogin || submittingDemo) return;
+    setDemoError(null);
+    setSubmittingDemo(true);
+    try {
+      await performLogin(demoLogin.username, demoLogin.password);
+    } catch (err: unknown) {
+      setDemoError(loginErrorMessage(err));
+    } finally {
+      setSubmittingDemo(false);
+    }
+  };
+
+  const nextResetLabel = demoNextResetAt ? formatClockTime(demoNextResetAt) : "";
+  // The cadence sentence is derived from the server's cron, never assumed:
+  // only the hourly schedule may promise "every hour, on the hour". Any other
+  // schedule (e.g. the nightly Compose path) falls back to a cadence-neutral
+  // sentence; the exact next reset time below is always accurate.
+  const cadenceText =
+    demoResetSchedule === null || demoResetSchedule === "0 * * * *" || demoResetSchedule === "@hourly"
+      ? "Resets every hour, on the hour"
+      : "Resets on a regular schedule";
 
   return (
     <div className="min-h-screen bg-sunken flex items-center justify-center">
@@ -127,16 +193,51 @@ export default function LoginPage({ onLogin }: Props) {
           )}
         </div>
 
-        {/* Live-demo callout (#1034) — informational, so the primary-emphasis tint, not the amber degraded-state treatment */}
+        {/* Post-reset notice (#1179) — one-shot, shown once after the scheduled
+            reset ended this tab's session. Informational tint, like the callout. */}
+        {resetNoticeAt && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="demo-reset-notice"
+            className="mb-3 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+          >
+            The demo was reset at <strong className="font-semibold text-fg">{formatClockTime(resetNoticeAt)}</strong> — explore again.
+          </div>
+        )}
+
+        {/* Hosted-demo callout (#1034, reworked in #1179) — informational, so the
+            primary-emphasis tint, not the amber degraded-state treatment. "Explore
+            the demo" is the page's primary action; the manual form below keeps its
+            classes (it is the only affordance for a real account elsewhere) and is
+            demoted by position only. */}
         {demoLogin && (
           <div
             role="note"
             data-testid="demo-banner"
             className="mb-5 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
           >
-            <strong className="font-semibold text-fg">This is a live demo.</strong> All data resets nightly at 00:00 UTC.
-            Use <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
-            <code className="font-mono text-fg select-all">{demoLogin.password}</code> to sign in, or create a throwaway account.
+            <p>
+              <strong className="font-semibold text-fg">This is a shared demo.</strong> {cadenceText}
+              {nextResetLabel && (
+                <> — next reset at <strong className="font-semibold text-fg">{nextResetLabel}</strong> (your local time)</>
+              )}
+              . Everything you change is erased and you will be signed out.
+            </p>
+            <button
+              type="button"
+              onClick={handleExploreDemo}
+              disabled={submittingDemo}
+              className="mt-3 w-full bg-button-primary hover:bg-button-primary-hover text-on-primary font-medium py-2.5 rounded text-sm transition disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+            >
+              {submittingDemo ? "Please wait…" : "Explore the demo"}
+            </button>
+            {demoError && <p className="mt-2 text-danger text-xs" role="alert">{demoError}</p>}
+            <p className="mt-2 text-xs text-fg-muted">
+              or sign in manually with <code className="font-mono text-fg select-all">{demoLogin.username}</code> /{" "}
+              <code className="font-mono text-fg select-all">{demoLogin.password}</code> below.
+            </p>
           </div>
         )}
 

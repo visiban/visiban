@@ -14,6 +14,7 @@ import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, User } from "../types";
 import Spinner from "../components/Common/Spinner";
+import { DEMO_IMPORT_REASON, DEMO_NEW_BOARD_REASON } from "../constants/demoCopy";
 
 interface Props {
   user: User;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
+  const demoMode = user.demo_mode === true;
   const navigate = useNavigate();
   const [boards, setBoards] = useState<Board[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -183,15 +185,27 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
           <div className="flex items-center justify-between mb-4">
             <h2 id="my-boards-heading" className="text-fg text-lg font-semibold">My Boards</h2>
             <div className="flex items-center gap-2">
+              {/* Hosted demo (#1179): both create a whole board, which the server
+                  fence refuses — aria-disabled, reason in title + aria-label. */}
               <button
-                onClick={() => setImportingBoard(true)}
-                className="text-sm text-fg-tertiary hover:text-fg hover:bg-surface-hover px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                onClick={() => { if (!demoMode) setImportingBoard(true); }}
+                aria-disabled={demoMode ? true : undefined}
+                aria-label={demoMode ? `Import. ${DEMO_IMPORT_REASON}` : undefined}
+                title={demoMode ? DEMO_IMPORT_REASON : undefined}
+                className={`text-sm text-fg-tertiary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+                  demoMode ? "opacity-40 cursor-not-allowed" : "hover:text-fg hover:bg-surface-hover"
+                }`}
               >
                 Import
               </button>
               <button
-                onClick={() => setCreatingBoard(true)}
-                className="text-sm bg-button-primary hover:bg-button-primary-hover text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium"
+                onClick={() => { if (!demoMode) setCreatingBoard(true); }}
+                aria-disabled={demoMode ? true : undefined}
+                aria-label={demoMode ? `New board. ${DEMO_NEW_BOARD_REASON}` : undefined}
+                title={demoMode ? DEMO_NEW_BOARD_REASON : undefined}
+                className={`text-sm bg-button-primary text-on-primary px-3 py-1.5 rounded transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis font-medium ${
+                  demoMode ? "opacity-40 cursor-not-allowed" : "hover:bg-button-primary-hover"
+                }`}
               >
                 + New board
               </button>

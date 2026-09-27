@@ -858,7 +858,11 @@ backend-test-git-lens:
     # GIT_LENS_ENABLED=True, which is set here and nowhere else, so an
     # uninstrumented run made ~230 well-tested statements score 0% and pinned
     # the project total to the 88-90% knife edge the gate sits on.
-    - coverage run --parallel --data-file=.coverage.git-lens -m pytest git_lens/ -q
+    # accounts/tests/test_demo_mode.py rides along (#1179): its route-table
+    # sweep walks whatever URLconf is mounted, and this is the only job where
+    # git_lens' routes exist, so without it the demo fence's sweep never
+    # covers the lens write endpoints.
+    - coverage run --parallel --data-file=.coverage.git-lens -m pytest git_lens/ accounts/tests/test_demo_mode.py -q
   artifacts:
     paths:
       - backend/.coverage.*

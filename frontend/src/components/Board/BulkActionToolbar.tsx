@@ -52,7 +52,13 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
   const isModerator = board.members.some(
     (m) => currentUser != null && m.user.id === currentUser.id && m.is_moderator,
   );
+  // Feeds ONLY the delete confirmation's "cards created by others will be
+  // skipped" note. Deliberately NOT widened for the hosted demo (#1179): the
+  // demo visitor may archive others' cards (the Archive button is always
+  // shown), but card delete is not on DEMO_ALLOWED_WRITES — and in demo mode
+  // the Delete button (and so this note) is not rendered at all.
   const canModifyAll = role === "admin" || role === "site_admin" || isModerator;
+  const demoMode = currentUser?.demo_mode === true;
   const othersCards = currentUser
     ? selectedCards.filter((c) => c.created_by?.id !== currentUser.id)
     : selectedCards;
@@ -372,14 +378,18 @@ export default function BulkActionToolbar({ board, selectedCardIds, onCardsUpdat
           Archive
         </button>
 
-        {/* Delete */}
-        <button
-          onClick={() => setConfirmDelete(true)}
-          disabled={busy}
-          className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
-        >
-          Delete
-        </button>
+        {/* Delete — hidden on the hosted demo (#1179): card DELETE is not on
+            DEMO_ALLOWED_WRITES, so the fence refuses it for every card, the
+            visitor's own included. Same rule as CardDetail's Delete. */}
+        {!demoMode && (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            disabled={busy}
+            className="text-xs px-2.5 py-1.5 rounded text-danger hover:bg-danger/20 transition disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+          >
+            Delete
+          </button>
+        )}
 
         <span className="w-px h-5 bg-surface-active" />
 

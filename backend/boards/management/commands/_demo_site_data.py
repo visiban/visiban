@@ -16,11 +16,16 @@ where ``assignee`` is a key of DEMO_SITE_USERS or None, and ``comments`` is a
 list of (author_key, body).
 """
 
-# key -> (username, first_name, last_name, is_admin). Admin's username is
+# key -> (username, first_name, last_name, is_admin). The "visitor" username is
 # overridden by settings.DEMO_LOGIN_USERNAME at seed time so the published
-# credentials always match the seeded account.
+# credentials always match the seeded account (#1179: the published account is
+# the non-admin visitor, never the site admin). The visitor is deliberately
+# never an assignee, comment author or history mover below — it is every
+# visitor at once, so seeded content attributed to it would read as someone
+# else's words.
 DEMO_SITE_USERS = {
     "admin": ("admin", "Demo", "Admin", True),
+    "visitor": ("visitor", "Demo", "Visitor", False),
     "maya": ("maya", "Maya", "Torres", False),
     "jordan": ("jordan", "Jordan", "Lee", False),
 }

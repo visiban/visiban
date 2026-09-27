@@ -2489,6 +2489,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
           onManageLens={() => { setShowSettings(false); setShowLensModal(true); }}
           onFieldsUpdated={onCustomFieldDefinitionsApplied}
           onSwimlaneFieldsUpdated={onSwimlaneFieldDefinitionsApplied}
+          demoMode={currentUser?.demo_mode === true}
         />
       )}
 

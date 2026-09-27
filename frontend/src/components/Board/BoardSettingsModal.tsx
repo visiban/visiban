@@ -13,6 +13,8 @@ import { searchUsers } from "../../api/auth";
 import type { ViewPrefs } from "../../hooks/useViewPrefs";
 import Avatar from "../Common/Avatar";
 import { Toggle, ToggleField } from "../Common/Toggle";
+import DemoInert from "../Common/DemoInert";
+import { DEMO_SETTINGS_REASON } from "../../constants/demoCopy";
 
 const ROLES: { value: BoardRole; label: string; description: string }[] = [
   { value: "admin",        label: "Admin",        description: "Full access — manage members, columns, swimlanes, and board settings" },
@@ -55,7 +57,13 @@ interface Props {
    *  other board sub-resource. */
   onFieldsUpdated?: (definitions: CustomFieldDefinition[]) => void;
   onSwimlaneFieldsUpdated?: (definitions: SwimlaneCustomFieldDefinition[]) => void;
+  /** Hosted demo (#1179): board settings writes are refused by the server
+   *  fence for every caller, a site admin included — admin controls render
+   *  inert with one shared reason. */
+  demoMode?: boolean;
 }
+
+const DEMO_SETTINGS_NOTICE_ID = "board-settings-demo-notice";
 
 type Tab = "members" | "display" | "rules" | "fields" | "swimlane-fields" | "sharing" | "data";
 
@@ -86,7 +94,8 @@ function RoleTooltip() {
   );
 }
 
-export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated }: Props) {
+export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab = "members", onBoardDeleted, viewPrefs, onToggleHiddenColumn, onToggleHiddenSwimlane, onUpdateBoardSettings, cardDensityOverride = null, onSetCardDensityOverride, gitLensEnabled = false, lensConnection = null, onManageLens, onFieldsUpdated, onSwimlaneFieldsUpdated, demoMode = false }: Props) {
+  const settingsInert = demoMode && isAdmin;
   const [tab, setTab] = useState<Tab>(initialTab);
   const [members, setMembers] = useState<EffectiveBoardMember[]>(board.members);
   const [saving, setSaving] = useState<number | null>(null);
@@ -379,27 +388,47 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
         {/* Content */}
         <div className="overflow-y-auto flex-1 px-6 py-4">
+          {/* Hosted demo (#1179): ONE shared notice for the whole modal. Every
+              admin control below sits in a DemoInert region that points its
+              aria-describedby here, rather than repeating the reason per
+              control. Shown only when there is something inert to explain —
+              a non-admin visitor sees no admin controls, and their personal,
+              browser-local view prefs keep working. */}
+          {settingsInert && (
+            <p
+              id={DEMO_SETTINGS_NOTICE_ID}
+              role="note"
+              className="mb-4 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
+            >
+              {DEMO_SETTINGS_REASON}
+            </p>
+          )}
 
           {/* ── Fields tab (#371) ── */}
           {tab === "fields" && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <BoardSettingsFieldsTab
               board={board}
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onFieldsUpdated?.(definitions)}
             />
+            </DemoInert>
           )}
 
           {/* ── Swimlane fields tab (#1140) ── */}
           {tab === "swimlane-fields" && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <BoardSettingsSwimlaneFieldsTab
               board={board}
               isAdmin={isAdmin}
               onFieldsUpdated={(definitions) => onSwimlaneFieldsUpdated?.(definitions)}
             />
+            </DemoInert>
           )}
 
           {/* ── Members tab ── */}
           {tab === "members" && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <div className="flex flex-col gap-0">
               <div className="flex items-center justify-between text-xs font-semibold text-fg-muted uppercase tracking-wide pb-2 mb-1 border-b border-line">
                 <span>Member</span>
@@ -621,10 +650,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </div>
               )}
             </div>
+            </DemoInert>
           )}
 
           {/* ── Rules tab ── */}
           {tab === "rules" && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <div className="flex flex-col gap-5">
               <p className="text-xs text-fg-muted">
                 Rules affect all board members. Only admins can change these.
@@ -780,10 +811,12 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 )}
               </section>
             </div>
+            </DemoInert>
           )}
 
           {/* ── Sharing tab (admin-only) ── */}
           {tab === "sharing" && isAdmin && (
+            <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
             <div className="flex flex-col gap-5">
               <section>
                 <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Public sharing</h3>
@@ -863,6 +896,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                 </p>
               </section>
             </div>
+            </DemoInert>
           )}
 
           {/* ── Data tab ── */}
@@ -871,7 +905,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section>
                 <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Export permission</h3>
                 {isAdmin ? (
-                  <>
+                  <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                     <p className="text-xs text-fg-muted mb-2">
                       Choose who can export this board. Owners and site admins always bypass this threshold.
                     </p>
@@ -888,7 +922,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     <p className="text-xs h-4 mt-1">
                       {exportRoleError && <span className="text-danger">{exportRoleError}</span>}
                     </p>
-                  </>
+                  </DemoInert>
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     {exportMinRole === "viewer" && "Anyone with read access can export this board."}
@@ -901,6 +935,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
 
               {/* Issue board lens — admin-only, gated on the instance feature flag. */}
               {isAdmin && gitLensEnabled && (
+                <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section>
                   <h3 className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Issue board lens</h3>
                   <p className="text-xs text-fg-muted mb-2">
@@ -934,6 +969,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </button>
                   )}
                 </section>
+                </DemoInert>
               )}
 
               {canExport && (
@@ -1015,6 +1051,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               )}
 
               {isAdmin && onBoardDeleted && (
+                <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                 <section className="border-t border-line pt-5">
                   <h3 className="text-xs font-semibold text-danger uppercase tracking-wide mb-3">Danger Zone</h3>
                   <p className="text-sm text-fg-tertiary mb-3">
@@ -1049,6 +1086,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                     </button>
                   )}
                 </section>
+                </DemoInert>
               )}
             </div>
           )}
@@ -1067,6 +1105,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
               <section aria-labelledby="card-density-heading">
                 <h3 id="card-density-heading" className="text-xs font-semibold text-fg-tertiary uppercase tracking-wide mb-2">Card density</h3>
                 {isAdmin && onUpdateBoardSettings ? (
+                  <DemoInert active={settingsInert} describedBy={DEMO_SETTINGS_NOTICE_ID}>
                   <fieldset className="flex flex-col gap-2 transition-colors duration-150">
                     <legend className="sr-only">Card density</legend>
                     {([
@@ -1100,6 +1139,7 @@ export default function BoardSettingsModal({ board, isAdmin, onClose, initialTab
                       );
                     })}
                   </fieldset>
+                  </DemoInert>
                 ) : (
                   <p className="text-sm text-fg-secondary">
                     This board is set to <span className="font-medium text-fg capitalize">{board.card_density}</span> by default. Only board admins can change this — you can override it for your own view below.
