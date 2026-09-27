@@ -3601,6 +3601,18 @@ this policy against Visiban's actual tag set:</p>
   <code>main</code> ever goes 90+ days without a merge to either image <em>and</em> 10 other tags get pushed in
   the meantime, <code>latest</code> becomes eligible for the sweep — a scenario the policy does not rule
   out, only makes unlikely under normal development cadence.</li>
+<li><strong>Known tradeoff, not yet addressed: per-arch <code>-amd64</code>/<code>-arm64</code> tags accumulate forever.</strong>
+  Since #1084, each release tag also pushes <code>:&lt;tag&gt;-amd64</code> and <code>:&lt;tag&gt;-arm64</code> on both
+  registries — the source images <code>backend-manifest</code> / <code>frontend-manifest</code> combine into the
+  real multi-arch <code>:&lt;tag&gt;</code> / <code>:latest</code> / <code>:MAJOR.MINOR</code>. On the GitLab registry,
+  <code>name_regex_keep: "v.*"</code> matches these too (they start with <code>v</code>), so they're protected
+  from the sweep the same as the real release tags — meaning they're never cleaned up,
+  not just protected from premature deletion. On GHCR there is no cleanup at all (see below),
+  so they accumulate there unconditionally. Neither is a correctness problem — the per-arch
+  tags are only ever consumed by the manifest-assembly job, immediately after being pushed —
+  but it is unbounded storage growth with no code path that reclaims it. Tracked in <strong>#1196</strong>
+  (delete the per-arch tags after manifest assembly, or exclude them from the keep-regex);
+  not fixed by #1084 itself.</li>
 </ul>
 <p><strong>This change does not modify the policy.</strong> Changing a GitLab project setting is an
 outward-facing admin action outside this branch's scope (#1074). If you want to close the
@@ -3624,7 +3636,9 @@ Actions workflow).</p>
 <code>.github/workflows/issue-bridge.yml</code> (unrelated — bridges GitLab issues to GitHub for
 visibility). <strong>No workflow deletes GHCR package versions</strong>, so GHCR-published <code>backend</code>/
 <code>frontend</code> images are not subject to any automated retention here — they persist until
-someone deletes them by hand.</p>
+someone deletes them by hand. This includes the per-arch <code>-amd64</code>/<code>-arm64</code> tags #1084 added
+(see the GitLab registry section above) — GHCR has no keep-regex to even consider excluding
+them from, so they accumulate unconditionally until #1196 is addressed.</p>
 <p>The <code>gh</code> CLI used for this audit was authenticated but its token lacked the <code>read:packages</code>
 scope needed to list package versions directly (<code>gh api orgs/visiban/packages</code> → 403). That
 is a token-scope gap, not a "no packages" result — an operator who wants to confirm GHCR's
@@ -3662,8 +3676,11 @@ whenever the next release attempt failed to pull.</p>
 </ul>
 <p>If this job goes red, it means a released, documented version is not pullable from the named
 registry. Check that registry's retention/cleanup policy first (see the sections above), then
-re-run that tag's <code>backend-docker-push</code> / <code>frontend-docker-push</code> publish jobs to restore the
-image.</p>
+re-run that tag's publish jobs to restore the image — <code>backend-docker-push</code> /
+<code>frontend-docker-push</code> (amd64) and, since #1084, also <code>backend-docker-push-arm64</code> /
+<code>frontend-docker-push-arm64</code> and <code>backend-manifest</code> / <code>frontend-manifest</code>, or the referenced
+tag will come back as an amd64-only single-arch manifest rather than the multi-arch list it's
+supposed to be.</p>
 <h2 id="digest-pinning">Digest pinning<a class="headerlink" href="#digest-pinning" title="Permanent link">&para;</a></h2>
 <p>Both <code>docker-compose.prod.yml</code> and the Helm chart select images by <strong>tag</strong> (<code>APP_VERSION</code> /
 <code>values.yaml</code>'s <code>tag:</code>). A tag is a mutable pointer — even a <code>v1.1.0</code> tag that is never

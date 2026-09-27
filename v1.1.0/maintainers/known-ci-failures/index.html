@@ -3417,6 +3417,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#arm64-docker-push-jobs-pending-forever-with-no-runner-picking-them-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        arm64 Docker push jobs pending forever with no runner picking them up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3539,8 +3550,31 @@ GitLab SaaS runner with no Docker socket at all.</p>
 on any runner — this failure mode should no longer occur for amd64 pushes. If you see this
 error again, something has regressed the job definition back toward <code>docker buildx</code>; check
 <code>.gitlab-ci.yml</code>'s <code>.kaniko-push-common</code> template first. See
-<a href="../ci-runners/#docker-image-push-no-longer-needs-a-self-hosted-runner">CI Runners</a> for the
-full history, including the arm64 gap this conversion left open (<strong>#1084</strong>).</p>
+<a href="../ci-runners/#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner">CI Runners</a>
+for the full history, including how the arm64 gap this conversion left open was closed in
+<strong>#1084</strong>.</p>
+<h2 id="arm64-docker-push-jobs-pending-forever-with-no-runner-picking-them-up">arm64 Docker push jobs pending forever with no runner picking them up<a class="headerlink" href="#arm64-docker-push-jobs-pending-forever-with-no-runner-picking-them-up" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> sit <code>pending</code>
+indefinitely on a release tag pipeline, with no error — or <code>arm64-runner-preflight</code> fails
+with "no online runner tagged 'arm64' found".</p>
+<p><strong>Root cause:</strong> the dedicated Apple Silicon runner (<code>Max1-Runner-Visiban</code>, id <code>56802474</code>,
+see <a href="../ci-runners/#inventory">CI Runners</a>) is offline or its <code>arm64</code> tag was removed. GitLab
+has no native "pending too long" job failure — a job <code>timeout:</code> only covers execution time
+once a runner has picked up the job, not queue time — so without a preflight check, this
+looks identical to a slow pipeline rather than an infrastructure problem. This is the same
+<code>no_matching_runner</code> shape that caused <code>saas-linux-medium-arm64</code> to hang before !852 dropped
+arm64 from the kaniko conversion (verified on pipeline <code>2845582400</code>).</p>
+<p><strong>Fix:</strong> <code>arm64-runner-preflight</code> (added in <strong>#1084</strong>) queries the Runners API before either
+arm64 leg is scheduled and fails within seconds with a clear message if no runner tagged
+<code>arm64</code> is online, instead of letting the pipeline hang. If it fires, bring the runner back
+online (check the host's power/network and that the <code>gitlab-runner</code> service is running) and
+re-run the pipeline — do not raise a job <code>timeout:</code> to work around this, it will not help.
+If the preflight job itself fails with a <code>RUNNERS_READ_TOKEN</code>-related error, see
+<a href="../tokens-and-rotation/#runners_read_token">Tokens and Rotation</a>.</p>
+<p><strong>Do not misread the runner's reported architecture:</strong> GitLab's Runners API reports
+<code>architecture: amd64</code> for this runner (the <code>gitlab-runner</code> binary runs under Rosetta) even
+though the host and every image it builds are genuinely native arm64 — this is a red herring,
+not evidence the wrong runner picked up the job.</p>
 <h2 id="self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge">Self-hosted runner job aborted: "Possibly zombie container ... disconnected from network bridge"<a class="headerlink" href="#self-hosted-runner-job-aborted-possibly-zombie-container-disconnected-from-network-bridge" title="Permanent link">&para;</a></h2>
 <p><strong>Signature:</strong> a job scheduled on a self-hosted NUC runner (e.g. <code>backend-test-git-lens</code>) is
 aborted before any script line runs, with a GitLab Runner message resembling <code>Possibly zombie

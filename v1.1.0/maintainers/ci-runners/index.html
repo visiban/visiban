@@ -3350,13 +3350,30 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#docker-image-push-no-longer-needs-a-self-hosted-runner" class="md-nav__link">
+  <a href="#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Docker image push — no longer needs a self-hosted runner
+        Docker image push — amd64 via kaniko, arm64 via a dedicated runner
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Docker image push — amd64 via kaniko, arm64 via a dedicated runner">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fail-loud, not hang: why a preflight job instead of a timeout:
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -3550,11 +3567,28 @@ that follow from how they're configured.</p>
 <td>none</td>
 <td>true</td>
 </tr>
+<tr>
+<td>56802474</td>
+<td><code>Max1-Runner-Visiban</code></td>
+<td>online</td>
+<td><code>arm, arm64, apple, macosx, mac, ios</code></td>
+<td>false</td>
+</tr>
 </tbody>
 </table>
-<p>All three are self-hosted, carry <strong>no tags</strong>, and accept untagged jobs. Re-run the query
-above before trusting this table — runner health and identity have changed multiple times
-in this project's history (see below) and nothing keeps this page in sync automatically.</p>
+<p>All four are self-hosted. Re-run the query above before trusting this table — runner health
+and identity have changed multiple times in this project's history (see below) and nothing
+keeps this page in sync automatically.</p>
+<p><code>Max1-Runner-Visiban</code> is the exception to "no tags" and to the warning immediately below: it's
+a dedicated Apple Silicon (M1 Max) macOS host running the <strong>shell executor</strong> against its own
+already-installed Docker Desktop, whose engine is itself native <code>linux/arm64</code> — no QEMU. Jobs
+that need it request it explicitly with <code>tags: [arm64]</code> (<code>.arm64-docker-push-base</code> in
+<code>.gitlab-ci.yml</code>, #1084). Do <strong>not</strong> use this runner's own API-reported <code>architecture</code> field
+or a job's <code>uname -m</code> to sanity-check anything: the GitLab API reports <code>architecture: amd64</code>
+here (the <code>gitlab-runner</code> binary itself runs under Rosetta) and <code>uname -m</code> on the host prints
+<code>x86_64</code>, despite the runner and every image it builds being genuinely native arm64. Assert
+<code>docker image inspect --format '{{.Architecture}}'</code> on a built image instead — that's what
+<code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> do.</p>
 <div class="admonition warning">
 <p class="admonition-title">No job in <code>.gitlab-ci.yml</code> uses <code>tags:</code></p>
 <p>Every job — including ones that need a specific runner's local resources — queues for
@@ -3566,31 +3600,48 @@ confusing error from deep inside the job script. This has already happened once 
 selector to make the dependency explicit rather than relying on the untagged runners
 happening to be healthy.</p>
 </div>
-<h2 id="docker-image-push-no-longer-needs-a-self-hosted-runner">Docker image push — no longer needs a self-hosted runner<a class="headerlink" href="#docker-image-push-no-longer-needs-a-self-hosted-runner" title="Permanent link">&para;</a></h2>
+<h2 id="docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner">Docker image push — amd64 via kaniko, arm64 via a dedicated runner<a class="headerlink" href="#docker-image-push-amd64-via-kaniko-arm64-via-a-dedicated-runner" title="Permanent link">&para;</a></h2>
 <p><code>backend-docker-push</code> / <code>frontend-docker-push</code> (<code>.kaniko-push-common</code> in <code>.gitlab-ci.yml</code>)
-build and push with <strong>kaniko</strong>, which needs no Docker daemon and runs on any runner.</p>
+build and push <strong>amd64</strong> with <strong>kaniko</strong>, which needs no Docker daemon and runs on any runner.</p>
 <p>This wasn't always true. Before the kaniko conversion (merged in <strong>!852</strong>, 2026-09-14), these
 jobs ran <code>docker buildx</code> against a Docker socket mounted by a self-hosted runner's
 <code>config.toml</code> (<code>volumes = ["/var/run/docker.sock:/var/run/docker.sock"]</code>). That runner (the
 "nuc runner", group runner id <code>53511568</code>) went stale on <strong>2026-07-18</strong>. Because the jobs
 carried no <code>tags:</code>, every push after that date silently fell through to a GitLab SaaS runner
 and failed with <code>Cannot connect to the Docker daemon at unix:///var/run/docker.sock</code>. The
-last successful push before the conversion was <strong>2026-06-26</strong>.</p>
-<p>kaniko removes this single point of failure for <strong>amd64</strong>. It does not fix everything:</p>
-<ul>
-<li><strong>arm64 is currently not published.</strong> kaniko cannot cross-build, and
-  <code>saas-linux-medium-arm64</code> resolves to <code>no_matching_runner</code> on this project's GitLab plan
-  (verified on pipeline <code>2845582400</code>). The buildx path being replaced emitted <code>linux/arm64</code>
-  via QEMU emulation on the self-hosted runner; that capability is gone until a native arm64
-  runner exists. Tracked in <strong>#1084</strong>, milestone 1.2 — deliberately not re-added as a job
-  here, since that would just hang release pipelines on <code>no_matching_runner</code> again.</li>
-<li>The runner IDs in the table above (<code>56277672</code>, <code>56277916</code>) are <strong>not</strong> the same runner as
-  the stale <code>53511568</code> — they were (re-)registered on 2026-09-14. Do not assume the old
-  "Runner-03-NUC" staleness note still describes the current runner with that name.</li>
-</ul>
-<p>See <code>.gitlab-ci.yml</code> around the <code>.kaniko-push-common</code> and <code>backend-docker-push</code> /
-<code>frontend-docker-push</code> jobs for the full history in comments — this page summarizes it, the
-CI file is the source of truth for the current job definitions.</p>
+last successful push before the conversion was <strong>2026-06-26</strong>. kaniko removes that single
+point of failure for amd64.</p>
+<p><strong>arm64 is published again as of #1084.</strong> kaniko cannot cross-build, and
+<code>saas-linux-medium-arm64</code> resolves to <code>no_matching_runner</code> on this project's GitLab plan
+(verified on pipeline <code>2845582400</code>) — there is no usable GitLab SaaS arm64 runner on this
+plan. <code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code> (<code>.arm64-docker-push-base</code>)
+instead run natively on <code>Max1-Runner-Visiban</code> (see Inventory above), on release tags only.
+<code>backend-manifest</code> / <code>frontend-manifest</code> then assemble the amd64 and arm64 single-arch images
+into real multi-arch manifest lists under <code>:&lt;tag&gt;</code>, <code>:latest</code>, and (stable releases)
+<code>:MAJOR.MINOR</code>, via <code>manifest-tool</code>, on both the GitLab registry and GHCR.</p>
+<p><code>arm64-runner-preflight</code> runs before either arm64 leg and fails the pipeline within seconds if
+no runner tagged <code>arm64</code> is online — see "Fail-loud, not hang" below. This is deliberately
+<em>not</em> the same "add <code>no_matching_runner</code> and hang" trap the amd64/kaniko conversion avoided by
+leaving arm64 out: the preflight makes an absent runner an explicit, fast pipeline failure
+instead of an indefinite pending job.</p>
+<p>The runner IDs in the table above for the NUC runners (<code>56277672</code>, <code>56277916</code>) are <strong>not</strong>
+the same runner as the stale <code>53511568</code> — they were (re-)registered on 2026-09-14. Do not
+assume the old "Runner-03-NUC" staleness note still describes the current runner with that
+name.</p>
+<p>See <code>.gitlab-ci.yml</code> around the <code>.kaniko-push-common</code>, <code>.arm64-docker-push-base</code>, and
+<code>.manifest-tool-common</code> templates for the full history in comments — this page summarizes it,
+the CI file is the source of truth for the current job definitions.</p>
+<h3 id="fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout">Fail-loud, not hang: why a preflight job instead of a <code>timeout:</code><a class="headerlink" href="#fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout" title="Permanent link">&para;</a></h3>
+<p>A job's <code>timeout:</code> only bounds execution time <em>after</em> a runner has picked it up — it does
+nothing for a job stuck <code>pending</code> because no runner matches its <code>tags:</code>. GitLab has no native
+"pending too long" job failure. <code>arm64-runner-preflight</code> queries the Runners API
+(<code>GET /projects/:id/runners?scope=online&amp;tag_list=arm64</code>, the same read
+<code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code> performs by hand) and fails
+immediately if it finds no online <code>arm64</code>-tagged runner, before <code>backend-docker-push-arm64</code> /
+<code>frontend-docker-push-arm64</code> are even scheduled. This needs <code>RUNNERS_READ_TOKEN</code>, a
+<code>read_api</code>-scope PAT — the Runners API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint
+set, so a job token can't make this call. See
+<a href="../tokens-and-rotation/#runners_read_token">Tokens and Rotation</a>.</p>
 <h2 id="distributed-ci-cache-minio">Distributed CI cache (MinIO)<a class="headerlink" href="#distributed-ci-cache-minio" title="Permanent link">&para;</a></h2>
 <p>The <code>.npm-cache</code> / pip cache templates use a MinIO S3-compatible backend so all runners share
 a warm cache (<code>.gitlab-ci.yml</code>, "Cache templates" section). This requires both:</p>
@@ -3616,8 +3667,9 @@ for the actual root cause (an IPv6/HTTPS-required mismatch, not a slow boot or a
 problem).</p>
 <h2 id="related-open-items">Related open items<a class="headerlink" href="#related-open-items" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>#1084</strong> (milestone 1.2) — restore native arm64 image publishing once an arm64-capable
-  runner exists.</li>
+<li><strong>#1084</strong> — resolved: native arm64 image publishing restored via <code>Max1-Runner-Visiban</code> +
+  <code>manifest-tool</code>. Acceptance criteria (multi-arch <code>:&lt;tag&gt;</code>/<code>:latest</code>/<code>:MAJOR.MINOR</code> on both
+  registries) are verified at the next release tag pipeline, not by this change alone.</li>
 </ul>
 
 

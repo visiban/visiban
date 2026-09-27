@@ -3378,6 +3378,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#runners_read_token" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RUNNERS_READ_TOKEN
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#correction-the-github-release-ci-variable-is-gh_token-not-github_token" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3581,8 +3592,27 @@ paste a credential, stop and describe where it lives instead.</p>
 <td>Distributed CI cache shared across runners (<code>.npm-cache</code>, pip cache templates in <code>.gitlab-ci.yml</code>)</td>
 <td>Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141)</td>
 </tr>
+<tr>
+<td><code>RUNNERS_READ_TOKEN</code></td>
+<td>GitLab PAT, scope <code>read_api</code>, at least Reporter on the group</td>
+<td>TBD — a maintainer with Reporter+ on the group</td>
+<td>GitLab CI/CD variable (masked, protected)</td>
+<td><code>arm64-runner-preflight</code> job (#1084) — queries <code>GET /projects/:id/runners?scope=online&amp;tag_list=arm64</code> to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang <code>pending</code> with no matching runner</td>
+<td>Not tracked here — record on issue when created</td>
+</tr>
 </tbody>
 </table>
+<h2 id="runners_read_token"><code>RUNNERS_READ_TOKEN</code><a class="headerlink" href="#runners_read_token" title="Permanent link">&para;</a></h2>
+<p>Added in <strong>#1084</strong> for <code>arm64-runner-preflight</code>. The GitLab Runners API is not part of the
+CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
+<code>CI_JOB_TOKEN</code> the way most other jobs in this file do for registry pushes — it needs an
+actual PAT with <code>read_api</code> scope, owned by someone with at least Reporter access to the
+group (so the read covers the group-level <code>Max1-Runner-Visiban</code> runner). Create it at
+GitLab → Settings → Access Tokens (or a personal access token, if no suitable group/project
+token type covers <code>read_api</code> at group scope), store it as a masked + protected CI/CD
+variable named <code>RUNNERS_READ_TOKEN</code>, and record its expiry in the inventory row above in the
+same MR that creates it — do not leave this row's expiry blank the way the two GitHub PATs'
+were.</p>
 <h2 id="correction-the-github-release-ci-variable-is-gh_token-not-github_token">Correction: the GitHub-release CI variable is <code>GH_TOKEN</code>, not <code>GITHUB_TOKEN</code><a class="headerlink" href="#correction-the-github-release-ci-variable-is-gh_token-not-github_token" title="Permanent link">&para;</a></h2>
 <p>Some earlier notes (including this page's source issue) refer to the GitHub release token as
 <code>GITHUB_TOKEN</code>. That name is wrong for this repo. Verified directly against
@@ -3645,6 +3675,10 @@ its <code>config.toml</code> follows the interpolated form — do not hardcode t
     <code>DOCS_VERSION</code> set (see the job's comment block in <code>.gitlab-ci.yml</code>).</li>
 <li>Mirror bot PAT: push any commit to <code>main</code> and confirm it appears on
     <code>visiban/visiban-enterprise</code> shortly after.</li>
+<li><code>RUNNERS_READ_TOKEN</code>: re-run a past <code>arm64-runner-preflight</code> job (CI/CD → Pipelines →
+    find a release-tag pipeline → retry that job), or trigger a new pipeline on a
+    pre-release tag; it should log "OK: N online runner(s) tagged arm64" rather than the
+    "RUNNERS_READ_TOKEN not set" or Runners-API-error message.</li>
 </ul>
 </li>
 <li>Record the new expiry in this page's inventory table in the same MR that rotates the
