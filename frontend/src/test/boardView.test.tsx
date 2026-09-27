@@ -388,7 +388,7 @@ describe('BoardView', () => {
       attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false, archived_at: null,
       version: 1,
       custom_field_values: [],
-      blocker_count: 0,
+      blocker_count: 0, external_ref: null,
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [stalledCard] }) })
     render(<BoardView {...defaultProps()} />)
@@ -689,7 +689,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0,
+      blocker_count: 0, external_ref: null,
     }
     mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
     render(<BoardView {...defaultProps()} />)
@@ -812,7 +812,7 @@ describe('BoardView', () => {
       last_moved_at: null, attachment_count: 0, checklist_total: 0,
       checklist_done: 0, is_stale: false, archived_at: null, version: 1,
       custom_field_values: [],
-      blocker_count: 0,
+      blocker_count: 0, external_ref: null,
     }
     const ctx = defaultContext({ board: makeBoard({ cards: [card] }) })
     mockBoardContextValue = ctx
@@ -1544,7 +1544,7 @@ describe('BoardView', () => {
         description: '', priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
         position: 0, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
         last_moved_at: null, attachment_count: 0, checklist_total: 0, checklist_done: 0,
-        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0,
+        is_stale: false, archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
       } as never
       mockBoardContextValue = defaultContext({ board: makeBoard({ cards: [card] }) })
       render(<BoardView currentUser={lensUser} />)

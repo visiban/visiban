@@ -25,11 +25,12 @@ from groups.models import Group, GroupMembership
 
 from ..models import (
     Board, BoardExportLog, BoardFavorite, BoardMembership as BoardMembershipModel, Card,
-    CardActivity, CardChecklist, CardComment, CardMovement, Column, Label, Swimlane,
+    CardActivity, CardChecklist, CardComment, CardExternalRef, CardMovement, Column, Label,
+    Swimlane,
 )
 from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
-from ..serializers import BoardExportLogSerializer, BoardSerializer
+from ..serializers import BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer
 from ._helpers import get_board_for_user
 
 # #843: rank of each BoardMembership.Role for the export-threshold comparison.
@@ -97,6 +98,19 @@ class BoardExportThrottle(UserRateThrottle):
     """
 
     scope = "board_export"
+
+def _external_ref_export(card):
+    """The card's MR/PR link (#352) as ``{provider, ref, url}``, or None.
+
+    Reads the select_related() cache; a card with no row raises
+    RelatedObjectDoesNotExist (an ObjectDoesNotExist), mapped to None here.
+    """
+    try:
+        ref = card.external_ref
+    except CardExternalRef.DoesNotExist:
+        return None
+    return {"provider": ref.provider, "ref": ref.ref, "url": ref.url}
+
 
 def _sanitize_csv_field(value: str) -> str:
     """Strip leading characters that spreadsheet applications interpret as formula prefixes.
@@ -498,9 +512,24 @@ class BoardImportExportMixin:
 
             movements_to_create = []      # (CardMovement obj, moved_at str or None)
             imported_activities = []      # (CardActivity obj, created_at str or None)
+            external_refs_to_create = []
 
             for card_obj, card_data in zip(cards_to_create, cards_raw):
                 card_pk = card_obj.pk
+
+                # MR/PR link (#352). Run through the same serializer the API
+                # uses so an import file can never smuggle in a URL the API
+                # would reject (e.g. a javascript: scheme rendered as a link on
+                # the card face). An invalid or malformed entry is dropped
+                # rather than failing the import — the same leniency the
+                # importer applies to an unknown priority or event type.
+                raw_ref = card_data.get("external_ref")
+                if isinstance(raw_ref, dict):
+                    ref_ser = ExternalRefSerializer(data=raw_ref)
+                    if ref_ser.is_valid():
+                        external_refs_to_create.append(
+                            CardExternalRef(card_id=card_pk, **ref_ser.validated_data)
+                        )
 
                 # Weight-change activity for non-default weights
                 if card_obj.weight and card_obj.weight > 1:
@@ -636,6 +665,9 @@ class BoardImportExportMixin:
             # Checklist items
             if checklists_to_create:
                 CardChecklist.objects.bulk_create(checklists_to_create)
+
+            if external_refs_to_create:
+                CardExternalRef.objects.bulk_create(external_refs_to_create)
 
             # Comments with optional timestamp backfill.
             # bulk_create returns objects with PKs; bulk_update then issues a single
@@ -1035,7 +1067,7 @@ class BoardImportExportMixin:
 
         cards = list(
             Card.objects.filter(board=board)
-            .select_related("column", "swimlane", "assignee", "created_by")
+            .select_related("column", "swimlane", "assignee", "created_by", "external_ref")
             .prefetch_related(
                 "labels",
                 "movements__from_column",
@@ -1178,6 +1210,10 @@ class BoardImportExportMixin:
                     # ignores unrecognized keys, and re-importing custom field
                     # data is a tracked follow-up rather than part of this phase.
                     "custom_field_values": _custom_values_by_name(card),
+                    # #352. Additive like custom_field_values above; unlike
+                    # them it *is* restored on import (validated through
+                    # ExternalRefSerializer). null when the card has no link.
+                    "external_ref": _external_ref_export(card),
                     "comments": [
                         {
                             "author": c.author.username if c.author else None,

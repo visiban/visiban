@@ -36,7 +36,7 @@ function makeCard(id: number, title: string): Card {
     archived_at: null,
     version: 1,
     custom_field_values: [],
-    blocker_count: 0,
+    blocker_count: 0, external_ref: null,
   }
 }
 

@@ -383,6 +383,22 @@ export interface CardAttachment {
   uploaded_at: string;
 }
 
+/** Forge an external ref points at (#352). `other` covers any non-GitLab/GitHub host. */
+export type ExternalRefProvider = 'gitlab' | 'github' | 'other';
+
+/**
+ * A card's link to a merge request / pull request (#352). Stable public API
+ * contract — the enterprise auto-link integration reads and writes this exact
+ * shape. `url` is validated server-side to http/https only, but the client
+ * still re-checks it with `isHttpUrl()` before rendering it as an `href`.
+ */
+export interface CardExternalRef {
+  provider: ExternalRefProvider;
+  /** Freeform display ref, e.g. `owner/repo#123` or `group/project!45`. */
+  ref: string;
+  url: string;
+}
+
 export interface Card {
   id: number;
   uid: string;
@@ -417,6 +433,11 @@ export interface Card {
    * array.
    */
   blocker_count: number;
+  /**
+   * MR/PR link (#352), or null when the card has none. Required, like every
+   * other serializer field: the backend always emits the key.
+   */
+  external_ref: CardExternalRef | null;
 }
 
 export interface Notification {

@@ -353,6 +353,21 @@ class AllowedPrioritiesValidationTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("allowed_priorities must be a list", str(r.data))
 
+    def test_falsy_non_list_values_rejected_and_not_stored(self):
+        # backend-schema-fuzz: `false` slipped past an early `if not value`
+        # return, was stored, and made GET /boards/ violate the array schema.
+        for bad in (False, 0, "", {}):
+            with self.subTest(value=bad):
+                r = self.client.patch(
+                    f"/api/v1/boards/{self.board.id}/",
+                    {"allowed_priorities": bad},
+                    format="json",
+                )
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("allowed_priorities must be a list", str(r.data))
+                self.board.refresh_from_db()
+                self.assertIsInstance(self.board.allowed_priorities, list)
+
 
 class CardDensityValidationTests(TestCase):
     """#961: per-board card_density choice validation and round-trip."""
