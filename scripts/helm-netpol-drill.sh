@@ -25,7 +25,9 @@
 # migrate hook on Calico or Cilium, and looked perfect on kind. (#1117 removed
 # that Job; migrations are now an init container of the backend pod and so carry
 # `component: backend`. The omission SHAPE is what this drill guards against, and
-# it long outlives the one workload that demonstrated it.)
+# it long outlives the one workload that demonstrated it.) The allow-list is now
+# `backend` plus `scheduler` — the scheduled-job CronJob pods (#1157) — and both
+# are probed below.
 #
 # This drill therefore builds its own cluster with disableDefaultCNI + Calico and
 # asserts BEHAVIOR, not manifest shape:
@@ -239,6 +241,17 @@ expect ALLOWED "$(probe probe-backend-valkey "${NAME_LABEL},${INSTANCE_LABEL},ap
 # in the backend pod's `migrate` init container, under the backend pod's labels.
 # There is no longer a separate `component: migrate` workload, so it must NOT be
 # in the allow-list — see the negative probe for it below.
+#
+# `component: scheduler` is the second legitimate client: the pods of the
+# scheduled-job CronJobs (templates/cronjobs.yaml, #1157), which run management
+# commands against PostgreSQL. The probes carry the label directly rather than
+# waiting on a CronJob run, so they prove the allow-list whether or not the
+# drill's values enable scheduledJobs. The static half — the CronJob pod label
+# actually being `scheduler` — is helm-structure-check.sh section 7.
+expect ALLOWED "$(probe probe-scheduler-pg "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=scheduler" "$PG_SVC" 5432)" \
+  "scheduler -> PostgreSQL (#1157)"
+expect ALLOWED "$(probe probe-scheduler-valkey "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=scheduler" "$VALKEY_SVC" 6379)" \
+  "scheduler -> Valkey (#1157)"
 
 # ---------------------------------------------------------------------------
 step "NEGATIVE probes — everything else is denied"
