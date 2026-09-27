@@ -273,6 +273,148 @@
         }
       }
     },
+    "scheduledJobs": {
+      "description": "Scheduled maintenance CronJobs (templates/cronjobs.yaml, #1157). Master switch off by default so an upgrade creates nothing; prune jobs are additionally off individually because they delete data.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "timeZone": {
+          "description": "IANA zone name for CronJob .spec.timeZone (Kubernetes 1.27+). Empty = controller default (UTC on almost every cluster).",
+          "type": "string"
+        },
+        "activeDeadlineSeconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "backoffLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startingDeadlineSeconds": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "successfulJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failedJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ttlSecondsAfterFinished": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resources": {
+          "description": "Passed through with toYaml. Open: the chart is not the authority on the ResourceRequirements schema.",
+          "type": "object"
+        },
+        "notifyDueSoon": {
+          "description": "manage.py notify_due_soon — due-date notifications for opted-in assignees.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
+        "notifyStaleCards": {
+          "description": "manage.py notify_stale_cards — staleness notifications for opted-in users.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
+        "pruneBoardEvents": {
+          "description": "manage.py prune_board_events — DELETES board change-feed events older than BOARD_EVENT_RETENTION_DAYS.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        },
+        "pruneNotifications": {
+          "description": "manage.py prune_notifications — DELETES notifications older than NOTIFICATION_RETENTION_DAYS.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "description": "Standard 5-field cron expression, interpreted in scheduledJobs.timeZone.",
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {
+              "description": "Appended to `python manage.py <command>`.",
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "integer"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "tests": {
       "description": "The `helm test` connection probe (templates/tests/api-connection.yaml).",
       "type": "object",

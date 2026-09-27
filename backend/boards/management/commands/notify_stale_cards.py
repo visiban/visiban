@@ -78,6 +78,9 @@ class Command(BaseCommand):
 
             # Batch idempotency check: fetch all (card_id, recipient_id) pairs
             # already notified today in one query instead of per-card-per-user.
+            # The Notification rows ARE the "already sent" record — there is no
+            # separate ledger — so prune_notifications enforces a minimum
+            # retention window rather than letting a prune erase this history.
             card_ids = list(cards.values_list("pk", flat=True))
             already_notified = set(
                 Notification.objects.filter(

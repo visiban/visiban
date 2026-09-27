@@ -78,6 +78,16 @@ each with 10 MB of multipart-framing headroom. Raise the one value and the whole
 path moves with it; a transport limit below the app cap would 413 uploads at the
 edge before Django could return a message naming the real limit.
 
+## Scheduled jobs
+
+`scheduledJobs.enabled=true` renders Kubernetes CronJobs for the daily
+maintenance commands: the due-date and staleness notification scans (on
+within the switch), plus the `board_events` and `notifications` retention prunes
+(off unless enabled individually, because they delete data). The switch is
+**off by default**, so upgrading the chart creates nothing. With it off, no
+due-date or staleness notification is ever sent. See `scheduledJobs` in
+`values.yaml`, and <https://visiban.gitlab.io/visiban/administration/scheduled-jobs/>.
+
 ## NetworkPolicies
 
 `networkPolicy.enabled=true` restricts pod-to-pod traffic to the paths Visiban
@@ -89,6 +99,7 @@ objects are admitted, reported by `kubectl get netpol`, and ignored. A clean
 install on kind is therefore not evidence that these policies work. CI's
 `helm-netpol` job builds a dedicated Calico cluster for exactly this reason.
 
+The scheduled-job pods (`component: scheduler`) are already on those lists.
 If you add a workload that opens a PostgreSQL or Valkey connection, add its
 `app.kubernetes.io/component` to the allow-lists at the top of
 `templates/networkpolicy.yaml` — the policies name their clients by that label,

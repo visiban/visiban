@@ -266,6 +266,16 @@ USE_X_ACCEL_REDIRECT = env.bool("USE_X_ACCEL_REDIRECT", default=not DEBUG)
 # cursor falls outside the window gets 410 and re-syncs via /full/.
 BOARD_EVENT_RETENTION_DAYS = env.int("BOARD_EVENT_RETENTION_DAYS", default=30)
 
+# In-app notifications (#1158) — how long a row in `notifications` is kept,
+# read or unread. Enforced by `manage.py prune_notifications`, which only runs
+# when an operator schedules it (host cron, the Compose `scheduler` profile, or
+# the Helm `scheduledJobs.pruneNotifications` CronJob) — an install that never
+# schedules it keeps every notification, exactly as before 1.2. The command
+# refuses windows under 14 days: notification rows double as the "already sent"
+# record for notify_due_soon / notify_stale_cards, so a too-short window would
+# make those commands re-notify (and re-email) the same card.
+NOTIFICATION_RETENTION_DAYS = env.int("NOTIFICATION_RETENTION_DAYS", default=90)
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_ID = 1

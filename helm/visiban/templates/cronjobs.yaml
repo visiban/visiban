@@ -1,0 +1,104 @@
+{{- /*
+Scheduled maintenance jobs (#1157, #1158).
+
+Visiban has no task queue and the backend image has no cron daemon, so these
+daily management commands only ever ran if an operator wrote cron lines by
+hand — an install that enabled the due-soon email preference received nothing.
+This renders one native CronJob per enabled entry under `scheduledJobs`.
+
+Off unless `scheduledJobs.enabled` is true, so `helm upgrade` on an existing
+release creates nothing: an upgrade must not start sending notifications, and
+must never start deleting data, on its own. Inside the switch the two notify
+scans default on (they only act for users who opted in) and the two prune jobs
+default off (they delete rows).
+
+Every pod:
+  - runs the backend image with the backend's env and runtime Secret
+    (visiban.backendEnv), so a rotated secret or changed email setting reaches
+    the next run with no restart — each run is a new pod;
+  - carries `app.kubernetes.io/component: scheduler`, which networkpolicy.yaml
+    lists as a datastore client. Adding a template that talks to PostgreSQL
+    without listing its component there denies it on an enforcing CNI;
+    scripts/helm-structure-check.sh section 7 asserts the pairing;
+  - fails loudly rather than hanging: activeDeadlineSeconds kills a stuck run,
+    backoffLimit bounds retries, and concurrencyPolicy Forbid means a slow run
+    is never joined by the next one (two concurrent notify scans can both pass
+    the de-dup check and notify twice).
+*/ -}}
+{{- if .Values.scheduledJobs.enabled }}
+{{- $sj := .Values.scheduledJobs }}
+{{- $jobs := list
+      (dict "key" "pruneBoardEvents" "command" "prune_board_events" "suffix" "prune-board-events")
+      (dict "key" "pruneNotifications" "command" "prune_notifications" "suffix" "prune-notifications")
+      (dict "key" "notifyDueSoon" "command" "notify_due_soon" "suffix" "notify-due-soon")
+      (dict "key" "notifyStaleCards" "command" "notify_stale_cards" "suffix" "notify-stale-cards") }}
+{{- range $job := $jobs }}
+{{- $cfg := index $sj $job.key }}
+{{- if $cfg.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  {{- /* CronJob names are capped at 52 characters: the controller appends an
+  11-character suffix to name each Job, and Job names are capped at 63. The
+  release part is truncated, never the job suffix — truncating the joined name
+  collapsed every job of a long release name onto one identical name. */}}
+  name: {{ printf "%s-%s" (include "visiban.fullname" $ | trunc (int (sub 51 (len $job.suffix))) | trimSuffix "-") $job.suffix }}
+  labels:
+    {{- include "visiban.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  schedule: {{ $cfg.schedule | quote }}
+  {{- if $sj.timeZone }}
+  timeZone: {{ $sj.timeZone | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: {{ $sj.startingDeadlineSeconds | int }}
+  successfulJobsHistoryLimit: {{ $sj.successfulJobsHistoryLimit | int }}
+  failedJobsHistoryLimit: {{ $sj.failedJobsHistoryLimit | int }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ $sj.backoffLimit | int }}
+      activeDeadlineSeconds: {{ $sj.activeDeadlineSeconds | int }}
+      ttlSecondsAfterFinished: {{ $sj.ttlSecondsAfterFinished | int }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "visiban.name" $ }}
+            app.kubernetes.io/instance: {{ $.Release.Name }}
+            app.kubernetes.io/component: scheduler
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            # The backend image's `visiban` user (backend/Dockerfile). Numeric
+            # because the kubelet cannot verify runAsNonRoot against a user
+            # NAME — it does not read /etc/passwd.
+            runAsUser: 1001
+            runAsGroup: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: tmp
+              emptyDir: {}
+          containers:
+            - name: {{ $job.suffix }}
+              image: "{{ $.Values.backend.image.repository }}:{{ $.Values.backend.image.tag }}"
+              imagePullPolicy: {{ $.Values.backend.image.pullPolicy }}
+              command: ["python", "manage.py", {{ $job.command | quote }}{{ range $cfg.args }}, {{ . | toString | quote }}{{ end }}]
+              env:
+                {{- include "visiban.backendEnv" $ | nindent 16 }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                {{- toYaml $sj.resources | nindent 16 }}
+{{- end }}
+{{- end }}
+{{- end }}

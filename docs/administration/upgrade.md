@@ -371,6 +371,25 @@ touched — so it is zero-downtime and requires no operator action.
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
 
+!!! note "Scheduled jobs ship in 1.2 — off by default"
+    1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,
+    `prune_board_events` and the new `prune_notifications`: an opt-in `scheduler`
+    service (Compose profile `scheduler`) in `docker-compose.prod.yml`, and
+    `scheduledJobs` CronJobs in the Helm chart. **Neither is on after an
+    upgrade**, and no data is pruned until you enable a prune job yourself.
+
+    - If you **already schedule these commands from host cron**, either keep
+      doing that or switch to the shipped scheduler. Do not do both: two
+      notification scans started in the same minute can notify a user twice.
+      Remove the cron line before you enable the shipped job.
+    - If you **never scheduled them**, users who turned on due-date or staleness
+      notifications have received nothing. Enable the scheduler to fix that.
+    - `NOTIFICATION_RETENTION_DAYS` (default 90, minimum 14) is new. It has no
+      effect until `prune_notifications` is scheduled. Preview the first run
+      with `python manage.py prune_notifications --dry-run`.
+
+    See [Scheduled Jobs](scheduled-jobs.md).
+
 !!! note "Data integrity check — cards pointing at another board's column/swimlane"
     1.2 closes a security hole where `PATCH`/`PUT .../cards/{id}/` accepted a `column` or
     `swimlane` id from a different board, silently detaching the card from both boards'

@@ -83,6 +83,9 @@ class Command(BaseCommand):
         # One query for the whole idempotency check. Reference point per card is
         # (due_date - horizon), the earliest moment this card could have entered
         # the window, so the oldest row that could matter is that many days back.
+        # These Notification rows ARE the "already sent" record — there is no
+        # separate ledger — which is why prune_notifications refuses a retention
+        # window under 14 days: pruning inside this look-back would re-notify.
         earliest = today - datetime.timedelta(days=horizon)
         already = {}
         for card_id, recipient_id, created_at in Notification.objects.filter(

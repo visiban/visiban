@@ -250,6 +250,63 @@ externalRedis:
 networkPolicy:
   enabled: false
 
+# -- Scheduled maintenance jobs (templates/cronjobs.yaml, #1157). One Kubernetes
+# CronJob per enabled entry, each running a Django management command in the
+# backend image with the backend's env and Secret.
+#
+# OFF by default, so upgrading the chart creates nothing and changes nothing.
+# Turn it on with `scheduledJobs.enabled=true`: that alone schedules the two
+# notification scans, which only act for users who switched the matching
+# preference on. The two prune jobs DELETE data and stay off until enabled
+# individually. If you already run any of these from host cron, remove that
+# cron line when you enable the CronJob — two runs in the same minute can both
+# pass the de-duplication check and notify twice.
+scheduledJobs:
+  enabled: false
+  # IANA zone for every schedule below (CronJob .spec.timeZone, Kubernetes
+  # 1.27+). Empty = the kube-controller-manager's zone, which is UTC on almost
+  # every cluster. Visiban's own TIME_ZONE is UTC.
+  timeZone: ""
+  # Upper bound on one run; a job still running after this is killed and
+  # marked failed rather than left hanging.
+  activeDeadlineSeconds: 3600
+  # Retries after a failed run before the Job is marked failed. Every command
+  # here is idempotent, so one retry is safe.
+  backoffLimit: 1
+  # A run that could not start within this window (controller down, node
+  # pressure) is skipped rather than started late.
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  # Finished Job objects (and their pod logs) are deleted after this long.
+  ttlSecondsAfterFinished: 86400
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # `args` are appended to `python manage.py <command>`, e.g. ["--days", "180"].
+  notifyDueSoon:
+    enabled: true
+    schedule: "0 7 * * *"
+    args: []
+  notifyStaleCards:
+    enabled: true
+    schedule: "0 8 * * *"
+    args: []
+  # Deletes board change-feed events older than BOARD_EVENT_RETENTION_DAYS (30).
+  pruneBoardEvents:
+    enabled: false
+    schedule: "0 3 * * *"
+    args: []
+  # Deletes notifications older than NOTIFICATION_RETENTION_DAYS (90; minimum 14).
+  pruneNotifications:
+    enabled: false
+    schedule: "30 3 * * *"
+    args: []
+
 # `helm test <release>` connection probe (templates/tests/api-connection.yaml).
 # Only instantiated by `helm test` — never deployed by install or upgrade.
 tests:

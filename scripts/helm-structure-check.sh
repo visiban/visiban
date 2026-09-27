@@ -52,6 +52,13 @@ RENDER_ARGS=(
   --set backend.oauth.oidc.serverUrl=https://idp.visiban.local/realms/visiban
   # The NetworkPolicies are off by default; section 7 needs them rendered.
   --set networkPolicy.enabled=true
+  # The scheduled-job CronJobs (#1157) are off by default, and every one of
+  # them opens a database connection — section 7 must see their pods, and
+  # section 8 must see the manage.py commands they run. Prune jobs are off
+  # individually, so turn them on too.
+  --set scheduledJobs.enabled=true
+  --set scheduledJobs.pruneBoardEvents.enabled=true
+  --set scheduledJobs.pruneNotifications.enabled=true
 )
 
 RELEASE="visiban"
@@ -513,9 +520,12 @@ check_netpol_coverage() {
   # of them, and the valkey subchart labels its StatefulSet component "primary".
   local own_name
   own_name="$(doc Deployment 'backend$' | yq '.spec.template.metadata.labels."app.kubernetes.io/name"')"
-  components="$(yq "select(.kind == \"Deployment\" or .kind == \"Job\" or .kind == \"StatefulSet\")
-                    | select(.spec.template.metadata.labels.\"app.kubernetes.io/name\" == \"$own_name\")
-                    | .spec.template.metadata.labels.\"app.kubernetes.io/component\"" "$RENDERED" \
+  # A CronJob's pod template is one level deeper (.spec.jobTemplate.spec.template);
+  # normalize it to the same path so the scheduled jobs (#1157) are covered.
+  components="$(yq "select(.kind == \"Deployment\" or .kind == \"Job\" or .kind == \"StatefulSet\" or .kind == \"CronJob\")
+                    | (select(.kind == \"CronJob\") | .spec.jobTemplate.spec.template) // .spec.template
+                    | select(.metadata.labels.\"app.kubernetes.io/name\" == \"$own_name\")
+                    | .metadata.labels.\"app.kubernetes.io/component\"" "$RENDERED" \
                  | grep -vFx -e 'null' -e '---' | sort -u)"
 
   local bad=0
@@ -639,6 +649,9 @@ self_test() {
     "4 nginx upstream|templates/frontend-configmap.yaml|s|http://{{ include \"visiban.fullname\" . }}-backend|http://backend|g"
     "6 transport limit below app cap|templates/frontend-configmap.yaml|s/client_max_body_size {{ include \"visiban.transportBodyLimitMB\" . }}M;/client_max_body_size 1M;/"
     "8 renamed manage.py command|templates/backend-deployment.yaml|s/\"manage.py\", \"ensure_site_admin\"/\"manage.py\", \"ensure_admin_site\"/"
+    # 8b: a scheduled-job CronJob (#1157) names a command that does not exist —
+    # every run fails, and nothing else connects the chart's string to the file.
+    "8 renamed scheduled-job command|templates/cronjobs.yaml|s/\"command\" \"prune_notifications\"/\"command\" \"prune_notification\"/"
   )
 
   for fixture in "${fixtures[@]}"; do
