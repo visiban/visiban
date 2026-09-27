@@ -41,7 +41,7 @@ Get group details.
 | `is_starred` | boolean | Whether the requesting user has starred this group |
 | `shared_labels` | array | Labels shared across all boards in this group |
 | `default_board_member_role` | string | Role assigned to group members on new boards |
-| `allowed_priorities` | array | Priority values permitted on boards in this group. Empty array means all priorities allowed. |
+| `allowed_priorities` | array | Priority values permitted on boards in this group. Empty array means all priorities allowed. Duplicate entries are silently de-duplicated (order of first occurrence is kept); a submitted list longer than 100 entries is rejected with `400 Bad Request`. |
 | `ancestors` | array | Ordered list of ancestor groups from root to immediate parent. Each entry is `{ "id": 1, "name": "Acme Corp" }`. Empty for top-level groups. **Only present on this single-object retrieve endpoint** — the list endpoint (`GET /api/v1/groups/`) omits `ancestors`. |
 | `created_at` | string | ISO 8601 timestamp |
 
