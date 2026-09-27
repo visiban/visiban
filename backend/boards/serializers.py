@@ -1477,7 +1477,11 @@ class CardSerializer(serializers.ModelSerializer):
     # `board` rejects every column/swimlane rather than exposing all rows.
     column = serializers.PrimaryKeyRelatedField(queryset=Column.objects.none())
     swimlane = serializers.PrimaryKeyRelatedField(queryset=Swimlane.objects.none())
-    created_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1138): created_by is a SET_NULL FK — the creating user
+    # can be deleted, and rows predating the ownership migration carry it null
+    # outright (same declared-nested-field gap as CardComment.author and
+    # CardChecklist.created_by). Schema-only: the field is read_only.
+    created_by = BoardUserSerializer(read_only=True, allow_null=True)
     description = serializers.CharField(max_length=50_000, allow_blank=True, required=False)
     last_moved_at = serializers.SerializerMethodField()
     # Read-and-write, same shape both ways — see CustomFieldValuesField (#371).

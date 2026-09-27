@@ -277,14 +277,6 @@ SUPPRESSIONS: tuple[Suppression, ...] = (
                 schema_repr="admin|collaborator|member|viewer",
                 ts_repr="admin|collaborator|member|site_admin|viewer", issue=1137,
                 reason="synthesized roster rows carry role: site_admin"),
-
-    # ── #1138: declared serializer fields do not inherit model nullability ────
-    # A declared field (nested serializer, or CharField with a traversing source)
-    # does not pick up `null=True` from the model the way an auto-generated
-    # ModelSerializer field does, so the schema understates nullability.
-    Suppression(NULLABILITY, "Card", "created_by",
-                schema_repr="not nullable", ts_repr="nullable", issue=1138,
-                reason="null once the creating user is deleted (SET_NULL)"),
 )
 
 

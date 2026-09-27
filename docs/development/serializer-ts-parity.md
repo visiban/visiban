@@ -26,10 +26,13 @@ The distinction that matters: #821 asks "does the serializer emit this field?" �
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
 the second, and in practice several do. Eight fields on `Board` and `CurrentUser` were
 published as `string` while returning ints, bools and nested objects (#1135); `BoardFull.members`
-sends rows the `BoardMembership` component forbids (#1137); two nullable fields are declared
-non-nullable (#1138). Every one of those passes #821's name check, because the serializer
-really does emit the field — it is the *published type* that is wrong, and the published type
-is what an external consumer generates a client from.
+sends rows the `BoardMembership` component forbids (#1137); a nullable field was declared
+non-nullable (#1138, fixed — a declared serializer field does not inherit `null=True` from the
+model the way an auto-generated one does; `Board.group_name` had the same symptom but was
+already fixed by earlier, unrelated work before #1138's branch existed). Every one of those
+passes #821's name check, because
+the serializer really does emit the field — it is the *published type* that is wrong, and the
+published type is what an external consumer generates a client from.
 
 ## Why this gate exists
 
