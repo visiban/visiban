@@ -19,6 +19,7 @@ import BoardGroupPath from "../components/Group/BoardGroupPath";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
+import TrelloImportModal from "../components/Board/TrelloImportModal";
 import { importBoard } from "../api/boards";
 import type { Board, Group, GroupMembership, Priority, User } from "../types";
 import SelectDropdown from "../components/Common/SelectDropdown";
@@ -70,6 +71,7 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
   const [showCreateSubgroup, setShowCreateSubgroup] = useState(false);
   const [creatingBoard, setCreatingBoard] = useState(false);
   const [importingBoard, setImportingBoard] = useState(false);
+  const [trelloImporting, setTrelloImporting] = useState(false);
   const [showSubgroupBoards, setShowSubgroupBoards] = useState(false);
   const [subgroupBoards, setSubgroupBoards] = useState<Board[]>([]);
   const [loadingSubgroupBoards, setLoadingSubgroupBoards] = useState(false);
@@ -1121,6 +1123,22 @@ export default function GroupDetail({ user, onLogout, onUserUpdated, onStarToggl
         <ImportBoardModal
           onImport={handleImportBoard}
           onCancel={() => setImportingBoard(false)}
+          onSwitchToTrello={() => {
+            setImportingBoard(false);
+            setTrelloImporting(true);
+          }}
+        />
+      )}
+
+      {trelloImporting && group && (
+        <TrelloImportModal
+          groupId={groupId}
+          groupName={group.name}
+          onCancel={() => setTrelloImporting(false)}
+          onImported={(b) => {
+            setTrelloImporting(false);
+            navigate(`/boards/${b.id}`);
+          }}
         />
       )}
 

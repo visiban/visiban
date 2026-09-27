@@ -58,7 +58,7 @@ page; treat it as opaque.
 `GET /api/v1/boards/{board_id}/cards/{id}/` below, plus `board` (the board's integer ID) —
 single-board endpoints omit `board` because the URL already scopes to one board; a cross-board
 list has to say which board each row belongs to. `assignee_id` and `label_ids` (the write-only
-fields used to set an assignee or labels) are not present — this endpoint is read-only.
+fields used to set an assignee or labels) are not present — this endpoint is read-only. This includes `external_ref` (read-only here; `null` when unset).
 
 ---
 
@@ -137,6 +137,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `archived_at` | string / null | yes | yes | ISO 8601 timestamp of archiving, or `null` for active cards |
 | `version` | integer | yes | no | Optimistic concurrency counter; increments on every mutation. Pass as `version` in the [move endpoint](#move) to enable OCC. |
 | `custom_field_values` | array | no | no | Values for the board's [custom fields](boards.md#custom-fields-since-12) — `[{ field_definition, value }]`. Readable and writable in the same shape; see below. Empty array when the card has no values. |
+| `external_ref` | object / null | no | no | Link to the GitLab/GitHub merge request, pull request, or issue that implements this card (since 1.2) — `{ provider, ref, url }` or `null`. Always present; `null` when unset. Readable and writable in the same shape; see [External ref](#external-ref-since-12). |
 | `blocker_count` | integer | yes | no | Number of active cards blocking this one — see [Relations](#relations-since-12). Counts only the `blocks` relation type, only where this card is the blocked end, and only where the blocking card is not archived. `relates_to` never contributes. The relation list itself is not on the card payload; fetch it from the relations endpoint. |
 
 **Example response**
@@ -169,6 +170,11 @@ The following fields are returned for every card object in this endpoint, `POST 
     { "field_definition": 12, "value": "raid10" },
     { "field_definition": 13, "value": "4" }
   ],
+  "external_ref": {
+    "provider": "gitlab",
+    "ref": "acme/webapp!45",
+    "url": "https://gitlab.com/acme/webapp/-/merge_requests/45"
+  },
   "blocker_count": 1
 }
 ```
@@ -178,7 +184,7 @@ Update card fields. Requires member or above.
 
 > **Ownership gate:** Members may only edit cards they created. A member who did not create the card must have the `is_moderator` entitlement or be a board admin. Non-moderator members who did not create the card receive `403 Forbidden`.
 
-**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`
+**Patchable fields:** `title`, `description`, `priority`, `weight`, `due_date`, `assignee_id`, `label_ids`, `custom_field_values`, `external_ref`
 
 #### Custom field values (since 1.2)
 
@@ -209,6 +215,53 @@ returned can be sent straight back:
 - `400 Bad Request` with the message on `custom_field_values` for any of the above. The
   whole card update is rolled back — a card is never left half-updated because one value
   failed validation.
+
+#### External ref (since 1.2)
+
+`external_ref` links a card to the merge request, pull request, or issue that implements it.
+It is also accepted on `POST /api/v1/boards/{board_id}/cards/`. The shape is the same on read
+and write:
+
+```json
+{
+  "external_ref": {
+    "provider": "github",
+    "ref": "acme/webapp#123",
+    "url": "https://github.com/acme/webapp/pull/123"
+  }
+}
+```
+
+| Key | Type | Description |
+|---|---|---|
+| `provider` | string | One of `"gitlab"`, `"github"`, `"other"` |
+| `ref` | string | 1-255 characters. Surrounding whitespace is trimmed; no inner whitespace, control, or invisible Unicode formatting characters (e.g. zero-width space, bidi overrides). Freeform, e.g. `owner/repo#123` or `group/proj!45` |
+| `url` | string | At most 2048 characters. Must be an absolute `http` or `https` URL with a host. Surrounding whitespace is trimmed; embedded whitespace, control, or invisible formatting characters are rejected, as are backslashes and a percent-encoded host |
+
+- **Omitting the key leaves the link untouched.** Sending `null` removes it. Sending an object
+  replaces the whole link, and all three keys are required even on PATCH — a partial object
+  is a `400`.
+- The response always includes the key; it is `null` when no link is set.
+- `javascript:`, `data:`, `ftp:`, protocol-relative, and relative URLs are rejected, as are
+  URLs that embed credentials (`user:pass@host`). The host is not checked against `provider`,
+  so self-hosted GitLab and GitHub Enterprise URLs are accepted.
+- Setting the link is a card edit: it uses the same role allow-list and ownership gate as any
+  other field (viewers receive `403`), bumps `version`, and is included in the `card.updated`
+  WebSocket payload. No activity-history entry is written in this release.
+- Not included on the anonymous public share-link payload, because a ref can reveal private
+  repository names.
+- The field names and value rules above are a stable public contract. The same rules are
+  enforced by the model's `full_clean()`, so an integration that writes the table directly
+  must call it (or go through the API).
+
+**Errors:** `400 Bad Request` with the error nested under `external_ref`, keyed by sub-field:
+
+```json
+{ "external_ref": { "url": ["Only http and https URLs are allowed."] } }
+```
+
+A non-object value (other than `null`) returns
+`{ "external_ref": { "non_field_errors": ["..."] } }`.
 
 > **`column` and `swimlane` cannot be changed via PATCH/PUT.** These fields are present in the serializer response, and echoing back the card's *current* `column`/`swimlane` value is accepted (so a PUT client that round-trips the full representation still works). Submitting a *different* value — same board or another board — is rejected with `400` and body `{"code": "use_move_endpoint", "detail": "..."}`. To move a card, always use `POST /api/v1/boards/{board_id}/cards/{id}/move/`, which enforces WIP/weight limits and writes the `CardMovement` audit trail.
 

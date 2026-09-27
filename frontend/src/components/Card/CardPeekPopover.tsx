@@ -3,6 +3,7 @@ import type { Card, CustomFieldDefinition } from "../../types";
 import { PRIORITY_COLORS } from "../../constants/colors";
 import { formatRelativeTime } from "../../utils/date";
 import { formatCustomFieldValue, isValidForType } from "../../utils/customFieldValue";
+import { PROVIDER_LABELS } from "../../utils/externalRef";
 
 interface CardPeekPopoverProps {
   card: Card;           // from ../../types
@@ -148,6 +149,11 @@ export default function CardPeekPopover({ card, anchorRect, onMouseEnter, onMous
 
         if (card.weight > 1) parts.push(`Weight ${card.weight}`);
         if (card.attachment_count > 0) parts.push(`${card.attachment_count} attachment${card.attachment_count === 1 ? "" : "s"}`);
+        // MR/PR link (#352) — plain text, never a link: the peek is a hover
+        // tooltip, so an anchor here would be unreachable. At comfortable
+        // density the card face shows the glyph only, so this is where the
+        // ref itself becomes readable without opening the card.
+        if (card.external_ref) parts.push(`${PROVIDER_LABELS[card.external_ref.provider] ?? card.external_ref.provider} ${card.external_ref.ref}`);
         if (parts.length === 0) return null;
         return (
           <p className="mt-3 text-xs text-fg-muted">{parts.join(" · ")}</p>

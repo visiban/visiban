@@ -383,6 +383,22 @@ export interface CardAttachment {
   uploaded_at: string;
 }
 
+/** Forge an external ref points at (#352). `other` covers any non-GitLab/GitHub host. */
+export type ExternalRefProvider = 'gitlab' | 'github' | 'other';
+
+/**
+ * A card's link to a merge request / pull request (#352). Stable public API
+ * contract — the enterprise auto-link integration reads and writes this exact
+ * shape. `url` is validated server-side to http/https only, but the client
+ * still re-checks it with `isHttpUrl()` before rendering it as an `href`.
+ */
+export interface CardExternalRef {
+  provider: ExternalRefProvider;
+  /** Freeform display ref, e.g. `owner/repo#123` or `group/project!45`. */
+  ref: string;
+  url: string;
+}
+
 export interface Card {
   id: number;
   uid: string;
@@ -417,6 +433,11 @@ export interface Card {
    * array.
    */
   blocker_count: number;
+  /**
+   * MR/PR link (#352), or null when the card has none. Required, like every
+   * other serializer field: the backend always emits the key.
+   */
+  external_ref: CardExternalRef | null;
 }
 
 export interface Notification {
@@ -965,4 +986,106 @@ export interface LensData {
    *  milestone filter. The filter accepts any typed value (server-side), so a
    *  milestone outside the fetched window can still be filtered to. */
   available_milestones: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Trello import (#456) — mirrors backend/boards/services/trello_import.py.
+// ---------------------------------------------------------------------------
+
+export type TrelloWarningCode =
+  | "archived_lists_skipped"
+  | "cards_in_archived_lists_skipped"
+  | "cards_missing_list"
+  | "multiple_swimlane_labels"
+  | "checklists_flattened"
+  | "invalid_due_dates"
+  | "descriptions_truncated"
+  | "comments_truncated"
+  | "unknown_labels"
+  | "comments_may_be_incomplete"
+  | "matched_members_not_added"
+  | "unmatched_members";
+
+export type TrelloUnmappableKind =
+  | "attachment_files"
+  | "custom_fields"
+  | "power_up_data"
+  | "start_dates"
+  | "stickers";
+
+export interface TrelloImportMapping {
+  swimlane_label_ids: string[];
+  default_swimlane_name: string;
+  include_archived_lists: boolean;
+  add_matched_members: boolean;
+}
+
+export interface TrelloImportCounts {
+  lists: number;
+  lists_archived: number;
+  cards: number;
+  cards_archived: number;
+  labels: number;
+  checklists: number;
+  checklist_items: number;
+  comments: number;
+  attachments: number;
+  members: number;
+}
+
+export interface TrelloImportResultCounts {
+  columns: number;
+  swimlanes: number;
+  labels: number;
+  cards: number;
+  cards_archived: number;
+  checklist_items: number;
+  comments: number;
+}
+
+export interface TrelloImportWarning {
+  code: TrelloWarningCode;
+  message: string;
+  count: number;
+}
+
+export interface TrelloImportUnmappable {
+  kind: TrelloUnmappableKind;
+  count: number;
+}
+
+export interface TrelloImportPreview {
+  source: "trello";
+  file_sha256: string;
+  board: { name: string; description: string };
+  counts: TrelloImportCounts;
+  result: TrelloImportResultCounts;
+  mapping: {
+    columns: { trello_id: string; name: string; position: number | null; card_count: number; archived: boolean }[];
+    labels: {
+      trello_id: string;
+      name: string;
+      color: string;
+      original_color: string | null;
+      card_count: number;
+      swimlane_eligible: boolean;
+    }[];
+    swimlanes: { name: string; label_id: string | null }[];
+    default_swimlane: string;
+  };
+  /** Only a count of matches — never which accounts matched (#456 security note). */
+  members: { total: number; matched: number; unmatched: { trello_id: string; full_name: string }[] };
+  options: TrelloImportMapping;
+  warnings: TrelloImportWarning[];
+  unmappable: TrelloImportUnmappable[];
+}
+
+export interface TrelloImportResult {
+  board: Board;
+  summary: {
+    counts: TrelloImportCounts;
+    result: TrelloImportResultCounts;
+    warnings: TrelloImportWarning[];
+    unmappable: TrelloImportUnmappable[];
+  };
 }

@@ -24,6 +24,8 @@ import {
   deleteBoard,
   moveBoardToGroup,
   importBoard,
+  previewTrelloImport,
+  confirmTrelloImport,
   exportBoardCsv,
   exportBoardJson,
   getBoardAnalytics,
@@ -243,6 +245,45 @@ describe('Board API wrappers', () => {
 
       const formData = mockClient.post.mock.calls[0][1] as FormData
       expect(formData.get('group_id')).toBe('42')
+    })
+  })
+
+  describe('Trello import', () => {
+    it('previewTrelloImport posts the file with dry_run', async () => {
+      const file = new File(['{}'], 'trello.json', { type: 'application/json' })
+      mockClient.post.mockResolvedValue({ data: { source: 'trello' } })
+      const onUploadProgress = vi.fn()
+      await previewTrelloImport(file, { groupId: 7, onUploadProgress })
+
+      const [url, body, config] = mockClient.post.mock.calls[0]
+      expect(url).toBe('/api/v1/boards/import/trello/?dry_run=true')
+      const formData = body as FormData
+      expect(formData.get('file')).toBe(file)
+      expect(formData.get('group_id')).toBe('7')
+      expect(formData.get('mapping')).toBeNull()
+      expect(config.onUploadProgress).toBe(onUploadProgress)
+    })
+
+    it('confirmTrelloImport sends mapping JSON, name and sha with confirm', async () => {
+      const file = new File(['{}'], 'trello.json', { type: 'application/json' })
+      mockClient.post.mockResolvedValue({ data: { board: { id: 5 }, summary: {} } })
+      const mapping = {
+        swimlane_label_ids: ['l1'],
+        default_swimlane_name: 'Other',
+        include_archived_lists: true,
+        add_matched_members: false,
+      }
+      const result = await confirmTrelloImport(file, { name: 'Roadmap', mapping, fileSha256: 'abc' })
+
+      expect(result.board.id).toBe(5)
+      const [url, body, config] = mockClient.post.mock.calls[0]
+      expect(url).toBe('/api/v1/boards/import/trello/?confirm=true')
+      const formData = body as FormData
+      expect(JSON.parse(formData.get('mapping') as string)).toEqual(mapping)
+      expect(formData.get('name')).toBe('Roadmap')
+      expect(formData.get('file_sha256')).toBe('abc')
+      expect(formData.get('group_id')).toBeNull()
+      expect(config.timeout).toBe(300000)
     })
   })
 
