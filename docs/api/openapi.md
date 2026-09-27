@@ -145,10 +145,11 @@ write endpoints' `400` validation-error response isn't documented at all — fil
 recorded as scoped, justified entries in `backend/schemathesis-baseline.json`
 ([schemathesis's baseline mechanism](https://schemathesis.readthedocs.io/) — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
-touching on every run) alongside #1119's still-open findings. The `400` entries were pruned
-once the generic `400` rule above landed (#1165); closing #1119/#1123 should prune theirs too
-(`st run ... --baseline-update --baseline-prune`) so the job resumes catching regressions in
-that area.
+touching on every run) alongside #1119's findings. The `400` entries were pruned
+once the generic `400` rule above landed (#1165). #1119 and #1123 are now closed but their
+entries were not pruned; that is tracked in [#1170](https://gitlab.com/visiban/visiban/-/issues/1170)
+(`st run ... --baseline-update --baseline-prune`, from a full-length run — a short run reports
+valid entries as unobserved) so the job resumes catching regressions in that area.
 
 ## Versioning
 

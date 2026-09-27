@@ -663,9 +663,10 @@ backend-schema-validate:
 # random value schemathesis generated, so the file doesn't need touching every
 # run) rather than blocking this flip on #1119/#1123/#1124 landing first.
 # #1124's entries were pruned when visiban/schema_hooks.py started documenting
-# a generic 400 (#1165). Closing #1119/#1123 should prune theirs
-# (`st run ... --baseline PATH --baseline-update --baseline-prune`) so the job
-# starts catching a regression in that area again.
+# a generic 400 (#1165). #1119/#1123 are now closed but their entries were not
+# pruned — tracked in #1170 (`st run ... --baseline PATH --baseline-update
+# --baseline-prune`, from a full-length run) so the job starts catching a
+# regression in that area again.
 #
 # Scoped to the file classes #1080 names (views/, serializers.py, urls.py)
 # plus always on main, so a schema-shape change gets checked before merge
