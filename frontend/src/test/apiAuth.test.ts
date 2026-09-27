@@ -77,10 +77,10 @@ describe('auth API', () => {
   })
 
   it('getSiteConfig calls GET /api/auth/site-config/', async () => {
-    mockGet.mockResolvedValue({ data: { registration_open: false } })
+    mockGet.mockResolvedValue({ data: { registration_open: false, demo_mode: false, demo_login: null } })
     const result = await getSiteConfig()
     expect(mockGet).toHaveBeenCalledWith('/api/v1/auth/site-config/')
-    expect(result).toEqual({ registration_open: false })
+    expect(result).toEqual({ registration_open: false, demo_mode: false, demo_login: null })
   })
 
   it('listTokens calls GET /api/auth/tokens/', async () => {

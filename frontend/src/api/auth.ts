@@ -1,5 +1,5 @@
 import client from "./client";
-import type { User, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
+import type { User, SiteConfig, SiteSettings, SiteEmailSettings, SiteEmailSettingsPatch, EmailTestResult, AdminUser, AdminInviteLink, CreatedAdminInviteLink, PersonalAccessToken, PersonalAccessTokenScope, CreatedPersonalAccessToken } from "../types";
 
 export const getCurrentUser = () =>
   client.get<User>("/api/v1/auth/user/").then((r) => r.data);
@@ -22,7 +22,7 @@ export const getAuthProviders = () =>
   client.get<{ google: boolean; github: boolean; gitlab: boolean; oidc: boolean; oidc_name: string | null }>("/api/v1/auth/providers/").then((r) => r.data);
 
 export const getSiteConfig = () =>
-  client.get<{ registration_open: boolean; registration_mode: "open" | "invite_only" | "closed" }>("/api/v1/auth/site-config/").then((r) => r.data);
+  client.get<SiteConfig>("/api/v1/auth/site-config/").then((r) => r.data);
 
 export const changePassword = (current_password: string, new_password: string) =>
   client.post<{ detail: string }>("/api/v1/auth/change-password/", { current_password, new_password }).then((r) => r.data);

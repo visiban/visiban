@@ -194,6 +194,8 @@ export const BOARD_FULL = {
 export const SITE_CONFIG = {
   registration_open: false,
   registration_mode: 'closed' as const,
+  demo_mode: false,
+  demo_login: null,
 }
 
 export const AUTH_PROVIDERS = {

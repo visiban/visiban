@@ -56,6 +56,15 @@ Usage:
         poll endpoints have realistic data. Used by the nightly-load-test CI
         job (see docs/development/nightly-load-test.md) — never combine
         --scale > 1 with --export.
+
+    python manage.py seed_demo_data --force --wipe --demo-site
+        Hosted demo instance (#1034, try.visiban.com). In addition to the
+        normal demo board, seeds Software / Marketing / Hiring boards
+        (20 cards each, with comments, assignees, labels, and movement
+        history) plus an admin and two member accounts. Passwords come from
+        the DEMO_LOGIN_PASSWORD and DEMO_MEMBER_PASSWORD environment
+        variables (never from source); the command refuses to run without
+        DEMO_LOGIN_PASSWORD or DEMO_MEMBER_PASSWORD. See deploy/demo/README.md.
 """
 
 import csv
@@ -88,6 +97,8 @@ from boards.models import (
     SwimlaneCustomFieldValue,
 )
 from groups.models import Group, GroupInviteLink, GroupLabel
+
+from ._demo_site_data import BOARDS as DEMO_SITE_BOARDS, DEMO_SITE_USERS
 
 BOARD_NAME = "Visiban Demo Board"
 # Distinct name for the --scale > 1 fixture (#1082) so a large-fixture run can
@@ -506,6 +517,17 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--demo-site",
+            action="store_true",
+            help=(
+                "Also seed the hosted-demo content (#1034): Software, Marketing "
+                "and Hiring boards plus an admin and two member accounts. "
+                "Passwords are read from DEMO_LOGIN_PASSWORD / "
+                "DEMO_MEMBER_PASSWORD. Off by default — the default output "
+                "(and the committed --export snapshot) is unchanged."
+            ),
+        )
+        parser.add_argument(
             "--with-notifications",
             action="store_true",
             help=(
@@ -524,8 +546,32 @@ class Command(BaseCommand):
         # working SMTP configured, seeding would send hundreds of real emails to
         # whatever addresses the demo data contains. Nobody asked to be told
         # about fixtures.
+        demo_site = options.get("demo_site")
+        if demo_site:
+            # Validate before touching the database: a demo site with a blank
+            # admin password would be an open admin account, and --export /
+            # --scale are for committed / CI fixtures, not the public demo.
+            # Require DEMO_MODE so the command can never take over (reset the
+            # password of, and promote) a pre-existing "admin" account on an
+            # ordinary install that merely has DEMO_LOGIN_PASSWORD set.
+            if not settings.DEMO_MODE:
+                raise CommandError("--demo-site requires DEMO_MODE=true.")
+            if not settings.DEMO_LOGIN_PASSWORD:
+                raise CommandError(
+                    "--demo-site requires the DEMO_LOGIN_PASSWORD environment variable."
+                )
+            # The demo promises two usable member accounts; an unusable
+            # password would silently ship two accounts nobody can sign in to.
+            if not settings.DEMO_MEMBER_PASSWORD:
+                raise CommandError(
+                    "--demo-site requires the DEMO_MEMBER_PASSWORD environment variable."
+                )
+            if options["export"] or options["scale"] != 1:
+                raise CommandError("--demo-site cannot be combined with --export or --scale.")
         with suppress_notification_email():
             self._seed(*args, **options)
+            if demo_site:
+                self._seed_demo_site(options)
 
     def _seed(self, *args, **options):
         random.seed(options["seed"])
@@ -631,6 +677,151 @@ class Command(BaseCommand):
 
         if options["export"]:
             self._export(board, columns, swimlanes, labels, cards)
+
+    # ── Hosted demo site (#1034) ───────────────────────────────────────────────
+
+    def _seed_demo_site(self, options):
+        """Seed the try.visiban.com boards and accounts.
+
+        Runs after the normal seed and never draws from ``random`` — it is
+        fully deterministic and cannot perturb the default dataset. The
+        production guard already ran in ``_seed``.
+        """
+        if options["wipe"]:
+            Board.objects.filter(name__in=[b["name"] for b in DEMO_SITE_BOARDS]).delete()
+
+        users = self._ensure_demo_site_users()
+        # Let the demo accounts see the main demo board too, so a first login
+        # lands on more than the three new boards.
+        main = Board.objects.filter(name=BOARD_NAME).first()
+        if main:
+            for key, user in users.items():
+                BoardMembership.objects.get_or_create(
+                    board=main,
+                    user=user,
+                    defaults={
+                        "role": BoardMembership.Role.ADMIN if key == "admin" else BoardMembership.Role.MEMBER
+                    },
+                )
+
+        for spec in DEMO_SITE_BOARDS:
+            if Board.objects.filter(name=spec["name"]).exists():
+                self.stdout.write(
+                    self.style.WARNING(f"'{spec['name']}' already exists — skipping. Use --wipe to recreate.")
+                )
+                continue
+            n = self._create_demo_site_board(spec, users)
+            self.stdout.write(self.style.SUCCESS(f"Seeded '{spec['name']}': {n} cards."))
+
+    def _ensure_demo_site_users(self):
+        """Create/refresh the admin and member accounts; return {key: User}.
+
+        Passwords are re-applied on every run so a rotated env value takes
+        effect at the next nightly reset. Never printed or logged.
+        """
+        users = {}
+        for key, (username, first, last, is_admin) in DEMO_SITE_USERS.items():
+            if is_admin:
+                username = settings.DEMO_LOGIN_USERNAME
+                password = settings.DEMO_LOGIN_PASSWORD
+            else:
+                password = settings.DEMO_MEMBER_PASSWORD
+            user, _ = User.objects.get_or_create(
+                username=username,
+                defaults={
+                    "email": f"{username}@visiban.example",
+                    "first_name": first,
+                    "last_name": last,
+                },
+            )
+            user.is_site_admin = is_admin
+            user.set_password(password)
+            # Reset on every run: --wipe deletes boards, not users, so an account
+            # that finished the tour yesterday would otherwise never see it again.
+            user.has_completed_tour = False
+            user.save()
+            users[key] = user
+        return users
+
+    def _create_demo_site_board(self, spec, users):
+        admin = users["admin"]
+        board = Board.objects.create(
+            name=spec["name"], description=spec["description"], owner=admin, staleness_threshold_days=7,
+        )
+        for user_key, user in users.items():
+            BoardMembership.objects.create(
+                board=board,
+                user=user,
+                role=BoardMembership.Role.ADMIN if user_key == "admin" else BoardMembership.Role.MEMBER,
+            )
+        columns = [
+            Column.objects.create(
+                board=board, position=i, name=name, color=color,
+                allow_card_creation=(i == 0), is_done=is_done,
+            )
+            for i, (name, color, is_done) in enumerate(spec["columns"])
+        ]
+        lanes = [
+            Swimlane.objects.create(board=board, position=i, name=name, color=color)
+            for i, (name, color) in enumerate(spec["swimlanes"])
+        ]
+        labels = {
+            name: Label.objects.create(board=board, name=name, color=color)
+            for name, color in spec["labels"]
+        }
+
+        today = datetime.date.today()
+        anchor = datetime.datetime(today.year, today.month, today.day, tzinfo=datetime.timezone.utc)
+        positions = {}
+        for idx, (title, desc, col_i, lane_i, priority, assignee, label_names, comments) in enumerate(spec["cards"]):
+            column, lane = columns[col_i], lanes[lane_i]
+            pos = positions.get(column.id, 0)
+            positions[column.id] = pos + 1
+            card = Card.objects.create(
+                board=board, column=column, swimlane=lane, title=title, description=desc,
+                priority=priority, assignee=users[assignee] if assignee else None,
+                # Deterministic spread: some overdue, some upcoming, some undated.
+                due_date=(today + datetime.timedelta(days=(idx % 9) - 2)) if idx % 3 != 2 else None,
+                weight=(idx % 5) + 1, position=pos, created_by=admin,
+            )
+            if label_names:
+                card.labels.set([labels[n] for n in label_names])
+            for c_i, (author, body) in enumerate(comments):
+                comment = CardComment.objects.create(card=card, author=users[author], body=body)
+                CardComment.objects.filter(pk=comment.pk).update(
+                    created_at=anchor - datetime.timedelta(days=1 + c_i + idx % 4)
+                )
+            self._add_demo_site_history(card, columns, col_i, anchor, idx, users)
+        return len(spec["cards"])
+
+    def _add_demo_site_history(self, card, columns, col_i, anchor, idx, users):
+        """Backdated created + one movement per stage the card has passed.
+
+        Every card gets a created event so the History tab is never empty.
+        Mirrors _add_movement_history but with deterministic offsets.
+        """
+        mover = list(users.values())[idx % len(users)]
+        lane = card.swimlane
+        step = 4 + idx % 3
+        age = step * (col_i + 1) + 2 + idx % 5
+        created = CardMovement.objects.create(
+            card=card, from_column=None, to_column=columns[0], from_swimlane=None, to_swimlane=lane,
+            from_column_name="", to_column_name=columns[0].name, from_column_uid="",
+            to_column_uid=columns[0].uid, from_swimlane_name="", to_swimlane_name=lane.name,
+            from_swimlane_uid="", to_swimlane_uid=lane.uid, moved_by=mover, notes="",
+        )
+        CardMovement.objects.filter(pk=created.pk).update(moved_at=anchor - datetime.timedelta(days=age))
+        for i in range(col_i):
+            src, dst = columns[i], columns[i + 1]
+            mv = CardMovement.objects.create(
+                card=card, from_column=src, to_column=dst, from_swimlane=lane, to_swimlane=lane,
+                from_column_name=src.name, to_column_name=dst.name, from_column_uid=src.uid,
+                to_column_uid=dst.uid, from_swimlane_name=lane.name, to_swimlane_name=lane.name,
+                from_swimlane_uid=lane.uid, to_swimlane_uid=lane.uid, moved_by=mover, notes="",
+            )
+            CardMovement.objects.filter(pk=mv.pk).update(
+                moved_at=anchor - datetime.timedelta(days=age - step * (i + 1))
+            )
 
     # ── Private helpers ────────────────────────────────────────────────────────
 

@@ -1,0 +1,27 @@
+# Caddy config for the hosted demo (#1034). Caddy obtains and renews the
+# certificate for {$DOMAIN} automatically. Mirrors the routes in
+# nginx/app-http.conf.template, minus /admin/ and /mcp (see the compose
+# override for why).
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Match nginx's client_max_body_size for attachment uploads.
+	request_body {
+		max_size 20MB
+	}
+
+	# reverse_proxy upgrades WebSocket connections (/ws/) transparently.
+	@backend path /api/* /ws/* /accounts/* /_allauth/* /static/* /media/*
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else is the SPA; unknown paths fall back to index.html so
+	# client-side routes survive a refresh.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

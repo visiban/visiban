@@ -70,6 +70,25 @@ The seed command creates five user accounts with unusable passwords (they cannot
 
 The `@visiban.example` domain is deliberately not a real domain. If you need to use demo accounts for OAuth testing, you will need to adjust these emails to match your OAuth provider's allowed domains.
 
+## Hosted demo instance
+
+> **Added in 1.2** — for running a public demo such as try.visiban.com (#1034).
+
+`seed_demo_data --demo-site` additionally seeds the content a public demo needs. It is opt-in; without the flag the command behaves exactly as described above.
+
+```bash
+python manage.py seed_demo_data --force --wipe --demo-site
+```
+
+It creates, alongside the normal demo board:
+
+- **Software Team** (Backlog / In Progress / Review / Done), **Marketing Campaigns**, and **Hiring Pipeline** boards, 20 cards each, with comments, assignees, labels, and movement history
+- an **admin** account (username from `DEMO_LOGIN_USERNAME`, password from `DEMO_LOGIN_PASSWORD`, site admin) and two member accounts, `maya` and `jordan` (password from `DEMO_MEMBER_PASSWORD`)
+
+Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true`, `DEMO_LOGIN_PASSWORD`, and `DEMO_MEMBER_PASSWORD` are all set, and cannot be combined with `--export` or `--scale`. The onboarding tour flag is reset on every run, so the tour starts on first login after each reset.
+
+Set `DEMO_MODE=true` to show the login-page banner. See [Demo mode](configuration.md#demo-mode) for the settings, and `deploy/demo/README.md` in the repository for the Caddy, compose, and nightly-reset artifacts.
+
 ## Demo data and real data
 
 Demo records carry no special marker. A demo card looks identical to a real card at the database level — same fields, same UID format, same `archived_at` behavior. This means:
