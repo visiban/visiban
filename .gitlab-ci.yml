@@ -1592,6 +1592,104 @@ ws-event-reachability:
     - python scripts/check-ws-event-reachability.py
   allow_failure: false
 
+# ─── RBAC coverage (#1143) ────────────────────────────────────────────────────
+#
+# The deterministic half of the `rbac-check` agent gate. Three of that agent's
+# six questions are mechanical — is there an authentication gate, is the caller's
+# role resolved through the shared resolver, and does every write action apply a
+# minimum-role check — and this asserts all three over the board/group-scoped
+# view modules by AST. The other three (is this the *right* minimum role, group
+# inheritance correctness, cross-board isolation beyond the mechanical lookup
+# case) still need the agent, which is why this script has a distinct exit code
+# for a view it cannot classify rather than a silent pass.
+#
+# Same conversion as #1078, #1092 and #1093: an agent round-trip per MR costs
+# latency and tokens and leaves no record, while a script under a second leaves
+# its misses visible as code.
+#
+# Pure stdlib Python, no database, no Django import — so it runs on the plain
+# python image with no install step. The --self-test invocation runs FIRST and on
+# the same image (#1093).
+rbac-coverage:
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/boards/views/**/*
+        - backend/boards/models.py
+        - backend/boards/permissions.py
+        - backend/groups/views.py
+        - backend/git_lens/views.py
+        - scripts/check-rbac-coverage.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    # Prove the detection logic fires against known-bad input before trusting
+    # this job's verdict on the real tree.
+    - python scripts/check-rbac-coverage.py --self-test
+    # Exit 3 is "unhandled pattern — hand it to the rbac-check agent". It is a
+    # failure, deliberately: a view whose authorization this script cannot read
+    # must not be reported as one it checked and approved.
+    - |
+      set +e
+      python scripts/check-rbac-coverage.py
+      rc=$?
+      set -e
+      if [ "$rc" -eq 3 ]; then
+        echo ""
+        echo "FAILED (exit 3): one or more views could not be classified statically."
+        echo "Run the rbac-check agent on each DEFER above, then either fix the gap"
+        echo "or record its review in AGENT_REVIEWED in scripts/check-rbac-coverage.py."
+        echo "See docs/development/rbac-and-broadcast-gates.md."
+      fi
+      exit $rc
+  allow_failure: false
+
+# ─── Broadcast deferral (#1143) ───────────────────────────────────────────────
+#
+# The deterministic half of the `broadcast-check` agent gate: every write on a
+# board/group-scoped view reaches a broadcast, every raw broadcast sits inside a
+# transaction.on_commit() callable, no commit hook holds an ORM row it read from
+# the enclosing scope, and no emit call sits in a loop over rows of one channel.
+#
+# Event *naming* and the emitted/documented/handled three-way match belong to
+# ws-event-reachability (#1078) and are deliberately not re-checked here. The
+# per-recipient field-leak question stays with the agent — it needs to know
+# which serializer fields a role may see.
+#
+# Same image and self-test-first discipline as rbac-coverage above.
+broadcast-deferral:
+  stage: test
+  needs: []
+  image: python:3.12-slim
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - backend/boards/**/*
+        - backend/groups/**/*
+        - backend/git_lens/**/*
+        - scripts/check-broadcast-deferral.py
+        - scripts/check-rbac-coverage.py
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - python scripts/check-broadcast-deferral.py --self-test
+    - |
+      set +e
+      python scripts/check-broadcast-deferral.py
+      rc=$?
+      set -e
+      if [ "$rc" -eq 3 ]; then
+        echo ""
+        echo "FAILED (exit 3): one or more broadcasts could not be classified statically."
+        echo "Run the broadcast-check agent on each DEFER above, then either fix the"
+        echo "gap or record its review in AGENT_REVIEWED in"
+        echo "scripts/check-broadcast-deferral.py."
+        echo "See docs/development/rbac-and-broadcast-gates.md."
+      fi
+      exit $rc
+  allow_failure: false
+
 # ─── Changelog check (MR only) ────────────────────────────────────────────────
 #
 # Fails when no changelog fragment was added and the MR contains changes that
