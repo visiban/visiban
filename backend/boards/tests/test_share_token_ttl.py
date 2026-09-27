@@ -89,6 +89,12 @@ class EnableShareTtlTests(TestCase):
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_non_object_body_returns_400_not_500(self):
+        # Reproduces #1166: AttributeError from `True.get(...)` when the body
+        # parses to a bare JSON value instead of an object.
+        r = self.client_admin.post(self._enable_url(), data=True, format="json")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_disable_clears_both_token_and_expiry(self):
         self.client_admin.post(
             self._enable_url(), data={"expires_in_days": 7}, format="json",

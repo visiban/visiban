@@ -400,7 +400,19 @@ class BoardViewSet(
         ALLOWED_TTL_DAYS = {7, 30, 90}
         with transaction.atomic():
             if request.method == "POST":
-                expires_in_days = request.data.get("expires_in_days") if hasattr(request, "data") else None
+                body = request.data
+                # A JSON body that parses to a non-object (e.g. `true` or a bare
+                # number/string/array) previously reached `.get()` unguarded —
+                # `hasattr(request, "data")` is always true, it never actually
+                # tested the parsed body's type — and surfaced as a 500 instead
+                # of a 400. `body` must be dict-like to have an `expires_in_days`
+                # key at all, so anything else is rejected up front.
+                if not isinstance(body, dict):
+                    return Response(
+                        {"detail": "Request body must be a JSON object."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                expires_in_days = body.get("expires_in_days")
                 expires_at = None
                 if expires_in_days is not None:
                     try:
