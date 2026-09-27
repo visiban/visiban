@@ -10,15 +10,16 @@ Visiban supports a per-user appearance preference with three options:
 | **Dark** | Always use the dark palette, regardless of OS preference. |
 | **Light** | Always use the light palette, regardless of OS preference. |
 
-The preference is stored per user and synchronises across every device you are logged into.
+The preference is stored per user and synchronizes across every device you are logged into.
 
 ## Changing your appearance
 
-1. Click your avatar in the top-right corner and open **Settings**.
-2. Under **Appearance**, choose one of the three options.
-3. The change takes effect immediately — no page reload.
+1. Click your avatar in the top-right corner and select **Profile & preferences**.
+2. Open the **Appearance** tab in the Settings sidebar.
+3. Under **Theme**, choose one of the three options.
+4. The change takes effect immediately — no page reload.
 
-Your choice is remembered across logins and propagates to other browsers and devices within a few seconds.
+Your choice is remembered across logins. It syncs instantly to any other tab open in the same browser, and to your other browsers and devices the next time each one loads or reloads Visiban — there is no live push between already-open sessions on different devices.
 
 ## System (auto) option
 
