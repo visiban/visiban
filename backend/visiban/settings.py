@@ -136,6 +136,14 @@ MIDDLEWARE = [
     # Restrict /admin/ to loopback (or DJANGO_ADMIN_ALLOWED_IPS) in production.
     # Placed early so the check runs before session/auth processing.
     "visiban.middleware.AdminIPRestrictionMiddleware",
+    # Hosted-demo write fence (#1179). Deliberately EARLIER than
+    # MaintenanceModeMiddleware and ahead of session/auth/CSRF: it refuses
+    # everyone (a site admin included), so it needs no request.user, and its
+    # process_view hook — where the allowlist decision is made, because it
+    # needs the resolved view_name — then runs before CsrfViewMiddleware's, so
+    # a refused request does no session, CSRF or database work. A no-op unless
+    # DEMO_MODE is on. See visiban/demo.py.
+    "visiban.middleware.DemoModeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -635,11 +643,43 @@ APP_VERSION = env("APP_VERSION", default="dev")
 # its own database (see deploy/demo/README.md). The credentials come from env,
 # never from source; the seeder (`seed_demo_data --demo-site`) reads the same
 # variables so what is published always matches what was seeded.
-DEMO_MODE = env.bool("DEMO_MODE", default=False)
-DEMO_LOGIN_USERNAME = env("DEMO_LOGIN_USERNAME", default="admin")
+#
+# #1179: DEMO_MODE also arms visiban.middleware.DemoModeMiddleware, the
+# deny-by-default write fence, so it is parsed strictly — `DEMO_MODE=ture`
+# refuses to boot instead of silently disabling the fence (env.bool would read
+# it as False) while the login page still publishes a credential.
+from visiban.demo import parse_demo_mode as _parse_demo_mode  # noqa: E402
+from visiban.demo import parse_demo_reset_schedule as _parse_demo_reset_schedule  # noqa: E402
+
+DEMO_MODE = _parse_demo_mode(os.environ.get("DEMO_MODE"))
+# The PUBLISHED account (#1179): a non-admin "visitor", MEMBER on every seeded
+# board. Before #1179 this was the site admin; these variables are unreleased
+# (post-v1.1.0), so changing their meaning breaks no install.
+DEMO_LOGIN_USERNAME = env("DEMO_LOGIN_USERNAME", default="visitor")
 DEMO_LOGIN_PASSWORD = env("DEMO_LOGIN_PASSWORD", default="")
+# The demo site admin's own password. Never published — the fence refuses
+# every admin write anyway, but the credential that is printed on the login
+# page must not be one that holds site-wide authority.
+DEMO_ADMIN_PASSWORD = env("DEMO_ADMIN_PASSWORD", default="")
 # Password for the two seeded member accounts. Not published anywhere.
 DEMO_MEMBER_PASSWORD = env("DEMO_MEMBER_PASSWORD", default="")
+# Cron expression of the demo reset (#1180 renders the CronJob and this value
+# from one Helm value). Drives `demo_next_reset_at`, the countdown the login
+# page and the in-app demo bar show. Validated at boot only while DEMO_MODE is
+# on: a schedule the backend cannot evaluate would publish a wrong countdown.
+DEMO_RESET_SCHEDULE = env("DEMO_RESET_SCHEDULE", default="0 * * * *")
+if DEMO_MODE:
+    _parse_demo_reset_schedule(DEMO_RESET_SCHEDULE)
+elif os.environ.get("DEMO_LOGIN_USERNAME") or os.environ.get("DEMO_LOGIN_PASSWORD"):
+    # A warning, not a crash: a leftover variable on a real install publishes
+    # nothing (SiteConfigView gates on DEMO_MODE), but it usually means the
+    # operator believes the fence is armed when it is not.
+    import logging as _logging  # noqa: E402
+
+    _logging.getLogger("visiban.demo").warning(
+        "DEMO_LOGIN_USERNAME/DEMO_LOGIN_PASSWORD is set but DEMO_MODE is off: "
+        "the demo write fence is NOT armed and no credential is published."
+    )
 
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).

@@ -235,6 +235,12 @@ class CurrentUserSerializer(UserSerializer):
     # and the banner can never render empty.
     maintenance_mode = serializers.SerializerMethodField()
     maintenance_message = serializers.SerializerMethodField()
+    # Hosted demo (#1179). Here for the same reason as maintenance_mode: the
+    # SPA bootstraps from GET /auth/user/, so this is where the in-app demo bar
+    # learns the mode and the next reset instant. Settings-only reads — no DB.
+    # demo_next_reset_at is null unless DEMO_MODE is on.
+    demo_mode = serializers.SerializerMethodField()
+    demo_next_reset_at = serializers.SerializerMethodField()
 
     def get_uploads_enabled(self, obj) -> bool:
         return get_uploads_enabled()
@@ -262,18 +268,33 @@ class CurrentUserSerializer(UserSerializer):
         active, message = self._maintenance_state()
         return get_maintenance_message(message) if active else ""
 
+    def get_demo_mode(self, obj) -> bool:
+        from django.conf import settings
+
+        return bool(getattr(settings, "DEMO_MODE", False))
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True, read_only=True))
+    def get_demo_next_reset_at(self, obj) -> str | None:
+        from visiban.demo import demo_next_reset_at_iso
+
+        return demo_next_reset_at_iso()
+
     class Meta(UserSerializer.Meta):
         fields = UserSerializer.Meta.fields + [
             "uploads_enabled",
             "git_lens_enabled",
             "maintenance_mode",
             "maintenance_message",
+            "demo_mode",
+            "demo_next_reset_at",
         ]
         read_only_fields = UserSerializer.Meta.read_only_fields + [
             "uploads_enabled",
             "git_lens_enabled",
             "maintenance_mode",
             "maintenance_message",
+            "demo_mode",
+            "demo_next_reset_at",
         ]
 
 

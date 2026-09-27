@@ -4,12 +4,13 @@ Deployment artifacts for the public demo instance (#1034): a Docker Compose
 stack on a small VPS, Caddy for automatic TLS, and a nightly reset back to a
 known seed state.
 
-> **Dedicated host only.** Demo mode publishes the admin credentials on the
+> **Dedicated host only.** Demo mode publishes the visitor credentials on the
 > login page and the nightly reset deletes the database. Never enable it on an
 > instance holding real data, never configure SSO/OAuth or real SMTP on it, and
 > never share its database with another install.
 
-Host hardening: the published admin is a site admin, so run the host on an
+Host hardening: the published account is a non-admin visitor behind the demo
+write fence (#1179), but still run the host on an
 egress-restricted network (no route to cloud metadata or internal services),
 keep the repo and `reset.sh` root-owned and not group/world-writable (the cron
 entry runs as root), and keep `deploy/demo/caddy-data` unreadable by others (it
@@ -55,9 +56,11 @@ cron entry cannot wipe a real install.
 `seed_demo_data --demo-site` (see [Demo data](../../docs/administration/demo-data.md#hosted-demo-instance))
 creates Software Team, Marketing Campaigns, and Hiring Pipeline boards (20 cards
 each, with comments, assignees, labels, and movement history) alongside the
-standard demo board, an admin account (`DEMO_LOGIN_USERNAME`), and two member
-accounts (`maya`, `jordan`). Nobody has completed the onboarding tour, so it runs
-on first login.
+standard demo board, the published visitor account (`DEMO_LOGIN_USERNAME`), an
+unpublished site admin (`admin`, `DEMO_ADMIN_PASSWORD`), and two member
+accounts (`maya`, `jordan`). The visitor starts with the onboarding tour marked
+completed (the fence refuses the tour's completion save, #1179); the other
+accounts see it on first login.
 
 ## Not covered here (human follow-ups)
 

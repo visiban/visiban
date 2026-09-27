@@ -4,6 +4,12 @@ from django.conf import settings
 from django.http import HttpResponseForbidden, JsonResponse
 
 from accounts.models import get_maintenance_message, get_maintenance_state
+from visiban.demo import (
+    DEMO_ALLOWED_WRITES,
+    DEMO_READ_ONLY_CODE,
+    DEMO_READ_ONLY_DETAIL,
+    DEMO_SAFE_METHODS,
+)
 from visiban.utils import get_client_ip
 
 
@@ -296,3 +302,98 @@ class MaintenanceModeMiddleware:
         except InvalidPersonalAccessToken:
             return False
         return bool(getattr(pat.user, "is_site_admin", False))
+
+
+# ---------------------------------------------------------------------------
+# Hosted demo fence (#1179)
+# ---------------------------------------------------------------------------
+
+
+class DemoModeMiddleware:
+    """Refuse every unsafe request not on ``DEMO_ALLOWED_WRITES`` while ``DEMO_MODE`` is on.
+
+    The rule itself — safe methods, the pinned allowlist, the refusal body — and
+    the threat model behind it live in ``visiban.demo``. This class only applies
+    it at the one layer no view can opt out of, for the same reason
+    ``MaintenanceModeMiddleware`` is middleware and not a DRF default permission
+    class (#989/#1110: almost no view inherits the DRF defaults).
+
+    JURISDICTION IS EVERYTHING, NOT ``/api/``. Scoping to ``/api/`` and bolting
+    on allauth's ``/accounts/`` tree separately would be two code paths; the
+    maintenance fence's exempt-list shape, inverted, is one. Every unsafe
+    request anywhere — ``/api/``, ``/accounts/`` (signup, email, password
+    change, 3rd-party connect), ``/admin/``, ``/media/`` — is refused unless its
+    ``(method, view_name)`` is on the allowlist.
+
+    WHY ``process_view`` AND NOT ``__call__``: the allowlist is keyed on the
+    resolved ``view_name`` (card routes carry ids, so a path match would need
+    regexes), and ``request.resolver_match`` is only populated after URL
+    resolution, which Django runs *after* every middleware's ``__call__``
+    pre-phase. ``process_view`` is the hook that runs after resolution and
+    before the view.
+
+    WHY IT SITS AHEAD OF SESSION/AUTH/CSRF (see MIDDLEWARE): the fence denies
+    everyone, a site admin included, so it needs no ``request.user`` — unlike
+    maintenance mode, whose admin exemption does. Being first in MIDDLEWARE
+    also makes its ``process_view`` run before ``CsrfViewMiddleware``'s, so a
+    refused request does no CSRF, session or database work at all. Anonymous
+    requests are refused too, which is what stops the password-reset endpoint
+    from turning a public demo into an email relay.
+
+    KEYED ON THE REAL METHOD. Nothing here, in Django or in DRF reads
+    ``X-HTTP-Method-Override`` or a ``_method`` field, so a header cannot
+    downgrade a POST to a GET; a test pins that.
+
+    UNRESOLVED PATHS. ``process_view`` never runs for a path that resolves to
+    nothing (``//api/...``, for instance), so no view — and no write — can run
+    either. ``__call__`` still rewrites that 404 to the fence's 403 so the
+    refusal is uniform and does not depend on the resolver staying strict.
+    (Unmatched ``/api/v1/`` paths resolve to ``ApiNotFoundView`` and are
+    refused by ``process_view`` like any other non-allowlisted route.)
+
+    NOT COVERED HERE, BY DESIGN: WebSockets (server-push only, no write path —
+    see MaintenanceModeMiddleware's note) and ``/mcp``, which is mounted
+    outside Django's handler and carries its own check in
+    ``mcp_server.server._require_demo_off``.
+
+    With ``DEMO_MODE`` off the cost is one settings lookup per request.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if (
+            response.status_code == 404
+            and getattr(request, "resolver_match", None) is None
+            and self._is_refusable_method(request)
+        ):
+            return self._refusal()
+        return response
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        if not self._is_refusable_method(request):
+            return None
+        match = request.resolver_match
+        view_name = match.view_name if match is not None else None
+        if (request.method.upper(), view_name) in DEMO_ALLOWED_WRITES:
+            return None
+        return self._refusal()
+
+    @staticmethod
+    def _is_refusable_method(request) -> bool:
+        # Fail closed on the flag: only an exact False lets a request through,
+        # so a non-boolean settings value refuses rather than disables.
+        if getattr(settings, "DEMO_MODE", False) is False:
+            return False
+        return (request.method or "").upper() not in DEMO_SAFE_METHODS
+
+    @staticmethod
+    def _refusal():
+        # Plain JsonResponse: this runs before the view, so no DRF exception
+        # handler is in play and there is nothing to roll back.
+        return JsonResponse(
+            {"code": DEMO_READ_ONLY_CODE, "detail": DEMO_READ_ONLY_DETAIL},
+            status=403,
+        )
