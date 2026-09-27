@@ -3838,8 +3838,12 @@
   <a href="https://schemathesis.readthedocs.io/">schemathesis</a> to catch a response that doesn't match
   its declared schema — see <a href="../../api/openapi/#fuzz-testing-the-contract-against-real-responses-backend-schema-fuzz"><code>docs/api/openapi.md</code></a>.
   Blocking (<code>allow_failure: false</code>) as of #1120; a handful of already-tracked
-  schema-accuracy gaps (#1119, #1123, #1124) are recorded as scoped, justified entries in
-  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first</li>
+  schema-accuracy gaps (#1119, #1123, now closed) were recorded as scoped, justified entries in
+  <code>backend/schemathesis-baseline.json</code> rather than blocking on them landing first; pruning
+  the leftovers is tracked in #1170. The
+  undocumented-<code>400</code> gap (#1124) is closed generically by <code>visiban/schema_hooks.py</code> (#1165).
+  A red run is a real defect, never a flake — do not retry it; see the
+  <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake">triage steps</a></li>
 <li>The <code>changelog-check</code> job blocks the pipeline if no fragment is added under <code>changelog.d/</code></li>
 </ul>
 <h3 id="diff-coverage-1076">Diff coverage (#1076)<a class="headerlink" href="#diff-coverage-1076" title="Permanent link">&para;</a></h3>

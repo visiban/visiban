@@ -3687,10 +3687,11 @@ write endpoints' <code>400</code> validation-error response isn't documented at 
 recorded as scoped, justified entries in <code>backend/schemathesis-baseline.json</code>
 (<a href="https://schemathesis.readthedocs.io/">schemathesis's baseline mechanism</a> — matched by
 operation + check + failure class, not by the random value generated, so it doesn't need
-touching on every run) alongside #1119's still-open findings. The <code>400</code> entries were pruned
-once the generic <code>400</code> rule above landed (#1165); closing #1119/#1123 should prune theirs too
-(<code>st run ... --baseline-update --baseline-prune</code>) so the job resumes catching regressions in
-that area.</p>
+touching on every run) alongside #1119's findings. The <code>400</code> entries were pruned
+once the generic <code>400</code> rule above landed (#1165). #1119 and #1123 are now closed but their
+entries were not pruned; that is tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1170">#1170</a>
+(<code>st run ... --baseline-update --baseline-prune</code>, from a full-length run — a short run reports
+valid entries as unobserved) so the job resumes catching regressions in that area.</p>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>The schema is generated live from whatever code is deployed — <code>GET /api/schema/</code> always reflects the exact version running behind it, consistent with the <code>/api/v1/</code> URL versioning scheme the REST API itself uses (see <a href="../authentication/"><code>docs/api/authentication.md</code></a> for the versioning contract those endpoints follow).</p>
 <p>There is currently <strong>no separately downloadable, per-release schema artifact</strong> (e.g. attached to a GitLab release or tagged build). External consumers that generate a typed client — the MCP server's REST-client package (#511) is one known case — must fetch <code>/api/schema/</code> from a running instance of the version they target rather than pinning to a static file. Publishing a versioned build artifact on tags was proposal item 3 of #1108 and is intentionally deferred to a follow-up issue; it is release-tooling work (<code>scripts/release.sh</code>) rather than a schema-accuracy fix.</p>

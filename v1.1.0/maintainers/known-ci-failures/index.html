@@ -3397,6 +3397,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#backend-schema-fuzz-failing-intermittently-this-is-not-a-known-flake" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        backend-schema-fuzz failing intermittently — this is NOT a known flake
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3518,6 +3529,20 @@ as an isolated event, check the runner's health (<code>glab api
 changes to running on every <code>backend-test-coverage</code> run, so the self-hosted runner is drawn
 on roughly 3x more often than before. A previously-rare transient failure mode becomes a
 more visible source of pipeline noise.</p>
+<h2 id="backend-schema-fuzz-failing-intermittently-this-is-not-a-known-flake"><code>backend-schema-fuzz</code> failing intermittently — this is NOT a known flake<a class="headerlink" href="#backend-schema-fuzz-failing-intermittently-this-is-not-a-known-flake" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> <code>backend-schema-fuzz</code> is red on one pipeline and green on the next, on an
+endpoint the MR never touched, e.g. <code>Undocumented HTTP status code</code> on a <code>POST</code>/<code>PUT</code>, or a
+<code>500</code> on <code>POST /api/v1/groups/</code>.</p>
+<p><strong>Root cause:</strong> a real defect (or an undocumented response) that only some random seeds reach.
+The job draws a fresh seed each run; a failing case is deterministic for its input, so a green
+re-run means a different seed did not hit it — not that the code is fine. On 2026-09-26 three
+main pipelines were red for exactly this reason (#1165).</p>
+<p><strong>Fix:</strong> do <strong>not</strong> retry it and do not add a <code>schemathesis-baseline.json</code> entry. Read the job's
+<code>FAILURES</code> section (operation, status, <code>Test Case ID</code>) and the <code>seed=</code> line the job prints. A
+5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
+the serializer or annotation fixed. Replay with the pipeline variable <code>FUZZ_SEED=&lt;n&gt;</code> or
+<code>st replay &lt;id&gt;</code>. Full triage steps: <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.
+Known still-open defects it can hit: #1166.</p>
 
 
 
