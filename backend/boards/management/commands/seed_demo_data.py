@@ -646,9 +646,18 @@ class Command(BaseCommand):
             # half-flushed one. PostgreSQL TRUNCATE (what `flush` issues) is
             # fully transactional and nests under an outer atomic() as a
             # savepoint, so this does not change flush's own behavior.
-            with transaction.atomic():
-                self._reset_database()
-                with suppress_notification_email():
+            # suppress_notification_email() must be the OUTER context manager
+            # (re-check of the first fix, #1180): atomic()'s on_commit callbacks
+            # fire at the moment the transaction commits, which is when the
+            # atomic() block exits. If suppress_notification_email() were
+            # nested inside atomic() instead, it would reset _suppressed to
+            # False on its own __exit__ before atomic() commits and fires
+            # those callbacks, so any notification queued via on_commit during
+            # the seed would send for real. Wrapping it outside keeps
+            # suppression active through the commit.
+            with suppress_notification_email():
+                with transaction.atomic():
+                    self._reset_database()
                     self._seed(*args, **options)
                     if demo_site:
                         self._seed_demo_site(options)

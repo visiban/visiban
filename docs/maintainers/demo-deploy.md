@@ -174,8 +174,13 @@ record it in [Deployment record](#deployment-record)** — do not assume either 
 
 ```bash
 # on the node
-kubectl get pods -A -l app=cloudflared 2>/dev/null && echo "in-cluster pod" \
-  || systemctl status cloudflared 2>/dev/null && echo "host service"
+if [ -n "$(kubectl get pods -A -l app=cloudflared -o name 2>/dev/null)" ]; then
+  echo "in-cluster pod"
+elif systemctl is-active --quiet cloudflared 2>/dev/null; then
+  echo "host service"
+else
+  echo "neither found — check how this tunnel is actually run before proceeding"
+fi
 ```
 
 The in-cluster DNS name (`visiban-demo-frontend.visiban-demo.svc.cluster.local:80`) works

@@ -59,12 +59,14 @@ def get_client_ip(request) -> str:
     same address as the DRF throttles, or two controls disagree about who the
     client is. Falls back to REMOTE_ADDR for direct connections.
 
-    Two deliberate, safe divergences from DRF's own ``get_ident`` (completeness
-    -check, #1180): a present-but-empty ``X-Forwarded-For`` header returns
-    ``"unknown"`` here (DRF returns ``''``), and a missing ``REMOTE_ADDR``
-    returns ``"unknown"`` here (DRF returns ``None``). Both make this function
-    strictly safer to use as a throttle/audit key than DRF's ``None``/``''``
-    would be, never less safe, so they are kept rather than matched.
+    One deliberate, safe divergence from DRF's own ``get_ident`` (re-checked by
+    completeness-check, #1180, after an earlier version of this note got it
+    wrong): when neither ``X-Forwarded-For`` nor ``REMOTE_ADDR`` is present,
+    this returns the literal string ``"unknown"`` rather than DRF's ``None`` --
+    a safer default for a value used as a throttle/audit key. A
+    present-but-empty ``X-Forwarded-For`` is NOT a divergence: it is falsy, so
+    this falls through to ``REMOTE_ADDR`` exactly as DRF's own falsy check
+    does.
     """
     from rest_framework.settings import api_settings
 

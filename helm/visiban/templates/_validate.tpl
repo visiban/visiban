@@ -109,13 +109,24 @@ refused here rather than escaped wherever it is used.
 {{- fail "\n\nVisiban: demo.enabled is true and backend.mediaPersistence.enabled is true.\nPublic demo mode gives visitors no upload path (the fence refuses uploads and the seed turns uploads off); a writable media PVC is defense in depth against a hole in that, so it is refused:\n    --set backend.mediaPersistence.enabled=false\n" -}}
 {{- end -}}
 {{- /*
-  django-environ's env.bool() treats all of these as true (environ.py's
-  BOOLEAN_TRUE_STRINGS), not just the literal "true" — a guard that only
-  caught "true" would let "1"/"yes"/"on"/"y"/"ok" through to a public demo
-  with Django's debug pages served, the /admin/ IP allowlist off, and
-  throttles raised to 9999/hour (completeness-check, #1180).
+  django-environ's env.bool() (environ.py's parse_value) casts by trying
+  int(value) != 0 FIRST, and only falls back to a string membership check
+  (BOOLEAN_TRUE_STRINGS, case-insensitive, trimmed) if that raises. So "2",
+  "01" and "-1" are true via the int path (a re-check by completeness-check
+  found the first version of this guard, which only checked string
+  membership, missed exactly these) -- as well as every non-"true" string in
+  BOOLEAN_TRUE_STRINGS. A guard that only caught "true" would let any of
+  these through to a public demo with Django's debug pages served, the
+  /admin/ IP allowlist off, and throttles raised to 9999/hour (#1180).
 */ -}}
-{{- if has (lower (toString .Values.backend.settings.debug)) (list "true" "on" "ok" "y" "yes" "1") -}}
+{{- $debugRaw := trim (toString .Values.backend.settings.debug) -}}
+{{- $debugTruthy := false -}}
+{{- if regexMatch "^-?[0-9]+$" $debugRaw -}}
+{{- $debugTruthy = ne (atoi $debugRaw) 0 -}}
+{{- else if has (lower $debugRaw) (list "true" "on" "ok" "y" "yes") -}}
+{{- $debugTruthy = true -}}
+{{- end -}}
+{{- if $debugTruthy -}}
 {{- fail "\n\nVisiban: demo.enabled is true and backend.settings.debug is a truthy value.\nA public instance must never serve Django's debug pages.\n    --set backend.settings.debug=false\n" -}}
 {{- end -}}
 {{- if not .Values.networkPolicy.enabled -}}
