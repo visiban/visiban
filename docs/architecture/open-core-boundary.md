@@ -32,7 +32,7 @@ This document records the OSS vs enterprise classification for every feature are
 | User offboarding flow (deactivate + transfer) | OSS | Basic team membership management | #347 |
 | Invite link controls (expiry, single-use, revoke) | OSS | Basic security hygiene for any team onboarding members | #346 |
 | External ref field on Card (PR/issue link) | OSS | Basic workflow data field; Phase 1 of GitHub/GitLab integration | #352 Phase 1 |
-| Auto PR-to-card link from commits/PRs | OSS | Superseded #352 Phase 2 once outgoing webhooks stopped being Enterprise; rescoped as a per-board *inbound* webhook from the git provider | #857 |
+| Auto PR-to-card link from commits/PRs | OSS | Superseded #352 Phase 2 once outgoing webhooks stopped being Enterprise; rescoped as a per-board *inbound* webhook from the git provider. The auto-transition-on-merge slice still needs an enterprise-check before build (see #857) | #857 |
 | URL filter state persistence (bookmarkable views) | OSS | Basic navigation feature for all users | #353 OSS portion |
 | Filtered share link for external clients | Enterprise | Combines base share token with filter state; guest-link layer | #353 enterprise portion |
 | Dark/light mode theme toggle | OSS | Basic accessibility; per-user preference | #355 |
