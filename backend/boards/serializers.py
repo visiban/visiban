@@ -2327,6 +2327,8 @@ class BoardFullSerializer(serializers.ModelSerializer):
             viewer_role = get_board_role(request.user, obj)
         is_admin_viewer = viewer_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
+        requesting_user_id = request.user.id if request and request.user.is_authenticated else None
+
         result = []
         for entry in seen.values():
             # Use BoardUserSerializer so private per-user fields (notification prefs,
@@ -2337,7 +2339,17 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 "role": entry["role"],
                 "joined_at": entry["joined_at"],
             }
-            if is_admin_viewer:
+            if is_admin_viewer or entry["user"].pk == requesting_user_id:
+                # #920 hides is_moderator from non-admin viewers because it's an
+                # internal trust tier that shouldn't leak to OTHER members. But
+                # hiding it on the requester's OWN row breaks the feature it
+                # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
+                # BulkActionToolbar.tsx) check `is_moderator` on the current
+                # user's row to decide whether to show moderator-only UI, so a
+                # non-admin member promoted to moderator would never see their
+                # own moderator controls (#1173). Reveal it only for the row
+                # that is the requesting user; every other non-admin-visible
+                # row still omits it.
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)
         return result
