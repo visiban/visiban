@@ -34,7 +34,9 @@ new_tree() { # <dir> <version>
   printf '{ "version": "%s" }\n' "$2" > "$1/frontend/package.json"
   printf '!!! note "Latest release"\n    **%s** is the current stable release.\n' "$2" > "$1/docs/index.md"
   printf 'docker pull ghcr.io/visiban/visiban/backend:v%s\n' "$2" > "$1/README.md"
-  printf 'APP_VERSION=%s\n' "$2" > "$1/docs/getting-started/installation.md"
+  # v-prefixed: APP_VERSION is the image tag operators pin (matches the
+  # tags CI actually publishes to GHCR — #1174), not a bare version string.
+  printf 'APP_VERSION=v%s\n' "$2" > "$1/docs/getting-started/installation.md"
   : > "$1/VISIBAN_FEATURES.md"
 }
 
@@ -66,6 +68,12 @@ new_tree "$TMP/g" 1.2.0-rc.1
 printf '!!! warning "Release candidate"\n    **1.2.0-rc.1** is the current stable release candidate.\n' > "$TMP/g/docs/index.md"
 echo "Coming in 1.2" >> "$TMP/g/docs/feature.md"
 run_gate "$TMP/g"; expect "RC tree: Coming in 1.2 passes" 0
+
+# #1174 — a bare APP_VERSION naming the current version names a tag that
+# does not exist on GHCR; it must fail, not pass.
+new_tree "$TMP/h" 1.1.0
+printf 'APP_VERSION=1.1.0\n' > "$TMP/h/docs/getting-started/installation.md"
+run_gate "$TMP/h"; expect "bare APP_VERSION pin fails (no v prefix)" 1 "v prefix"
 
 # The real repository must be clean as it stands.
 run_gate "$REPO_ROOT"; expect "real repository passes" 0
