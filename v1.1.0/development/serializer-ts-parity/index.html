@@ -3416,14 +3416,15 @@ either one covers your change.</strong></p>
 <tr>
 <td><code>serializer-ts-parity</code> CI job (#1079 + #1139, this page)</td>
 <td>The <strong>generated OpenAPI document</strong></td>
-<td><strong>18</strong> pairs — every pair that has a schema component</td>
+<td><strong>20</strong> pairs — every pair that has a schema component</td>
 <td>Names, <strong>types</strong>, nullability, enum membership</td>
 </tr>
 </tbody>
 </table>
 <p>Neither supersedes the other, and a green run of one says nothing about the other — but since</p>
-<h1 id="1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-three-pairs">1139 the coverage gap is down to a single, structural difference: **#821 reaches three pairs<a class="headerlink" href="#1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-three-pairs" title="Permanent link">&para;</a></h1>
-<p>this gate cannot, because <code>drf-spectacular</code> emits no component for them.** See
+<h1 id="1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-two-pairs">1139 the coverage gap is down to a single, structural difference: **#821 reaches two pairs<a class="headerlink" href="#1139-the-coverage-gap-is-down-to-a-single-structural-difference-821-reaches-two-pairs" title="Permanent link">&para;</a></h1>
+<p>this gate cannot, because <code>drf-spectacular</code> emits no component for them** (a third, <code>BoardFull</code>,
+gained a component in #1137). See
 <a href="#coverage">Coverage</a> for the pair-by-pair table.</p>
 <p>Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
 green job read as much broader assurance than it delivered. Widening it to eighteen turned up
@@ -3433,7 +3434,8 @@ gate's own TypeScript alias parser).</p>
 asks "does the document we publish describe it correctly?" A field can pass the first and fail
 the second, and in practice several do. Eight fields on <code>Board</code> and <code>CurrentUser</code> were
 published as <code>string</code> while returning ints, bools and nested objects (#1135); <code>BoardFull.members</code>
-sends rows the <code>BoardMembership</code> component forbids (#1137); a nullable field was declared
+sent rows the <code>BoardMembership</code> component forbids (#1137, fixed by publishing <code>BoardFull</code> with
+its own <code>EffectiveBoardMember</code> row component); a nullable field was declared
 non-nullable (#1138, fixed — a declared serializer field does not inherit <code>null=True</code> from the
 model the way an auto-generated one does; <code>Board.group_name</code> had the same symptom but was
 already fixed by earlier, unrelated work before #1138's branch existed). Every one of those
@@ -3513,7 +3515,7 @@ unresolvable TypeScript alias produces no finding rather than a false one. Optio
 (<code>x?: T</code>) are exempt from the nullability check, because in this codebase <code>?</code> already carries
 the "only present under some conditions" meaning — an <code>?expand=</code> payload, for instance.</p>
 <h2 id="coverage">Coverage<a class="headerlink" href="#coverage" title="Permanent link">&para;</a></h2>
-<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1139 it is:</p>
+<p><code>COMPONENT_MAP</code> in the script is authoritative. As of #1137 it is:</p>
 <table>
 <thead>
 <tr>
@@ -3526,6 +3528,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <tr>
 <td><code>Board</code></td>
 <td><code>Board</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>BoardFull</code></td>
+<td><code>BoardFull</code></td>
 <td>yes</td>
 </tr>
 <tr>
@@ -3584,6 +3591,11 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <td>no</td>
 </tr>
 <tr>
+<td><code>EffectiveBoardMember</code></td>
+<td><code>EffectiveBoardMember</code></td>
+<td>no</td>
+</tr>
+<tr>
 <td><code>Group</code></td>
 <td><code>Group</code></td>
 <td>no</td>
@@ -3620,7 +3632,7 @@ the "only present under some conditions" meaning — an <code>?expand=</code> pa
 <code>CardChecklistItem</code> interface. Both are one resource under two spellings, and leaving either
 out would be a hole the gate's own name check cannot see.</p>
 <h3 id="what-is-not-covered-and-why">What is not covered, and why<a class="headerlink" href="#what-is-not-covered-and-why" title="Permanent link">&para;</a></h3>
-<p>Three pairs #821 name-checks are absent here, all for the same structural reason: the schema
+<p>Two pairs #821 name-checks are absent here, both for the same structural reason: the schema
 has no component to diff against, so there is nothing this gate could compare.</p>
 <table>
 <thead>
@@ -3631,10 +3643,6 @@ has no component to diff against, so there is nothing this gate could compare.</
 </thead>
 <tbody>
 <tr>
-<td><code>BoardFull</code></td>
-<td><code>drf-spectacular</code> emits no component for <code>BoardFullSerializer</code>. #821 name-checks it via serializer introspection; extending this gate there depends on the component existing first.</td>
-</tr>
-<tr>
 <td><code>CardActivity</code></td>
 <td>No component emitted.</td>
 </tr>
@@ -3644,7 +3652,7 @@ has no component to diff against, so there is nothing this gate could compare.</
 </tr>
 </tbody>
 </table>
-<p>That is a <strong>missing component, not a passing check</strong> — the three are unchecked here, and the
+<p>That is a <strong>missing component, not a passing check</strong> — the two are unchecked here, and the
 gate says nothing about their published types. Making them checkable means getting
 <code>drf-spectacular</code> to emit components for them, which needs its own issue.</p>
 <p>Everything else is deliberately in scope and mapped. There is no pair that has a component and
@@ -3778,7 +3786,7 @@ serializer — a different shape that merely shares a name. Mapping the WebSocke
 would assert a correspondence that does not exist. That union stays hand-maintained;
 <a href="https://gitlab.com/visiban/visiban/-/issues/1078">#1078</a> covers WebSocket event reachability
 separately.</p>
-<p><strong>Pairs with no schema component.</strong> <code>BoardFull</code>, <code>CardActivity</code> and <code>CardAttachment</code> — see
+<p><strong>Pairs with no schema component.</strong> <code>CardActivity</code> and <code>CardAttachment</code> — see
 <a href="#what-is-not-covered-and-why">What is not covered, and why</a>.</p>
 <p><strong>Request bodies.</strong> <code>SPECTACULAR_SETTINGS</code> sets <code>COMPONENT_SPLIT_REQUEST: True</code>, so the schema
 carries 34 separate <code>*Request</code> / <code>Patched*Request</code> components describing what you may <em>send</em>.
