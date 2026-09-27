@@ -18,6 +18,7 @@ import json
 
 import httpx
 from asgiref.sync import async_to_sync
+from django.core.cache import cache
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -100,6 +101,15 @@ class McpTestCase(TestCase):
 
     def setUp(self):
         super().setUp()
+        # The #1177 per-token throttle buckets live in the cache, keyed on a
+        # PAT's primary key. Django's TestCase wraps each test in a rolled-back
+        # transaction, so autoincrement PKs are commonly reused across test
+        # methods — without clearing here, a bucket left over from an earlier
+        # test (same reused PK, same cache, same process) could carry state
+        # into this one and make an unrelated test flaky under the default
+        # rate. LocMemCache (used under _TESTING) does not reset itself
+        # between tests the way the database does.
+        cache.clear()
         self.user = _make_user("mcp-owner")
         # MCP requires the mcp:read scope (#1110) — an unscoped/legacy token is
         # rejected at the transport, so every MCP fixture must opt in explicitly.

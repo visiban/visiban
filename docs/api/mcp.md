@@ -126,6 +126,52 @@ Authentication is enforced at the transport layer, before any MCP protocol frame
 
 ---
 
+## Rate limiting
+
+> **Added in 1.2**
+
+DRF's request throttles (`DEFAULT_THROTTLE_RATES`) never apply to `/mcp` — the MCP server is mounted in-process at the ASGI level and calls tool functions directly, not through a DRF view. `/mcp` instead has its own per-token limiter, keyed on the presented Personal Access Token (never on IP, and never on the raw token value), so limits hold regardless of which network or proxy a caller connects through, and hold across every backend replica because they share the same cache backend the REST throttles already use.
+
+Two limits stack on every call:
+
+| Bucket | Applies to | Default | Setting |
+|---|---|---|---|
+| Baseline (read) | Every tool call and every resource read | `300/min` per token | `MCP_THROTTLE_READ_RATE` |
+| Compute | `list_cards` and `board://{board_id}` only, **in addition to** the baseline limit above | `30/min` per token | `MCP_THROTTLE_COMPUTE_RATE` |
+
+A call to `list_cards` or `board://{board_id}` spends a unit from **both** buckets; every other tool/resource spends only the baseline unit. There is no `DEBUG`-time bypass — unlike the REST throttle rates, these apply the same way in local development, since a runaway loop in an agent under development is exactly the case the compute bucket exists to catch.
+
+This applies uniformly to every token, including a site admin's — there is no admin exemption from the throttle, unlike maintenance mode.
+
+Both settings accept the same `<count>/<period>` syntax as DRF's throttle rates (`m`/`min`, `h`/`hour`, `s`/`sec`, `d`/`day` — e.g. `"300/min"`, `"20/hour"`). An operator who never sets either variable still gets the defaults above, not an unlimited server. A rate string that fails to parse raises `ImproperlyConfigured` at startup rather than silently disabling the limit.
+
+```bash
+MCP_THROTTLE_READ_RATE=300/min
+MCP_THROTTLE_COMPUTE_RATE=30/min
+```
+
+### Throttled tool calls
+
+A tool call over its limit returns a structured error as an ordinary result, exactly like every other tool-level error documented above — never a `429` or a transport-level failure:
+
+```json
+{
+  "error": {
+    "code": "throttled",
+    "detail": "Rate limit exceeded for this token (mcp_read). Retry after 12 second(s).",
+    "retry_after": 12
+  }
+}
+```
+
+`retry_after` is a whole number of seconds; an agent should wait at least that long before retrying the same call.
+
+### Throttled resource reads
+
+Resources have no structured-error return path (see [Resource errors](#resource-errors) below), so a throttled `board://`/`card://` read surfaces the same way any other resource failure does: as a JSON-RPC-level error whose message includes the retry hint, e.g. `Rate limit exceeded for this token (mcp_compute). Retry after 4 second(s).` — rather than as a `{"error": {...}}` payload in the resource's content.
+
+---
+
 ## Connecting a client
 
 Point any MCP client at the endpoint with the token as a Bearer credential. For example, with the reference inspector:
@@ -226,6 +272,7 @@ Every error has a `code` your agent can branch on. The common ones:
 | `permission_denied` | Your board role is `collaborator` or `viewer`; card writes require `admin` or `member`. |
 | `missing_scope` | Your token lacks the `mcp:write` scope required for this tool — see above. |
 | `maintenance_mode` | The instance is in [maintenance mode](admin.md#maintenance-mode) and your token does not belong to a site admin. Only ever returned by the write tools below (`create_card`, `move_card`, `update_card`, `archive_card`) — the read tools (`list_boards`, `list_columns`, `list_swimlanes`, `list_cards`) keep working regardless. Added in 1.2. |
+| `throttled` | Your token has exceeded its per-token rate limit. Carries a `retry_after` (seconds) — see [Rate limiting](#rate-limiting). Added in 1.2. |
 | `validation_error` | A field failed validation — includes an `errors` object keyed by field name, e.g. an `assignee_email`/label name that does not resolve to a real board member/label. |
 | `wip_limit_exceeded` / `wip_hard_blocked` | The target column is at its WIP limit. `move_card` never overrides either — there is no `force` option over MCP. |
 | `weight_limit_exceeded` | The target column is at its weight limit. |
@@ -338,6 +385,8 @@ Card detail plus full audit history. Requires board membership — any role, inc
 Resources fail differently from tools. A tool that cannot complete returns a structured `{"error": {"code": ...}}` result (see [Tool errors](#tool-errors) above); a resource read has no equivalent channel. A failed read — a bad id, or an id on a board the caller cannot access — instead surfaces as a plain JSON-RPC-level error, with a message like `No Board matches the given query.` or `No Card matches the given query.`
 
 That message is deliberately identical whether the id does not exist or exists on a board the caller cannot see — the same IDOR-prevention reasoning the `board_not_found`/`card_not_found` tool error codes already document above. There is no way to distinguish the two cases from the response, by design.
+
+The same "raise, don't return" rule applies to a throttled resource read — see [Throttled resource reads](#throttled-resource-reads) above.
 
 ---
 
