@@ -573,6 +573,254 @@ Returns the newly created board object, using the same shape as `GET /api/v1/boa
 | `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
 | `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group. |
 
+### `POST /api/v1/boards/import/trello/`
+
+> **Added in 1.2** (#456)
+
+Import a Trello JSON export (Trello: **Menu → Print, export, and share → Export as JSON**) into a new board. The flow is stateless and has two steps: call with `?dry_run=true` to get a preview of exactly what will be created, then re-upload the same file with `?confirm=true` to create the board. Both modes run the same parsing and mapping code, so the preview is what the confirmed import does.
+
+The import is **synchronous**: the board exists when the `201` returns. It is bounded by the upload size cap, the count caps below, and the rate limits. Imported content does not send notifications (no @mention, assignment, or card-moved notifications), and no movement history is recorded for imported cards.
+
+**Permission:** authenticated user. When `group_id` is set, the caller must be the group owner or a member of that group (any role) in **both** modes, so a preview cannot be used to probe a group the caller could not import into. The caller becomes the board's owner and admin.
+
+**Query parameters** — specify exactly one:
+
+| Parameter | Description |
+|---|---|
+| `dry_run=true` | Parse and plan only. Returns `200 OK` with the preview. Creates nothing. |
+| `confirm=true` | Create the board. Returns `201 Created`. |
+
+Sending neither, or both, returns `400 Bad Request` (`"Specify exactly one of ?dry_run=true or ?confirm=true."`).
+
+**Request** (`multipart/form-data`)
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `file` | file | yes | The Trello JSON export. Maximum size is `VISIBAN_IMPORT_MAX_SIZE` (default 25 MB). |
+| `name` | string | no | Board name. Defaults to the Trello board's name. Maximum 255 characters. Only used on `confirm`. |
+| `group_id` | integer | no | Place the imported board into this group. Also widens the pool used for [member matching](#member-matching). |
+| `mapping` | string (JSON) | no | JSON-encoded object of mapping options, described below. Omitted or blank means all defaults. Send the same `mapping` on `dry_run` and `confirm`. |
+| `file_sha256` | string | no | On `confirm`, the `file_sha256` returned by the preview. If present and it does not match the uploaded file, the request is rejected with `400`, so a different file cannot be swapped in between preview and confirm. |
+
+**`mapping` options** — unknown keys return `400`.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `swimlane_label_ids` | string[] | `[]` | Trello label ids (from `mapping.labels[].trello_id` in the preview) to turn into swimlanes, in the order given. Only named labels are eligible (`swimlane_eligible: true`). |
+| `default_swimlane_name` | string | `"Unassigned"` | Name of the swimlane for cards that have no mapped label. Must be non-empty and must not equal the name of a label mapped to a swimlane. |
+| `include_archived_lists` | boolean | `false` | Import archived (closed) lists as columns, and their cards as archived cards. |
+| `add_matched_members` | boolean | `false` | Add [matched members](#member-matching) to the board and assign them to their cards. |
+
+**Mapping rules**
+
+- **Lists to columns**, ordered by Trello position and renumbered densely from 0. Archived lists are skipped unless `include_archived_lists` is `true`; their cards are then imported as archived cards. Without that option, cards in archived lists are skipped. Cards that reference a list missing from the export are skipped.
+- **Labels** keep their names. Trello color names are converted to hex (`#RRGGBB`); an unnamed label is named after its color. A duplicate name gets a `" (2)"` suffix (then `(3)`, and so on).
+- **Labels to swimlanes** for the labels listed in `swimlane_label_ids`. A card goes to the swimlane of the first mapped label in **the card's own label order**; any other mapped labels stay as ordinary labels. Cards with no mapped label go to the default swimlane.
+- **Checklists** are flattened into one checklist per card. When a card has several checklists, each item's text is prefixed with its checklist name.
+- **Comments** are imported with their original timestamps.
+- **Archived cards** (closed in Trello) are imported archived.
+- **Attachments** are not copied. Each attachment is appended to the card description as a link, and only `http` and `https` URLs are kept. Uploaded files are reported under `unmappable` as `attachment_files`.
+- **Due dates** are converted to a UTC date.
+
+#### Member matching
+
+A Trello member matches a Visiban user when the Trello **username** equals the Visiban username exactly, ignoring case. Display and full names are never used.
+
+Matching only considers users the caller can already see: co-members of the caller's boards, co-members of the caller's groups, and members and owner of the target group. Site admins can match any active user. This keeps a crafted file from being used to check whether an arbitrary username exists. The response reports only a **count** of matches, never which accounts matched.
+
+- `add_matched_members: false` (default): matched users are not added to the board, cards are left unassigned, and every comment is authored by the importer, starting with the plain-text line `Full Name (imported from Trello):`.
+- `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Their comments are authored by them but always start with the plain-text line `(imported from Trello)`, so an imported comment is never indistinguishable from one posted in Visiban. Comments by unmatched people keep the `Full Name (imported from Trello):` form. Adding members sends no notification.
+
+Unmatched members are listed in the preview by their Trello name (from the uploader's own file).
+
+**Import limits.** Exports over any of these caps return `400 Bad Request`:
+
+| Item | Cap |
+|---|---|
+| Lists | 50 |
+| Cards | 5,000 |
+| Labels | 200 |
+| Checklist items | 20,000 |
+| Comments | 20,000 |
+| Members | 1,000 |
+| Actions (Trello activity entries, including comments) | 50,000 |
+| Attachments (all cards) | 20,000 |
+| Label or member references on one card | 500 |
+| JSON objects and arrays in the file | 1,000,000 |
+
+**Rate limits**
+
+| Mode | Scope | Limit |
+|---|---|---|
+| `dry_run=true` | `board_import_preview` | 60/hour per authenticated user |
+| `confirm=true` | `board_import` | 10/hour per authenticated user, **shared** with [`POST /api/v1/boards/import/`](#post-apiv1boardsimport) |
+
+Exceeding either limit returns `429 Too Many Requests`. Previews are throttled separately so that re-previewing while adjusting the mapping does not consume the import budget.
+
+**Response** `200 OK` (`dry_run=true`) — the preview:
+
+```json
+{
+  "source": "trello",
+  "file_sha256": "9f2b6c1d0a7e4f38b5c9d2e1a4f7083c6b5d9e2f1a0c8b7d6e5f4a3b2c1d0e9f",
+  "board": { "name": "Website Relaunch", "description": "Q4 marketing site rebuild" },
+  "counts": {
+    "lists": 5,
+    "lists_archived": 1,
+    "cards": 42,
+    "cards_archived": 6,
+    "labels": 8,
+    "checklists": 7,
+    "checklist_items": 31,
+    "comments": 58,
+    "attachments": 9,
+    "members": 4
+  },
+  "result": {
+    "columns": 4,
+    "swimlanes": 3,
+    "labels": 8,
+    "cards": 37,
+    "cards_archived": 2,
+    "checklist_items": 28,
+    "comments": 52
+  },
+  "mapping": {
+    "columns": [
+      { "trello_id": "64f1a2b3c4d5e6f708192a3b", "name": "Backlog", "position": 0, "card_count": 12, "archived": false },
+      { "trello_id": "64f1a2b3c4d5e6f708192a3c", "name": "Old ideas", "position": null, "card_count": 5, "archived": true }
+    ],
+    "labels": [
+      {
+        "trello_id": "64f1a2b3c4d5e6f708192a40",
+        "name": "Design",
+        "color": "#9F8FEF",
+        "original_color": "purple",
+        "card_count": 14,
+        "swimlane_eligible": true
+      }
+    ],
+    "swimlanes": [
+      { "name": "Design", "label_id": "64f1a2b3c4d5e6f708192a40" },
+      { "name": "Unassigned", "label_id": null }
+    ],
+    "default_swimlane": "Unassigned"
+  },
+  "members": {
+    "total": 4,
+    "matched": 2,
+    "unmatched": [
+      { "trello_id": "5a1b2c3d4e5f6a7b8c9d0e1f", "full_name": "Priya Nair" },
+      { "trello_id": "5a1b2c3d4e5f6a7b8c9d0e20", "full_name": "Tom Becker" }
+    ]
+  },
+  "options": {
+    "swimlane_label_ids": ["64f1a2b3c4d5e6f708192a40"],
+    "default_swimlane_name": "Unassigned",
+    "include_archived_lists": false,
+    "add_matched_members": false
+  },
+  "warnings": [
+    {
+      "code": "archived_lists_skipped",
+      "message": "Archived lists and their cards will be skipped. Turn on “Include archived lists” to import them.",
+      "count": 1
+    },
+    {
+      "code": "matched_members_not_added",
+      "message": "Matched members will not be added to the board; assignees are left empty and comments are attributed to you.",
+      "count": 2
+    }
+  ],
+  "unmappable": [
+    { "kind": "attachment_files", "count": 9 },
+    { "kind": "power_up_data", "count": 3 }
+  ]
+}
+```
+
+In `mapping.columns`, `position` is `null` for a list that will not be imported (an archived list while `include_archived_lists` is `false`). `mapping.columns[].name` and `mapping.labels[].name` are the final names after de-duplication.
+
+`counts` describes the Trello file; `result` describes what will be created.
+
+**`warnings`** — each entry is `{code, message, count}` and is only present when `count` is greater than zero. Codes:
+
+| Code | Meaning |
+|---|---|
+| `archived_lists_skipped` | Archived lists (and their cards) will be skipped; `include_archived_lists` is `false`. |
+| `cards_in_archived_lists_skipped` | Cards in archived lists will be skipped. |
+| `cards_missing_list` | Cards referencing a list that is not in the export will be skipped. |
+| `multiple_swimlane_labels` | Cards with more than one swimlane label go to the swimlane of their first such label. |
+| `checklists_flattened` | Cards with several named checklists get one combined checklist with prefixed item text. |
+| `invalid_due_dates` | Due dates that could not be read will be left empty. |
+| `descriptions_truncated` | Card descriptions longer than 50,000 characters (including the appended attachment links) will be shortened to 50,000. |
+| `comments_truncated` | Comments longer than 10,000 characters (including the attribution prefix) will be shortened to 10,000. |
+| `unknown_labels` | Label references missing from the export will be ignored. |
+| `comments_may_be_incomplete` | The export hit Trello's 1,000-action limit, so older comments may be missing. |
+| `matched_members_not_added` | Members matched but `add_matched_members` is `false`. Only present when `false`. |
+| `unmatched_members` | Members with no matching Visiban user are not assigned; their comments are attributed to the importer with their Trello name. |
+
+**`unmappable`** — Trello data that has no Visiban equivalent and is dropped. Each entry is `{kind, count}`, present only when the count is greater than zero. Kinds:
+
+| Kind | Meaning |
+|---|---|
+| `attachment_files` | Attachments (only a link is preserved in the card description; file contents are not copied). |
+| `custom_fields` | Trello custom field definitions and per-card values. |
+| `power_up_data` | Power-Up data on the board or on cards. |
+| `start_dates` | Card start dates. |
+| `stickers` | Card stickers. |
+
+**Response** `201 Created` (`confirm=true`)
+
+Unlike [`POST /api/v1/boards/import/`](#post-apiv1boardsimport), which returns a bare board object, this endpoint wraps the board together with a summary. `board` has the same shape as `GET /api/v1/boards/{id}/`; `summary` repeats the preview's `counts`, `result`, `warnings`, and `unmappable`.
+
+```json
+{
+  "board": {
+    "id": 513,
+    "uid": "bd_7c1e9a4b2d6f8035",
+    "name": "Website Relaunch",
+    "owner": { "id": 7, "username": "alice", "display_name": "Alice" },
+    "group": null,
+    "created_at": "2026-09-26T14:02:11Z",
+    "updated_at": "2026-09-26T14:02:11Z"
+  },
+  "summary": {
+    "counts": {
+      "lists": 5, "lists_archived": 1, "cards": 42, "cards_archived": 6, "labels": 8,
+      "checklists": 7, "checklist_items": 31, "comments": 58, "attachments": 9, "members": 4
+    },
+    "result": {
+      "columns": 4, "swimlanes": 3, "labels": 8, "cards": 37,
+      "cards_archived": 2, "checklist_items": 28, "comments": 52
+    },
+    "warnings": [
+      {
+        "code": "archived_lists_skipped",
+        "message": "Archived lists and their cards will be skipped. Turn on “Include archived lists” to import them.",
+        "count": 1
+      }
+    ],
+    "unmappable": [
+      { "kind": "attachment_files", "count": 9 }
+    ]
+  }
+}
+```
+
+Creating the board broadcasts `board.created` on the same channels as the native import.
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `400 Bad Request` | `{"detail": "..."}` | Neither or both of `dry_run` / `confirm` given; `file` missing; the file is not valid UTF-8 JSON or is nested too deeply; it is not a Trello export (`lists` and `cards` are required); a schema or type error (the message names the offending field); an [import cap](#post-apiv1boardsimporttrello) is exceeded; `mapping` is not a JSON object, has an unknown key, has a wrong type, lists a label that is not a named label in the export, or uses a `default_swimlane_name` that collides with a mapped label; on `confirm`, `file_sha256` does not match the uploaded file; on `confirm`, there are no lists to import (for example, every list is archived and `include_archived_lists` is `false`). |
+| `401 Unauthorized` | `{"detail": "Authentication credentials were not provided."}` | Caller is not authenticated. |
+| `403 Forbidden` | `{"detail": "..."}` | `group_id` was supplied but the caller is not a member of that group; or the account has a pending password or username change. |
+| `404 Not Found` | `{"detail": "..."}` | `group_id` does not match an existing group. |
+| `413 Content Too Large` | `{"detail": "File too large. The maximum size for a Trello import is 25 MB."}` | The file is larger than `VISIBAN_IMPORT_MAX_SIZE`. Note that the native import endpoint returns `400` for an oversized file. |
+| `429 Too Many Requests` | `{"detail": "Request was throttled. ..."}` | Rate limit exceeded; see **Rate limits** above. |
+
 ---
 
 ## Members

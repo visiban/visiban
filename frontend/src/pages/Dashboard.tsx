@@ -9,6 +9,7 @@ import GroupTree, { buildGroupTree } from "../components/Group/GroupTree";
 import MoveBoardModal from "../components/Board/MoveBoardModal";
 import CreateBoardModal from "../components/Board/CreateBoardModal";
 import ImportBoardModal from "../components/Board/ImportBoardModal";
+import TrelloImportModal from "../components/Board/TrelloImportModal";
 import OnboardingEmptyState from "../components/Dashboard/OnboardingEmptyState";
 import ModalWrapper from "../components/shared/ModalWrapper";
 import type { Board, Group, User } from "../types";
@@ -32,6 +33,7 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [movingBoard, setMovingBoard] = useState<Board | null>(null);
   const [importingBoard, setImportingBoard] = useState(false);
+  const [trelloImporting, setTrelloImporting] = useState(false);
   const [joiningGroup, setJoiningGroup] = useState(false);
   const [joinToken, setJoinToken] = useState("");
 
@@ -220,6 +222,20 @@ export default function Dashboard({ user, onLogout, onUserUpdated }: Props) {
         <ImportBoardModal
           onImport={handleImportBoard}
           onCancel={() => setImportingBoard(false)}
+          onSwitchToTrello={() => {
+            setImportingBoard(false);
+            setTrelloImporting(true);
+          }}
+        />
+      )}
+
+      {trelloImporting && (
+        <TrelloImportModal
+          onCancel={() => setTrelloImporting(false)}
+          onImported={(b) => {
+            setTrelloImporting(false);
+            navigate(`/boards/${b.id}`);
+          }}
         />
       )}
 

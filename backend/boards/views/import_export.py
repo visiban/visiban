@@ -2,6 +2,7 @@
 
 import csv
 import datetime
+import hashlib
 import io
 import json
 import logging
@@ -18,7 +19,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiTypes
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from accounts.models import User
 from groups.models import Group, GroupMembership
@@ -31,6 +32,7 @@ from ..models import (
 from .. import broadcast as _broadcast
 from ..permissions import SITE_ADMIN
 from ..serializers import BoardExportLogSerializer, BoardSerializer, ExternalRefSerializer
+from ..services import trello_import as _trello
 from ._helpers import get_board_for_user
 
 # #843: rank of each BoardMembership.Role for the export-threshold comparison.
@@ -87,6 +89,29 @@ class BoardImportThrottle(UserRateThrottle):
     """
 
     scope = "board_import"
+
+
+def _query_flag(request, name):
+    return str(request.query_params.get(name, "")).lower() in ("true", "1")
+
+
+class TrelloImportThrottle(UserRateThrottle):
+    """Throttle for ``import/trello/`` that picks its scope from the mode (#456).
+
+    A confirmed import shares the ``board_import`` budget (10/hour) with the
+    native importer because both create a board. Dry-run previews use the
+    looser ``board_import_preview`` scope: the wizard re-previews whenever the
+    user changes a mapping option, and charging those against the import
+    budget would lock users out before they ever imported anything.
+    """
+
+    scope = "board_import_preview"
+
+    def allow_request(self, request, view):
+        self.scope = "board_import" if _query_flag(request, "confirm") else "board_import_preview"
+        self.rate = self.get_rate()
+        self.num_requests, self.duration = self.parse_rate(self.rate)
+        return super().allow_request(request, view)
 
 
 class BoardExportThrottle(UserRateThrottle):
@@ -738,6 +763,136 @@ class BoardImportExportMixin:
                     broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd)
             transaction.on_commit(_broadcast_created)
         return Response(board_data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Import a Trello board export (preview or confirm)",
+        parameters=[
+            OpenApiParameter("dry_run", bool, description="Return a preview of the mapping; creates nothing."),
+            OpenApiParameter("confirm", bool, description="Create the board. Exactly one of dry_run/confirm is required."),
+        ],
+        request={"multipart/form-data": {"type": "object", "properties": {
+            "file": {"type": "string", "format": "binary"},
+            "name": {"type": "string", "description": "Board name; defaults to the Trello board name."},
+            "group_id": {"type": "integer"},
+            "mapping": {"type": "string", "description": "JSON object of mapping options."},
+            "file_sha256": {"type": "string", "description": "Optional guard: must match the previewed file."},
+        }, "required": ["file"]}},
+        responses={200: OpenApiTypes.OBJECT, 201: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT,
+                   401: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT,
+                   413: OpenApiTypes.OBJECT, 429: OpenApiTypes.OBJECT},
+    )
+    @action(detail=False, methods=["post"], url_path="import/trello", parser_classes=[MultiPartParser],
+            throttle_classes=[TrelloImportThrottle])
+    def import_trello(self, request):
+        """Import a Trello JSON export into a new board (#456).
+
+        Stateless two-step flow: ``?dry_run=true`` returns the preview, and
+        ``?confirm=true`` re-uploads the same file plus the chosen ``mapping``
+        and creates the board. Both modes run the same parse/plan code, so the
+        preview is exactly what confirm will do. Synchronous by design until a
+        task queue exists; the size cap, count caps, and throttle bound it.
+        """
+        dry_run = _query_flag(request, "dry_run")
+        confirm = _query_flag(request, "confirm")
+        if dry_run == confirm:
+            return Response(
+                {"detail": "Specify exactly one of ?dry_run=true or ?confirm=true."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_size = django_settings.VISIBAN_IMPORT_MAX_SIZE
+        too_large = Response(
+            {"detail": f"File too large. The maximum size for a Trello import is {max_size // (1024 * 1024)} MB."},
+            status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+        if file.size is not None and file.size > max_size:
+            return too_large
+        # Bounded read — never trust the reported size alone.
+        raw = file.read(max_size + 1)
+        if len(raw) > max_size:
+            return too_large
+
+        # Group authorization runs in BOTH modes so a preview cannot be used
+        # to probe a group the caller could not import into.
+        group = self._resolve_import_group(request)
+
+        file_sha256 = hashlib.sha256(raw).hexdigest()
+        expected_sha = request.data.get("file_sha256")
+        if confirm and expected_sha and (not isinstance(expected_sha, str) or expected_sha != file_sha256):
+            return Response(
+                {"detail": "The uploaded file does not match the file that was previewed. Preview it again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            export = _trello.parse_trello_export(raw)
+            # Release the upload bytes before planning; the parsed export is
+            # all that is needed from here and this request can be large.
+            del raw
+            options = _trello.parse_options(request.data.get("mapping"), export)
+            matched = _trello.match_members(export, request.user, group)
+            plan = _trello.build_plan(export, options, matched)
+        except _trello.TrelloImportError as exc:
+            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        preview = {**plan.preview, "file_sha256": file_sha256}
+        if dry_run:
+            return Response(preview, status=status.HTTP_200_OK)
+
+        raw_name = request.data.get("name")
+        if raw_name is not None and not isinstance(raw_name, str):
+            return Response({"detail": "'name' must be a string."}, status=status.HTTP_400_BAD_REQUEST)
+        board_name = (raw_name or "").replace("\x00", "").strip() or None
+        try:
+            with transaction.atomic():
+                board = _trello.execute_plan(plan, request.user, group=group, board_name=board_name)
+                board_data = self._broadcast_imported_board(request, board)
+        except _trello.TrelloImportError as exc:
+            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        summary = {k: preview[k] for k in ("counts", "result", "warnings", "unmappable")}
+        return Response({"board": board_data, "summary": summary}, status=status.HTTP_201_CREATED)
+
+    def _broadcast_imported_board(self, request, board):
+        """Serialize the new board and schedule its ``board.created`` broadcast.
+
+        Must run inside the import's atomic block: the event row is persisted
+        in the same transaction (#1114) and the broadcast is deferred with
+        ``on_commit`` so a rollback cannot announce a board that never
+        existed (#815).
+        """
+        from django.db.models import Count, Exists, IntegerField, OuterRef, Subquery
+        # Correlated subquery counts rather than Count() over two joined
+        # relations: an import can create thousands of cards and (with the
+        # member opt-in) many memberships, and joining both onto the board row
+        # multiplies them (members × cards) inside the import transaction.
+        def _count(qs):
+            return Subquery(
+                qs.filter(board=OuterRef("pk")).order_by().values("board").annotate(c=Count("pk")).values("c"),
+                output_field=IntegerField(),
+            )
+        board = Board.objects.select_related("owner", "group").annotate(
+            _member_count=_count(BoardMembershipModel.objects.all()),
+            _card_count=_count(Card.objects.filter(archived_at__isnull=True)),
+            _is_starred=Exists(BoardFavorite.objects.filter(board=OuterRef("pk"), user=request.user)),
+        ).get(pk=board.pk)
+        board_data = BoardSerializer(board, context={"request": request}).data
+        board_id, group_id = board.pk, board.group_id
+        event_id = _broadcast.persist_board_event(
+            board_id, _broadcast.EVT_BOARD_CREATED, board_data, actor_id=request.user.id,
+        )
+
+        def _broadcast_created(bid=board_id, bd=board_data, gid=group_id, eid=event_id):
+            _broadcast.broadcast_board_event(bid, _broadcast.EVT_BOARD_CREATED, bd, event_id=eid)
+            if gid is not None:
+                from groups.broadcast import broadcast_group_event
+                broadcast_group_event(gid, _broadcast.EVT_BOARD_CREATED, bd)
+        transaction.on_commit(_broadcast_created)
+        return board_data
 
     def _import_csv(self, request, file):
         """Create a new board from a CSV file with one card per row.

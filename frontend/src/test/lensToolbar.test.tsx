@@ -27,7 +27,7 @@ const conn = {
 function setup(opts: { url?: string; cardLayout?: 'compact' | 'expanded'; showFilters?: boolean } = {}) {
   const onToggleLayout = vi.fn()
   const onToggleFilters = vi.fn()
-  render(
+  const { container } = render(
     <MemoryRouter initialEntries={[opts.url ?? '/']}>
       <LensToolbar
         connection={conn}
@@ -38,7 +38,7 @@ function setup(opts: { url?: string; cardLayout?: 'compact' | 'expanded'; showFi
       />
     </MemoryRouter>,
   )
-  return { onToggleLayout, onToggleFilters }
+  return { onToggleLayout, onToggleFilters, container }
 }
 
 describe('LensToolbar', () => {
@@ -108,6 +108,29 @@ describe('LensToolbar', () => {
       setup()
       expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-keyshortcuts', 'f')
       expect(screen.getByRole('button', { name: /card layout/i })).toHaveAttribute('aria-keyshortcuts')
+    })
+  })
+
+  // #1161 — Row 2 is `overflow-x-auto`, which clips an in-flow dropdown menu to
+  // the strip's own height. Both pivot dropdowns must opt into `portalMenu`
+  // (#1147) so their menus render outside that clipping subtree.
+  describe('pivot dropdown portal (#1161)', () => {
+    it('renders the Columns pivot menu outside the toolbar subtree', async () => {
+      const user = userEvent.setup()
+      const { container } = setup()
+      await user.click(screen.getByText('Columns: Status'))
+      const menu = screen.getByRole('menu')
+      expect(container.contains(menu)).toBe(false)
+      expect((menu as HTMLElement).style.position).toBe('fixed')
+    })
+
+    it('renders the Swimlanes pivot menu outside the toolbar subtree', async () => {
+      const user = userEvent.setup()
+      const { container } = setup()
+      await user.click(screen.getByText('Swimlanes: Milestone'))
+      const menu = screen.getByRole('menu')
+      expect(container.contains(menu)).toBe(false)
+      expect((menu as HTMLElement).style.position).toBe('fixed')
     })
   })
 })

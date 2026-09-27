@@ -234,6 +234,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `BOARD_EVENT_RETENTION_DAYS` | No | How long a board [change feed](../api/events.md) event stays readable, in days (default: `30`). Nothing expires on its own — schedule `manage.py prune_board_events` (see [Scheduled Jobs](../administration/scheduled-jobs.md)) or the `board_events` table grows without bound. Set this longer than the longest outage a feed consumer is expected to survive. |
 | `NOTIFICATION_RETENTION_DAYS` | No | How long an in-app notification is kept, read or unread, in days (default: `90`, minimum `14`). Enforced only when `manage.py prune_notifications` is scheduled — see [Scheduled Jobs](../administration/scheduled-jobs.md). Unscheduled, notifications are kept forever. |
 | `SCHEDULE_NOTIFY_DUE_SOON`, `SCHEDULE_NOTIFY_STALE_CARDS`, `SCHEDULE_PRUNE_BOARD_EVENTS`, `SCHEDULE_PRUNE_NOTIFICATIONS` | No | Daily run time (`HH:MM`, UTC, or `off`) for each job of the opt-in Compose `scheduler` service. Defaults: `07:00`, `08:00`, `off`, `off`. Read only by `manage.py run_scheduler`. See [Scheduled Jobs](../administration/scheduled-jobs.md). |
+| `VISIBAN_IMPORT_MAX_SIZE` | No | Maximum Trello JSON export size for the [Trello import wizard](../features/trello-import.md), in bytes (default: `26214400` — 25 MB). Your reverse proxy must accept bodies at least this large; see [Import limits](../administration/configuration.md#import-limits). |
 
 OAuth variables are documented in [OAuth Setup](oauth.md).
 

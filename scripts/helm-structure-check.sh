@@ -454,6 +454,19 @@ check_transport_limits() {
     fail "MAX_UPLOAD_SIZE_BYTES is not wired — the app cap is invisible to the chart and the transport limits cannot be checked against it"
     return
   fi
+  # The Trello import cap (VISIBAN_IMPORT_MAX_SIZE, #456) is usually the larger
+  # of the two app caps; the transport limits must clear whichever is bigger.
+  local import_bytes
+  import_bytes="$(doc Deployment 'backend$' \
+    | yq '.spec.template.spec.containers[].env[] | select(.name == "VISIBAN_IMPORT_MAX_SIZE") | .value' \
+    | tr -d '"' | head -1)"
+  if [ -z "$import_bytes" ] || [ "$import_bytes" = "null" ]; then
+    fail "VISIBAN_IMPORT_MAX_SIZE is not wired — the Trello import cap is invisible to the chart"
+    return
+  fi
+  if [ "$import_bytes" -gt "$app_bytes" ]; then
+    app_bytes="$import_bytes"
+  fi
   app_mb=$(( (app_bytes + 1048575) / 1048576 ))
 
   conf="$(doc ConfigMap 'nginx$' | yq '.data."nginx.conf"')"

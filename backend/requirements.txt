@@ -18,7 +18,7 @@ django-allauth==65.14.3
 dj-rest-auth==7.1.1
 django-cors-headers==4.9.0
 django-environ==0.13.0
-drf-nested-routers==0.94.1
+drf-nested-routers==0.95.0
 requests==2.33.0
 # Pin transitive dep (via requests) to clear GHSA-65pc-fj4g-8rjx; within requests' idna<4 range.
 idna==3.18
@@ -58,5 +58,5 @@ python-multipart>=0.0.31
 # Floor it explicitly at the first version both advisories are fixed in,
 # mirroring the python-multipart pattern above.
 anyio>=4.14.2
-whitenoise==6.8.2
+whitenoise==6.12.0
 drf-spectacular==0.29.0
