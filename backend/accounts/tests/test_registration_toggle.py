@@ -1,5 +1,5 @@
 """Tests for #173: site-wide registration toggle (now registration_mode)."""
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -35,6 +35,31 @@ class SiteConfigViewTests(TestCase):
         r = self.client.get("/api/v1/auth/site-config/")
         self.assertIn("registration_mode", r.json())
         self.assertEqual(r.json()["registration_mode"], "open")
+
+    def test_demo_fields_off_by_default(self):
+        """#1034: existing installs see demo_mode false and no credentials."""
+        body = self.client.get("/api/v1/auth/site-config/").json()
+        self.assertFalse(body["demo_mode"])
+        self.assertIsNone(body["demo_login"])
+
+    @override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME="admin", DEMO_LOGIN_PASSWORD="from-env")
+    def test_demo_login_published_in_demo_mode(self):
+        body = self.client.get("/api/v1/auth/site-config/").json()
+        self.assertTrue(body["demo_mode"])
+        self.assertEqual(body["demo_login"], {"username": "admin", "password": "from-env"})
+
+    @override_settings(DEMO_MODE=True, DEMO_LOGIN_PASSWORD="")
+    def test_demo_mode_without_password_publishes_no_credentials(self):
+        body = self.client.get("/api/v1/auth/site-config/").json()
+        self.assertTrue(body["demo_mode"])
+        self.assertIsNone(body["demo_login"])
+
+    @override_settings(DEMO_MODE=False, DEMO_LOGIN_PASSWORD="stray-secret")
+    def test_password_never_published_when_demo_mode_off(self):
+        """A stray DEMO_LOGIN_PASSWORD on a real install must not leak."""
+        r = self.client.get("/api/v1/auth/site-config/")
+        self.assertIsNone(r.json()["demo_login"])
+        self.assertNotIn("stray-secret", r.content.decode())
 
     def test_unauthenticated_can_reach_site_config(self):
         """Endpoint must be reachable before login so the frontend can check it."""

@@ -363,7 +363,24 @@ class SiteConfigView(APIView):
         return Response({
             "registration_open": setting.registration_mode == "open",
             "registration_mode": setting.registration_mode,
+            "demo_mode": settings.DEMO_MODE,
+            "demo_login": self._demo_login(),
         })
+
+    @staticmethod
+    def _demo_login():
+        """Demo credentials for the login-page banner (#1034), or None.
+
+        Gated on DEMO_MODE in code, not merely on "a password is set": a stray
+        DEMO_LOGIN_PASSWORD on a real install must never be published by this
+        anonymous endpoint.
+        """
+        if not settings.DEMO_MODE or not settings.DEMO_LOGIN_PASSWORD:
+            return None
+        return {
+            "username": settings.DEMO_LOGIN_USERNAME,
+            "password": settings.DEMO_LOGIN_PASSWORD,
+        }
 
 
 class PersonalAccessTokenListCreateView(APIView):

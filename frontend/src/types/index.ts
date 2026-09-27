@@ -16,6 +16,16 @@ export interface BoardUser {
   avatar_url: string;
 }
 
+/** Public pre-login instance config from GET /api/v1/auth/site-config/. */
+export interface SiteConfig {
+  registration_open: boolean;
+  registration_mode: "open" | "invite_only" | "closed";
+  /** True when the instance runs as a public demo (DEMO_MODE, #1034). */
+  demo_mode: boolean;
+  /** Demo credentials for the login banner; null unless demo_mode and a password are configured. */
+  demo_login: { username: string; password: string } | null;
+}
+
 export interface User {
   id: number;
   username: string;

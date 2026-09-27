@@ -608,7 +608,9 @@ Returns site-level configuration. This endpoint is public — no authentication 
 ```json
 {
   "registration_open": true,
-  "registration_mode": "open"
+  "registration_mode": "open",
+  "demo_mode": false,
+  "demo_login": null
 }
 ```
 
@@ -616,6 +618,8 @@ Returns site-level configuration. This endpoint is public — no authentication 
 |---|---|---|---|
 | `registration_open` | boolean | `true` / `false` | Whether new user registration is currently allowed |
 | `registration_mode` | string | `"open"` / `"invite_only"` / `"closed"` | The configured registration policy |
+| `demo_mode` | boolean | `true` / `false` | Whether the instance runs as a public demo (`DEMO_MODE` env var; default `false`). |
+| `demo_login` | object or null | `{"username", "password"}` / `null` | Demo credentials shown on the login page. Non-null only when `demo_mode` is `true` **and** `DEMO_LOGIN_PASSWORD` is set. See [Demo data](../administration/demo-data.md#hosted-demo-instance). |
 
 Site admins can change the registration mode in **Admin → Site Settings**. See [Site Admins](../administration/site-admins.md).
 

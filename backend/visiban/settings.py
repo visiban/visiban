@@ -585,6 +585,20 @@ REST_AUTH = {
 
 APP_VERSION = env("APP_VERSION", default="dev")
 
+# ── Hosted demo mode (#1034) ─────────────────────────────────────────────────
+# Opt-in: DEMO_MODE defaults to False so existing installs are unchanged. When
+# on, the public /api/v1/auth/site-config/ endpoint publishes the demo login
+# credentials so the login page can show them — that publication is the whole
+# point of a public demo, so ONLY ever enable this on a throwaway instance with
+# its own database (see deploy/demo/README.md). The credentials come from env,
+# never from source; the seeder (`seed_demo_data --demo-site`) reads the same
+# variables so what is published always matches what was seeded.
+DEMO_MODE = env.bool("DEMO_MODE", default=False)
+DEMO_LOGIN_USERNAME = env("DEMO_LOGIN_USERNAME", default="admin")
+DEMO_LOGIN_PASSWORD = env("DEMO_LOGIN_PASSWORD", default="")
+# Password for the two seeded member accounts. Not published anywhere.
+DEMO_MEMBER_PASSWORD = env("DEMO_MEMBER_PASSWORD", default="")
+
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).
 # Whether the operator pinned EMAIL_BACKEND explicitly. Load-bearing for #306:
