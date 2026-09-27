@@ -213,6 +213,31 @@ class CardUpdateTests(TestCase):
         )
 
 
+class CardCreatedByNullabilityTests(TestCase):
+    """Card.created_by is null (not absent) once the creating user is gone (#1138).
+
+    Covers the SET_NULL FK response shape directly — the schema-level nullable
+    declaration is pinned separately in test_serializer_schema_annotations.py.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="u", password="pass")
+        self.board, self.col, self.col2, self.swim = _make_board(self.user)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_retrieve_card_with_null_created_by(self):
+        # Mirrors a row predating the ownership migration, or one whose
+        # creator has since been deleted (on_delete=SET_NULL).
+        card = Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.swim,
+            title="Orphaned", created_by=None, position=0,
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{card.id}/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIsNone(r.json()["created_by"])
+
+
 class CardCommentsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="u", password="pass")

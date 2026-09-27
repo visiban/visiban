@@ -622,7 +622,12 @@ function NotificationRow({
             id={emailId}
             checked={emailOn}
             onChange={() => onToggle(emailKey)}
-            disabled={!appOn || saving === emailKey}
+            disabled={saving === emailKey}
+            // The reason this switch is inert (parent notification is off) is
+            // shown via aria-describedby below, so keyboard focus must be able
+            // to reach it — native `disabled` would remove it from the tab
+            // order and leave the reason reachable only in browse mode (#1159).
+            ariaDisabled={!appOn}
             aria-label={`Also send by email: ${spec.label}`}
             aria-describedby={reasonId}
           />

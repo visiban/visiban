@@ -408,6 +408,13 @@ describe('AppearanceTab', () => {
 // ---------------------------------------------------------------------------
 
 describe('NotificationsTab', () => {
+  // Unlike every sibling describe block above, this one had no reset —
+  // mockUpdateCurrentUser.mock.calls silently accumulated across the whole
+  // block. Nothing surfaced it until a test needed to assert zero calls.
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('shows notification preference toggles', async () => {
     const user = userEvent.setup()
     renderSettings()
@@ -493,12 +500,22 @@ describe('NotificationsTab', () => {
     const emailToggle = screen.getByRole('switch', {
       name: 'Also send by email: Card I\u2019m watching is moved',
     })
-    expect(emailToggle).toBeDisabled()
+    // aria-disabled, not native disabled (#1159) \u2014 the reason line below must
+    // stay reachable by keyboard focus, not only screen-reader browse mode.
+    expect(emailToggle).not.toBeDisabled()
+    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
+    emailToggle.focus()
+    expect(emailToggle).toHaveFocus()
     const reasonId = emailToggle.getAttribute('aria-describedby')
     expect(reasonId).toBeTruthy()
     expect(document.getElementById(reasonId!)?.textContent).toBe(
       'Turn on the in-app notification above to enable email.'
     )
+    // Activation is still ignored, by click and by keyboard.
+    await user.click(emailToggle)
+    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
+    await user.keyboard('{Enter}')
+    expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
   })
 
   it('a stored-on email preference reads as paused rather than off', async () => {
@@ -511,7 +528,8 @@ describe('NotificationsTab', () => {
     // The value is kept, not silently cleared — flipping the in-app toggle back
     // on restores it.
     expect(emailToggle).toHaveAttribute('aria-checked', 'true')
-    expect(emailToggle).toBeDisabled()
+    expect(emailToggle).not.toBeDisabled()
+    expect(emailToggle).toHaveAttribute('aria-disabled', 'true')
     const reasonId = emailToggle.getAttribute('aria-describedby')
     expect(document.getElementById(reasonId!)?.textContent).toBe(
       'Paused while the in-app notification above is off. Your email setting is kept.'
@@ -526,6 +544,7 @@ describe('NotificationsTab', () => {
       name: 'Also send by email: Card assigned to me',
     })
     expect(emailToggle).not.toBeDisabled()
+    expect(emailToggle).not.toHaveAttribute('aria-disabled')
     const reasonId = emailToggle.getAttribute('aria-describedby')
     // Off, so the helper is action-phrased rather than claiming mail is going out.
     expect(document.getElementById(reasonId!)?.textContent).toBe(
