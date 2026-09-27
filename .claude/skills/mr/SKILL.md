@@ -92,6 +92,9 @@ description`. Derive from the most significant commit or the branch name.
 ## Changes
 - <bullet per logical change group: component/file → what it does now>
 
+## Requirements
+<!-- pasted from the `completeness-check` gate: | # | Requirement | Source | Evidence | Status | -->
+
 ## Test plan
 - [ ] <specific thing to verify manually>
 - [ ] <another verification step>
@@ -146,7 +149,7 @@ Rules:
 - **One line per gate that ran**, using the gate's exact registered name:
   `architect`, `ux-design`, `ux-review`, `security-review`, `rbac-check`,
   `perf-check`, `broadcast-check`, `migration-check`, `regression-check`,
-  `enterprise-check`, `dependency`, `test-scaffold`, `changelog`, `docs-writer`,
+  `enterprise-check`, `completeness-check`, `dependency`, `test-scaffold`, `changelog`, `docs-writer`,
   `api-docs`, or `voc` (the established shorthand for `voice-of-customer` used
   throughout `CLAUDE.md`). Exact names matter. **Before adding a name here,
   confirm the corresponding file exists under `.claude/agents/` or
