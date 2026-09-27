@@ -84,11 +84,30 @@ free-plan features that collect nothing. As TruePPM ADR-1197 D8 says, none of th
 security control; the write fence (#1179) is.
 
 - The tunnel itself, plus Cloudflare's automatic DDoS protection.
-- A WAF **Managed Challenge** on `try.visiban.com/api/v1/auth/login/`.
+- A WAF **Managed Challenge** on the `/login` **page**, not the API endpoint (completeness
+  -check, #1180: the SPA calls `POST /api/v1/auth/login/` with `fetch`, and a Cloudflare
+  challenge cannot be solved by an XHR/fetch request — it needs a full-page navigation to
+  render and complete. Challenging the API path would silently make sign-in impossible for
+  anyone the challenge fires on, and `helm test` — an in-cluster request — would never
+  catch it). Configure it in Cloudflare Zero Trust → WAF → Custom rules:
+  - **Rule name**: `visiban-demo-login-challenge`
+  - **Expression**: `(http.host eq "try.visiban.com" and http.request.uri.path eq "/login")`
+  - **Action**: Managed Challenge
 - An **IP rate-limit rule** on `try.visiban.com/api/`. After sign-in, this is the only
   per-visitor bound: every visitor shares one account, so the `user` throttle is a
   shared-fate ceiling (`demo.throttle.userRate`), and DRF's per-IP `anon` scope does not
-  apply to signed-in requests.
+  apply to signed-in requests. Configure it in Cloudflare Zero Trust → Security → WAF →
+  Rate limiting rules:
+  - **Rule name**: `visiban-demo-api-rate-limit`
+  - **Expression**: `(http.host eq "try.visiban.com" and starts_with(http.request.uri.path, "/api/"))`
+  - **Rate**: e.g. 300 requests per 1 minute, per IP (tune to the node's actual capacity;
+    this is a DoS backstop, not the throttle itself — the throttle values above are the
+    real per-endpoint limits)
+  - **Action**: Block for the rate period
+
+Record both rule names and their live status in [Deployment record](#deployment-record)
+when first configured — Cloudflare dashboard config is not visible to CI or to `git log`,
+so the deployment record is the only durable trace that these were actually set up.
 
 ## Install or upgrade
 
@@ -150,7 +169,18 @@ Service, never the backend.
       service: http://visiban-demo-frontend.visiban-demo.svc.cluster.local:80
     ```
 
-The in-cluster DNS name works only if `cloudflared` runs as a pod. If it runs on the host,
+**Confirm which mode this node's `cloudflared` runs in before choosing an approach, and
+record it in [Deployment record](#deployment-record)** — do not assume either way:
+
+```bash
+# on the node
+kubectl get pods -A -l app=cloudflared 2>/dev/null && echo "in-cluster pod" \
+  || systemctl status cloudflared 2>/dev/null && echo "host service"
+```
+
+The in-cluster DNS name (`visiban-demo-frontend.visiban-demo.svc.cluster.local:80`) works
+only if `cloudflared` runs as a pod (TruePPM's `values-demo.yaml` runs it this way on this
+same node, but confirm rather than assume it wasn't changed). If it runs on the host,
 it cannot resolve cluster DNS. Use `kubectl -n visiban-demo port-forward` or a NodePort
 Service instead, and adjust `backend.settings.numProxies` if the hop count changes (see
 below).
@@ -164,8 +194,21 @@ example a second proxy is added or `cloudflared` moves, recount. A value that is
 puts every visitor in one throttle bucket, so one crawler locks the demo for everyone. A
 value that is too high lets a visitor choose their own bucket.
 
-Verify after exposing it. The frontend's access log should show two addresses in
-`X-Forwarded-For` for a real visit, with the visitor first:
+**The frontend access log cannot verify this** (completeness-check, #1180): nginx's default
+log format records `$http_x_forwarded_for`, the header exactly as *received* — one address,
+the real visitor's, forwarded unchanged through Cloudflare and `cloudflared`. The hop nginx
+itself *appends* (`$proxy_add_x_forwarded_for`, what the backend actually sees) is never
+logged by the default format, so "two addresses in the log" is not something you will
+observe here even when the chain is configured correctly.
+
+Verify with the backend's own test suite instead, against the live deployment: sign in from
+two different real client IPs (or `curl --resolve` through two different intermediate
+addresses if you control any) and confirm each gets an independent login-throttle bucket
+rather than one shared one — the equivalent of
+`backend/accounts/tests/test_proxy_depth.py`'s `SeparateThrottleBucketsTests`, but against
+the real deployed chain rather than a Django test client. A cheaper partial check: confirm
+`$remote_addr` in the frontend log is the `cloudflared` pod's cluster-internal IP (proving
+requests genuinely arrive through the tunnel, not directly):
 
 ```bash
 kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
@@ -182,6 +225,14 @@ kubectl -n visiban-demo logs deploy/visiban-demo-frontend --tail=20
   with `kubectl -n visiban-demo logs job/<name> --all-containers`. The last three failed
   runs are kept.
 - **Run a reset now**: `kubectl -n visiban-demo create job --from=cronjob/visiban-demo-demo-reset reset-now`.
+  `concurrencyPolicy: Forbid` only stops the *scheduled* CronJob from overlapping itself —
+  it does not know about a manually created Job, so a manual reset that lands within a few
+  seconds of the top of the hour could run alongside the scheduled one (completeness-check,
+  #1180). The flush-and-reseed is one transaction (see the chart docs), so a concurrent run
+  serializes on the database rather than corrupting data, but suspend the CronJob first to
+  avoid the wasted work and the confusing double-reset log:
+  `kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":true}}'`,
+  run the manual reset, then `kubectl -n visiban-demo patch cronjob visiban-demo-demo-reset -p '{"spec":{"suspend":false}}'`.
 - **Node sharing.** `values-demo.yaml` enables `demo.resourceQuota` (a ResourceQuota plus a
   LimitRange for the namespace). Check headroom with
   `kubectl -n visiban-demo describe resourcequota`. TruePPM's namespace should carry its own

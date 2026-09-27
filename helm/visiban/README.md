@@ -138,11 +138,14 @@ so `helm upgrade` on an existing release changes nothing.
   publishes `demo_next_reset_at` exactly when the reset runs.
 - **Render guards** (`templates/_validate.tpl`) refuse a `loginHint` without
   `demo.enabled`, a demo without both `loginHint` halves or with unsafe
-  characters in them, SSO/OAuth, real SMTP, a media PVC, `debug`, NetworkPolicy
-  off, and external datastores.
+  characters in them, SSO/OAuth, real SMTP, a media PVC, any truthy `debug`
+  (not just the literal `true`), NetworkPolicy off, external datastores, and
+  `backend.settings.numProxies` unset or below `1`.
 - **Client IP.** Behind a tunnel or another proxy, set `backend.settings.numProxies`
-  (`NUM_PROXIES`) to the real hop count, or every visitor shares one throttle
-  bucket. `values-demo.yaml` sets `2` for a Cloudflare Tunnel.
+  (`NUM_PROXIES`) to the real hop count — including this chart's own frontend
+  nginx, which always adds one. The chart refuses to render below `1`, but it
+  cannot know your actual proxy depth: get the count right, not just non-zero.
+  `values-demo.yaml` sets `2` for a Cloudflare Tunnel.
 
 Operator guide: <https://visiban.gitlab.io/visiban/administration/demo-data/#public-demo-mode-helm>.
 The try.visiban.com runbook, with the preconditions CI cannot check, is

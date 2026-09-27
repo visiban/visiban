@@ -860,6 +860,30 @@ class SeedResetDatabaseTests(TransactionTestCase):
             _seed(demo_site=True, reset_database=True)
         self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
 
+    def test_reset_mid_failure_rolls_back_to_the_pre_reset_state(self):
+        # completeness-check (#1180): flush and reseed are one transaction.
+        # A failure between them (this test forces one in _seed_demo_site,
+        # after the flush already ran) must roll back to the PRE-reset state
+        # — the old boards and the old, still-working published login —
+        # rather than leaving the database flushed with no usable reseed.
+        _seed(demo_site=True)
+        self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
+        board_count_before = Board.objects.count()
+
+        from boards.management.commands import seed_demo_data as seed_module
+
+        with mock.patch.object(
+            seed_module.Command, "_seed_demo_site", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaisesMessage(RuntimeError, "boom"):
+                _seed(demo_site=True, wipe=True, force=True, reset_database=True)
+
+        # Rolled back, not half-flushed: the old visitor account and its old
+        # password are still there, and no boards were lost.
+        self.assertTrue(User.objects.filter(username="visitor").exists())
+        self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
+        self.assertEqual(Board.objects.count(), board_count_before)
+
     def test_reset_database_requires_force_even_when_debug_true(self):
         # security-review (#1180): --force is required unconditionally, not
         # only when DEBUG is False — DEBUG-gating it was a latent foot-gun

@@ -864,9 +864,11 @@ DEMO_GUARD_CASES=(
   "SMTP host|real SMTP is configured|--set=backend.email.host=smtp.example.test|--set=backend.email.fromAddress=noreply@visiban.test"
   "media PVC writable|backend.mediaPersistence.enabled is true|--set=backend.mediaPersistence.enabled=true"
   "DEBUG on|backend.settings.debug is|--set-string=backend.settings.debug=true"
+  "DEBUG on via a non-'true' truthy string|backend.settings.debug is|--set-string=backend.settings.debug=yes"
   "NetworkPolicy off|networkPolicy.enabled is false|--set=networkPolicy.enabled=false"
   "external database|postgresql.enabled and/or valkey.enabled is false|--set=valkey.enabled=false"
   "numProxies unset|backend.settings.numProxies is not set|--set-json=backend.settings.numProxies=null"
+  "numProxies zero|backend.settings.numProxies is less than 1|--set=backend.settings.numProxies=0"
   "reset schedule the backend cannot evaluate|demo.reset.schedule must be a minute/hour cron|--set-string=demo.reset.schedule=0 0 1 * *"
   "malformed user throttle rate|demo.throttle.userRate must look like|--set=demo.throttle.userRate=lots"
 )

@@ -157,9 +157,9 @@ helm test visiban-demo -n visiban-demo --logs
 | `demo.seed.*` | | `activeDeadlineSeconds` and `backoffLimit` of the install/upgrade seed hook. |
 | `demo.throttle.userRate` | *(empty)* | `DEMO_USER_THROTTLE_RATE`. It re-aims the `user` throttle scope, which every visitor shares because they all use one account. `values-demo.yaml` sets `60000/hour` as a ceiling that protects the node, not a per-visitor limit. |
 | `demo.resourceQuota.*` | off | A ResourceQuota and a LimitRange for the release's namespace, for a demo that shares a node. Only use it in a namespace dedicated to the demo. |
-| `backend.settings.numProxies` | *(unset)* | `NUM_PROXIES`, [the client-IP depth](configuration.md#reverse-proxies-and-the-client-ip). `values-demo.yaml` sets `2` for a Cloudflare Tunnel. |
+| `backend.settings.numProxies` | *required, ≥ 1* | `NUM_PROXIES`, [the client-IP depth](configuration.md#reverse-proxies-and-the-client-ip). `values-demo.yaml` sets `2` for a Cloudflare Tunnel. |
 
-The chart **refuses to render** a demo that could publish a credential or reach out. It fails when `loginHint` is set while the demo is off, when a `loginHint` half is missing or outside its character set, when SSO/OAuth or real SMTP is configured, when the media PVC is enabled, when `backend.settings.debug` is on, when `networkPolicy.enabled` is off, when the bundled PostgreSQL or Valkey is replaced by an external one, when the schedule is one the backend cannot evaluate, and when `demo.throttle.userRate` is malformed.
+The chart **refuses to render** a demo that could publish a credential, reach out, or silently collapse its per-visitor throttles. It fails when `loginHint` is set while the demo is off, when a `loginHint` half is missing or outside its character set, when SSO/OAuth or real SMTP is configured, when the media PVC is enabled, when `backend.settings.debug` is any truthy value (`true`/`on`/`ok`/`y`/`yes`/`1`, not just the literal `true`), when `networkPolicy.enabled` is off, when the bundled PostgreSQL or Valkey is replaced by an external one, when `backend.settings.numProxies` is unset or below `1`, when the schedule is one the backend cannot evaluate, and when `demo.throttle.userRate` is malformed.
 
 ### What the chart guarantees, and what it does not
 
@@ -173,7 +173,7 @@ The chart **refuses to render** a demo that could publish a credential or reach 
 These cannot be expressed in values, and no CI job can verify them:
 
 - **Expose only the frontend Service**, for example through a Cloudflare Tunnel public hostname. The chart renders no Ingress in `values-demo.yaml`.
-- **Count your proxies.** Behind a tunnel, set `backend.settings.numProxies` to the real number of hops that append to `X-Forwarded-For`. Otherwise every visitor shares one login and anonymous throttle bucket.
+- **Count your proxies.** Behind a tunnel, set `backend.settings.numProxies` to the real number of hops that append to `X-Forwarded-For` — including this chart's own frontend nginx, which always adds one. The chart refuses to render below `1` (every visitor sharing one login/anonymous throttle bucket is caught at render time, not left as a silent risk), but it cannot know your actual proxy depth: get the count right, not just non-zero.
 - **Per-visitor rate limiting after sign-in** has to come from in front of the host, such as a Cloudflare IP rate-limit rule. Every visitor shares one account, so the `user` throttle cannot tell them apart.
 - **The host must not run CI jobs** (TruePPM ADR-1197 D10).
 - **Kubernetes 1.27 or later**, for the CronJob `timeZone` field.

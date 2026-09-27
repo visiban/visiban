@@ -108,8 +108,15 @@ refused here rather than escaped wherever it is used.
 {{- if .Values.backend.mediaPersistence.enabled -}}
 {{- fail "\n\nVisiban: demo.enabled is true and backend.mediaPersistence.enabled is true.\nPublic demo mode gives visitors no upload path (the fence refuses uploads and the seed turns uploads off); a writable media PVC is defense in depth against a hole in that, so it is refused:\n    --set backend.mediaPersistence.enabled=false\n" -}}
 {{- end -}}
-{{- if eq (lower (toString .Values.backend.settings.debug)) "true" -}}
-{{- fail "\n\nVisiban: demo.enabled is true and backend.settings.debug is \"true\".\nA public instance must never serve Django's debug pages.\n    --set backend.settings.debug=false\n" -}}
+{{- /*
+  django-environ's env.bool() treats all of these as true (environ.py's
+  BOOLEAN_TRUE_STRINGS), not just the literal "true" — a guard that only
+  caught "true" would let "1"/"yes"/"on"/"y"/"ok" through to a public demo
+  with Django's debug pages served, the /admin/ IP allowlist off, and
+  throttles raised to 9999/hour (completeness-check, #1180).
+*/ -}}
+{{- if has (lower (toString .Values.backend.settings.debug)) (list "true" "on" "ok" "y" "yes" "1") -}}
+{{- fail "\n\nVisiban: demo.enabled is true and backend.settings.debug is a truthy value.\nA public instance must never serve Django's debug pages.\n    --set backend.settings.debug=false\n" -}}
 {{- end -}}
 {{- if not .Values.networkPolicy.enabled -}}
 {{- fail "\n\nVisiban: demo.enabled is true but networkPolicy.enabled is false.\nPublic demo mode renders an EGRESS policy that limits the backend, seed and reset pods to DNS and the release's own datastores (TruePPM ADR-1197 D7); it lives in the NetworkPolicy template.\n    --set networkPolicy.enabled=true\n" -}}
@@ -119,6 +126,8 @@ refused here rather than escaped wherever it is used.
 {{- end -}}
 {{- if kindIs "invalid" .Values.backend.settings.numProxies -}}
 {{- fail "\n\nVisiban: demo.enabled is true but backend.settings.numProxies is not set.\nLeaving it unset silently keeps NUM_PROXIES=1: behind a reverse proxy chain (e.g. a Cloudflare Tunnel in front of this chart's own frontend nginx), that collapses every visitor onto the tunnel's own address, so the per-IP login/anon throttles become one shared bucket — the exact DoS this setting exists to prevent (#1180).\n\nSet it to the number of trusted proxies between the internet and this chart's frontend Service (values-demo.yaml sets 2 for a Cloudflare Tunnel; use 1 if the frontend Service is exposed directly, with nothing in front of it):\n    --set backend.settings.numProxies=2\n" -}}
+{{- else if lt (int .Values.backend.settings.numProxies) 1 -}}
+{{- fail "\n\nVisiban: demo.enabled is true but backend.settings.numProxies is less than 1.\nThis chart's own frontend nginx always sits in front of the backend, so 0 means every visitor resolves to the frontend pod's address — one shared throttle bucket for everyone (completeness-check, #1180).\n\nSet it to at least 1 (2 behind a Cloudflare Tunnel, per values-demo.yaml):\n    --set backend.settings.numProxies=2\n" -}}
 {{- end -}}
 {{- if include "visiban.demoResetEnabled" . -}}
 {{- if not (regexMatch "^(@(hourly|daily|midnight)|[0-9*/,-]+ [0-9*/,-]+ \\* \\* \\*)$" (include "visiban.demoResetSchedule" .)) -}}

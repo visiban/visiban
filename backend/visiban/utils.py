@@ -48,7 +48,7 @@ def parse_num_proxies(raw: str | None) -> int:
 def get_client_ip(request) -> str:
     """Return the originating client IP from the request.
 
-    Mirrors DRF's ``BaseThrottle.get_ident`` exactly, reading the same
+    Mirrors DRF's ``BaseThrottle.get_ident``, reading the same
     ``REST_FRAMEWORK["NUM_PROXIES"]``: with N trusted proxies the client is the
     Nth ``X-Forwarded-For`` entry from the right, because each trusted proxy
     appends the address it received the request from and everything to the
@@ -58,6 +58,13 @@ def get_client_ip(request) -> str:
     allowlist, the invite audit log and allauth's rate limits must key on the
     same address as the DRF throttles, or two controls disagree about who the
     client is. Falls back to REMOTE_ADDR for direct connections.
+
+    Two deliberate, safe divergences from DRF's own ``get_ident`` (completeness
+    -check, #1180): a present-but-empty ``X-Forwarded-For`` header returns
+    ``"unknown"`` here (DRF returns ``''``), and a missing ``REMOTE_ADDR``
+    returns ``"unknown"`` here (DRF returns ``None``). Both make this function
+    strictly safer to use as a throttle/audit key than DRF's ``None``/``''``
+    would be, never less safe, so they are kept rather than matched.
     """
     from rest_framework.settings import api_settings
 

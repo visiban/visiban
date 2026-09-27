@@ -118,12 +118,14 @@ Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's
 
 | Variable | Default | Description |
 |---|---|---|
-| `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default of `1` is the bundled nginx, which is correct for Docker Compose and for Helm behind an ingress controller that does not add its own entry. A non-negative integer. Anything else refuses to start. Helm: `backend.settings.numProxies`. |
+| `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default of `1` counts this chart's own frontend nginx, which is correct for Docker Compose and for a bare Helm install with nothing else in front of the frontend Service. A non-negative integer. Anything else refuses to start. Helm: `backend.settings.numProxies`. |
 
 Set it to the real depth of your proxy chain:
 
 - **Too low**: every client appears to come from the nearest proxy. One client exhausts the login and anonymous throttles for everyone.
 - **Too high**: a client can choose its own address by sending its own `X-Forwarded-For`, and so escape per-IP limits.
+
+**Behind an ingress controller, `1` is too low.** This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`); an ingress controller in front of it appends its own, so the real chain is two hops deep, not one. Count every proxy between the internet and the frontend Service, including the frontend nginx itself.
 
 The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visitor, then the frontend nginx appends the tunnel pod). See [Public demo mode](demo-data.md#public-demo-mode-helm).
 

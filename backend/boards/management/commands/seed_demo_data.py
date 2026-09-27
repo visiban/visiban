@@ -90,6 +90,7 @@ from django.contrib.sites.models import Site
 from django.core.management import call_command
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from accounts.models import SiteSetting, User
 from boards.notifications_email import suppress_notification_email
@@ -634,11 +635,28 @@ class Command(BaseCommand):
                     "Refusing to reset the database: --reset-database requires --force "
                     "(only safe on a dedicated demo instance)."
                 )
-            self._reset_database()
-        with suppress_notification_email():
-            self._seed(*args, **options)
-            if demo_site:
-                self._seed_demo_site(options)
+            # completeness-check (#1180): the flush and the reseed must be one
+            # transaction, or a failure between them (an OOM kill, the Job's
+            # activeDeadlineSeconds, any exception in _seed/_seed_demo_site)
+            # leaves the database flushed but not reseeded — the published
+            # login dead and most boards missing, exactly the "reset takes the
+            # demo down" outcome the docs promise cannot happen. Wrapping in
+            # atomic() means a mid-run failure rolls back to the PRE-reset
+            # state (the old data, the old still-working login) rather than a
+            # half-flushed one. PostgreSQL TRUNCATE (what `flush` issues) is
+            # fully transactional and nests under an outer atomic() as a
+            # savepoint, so this does not change flush's own behavior.
+            with transaction.atomic():
+                self._reset_database()
+                with suppress_notification_email():
+                    self._seed(*args, **options)
+                    if demo_site:
+                        self._seed_demo_site(options)
+        else:
+            with suppress_notification_email():
+                self._seed(*args, **options)
+                if demo_site:
+                    self._seed_demo_site(options)
 
     def _seed(self, *args, **options):
         random.seed(options["seed"])
