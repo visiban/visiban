@@ -462,6 +462,32 @@ touched — so it is zero-downtime and requires no operator action.
     [Container image retention](container-image-retention.md). How often that actually is
     depends on the project's configured pipeline schedule(s), not on this code.
 
+!!! note "`TLS_MODE=selfsigned` no longer sends a 2-year HSTS header"
+    The bundled `nginx/app.conf.template` used to hardcode
+    `Strict-Transport-Security: max-age=63072000; includeSubDomains` for **both**
+    `TLS_MODE=letsencrypt` and `TLS_MODE=selfsigned`, contradicting the docs (which have always
+    said selfsigned disables HSTS by default) and ignoring an operator-set `SECURE_HSTS_SECONDS`.
+    `init-prod.sh` now renders the header itself from `SECURE_HSTS_SECONDS`, and nginx hides
+    Django's own copy of the header on every proxied path so exactly one is ever sent (#1201).
+
+    **What changes for an existing install:**
+
+    - **`TLS_MODE=letsencrypt`** — no change if you don't set `SECURE_HSTS_SECONDS`: the header
+      still defaults to 2 years with `includeSubDomains`. If you already set
+      `SECURE_HSTS_SECONDS` in `.env`, nginx now actually honors it (previously it was silently
+      ignored in favor of the hardcoded 2-year value).
+    - **`TLS_MODE=selfsigned`** — the 2-year header is **removed**; no `Strict-Transport-Security`
+      header is sent by default. This is the intended fix, not a regression: browsers only
+      enforce HSTS on a connection they already trust, so the practical effect was limited to
+      operators who manually trust the self-signed cert (a common staging setup) — those browsers
+      were being pinned to HTTPS for two years, including on all subdomains, with no documented
+      way to back out early. Set `SECURE_HSTS_SECONDS` explicitly in `.env` if you want the
+      header on a selfsigned deployment anyway.
+
+    After upgrading, re-run `./init-prod.sh` to re-render `nginx/active.conf.template`, then
+    `docker compose -f docker-compose.prod.yml up -d --force-recreate nginx` — a plain
+    `up -d`/`pull` does not notice that the bind-mounted nginx config content changed.
+
 ### Upgrading to 1.1.x
 
 !!! warning "Removed env-var aliases — rename before upgrading"

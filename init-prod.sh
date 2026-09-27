@@ -61,6 +61,46 @@ if [[ "${TLS_MODE}" == "none" ]]; then
   cp nginx/app-http.conf.template nginx/active.conf.template
 else
   cp nginx/app.conf.template nginx/active.conf.template
+
+  # -------------------------------------------------------------------------
+  # Render the Strict-Transport-Security header (#1201)
+  # -------------------------------------------------------------------------
+  # nginx used to hardcode "max-age=63072000; includeSubDomains" for both
+  # letsencrypt and selfsigned, contradicting the docs (selfsigned promises
+  # no HSTS by default) and ignoring an operator's SECURE_HSTS_SECONDS. Render
+  # it here instead, from the same env var Django's SecurityMiddleware reads,
+  # so there is exactly one source of truth for the value — nginx's copy of
+  # the header is the one that actually reaches the client (app.conf.template
+  # hides Django's own copy on every proxied path with proxy_hide_header), so
+  # this is also the only place the value needs to be computed.
+  if [[ -n "${SECURE_HSTS_SECONDS:-}" ]] && ! [[ "${SECURE_HSTS_SECONDS}" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: SECURE_HSTS_SECONDS must be a non-negative integer (got '${SECURE_HSTS_SECONDS}')."
+    exit 1
+  fi
+
+  if [[ "${TLS_MODE}" == "letsencrypt" ]]; then
+    # Preserve the historical 2-year default for existing letsencrypt installs
+    # that don't set SECURE_HSTS_SECONDS explicitly — this issue is about the
+    # header ignoring the operator's value and leaking into selfsigned, not
+    # about changing what letsencrypt sends out of the box.
+    HSTS_MAX_AGE="${SECURE_HSTS_SECONDS:-63072000}"
+  else
+    # selfsigned: no HSTS by default, matching installation.md. An operator
+    # who explicitly sets SECURE_HSTS_SECONDS in .env opts back in.
+    HSTS_MAX_AGE="${SECURE_HSTS_SECONDS:-0}"
+  fi
+
+  if [[ "${HSTS_MAX_AGE}" -gt 0 ]]; then
+    HSTS_LINE="    add_header Strict-Transport-Security \"max-age=${HSTS_MAX_AGE}; includeSubDomains\" always;"
+  else
+    HSTS_LINE=""
+  fi
+
+  awk -v repl="${HSTS_LINE}" '
+    /__HSTS_HEADER_PLACEHOLDER__/ { if (repl != "") print repl; next }
+    { print }
+  ' nginx/active.conf.template > nginx/active.conf.template.new
+  mv nginx/active.conf.template.new nginx/active.conf.template
 fi
 
 # ---------------------------------------------------------------------------

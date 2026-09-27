@@ -41,7 +41,17 @@ server {
     ssl_session_cache         shared:SSL:10m;
     ssl_session_timeout       1d;
 
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    # HSTS (#1201): NOT hardcoded here. This used to be a bare `add_header
+    # Strict-Transport-Security "max-age=63072000; includeSubDomains" always;`
+    # sent unconditionally for both TLS_MODE=letsencrypt and TLS_MODE=selfsigned,
+    # which contradicted the docs (selfsigned promises no HSTS by default so a
+    # browser that has been told to trust the self-signed cert doesn't get
+    # pinned to it for two years) and ignored an operator's SECURE_HSTS_SECONDS.
+    # init-prod.sh renders the line below in its place from SECURE_HSTS_SECONDS —
+    # the same env var Django's SecurityMiddleware reads — so there is one
+    # source of truth for the value. See docs/getting-started/installation.md
+    # (TLS modes) for the per-mode default.
+    __HSTS_HEADER_PLACEHOLDER__
     add_header X-Frame-Options           "DENY" always;
     add_header X-Content-Type-Options    "nosniff" always;
     # script-src: 'self' only — the theme-init.js script is served as a static
@@ -75,6 +85,11 @@ server {
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 90s;
+        # Django's own SecurityMiddleware independently computes and sends its
+        # own Strict-Transport-Security header on this proxied response. Hide
+        # it so the client only ever sees the one nginx sends above (#1201) —
+        # two HSTS headers on one response makes browsers ignore both (RFC 6797 §8.1).
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # django-allauth browser-based OAuth callbacks (e.g. /accounts/google/login/callback/)
@@ -85,6 +100,7 @@ server {
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 90s;
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # django-allauth headless API (OAuth callbacks, session endpoints)
@@ -95,6 +111,7 @@ server {
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_read_timeout 90s;
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # MCP (Model Context Protocol) server — only reachable when the backend is
@@ -113,6 +130,7 @@ server {
         proxy_buffering    off;
         proxy_cache        off;
         proxy_read_timeout 86400s;
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # WebSocket (Django Channels)
@@ -126,6 +144,7 @@ server {
         proxy_set_header       X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header       X-Forwarded-Proto $scheme;
         proxy_read_timeout     86400s;
+        proxy_hide_header      Strict-Transport-Security;
     }
 
     # Django admin — restricted to loopback only at the Nginx layer.
@@ -145,11 +164,13 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_hide_header Strict-Transport-Security;
     }
 
     # Django-served static files
     location /static/ {
-        proxy_pass http://backend:8000;
+        proxy_pass         http://backend:8000;
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # Attachment downloads — proxied through Django for authentication and
@@ -161,6 +182,7 @@ server {
         proxy_set_header   X-Real-IP         $remote_addr;
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_hide_header  Strict-Transport-Security;
     }
 
     # Internal-only location used by X-Accel-Redirect responses from Django.
