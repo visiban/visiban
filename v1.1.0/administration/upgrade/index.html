@@ -838,6 +838,8 @@
       
         
       
+        
+      
     
     
     
@@ -907,6 +909,34 @@
     
   
     Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
   
 
     
@@ -1512,7 +1542,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_24" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1534,14 +1564,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_23">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_24">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3967,11 +3997,31 @@ of the upgrade, run the schema check without deploying anything:</p>
 application cap, the frontend nginx <code>client_max_body_size</code>, and the ingress
 <code>nginx.ingress.kubernetes.io/proxy-body-size</code> annotation — the last two with
 10 MB of multipart-framing headroom.</p>
-<p>At the chart defaults all three resolve to exactly what 1.1 shipped, so <strong>no
-existing install changes behavior</strong>. If you previously raised the limit, set
+<p>With only this change, all three resolve to exactly what 1.1 shipped at the
+chart defaults. The Trello import cap below raises the two transport limits
+to 35 MB; the application's attachment cap is unchanged. If you previously raised the limit, set
 <code>backend.settings.maxUploadSizeBytes</code> instead of editing the annotation and
 the nginx config separately; a hand-set <code>ingress.annotations</code> entry of the
 same name still overrides the derived one.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Default transport body limit raised from 20 MB to 35 MB (Trello import)</p>
+<p>1.2 adds a <a href="../../features/trello-import/">Trello import</a> that accepts exports
+up to <code>VISIBAN_IMPORT_MAX_SIZE</code> (default 25 MB, Helm:
+<code>backend.settings.importMaxSizeBytes</code>). So those uploads reach Visiban
+instead of dying at the edge, the transport limits are now derived from the
+<strong>larger</strong> of <code>maxUploadSizeBytes</code> and <code>importMaxSizeBytes</code> plus 10 MB:</p>
+<ul>
+<li><strong>Helm:</strong> nginx <code>client_max_body_size</code> and the ingress <code>proxy-body-size</code>
+  annotation go from <code>20M</code> to <code>35M</code> at the chart defaults.</li>
+<li><strong>Docker Compose:</strong> <code>nginx/app.conf.template</code> and
+  <code>nginx/app-http.conf.template</code> now set <code>client_max_body_size 35M</code>.</li>
+</ul>
+<p>Attachment uploads are still capped at <code>MAX_UPLOAD_SIZE_BYTES</code> (10 MB) by
+the application, so this does not let larger attachments through. If you
+run your own reverse proxy in front of Visiban, raise its body limit to at
+least 35 MB for Trello imports to work — see
+<a href="../configuration/#import-limits">Import limits</a>.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Service renamed: Redis → Valkey (container and Helm chart)</p>

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/saved-filters/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/features/trello-import/">
       
       
-        <link rel="prev" href="../card-descriptions/">
+        <link rel="prev" href="../board/">
       
       
-        <link rel="next" href="../custom-fields/">
+        <link rel="next" href="../card-archiving/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Saved Filters - Visiban</title>
+        <title>Import from Trello - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#saved-filters" class="md-skip">
+        <a href="#import-from-trello" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Saved Filters
+              Import from Trello
             
           </span>
         </div>
@@ -931,10 +931,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../trello-import/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -950,6 +977,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#export-your-board-from-trello" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Export your board from Trello
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-the-import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start the import
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-choose-the-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Choose the file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-review-and-configure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Review and configure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-imported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets imported
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#member-matching-and-privacy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Member matching and privacy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1015,37 +1150,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Saved Filters
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../saved-filters/" class="md-nav__link">
         
   
   
@@ -1061,92 +1169,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#saving-a-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Saving a filter
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#loading-a-saved-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Loading a saved filter
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deleting-a-saved-filter" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Deleting a saved filter
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#scope-and-privacy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Scope and privacy
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        API reference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#schema-versioning" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Schema versioning
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -3496,60 +3518,168 @@
   
 
 
-<h1 id="saved-filters">Saved Filters<a class="headerlink" href="#saved-filters" title="Permanent link">&para;</a></h1>
+<h1 id="import-from-trello">Import from Trello<a class="headerlink" href="#import-from-trello" title="Permanent link">&para;</a></h1>
 <blockquote>
-<p><strong>Added in 1.0</strong></p>
+<p><strong>Added in 1.2</strong></p>
 </blockquote>
-<p>Save a named filter combination on any board and restore it in one click. Saved filters are stored server-side, so they are available on every device and browser you use to access Visiban.</p>
-<h2 id="saving-a-filter">Saving a filter<a class="headerlink" href="#saving-a-filter" title="Permanent link">&para;</a></h2>
+<p>Bring a Trello board into Visiban in a few minutes. You export the board from Trello as a JSON file, upload it, review a preview, and Visiban creates a <strong>new board</strong> from it.</p>
+<div class="admonition note">
+<p class="admonition-title">What is not supported</p>
+<ul>
+<li>Importing into an <strong>existing</strong> board. The import always creates a new board.</li>
+<li>Attachment files. Only attachment links are imported.</li>
+<li>Jira or other tools. Only Trello JSON exports are supported.</li>
+</ul>
+</div>
+<h2 id="export-your-board-from-trello">Export your board from Trello<a class="headerlink" href="#export-your-board-from-trello" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Open the board and set your filters using the filter bar (press <code>f</code> or click <strong>Filters</strong>).</li>
-<li>Click the <strong>Saved</strong> dropdown to the right of the filter controls.</li>
-<li>Click <strong>Save current filters</strong>, enter a descriptive name, and confirm.</li>
+<li>Open the board in Trello.</li>
+<li>Open the board menu and choose <strong>Print, export, and share</strong>.</li>
+<li>Choose <strong>Export as JSON</strong> and save the file.</li>
 </ol>
-<p>The filter combination — search text, assignee, labels, priority, and due-date selection — is captured at save time. Changes to the filter bar after saving do not affect the stored preset.</p>
-<h2 id="loading-a-saved-filter">Loading a saved filter<a class="headerlink" href="#loading-a-saved-filter" title="Permanent link">&para;</a></h2>
-<p>Open the <strong>Saved</strong> dropdown and click any preset name. The filter bar updates immediately and the board redraws to show only matching cards.</p>
-<h2 id="deleting-a-saved-filter">Deleting a saved filter<a class="headerlink" href="#deleting-a-saved-filter" title="Permanent link">&para;</a></h2>
-<p>Hover over a preset name in the <strong>Saved</strong> dropdown to reveal the delete icon. Click it to remove the preset permanently. This action cannot be undone.</p>
-<h2 id="scope-and-privacy">Scope and privacy<a class="headerlink" href="#scope-and-privacy" title="Permanent link">&para;</a></h2>
-<p>Saved filters are private to each user. Other board members cannot see, load, or delete your presets.</p>
-<p>Any board role — including Viewer — can create, load, and delete their own saved filters.</p>
-<h2 id="api-reference">API reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h2>
+<p>Files up to 25 MB are accepted by default. Administrators can change this limit with <code>VISIBAN_IMPORT_MAX_SIZE</code>. See <a href="../../administration/configuration/#import-limits">Import limits</a>.</p>
+<h2 id="start-the-import">Start the import<a class="headerlink" href="#start-the-import" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Go to the <strong>Dashboard</strong>, or open a group page.</li>
+<li>Click <strong>Import</strong>.</li>
+<li>Click the <strong>Import a Trello export</strong> link.</li>
+</ol>
+<p>From the Dashboard, the new board is created in your personal boards. From a group page, it is created in that group, and you must be a member of the group to import into it.</p>
+<h2 id="step-1-choose-the-file">Step 1: Choose the file<a class="headerlink" href="#step-1-choose-the-file" title="Permanent link">&para;</a></h2>
+<p>Click the drop area and select your Trello <code>.json</code> file, or drag the file onto it. Then click <strong>Continue</strong>. Visiban uploads the file and reads it. Nothing is created yet.</p>
+<h2 id="step-2-review-and-configure">Step 2: Review and configure<a class="headerlink" href="#step-2-review-and-configure" title="Permanent link">&para;</a></h2>
+<p>The review step shows what the import will create. Change any option you like. The summary updates as you go, and nothing is created until you click <strong>Create board</strong>.</p>
+<p><strong>Board name.</strong> Defaults to the Trello board name. The text below the field tells you where the board will be created.</p>
+<p><strong>Warnings.</strong> If some Trello data cannot be imported, a warning box lists it. Everything else still imports normally.</p>
+<p><strong>Summary tiles.</strong> Counts of columns, cards, labels, checklist items, comments, attachments, members, and checklists.</p>
+<p><strong>Columns.</strong> Each Trello list becomes a column, in the same order. If the export contains archived lists, turn on <strong>Include archived lists</strong> to import them too. Their cards are imported as archived. A table shows each list, its card count, and whether it will be imported or skipped.</p>
+<p><strong>Swimlanes.</strong> Optional. Turn on <strong>Make swimlane</strong> for any Trello labels you want as swimlanes.</p>
+<ul>
+<li>A card goes to the swimlane of its first selected label, in that card's own label order.</li>
+<li>Cards with no selected label go to a default swimlane. Set its name in <strong>Default swimlane name</strong> (default: <code>Unassigned</code>). It must differ from the names of the labels you turned into swimlanes.</li>
+<li>Unnamed labels can't be swimlanes.</li>
+<li>If you select no labels, all cards go into a single swimlane.</li>
+</ul>
+<p><strong>Members.</strong> See <a href="#member-matching-and-privacy">Member matching and privacy</a>.</p>
+<p>Click <strong>Create board</strong>. You see an upload progress bar, then <strong>Creating board…</strong>. Keep the window open until it finishes. The import runs while you wait (there is no background job yet), so very large boards can take a minute.</p>
+<h2 id="what-gets-imported">What gets imported<a class="headerlink" href="#what-gets-imported" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
+<th>Trello</th>
+<th>Visiban</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>GET</code></td>
-<td><code>/api/v1/boards/{id}/saved-filters/</code></td>
-<td>List your saved filters for this board</td>
+<td>Lists</td>
+<td>Columns, in the same order. Archived lists are skipped by default. If you include them, they are imported along with their archived cards.</td>
 </tr>
 <tr>
-<td><code>POST</code></td>
-<td><code>/api/v1/boards/{id}/saved-filters/</code></td>
-<td>Save a new filter preset</td>
+<td>Cards</td>
+<td>Cards with the title (up to 500 characters), description, due date, archived state, and original creation time. The due date is imported as a date, in UTC.</td>
 </tr>
 <tr>
-<td><code>DELETE</code></td>
-<td><code>/api/v1/boards/{id}/saved-filters/{filter_id}/</code></td>
-<td>Delete a saved filter</td>
+<td>Labels</td>
+<td>Labels. Each Trello color maps to the closest Visiban color. Unnamed labels are named after their color. Duplicate names get a " (2)" suffix.</td>
+</tr>
+<tr>
+<td>Checklists</td>
+<td>One checklist per card. Visiban supports one checklist per card, so multiple Trello checklists are combined, and each item is prefixed with <code>Checklist name:</code>.</td>
+</tr>
+<tr>
+<td>Comments</td>
+<td>Comments, with their original timestamps. Comments over 10,000 characters are shortened; card descriptions over 50,000 characters are too. The preview warns when this happens.</td>
+</tr>
+<tr>
+<td>Attachments</td>
+<td>Links are added to the card description under <strong>Attachments (imported from Trello)</strong>. The files themselves are not copied.</td>
+</tr>
+<tr>
+<td>Members</td>
+<td>Matched to Visiban users when possible. See below.</td>
 </tr>
 </tbody>
 </table>
-<p>See <a href="../../api/boards/#saved-filters"><code>docs/api/boards.md</code></a> for the full <code>state_json</code> shape and request/response fields.</p>
-<h2 id="schema-versioning">Schema versioning<a class="headerlink" href="#schema-versioning" title="Permanent link">&para;</a></h2>
-<blockquote>
-<p><strong>Added in 1.1</strong></p>
-</blockquote>
-<p>Each saved filter carries a <code>state_version</code> field. The version identifies the shape of the stored <code>state_json</code> so a future non-additive change to the filter state (for example, splitting one field into two) can be migrated forward without losing presets saved under the old shape.</p>
-<p>Today only version <code>1</code> exists. The server accepts higher <code>state_version</code> values from newer clients unchanged — a mixed-version deploy where a newer frontend writes <code>state_version: 2</code> against an older backend will not lose the user's save. On read, older clients fall back to a defensive v1 reader for any shared fields; unknown v2-only fields are ignored.</p>
-<p>Additive changes (adding a new optional key to <code>state_json</code>) do <strong>not</strong> require a version bump — update the key allow-list in the serializer's <code>validate_state_json</code> validator and the frontend <code>FilterState</code> type in the same release.</p>
+<p><strong>Not imported:</strong> Power-Up data, custom fields, start dates, stickers, attachment files, votes, and covers. The preview lists what applies to your board.</p>
+<h2 id="member-matching-and-privacy">Member matching and privacy<a class="headerlink" href="#member-matching-and-privacy" title="Permanent link">&para;</a></h2>
+<p>Visiban matches a Trello member to a Visiban user when the Trello username equals the Visiban username, ignoring case.</p>
+<p>Only people you can already see in Visiban are checked: people who share a board or group with you, and members of the target group. Site admins can match everyone.</p>
+<div class="admonition note">
+<p class="admonition-title">Why the preview does not name matched people</p>
+<p>The preview shows only <strong>how many</strong> members matched, never who. This stops the import from revealing which accounts exist on the instance. People who did not match are listed by their Trello name.</p>
+</div>
+<p><strong>Add matched members to this board</strong> is off by default.</p>
+<ul>
+<li><strong>On:</strong> matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card), and their comments keep them as the author, starting with "(imported from Trello)" so it is clear the comment came from the import.</li>
+<li><strong>Off</strong>, and for unmatched people: cards are unassigned, and comments are posted by you, starting with "Name (imported from Trello):".</li>
+</ul>
+<p>Importing never sends notifications.</p>
+<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>File size</td>
+<td>25 MB (configurable)</td>
+</tr>
+<tr>
+<td>Lists</td>
+<td>50</td>
+</tr>
+<tr>
+<td>Cards</td>
+<td>5,000</td>
+</tr>
+<tr>
+<td>Labels</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Checklist items</td>
+<td>20,000</td>
+</tr>
+<tr>
+<td>Comments</td>
+<td>20,000</td>
+</tr>
+<tr>
+<td>Members</td>
+<td>1,000</td>
+</tr>
+<tr>
+<td>Trello actions (activity, including comments)</td>
+<td>50,000</td>
+</tr>
+<tr>
+<td>Attachments</td>
+<td>20,000</td>
+</tr>
+<tr>
+<td>Previews</td>
+<td>60 per hour</td>
+</tr>
+<tr>
+<td>Imports</td>
+<td>10 per hour</td>
+</tr>
+</tbody>
+</table>
+<p>Trello imports share the 10-per-hour import budget with the regular <a href="../board/#import">board import</a>.</p>
+<p>Trello's own export includes only the most recent 1,000 actions, so older comments may be missing. The preview warns you when this is likely.</p>
+<p>If your board exceeds a count limit, split it into smaller boards in Trello and import each one.</p>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<p><strong>"File too large…" / "This file is too large for this server."</strong> Your export is over the size limit (25 MB by default). The second message means a reverse proxy in front of Visiban rejected the upload before it reached Visiban. Ask your administrator to check <a href="../../administration/configuration/#import-limits">Import limits</a>.</p>
+<p><strong>"This does not look like a Trello board export."</strong> The file is not a board export from Trello. Export the board again using <strong>Print, export, and share</strong> then <strong>Export as JSON</strong>. Make sure you choose the board export and not another file.</p>
+<p><strong>"Unsupported file format."</strong> Upload the <code>.json</code> file exported from Trello.</p>
+<p><strong>"You don't have permission to create boards in this group."</strong> You are not allowed to create boards in that group. Ask a group admin to add you, or import from the Dashboard to create a personal board.</p>
+<p><strong>"Too many previews" or "Import limit reached".</strong> You hit a rate limit. The message tells you how many minutes to wait.</p>
+<p><strong>The window closed or the connection dropped while creating.</strong> The board may already have been created. Check your boards before trying again.</p>
 
 
 

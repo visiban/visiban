@@ -838,6 +838,8 @@
       
         
       
+        
+      
     
     
     
@@ -907,6 +909,34 @@
     
   
     Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
   
 
     
@@ -1512,7 +1542,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_24" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1534,14 +1564,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_23">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_24">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2941,6 +2971,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#import-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#email-smtp" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3847,6 +3888,41 @@
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>--set<span class="w"> </span>backend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span>
 </code></pre></div>
+<hr />
+<h2 id="import-limits">Import limits<a class="headerlink" href="#import-limits" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VISIBAN_IMPORT_MAX_SIZE</code></td>
+<td>Maximum size, <strong>in bytes</strong>, of a Trello JSON export accepted by the <a href="../../features/trello-import/">Trello import wizard</a>. Oversized uploads get <code>413</code>. Separate from <code>MAX_UPLOAD_SIZE_BYTES</code>, which caps attachments and native board imports. Helm: <code>backend.settings.importMaxSizeBytes</code>. <em>(new in 1.2)</em></td>
+<td><code>26214400</code> (25 MB)</td>
+</tr>
+</tbody>
+</table>
+<p>The import runs synchronously inside the request, so every hop in front of
+Django must accept a body this large and wait long enough for the board to be
+created:</p>
+<ul>
+<li><strong>Docker Compose nginx</strong> (<code>nginx/*.conf.template</code>): <code>client_max_body_size</code>
+  is <code>35M</code> (25 MB + 10 MB multipart headroom). Raise it if you raise
+  <code>VISIBAN_IMPORT_MAX_SIZE</code>. <code>proxy_read_timeout</code> on <code>/api/</code> is <code>90s</code>, well
+  above the few seconds a capped import takes.</li>
+<li><strong>Helm</strong>: nginx <code>client_max_body_size</code> and the ingress <code>proxy-body-size</code>
+  annotation are derived automatically from the larger of
+  <code>maxUploadSizeBytes</code> and <code>importMaxSizeBytes</code>.</li>
+<li><strong>Your own reverse proxy / load balancer</strong>: nginx defaults to a 1 MB body
+  limit and returns its own <code>413</code> before Visiban sees the request. Allow at
+  least <code>VISIBAN_IMPORT_MAX_SIZE</code> + 10 MB.</li>
+<li>The application server (daphne) and the web client set no request timeout
+  of their own.</li>
+</ul>
 <hr />
 <h2 id="email-smtp">Email (SMTP)<a class="headerlink" href="#email-smtp" title="Permanent link">&para;</a></h2>
 <p>Visiban uses Django's email backend for password resets, email verification and — since 1.2 — <a href="../../features/notifications/#email-notifications">notification email</a>.</p>

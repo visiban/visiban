@@ -838,6 +838,8 @@
       
         
       
+        
+      
     
     
     
@@ -907,6 +909,34 @@
     
   
     Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
   
 
     
@@ -1512,7 +1542,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_24" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1534,14 +1564,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_23">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_24">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -3939,8 +3969,8 @@
 <tbody>
 <tr>
 <td><code>nginx.ingress.kubernetes.io/proxy-body-size</code></td>
-<td><code>20m</code></td>
-<td>Matches the <code>client_max_body_size</code> in the Docker Compose Nginx config. Without this, the ingress controller's default (1m) rejects file uploads before they reach the backend.</td>
+<td><code>35m</code> (derived)</td>
+<td>Derived from the larger of <code>backend.settings.maxUploadSizeBytes</code> and <code>backend.settings.importMaxSizeBytes</code> plus 10 MB, matching the <code>client_max_body_size</code> in the Docker Compose Nginx config (<code>35M</code>). Without this, the ingress controller's default (1m) rejects file uploads and Trello imports before they reach the backend.</td>
 </tr>
 <tr>
 <td><code>nginx.ingress.kubernetes.io/proxy-read-timeout</code></td>

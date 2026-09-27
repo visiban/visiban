@@ -1172,6 +1172,8 @@
       
         
       
+        
+      
     
     
     
@@ -1241,6 +1243,34 @@
     
   
     Board & Cards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/trello-import/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Import from Trello
   
 
     
@@ -1846,7 +1876,7 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_23" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_24" >
         
           
           <div class="md-nav__link md-nav__container">
@@ -1868,14 +1898,14 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3_23" id="__nav_3_23_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3_24" id="__nav_3_24_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_23_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_23">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_24_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_24">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -4039,6 +4069,11 @@
 <td><code>SCHEDULE_NOTIFY_DUE_SOON</code>, <code>SCHEDULE_NOTIFY_STALE_CARDS</code>, <code>SCHEDULE_PRUNE_BOARD_EVENTS</code>, <code>SCHEDULE_PRUNE_NOTIFICATIONS</code></td>
 <td style="text-align: center;">No</td>
 <td>Daily run time (<code>HH:MM</code>, UTC, or <code>off</code>) for each job of the opt-in Compose <code>scheduler</code> service. Defaults: <code>07:00</code>, <code>08:00</code>, <code>off</code>, <code>off</code>. Read only by <code>manage.py run_scheduler</code>. See <a href="../../administration/scheduled-jobs/">Scheduled Jobs</a>.</td>
+</tr>
+<tr>
+<td><code>VISIBAN_IMPORT_MAX_SIZE</code></td>
+<td style="text-align: center;">No</td>
+<td>Maximum Trello JSON export size for the <a href="../../features/trello-import/">Trello import wizard</a>, in bytes (default: <code>26214400</code> — 25 MB). Your reverse proxy must accept bodies at least this large; see <a href="../../administration/configuration/#import-limits">Import limits</a>.</td>
 </tr>
 </tbody>
 </table>
