@@ -72,8 +72,16 @@ class CardQuerySerializer(serializers.ModelSerializer):
     """
 
     labels = LabelSerializer(many=True, read_only=True)
-    assignee = BoardUserSerializer(read_only=True)
-    created_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1172): Card.assignee is nullable (unassigned cards are
+    # the common case) — without it drf-spectacular documents this field as
+    # always an object, which is wrong for every unassigned card in the response.
+    # Same gap as CardSerializer.assignee (#1108).
+    assignee = BoardUserSerializer(read_only=True, allow_null=True)
+    # allow_null=True (#1172): created_by is a SET_NULL FK — the creating user
+    # can be deleted, and rows predating the ownership migration carry it null
+    # outright. Same declared-nested-field gap CardSerializer.created_by had
+    # before #1138.
+    created_by = BoardUserSerializer(read_only=True, allow_null=True)
     # Read-only here, unlike on CardSerializer: this endpoint has no write path
     # at all, so there is nothing to validate a submitted value against. Present
     # rather than omitted because CardQuerySerializerFieldParityTests requires
