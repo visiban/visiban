@@ -2548,6 +2548,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mcp-server-in-process-not-a-rest-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MCP server (in-process, not a REST client)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#postgresql-17" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3570,6 +3581,17 @@
 <li>Every board mutation broadcasts to connected clients only after <code>transaction.on_commit()</code>. This ensures that clients never receive a real-time event for a write that was later rolled back. Without this guard, a failed transaction could leave clients holding state that does not exist in the database.</li>
 <li>The server sends a keepalive ping every 30 seconds. NAT gateways and reverse proxies silently drop idle TCP connections on timescales that vary by environment. The ping prevents that; the frontend auto-reconnects on a missed ping.</li>
 </ul>
+<hr />
+<h2 id="mcp-server-in-process-not-a-rest-client">MCP server (in-process, not a REST client)<a class="headerlink" href="#mcp-server-in-process-not-a-rest-client" title="Permanent link">&para;</a></h2>
+<p>The MCP server is mounted inside the same ASGI app as Django, at <code>/mcp</code>. It is not a separate package that calls the REST API.</p>
+<p>An earlier decision (#511, 2026-09-14) went the other way, to keep a single surface and avoid duplicated authorization logic. It was superseded on 2026-09-27, once the reasons behind it had been addressed in-process:</p>
+<ul>
+<li><strong>One permission path.</strong> MCP tools resolve access with the same <code>get_board_role()</code> / <code>get_board_roles()</code> helpers the REST views use. There is no second copy of the role precedence ladder to audit or let drift.</li>
+<li><strong>One write path.</strong> MCP writes go through the card-mutation service layer and validate with <code>CardSerializer</code>, exactly like REST writes, so validation and side effects (movement records, broadcasts) cannot diverge.</li>
+<li><strong>No extra process.</strong> A separate package would be one more thing for a self-hoster to deploy, version, and keep in step with the API — the operational cost the guiding principle above avoids.</li>
+</ul>
+<p>Token scopes and the instance switch (<code>MCP_SERVER_ENABLED</code>, off by default) are enforced server-side, so they apply however the server is transported.</p>
+<p>The one deliberate difference is the <strong>read shape</strong>: MCP returns an agent-friendly card representation (assignee email, label names, nested column and swimlane names) rather than the REST payload. Because that shape is hand-written, it needs a parity test so a new <code>CardSerializer</code> field is either exposed to agents or explicitly excluded, never silently missing (#1176).</p>
 <hr />
 <h2 id="postgresql-17">PostgreSQL 17<a class="headerlink" href="#postgresql-17" title="Permanent link">&para;</a></h2>
 <p>The audit trail is the defining feature of Visiban. A <code>CardMovement</code> record must commit atomically with the card position update — either both rows land or neither does. PostgreSQL's ACID guarantees make this straightforward. An eventually consistent store would require compensating logic to achieve the same correctness guarantee.</p>
