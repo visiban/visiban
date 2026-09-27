@@ -186,16 +186,38 @@ Every agent finishes by, in order:
    and GAP is fixed on the branch or deferred to an **open** issue. Only after
    that does the orchestrator re-brief the implementer (via `SendMessage`) to
    push.
-5. **Push, then open the MR itself**, reproducing the `mr` skill's format by running
+5. **Check for a stale base, immediately before push — not at worktree
+   creation.** `scripts/wt new` branches off latest `origin/main`, but the gate
+   sequence above (especially an Opus completeness-check on an escalated issue)
+   can take long enough that another issue in the *same wave* merges to main
+   first. A branch that was fresh when created can be stale by the time its
+   gates are done, and nothing before this step re-checks the base — the
+   implementer's scoped tests only ever ran against the base it started from.
+
+   Run `git fetch origin && git log HEAD..origin/main --oneline` in the
+   worktree. If it prints anything:
+   - Rebase onto `origin/main`.
+   - Re-run whichever of this branch's own tests/gates touch the surface the
+     new upstream commits changed — schema/parity checks if they touched
+     serializers or `settings.py`, `migration-check` if `models.py` changed
+     upstream, the affected test files if they touched a shared component —
+     not just a blind re-run of the implementer's original scoped tests.
+   - A clean `git merge-tree` is not sufficient evidence by itself: a
+     textually-clean merge can still combine two independently-correct schema
+     states into a wrong one. Confirm the *tests* pass post-rebase, not just
+     that the rebase applied cleanly.
+6. **Push, then open the MR itself**, reproducing the `mr` skill's format by running
    `glab mr create` directly. `/mr` is `disable-model-invocation` — an agent
    cannot call it and must not try. `.claude/skills/mr/SKILL.md` is the
    canonical format for both paths.
-6. Include `Closes #NNN` in the MR description, the `completeness-check`
+7. Include `Closes #NNN` in the MR description, the `completeness-check`
    `## Requirements` table, and a `## Gates` section with one
    `gate: <name> — <N> findings` line per gate run (including
    `completeness-check — <N> findings (model: <sonnet|opus>)`). `0 findings` is a real
-   outcome; never omit a zero, and never conflate `n/a` with `skipped`.
-7. **Never merge.** Hand back the MR URL and stop.
+   outcome; never omit a zero, and never conflate `n/a` with `skipped`. If Step 5
+   found a stale base, note the rebase and what was re-verified in the MR's
+   `## Notes` section.
+8. **Never merge.** Hand back the MR URL and stop.
 
 The agent reports back twice: after step 4 (commit SHA and the pre-MR gate
 ledger, unpushed), and at the end (MR URL, the full gate ledger, the commit SHA,
