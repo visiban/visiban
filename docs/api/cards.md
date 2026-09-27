@@ -236,7 +236,7 @@ and write:
 |---|---|---|
 | `provider` | string | One of `"gitlab"`, `"github"`, `"other"` |
 | `ref` | string | 1-255 characters. Surrounding whitespace is trimmed; no inner whitespace, control, or invisible Unicode formatting characters (e.g. zero-width space, bidi overrides). Freeform, e.g. `owner/repo#123` or `group/proj!45` |
-| `url` | string | At most 2048 characters. Must be an absolute `http` or `https` URL with a host; no whitespace, control, or invisible formatting characters, and no backslashes |
+| `url` | string | At most 2048 characters. Must be an absolute `http` or `https` URL with a host. Surrounding whitespace is trimmed; embedded whitespace, control, or invisible formatting characters are rejected, as are backslashes and a percent-encoded host |
 
 - **Omitting the key leaves the link untouched.** Sending `null` removes it. Sending an object
   replaces the whole link, and all three keys are required even on PATCH — a partial object

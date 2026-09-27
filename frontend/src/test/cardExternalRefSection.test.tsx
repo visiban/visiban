@@ -28,6 +28,7 @@ describe('CardExternalRefSection (#352)', () => {
     expect(link).toHaveAttribute('href', GH.url)
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(link).toHaveAttribute('title', 'acme/web#12 — github.com (opens in new tab)')
     expect(screen.getByText('GitHub')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Edit pull or merge request link' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove pull or merge request link' })).not.toBeInTheDocument()

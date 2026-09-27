@@ -434,11 +434,10 @@ export interface Card {
    */
   blocker_count: number;
   /**
-   * MR/PR link (#352), or null when the card has none. The backend always
-   * emits the key; it is optional here only so card fixtures and synthesized
-   * cards need not spell it out — treat `undefined` exactly like `null`.
+   * MR/PR link (#352), or null when the card has none. Required, like every
+   * other serializer field: the backend always emits the key.
    */
-  external_ref?: CardExternalRef | null;
+  external_ref: CardExternalRef | null;
 }
 
 export interface Notification {

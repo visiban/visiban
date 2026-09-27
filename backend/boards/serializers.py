@@ -1429,11 +1429,15 @@ class ExternalRefSerializer(serializers.Serializer):
       Enterprise live on arbitrary hosts;
     * ``ref`` is freeform (``owner/repo#123``, ``group/proj!45``, ...) but may
       not contain whitespace or control characters.
+
+    The ``ref``/``url`` rules are the model's field validators
+    (``validate_external_ref_ref`` / ``validate_external_ref_url``), attached
+    here too so the API and ``CardExternalRef.full_clean()`` cannot drift.
     """
 
     provider = serializers.ChoiceField(choices=CardExternalRef.Provider.choices)
-    # Rules live on the model module so CardExternalRef.clean() and this
-    # serializer cannot drift; DRF maps the Django ValidationError to a 400.
+    # Same validators as the model fields, so full_clean() and this serializer
+    # cannot drift; DRF maps the Django ValidationError to a 400.
     ref = serializers.CharField(max_length=255, validators=[validate_external_ref_ref])
     url = serializers.CharField(max_length=2048, validators=[validate_external_ref_url])
 

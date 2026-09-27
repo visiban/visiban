@@ -237,7 +237,7 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
                 type="button"
                 onClick={cancelEdit}
                 disabled={saving}
-                                className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-sm text-fg-tertiary hover:text-fg px-3 py-1.5 transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -259,7 +259,9 @@ export default function CardExternalRefSection({ externalRef, canEdit, onSave }:
                   href={current.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={current.url}
+                  // Parsed host, as on the card face: provider/ref are free
+                  // text, so the tooltip is where a reader checks the target.
+                  title={`${current.ref} — ${new URL(current.url).host} (opens in new tab)`}
                   aria-label={`${current.ref}, opens in new tab`}
                   className="inline-flex items-center gap-1 min-w-0 flex-1 text-sm text-info hover:underline rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                 >

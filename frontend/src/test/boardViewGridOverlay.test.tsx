@@ -238,7 +238,7 @@ function makeCard(id: number, column: number, swimlane: number): Card {
     priority: 'medium', assignee: null, labels: [], due_date: null, weight: 1,
     position: 0, created_by: fakeUser, created_at: '', updated_at: '', last_moved_at: null,
     attachment_count: 0, checklist_total: 0, checklist_done: 0, is_stale: false,
-    archived_at: null, version: 1, custom_field_values: [], blocker_count: 0,
+    archived_at: null, version: 1, custom_field_values: [], blocker_count: 0, external_ref: null,
   }
 }
 

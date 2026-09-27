@@ -34,7 +34,7 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     last_moved_at: null, attachment_count: 3, checklist_total: 5, checklist_done: 2,
     is_stale: false, archived_at: null, version: 1,
     custom_field_values: [],
-    blocker_count: 0,
+    blocker_count: 0, external_ref: null,
     ...overrides,
   }
 }
@@ -209,7 +209,7 @@ describe('CardItem — card_density (#961)', () => {
     )
 
     it('is absent when the card has no blockers', () => {
-      render(<CardItem card={makeCard({ blocker_count: 0 })} density="dense" />)
+      render(<CardItem card={makeCard({ blocker_count: 0, external_ref: null })} density="dense" />)
       expect(screen.queryByLabelText(/^Blocked by/)).not.toBeInTheDocument()
     })
 

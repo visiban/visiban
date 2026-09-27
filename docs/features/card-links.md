@@ -68,8 +68,8 @@ You can override the detected provider and reference at any time.
 
 ## Rules
 
-- Only **http** and **https** URLs are accepted. Anything else is rejected with
-  "Only http and https URLs are allowed."
+- Only **http** and **https** URLs are accepted. For anything else the panel shows
+  "Enter a valid http or https URL." and **Save link** stays disabled.
 - URLs that contain a username or password are rejected.
 - The URL can be up to 2048 characters.
 - The reference is required, cannot contain spaces, and can be up to 255 characters.

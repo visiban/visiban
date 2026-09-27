@@ -47,6 +47,7 @@ mention `AddIndex` at all.
 | `AlterUniqueTogether` / `AlterIndexTogether` | yes | `boards/0043_column_unique_name_per_board` |
 | raw `CREATE INDEX` in `RunSQL` / `RunPython` | yes, unless it says `CONCURRENTLY` | `boards/0030_card_trigram_search_indexes` |
 | `db_index=True` / `unique=True` inside `CreateModel` | **no** | the table is new — no rows, no readers |
+| `Meta.indexes` / `Meta.constraints` in `CreateModel` `options` | **no** | same reason — built with the new table (e.g. `boards/0061_add_card_external_ref`) |
 | `AddIndex` under `SeparateDatabaseAndState(state_operations=...)` | **no** | state only, emits no DDL |
 
 The field-level ones are the easiest to reach for and the easiest to miss in review:

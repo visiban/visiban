@@ -1185,7 +1185,7 @@ def validate_external_ref_ref(value):
     """Referenced by migration 0061 — do not rename or remove.
 
     ``CardExternalRef.ref`` rule (#352): freeform, but no whitespace or
-    invisible characters. Shared by the API serializer and ``clean()``."""
+    invisible characters. Run by the API serializer and by ``full_clean()``."""
     if _has_unsafe_chars(value):
         raise ValidationError("Must not contain whitespace, control, or formatting characters.")
 
@@ -1193,8 +1193,8 @@ def validate_external_ref_ref(value):
 def validate_external_ref_url(value):
     """Referenced by migration 0061 — do not rename or remove.
 
-    ``CardExternalRef.url`` rule (#352). Shared by the API serializer and
-    ``CardExternalRef.clean()`` so any writer — the REST API, JSON import, or
+    ``CardExternalRef.url`` rule (#352). Run as a field validator by the API
+    serializer and by ``full_clean()``, so any writer — the REST API, JSON import, or
     an integration writing the table directly — gets the same guarantee.
 
     The URL is rendered as an ``href``, so anything but an absolute http(s)
@@ -1221,6 +1221,10 @@ def validate_external_ref_url(value):
         raise ValidationError("Only http and https URLs are allowed.")
     if not parts.hostname:
         raise ValidationError("Enter a valid URL.")
+    # Browsers percent-decode the host before resolving it; Python keeps the
+    # literal "%". Rejecting it keeps both sides agreeing on the real host.
+    if "%" in parts.hostname:
+        raise ValidationError("Enter a valid URL.")
     if "@" in parts.netloc:
         raise ValidationError("URLs containing credentials are not allowed.")
 
@@ -1246,9 +1250,9 @@ class CardExternalRef(models.Model):
     list to the API, keeping ``external_ref`` as the primary — additive.
 
     Validation (http/https scheme only, no userinfo, no whitespace in ``ref``)
-    is enforced at the API boundary by ``ExternalRefSerializer`` and, for any
-    other writer, by ``clean()`` — both call the same module-level
-    validators. Callers writing rows directly must call ``full_clean()``.
+    is done by the ``ref``/``url`` field validators below. The API serializer
+    runs the same validators; any other writer gets them via
+    ``full_clean()``, which callers writing rows directly must call.
     """
 
     class Provider(models.TextChoices):
@@ -1263,9 +1267,10 @@ class CardExternalRef(models.Model):
     # Freeform: "owner/repo#123" (GitHub), "group/proj!45" (GitLab), or
     # anything for "other". Stored exactly as given — no case normalization.
     ref = models.CharField(max_length=255, validators=[validate_external_ref_ref])
-    # CharField rather than URLField: scheme validation happens in the
-    # serializer (URLValidator restricted to http/https), and URLField's
-    # default max_length of 200 is too short for real forge URLs.
+    # CharField rather than URLField: scheme validation is done by the
+    # validate_external_ref_url field validator (run by full_clean() and by
+    # the API serializer), and URLField's default max_length of 200 is too
+    # short for real forge URLs.
     url = models.CharField(max_length=2048, validators=[validate_external_ref_url])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

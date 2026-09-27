@@ -414,6 +414,8 @@ Option text: `text-sm text-fg font-medium` for the label, `text-xs text-fg-muted
 
 **Compact / chip-style radio groups** — a 2-4 option inline segmented choice (e.g. the relation-type picker in `RelationCardPicker`) may use `rounded` instead of `rounded-lg` on the option container, matching its smaller `px-2 py-1 text-xs` chip sizing. The `rounded-lg` guidance above assumes the larger card-with-description-line layout (e.g. the export format choice). Both variants keep the same selected/unselected token pair and the same `focus-within:ring-2 focus-within:ring-primary-emphasis` treatment — only the corner radius and text sizing shrink. A chip row also takes `flex-wrap`: three short chips fit at 320px today, but a longer translation or a fourth option would clip silently without it, and there is no action button to push the overflow onto.
 
+Group the options in a `<fieldset>` with a `<legend>` (`sr-only` when there is no visible heading for it) — never put `role="radiogroup"` on a `<fieldset>`, which already carries group semantics.
+
 The action button following a radio group uses the primary variant (`bg-button-primary hover:bg-button-primary-hover text-on-primary`) and its label should reflect the current selection (e.g. "Export JSON" / "Export CSV") to eliminate ambiguity.
 
 ## Subordinate settings blocks (toggle/checkbox-gated)
@@ -962,5 +964,4 @@ An informational callout inside a card or form (not a full-width chrome strip) u
 - **Every user-controlled `href` passes `isHttpUrl()` (`utils/externalRef.ts`) at the render site, even when the server already validated it.** When the guard fails, render the same content as a non-interactive `<span>` (`role="img"` + `aria-label` on the card face) — never an anchor with the raw value. An `href` is an XSS sink, and data can arrive from older rows or imports.
 - **Icon-only informational glyphs on the card face are at least `w-3.5 h-3.5`.** `w-3 h-3` is for decorative glyphs that sit beside text; when the glyph is the only visible indicator (and the click target), step it up.
 - **Immediate destructive text buttons get a real hit area.** A bare-text action that commits with no confirm (e.g. the link section's Remove) carries at least `px-1.5 py-0.5` and sits `gap-3` from adjacent actions, so reaching for its neighbor does not mis-hit it.
-- **Sr-only radio/checkbox chips put the focus ring on the wrapping `<label>` with `focus-within:ring-2 focus-within:ring-primary-emphasis`.** `focus:` cannot fire on a label whose input is `sr-only`, so this is the one permitted `focus-within` form. Group the chips in a `<fieldset>` with an `sr-only` `<legend>`, not `role="radiogroup"` on the fieldset.
 - **No brand logos for external providers.** One generic PR glyph for GitHub, GitLab and Other; the provider is named in text (detail panel) and in the accessible name. Logos would not track the theme color and add trademark/asset burden.

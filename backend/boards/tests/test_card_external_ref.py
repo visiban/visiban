@@ -187,6 +187,14 @@ class ExternalRefValidationTests(_ExternalRefBase):
             with self.subTest(url=url):
                 self._assert_rejected({**GH, "url": url}, "url")
 
+    def test_rejects_percent_encoded_host(self):
+        self._assert_rejected({**GH, "url": "https://evil%2Ecom/o/r/pull/1"}, "url")
+
+    def test_percent_encoding_in_path_is_allowed(self):
+        body = {**GH, "url": "https://github.com/o/r/pull/1?q=a%20b"}
+        r = self._patch({"external_ref": body})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+
     def test_rejects_invisible_unicode_formatting(self):
         self._assert_rejected({**GH, "url": "https://git\u200bhub.com/o/r/pull/1"}, "url")
         self._assert_rejected({**GH, "ref": "o/r#1\u202e"}, "ref")
