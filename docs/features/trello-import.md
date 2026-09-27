@@ -60,7 +60,7 @@ Click **Create board**. You see an upload progress bar, then **Creating board…
 | Cards | Cards with the title (up to 500 characters), description, due date, archived state, and original creation time. The due date is imported as a date, in UTC. |
 | Labels | Labels. Each Trello color maps to the closest Visiban color. Unnamed labels are named after their color. Duplicate names get a " (2)" suffix. |
 | Checklists | One checklist per card. Visiban supports one checklist per card, so multiple Trello checklists are combined, and each item is prefixed with `Checklist name: `. |
-| Comments | Comments, with their original timestamps. |
+| Comments | Comments, with their original timestamps. Comments over 10,000 characters are shortened; card descriptions over 50,000 characters are too. The preview warns when this happens. |
 | Attachments | Links are added to the card description under **Attachments (imported from Trello)**. The files themselves are not copied. |
 | Members | Matched to Visiban users when possible. See below. |
 
@@ -77,8 +77,8 @@ Only people you can already see in Visiban are checked: people who share a board
 
 **Add matched members to this board** is off by default.
 
-- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card), and their comments keep them as the author, marked *(imported from Trello)* so it is clear the comment came from the import.
-- **Off**, and for unmatched people: cards are unassigned, and comments are posted by you with a `**Name** (imported from Trello)` prefix.
+- **On:** matched users become board members with the Member role. They are assigned to their cards (the first matched Trello member on each card), and their comments keep them as the author, starting with "(imported from Trello)" so it is clear the comment came from the import.
+- **Off**, and for unmatched people: cards are unassigned, and comments are posted by you, starting with "Name (imported from Trello):".
 
 Importing never sends notifications.
 
@@ -106,7 +106,7 @@ If your board exceeds a count limit, split it into smaller boards in Trello and 
 
 ## Troubleshooting
 
-**"File is too large. Maximum size is 25 MB."** Your export is over the size limit. If the file is smaller than the limit and you still see this, a reverse proxy in front of Visiban may be rejecting large uploads. Ask your administrator to check [Import limits](../administration/configuration.md#import-limits).
+**"File too large…" / "This file is too large for this server."** Your export is over the size limit (25 MB by default). The second message means a reverse proxy in front of Visiban rejected the upload before it reached Visiban. Ask your administrator to check [Import limits](../administration/configuration.md#import-limits).
 
 **"This does not look like a Trello board export."** The file is not a board export from Trello. Export the board again using **Print, export, and share** then **Export as JSON**. Make sure you choose the board export and not another file.
 
@@ -114,6 +114,6 @@ If your board exceeds a count limit, split it into smaller boards in Trello and 
 
 **"You don't have permission to create boards in this group."** You are not allowed to create boards in that group. Ask a group admin to add you, or import from the Dashboard to create a personal board.
 
-**"Too many previews" or "Import limit reached (10 per hour)".** You hit a rate limit. The message tells you how many minutes to wait.
+**"Too many previews" or "Import limit reached".** You hit a rate limit. The message tells you how many minutes to wait.
 
 **The window closed or the connection dropped while creating.** The board may already have been created. Check your boards before trying again.

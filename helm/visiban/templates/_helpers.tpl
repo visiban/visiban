@@ -151,7 +151,7 @@ templates/ingress.yaml (nginx.ingress.kubernetes.io/proxy-body-size).
 scripts/helm-structure-check.sh asserts both rendered limits clear the app cap.
 */}}
 {{- define "visiban.transportBodyLimitMB" -}}
-{{- $bytes := max (.Values.backend.settings.maxUploadSizeBytes | int) (.Values.backend.settings.importMaxSizeBytes | int) | int -}}
+{{- $bytes := max (.Values.backend.settings.maxUploadSizeBytes | int) (.Values.backend.settings.importMaxSizeBytes | default 26214400 | int) | int -}}
 {{- $mb := div $bytes 1048576 -}}
 {{- if gt (mod $bytes 1048576) 0 -}}
 {{- $mb = add1 $mb -}}

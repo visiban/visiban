@@ -61,7 +61,9 @@ MAX_REFS_PER_CARD = 500  # idLabels / idMembers entries on one card
 # Upper bound on JSON containers ("{" + "[" bytes, which over-counts braces
 # inside strings). Checked on the raw bytes BEFORE json.loads, because the
 # per-kind caps below can only run after parsing — and 25 MB of "{}," parses
-# into millions of dicts (hundreds of MB) before any per-kind cap is reached.
+# into millions of dicts before any per-kind cap is reached. Even within the
+# caps, peak parse memory is roughly 10x the upload size (decoded text plus the
+# parsed object tree), i.e. about 250 MB at the 25 MB default.
 # A realistic 5000-card export stays well under this.
 MAX_JSON_CONTAINERS = 1_000_000
 
@@ -72,7 +74,11 @@ _MAX_SWIMLANE_NAME = 255
 _MAX_LABEL_NAME = 50
 _MAX_CARD_TITLE = 500
 _MAX_CHECKLIST_TEXT = 500
-_MAX_COMMENT_BODY = 16000
+# Match the API's own write limits (CardCommentSerializer.body 10,000;
+# card description 50,000) so imported rows are editable through the API
+# without first being rejected as too long.
+_MAX_COMMENT_BODY = 10_000
+_MAX_CARD_DESCRIPTION = 50_000
 _MAX_BOARD_NAME = 255
 
 # Trello's UI JSON export includes at most this many actions. Comments are
@@ -786,6 +792,7 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
     add_members = options.add_matched_members
     planned: list[PlannedCard] = []
     missing_list = skipped_archived = multi_mapped = bad_due = unknown_labels = 0
+    long_descriptions = long_comments = 0
     used_default = False
     cell_counts: dict[tuple[str, str], int] = {}
     seen_card_ids: set[str] = set()
@@ -839,6 +846,9 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
             lines = [f"- [{_md_escape(a.name or a.url)}](<{a.url.replace('>', '%3E')}>)" for a in links]
             block = "**Attachments (imported from Trello)**\n" + "\n".join(lines)
             description = f"{description}\n\n{block}" if description else block
+        if len(description) > _MAX_CARD_DESCRIPTION:
+            description = description[:_MAX_CARD_DESCRIPTION]
+            long_descriptions += 1
 
         cell = (c.list_id, sw_key)
         position = cell_counts.get(cell, 0)
@@ -896,16 +906,21 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
         if author_id is None:
             # The importer becomes the author; keep the original name visible
             # so the audit trail still says who wrote it in Trello.
-            body = f"**{_md_escape(cm.author_name)}** (imported from Trello)\n\n{cm.text}"
+            # Comments render as plain text, so the prefix is plain text too.
+            name = " ".join(cm.author_name.split())
+            body = f"{name} (imported from Trello):\n\n{cm.text}"
         else:
             # Attributed to the matched user (opt-in), but the uploader wrote
             # this file — always mark provenance so an imported comment can
             # never pass as one the user posted in Visiban.
-            body = f"*(imported from Trello)*\n\n{cm.text}"
+            body = f"(imported from Trello)\n\n{cm.text}"
+        if len(body) > _MAX_COMMENT_BODY:
+            body = body[:_MAX_COMMENT_BODY]
+            long_comments += 1
         comments.append({
             "card_id": cm.card_id,
             "author_id": author_id,
-            "body": body[:_MAX_COMMENT_BODY],
+            "body": body,
             "created_at": _parse_ts(cm.date),
         })
 
@@ -923,6 +938,10 @@ def build_plan(export: TrelloExport, options: ImportOptions, matched: dict[str, 
           "Cards with several named checklists get one combined checklist; item text is prefixed with the checklist name.",
           multi_checklist_cards)
     _warn(warnings, "invalid_due_dates", "Due dates that could not be read will be left empty.", bad_due)
+    _warn(warnings, "descriptions_truncated",
+          f"Card descriptions longer than {_MAX_CARD_DESCRIPTION:,} characters will be shortened.", long_descriptions)
+    _warn(warnings, "comments_truncated",
+          f"Comments longer than {_MAX_COMMENT_BODY:,} characters will be shortened.", long_comments)
     _warn(warnings, "unknown_labels", "Label references missing from the export will be ignored.", unknown_labels)
     if export.action_count >= TRELLO_ACTION_EXPORT_LIMIT:
         _warn(warnings, "comments_may_be_incomplete",

@@ -628,8 +628,8 @@ A Trello member matches a Visiban user when the Trello **username** equals the V
 
 Matching only considers users the caller can already see: co-members of the caller's boards, co-members of the caller's groups, and members and owner of the target group. Site admins can match any active user. This keeps a crafted file from being used to check whether an arbitrary username exists. The response reports only a **count** of matches, never which accounts matched.
 
-- `add_matched_members: false` (default): matched users are not added to the board, cards are left unassigned, and every comment is authored by the importer with a `**Full Name** (imported from Trello)` prefix.
-- `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Their comments are authored by them but always start with `*(imported from Trello)*`, so an imported comment is never indistinguishable from one posted in Visiban. Comments by unmatched people keep the `**Full Name** (imported from Trello)` form. Adding members sends no notification.
+- `add_matched_members: false` (default): matched users are not added to the board, cards are left unassigned, and every comment is authored by the importer, starting with the plain-text line `Full Name (imported from Trello):`.
+- `add_matched_members: true`: matched users are added to the board with the `member` role and assigned to their cards (the first matched Trello member on each card). Their comments are authored by them but always start with the plain-text line `(imported from Trello)`, so an imported comment is never indistinguishable from one posted in Visiban. Comments by unmatched people keep the `Full Name (imported from Trello):` form. Adding members sends no notification.
 
 Unmatched members are listed in the preview by their Trello name (from the uploader's own file).
 
@@ -753,6 +753,8 @@ In `mapping.columns`, `position` is `null` for a list that will not be imported 
 | `multiple_swimlane_labels` | Cards with more than one swimlane label go to the swimlane of their first such label. |
 | `checklists_flattened` | Cards with several named checklists get one combined checklist with prefixed item text. |
 | `invalid_due_dates` | Due dates that could not be read will be left empty. |
+| `descriptions_truncated` | Card descriptions longer than 50,000 characters (including the appended attachment links) will be shortened to 50,000. |
+| `comments_truncated` | Comments longer than 10,000 characters (including the attribution prefix) will be shortened to 10,000. |
 | `unknown_labels` | Label references missing from the export will be ignored. |
 | `comments_may_be_incomplete` | The export hit Trello's 1,000-action limit, so older comments may be missing. |
 | `matched_members_not_added` | Members matched but `add_matched_members` is `false`. Only present when `false`. |

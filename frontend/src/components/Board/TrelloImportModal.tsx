@@ -255,7 +255,7 @@ export default function TrelloImportModal({ groupId, groupName, onCancel, onImpo
                 <span className="shrink-0 text-fg-tertiary mt-px" aria-hidden="true">ℹ</span>
                 <span>
                   Export your board from Trello: open the board menu, choose <strong className="text-fg">Print, export, and share</strong>,
-                  then <strong className="text-fg">Export as JSON</strong>. Files up to 25 MB are supported.
+                  then <strong className="text-fg">Export as JSON</strong>. Files up to 25 MB are accepted by default.
                 </span>
               </div>
 

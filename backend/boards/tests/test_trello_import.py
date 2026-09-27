@@ -191,7 +191,8 @@ class TrelloImportConfirmTests(TrelloImportBase):
         first = comments[0]
         self.assertEqual(first.created_at.isoformat()[:19], "2024-02-01T10:00:00")
         self.assertEqual(first.author, self.user)
-        self.assertTrue(first.body.startswith("**Ada Lovelace** (imported from Trello)"))
+        self.assertTrue(first.body.startswith("Ada Lovelace (imported from Trello):\n\n"))
+        self.assertNotIn("*", first.body)
         self.assertIn("Looks good to me", first.body)
 
     def test_custom_board_name(self):
@@ -300,10 +301,10 @@ class TrelloImportMemberMatchingTests(TrelloImportBase):
         self.assertEqual(ada_comment.author, self.ada)
         # Provenance is always marked, so an uploaded file cannot produce a
         # comment indistinguishable from one the user posted in Visiban.
-        self.assertTrue(ada_comment.body.startswith("*(imported from Trello)*"))
+        self.assertTrue(ada_comment.body.startswith("(imported from Trello)\n\n"))
         stranger = comments.get(body__contains="Can I help?")
         self.assertEqual(stranger.author, self.user)
-        self.assertTrue(stranger.body.startswith("**Stranger Danger** (imported from Trello)"))
+        self.assertTrue(stranger.body.startswith("Stranger Danger (imported from Trello):\n\n"))
 
 
 class TrelloImportValidationTests(TrelloImportBase):
@@ -383,14 +384,27 @@ class TrelloImportValidationTests(TrelloImportBase):
         board = Board.objects.get(pk=self.post("confirm", data=data).data["board"]["id"])
         comment = CardComment.objects.get(card__board=board, body__contains="Can I help?")
         header = comment.body.split("\n\n", 1)[0]
+        # Line breaks in the uploaded name are collapsed, so the name cannot
+        # forge extra paragraphs ahead of the real comment text.
+        self.assertTrue(header.startswith("Eve** "))
+        self.assertTrue(header.endswith("(imported from Trello):"))
         self.assertNotIn("\n", header)
-        # Every metacharacter is backslash-escaped, so it renders literally.
-        self.assertIn("\\<img", header)
-        self.assertIn("\\!\\[x\\]", header)
-        self.assertNotIn("**\\n", header)
         card = board.cards.get(title="Write launch plan")
         self.assertIn("https://docs.example.com/a", card.description)
         self.assertNotIn("evil.example", card.description)
+
+    def test_long_comments_and_descriptions_truncated_with_warnings(self):
+        data = load_fixture()
+        data["cards"][1]["desc"] = "d" * 60_000
+        data["actions"][0]["data"]["text"] = "c" * 12_000
+        preview = self.post(data=data).data
+        codes = {w["code"]: w["count"] for w in preview["warnings"]}
+        self.assertEqual(codes["descriptions_truncated"], 1)
+        self.assertEqual(codes["comments_truncated"], 1)
+        board = Board.objects.get(pk=self.post("confirm", data=data).data["board"]["id"])
+        self.assertEqual(len(board.cards.get(title="Fix checkout bug").description), 50_000)
+        self.assertTrue(all(len(c.body) <= 10_000 for c in CardComment.objects.filter(card__board=board)))
+        self.assertEqual(max(len(c.body) for c in CardComment.objects.filter(card__board=board)), 10_000)
 
     def test_bom_is_tolerated(self):
         raw = b"\xef\xbb\xbf" + json.dumps(load_fixture()).encode()

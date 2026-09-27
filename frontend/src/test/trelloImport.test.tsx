@@ -95,7 +95,7 @@ describe('TrelloImportModal', () => {
     expect(mockPreview).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-JSON file and an oversized file client-side', async () => {
+  it('rejects a non-JSON file client-side but leaves the size limit to the server', async () => {
     const user = userEvent.setup({ applyAccept: false })
     renderModal()
     await pickFile(user, new File(['x'], 'board.csv', { type: 'text/csv' }))
@@ -105,7 +105,8 @@ describe('TrelloImportModal', () => {
     const big = new File(['{}'], 'big.json', { type: 'application/json' })
     Object.defineProperty(big, 'size', { value: 26 * 1024 * 1024 })
     await pickFile(user, big)
-    expect(screen.getByText('File is too large. Maximum size is 25 MB.')).toBeInTheDocument()
+    // Sizes are server-configured, so a big file is not blocked client-side.
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
   })
 
   it('previews once on Continue and shows the review step', async () => {
@@ -271,8 +272,11 @@ describe('describeTrelloError', () => {
       "We couldn't read this file. Make sure it's a Trello JSON export.",
     )
     expect(describeTrelloError({ response: { status: 413, data: '<html>nginx</html>' } }, 'confirm')?.text).toBe(
-      'File is too large. Maximum size is 25 MB.',
+      'This file is too large for this server. Ask your administrator about the upload limit.',
     )
+    expect(
+      describeTrelloError({ response: { status: 413, data: { detail: 'Maximum is 40 MB.' } } }, 'preview')?.text,
+    ).toBe('Maximum is 40 MB.')
     expect(describeTrelloError({ response: { status: 403 } }, 'confirm')?.text).toBe(
       "You don't have permission to create boards in this group.",
     )
@@ -287,7 +291,7 @@ describe('describeTrelloError', () => {
     const preview = describeTrelloError({ response: { status: 429, headers: { 'retry-after': '90' } } }, 'preview')
     expect(preview).toEqual({ tone: 'warning', text: 'Too many previews. Try again in 2 minutes.' })
     const confirm = describeTrelloError({ response: { status: 429, headers: {} } }, 'confirm')
-    expect(confirm?.text).toBe('Import limit reached (10 per hour). Try again in a little while.')
+    expect(confirm?.text).toBe('Import limit reached. Try again in a little while.')
   })
 
   it('warns that a board may exist after a network error on confirm', () => {

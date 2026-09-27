@@ -999,6 +999,8 @@ export type TrelloWarningCode =
   | "multiple_swimlane_labels"
   | "checklists_flattened"
   | "invalid_due_dates"
+  | "descriptions_truncated"
+  | "comments_truncated"
   | "unknown_labels"
   | "comments_may_be_incomplete"
   | "matched_members_not_added"

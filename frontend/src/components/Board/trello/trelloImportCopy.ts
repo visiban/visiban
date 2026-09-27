@@ -3,7 +3,6 @@
 // options without another dry-run request.
 import type { TrelloImportPreview, TrelloImportMapping, TrelloUnmappableKind } from "../../../types";
 
-export const TRELLO_MAX_BYTES = 25 * 1024 * 1024;
 export const DEFAULT_SWIMLANE_NAME = "Unassigned";
 
 export function formatFileSize(bytes: number): string {
@@ -88,8 +87,13 @@ export function describeTrelloError(err: unknown, mode: "preview" | "confirm"): 
     case 403:
       return { tone: "danger", text: "You don't have permission to create boards in this group." };
     case 413:
-      // Never read the body: a proxy 413 may not be JSON.
-      return { tone: "danger", text: "File is too large. Maximum size is 25 MB." };
+      // The limit is server-configured (VISIBAN_IMPORT_MAX_SIZE), so only the
+      // server knows it: use its JSON detail. A reverse-proxy 413 is usually
+      // HTML with no detail, so fall back to generic copy.
+      return {
+        tone: "danger",
+        text: detail ?? "This file is too large for this server. Ask your administrator about the upload limit.",
+      };
     case 429: {
       const header = res.headers?.["retry-after"];
       const wait = formatMinutes(header !== undefined ? Number(header) : null);
@@ -98,7 +102,7 @@ export function describeTrelloError(err: unknown, mode: "preview" | "confirm"): 
         text:
           mode === "preview"
             ? `Too many previews. Try again in ${wait}.`
-            : `Import limit reached (10 per hour). Try again in ${wait}.`,
+            : `Import limit reached. Try again in ${wait}.`,
       };
     }
     default:
@@ -106,11 +110,11 @@ export function describeTrelloError(err: unknown, mode: "preview" | "confirm"): 
   }
 }
 
-/** Client-side validation run when a file is picked. */
+/** Client-side validation run when a file is picked. Type only: the size
+ *  limit is configurable per server, so the server's 413 is authoritative. */
 export function validateTrelloFile(file: File): string | null {
   const isJson = file.name.toLowerCase().endsWith(".json") || file.type.includes("json");
   if (!isJson) return "Unsupported file format. Please upload the .json file exported from Trello.";
-  if (file.size > TRELLO_MAX_BYTES) return "File is too large. Maximum size is 25 MB.";
   return null;
 }
 
