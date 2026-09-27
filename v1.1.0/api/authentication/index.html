@@ -4579,8 +4579,10 @@ actually bootstraps from) returns the identical shape — both are served by
 <p><strong>Response</strong>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="p">}</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -4603,6 +4605,18 @@ actually bootstraps from) returns the identical shape — both are served by
 <td>string</td>
 <td><code>"open"</code> / <code>"invite_only"</code> / <code>"closed"</code></td>
 <td>The configured registration policy</td>
+</tr>
+<tr>
+<td><code>demo_mode</code></td>
+<td>boolean</td>
+<td><code>true</code> / <code>false</code></td>
+<td>Whether the instance runs as a public demo (<code>DEMO_MODE</code> env var; default <code>false</code>).</td>
+</tr>
+<tr>
+<td><code>demo_login</code></td>
+<td>object or null</td>
+<td><code>{"username", "password"}</code> / <code>null</code></td>
+<td>Demo credentials shown on the login page. Non-null only when <code>demo_mode</code> is <code>true</code> <strong>and</strong> <code>DEMO_LOGIN_PASSWORD</code> is set. See <a href="../../administration/demo-data/#hosted-demo-instance">Demo data</a>.</td>
 </tr>
 </tbody>
 </table>

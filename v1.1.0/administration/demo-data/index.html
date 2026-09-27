@@ -3015,6 +3015,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hosted-demo-instance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hosted demo instance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#demo-data-and-real-data" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3562,6 +3573,20 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 </tbody>
 </table>
 <p>The <code>@visiban.example</code> domain is deliberately not a real domain. If you need to use demo accounts for OAuth testing, you will need to adjust these emails to match your OAuth provider's allowed domains.</p>
+<h2 id="hosted-demo-instance">Hosted demo instance<a class="headerlink" href="#hosted-demo-instance" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong> — for running a public demo such as try.visiban.com (#1034).</p>
+</blockquote>
+<p><code>seed_demo_data --demo-site</code> additionally seeds the content a public demo needs. It is opt-in; without the flag the command behaves exactly as described above.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>manage.py<span class="w"> </span>seed_demo_data<span class="w"> </span>--force<span class="w"> </span>--wipe<span class="w"> </span>--demo-site
+</code></pre></div>
+<p>It creates, alongside the normal demo board:</p>
+<ul>
+<li><strong>Software Team</strong> (Backlog / In Progress / Review / Done), <strong>Marketing Campaigns</strong>, and <strong>Hiring Pipeline</strong> boards, 20 cards each, with comments, assignees, labels, and movement history</li>
+<li>an <strong>admin</strong> account (username from <code>DEMO_LOGIN_USERNAME</code>, password from <code>DEMO_LOGIN_PASSWORD</code>, site admin) and two member accounts, <code>maya</code> and <code>jordan</code> (password from <code>DEMO_MEMBER_PASSWORD</code>)</li>
+</ul>
+<p>Passwords come only from the environment and are re-applied on every run. The command refuses to run unless <code>DEMO_MODE=true</code>, <code>DEMO_LOGIN_PASSWORD</code>, and <code>DEMO_MEMBER_PASSWORD</code> are all set, and cannot be combined with <code>--export</code> or <code>--scale</code>. The onboarding tour flag is reset on every run, so the tour starts on first login after each reset.</p>
+<p>Set <code>DEMO_MODE=true</code> to show the login-page banner. See <a href="../configuration/#demo-mode">Demo mode</a> for the settings, and <code>deploy/demo/README.md</code> in the repository for the Caddy, compose, and nightly-reset artifacts.</p>
 <h2 id="demo-data-and-real-data">Demo data and real data<a class="headerlink" href="#demo-data-and-real-data" title="Permanent link">&para;</a></h2>
 <p>Demo records carry no special marker. A demo card looks identical to a real card at the database level — same fields, same UID format, same <code>archived_at</code> behavior. This means:</p>
 <ul>
@@ -3572,23 +3597,23 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 </ul>
 <h2 id="cleaning-up-accidental-seeding">Cleaning up accidental seeding<a class="headerlink" href="#cleaning-up-accidental-seeding" title="Permanent link">&para;</a></h2>
 <p>If <code>seed_demo_data</code> is run against a production database by mistake:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># In a Django shell (python manage.py shell)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">groups.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">Group</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Workspace"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># In a Django shell (python manage.py shell)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">groups.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Group</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">Group</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Workspace"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>This cascade-deletes all columns, swimlanes, labels, custom fields, saved filters, attachments, cards, movements, and comments associated with the demo board, and the Group delete cascade-removes its invite links and group labels. Neither step removes the demo user accounts. To remove those:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__in</span><span class="o">=</span><span class="p">[</span><span class="s2">"demo1"</span><span class="p">,</span> <span class="s2">"demo2"</span><span class="p">,</span> <span class="s2">"demo3"</span><span class="p">,</span> <span class="s2">"demo4"</span><span class="p">,</span> <span class="s2">"demo5"</span><span class="p">])</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__in</span><span class="o">=</span><span class="p">[</span><span class="s2">"demo1"</span><span class="p">,</span> <span class="s2">"demo2"</span><span class="p">,</span> <span class="s2">"demo3"</span><span class="p">,</span> <span class="s2">"demo4"</span><span class="p">,</span> <span class="s2">"demo5"</span><span class="p">])</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>Run both steps inside a transaction if you want to roll back on failure:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">django.db</span><span class="w"> </span><span class="kn">import</span> <span class="n">transaction</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">with</span> <span class="n">transaction</span><span class="o">.</span><span class="n">atomic</span><span class="p">():</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">boards.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Board</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Visiban Demo Board"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">username__startswith</span><span class="o">=</span><span class="s2">"demo"</span><span class="p">,</span> <span class="n">email__endswith</span><span class="o">=</span><span class="s2">"@visiban.example"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <h2 id="gitlab-ci-setup-for-automated-demo-refresh">GitLab CI setup for automated demo refresh<a class="headerlink" href="#gitlab-ci-setup-for-automated-demo-refresh" title="Permanent link">&para;</a></h2>
 <p>The <code>seed-demo-data</code> GitLab CI job refreshes the demo board on a weekly schedule and can also be triggered manually from the GitLab pipeline UI. It requires three GitLab CI/CD variables and a pipeline schedule to be configured before it will work.</p>
@@ -3662,7 +3687,7 @@ board — never combine <code>--scale &gt; 1</code> with <code>--export</code>. 
 <p>If you are using the import endpoint to load test data, clean it up explicitly after the test. There is no bulk-delete-by-source-file operation; you will need to delete the board that was created.</p>
 <h3 id="identifying-test-boards-in-development">Identifying test boards in development<a class="headerlink" href="#identifying-test-boards-in-development" title="Permanent link">&para;</a></h3>
 <p>If your development workflow involves creating many imported boards for testing, consider using a recognizable name prefix (e.g. <code>TEST: My Board</code>) so they can be found and deleted in bulk:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Board</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">name__startswith</span><span class="o">=</span><span class="s2">"TEST:"</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
 </code></pre></div>
 <p>This is a convention, not an enforced constraint, and relies on the person creating the test data using the prefix consistently.</p>
 
