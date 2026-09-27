@@ -19,7 +19,8 @@ This document records the OSS vs enterprise classification for every feature are
 | Card-level activity (CardMovement) | OSS | Core collaborative feature — teams need their own card history | — |
 | System-wide compliance audit log | Enterprise | Compliance tooling; card-level history in OSS is sufficient for small teams | #350→enterprise |
 | Hard WIP enforcement | OSS | Core Kanban mechanism; soft-only enforcement does not work | #344 |
-| Outgoing webhooks | Enterprise | Integration with external services; small teams can work inside Visiban without them | #345→enterprise |
+| Outgoing webhooks (per-board, signed, best-effort) | OSS | Minimum integration surface for a team tool; delivered from the change feed with no task queue. Reversed from Enterprise on 2026-04-15 | #863 |
+| Webhook operations layer (guaranteed delivery, delivery log + replay, account-wide subscriptions, delivery audit) | Enterprise | Reliability and support tooling for hosted and large operators; basic webhooks work without it | enterprise #44 |
 | Saved filters per user per board | OSS | Basic productivity feature for boards with many swimlanes | #343 |
 | Movement history search + filter view | OSS | Teams need to query their own audit trail | #342 |
 | Movement history delivery report export (CSV/PDF) | Enterprise | Formatted compliance/client reporting artifact | #342 note |
@@ -31,7 +32,7 @@ This document records the OSS vs enterprise classification for every feature are
 | User offboarding flow (deactivate + transfer) | OSS | Basic team membership management | #347 |
 | Invite link controls (expiry, single-use, revoke) | OSS | Basic security hygiene for any team onboarding members | #346 |
 | External ref field on Card (PR/issue link) | OSS | Basic workflow data field; Phase 1 of GitHub/GitLab integration | #352 Phase 1 |
-| Auto PR-to-card link via webhooks | Enterprise | Depends on enterprise webhook feature | #352 Phase 2 |
+| Auto PR-to-card link from commits/PRs | OSS | Superseded #352 Phase 2 once outgoing webhooks stopped being Enterprise; rescoped as a per-board *inbound* webhook from the git provider | #857 |
 | URL filter state persistence (bookmarkable views) | OSS | Basic navigation feature for all users | #353 OSS portion |
 | Filtered share link for external clients | Enterprise | Combines base share token with filter state; guest-link layer | #353 enterprise portion |
 | Dark/light mode theme toggle | OSS | Basic accessibility; per-user preference | #355 |
@@ -146,23 +147,20 @@ The OSS analytics page must expose an `ANALYTICS_EXTENSIONS` registration point 
 
 ---
 
-### Outgoing webhooks (Enterprise)
+### Outgoing webhooks (OSS) vs webhook operations (Enterprise)
 
-Outgoing webhooks are classified enterprise. A small team can track work end-to-end inside Visiban without pushing events to external systems.
+Basic outgoing webhooks are OSS: per-board subscriptions, HMAC-signed, delivered in order from the [board change feed](../api/events.md) by a scheduled command, with best-effort retry. This reverses the original Enterprise ruling. On 2026-04-15 enterprise #39 was closed in favor of an OSS implementation (#740, consolidated into #863 on 2026-09-14). Webhooks are the minimum integration surface a team tool is evaluated on, and self-hosted alternatives commonly ship them free.
 
-**OSS extension point required:** The OSS core must fire card-level signals so enterprise can subscribe the webhook dispatcher without wrapping individual view methods:
+The operations layer is Enterprise: guaranteed delivery on a durable queue, a delivery log with replay, account-wide subscriptions, and a delivery audit trail. These make webhooks supportable at hosted or large-operator scale. A small team works without them, and consumers that need exact delivery can poll the change feed directly.
 
-```python
-# boards/signals.py — required before enterprise webhook feature (#39) can be built
-post_card_created    # sender=Card, kwargs: card, actor
-post_card_moved      # sender=Card, kwargs: card, from_column, to_column, actor
-post_card_closed     # sender=Card, kwargs: card, actor
-post_card_updated    # sender=Card, kwargs: card, changed_fields, actor
-```
+**OSS extension points:**
 
-A `VISIBAN_WEBHOOK_BACKEND` registration pattern must also be defined in OSS settings.
+- **The change feed** (#1114, shipped in 1.2) is the delivery source. It is durable, ordered, and replayable by cursor, and it covers every board event type. The Enterprise dispatcher reads it exactly as the OSS one does.
+- **`BOARD_EVENT_HOOKS`** (`boards/hooks.py`, planned in #863) is a list-append hook called on commit from `record_board_event()` with `(board_id, event_type, event_id)`. It is a nudge only ("check the feed now"), so a missed call self-heals from the cursor.
 
-**Issue:** enterprise #39 (transferred from OSS #345).
+The earlier design, `post_card_created/moved/closed/updated` signals plus a `VISIBAN_WEBHOOK_BACKEND` setting, is **superseded and will not be built**. The change feed covers far more than four card events. For in-process card lifecycle reactions (such as automation), use `CARD_MUTATION_HOOKS`.
+
+**Issue:** OSS webhooks in #863. Enterprise operations layer in enterprise #44. Slack/Teams channel apps are separate — see [Transactional email notifications vs channel integrations](#transactional-email-notifications-oss-vs-channel-integrations-enterprise).
 
 ---
 
@@ -206,9 +204,12 @@ Manual card archiving is OSS (existing feature). Automated retention policies (a
 | Enterprise settings include (`enterprise.settings.*`) | All enterprise settings overrides | ✅ Implemented — `visiban/settings.py` (#716) |
 | `post_board_created/deleted/member_added/removed` signals | Enterprise audit log (enterprise #28) | Not yet implemented |
 | `VISIBAN_AUDIT_BACKEND` setting | Enterprise audit log | Not yet implemented |
-| `post_card_created/moved/closed/updated` signals | Enterprise webhooks (enterprise #39), automation (enterprise #8) | Not yet implemented |
-| `VISIBAN_WEBHOOK_BACKEND` setting | Enterprise webhooks | Not yet implemented |
-| `VISIBAN_AUTOMATION_BACKEND` setting | Enterprise automation (enterprise #8) | Not yet implemented |
+| `post_card_created/moved/closed/updated` signals (superseded) | — | Superseded, will not be built: card lifecycle is covered by `CARD_MUTATION_HOOKS` (below) and every board event by the change feed (#1114) |
+| `VISIBAN_WEBHOOK_BACKEND` setting (superseded) | — | Superseded, will not be built: webhooks are OSS (#863); the Enterprise operations layer (enterprise #44) consumes the change feed and `BOARD_EVENT_HOOKS` |
+| `CARD_MUTATION_HOOKS` list (`boards/hooks.py`) | Enterprise automation (enterprise #69) and any in-process reaction to card create/update/move/delete/archive/restore | ✅ Implemented — `boards/hooks.py`, fired on commit from `boards/services/cards.py`; pinned by `boards/tests/test_card_mutation_hooks.py` |
+| Board change feed (`GET /api/v1/boards/{id}/events/`) | OSS webhooks (#863), Enterprise webhook operations (enterprise #44), any out-of-process consumer | ✅ Implemented — #1114, contract in [`docs/api/events.md`](../api/events.md) |
+| `BOARD_EVENT_HOOKS` list (`boards/hooks.py`) | Enterprise webhook operations (enterprise #44) — wake signal for a queue-backed dispatcher | Not yet implemented — planned in #863 |
+| `VISIBAN_AUTOMATION_BACKEND` setting | Enterprise automation (enterprise #69) | Not yet implemented |
 | `MOVEMENT_EXPORT_BACKENDS` list (`boards/hooks.py`) | Enterprise delivery report export (#342 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `ANALYTICS_EXTENSIONS` list (`boards/hooks.py`) | Enterprise advanced analytics (#341 enterprise) | ✅ Implemented — `boards/hooks.py` |
 | `TEMPLATE_PROVIDERS` list (`boards/hooks.py`) | External board-template registration by installed packages (#1115; tracked further in #504) | ✅ Implemented — `boards/hooks.py` + `boards/template_sync.py`, synced via `post_migrate` in `BoardsConfig.ready()` |
