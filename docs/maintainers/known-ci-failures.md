@@ -72,8 +72,8 @@ arm64 leg is scheduled and fails within seconds with a clear message if no runne
 `arm64` is online, instead of letting the pipeline hang. If it fires, bring the runner back
 online (check the host's power/network and that the `gitlab-runner` service is running) and
 re-run the pipeline — do not raise a job `timeout:` to work around this, it will not help.
-If the preflight job itself fails with a `RUNNERS_READ_TOKEN`-related error, see
-[Tokens and Rotation](tokens-and-rotation.md#runners_read_token).
+If the preflight job itself fails with a `RUNNER_STATUS_TOKEN`-related error, see
+[Tokens and Rotation](tokens-and-rotation.md#runner_status_token).
 
 **Do not misread the runner's reported architecture:** GitLab's Runners API reports
 `architecture: amd64` for this runner (the `gitlab-runner` binary runs under Rosetta) even
@@ -141,9 +141,9 @@ each one boots a fresh `docker:dind` daemon with no credentials and no image cac
 the full base-image + `kindest/node` + in-cluster (postgres/valkey) set again from the runner's
 IP.
 
-**Fix (#1198):** every `image:`/`services:` entry in `.gitlab-ci.yml` and
-`.gitlab/ghcr-push.yml` that points at Docker Hub now resolves through `${DOCKERHUB_MIRROR}/
-<image>`, which defaults to the GitLab Dependency Proxy prefix
+**Fix (#1198):** every `image:`/`services:` entry in `.gitlab-ci.yml` that points at Docker Hub
+now resolves through `${DOCKERHUB_MIRROR}/<image>`, which defaults to the GitLab Dependency
+Proxy prefix
 (`${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`) and which the runner authenticates to
 automatically. The Dockerfiles take a `BASE_REGISTRY` build arg (default `docker.io/library`,
 unchanged for local/contributor builds) that CI's kaniko jobs point at the same mirror. The
