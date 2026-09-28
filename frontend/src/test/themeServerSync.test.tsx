@@ -244,4 +244,75 @@ describe('ThemeServerSync', () => {
       expect(onUserUpdated).not.toHaveBeenCalled()
     })
   })
+
+  // --------------------------------------------------------------------------
+  // Hosted demo (#1193) — a background save the visitor never clicked. PATCH
+  // /auth/user/ is not on DEMO_ALLOWED_WRITES, so it can only ever 403 into
+  // DemoWriteBlockedToast; skip the request rather than show that. The local
+  // preference must still apply regardless.
+  // --------------------------------------------------------------------------
+
+  describe('hosted demo (#1193)', () => {
+    it('does not PATCH on first-login client-wins sync', async () => {
+      localStorage.setItem(STORAGE_KEY, 'light')
+      const user = { ...makeUser('system'), demo_mode: true }
+      const onUserUpdated = vi.fn()
+
+      render(
+        <ThemeProvider>
+          <ThemeServerSync user={user} onUserUpdated={onUserUpdated} />
+        </ThemeProvider>
+      )
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
+      // The sentinel is still set and the local theme still applies — only
+      // the server round trip is skipped.
+      expect(localStorage.getItem(SYNC_SENTINEL_KEY)).toBe('1')
+      expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
+    })
+
+    it('does not PATCH on an in-session theme change', async () => {
+      localStorage.setItem(STORAGE_KEY, 'dark')
+      localStorage.setItem(SYNC_SENTINEL_KEY, '1')
+      const user = { ...makeUser('dark'), demo_mode: true }
+      const onUserUpdated = vi.fn()
+
+      const { getByTestId } = render(
+        <ThemeProvider>
+          <ThemeServerSync user={user} onUserUpdated={onUserUpdated} />
+          <ChangeTheme to="light" />
+        </ThemeProvider>
+      )
+
+      await act(async () => {
+        getByTestId('change').click()
+      })
+      // The click still applies locally (ThemeContext/localStorage) — only
+      // the PATCH is skipped.
+      await waitFor(() => {
+        expect(localStorage.getItem(STORAGE_KEY)).toBe('light')
+      })
+      expect(mockUpdateCurrentUser).not.toHaveBeenCalled()
+    })
+
+    it('outside demo mode, still PATCHes as before (no regression)', async () => {
+      localStorage.setItem(STORAGE_KEY, 'light')
+      const user = { ...makeUser('system'), demo_mode: false }
+      mockUpdateCurrentUser.mockResolvedValue({ ...user, theme: 'light' })
+      const onUserUpdated = vi.fn()
+
+      render(
+        <ThemeProvider>
+          <ThemeServerSync user={user} onUserUpdated={onUserUpdated} />
+        </ThemeProvider>
+      )
+
+      await waitFor(() => {
+        expect(mockUpdateCurrentUser).toHaveBeenCalledWith({ theme: 'light' })
+      })
+    })
+  })
 })

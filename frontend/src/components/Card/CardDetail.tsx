@@ -21,7 +21,7 @@ import CustomFieldEditRow from "./CustomFieldEditRow";
 import CardRelationsSection from "./CardRelationsSection";
 import CardExternalRefSection from "./CardExternalRefSection";
 import { withCustomFieldValue } from "../../utils/customFieldValue";
-import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON } from "../../constants/demoCopy";
+import { DEMO_COMMENT_REASON, DEMO_UPLOAD_REASON, DEMO_DELETE_COMMENT_REASON, DEMO_DELETE_ATTACHMENT_REASON } from "../../constants/demoCopy";
 
 interface Props {
   card: Card;
@@ -797,6 +797,7 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                 board={board}
                 card={localCard}
                 canEdit={canEdit}
+                demoMode={demoMode}
                 // Panel-local only — deliberately does NOT push up to
                 // `onUpdated`. The board store is updated by the authoritative
                 // `card.updated` frame the server broadcasts for both ends of
@@ -987,11 +988,28 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                           <p className="text-xs text-fg-muted">{(a.size / 1024).toFixed(1)} KB · {formatDateStr(a.uploaded_at.slice(0, 10), userDateFormat)}</p>
                         </div>
                         {canDeleteAttachment(a) && (
-                          <button
-                            onClick={() => handleDeleteAttachment(a.id)}
-                            className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
-                            title="Delete"
-                          >✕</button>
+                          // #1193: attachment DELETE is not on DEMO_ALLOWED_WRITES,
+                          // so this refusal is up-front and aria-disabled, matching
+                          // the upload button above, rather than falling through to
+                          // DemoWriteBlockedToast. Sub-pattern (B) — the row has no
+                          // room for a visible reason line — so the reason folds
+                          // into title/aria-label instead of an aria-describedby.
+                          demoMode ? (
+                            <button
+                              type="button"
+                              aria-disabled="true"
+                              onClick={(e) => e.preventDefault()}
+                              title={`Delete. ${DEMO_DELETE_ATTACHMENT_REASON}`}
+                              aria-label={`Delete attachment ${a.filename}. ${DEMO_DELETE_ATTACHMENT_REASON}`}
+                              className="opacity-40 cursor-not-allowed text-fg-faint transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                            >✕</button>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteAttachment(a.id)}
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-fg-faint hover:text-danger transition text-xs shrink-0 focus:outline-none focus:ring-2 focus:ring-danger-emphasis rounded"
+                              title="Delete"
+                            >✕</button>
+                          )
                         )}
                       </div>
                     ))}
@@ -1018,7 +1036,24 @@ export default function CardDetail({ card, board, onClose, onDeleted, onUpdated,
                             <span className="text-xs font-semibold text-fg-secondary">{authorName}</span>
                             <span className="text-xs text-fg-muted" title={formatDateTimeUser(c.created_at, currentUser)}>{formatCommentTime(c.created_at, currentUser)}</span>
                             {canDeleteComment(c) && (
-                              confirmDeleteCommentId === c.id ? (
+                              // #1193: comment DELETE is not on DEMO_ALLOWED_WRITES.
+                              // Refuse up front with the fixed lead, never open the
+                              // Yes/No confirm for a delete that cannot succeed —
+                              // sub-pattern (B), same as the attachment delete above.
+                              demoMode ? (
+                                <button
+                                  type="button"
+                                  aria-disabled="true"
+                                  onClick={(e) => e.preventDefault()}
+                                  title={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
+                                  aria-label={`Delete comment. ${DEMO_DELETE_COMMENT_REASON}`}
+                                  className="ml-auto opacity-40 cursor-not-allowed p-0.5 rounded text-fg-muted focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              ) : confirmDeleteCommentId === c.id ? (
                                 <div className="ml-auto flex items-center gap-1">
                                   <span className="text-xs text-danger">Delete?</span>
                                   <button

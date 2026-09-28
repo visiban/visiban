@@ -64,7 +64,7 @@ test.describe('hosted demo visitor loop', () => {
       moved = true
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ card: { ...CARD, column: COLUMN_DONE.id } }) })
     })
-    for (const sub of ['movements', 'comments', 'checklist', 'attachments', 'activity']) {
+    for (const sub of ['movements', 'comments', 'checklist', 'attachments', 'activity', 'relations']) {
       await page.route(`**/api/v1/boards/${BOARD.id}/cards/${CARD.id}/${sub}/**`, (route) =>
         route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) }),
       )
@@ -126,6 +126,20 @@ test.describe('hosted demo visitor loop', () => {
     await page.getByText(CARD.title, { exact: true }).first().click()
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
+
+    // 4a. #1193 — a second refused write, this time inside the card panel:
+    // adding a relation is refused up front too, not left to the fallback
+    // toast. Proves the SPA wiring for one representative surface among the
+    // several #1193 fixed; the rest have dedicated unit coverage (cardDetail,
+    // cardRelationsSection, navbar, boardPageStarButton, themeServerSync).
+    const addRelation = dialog.getByRole('button', { name: '+ Add relation' })
+    await expect(addRelation).toHaveAttribute('aria-disabled', 'true', { timeout: 5_000 })
+    await expect(addRelation).toHaveAccessibleDescription("This is a shared demo — card relations can't be added here.")
+    await addRelation.focus()
+    await expect(addRelation).toBeFocused()
+    await addRelation.click({ force: true })
+    await expect(dialog.getByRole('radio', { name: 'Blocked by' })).toHaveCount(0)
+
     await dialog.getByRole('tab', { name: 'activity' }).click()
     await expect(dialog.getByText('To Do → Done')).toBeVisible({ timeout: 5_000 })
     await page.keyboard.press('Escape')
