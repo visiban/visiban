@@ -2494,8 +2494,11 @@ arm64-runner-preflight:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
-    - apk add --no-cache curl jq
+    - apk add --no-cache bash curl jq
   script:
+    # The arm64 legs source scripts/docker-push-retry.sh rather than invoke it;
+    # its daemon-free self-test runs here, ahead of them (gate-selftest-parity).
+    - bash scripts/docker-push-retry.sh --self-test
     - |
       # `set -eu` only, not `-o pipefail` — alpine's default /bin/sh (busybox
       # ash) doesn't support that option and errors out immediately on it,
@@ -2561,8 +2564,10 @@ arm64-runner-preflight:
         echo "this cannot proceed silently."
         exit 1
       fi
-      docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-      echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+      # --password-stdin, never -p: on this persistent shared host a password in
+      # argv is readable via `ps` by anything else running there (#1205).
+      printf '%s' "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
 backend-docker-push-arm64:
   extends: .arm64-docker-push-base
@@ -2575,6 +2580,7 @@ backend-docker-push-arm64:
       TAG="${CI_COMMIT_TAG}"
       GL_REF="${CI_REGISTRY_IMAGE}/backend:${TAG}-arm64"
       GH_REF="ghcr.io/visiban/visiban/backend:${TAG}-arm64"
+      . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
       docker build \
         --provenance=false \
         --sbom=false \
@@ -2587,9 +2593,9 @@ backend-docker-push-arm64:
         echo "This runner may no longer be the Apple Silicon host — see docs/maintainers/ci-runners.md."
         exit 1
       fi
-      docker push "${GL_REF}"
+      push_with_retry "${GL_REF}"
       docker tag "${GL_REF}" "${GH_REF}"
-      docker push "${GH_REF}"
+      push_with_retry "${GH_REF}"
   after_script:
     - docker rmi "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
@@ -2606,6 +2612,7 @@ frontend-docker-push-arm64:
       TAG="${CI_COMMIT_TAG}"
       GL_REF="${CI_REGISTRY_IMAGE}/frontend:${TAG}-arm64"
       GH_REF="ghcr.io/visiban/visiban/frontend:${TAG}-arm64"
+      . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
       docker build \
         --provenance=false \
         --sbom=false \
@@ -2619,9 +2626,9 @@ frontend-docker-push-arm64:
         echo "This runner may no longer be the Apple Silicon host — see docs/maintainers/ci-runners.md."
         exit 1
       fi
-      docker push "${GL_REF}"
+      push_with_retry "${GL_REF}"
       docker tag "${GL_REF}" "${GH_REF}"
-      docker push "${GH_REF}"
+      push_with_retry "${GH_REF}"
   after_script:
     - docker rmi "${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
@@ -2784,7 +2791,7 @@ helm-publish:
         exit 1
       fi
       echo "appVersion check passed: $APP_VERSION"
-    - helm registry login ghcr.io -u "$GHCR_USER" -p "$GHCR_TOKEN"
+    - printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GHCR_USER" --password-stdin
     - helm package helm/visiban --destination /tmp
     - |
       CHART_FILE="$(ls /tmp/visiban-*.tgz)"
@@ -2858,7 +2865,7 @@ check-release-images:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - apk add --no-cache bash git crane
+    - apk add --no-cache bash git crane jq
     - |
       mkdir -p "$HOME/.docker"
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
