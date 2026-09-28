@@ -168,7 +168,11 @@ class BoardExportLogSerializer(serializers.ModelSerializer):
     enums.
     """
 
-    actor = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1192): actor is a SET_NULL FK with null=True — an
+    # export-log row whose actor has since been deleted serializes with
+    # `actor: null`. Same declared-nested-field gap as CardCommentSerializer.author.
+    # Schema-only: read_only, so nothing about request validation changes.
+    actor = BoardUserSerializer(read_only=True, allow_null=True)
     actor_role_label = serializers.CharField(source="role_at_export", read_only=True)
 
     class Meta:
@@ -1173,7 +1177,11 @@ class CardCommentSerializer(serializers.ModelSerializer):
 
 
 class CardActivitySerializer(serializers.ModelSerializer):
-    actor = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1192): actor is a SET_NULL FK with null=True — an
+    # activity row whose actor has since been deleted serializes with
+    # `actor: null`. Same declared-nested-field gap as CardCommentSerializer.author.
+    # Schema-only: read_only, so nothing about request validation changes.
+    actor = BoardUserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = CardActivity
@@ -1768,7 +1776,11 @@ class CardSerializer(serializers.ModelSerializer):
 
 
 class CardAttachmentSerializer(serializers.ModelSerializer):
-    uploaded_by = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1192): uploaded_by is a SET_NULL FK with null=True — an
+    # attachment whose uploader has since been deleted serializes with
+    # `uploaded_by: null`. Same declared-nested-field gap as CardCommentSerializer.author.
+    # Schema-only: read_only, so nothing about request validation changes.
+    uploaded_by = BoardUserSerializer(read_only=True, allow_null=True)
     url = serializers.SerializerMethodField()
 
     class Meta:
@@ -2588,7 +2600,11 @@ class PublicCardSerializer(serializers.ModelSerializer):
     select_related(board) so that no per-card queries are issued.
     """
     labels = LabelSerializer(many=True, read_only=True)
-    assignee = PublicAssigneeSerializer(read_only=True)
+    # allow_null=True (#1192): Card.assignee is a SET_NULL FK with null=True —
+    # an unassigned card is the common case, and serializes with `assignee: null`.
+    # Same declared-nested-field gap as CardCommentSerializer.author.
+    # Schema-only: read_only, so nothing about request validation changes.
+    assignee = PublicAssigneeSerializer(read_only=True, allow_null=True)
     checklist_total = serializers.SerializerMethodField()
     checklist_done = serializers.SerializerMethodField()
     last_moved_at = serializers.SerializerMethodField()

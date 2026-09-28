@@ -28,6 +28,7 @@ import AdminPage from "./pages/AdminPage";
 import type { User } from "./types";
 import { starBoard, unstarBoard } from "./api/boards";
 import { joinGroup } from "./api/groups";
+import { DEMO_STAR_REASON } from "./constants/demoCopy";
 
 export default function App() {
   const { user, loading, logout, updateUser } = useAuth();
@@ -216,6 +217,11 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const { board, loading, error, forceMoveCard, moveError, clearMoveError, updateBoardSettings } = useBoardContext();
 
   const isAdmin = board?.current_user_role === "admin" || board?.current_user_role === "site_admin";
+  // Hosted demo (#1193): board star/unstar is not on DEMO_ALLOWED_WRITES, so
+  // the fallback toast was the visitor's only explanation. Refuse up front
+  // like the other card/board controls in frontend/CLAUDE.md § Hosted demo
+  // surfaces, rather than letting the click round-trip to a 403.
+  const demoMode = user.demo_mode === true;
 
   const [isStarred, setIsStarred] = useState(false);
   const [starLoading, setStarLoading] = useState(false);
@@ -223,7 +229,7 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   useEffect(() => { if (board) setIsStarred(board.is_starred); }, [board?.id, board?.is_starred]);
 
   const handleStarToggle = async () => {
-    if (starLoading || !board) return;
+    if (starLoading || !board || demoMode) return;
     const prev = isStarred;
     setIsStarred(!prev);
     setStarLoading(true);
@@ -254,10 +260,15 @@ function BoardPage({ user, onLogout, onUserUpdated, onStarToggled }: {
   const starButton = board ? (
     <button
       onClick={handleStarToggle}
-      disabled={starLoading}
-      className={`text-sm transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"}`}
-      title={isStarred ? "Unstar board" : "Star board"}
-      aria-label={isStarred ? "Unstar board" : "Star board"}
+      disabled={!demoMode && starLoading}
+      aria-disabled={demoMode ? true : undefined}
+      className={`text-sm transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+        demoMode
+          ? "text-fg-muted opacity-40 cursor-not-allowed"
+          : isStarred ? "text-warning hover:text-warning" : "text-fg-muted hover:text-warning"
+      }`}
+      title={demoMode ? `${isStarred ? "Unstar board" : "Star board"}. ${DEMO_STAR_REASON}` : (isStarred ? "Unstar board" : "Star board")}
+      aria-label={demoMode ? `${isStarred ? "Unstar board" : "Star board"}. ${DEMO_STAR_REASON}` : (isStarred ? "Unstar board" : "Star board")}
     >
       {isStarred ? "★" : "☆"}
     </button>

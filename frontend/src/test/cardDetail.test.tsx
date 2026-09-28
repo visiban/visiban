@@ -9,6 +9,7 @@ vi.mock('../api/cards', () => ({
   archiveCard: vi.fn(),
   getCardComments: vi.fn().mockResolvedValue([]),
   addCardComment: vi.fn(),
+  deleteComment: vi.fn(),
   updateCard: vi.fn(),
   getCardAttachments: vi.fn().mockResolvedValue([]),
   uploadCardAttachment: vi.fn(),
@@ -384,6 +385,58 @@ describe('CardDetail', () => {
       await user.keyboard('{Enter}')
       expect(addCardComment).not.toHaveBeenCalled()
       expect(textarea).toHaveValue('draft thought')
+    })
+
+    it('#1193: comment delete is aria-disabled, keyboard-reachable, explains why, and never opens the Yes/No confirm', async () => {
+      const { getCardComments, deleteComment } = await import('../api/cards')
+      const mockGetComments = getCardComments as ReturnType<typeof vi.fn>
+      mockGetComments.mockResolvedValue([
+        { id: 1, author: demoUser, body: 'Hello world', created_at: new Date().toISOString(), updated_at: '' },
+      ])
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} currentUser={demoUser} />)
+      const del = await screen.findByRole('button', { name: /Delete comment/ })
+      expect(del).toHaveAttribute('aria-disabled', 'true')
+      expect(del).not.toBeDisabled()
+      expect(del).toHaveAccessibleName("Delete comment. This is a shared demo — comments can't be deleted here.")
+      del.focus()
+      expect(del).toHaveFocus()
+      await user.click(del)
+      expect(screen.queryByText('Delete?')).not.toBeInTheDocument()
+      expect(deleteComment).not.toHaveBeenCalled()
+    })
+
+    it('#1193: attachment delete is aria-disabled, keyboard-reachable, explains why, and does not call the API', async () => {
+      const { getCardAttachments, deleteCardAttachment } = await import('../api/cards')
+      const mockGetAttachments = getCardAttachments as ReturnType<typeof vi.fn>
+      mockGetAttachments.mockResolvedValue([
+        { id: 1, filename: 'design.png', size: 2048, url: '/files/1', uploaded_by: demoUser, uploaded_at: '2026-01-01' },
+      ])
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} currentUser={demoUser} />)
+      const del = await screen.findByRole('button', { name: /Delete attachment design\.png/ })
+      expect(del).toHaveAttribute('aria-disabled', 'true')
+      expect(del).not.toBeDisabled()
+      expect(del).toHaveAccessibleName("Delete attachment design.png. This is a shared demo — attachments can't be deleted here.")
+      del.focus()
+      expect(del).toHaveFocus()
+      await user.click(del)
+      expect(deleteCardAttachment).not.toHaveBeenCalled()
+    })
+
+    it('#1193: Add relation is aria-disabled up front, with a visible reason line, and never opens the picker', async () => {
+      const { addCardRelation } = await import('../api/cards')
+      const user = userEvent.setup()
+      render(<CardDetail {...defaultProps()} currentUser={demoUser} />)
+      const addRelation = await screen.findByRole('button', { name: '+ Add relation' })
+      expect(addRelation).toHaveAttribute('aria-disabled', 'true')
+      expect(addRelation).not.toBeDisabled()
+      expect(addRelation).toHaveAccessibleDescription("This is a shared demo — card relations can't be added here.")
+      addRelation.focus()
+      expect(addRelation).toHaveFocus()
+      await user.click(addRelation)
+      expect(screen.queryByRole('radio', { name: 'Blocked by' })).not.toBeInTheDocument()
+      expect(addCardRelation).not.toHaveBeenCalled()
     })
   })
 

@@ -30,7 +30,12 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     card_title = serializers.CharField(source="card.title", default=None, read_only=True)
     board_name = serializers.CharField(source="board.name", default=None, read_only=True)
-    actor = BoardUserSerializer(read_only=True)
+    # allow_null=True (#1192): actor is a SET_NULL FK with null=True — a
+    # system-generated notification (e.g. stale-card alerts) has no human
+    # actor and serializes with `actor: null`. Same declared-nested-field gap
+    # as CardCommentSerializer.author (#1139); found during the #1192 sweep,
+    # outside the originally reported four sites.
+    actor = BoardUserSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = Notification

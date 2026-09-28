@@ -251,13 +251,16 @@ verify_images() {
     echo "architecture (${RELEASE_REQUIRED_ARCHES}). For a MISSING image, check" >&2
     echo "each registry's cleanup/retention policy — see" >&2
     echo "docs/administration/container-image-retention.md — its keep-regex" >&2
-    echo "must protect release tags, or a scheduled sweep will delete them" >&2
-    echo "again. For an ARCH-MISSING image, the manifest-assembly job" >&2
-    echo "(backend-manifest / frontend-manifest)" >&2
-    echo "silently dropped a platform leg — re-run it, or the whole tag" >&2
-    echo "pipeline's publish jobs, to restore. A PROBE-ERROR means the" >&2
-    echo "image exists but its manifest could not be read — re-run this job" >&2
-    echo "before touching any publish job." >&2
+    echo "must protect release tags (^v.*\$|^latest\$), or a scheduled sweep" >&2
+    echo "will delete them again. For an ARCH-MISSING image, the manifest-" >&2
+    echo "assembly job (backend-manifest / frontend-manifest) silently" >&2
+    echo "dropped a platform leg — re-run it, or the whole tag pipeline's" >&2
+    echo "publish chain, to restore. backend-docker-push/frontend-docker-push" >&2
+    echo "alone only push amd64-suffixed intermediate tags on a release tag;" >&2
+    echo "the real names come back only once backend-manifest/frontend-manifest" >&2
+    echo "(and the arm64 legs they need) also complete. See #1084. A" >&2
+    echo "PROBE-ERROR means the image exists but its manifest could not be" >&2
+    echo "read — re-run this job before touching any publish job." >&2
     return 1
   fi
 
