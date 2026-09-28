@@ -422,8 +422,16 @@ ok "demo install completed, seed hook succeeded"
 
 # The acceptance criterion, run exactly as an operator would: sign-in 200,
 # board create 403 demo_read_only, card move 200, a countdown in site-config.
-helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m --logs \
-  || { NAMESPACE="$DEMO_NAMESPACE"; die "helm test failed on the demo install — the fence, the published login or the card-move allowlist is broken (see the demo-read-only pod output above)"; }
+#
+# No --logs: both this hook and the pre-existing api-connection.yaml hook
+# self-delete on success (hook-succeeded), and Helm's own --logs fetch races
+# that deletion — it tries to stream a succeeded, already-gone pod's logs and
+# fails the whole `helm test` invocation on a false negative even though every
+# TEST SUITE reported Phase: Succeeded (seen in CI, #1180). dump_diagnostics
+# (via die, below) already fetches logs for anything NOT cleanly Succeeded, so
+# nothing is lost on an actual failure — that pod is kept, not self-deleted.
+helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m \
+  || { NAMESPACE="$DEMO_NAMESPACE"; die "helm test failed on the demo install — the fence, the published login or the card-move allowlist is broken (see diagnostics below)"; }
 ok "demo helm test passed: published login 200, board create 403 demo_read_only, card move 200"
 
 # One reset, taken from the CronJob's own template so it is the real thing. The
@@ -438,8 +446,9 @@ kubectl -n "$DEMO_NAMESPACE" wait --for=condition=complete job/drill-demo-reset 
 ok "a reset run from the CronJob completed"
 
 # After a reset the published login must still open (the reset re-applies the
-# password) and the fence must still hold: the same helm test, again.
-helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m --logs \
+# password) and the fence must still hold: the same helm test, again. No
+# --logs here either, for the same self-delete race as above.
+helm test "$DEMO_RELEASE" --namespace "$DEMO_NAMESPACE" --timeout 5m \
   || { NAMESPACE="$DEMO_NAMESPACE"; die "helm test failed AFTER a reset — the reset left the published login broken or the demo unseeded"; }
 ok "helm test passes after the reset: the published login survived it"
 
