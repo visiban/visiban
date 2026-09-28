@@ -303,6 +303,145 @@ class BoardFullColdCacheAncestorTests(TestCase):
         self.assertIn(self.owner.id, owner_ids)
 
 
+class ParkedPrefetchQueryCountTests(TestCase):
+    """The ``to_attr``-parked card prefetches must stay query-free (#1212).
+
+    ``_card_queryset`` (and ``PublicBoardSerializer.get_cards``) park
+    attachments, checklist items, movements and custom field values on plain
+    list attributes. Any reader that goes back to ``card.<relation>.all()``
+    misses that list and issues one query **per card** — so every read path
+    that serializes those relations is checked here with cards that actually
+    carry every relation, and grown with cards that carry them too (the
+    ``*_budget_scales_with_cards`` tests above add bare cards).
+
+    ``FULL_QUERIES`` is the exact count measured on ``/full/`` for this fixture
+    (SQLite, force-authenticated) both before and after the #1212 conversion —
+    the change must not add a query. It is lower than the 19 the load test
+    reports on Postgres with PAT auth because this fixture has no swimlane
+    custom fields and skips token lookup. If a legitimate new feature adds a
+    query, raise it deliberately with a note.
+    """
+
+    FULL_QUERIES = 17
+
+    def setUp(self):
+        from boards.models import CustomFieldDefinition
+
+        self.user = User.objects.create_user(username="parked", password="x")
+        self.board, self.cols, self.lanes = _seed_board(
+            self.user, n_cols=3, n_lanes=2, cards_per_cell=2,
+        )
+        self.defs = [
+            CustomFieldDefinition.objects.create(
+                board=self.board, name=f"F{i}", field_type="text", position=i,
+            )
+            for i in range(2)
+        ]
+        for card in Card.objects.filter(board=self.board):
+            self._add_custom_values(card)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.share_token = self.client.post(
+            f"/api/v1/boards/{self.board.id}/share/"
+        ).data["share_token"]
+
+    def _add_custom_values(self, card):
+        from boards.models import CustomFieldValue
+
+        for d in self.defs:
+            CustomFieldValue.objects.create(card=card, field_definition=d, value="v")
+
+    def _add_rich_cards(self):
+        """One more card per cell, each carrying every parked relation."""
+        for col in self.cols:
+            for lane in self.lanes:
+                card = Card.objects.create(
+                    board=self.board, column=col, swimlane=lane,
+                    title="rich", created_by=self.user, position=99,
+                )
+                CardMovement.objects.create(
+                    card=card,
+                    to_column=col, to_column_name=col.name, to_column_uid=col.uid,
+                    to_swimlane=lane, to_swimlane_name=lane.name, to_swimlane_uid=lane.uid,
+                    from_column=None, from_column_name="", from_column_uid="",
+                    from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
+                    moved_by=self.user,
+                )
+                CardAttachment.objects.create(
+                    card=card, uploaded_by=self.user,
+                    filename="g.txt", file="attachments/g.txt", size=1,
+                )
+                CardChecklist.objects.create(card=card, text="x", is_checked=True, position=0)
+                self._add_custom_values(card)
+
+    def _assert_constant(self, fn, label):
+        before = _query_count(fn)
+        self._add_rich_cards()
+        after = _query_count(fn)
+        self.assertEqual(
+            before, after,
+            f"{label} query count grew from {before} to {after} when cards with "
+            "attachments/checklist/movements/custom fields were added — a reader "
+            "is bypassing the to_attr-parked prefetch (#1212).",
+        )
+
+    def _get_full(self):
+        return self.client.get(f"/api/v1/boards/{self.board.id}/full/")
+
+    def test_full_query_count_not_increased(self):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self._get_full()
+        self.assertEqual(r.status_code, 200)
+        card = r.data["cards"][0]
+        # The fixture really exercises every parked relation.
+        self.assertEqual(card["attachment_count"], 1)
+        self.assertEqual((card["checklist_total"], card["checklist_done"]), (2, 1))
+        self.assertIsNotNone(card["last_moved_at"])
+        self.assertEqual(len(card["custom_field_values"]), 2)
+        self.assertLessEqual(
+            len(ctx), self.FULL_QUERIES,
+            f"full/ used {len(ctx)} queries — expected at most {self.FULL_QUERIES}.",
+        )
+
+    def test_full_constant_across_rich_cards(self):
+        self._assert_constant(self._get_full, "full/")
+
+    def test_card_list_constant_across_rich_cards(self):
+        self._assert_constant(
+            lambda: self.client.get(f"/api/v1/boards/{self.board.id}/cards/"), "cards/",
+        )
+
+    def test_card_query_constant_across_rich_cards(self):
+        # CardQuerySerializer reads the parked lists through the same accessors
+        # and ParkedCustomFieldValueListSerializer.
+        self._assert_constant(
+            lambda: self.client.get("/api/v1/cards/", {"board": self.board.id}),
+            "cards query",
+        )
+
+    def test_public_board_constant_across_rich_cards(self):
+        anon = APIClient()
+        self._assert_constant(
+            lambda: anon.get(f"/api/share/{self.share_token}/"), "public share",
+        )
+
+    def test_serializer_cold_path_falls_back_to_manager(self):
+        """A card not built via ``_card_queryset`` has no parked lists; the
+        accessors must fall back to the manager rather than raise or render
+        empty values."""
+        from boards.serializers import CardSerializer
+
+        card = Card.objects.filter(board=self.board).first()
+        data = CardSerializer(card, context={"board": self.board}).data
+        self.assertEqual(data["attachment_count"], 1)
+        self.assertEqual((data["checklist_total"], data["checklist_done"]), (2, 1))
+        self.assertIsNotNone(data["last_moved_at"])
+        self.assertEqual(
+            [v["field_definition"] for v in data["custom_field_values"]],
+            [d.id for d in self.defs],
+        )
+
+
 class SummaryQueryCountTests(TestCase):
     """GET /api/boards/{id}/summary/ must use aggregate queries, not per-swimlane loops."""
 

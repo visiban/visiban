@@ -41,7 +41,9 @@ from boards.models import Board, BoardMembership, Card, Column, Label, Swimlane
 from boards.permissions import (
     GROUP_ANCESTOR_SELECT_RELATED, SITE_ADMIN, get_board_role, get_board_roles,
 )
-from boards.serializers import CardSerializer, _card_queryset
+from boards.serializers import (
+    CardSerializer, _card_checklist_items, _card_movements, _card_queryset,
+)
 from boards.services import cards as card_services
 from boards.services.errors import (
     BoardNotFound, CardNotFound, CardServiceError,
@@ -850,8 +852,10 @@ def card_detail(*, card_id):
 
     data = _serialize_card(card)
     data["archived_at"] = card.archived_at.isoformat() if card.archived_at else None
-    data["movements"] = [_serialize_movement(m) for m in card.movements.all()]
-    data["checklist_items"] = [_serialize_checklist_item(i) for i in card.checklist_items.all()]
+    # Read the lists _card_queryset() parks with to_attr (#1212); the managers'
+    # .all() would miss them and query again.
+    data["movements"] = [_serialize_movement(m) for m in _card_movements(card)]
+    data["checklist_items"] = [_serialize_checklist_item(i) for i in _card_checklist_items(card)]
     data["activities"] = [
         _serialize_activity(a)
         for a in card.activities.select_related("actor").order_by("-created_at")
