@@ -284,6 +284,36 @@ externalRedis:
   cacheUrl: "redis://valkey.example.com:6379/1"
 ```
 
+## Bundled Valkey
+
+With `valkey.enabled: true` (the default) the chart runs Valkey itself: a
+single-replica StatefulSet on the official `valkey/valkey:8-alpine` image, the
+same major as `docker-compose.prod.yml`, as a non-root user with a read-only
+root filesystem and no Linux capabilities. The backend reaches it at
+`<release>-valkey-primary:6379`.
+
+Valkey holds only the real-time (Channels) layer and the Django cache, so it
+runs without persistence by default. The values it reads:
+
+| Key | Default | Purpose |
+|---|---|---|
+| `valkey.image.repository` / `valkey.image.tag` | `valkey/valkey` / `8-alpine` | The image. The chart refuses an empty or `latest` tag. |
+| `valkey.primary.persistence.enabled` / `.size` / `.storageClass` | `false` / `1Gi` / unset | Keep the append-only file in a PVC across restarts. |
+| `valkey.primary.resources` | 100m / 128Mi requests, 150m / 192Mi limits | Container resources. |
+| `valkey.commonConfiguration` | AOF on, RDB snapshots off | Extra `valkey.conf` lines. |
+
+The bundled Valkey has no password: access is restricted by the
+[network policies](#network-policies) below. For a password-protected instance,
+use an [external Valkey](#external-database-and-valkey) with the password in
+`externalRedis.url`.
+
+!!! note "Chart 0.5.0 replaced the Bitnami subchart"
+    Earlier development builds of the 1.2 chart ran Valkey through the Bitnami
+    `valkey` subchart, whose default image was the floating
+    `bitnami/valkey:latest`. See the
+    [upgrade note](../administration/upgrade.md#upgrading-to-12x) for what
+    `helm upgrade` does to an existing install.
+
 ## Network policies
 
 Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:

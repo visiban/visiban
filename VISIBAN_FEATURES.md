@@ -380,7 +380,7 @@ Every board, column, swimlane, label, and card carries a 16-character hex `uid` 
 
 ### Helm (Kubernetes)
 
-Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using official `postgres:17` image by default) and a Bitnami Valkey subchart.
+Helm chart under `helm/visiban/`. Bundles a PostgreSQL 17 StatefulSet (using official `postgres:17` image by default) and a Valkey StatefulSet (official `valkey/valkey:8-alpine` image, pinned to the same major as Compose).
 
 **Secret management — two supported patterns:**
 

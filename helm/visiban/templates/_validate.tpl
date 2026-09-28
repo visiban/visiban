@@ -50,7 +50,50 @@ manage the Secret in that case and cannot inspect its contents.
 {{- fail "\n\nVisiban: postgresql.auth.password is set to the chart's placeholder \"visiban\".\nThis is the literal default — anyone with access to the source can guess it.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n" -}}
 {{- end }}
 {{- end }}
+{{- include "visiban.valkeyGuards" . }}
 {{- include "visiban.demoGuards" . }}
+{{- end }}
+
+{{/*
+Bundled Valkey guards (#1200). Until chart 0.5.0 the `valkey` block configured
+the bitnami/valkey subchart; templates/valkey.yaml now reads it. A leftover
+subchart value that would CHANGE what runs, if the chart silently ignored it,
+fails the render here instead — a values file that asked for replicas, a
+password or a Bitnami image must not quietly get something else.
+*/}}
+{{- define "visiban.valkeyGuards" -}}
+{{- if .Values.valkey.enabled -}}
+{{- $v := .Values.valkey -}}
+{{- if ne (toString ($v.architecture | default "standalone")) "standalone" -}}
+{{- fail (printf "\n\nVisiban: valkey.architecture is %q, but the bundled Valkey is standalone only (chart 0.5.0+, #1200).\nThe backend only ever connected to the primary, so the old subchart's replicas were never used.\n\nRemove the override:\n    --set valkey.architecture=standalone\nor point externalRedis at a replicated instance with --set valkey.enabled=false.\n" (toString $v.architecture)) -}}
+{{- end -}}
+{{- if (dig "auth" "enabled" false $v) -}}
+{{- fail "\n\nVisiban: valkey.auth.enabled is true, but the bundled Valkey does not support a password: REDIS_URL carries none, so this setting has never produced a working deploy (#1200).\nAccess to the bundled Valkey is restricted by NetworkPolicy (networkPolicy.enabled=true).\n\nEither remove the override:\n    --set valkey.auth.enabled=false\nor use a password-protected instance through externalRedis:\n    --set valkey.enabled=false --set externalRedis.url=redis://:<password>@host:6379/0 --set externalRedis.cacheUrl=redis://:<password>@host:6379/1\n" -}}
+{{- end -}}
+{{- /*
+  `helm upgrade --reuse-values` from a subchart-era release carries the
+  subchart's image defaults: registry registry-1.docker.io, repository
+  bitnami/valkey, tag latest. The registry is Docker Hub, where the official
+  image also lives, so a Docker Hub registry is treated as unset — otherwise the
+  fix this guard prints (repository + tag) would not clear it, and the operator
+  would get the same message back. Any OTHER registry is refused: the template
+  never reads the key, and a mirror has to be named in `repository`.
+*/ -}}
+{{- $img := $v.image | default dict -}}
+{{- $repo := toString ($img.repository | default "") -}}
+{{- $tag := toString ($img.tag | default "") -}}
+{{- $registry := toString ($img.registry | default "") -}}
+{{- $fix := "\n\nUse the official image:\n    --set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine\n\nIf this is `helm upgrade --reuse-values` from a chart before 0.5.0, the old Bitnami values come from the previous release: pass the two flags above, or upgrade with --reset-then-reuse-values (Helm 3.14+) to take this chart's defaults. See \"Helm: bundled Valkey is no longer the Bitnami subchart\" in docs/administration/upgrade.md.\n" -}}
+{{- if contains "bitnami" $repo -}}
+{{- fail (printf "\n\nVisiban: valkey.image.repository is %q, a Bitnami image. The bundled Valkey now runs the official image with its own config (chart 0.5.0+, #1200); a Bitnami image does not start under it.%s" $repo $fix) -}}
+{{- end -}}
+{{- if not (has $registry (list "" "docker.io" "registry-1.docker.io" "index.docker.io")) -}}
+{{- fail (printf "\n\nVisiban: valkey.image.registry is %q. The bundled Valkey (chart 0.5.0+, #1200) does not read that key, so the image would silently come from Docker Hub instead.\n\nPut a mirror in the repository and drop the registry:\n    --set valkey.image.registry=null --set valkey.image.repository=%s/valkey/valkey --set valkey.image.tag=8-alpine\n" $registry $registry) -}}
+{{- end -}}
+{{- if or (eq $repo "") (eq $tag "") (eq $tag "latest") -}}
+{{- fail (printf "\n\nVisiban: valkey.image must name a repository and a pinned tag (got %q:%q). An empty or \"latest\" tag drifts across Valkey majors on every pod reschedule (#1200).%s" $repo $tag $fix) -}}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*

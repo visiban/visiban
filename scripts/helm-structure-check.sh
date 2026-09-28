@@ -29,7 +29,7 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9 and 10.
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10 and 11.
 # Section 5 (probe paths) is asserted against the real chart only, and section 7
 # (NetworkPolicy client coverage) is fixture-covered only through the demo
 # render in section 9 — see the notes on those sections.
@@ -541,9 +541,11 @@ check_transport_limits() {
 # database connection, and listing it would widen the policy for nothing.
 # `frontend` is nginx: it holds no database connection, and listing it would
 # widen the policy for nothing. `test` is the `helm test` probe, which talks to
-# the backend Service and never to a datastore. `postgresql` is the chart's own
-# StatefulSet — it is the datastore this policy protects, not a client of it.
-NON_DATASTORE_COMPONENTS=(frontend test postgresql)
+# the backend Service and never to a datastore. `postgresql` and `valkey` are the
+# chart's own StatefulSets (#1200 moved Valkey off the Bitnami subchart and onto
+# this chart's labels) — they are the datastores these policies protect, not
+# clients of them.
+NON_DATASTORE_COMPONENTS=(frontend test postgresql valkey)
 
 check_netpol_coverage() {
   section "7. NetworkPolicy datastore allow-list covers every datastore client"
@@ -559,9 +561,9 @@ check_netpol_coverage() {
 
   # Every distinct component VISIBAN renders as a workload, from the POD template
   # labels — which is what a NetworkPolicy selects on, not the object's own
-  # labels. Scoped by app.kubernetes.io/name to Visiban's own workloads: the
-  # bundled PostgreSQL and Valkey are the datastores being protected, not clients
-  # of them, and the valkey subchart labels its StatefulSet component "primary".
+  # labels. Scoped by app.kubernetes.io/name to Visiban's own workloads; the
+  # bundled PostgreSQL and Valkey carry that name too and are excluded through
+  # NON_DATASTORE_COMPONENTS, because they are the datastores being protected.
   local own_name
   own_name="$(doc Deployment 'backend$' | yq '.spec.template.metadata.labels."app.kubernetes.io/name"')"
   # A CronJob's pod template is one level deeper (.spec.jobTemplate.spec.template);
@@ -898,6 +900,134 @@ check_demo_guards() {
   [ "$bad" -eq 0 ] && pass "all ${#DEMO_GUARD_CASES[@]} demo guards refuse their render, each with its own message"
 }
 
+# ---------------------------------------------------------------------------
+# 11. Every rendered image carries a pinned tag (#1200).
+# ---------------------------------------------------------------------------
+# The Helm-side twin of scripts/check-compose-image-pins.sh. The bundled Valkey
+# ran the Bitnami subchart's default `bitnami/valkey:latest` on main: every
+# install and every pod reschedule pulled whatever `latest` meant that day
+# (Valkey 9.x on 2026-09-27, while Compose pinned 8), with no diff and no
+# pipeline event. Nothing caught it because the tag was never in this repo — it
+# came from a subchart default — so the assertion is on the RENDER, not on
+# values.yaml.
+#
+# A reference is pinned when it carries a digest, or a tag other than `latest`
+# after the last `/` (so `registry:5000/img` is untagged, not tagged `5000/img`).
+# Checked on three renders: the chart's plain defaults (the quick-start path),
+# the main render above (every optional workload on), and values-demo.yaml.
+#
+# Also asserted here: the bundled-Valkey render guards (_validate.tpl,
+# visiban.valkeyGuards). Until chart 0.5.0 the `valkey` block configured the
+# Bitnami subchart, so an existing values file can still ask for replicas, a
+# password or a Bitnami image; each must fail the render, not be ignored.
+# name|message the render must fail with|helm flag[|helm flag...]
+VALKEY_GUARD_CASES=(
+  "replication architecture|the bundled Valkey is standalone only|--set=valkey.architecture=replication"
+  "auth enabled|valkey.auth.enabled is true|--set=valkey.auth.enabled=true"
+  "non-Docker-Hub registry key|valkey.image.registry is|--set=valkey.image.registry=quay.io"
+  "Bitnami repository|a Bitnami image|--set=valkey.image.repository=bitnamilegacy/valkey"
+  "latest tag|valkey.image must name a repository and a pinned tag|--set=valkey.image.tag=latest"
+  "empty tag|valkey.image must name a repository and a pinned tag|--set-string=valkey.image.tag="
+  "null tag|valkey.image must name a repository and a pinned tag|--set-json=valkey.image.tag=null"
+  "reuse-values from a subchart release|a Bitnami image|--set=valkey.image.registry=registry-1.docker.io|--set=valkey.image.repository=bitnami/valkey|--set=valkey.image.tag=latest"
+)
+
+# The other half of the guards' contract: the fix a guard PRINTS must clear it.
+# `helm upgrade --reuse-values` from a subchart-era release carries the
+# subchart's registry-1.docker.io / bitnami/valkey / latest, and before this
+# case the printed fix left the registry behind and the guard looped on it.
+VALKEY_GUARD_FIX_ARGS=(
+  --set valkey.image.registry=registry-1.docker.io
+  --set valkey.image.repository=bitnami/valkey
+  --set valkey.image.tag=latest
+  --set valkey.image.repository=valkey/valkey
+  --set valkey.image.tag=8-alpine
+)
+
+unpinned_images() {
+  yq '.. | select(tag == "!!map" and has("image")) | .image | select(tag == "!!str")' "$1" \
+    | grep -vE '^(---)?$' | sort -u | while IFS= read -r ref; do
+      case "$ref" in *@sha256:*) continue ;; esac
+      local after_host="${ref##*/}"
+      case "$after_host" in
+        *:*) [ "${after_host##*:}" = "latest" ] && echo "$ref (tagged latest)" ;;
+        *)   echo "$ref (no tag, resolves to latest)" ;;
+      esac
+    done
+  return 0
+}
+
+check_image_pins() {
+  section "11. Every rendered image carries a pinned tag (#1200)"
+
+  local default_out demo_out
+  default_out="$(mktemp)"; demo_out="$(mktemp)"
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" \
+         --set-string secret.djangoSecretKey=structure-check-not-a-real-secret \
+         --set backend.settings.allowedHosts=structure-check.visiban.local \
+         > "$default_out" 2>/tmp/helm-default-render-err.txt; then
+    fail "the chart's default values do not render: $(cat /tmp/helm-default-render-err.txt)"
+    rm -f "$default_out" "$demo_out"
+    return
+  fi
+  if ! render_demo "$demo_out"; then
+    fail "values-demo.yaml does not render: $(cat /tmp/helm-demo-render-err.txt)"
+    rm -f "$default_out" "$demo_out"
+    return
+  fi
+
+  local label file bad=0 found total
+  for pair in "default:$default_out" "main:$RENDERED" "demo:$demo_out"; do
+    label="${pair%%:*}"; file="${pair#*:}"
+    total="$(yq '.. | select(tag == "!!map" and has("image")) | .image | select(tag == "!!str")' "$file" | grep -cvE '^(---)?$' || true)"
+    if [ "$total" -eq 0 ]; then
+      fail "the $label render contains no image at all — the check scanned nothing"
+      bad=1
+      continue
+    fi
+    found="$(unpinned_images "$file")"
+    if [ -n "$found" ]; then
+      while IFS= read -r line; do
+        fail "$label render: image $line — its version changes under the release on any pod reschedule; pin a released tag"
+      done <<< "$found"
+      bad=1
+    fi
+  done
+  rm -f "$default_out" "$demo_out"
+  [ "$bad" -eq 0 ] && pass "every image in the default, main and demo renders is pinned"
+
+  # The bundled-Valkey guards: a leftover bitnami/valkey subchart value that
+  # would change what runs must fail the render with its own message, never be
+  # silently ignored. Same case shape as section 10.
+  local case_ name expect out gbad=0
+  out="$(mktemp)"
+  for case_ in "${VALKEY_GUARD_CASES[@]}"; do
+    local fields=()
+    IFS='|' read -r -a fields <<< "$case_"
+    name="${fields[0]}"; expect="${fields[1]}"
+    local flags=("${fields[@]:2}")
+    if helm template "$RELEASE" "$CHART_UNDER_TEST" \
+         --set-string secret.djangoSecretKey=structure-check-not-a-real-secret \
+         --set backend.settings.allowedHosts=structure-check.visiban.local \
+         "${flags[@]}" > "$out" 2>/tmp/helm-valkey-guard-err.txt; then
+      fail "valkey guard '$name' did not fire: the render SUCCEEDED with ${flags[*]}"
+      gbad=1
+    elif ! grep -qF -- "$expect" /tmp/helm-valkey-guard-err.txt; then
+      fail "valkey guard '$name' failed the render, but not with its own message ('$expect'): $(head -2 /tmp/helm-valkey-guard-err.txt | tr '\n' ' ')"
+      gbad=1
+    fi
+  done
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" \
+         --set-string secret.djangoSecretKey=structure-check-not-a-real-secret \
+         --set backend.settings.allowedHosts=structure-check.visiban.local \
+         "${VALKEY_GUARD_FIX_ARGS[@]}" > "$out" 2>/tmp/helm-valkey-guard-err.txt; then
+    fail "the fix the Valkey image guard prints does not clear it on a --reuse-values-shaped render: $(grep -m1 'Visiban:' /tmp/helm-valkey-guard-err.txt)"
+    gbad=1
+  fi
+  rm -f "$out"
+  [ "$gbad" -eq 0 ] && pass "all ${#VALKEY_GUARD_CASES[@]} bundled-Valkey guards refuse their render, each with its own message, and the printed fix clears them"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -909,6 +1039,7 @@ run_all_checks() {
   check_manage_commands
   check_demo_mode
   check_demo_guards
+  check_image_pins
 }
 
 # ---------------------------------------------------------------------------
@@ -970,6 +1101,15 @@ self_test() {
     "9 demo helm test skips the frontend|templates/tests/demo-read-only.yaml|s/-frontend:{{ .Values.frontend.service.port }}/-backend:{{ .Values.backend.service.port }}/"
     # 10: the most dangerous guard stops firing.
     "10 loginHint-without-demo guard removed|templates/_validate.tpl|s/{{- if and (or \$user \$pass) (not (include \"visiban.demoEnabled\" .)) -}}/{{- if false -}}/"
+    # 11 (#1200): the bundled Valkey loses its tag — the exact drift this issue
+    # was, reintroduced in the template rather than in values.
+    "11 valkey image loses its tag|templates/valkey.yaml|s/image: \"{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}\"/image: \"{{ .Values.valkey.image.repository }}\"/"
+    # 11: a floating `latest` through values, on the one datastore image whose
+    # schema entry is a free string.
+    "11 postgresql image floats on latest|values.yaml|s/image: \"postgres:17\"/image: \"postgres:latest\"/"
+    # 11: a bundled-Valkey guard stops firing, so a values file asking for a
+    # password would silently get an unauthenticated Valkey.
+    "11 valkey auth guard removed|templates/_validate.tpl|s/{{- if (dig \"auth\" \"enabled\" false \$v) -}}/{{- if false -}}/"
     "10 SMTP guard removed|templates/_validate.tpl|s/{{- if or (eq (toString .Values.backend.email.backend) \"smtp\") .Values.backend.email.host -}}/{{- if false -}}/"
   )
 
@@ -982,7 +1122,7 @@ self_test() {
     broken="$tmp/$(echo "$name" | tr ' #()' '____')"
     rm -rf "$broken"
     # Copied WHOLE, subchart tarballs included: Chart.yaml declares postgresql
-    # and valkey as dependencies, so a copy without charts/ fails to render at
+    # as a dependency, so a copy without charts/ fails to render at
     # all — and a render failure is indistinguishable from a detection unless
     # the two are separated, as they are below. That mistake scored a perfect
     # 6/6 on the first run of this self-test; the control is what exposed it.

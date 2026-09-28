@@ -46,4 +46,10 @@ paths = [
   # under a real kind+Calico cluster. Never a real credential — the whole
   # point of the drill is that these are thrown away with the cluster.
   '''(^|/)scripts/helm-netpol-drill\.sh$''',
+  # Helm structure check (#1200): VALKEY_GUARD_CASES/VALKEY_GUARD_FIX_ARGS
+  # assert that a render carrying a Bitnami-era `valkey.image.repository`
+  # value (bitnami/valkey, bitnamilegacy/valkey) fails or is corrected. The
+  # `--set=valkey.image.repository=<value>` strings match the generic-api-key
+  # rule on shape alone — an image repository name, never a credential.
+  '''(^|/)scripts/helm-structure-check\.sh$''',
 ]
