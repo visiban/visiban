@@ -1584,10 +1584,13 @@ def _card_queryset(qs, stale_cutoff=None):
         # query as a LEFT JOIN rather than costing a prefetch round-trip.
         .select_related("board", "column", "swimlane", "assignee", "created_by", "external_ref")
         .prefetch_related(
-            # `labels` stays a plain prefetch: it is rendered by the nested
-            # LabelSerializer(many=True) field, not a method we control. The
-            # four below are parked with to_attr (#1212) — see the "Parked
-            # prefetches" comment above _card_attachments().
+            # `labels` is deliberately still a plain prefetch — deferred, not
+            # infeasible: its nested LabelSerializer(many=True) field could
+            # read a parked list the same way ParkedCustomFieldValueListSerializer
+            # does, but it is also the M2M the write path (label_ids) and
+            # services.cards re-prefetch by name, so converting it is kept out
+            # of #1212's scope. The four below are parked with to_attr (#1212)
+            # — see the "Parked prefetches" comment above _card_attachments().
             "labels",
             Prefetch("attachments", to_attr=_PARKED_ATTACHMENTS),
             Prefetch(

@@ -425,6 +425,56 @@ class ParkedPrefetchQueryCountTests(TestCase):
             lambda: anon.get(f"/api/share/{self.share_token}/"), "public share",
         )
 
+    # The constant-count tests above prove the conversion did not *regress*
+    # anything, but they stay green if the to_attr= kwargs are removed: the
+    # accessors' manager fallback still reads a plain prefetch cache, correctly
+    # and query-free, just with the per-call queryset clone #1212 removed. These
+    # two pin that the optimization is actually applied. (Asserting on CPU time
+    # instead would be flaky.)
+
+    PARKED_ATTRS = (
+        "_prefetched_attachments",
+        "_prefetched_checklist_items",
+        "_prefetched_movements",
+        "_prefetched_custom_field_values",
+    )
+
+    def test_card_queryset_parks_relations_on_plain_lists(self):
+        from boards.serializers import _card_queryset
+
+        cards = list(_card_queryset(Card.objects.filter(board=self.board)))
+        self.assertTrue(cards)
+        for card in cards:
+            for attr in self.PARKED_ATTRS:
+                self.assertIsInstance(
+                    card.__dict__.get(attr), list,
+                    f"_card_queryset() no longer parks {attr} with to_attr — "
+                    "readers fall back to the manager's per-call queryset "
+                    "clone that #1212 removed from /full/.",
+                )
+
+    def test_public_get_cards_parks_relations_on_plain_lists(self):
+        from boards import serializers as board_serializers
+
+        captured = {}
+        real = board_serializers.PublicCardSerializer
+
+        def spy(qs, *args, **kwargs):
+            captured["cards"] = list(qs)
+            return real(captured["cards"], *args, **kwargs)
+
+        with patch.object(board_serializers, "PublicCardSerializer", side_effect=spy):
+            board_serializers.PublicBoardSerializer(self.board).data
+        self.assertTrue(captured["cards"])
+        for card in captured["cards"]:
+            # The public payload reads only checklist items and movements.
+            for attr in ("_prefetched_checklist_items", "_prefetched_movements"):
+                self.assertIsInstance(
+                    card.__dict__.get(attr), list,
+                    f"PublicBoardSerializer.get_cards() no longer parks {attr} "
+                    "with to_attr (#1212).",
+                )
+
     def test_serializer_cold_path_falls_back_to_manager(self):
         """A card not built via ``_card_queryset`` has no parked lists; the
         accessors must fall back to the manager rather than raise or render

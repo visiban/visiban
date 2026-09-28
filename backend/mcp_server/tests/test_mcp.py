@@ -32,7 +32,7 @@ from accounts.models import (
     PersonalAccessToken,
 )
 from boards.models import (
-    BoardMembership, CardActivity, CardChecklist, CardComment, Label,
+    BoardMembership, CardActivity, CardChecklist, CardComment, CardMovement, Label,
 )
 from boards.tests.conftest import (
     _make_board, _make_card, _make_column, _make_membership, _make_swimlane,
@@ -976,6 +976,52 @@ class CardDetailQueryCountTests(TestCase):
         few = self._query_count(2)
         many = self._query_count(8)
         self.assertEqual(few, many, f"query count grew: {few} -> {many}")
+
+    def test_detail_reads_parked_movements_and_checklist(self):
+        """card_detail must read the lists _card_queryset() parks (#1212).
+
+        Reading ``card.movements.all()`` / ``card.checklist_items.all()``
+        instead misses the to_attr lists and adds one *constant* query per
+        relation, which the scaling test above cannot see (both sides pay
+        it). So count the queries that touch each table directly: exactly one
+        each, the prefetch itself.
+        """
+        user = _make_user("card-parked")
+        board = _make_board(user, name="Parked")
+        column = _make_column(board)
+        swimlane = _make_swimlane(board)
+        card = _make_card(column, swimlane, title="Parked")
+        for i in range(3):
+            CardChecklist.objects.create(card=card, text=f"item {i}", position=i)
+            CardMovement.objects.create(
+                card=card,
+                to_column=column, to_column_name=column.name, to_column_uid=column.uid,
+                to_swimlane=swimlane, to_swimlane_name=swimlane.name,
+                to_swimlane_uid=swimlane.uid,
+                from_column=None, from_column_name="", from_column_uid="",
+                from_swimlane=None, from_swimlane_name="", from_swimlane_uid="",
+                moved_by=user,
+            )
+
+        token = set_current_user(user)
+        try:
+            with CaptureQueriesContext(connection) as ctx:
+                data = tools.card_detail(card_id=card.id)
+        finally:
+            reset_current_user(token)
+        self.assertEqual(len(data["movements"]), 3)
+        self.assertEqual(len(data["checklist_items"]), 3)
+        for model in (CardMovement, CardChecklist):
+            table = model._meta.db_table
+            hits = [
+                q["sql"] for q in ctx.captured_queries
+                if f'FROM "{table}"' in q["sql"]
+            ]
+            self.assertEqual(
+                len(hits), 1,
+                f"card_detail queried {table} {len(hits)} times — expected only "
+                f"the _card_queryset() prefetch:\n" + "\n".join(hits),
+            )
 
 
 class AsgiRoutingTests(McpTestCase):

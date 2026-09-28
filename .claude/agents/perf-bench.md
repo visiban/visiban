@@ -54,13 +54,17 @@ If the benchmark or tests flag a regression, identify the source:
 
 | Method | Safe pattern | Unsafe pattern |
 |---|---|---|
-| `get_last_moved_at` | `obj.movements.all()[0]` | `obj.movements.first()` |
-| `get_attachment_count` | `len(obj.attachments.all())` | `obj.attachments.count()` |
-| `get_checklist_total` | `len(obj.checklist_items.all())` | `obj.checklist_items.count()` |
-| `get_checklist_done` | `sum(1 for i in obj.checklist_items.all() if i.is_checked)` | `obj.checklist_items.filter(...).count()` |
+| `get_last_moved_at` | `_card_movements(obj)[0]` | `obj.movements.first()`, `obj.movements.all()[0]` |
+| `get_attachment_count` | `len(_card_attachments(obj))` | `obj.attachments.count()`, `len(obj.attachments.all())` |
+| `get_checklist_total` | `len(_card_checklist_items(obj))` | `obj.checklist_items.count()`, `len(obj.checklist_items.all())` |
+| `get_checklist_done` | `sum(1 for i in _card_checklist_items(obj) if i.is_checked)` | `obj.checklist_items.filter(...).count()` |
 | `get_is_stale` | `obj.board.staleness_threshold_days` (with `select_related("board")`) | accessing `obj.board` without select_related |
 
-Key rule: **`.first()`, `.count()`, and `.filter()`** on a prefetched relation bypass the cache and issue a new SQL query per object. **`.all()` and `len()`** use the cache.
+Key rules:
+
+- **`.first()`, `.count()`, `.filter()`, and `.order_by()`** on a prefetched relation bypass the cache and issue a new SQL query per object.
+- **`.all()` on a prefetched manager avoids the SQL but is not free.** Every call still runs `RelatedManager.get_queryset()` -> `_apply_rel_filters()`, which clones and filters a new QuerySet *before* it checks the prefetch cache. On a hot per-instance path that is real CPU: on `/full/` (~2,400 cards x several relations) it was ~300ms of p95 with zero extra queries (#1212). **A query-count guard cannot see this cost.**
+- **This codebase's pattern for a hot per-instance read is `Prefetch(..., to_attr=...)` plus a plain-list accessor.** The rows are parked on a list attribute and read directly, skipping the manager. `_card_queryset()` in `boards/serializers.py` is the canonical example: it parks `attachments`, `checklist_items`, `movements`, and `custom_field_values`, and the `_card_attachments` / `_card_checklist_items` / `_card_movements` / `_card_custom_field_values` accessors read them, falling back to the manager for cards not built by `_card_queryset()`. `_active_blockers_prefetch()` is the same pattern. A reader that goes back to `obj.<relation>.all()` on a `_card_queryset()` card misses the parked list and issues **one query per card**.
 
 **Step 3 — Check the queryset** — confirm `_card_queryset()` is applied everywhere `CardSerializer` is used:
 - `CardViewSet.get_queryset()`
@@ -90,24 +94,31 @@ for swimlane in swimlanes:
 
 **For N+1 in CardSerializer:**
 
-Ensure `_card_queryset()` in `boards/serializers.py` includes all relations accessed by serializer method fields:
+Ensure `_card_queryset()` in `boards/serializers.py` includes all relations accessed by serializer method fields, parked with `to_attr` and read through an accessor (abridged; read the real function for the full chain):
 
 ```python
-def _card_queryset(qs):
+_PARKED_MOVEMENTS = "_prefetched_movements"
+
+def _card_movements(card):
+    # Parked list when present; manager fallback for cold single-card paths.
+    return _parked_or_manager(card, _PARKED_MOVEMENTS, "movements")
+
+def _card_queryset(qs, stale_cutoff=None):
     from .models import CardMovement as _CM
     return (
         qs
-        .select_related("board", "assignee")
+        .select_related("board", "column", "swimlane", "assignee", "created_by", "external_ref")
         .prefetch_related(
             "labels",
-            "attachments",
-            "checklist_items",
-            Prefetch("movements", queryset=_CM.objects.order_by("-moved_at")),
+            Prefetch("attachments", to_attr=_PARKED_ATTACHMENTS),
+            Prefetch("movements", queryset=_CM.objects.order_by("-moved_at"),
+                     to_attr=_PARKED_MOVEMENTS),
+            # ...checklist_items, custom_field_values, _active_blockers_prefetch()
         )
     )
 ```
 
-If a new relation is added to `CardSerializer`, **add it to `_card_queryset` in the same commit**.
+If a new relation is added to `CardSerializer`, **add it to `_card_queryset` in the same commit**, parked with `to_attr` and read through an accessor. Update every other reader of `_card_queryset()` cards (`CardQuerySerializer`, the MCP `card_detail` tool) to use that accessor too. A nested `many=True` serializer field reads the manager by default; see `ParkedCustomFieldValueListSerializer` for the `get_attribute` override that points it at the parked list. `ParkedPrefetchQueryCountTests` in `test_query_counts.py` asserts the parked attributes are actually present.
 
 ---
 
