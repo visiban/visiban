@@ -5,7 +5,7 @@ from unittest import mock
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from boards.management.commands.seed_demo_data import (
@@ -791,3 +791,106 @@ class SeedDemoSiteTests(TestCase):
         _seed()
         self.assertFalse(Board.objects.filter(name__in=self.BOARD_NAMES).exists())
         self.assertFalse(User.objects.filter(username="admin").exists())
+
+
+_DEMO_SITE_SETTINGS = dict(
+    DEBUG=True,
+    DEMO_MODE=True,
+    DEMO_LOGIN_USERNAME="visitor",
+    DEMO_LOGIN_PASSWORD="test-visitor-pw-1",
+    DEMO_ADMIN_PASSWORD="test-admin-pw-1",
+    DEMO_MEMBER_PASSWORD="test-member-pw-1",
+)
+
+
+@override_settings(**_DEMO_SITE_SETTINGS)
+class SeedResetDatabaseTests(TransactionTestCase):
+    """#1180: the hosted demo's reset empties EVERY table, then reseeds.
+
+    TransactionTestCase, not TestCase: flush TRUNCATEs on PostgreSQL, which
+    refuses to run inside a transaction that still holds the deferred FK
+    checks of rows the test itself inserted.
+    """
+
+    def test_reset_signs_everyone_out_and_removes_visitor_leftovers(self):
+        from django.contrib.sessions.models import Session
+        from django.contrib.sites.models import Site
+        from django.utils import timezone as tz
+
+        from boards.models import BoardEvent
+
+        _seed(demo_site=True)
+        stranger = User.objects.create_user(username="stranger", password="x-pw-123456")
+        leftover = Board.objects.create(name="Made by a visitor", owner=stranger)
+        BoardEvent.objects.create(board_id=leftover.pk, event="board_updated", data={})
+        Session.objects.create(
+            session_key="k" * 32, session_data="e30=", expire_date=tz.now() + tz.timedelta(days=1)
+        )
+        User.objects.filter(username="visitor").update(password="!")  # a dead login
+
+        with mock.patch.dict("os.environ", {"SITE_DOMAIN": "try.visiban.test"}):
+            out, _ = _seed(demo_site=True, wipe=True, force=True, reset_database=True)
+
+        self.assertIn("every session ended", out)
+        self.assertFalse(Session.objects.exists())
+        self.assertFalse(User.objects.filter(username="stranger").exists())
+        self.assertFalse(Board.objects.filter(name="Made by a visitor").exists())
+        self.assertFalse(BoardEvent.objects.filter(board_id=leftover.pk).exists())
+        # Back to seed state, with the PUBLISHED password re-applied.
+        self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
+        for name in SeedDemoSiteTests.BOARD_NAMES:
+            self.assertEqual(Card.objects.filter(board__name=name).count(), 20, name)
+        self.assertEqual(Site.objects.get(pk=1).domain, "try.visiban.test")
+
+    def test_reset_database_requires_demo_site(self):
+        _seed()
+        with self.assertRaises(CommandError):
+            _seed(reset_database=True, force=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+
+    def test_reset_database_refuses_without_demo_mode(self):
+        _seed()
+        with override_settings(DEMO_MODE=False), self.assertRaises(CommandError):
+            _seed(demo_site=True, reset_database=True, force=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+
+    def test_reset_database_requires_force_when_debug_false(self):
+        _seed()
+        with override_settings(DEBUG=False), self.assertRaises(CommandError):
+            _seed(demo_site=True, reset_database=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())
+
+    def test_reset_mid_failure_rolls_back_to_the_pre_reset_state(self):
+        # completeness-check (#1180): flush and reseed are one transaction.
+        # A failure between them (this test forces one in _seed_demo_site,
+        # after the flush already ran) must roll back to the PRE-reset state
+        # — the old boards and the old, still-working published login —
+        # rather than leaving the database flushed with no usable reseed.
+        _seed(demo_site=True)
+        self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
+        board_count_before = Board.objects.count()
+
+        from boards.management.commands import seed_demo_data as seed_module
+
+        with mock.patch.object(
+            seed_module.Command, "_seed_demo_site", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaisesMessage(RuntimeError, "boom"):
+                _seed(demo_site=True, wipe=True, force=True, reset_database=True)
+
+        # Rolled back, not half-flushed: the old visitor account and its old
+        # password are still there, and no boards were lost.
+        self.assertTrue(User.objects.filter(username="visitor").exists())
+        self.assertTrue(User.objects.get(username="visitor").check_password("test-visitor-pw-1"))
+        self.assertEqual(Board.objects.count(), board_count_before)
+
+    def test_reset_database_requires_force_even_when_debug_true(self):
+        # security-review (#1180): --force is required unconditionally, not
+        # only when DEBUG is False — DEBUG-gating it was a latent foot-gun
+        # (a destructive flush one flag away from running on any deployment
+        # shape that happened to have DEBUG on). The class default here is
+        # DEBUG=True, so this omits the DEBUG=False override deliberately.
+        _seed()
+        with self.assertRaises(CommandError):
+            _seed(demo_site=True, reset_database=True)
+        self.assertTrue(Board.objects.filter(name=BOARD_NAME).exists())

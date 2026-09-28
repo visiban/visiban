@@ -1,0 +1,38 @@
+{{- /*
+Public demo mode: optional namespace guardrails (#1180). Off unless BOTH
+demo.enabled and demo.resourceQuota.enabled.
+
+try.visiban.com shares one k3s node with try.trueppm.com. The quota caps what
+this release's namespace can claim, so a runaway Visiban pod cannot starve the
+other demo (TruePPM's namespace should carry its own for the reverse). A quota
+on requests/limits makes the API server REJECT any pod that does not declare
+them, and several containers here do not (the backend's collectstatic and
+bootstrap init containers, the bundled PostgreSQL), so the LimitRange supplies
+defaults for exactly those. Both are namespace-wide: enable this only in a
+namespace dedicated to the demo release.
+*/ -}}
+{{- if and (include "visiban.demoEnabled" .) .Values.demo.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "visiban.fullname" . }}-demo
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  hard:
+    {{- toYaml .Values.demo.resourceQuota.hard | nindent 4 }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "visiban.fullname" . }}-demo
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        {{- toYaml .Values.demo.resourceQuota.containerDefaults.requests | nindent 8 }}
+      default:
+        {{- toYaml .Values.demo.resourceQuota.containerDefaults.limits | nindent 8 }}
+{{- end }}
