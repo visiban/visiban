@@ -13,10 +13,17 @@ Token authentication covers two token types that share the same `Authorization: 
 
 ### 1. Obtain a token
 
+> **Changed in 1.2** (#1206) — the `username` field (and the optional `email` field) now also accepts an account's email address; earlier releases accepted the exact-case username only.
+
 Log in to get your API token. The token is permanent until you log out or it is revoked.
 
 !!! note
-    The `username` field takes the account's actual, exact-case username — it does **not** accept an email address (verified directly: posting an email in `username`, or posting it in a separate `email` field instead, both return `400 Bad Request`). Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username, but a real username still exists and is what this endpoint requires.
+    The `username` field takes either the account's exact-case username **or** its email address (matched case-insensitively). An optional `email` field is also accepted in place of `username`.
+
+    - A username always wins: if the value is some account's username (usernames may contain `@`), it logs in as that account, never as another account whose email happens to match.
+    - An email address shared by more than one active account logs into **none** of them — it fails with the same generic error as a wrong password. Those users can still log in by username. Deactivated accounts don't count toward the match.
+    - Failed attempts by username and by email count toward one lockout for the account. A deliberate consequence: someone who already knows an account's username and has locked it out can tell whether a candidate email belongs to that same account, because it gets the "Too many failed login attempts" error instead of the generic one. This is the accepted cost of not letting an attacker double their guesses by switching identifiers, and it is still bounded by the per-IP rate.
+    - Accounts created via the web registration form have auto-generated usernames (derived from the email address); either identifier works for them.
 
 === "curl"
     ```bash
@@ -45,8 +52,8 @@ Store the `key` value — this is your API token.
 
 | Status | Cause |
 |---|---|
-| `400 Bad Request` | Wrong username or password — `{"non_field_errors": ["Unable to log in with provided credentials."]}` |
-| `400 Bad Request` | Locked out — either the per-account rate (5 failed attempts / 5 min for that account) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped; both return the same `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` and there's no way to tell which from the response (see [Rate limiting](../architecture/deployment.md#rate-limiting)). The correct password is refused too while either is active — including for an account that never itself failed, if it shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. The **per-account** lockout now has two early-recovery paths (#1203): a successful password reset clears it automatically, or a site admin can clear it directly via `POST /api/v1/admin/users/{id}/clear-lockout/` (see [Admin API](admin.md)). The **per-IP** rate has no early-recovery path and none is planned — clearing it on demand would undermine the protection it exists for (it is shared across every account attempted from that IP, so clearing it for one account's benefit would clear it for all of them). |
+| `400 Bad Request` | Wrong username/email or password — `{"non_field_errors": ["Unable to log in with provided credentials."]}`. The response is identical whether the identifier is unknown, ambiguous, or the password is wrong. |
+| `400 Bad Request` | Locked out — either the per-account rate (5 failed attempts / 5 min for that account — failures by username and by email count together toward the same account's lockout, and a lockout tripped through one identifier blocks the other) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped; both return the same `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` and there's no way to tell which from the response (see [Rate limiting](../architecture/deployment.md#rate-limiting)). The correct password is refused too while either is active — including for an account that never itself failed, if it shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. The **per-account** lockout now has two early-recovery paths (#1203): a successful password reset clears it automatically, or a site admin can clear it directly via `POST /api/v1/admin/users/{id}/clear-lockout/` (see [Admin API](admin.md)). The **per-IP** rate has no early-recovery path and none is planned — clearing it on demand would undermine the protection it exists for (it is shared across every account attempted from that IP, so clearing it for one account's benefit would clear it for all of them). |
 | `429 Too Many Requests` | Per-IP request-volume ceiling exceeded (`LoginRateThrottle`, 20/hour — a separate DRF throttle, independent of the two `login_failed` lockouts above) |
 
 ---
