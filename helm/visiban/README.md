@@ -69,8 +69,29 @@ edit it:
 `additionalProperties: false` at the root and on every chart-owned object, so a
 misspelled or invented key is rejected by `helm install` instead of being
 silently accepted and doing nothing. Blocks handed to a subchart or to `toYaml`
-— `global`, `postgresql`, `valkey`, `ingress.annotations`, `*.resources` — stay
+— `global`, `postgresql`, `ingress.annotations`, `*.resources` — stay
 open, because the chart is not the authority on what is valid inside them.
+`valkey` also stays open, so a values file written for the Bitnami subchart the
+chart used before 0.5.0 still upgrades; see [Bundled Valkey](#bundled-valkey).
+
+## Bundled Valkey
+
+`valkey.enabled=true` (the default) runs Valkey as this chart's own StatefulSet
+on the official `valkey/valkey:8-alpine` image — the same major as
+`docker-compose.prod.yml`. Until chart 0.5.0 it was the Bitnami `valkey`
+subchart, whose default image was the floating `bitnami/valkey:latest`, so a
+Helm install silently changed Valkey major on any pod reschedule (#1200).
+
+- The Service is still `<release>-valkey-primary`, so `REDIS_URL` and
+  `REDIS_CACHE_URL` are unchanged across the upgrade.
+- Valkey holds only the Channels layer and the Django cache, so the upgrade's
+  pod replacement loses nothing that is not rebuilt on its own.
+- `valkey.architecture=replication`, `valkey.auth.enabled=true` and a Bitnami
+  `valkey.image` fail the render with an explanation rather than being ignored.
+  Other Bitnami-only keys are no longer read.
+
+`scripts/helm-structure-check.sh` fails any rendered image that has no tag or
+is tagged `latest`.
 
 **Upload limits are derived, not set in three places.**
 `backend.settings.maxUploadSizeBytes` (attachments and native board imports) and

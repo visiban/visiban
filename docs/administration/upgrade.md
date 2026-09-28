@@ -356,7 +356,7 @@ touched — so it is zero-downtime and requires no operator action.
     |---|---|---|
     | Docker Compose service name | `redis` | `valkey` |
     | Docker image | `redis:7-alpine` | `valkey/valkey:8-alpine` |
-    | Helm subchart | `bitnami/redis` | `bitnami/valkey` |
+    | Helm chart | `bitnami/redis` subchart | Built-in StatefulSet on `valkey/valkey:8-alpine` (see below) |
     | Helm values key | `redis:` | `valkey:` |
     | In-cluster service DNS | `<release>-redis-master:6379` | `<release>-valkey-primary:6379` |
 
@@ -389,6 +389,69 @@ touched — so it is zero-downtime and requires no operator action.
         If you previously set `redis.enabled: false` and pointed `externalRedis.url` at an external Redis instance, no change is needed — the `externalRedis` key is unchanged and your external instance continues to work.
 
         If you used the bundled subchart, the in-cluster service DNS changes from `<release>-redis-master:6379` to `<release>-valkey-primary:6379`. The Helm chart sets `REDIS_URL` automatically from the new service name — no manual update is required unless you overrode `REDIS_URL` in your values file.
+
+!!! note "Helm: bundled Valkey is no longer the Bitnami subchart"
+    Chart 0.5.0 runs the bundled Valkey as the chart's own StatefulSet on the
+    official, versioned `valkey/valkey:8-alpine` image — the same major as
+    `docker-compose.prod.yml` — instead of the Bitnami `valkey` subchart. That
+    subchart's default image was `bitnami/valkey:latest` (Bitnami no longer
+    publishes versioned tags), so every pod reschedule could move a Helm install
+    to a different Valkey major with no diff (#1200).
+
+    **What stays the same:** the Service name `<release>-valkey-primary`, so
+    `REDIS_URL` and `REDIS_CACHE_URL` do not change; `valkey.enabled`;
+    `externalRedis`; and the NetworkPolicy rule that admits only the backend,
+    scheduler and demo-seed pods to port 6379.
+
+    **What `helm upgrade` does:** Helm creates a new StatefulSet,
+    `<release>-valkey`, re-points the `<release>-valkey-primary` Service at it,
+    and deletes the subchart's StatefulSet `<release>-valkey-primary`, its
+    headless Service, ConfigMaps, ServiceAccount and PodDisruptionBudget. The
+    new name is deliberate: a StatefulSet's selector, service name and volume
+    templates cannot be changed in place, so reusing the old name would fail the
+    upgrade. Upgrading straight from the 1.1 chart (`bitnami/redis` subchart)
+    works the same way.
+
+    **Data:** none that matters. Valkey holds only the real-time (Channels)
+    layer and the Django cache — no sessions, no job queue — and the chart ran
+    it without persistence. Open WebSocket connections drop once and reconnect,
+    cached settings are re-read from the database, and rate-limit and
+    login-lockout counters start again from zero (as they already did on any
+    Valkey pod restart). No backup or migration step is needed.
+
+    **If you enabled Valkey (or Redis) persistence**, the old claim is left
+    behind, as Kubernetes does for every StatefulSet volume. It holds only
+    rebuildable data; delete it once the upgrade is healthy:
+
+    ```bash
+    kubectl -n <namespace> get pvc | grep -E 'valkey-data|redis-data'
+    kubectl -n <namespace> delete pvc valkey-data-<release>-valkey-primary-0
+    ```
+
+    **Values that no longer apply.** The chart now reads `valkey.enabled`,
+    `valkey.image.repository`, `valkey.image.tag`, `valkey.image.pullPolicy`,
+    `valkey.primary.persistence.enabled`, `.size`, `.storageClass`,
+    `valkey.primary.resources` and `valkey.commonConfiguration`. Three leftover
+    subchart settings would change what runs if they were ignored, so the
+    upgrade **fails with an explanation** instead:
+
+    | Value | Why it is refused | What to do |
+    |---|---|---|
+    | `valkey.architecture: replication` | The backend only ever used the primary; the replicas did nothing | Remove it, or use `externalRedis` |
+    | `valkey.auth.enabled: true` | `REDIS_URL` never carried a password, so this has never worked | Remove it (NetworkPolicy restricts access), or use `externalRedis` with the password in the URL |
+    | `valkey.image.registry`, or a `bitnami/*` repository | A Bitnami image does not start under the new configuration | Remove them; the default is `valkey/valkey:8-alpine` |
+
+    Every other Bitnami-only key (for example `valkey.primary.resourcesPreset`,
+    `valkey.primary.podLabels`, `valkey.networkPolicy.*`, `valkey.metrics.*`) is
+    accepted and ignored. Check what your values file sets before upgrading:
+
+    ```bash
+    helm get values <release> -n <namespace> | yq '.valkey'
+    ```
+
+    **Rolling back** with `helm rollback` to a pre-0.5.0 revision recreates the
+    subchart's StatefulSet; a persistence claim you have not deleted is
+    reattached.
 
 !!! note "Scheduled jobs ship in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,

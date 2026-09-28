@@ -50,7 +50,36 @@ manage the Secret in that case and cannot inspect its contents.
 {{- fail "\n\nVisiban: postgresql.auth.password is set to the chart's placeholder \"visiban\".\nThis is the literal default — anyone with access to the source can guess it.\n\nGenerate a strong password and pass it via:\n    --set-string postgresql.auth.password=<password>\nor in your values.secret.yaml file.\n" -}}
 {{- end }}
 {{- end }}
+{{- include "visiban.valkeyGuards" . }}
 {{- include "visiban.demoGuards" . }}
+{{- end }}
+
+{{/*
+Bundled Valkey guards (#1200). Until chart 0.5.0 the `valkey` block configured
+the bitnami/valkey subchart; templates/valkey.yaml now reads it. A leftover
+subchart value that would CHANGE what runs, if the chart silently ignored it,
+fails the render here instead — a values file that asked for replicas, a
+password or a Bitnami image must not quietly get something else.
+*/}}
+{{- define "visiban.valkeyGuards" -}}
+{{- if .Values.valkey.enabled -}}
+{{- $v := .Values.valkey -}}
+{{- if ne (toString ($v.architecture | default "standalone")) "standalone" -}}
+{{- fail (printf "\n\nVisiban: valkey.architecture is %q, but the bundled Valkey is standalone only (chart 0.5.0+, #1200).\nThe backend only ever connected to the primary, so the old subchart's replicas were never used.\n\nRemove the override:\n    --set valkey.architecture=standalone\nor point externalRedis at a replicated instance with --set valkey.enabled=false.\n" (toString $v.architecture)) -}}
+{{- end -}}
+{{- if (dig "auth" "enabled" false $v) -}}
+{{- fail "\n\nVisiban: valkey.auth.enabled is true, but the bundled Valkey does not support a password: REDIS_URL carries none, so this setting has never produced a working deploy (#1200).\nAccess to the bundled Valkey is restricted by NetworkPolicy (networkPolicy.enabled=true).\n\nEither remove the override:\n    --set valkey.auth.enabled=false\nor use a password-protected instance through externalRedis:\n    --set valkey.enabled=false --set externalRedis.url=redis://:<password>@host:6379/0 --set externalRedis.cacheUrl=redis://:<password>@host:6379/1\n" -}}
+{{- end -}}
+{{- $img := $v.image | default dict -}}
+{{- $repo := toString ($img.repository | default "") -}}
+{{- $tag := toString ($img.tag | default "") -}}
+{{- if or $img.registry (contains "bitnami" $repo) -}}
+{{- fail (printf "\n\nVisiban: valkey.image points at a Bitnami image (registry %q, repository %q). The bundled Valkey now runs the official image with its own config (chart 0.5.0+, #1200); a Bitnami image does not start under it.\n\nRemove valkey.image.registry and use the official image:\n    --set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine\n" (toString ($img.registry | default "")) $repo) -}}
+{{- end -}}
+{{- if or (eq $repo "") (eq $tag "") (eq $tag "latest") -}}
+{{- fail (printf "\n\nVisiban: valkey.image must name a repository and a pinned tag (got %q:%q). An empty or \"latest\" tag drifts across Valkey majors on every pod reschedule (#1200).\n\n    --set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine\n" $repo $tag) -}}
+{{- end -}}
+{{- end -}}
 {{- end }}
 
 {{/*

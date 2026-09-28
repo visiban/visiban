@@ -43,13 +43,14 @@ Invocation: {{ include "visiban.backendEnv" . }}
   value: "false"
 - name: REDIS_URL
   {{- /*
-  The bundled Valkey is deployed via the bitnami/valkey subchart, which names
-  its own resources off $.Release.Name directly (release-valkey-primary) —
-  NOT off visiban.fullname (release-visiban), which is this chart's own
-  naming convention for ITS OWN templates. Using visiban.fullname here
-  pointed at a Service that never existed, so the backend could never reach
-  Redis: the readiness probe failed forever and `helm upgrade --wait` timed
-  out on every install with valkey.enabled=true (#1116 deploy-testing gap).
+  The bundled Valkey's Service is named off $.Release.Name directly
+  (release-valkey-primary) — NOT off visiban.fullname (release-visiban). The
+  name is inherited from the bitnami/valkey subchart the chart used until
+  #1200; templates/valkey.yaml keeps it on purpose so this URL, and so every
+  existing install's REDIS_URL, is unchanged across `helm upgrade`. Using
+  visiban.fullname here once pointed at a Service that never existed, so the
+  backend could never reach Valkey: the readiness probe failed forever and
+  `helm upgrade --wait` timed out (#1116 deploy-testing gap).
   */}}
   value: {{ if $ctx.Values.valkey.enabled }}{{ printf "redis://%s-valkey-primary:6379/0" $ctx.Release.Name | quote }}{{ else }}{{ $ctx.Values.externalRedis.url | quote }}{{ end }}
 - name: REDIS_CACHE_URL

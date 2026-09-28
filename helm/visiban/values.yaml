@@ -220,29 +220,58 @@ externalDatabase:
   username: visiban
   password: ""
 
-# Built-in Valkey subchart (bitnami/valkey). Valkey is the BSD-3, Linux
-# Foundation fork of Redis; it speaks the same RESP wire protocol, so the
-# backend's redis:// URLs and REDIS_URL env vars are unchanged.
+# Built-in Valkey (templates/valkey.yaml): a StatefulSet on the official,
+# versioned valkey/valkey image. Valkey is the BSD-3, Linux Foundation fork of
+# Redis; it speaks the same RESP wire protocol, so the backend's redis:// URLs
+# and REDIS_URL env vars are unchanged.
 # Set enabled: false and supply externalRedis.url to use an existing instance.
+#
+# Until chart 0.5.0 (#1200) this block configured the bitnami/valkey subchart,
+# whose default image was the mutable bitnami/valkey:latest (Bitnami no longer
+# publishes versioned tags), so every install silently drifted across Valkey
+# majors. The keys below are the ones the chart's own template reads; the
+# Service keeps the subchart's name (<release>-valkey-primary), so REDIS_URL
+# does not change on upgrade. Other bitnami-only keys are no longer read — see
+# "Bundled Valkey is no longer the Bitnami subchart" in
+# docs/administration/upgrade.md.
 valkey:
   enabled: true
+  # Only "standalone" is supported. The backend only ever talked to the primary,
+  # so the subchart's "replication" replicas were never used; the render fails
+  # rather than silently dropping them.
   architecture: standalone
+  image:
+    # Official image. Keep the major in step with docker-compose.prod.yml so
+    # Helm and Compose installs of one release run the same datastore major.
+    # Never "latest" and never empty: scripts/helm-structure-check.sh fails any
+    # rendered image without a pinned tag, and the render refuses both.
+    repository: valkey/valkey
+    tag: "8-alpine"
+    pullPolicy: IfNotPresent
   auth:
-    enabled: false
-  # The subchart's own NetworkPolicy defaults to networkPolicy.allowExternal
-  # true, which renders an ingress rule with no `from` restriction at all —
-  # "accept connections from any source" on the Valkey port. NetworkPolicies
-  # are additive, so that alone opens port 6379 to every pod in the namespace
-  # regardless of how restrictive templates/networkpolicy.yaml's own
-  # allow-backend-valkey rule is (#1116: caught by the netpol drill's
-  # unlabeled-pod-is-denied negative probe). Disabled so this chart's own
-  # policy — the single declared allow-list — is the only one governing
-  # ingress to Valkey.
-  networkPolicy:
+    # Must stay false. REDIS_URL carries no password, so authentication on the
+    # bundled Valkey has never produced a working deploy; the render refuses
+    # true. Access is restricted by NetworkPolicy (networkPolicy.enabled). For
+    # a password-protected instance, use externalRedis with the password in
+    # the URL.
     enabled: false
   primary:
     persistence:
+      # Off by default: Valkey holds only the Channels layer and the Django
+      # cache, both rebuilt on their own. Enabling it keeps the AOF across pod
+      # restarts in a PVC named data-<release>-valkey-0.
       enabled: false
+      size: 1Gi
+      # storageClass: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 150m
+        memory: 192Mi
+  # Appended to the server config (valkey.conf) after the chart's own
+  # bind/port/dir lines.
   commonConfiguration: |-
     # Enable AOF https://valkey.io/topics/persistence/
     appendonly yes

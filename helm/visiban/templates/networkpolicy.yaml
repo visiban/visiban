@@ -130,8 +130,9 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: valkey
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
       app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: valkey
   policyTypes:
     - Ingress
   ingress:
@@ -225,8 +226,9 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: valkey
+              app.kubernetes.io/name: {{ include "visiban.name" . }}
               app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: valkey
       ports:
         - port: 6379
           protocol: TCP

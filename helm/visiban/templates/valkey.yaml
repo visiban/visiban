@@ -1,0 +1,166 @@
+{{/*
+Built-in Valkey on the official, versioned valkey/valkey image (#1200).
+
+Replaces the bitnami/valkey subchart, whose default image was the mutable
+bitnami/valkey:latest — Bitnami no longer publishes versioned tags, so every
+install and every pod reschedule pulled whatever `latest` meant that day
+(Valkey 9.x on 2026-09-27) while the Compose stacks pinned 8. Same move the
+chart already made for PostgreSQL (templates/postgresql.yaml) — except that
+there is no `subchartEnabled` escape hatch back to Bitnami here: the only thing
+that path would restore is the unpinned image this template exists to remove.
+
+Names are chosen for a non-breaking `helm upgrade` from the subchart:
+  - The Service keeps the subchart's name, <release>-valkey-primary, so the
+    REDIS_URL / REDIS_CACHE_URL the backend renders (_backend-env.tpl) do not
+    change. Its selector is patched to the new pod labels; a Service selector
+    is mutable.
+  - The StatefulSet is <release>-valkey, deliberately NOT the subchart's
+    <release>-valkey-primary: a StatefulSet's selector, serviceName and
+    volumeClaimTemplates are immutable, so rendering a different spec under the
+    old name would fail the upgrade outright. Under a new name Helm creates this
+    one and deletes the subchart's as it leaves the manifest (with its headless
+    Service, ConfigMaps, ServiceAccount and PodDisruptionBudget).
+
+Valkey holds only ephemeral data in Visiban (the Channels layer on db 0, the
+Django cache on db 1 — no sessions, no queue), so the switch loses nothing that
+is not rebuilt on its own. See docs/administration/upgrade.md.
+*/}}
+{{- if .Values.valkey.enabled }}
+{{- $persist := .Values.valkey.primary.persistence }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "visiban.fullname" . }}-valkey
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+data:
+  valkey.conf: |
+    # Rendered by the Visiban chart (templates/valkey.yaml).
+    # All interfaces, IPv6 optional: the pod IP is what the Service targets.
+    bind * -::*
+    port 6379
+    dir /data
+    # No password (valkey.auth.enabled is refused), so protected mode would
+    # refuse every non-loopback client. Ingress is restricted by NetworkPolicy.
+    protected-mode no
+    {{- with .Values.valkey.commonConfiguration }}
+    {{- . | nindent 4 }}
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # The subchart's Service name, kept so REDIS_URL / REDIS_CACHE_URL
+  # (_backend-env.tpl) and every existing install's URLs stay unchanged.
+  name: {{ .Release.Name }}-valkey-primary
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  type: ClusterIP
+  ports:
+    - name: valkey
+      port: 6379
+      targetPort: valkey
+  selector:
+    app.kubernetes.io/name: {{ include "visiban.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: valkey
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  # NOT <release>-valkey-primary, and NOT the Service's name as postgresql.yaml
+  # does: see the header — the subchart's StatefulSet has immutable fields
+  # this one differs in, so reusing its name would fail `helm upgrade`.
+  name: {{ .Release.Name }}-valkey
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  serviceName: {{ .Release.Name }}-valkey-primary
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: valkey
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "visiban.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: valkey
+      annotations:
+        # A changed commonConfiguration must restart the server to take effect.
+        checksum/config: {{ .Values.valkey.commonConfiguration | toString | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # The image's `valkey` user and group (valkey/valkey:*-alpine). Numeric
+        # because the kubelet cannot verify runAsNonRoot against a user NAME.
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: "{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}"
+          imagePullPolicy: {{ .Values.valkey.image.pullPolicy | default "IfNotPresent" }}
+          # Straight to the server, bypassing docker-entrypoint.sh: it exists to
+          # chown /data and drop root, and this pod never runs as root.
+          command: ["valkey-server", "/etc/valkey/valkey.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: valkey
+              containerPort: 6379
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "[ \"$(valkey-cli -h 127.0.0.1 ping)\" = PONG ]"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "[ \"$(valkey-cli -h 127.0.0.1 ping)\" = PONG ]"]
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/valkey
+              readOnly: true
+          resources:
+            {{- toYaml .Values.valkey.primary.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "visiban.fullname" . }}-valkey
+        {{- if not $persist.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $persist.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if $persist.storageClass }}
+        storageClassName: {{ $persist.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $persist.size | default "1Gi" }}
+  {{- end }}
+{{- end }}

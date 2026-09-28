@@ -55,14 +55,16 @@
 #          KEEP_CLUSTER=1 skip teardown, to poke at a failed run
 #          EXTRA_HELM_ARGS  appended to every install/upgrade. Escape hatch for a
 #                           local machine whose kernel the bundled datastore
-#                           images do not tolerate. Valkey 9.x dies with
-#                           "Fatal: Can't initialize Background Jobs. Error
-#                           message: Operation not permitted" on some arm64 VMs
-#                           (Rancher Desktop / Lima) — pthread_create denied by
-#                           the host's seccomp profile, a property of the host,
-#                           not of the chart. Bitnami no longer publishes
-#                           versioned tags, so there is no older image to pin;
-#                           point the drill at an out-of-band instance instead:
+#                           images do not tolerate. The Bitnami subchart's
+#                           floating bitnami/valkey:latest (Valkey 9.x) died
+#                           with "Fatal: Can't initialize Background Jobs.
+#                           Error message: Operation not permitted" on some
+#                           arm64 VMs (Rancher Desktop / Lima) — pthread_create
+#                           denied by the host's seccomp profile. Since #1200
+#                           the chart runs the pinned official
+#                           valkey/valkey:8-alpine instead; if a host still
+#                           rejects it, point the drill at an out-of-band
+#                           instance:
 #                             EXTRA_HELM_ARGS="--set valkey.enabled=false \
 #                               --set externalRedis.url=redis://my-valkey:6379/0 \
 #                               --set externalRedis.cacheUrl=redis://my-valkey:6379/1"

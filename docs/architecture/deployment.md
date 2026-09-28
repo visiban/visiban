@@ -48,7 +48,7 @@ The Helm chart bundles the following database and cache dependencies:
 | Component | Version | How deployed |
 |---|---|---|
 | PostgreSQL | 17 | Built-in StatefulSet using the official `postgres:17` image (default) |
-| Valkey | 8 | Bitnami `valkey` subchart (pinned) |
+| Valkey | 8 | Built-in StatefulSet using the official `valkey/valkey:8-alpine` image (the same major as `docker-compose.prod.yml`) |
 
 > **Note (Bitnami PostgreSQL):** The Bitnami `postgresql` subchart is disabled by default (`postgresql.subchartEnabled: false`) because Bitnami no longer publishes versioned Docker Hub tags for older chart releases, which caused image pull failures. The chart deploys PostgreSQL via its own StatefulSet instead. Set `postgresql.subchartEnabled: true` to revert to the Bitnami subchart if needed.
 
@@ -57,7 +57,8 @@ The Helm chart bundles the following database and cache dependencies:
 ### Install
 
 ```bash
-# Valkey uses the Bitnami subchart — add the repo and fetch dependencies
+# The only remaining subchart is the opt-in Bitnami PostgreSQL one
+# (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.
 helm repo add bitnami https://charts.bitnami.com/bitnami
 helm repo update
 helm dependency update helm/visiban
@@ -222,6 +223,8 @@ helm install visiban helm/visiban \
 | `postgresql.enabled` | `true` | Use bundled PostgreSQL 17; set `false` to use `externalDatabase` |
 | `postgresql.subchartEnabled` | `false` | Set `true` to use the Bitnami `postgresql` subchart instead of the built-in StatefulSet |
 | `valkey.enabled` | `true` | Use bundled Valkey 8; set `false` to use `externalRedis.url` |
+| `valkey.image.tag` | `8-alpine` | Official `valkey/valkey` image tag. Never `latest` or empty — the chart refuses both |
+| `valkey.primary.persistence.enabled` | `false` | Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data |
 | `externalRedis.url` | `""` | External Valkey (or Redis-compatible) DSN (used when `valkey.enabled: false`) — **must be set** when using an external instance |
 | `networkPolicy.enabled` | `false` | Create NetworkPolicy resources restricting pod-to-pod traffic |
 

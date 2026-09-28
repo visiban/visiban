@@ -259,10 +259,58 @@
       }
     },
     "valkey": {
-      "description": "OPEN, deliberately -- shared with the bitnami/valkey subchart. Same reasoning as postgresql.",
+      "description": "OPEN, deliberately. Until chart 0.5.0 (#1200) this block configured the bitnami/valkey subchart, and existing values files may still carry its keys; closing the block would fail their helm upgrade. Those keys are no longer read (docs/administration/upgrade.md), and the ones that would change what runs (architecture, auth, a Bitnami image) are refused by _validate.tpl. The keys below are the ones templates/valkey.yaml reads; they are typed so a wrong type still fails.",
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" }
+        "enabled": {
+          "description": "Deploy the bundled Valkey. false requires externalRedis.url and externalRedis.cacheUrl.",
+          "type": "boolean"
+        },
+        "architecture": {
+          "description": "Only standalone is supported; replication is refused by _validate.tpl with an explanation.",
+          "type": "string",
+          "enum": ["standalone", "replication"]
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string", "minLength": 1 },
+            "tag": {
+              "description": "A pinned tag -- never empty, never latest (#1200).",
+              "type": "string",
+              "minLength": 1,
+              "not": { "const": "latest" }
+            },
+            "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Must be false: the bundled Valkey has no password support (REDIS_URL carries none).",
+              "type": "boolean"
+            }
+          }
+        },
+        "primary": {
+          "type": "object",
+          "properties": {
+            "persistence": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "size": { "type": "string" },
+                "storageClass": { "type": "string" }
+              }
+            },
+            "resources": { "type": "object" }
+          }
+        },
+        "commonConfiguration": {
+          "description": "Appended to the rendered valkey.conf after the chart's own bind/port/dir lines.",
+          "type": "string"
+        }
       }
     },
     "externalRedis": {
