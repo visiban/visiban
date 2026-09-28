@@ -516,10 +516,10 @@ class ReadSideStrippingTests(BoardEventTestBase):
     def setUp(self):
         super().setUp()
         self.url = f"/api/v1/boards/{self.board.pk}/events/"
-        target = _make_user("evt_mod")
+        self.target = _make_user("evt_mod")
         self.client_for(self.owner).post(
             f"/api/v1/boards/{self.board.pk}/members/",
-            {"user_id": target.pk, "role": "member", "is_moderator": True},
+            {"user_id": self.target.pk, "role": "member", "is_moderator": True},
             format="json",
         )
         self.assertEqual(self.event_types(), ["member.added"])
@@ -539,17 +539,85 @@ class ReadSideStrippingTests(BoardEventTestBase):
         row = self.client_for(self.viewer).get(self.url).data["results"][0]
         self.assertNotIn("is_moderator", row["data"])
 
-    def test_stripping_matches_the_websocket_consumer_gate(self):
-        """One definition, two readers — the feed and the socket cannot drift."""
-        from boards.consumers import _ROLES_WITH_MODERATOR_VISIBILITY
-        from boards.permissions import ROLES_WITH_MODERATOR_VISIBILITY
+    def test_target_sees_is_moderator_on_own_row(self):
+        """A non-admin member promoted to moderator sees the flag on their OWN
+        row (#1191) — mirrors the /full/ self-row exception from #1173."""
+        row = self.client_for(self.target).get(self.url).data["results"][0]
+        self.assertIn("is_moderator", row["data"])
+        self.assertTrue(row["data"]["is_moderator"])
 
-        self.assertIs(_ROLES_WITH_MODERATOR_VISIBILITY, ROLES_WITH_MODERATOR_VISIBILITY)
+    def test_target_does_not_see_is_moderator_on_other_members_rows(self):
+        """The self-row exception must not leak to a row about someone else."""
+        self.client_for(self.owner).post(
+            f"/api/v1/boards/{self.board.pk}/members/",
+            {"user_id": self.member.pk, "role": "member", "is_moderator": True},
+            format="json",
+        )
+        rows = self.client_for(self.target).get(self.url).data["results"]
+        own_row = next(r for r in rows if r["data"]["user"]["id"] == self.target.pk)
+        other_row = next(r for r in rows if r["data"]["user"]["id"] == self.member.pk)
+        self.assertIn("is_moderator", own_row["data"])
+        self.assertNotIn("is_moderator", other_row["data"])
+
+    def test_site_admin_sees_is_moderator(self):
+        """can_access_all_content resolves to SITE_ADMIN regardless of board
+        membership (#920/#1191) — must see is_moderator on every row."""
+        site_admin = _make_user("evt_site_admin", can_access_all_content=True)
+        row = self.client_for(site_admin).get(self.url).data["results"][0]
+        self.assertIn("is_moderator", row["data"])
+
+    def test_all_surfaces_call_the_shared_moderator_visibility_rule(self):
+        """No drift is possible: BoardFullSerializer.get_members(),
+        BoardMembershipSerializer.to_representation, BoardEventSerializer.to_representation
+        (this feed), and BoardConsumer.board_event all resolve to the exact
+        same ``moderator_field_visible`` object rather than each restating
+        the #920/#1173 rule (#1191) — and this spies on it to prove the three
+        serializers.py callers actually invoke it, not just import it."""
+        import boards.serializers as serializers_module
+        import boards.consumers as consumers_module
+        from boards.permissions import moderator_field_visible as shared_rule
+
+        self.assertIs(serializers_module.moderator_field_visible, shared_rule)
+        self.assertIs(consumers_module.moderator_field_visible, shared_rule)
+
+        with patch("boards.serializers.moderator_field_visible", wraps=shared_rule) as spy:
+            # BoardEventSerializer.to_representation, via the change feed.
+            self.client_for(self.member).get(self.url)
+            feed_calls = spy.call_count
+            self.assertGreater(feed_calls, 0)
+
+            # BoardFullSerializer.get_members(), via /full/.
+            self.client_for(self.member).get(f"/api/v1/boards/{self.board.pk}/full/")
+            self.assertGreater(spy.call_count, feed_calls)
+            full_calls = spy.call_count
+
+            # BoardMembershipSerializer.to_representation, via the admin-only
+            # members POST response.
+            self.client_for(self.owner).post(
+                f"/api/v1/boards/{self.board.pk}/members/",
+                {"user_id": self.viewer.pk, "role": "member", "is_moderator": True},
+                format="json",
+            )
+            self.assertGreater(spy.call_count, full_calls)
 
     def test_unknown_role_fails_closed(self):
         from boards.serializers import BoardEventSerializer
 
         row = BoardEventSerializer(self.events()[0], context={}).data
+        self.assertNotIn("is_moderator", row["data"])
+
+    def test_malformed_user_field_fails_closed_not_500(self):
+        """A row whose stored `user` is not a dict (old/legacy shape, or a bug
+        upstream) must strip is_moderator for a non-admin reader instead of
+        raising (#1191 hardening)."""
+        record_board_event(
+            self.board.id,
+            "member.updated",
+            {"id": 99, "user": "not-a-dict", "role": "member", "is_moderator": True},
+        )
+        resp = self.client_for(self.member).get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        row = next(r for r in resp.data["results"] if r["data"].get("id") == 99)
         self.assertNotIn("is_moderator", row["data"])
 
 

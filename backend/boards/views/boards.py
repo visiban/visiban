@@ -635,7 +635,9 @@ class BoardViewSet(
         # A full page may or may not be the last one; a short page definitely is.
         next_cursor = rows[-1].pk if len(rows) == limit else None
         return Response({
-            "results": BoardEventSerializer(rows, many=True, context={"role": role}).data,
+            "results": BoardEventSerializer(
+                rows, many=True, context={"role": role, "reader_id": request.user.id}
+            ).data,
             "next": next_cursor,
         })
 
