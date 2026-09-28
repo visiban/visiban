@@ -125,9 +125,9 @@ problem).
 
 ## Dependency Proxy
 
-Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml` (and the kaniko `FROM`
-pulls, via each Dockerfile's `BASE_REGISTRY` build arg) resolves through the GitLab Dependency
-Proxy rather than pulling `docker.io` anonymously — see
+Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml` and `.gitlab/ghcr-push.yml`
+(and the kaniko `FROM` pulls, via each Dockerfile's `BASE_REGISTRY` build arg) resolves through
+`${DOCKERHUB_MIRROR}` rather than pulling `docker.io` anonymously — see
 [Known CI Failures](known-ci-failures.md#docker-hub-429-too-many-requests-on-image-pulls)
 (#1198) for why. This requires:
 
@@ -136,19 +136,40 @@ Proxy rather than pulling `docker.io` anonymously — see
    this repo can turn it on, and a fresh group (or a self-hosted GitLab instance forking this
    project) needs it enabled before CI will go green.
 2. **No runner configuration change for `image:`/`services:` pulls** — the runner
-   authenticates to `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}` automatically using the
+   authenticates to `${DOCKERHUB_MIRROR}` (which resolves to
+   `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}` by default — see below) automatically using the
    predefined `CI_DEPENDENCY_PROXY_*` variables GitLab injects into every job; there is nothing
    to add to a runner's `config.toml` for this.
 3. **A job that pulls images itself, rather than via `image:`/`services:`, must log in
    explicitly.** kaniko's `/kaniko/.docker/config.json` and the helm-drill `docker:dind`
-   daemon (`.helm-drill-base` before_script: `docker login "$CI_DEPENDENCY_PROXY_SERVER" -u
-   "$CI_DEPENDENCY_PROXY_USER" -p "$CI_DEPENDENCY_PROXY_PASSWORD"`) both do this — a new job
-   added later that shells out to `docker pull`/`docker build` against a Docker Hub image
-   needs the same treatment, or it will silently fall back to an anonymous pull.
+   daemon (`.helm-drill-base` before_script:
+   `echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u
+   "$CI_DEPENDENCY_PROXY_USER" --password-stdin` — `--password-stdin`, never `-p`, which leaves
+   the token readable in the container's own process list) both do this, guarded on
+   `CI_DEPENDENCY_PROXY_SERVER` being non-empty (see point 4). A new job added later that shells
+   out to `docker pull`/`docker build` against a Docker Hub image needs the same treatment, or
+   it will silently fall back to an anonymous pull.
+4. **Forks and self-hosted instances with no working group Dependency Proxy need a project
+   variable.** The Dependency Proxy is a **group-level-only** GitLab feature — it does not exist
+   for personal namespaces at all — so `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX` (and
+   `CI_DEPENDENCY_PROXY_SERVER`/`_USER`/`_PASSWORD`) are empty on, most notably, an external
+   contributor's personal-namespace fork pipeline. `.gitlab-ci.yml`'s top-level `variables:`
+   defines `DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`; a `script:`/
+   `before_script:` usage of it (the kaniko jobs' `--build-arg BASE_REGISTRY`,
+   `scripts/helm-install-drill.sh`, `scripts/helm-netpol-drill.sh`) falls back automatically with
+   real shell syntax (`${DOCKERHUB_MIRROR:-docker.io/library}`), because those run in an actual
+   shell. The bare `image:`/`services:`/`name:` keyword usages **cannot** self-heal this way —
+   GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
+   bash's `:-` fallback operator — so with an empty `DOCKERHUB_MIRROR` they'd resolve to a
+   leading-slash `/python:3.12-slim` and fail outright. A fork or self-hosted project without a
+   working group Dependency Proxy **must** set its own project CI/CD variable
+   `DOCKERHUB_MIRROR` (Settings → CI/CD → Variables) — e.g. `docker.io` to pull Docker Hub
+   directly (project variables take precedence over the `.gitlab-ci.yml` default), or its own
+   pull-through mirror.
 
 Third-party registries (`quay.io`'s Keycloak image, `ghcr.io`/`gcr.io` for trivy/kaniko,
 `mcr.microsoft.com`'s Playwright image) are out of scope — GitLab's Dependency Proxy only
-mirrors Docker Hub, so these keep pulling directly.
+mirrors Docker Hub, so these keep pulling directly regardless of `DOCKERHUB_MIRROR`.
 
 ## Related open items
 

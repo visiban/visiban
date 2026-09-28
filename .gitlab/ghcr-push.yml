@@ -19,6 +19,18 @@ spec:
 stages:
   - push
 
+# See the DOCKERHUB_MIRROR note in .gitlab-ci.yml for the full rationale
+# (#1198). This is a separate, standalone pipeline config, so it does not
+# inherit that file's top-level `variables:` — it needs its own. A project
+# with no working group Dependency Proxy (e.g. an external fork's
+# personal-namespace project — the Dependency Proxy is a group-level-only
+# feature) should override this with a project CI/CD variable, e.g.
+# DOCKERHUB_MIRROR=docker.io, or kaniko's --build-arg BASE_REGISTRY falls
+# back to docker.io/library automatically (see the script below) but any
+# job that used DOCKERHUB_MIRROR directly in `image:`/`services:` would not.
+variables:
+  DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
+
 .ghcr-push-base:
   stage: push
   image:
@@ -26,13 +38,19 @@ stages:
     entrypoint: [""]
   before_script:
     - mkdir -p /kaniko/.docker
-    - >-
-      # The Dockerfile's FROM resolves through the GitLab Dependency Proxy via
-      # --build-arg BASE_REGISTRY below (#1198), so kaniko needs proxy
-      # credentials to pull it, alongside the existing GHCR push credentials.
-      printf '{"auths":{"ghcr.io":{"username":"%s","password":"%s"},"%s":{"username":"%s","password":"%s"}}}'
-      "${GHCR_USER}" "${GHCR_TOKEN}" "${CI_DEPENDENCY_PROXY_SERVER}" "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}"
-      > /kaniko/.docker/config.json
+    # The Dockerfile's FROM resolves through DOCKERHUB_MIRROR via --build-arg
+    # BASE_REGISTRY below (#1198), so kaniko needs Dependency Proxy
+    # credentials to pull it, alongside the existing GHCR push credentials.
+    # A real (not folded) block scalar: a `>-` fold here previously collapsed
+    # these comment lines and the printf onto ONE line starting with `#`,
+    # silently turning the whole auth setup into a shell comment.
+    - |
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS="\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        AUTHS="${AUTHS},\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
     # Switch the working tree to the requested branch so the image is built
     # from the right source regardless of which commit this pipeline was
     # triggered on (important for scheduled runs on a detached HEAD).
@@ -47,7 +65,7 @@ ghcr-push-backend:
         --dockerfile=backend/Dockerfile
         --destination=ghcr.io/${GHCR_USER}/visiban/backend:latest
         --snapshot-mode=redo
-        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
+        --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
 
 ghcr-push-frontend:
   extends: .ghcr-push-base
@@ -58,4 +76,4 @@ ghcr-push-frontend:
         --destination=ghcr.io/${GHCR_USER}/visiban/frontend:latest
         --snapshot-mode=redo
         --build-arg NODE_OPTIONS=--max-old-space-size=512
-        --build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
+        --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}

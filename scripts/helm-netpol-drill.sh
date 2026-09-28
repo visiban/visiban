@@ -164,33 +164,34 @@ done
 # ---------------------------------------------------------------------------
 step "Building images from the working tree (tag $TAG)"
 # ---------------------------------------------------------------------------
-docker build -q --build-arg "BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX:-docker.io/library}" -t "visiban-netpol/backend:${TAG}"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
-docker build -q --build-arg "BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX:-docker.io/library}" -t "visiban-netpol/frontend:${TAG}" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "visiban-netpol/backend:${TAG}"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "visiban-netpol/frontend:${TAG}" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
 ok "images built"
 
 # ---------------------------------------------------------------------------
-step "Pre-pulling cluster images through the GitLab Dependency Proxy (#1198)"
+step "Pre-pulling cluster images through DOCKERHUB_MIRROR (#1198)"
 # ---------------------------------------------------------------------------
-# See scripts/helm-install-drill.sh for the full rationale: the dind daemon
-# this script talks to has no credentials of its own, CI's .helm-drill-base
-# before_script logs it in, and locally (no CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX)
-# this whole step is a no-op.
+# See scripts/helm-install-drill.sh for the full rationale: DOCKERHUB_MIRROR
+# defaults to the GitLab Dependency Proxy prefix, the dind daemon this script
+# talks to has no credentials of its own, CI's .helm-drill-base before_script
+# logs it in when there's a proxy to log in to, and locally (DOCKERHUB_MIRROR
+# unset) this whole step is a no-op.
 KIND_IMAGE_ARGS=()
 EXTRA_LOAD_IMAGES=()
-if [ -n "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX:-}" ]; then
+if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
   KINDEST_NODE_TAG="${KINDEST_NODE_TAG:-v1.31.2}"  # matches KUBECTL_VERSION's minor
-  docker pull -q "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/kindest/node:${KINDEST_NODE_TAG}"
-  docker tag "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/kindest/node:${KINDEST_NODE_TAG}" "kindest/node:${KINDEST_NODE_TAG}"
+  docker pull -q "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}"
+  docker tag "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}" "kindest/node:${KINDEST_NODE_TAG}"
   KIND_IMAGE_ARGS=(--image "kindest/node:${KINDEST_NODE_TAG}")
 
   # In-cluster images: the chart's own postgres/valkey defaults (see
   # helm-install-drill.sh), plus this drill's own busybox probe pods below.
-  docker pull -q "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17"
-  docker tag "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/postgres:17" "postgres:17"
-  docker pull -q "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/bitnami/valkey:latest"
-  docker tag "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
-  docker pull -q "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/${PROBE_IMAGE}"
-  docker tag "${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/${PROBE_IMAGE}" "${PROBE_IMAGE}"
+  docker pull -q "${DOCKERHUB_MIRROR}/postgres:17"
+  docker tag "${DOCKERHUB_MIRROR}/postgres:17" "postgres:17"
+  docker pull -q "${DOCKERHUB_MIRROR}/bitnami/valkey:latest"
+  docker tag "${DOCKERHUB_MIRROR}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
+  docker pull -q "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}"
+  docker tag "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}" "${PROBE_IMAGE}"
   EXTRA_LOAD_IMAGES=("postgres:17" "registry-1.docker.io/bitnami/valkey:latest" "${PROBE_IMAGE}")
   ok "kindest/node, postgres, valkey, busybox pulled via the Dependency Proxy"
 fi
