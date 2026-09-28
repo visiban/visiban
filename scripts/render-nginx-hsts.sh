@@ -183,24 +183,54 @@ check_template() {
   # boundary — `\b` is a GNU-awk extension (it means a literal backspace to
   # POSIX/BSD awk, including the busybox awk these CI jobs actually run
   # under), so a `\b`-based pattern here silently matches nothing.
-  local block_violations
-  block_violations="$(awk '
-    /^[[:space:]]*location[[:space:]]/ { in_loc=1; depth=0; has_pass=0; has_hide=0; name=$0 }
+  #
+  # FAILS CLOSED on a nested `location` block (a `location` line seen while
+  # already inside one): the depth-tracked has_pass/has_hide/name state is
+  # per-block, single-level, and a second `location` line arriving mid-block
+  # would reset it, silently discarding whatever the outer block had already
+  # accumulated — e.g. `location /api/ { proxy_pass ...; location ~
+  # \.php$ { proxy_pass ...; proxy_hide_header ...; } }` would report the
+  # outer block clean because the reset wiped its own (missing)
+  # proxy_hide_header. Rather than track a depth-indexed stack to handle
+  # this correctly, emit a hard, unambiguous failure — nginx's `location`
+  # blocks in this template are not nested today, and a check that cannot
+  # reason about a shape doesn't get to silently pass it.
+  local raw_scan nested_hits hide_violations
+  raw_scan="$(awk '
+    /^[[:space:]]*location[[:space:]]/ {
+      if (in_loc) {
+        print "NESTED:" $0
+      } else {
+        in_loc=1; depth=0; has_pass=0; has_hide=0; name=$0
+      }
+    }
     in_loc {
       if ($0 ~ /proxy_pass/) has_pass=1
       if ($0 ~ /proxy_hide_header[ \t]+Strict-Transport-Security/) has_hide=1
       depth += gsub(/\{/, "{")
       depth -= gsub(/\}/, "}")
       if (depth == 0) {
-        if (has_pass && !has_hide) print name
+        if (has_pass && !has_hide) print "MISSING_HIDE:" name
         in_loc=0
       }
     }
   ' "$file")"
-  if [[ -n "$block_violations" ]]; then
-    echo "VIOLATION: location block(s) proxy_pass to the backend without a proxy_hide_header Strict-Transport-Security line:" >&2
-    echo "$block_violations" >&2
+  nested_hits="$(grep '^NESTED:' <<< "$raw_scan" || true)"
+  if [[ -n "$nested_hits" ]]; then
+    echo "VIOLATION: $file has a nested location block, which this check does not support:" >&2
+    sed 's/^NESTED://' <<< "$nested_hits" >&2
+    echo "  Nested location blocks are not supported by this check; add proxy_hide_header to each proxied block and extend the check." >&2
     violations=$((violations + 1))
+    # Once nesting is found, has_pass/has_hide for the affected block(s) are
+    # not trustworthy (see above) — don't also report a possibly-bogus
+    # missing-proxy_hide_header finding derived from that same scan.
+  else
+    hide_violations="$(grep '^MISSING_HIDE:' <<< "$raw_scan" | sed 's/^MISSING_HIDE://' || true)"
+    if [[ -n "$hide_violations" ]]; then
+      echo "VIOLATION: location block(s) proxy_pass to the backend without a proxy_hide_header Strict-Transport-Security line:" >&2
+      echo "$hide_violations" >&2
+      violations=$((violations + 1))
+    fi
   fi
 
   # 3. Dry-render scratch copies for the two TLS modes that actually render
@@ -254,13 +284,14 @@ check_template() {
 # --self-test: covers every scenario the #1201 gate batch and completeness-
 # check named, plus the leading-zero / octal footgun the batch actually
 # found. Touches nothing in this repository — all fixtures live under a
-# throwaway temp directory. Cases 1-9 exercise render_into_file; cases 10-12
+# throwaway temp directory. Cases 1-9 exercise render_into_file; cases 10-13
 # exercise check_template, including the negative controls proving it catches
 # what synthetic fixtures alone cannot (the old hardcoded header reappearing
 # in, and a proxy_pass location missing proxy_hide_header in, the ACTUAL
 # tracked template — see the compose-hygiene CI job, which runs
 # `--check nginx/app.conf.template` right after this self-test for exactly
-# that reason).
+# that reason) and fails closed on a nested location block rather than
+# silently discarding an outer block's state on the second `location` line.
 self_test() {
   # Deliberately not `local` — the EXIT trap below still needs to read $tmp
   # after this function returns (bash removes `local`s from scope on
@@ -340,6 +371,29 @@ self_test() {
       '' \
       '    location /api/ {' \
       '        proxy_pass http://backend:8000;' \
+      '    }' \
+      '}' \
+      > "$1"
+  }
+
+  # A nested `location` block — the outer block's own proxy_pass has no
+  # proxy_hide_header, but the state-reset-on-second-`location`-line bug this
+  # fixture is named for would have swallowed that and reported clean. The
+  # check must fail closed here instead of guessing.
+  fixture_nested() {
+    printf '%s\n' \
+      'server {' \
+      '    listen 443 ssl;' \
+      '    __HSTS_HEADER_PLACEHOLDER__' \
+      '    add_header X-Frame-Options "DENY" always;' \
+      '' \
+      '    location /api/ {' \
+      '        proxy_pass http://backend:8000;' \
+      '' \
+      '        location ~ \.php$ {' \
+      '            proxy_pass http://php:9000;' \
+      '            proxy_hide_header Strict-Transport-Security;' \
+      '        }' \
       '    }' \
       '}' \
       > "$1"
@@ -442,6 +496,17 @@ self_test() {
   rc=0
   check_template "$tmp/case12.conf" >/dev/null 2>&1 || rc=$?
   check "check_template fails when a proxy_pass location is missing proxy_hide_header" \
+    "$([ "$rc" -ne 0 ] && echo 0 || echo 1)"
+
+  # 13. check_template negative control #3 — a nested `location` block must
+  # fail closed. Without this, the outer block's own missing
+  # proxy_hide_header gets silently discarded when the nested `location`
+  # line resets has_pass/has_hide/depth mid-scan, and the check reports OK
+  # on a template that actually violates check #2 above.
+  fixture_nested "$tmp/case13.conf"
+  rc=0
+  check_template "$tmp/case13.conf" >/dev/null 2>&1 || rc=$?
+  check "check_template fails closed on a nested location block" \
     "$([ "$rc" -ne 0 ] && echo 0 || echo 1)"
 
   echo ""
