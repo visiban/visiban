@@ -316,3 +316,44 @@ class BoardDefaultsTests(TestCase):
         from boards.models import Board
         board = Board.objects.get(pk=r.json()["id"])
         self.assertEqual(board.allowed_priorities, ["low", "medium"])
+
+    def test_board_created_in_group_sanitizes_stale_unbounded_data(self):
+        """#1187: a pre-#1169 group row can hold a raw, unbounded, undeduped
+        ``allowed_priorities`` list — ``GroupSerializer.validate_allowed_priorities``
+        only bounds *new* writes through the API. The raw-save copy in
+        ``GroupViewSet.boards()`` must not propagate that stale data onto new
+        boards unbounded; simulate the pre-fix row with a direct model save
+        (bypassing the serializer), exactly as ``test_board_created_in_group_inherits_defaults``
+        does above."""
+        self.client.force_authenticate(self.admin)
+        self.group.allowed_priorities = ["low"] * 1000
+        self.group.save(update_fields=["allowed_priorities"])
+
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/boards/",
+            {"name": "Board From Stale Group"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        from boards.models import Board
+        board = Board.objects.get(pk=r.json()["id"])
+        self.assertEqual(board.allowed_priorities, ["low"])
+
+    def test_board_created_in_group_dedupes_and_drops_invalid_stale_data(self):
+        """#1187: a stale group row may also hold duplicates and invalid slugs
+        (garbage that predates #1169's per-item validation). The copy must
+        de-duplicate and drop anything that isn't a valid priority slug,
+        never store it verbatim on the new board."""
+        self.client.force_authenticate(self.admin)
+        self.group.allowed_priorities = ["low", "not-a-priority", "low", "urgent", 5, ["nested"]]
+        self.group.save(update_fields=["allowed_priorities"])
+
+        r = self.client.post(
+            f"/api/v1/groups/{self.group.id}/boards/",
+            {"name": "Board From Dirty Group"},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+
+        from boards.models import Board
+        board = Board.objects.get(pk=r.json()["id"])
+        self.assertEqual(board.allowed_priorities, ["low", "urgent"])
