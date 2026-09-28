@@ -176,8 +176,9 @@ mirrors Docker Hub, so these keep pulling directly regardless of `DOCKERHUB_MIRR
 `backend-docker-push-arm64`, and `frontend-docker-push-arm64` (#1084, see "Docker image push"
 above) were left out of #1198's initial rollout: they were being rewritten by the separate
 **!964** (arm64 release-token and push-safety hardening), and applying the mirror there first
-would have conflicted with that work. !964 has since merged, so #1204 wires these jobs up the
-same way as everything else in this section — both `docker build` calls now pass
+would have conflicted with that work. !964 was closed as superseded once #1084's fix branch
+(which kept the same job/template names this doc references) merged instead, so #1204 wires
+these jobs up the same way as everything else in this section — both `docker build` calls now pass
 `--build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}"`, same as the amd64 kaniko
 legs.
 
