@@ -1888,7 +1888,7 @@ class CardAttachmentSerializer(serializers.ModelSerializer):
         model = CardAttachment
         fields = ["id", "filename", "size", "url", "uploaded_by", "uploaded_at"]
 
-    def get_url(self, obj):
+    def get_url(self, obj) -> str:
         request = self.context.get("request")
         if request:
             return request.build_absolute_uri(obj.file.url)
@@ -2734,11 +2734,11 @@ class PublicCardSerializer(serializers.ModelSerializer):
     # below and read through the same _card_* accessors as CardSerializer
     # (#1212) — see the "Parked prefetches" comment above _card_attachments().
 
-    def get_checklist_total(self, obj):
+    def get_checklist_total(self, obj) -> int:
         # len() on the prefetched rows uses memory; .count() would query.
         return len(_card_checklist_items(obj))
 
-    def get_checklist_done(self, obj):
+    def get_checklist_done(self, obj) -> int:
         return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
 
     def get_blocker_count(self, obj) -> int:
@@ -2746,12 +2746,13 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # boards cannot disagree about which blockers count (#449).
         return _blocker_count(obj)
 
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_last_moved_at(self, obj):
         # movements are prefetched ordered by -moved_at; index [0] is the most recent.
         movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
 
-    def get_is_stale(self, obj):
+    def get_is_stale(self, obj) -> bool:
         # Read the SQL-level annotation when PublicBoardSerializer.get_cards()
         # passes stale_cutoff (#926) — avoids a per-card timezone.now() branch.
         if hasattr(obj, "_is_stale_annotated"):
@@ -2786,6 +2787,7 @@ class PublicBoardSerializer(serializers.ModelSerializer):
         # does not need to be exposed to anonymous share-link visitors.
         fields = ["uid", "name", "columns", "swimlanes", "labels", "cards"]
 
+    @extend_schema_field(PublicCardSerializer(many=True))
     def get_cards(self, obj):
         qs = (
             obj.cards

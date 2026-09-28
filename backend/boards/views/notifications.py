@@ -1,5 +1,6 @@
 """Notification views — list, mark-read, and unread-count endpoints."""
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -87,6 +88,10 @@ class NotificationListView(APIView):
         TokenHasScope,
     ]
 
+    @extend_schema(
+        summary="List the current user's unread notifications",
+        responses=NotificationSerializer(many=True),
+    )
     def get(self, request):
         qs = (
             Notification.objects

@@ -159,6 +159,38 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
 
     # ── a field the gate reports as correct, kept honest here too ─────────
 
+    # ── #1209: the 4 sites #1192 could only assert on the field instance for,
+    # now that CardViewSet.activities/.attachments, NotificationListView, and
+    # ShareBoardView all publish a real response schema. ─────────────────────
+
+    def test_card_activity_actor_is_nullable(self):
+        """CardActivity.actor is a SET_NULL FK — a deleted actor yields null."""
+        self.assertTrue(
+            self._prop("CardActivity", "actor").get("nullable"),
+            "CardActivity.actor must be nullable: the FK is SET_NULL with null=True",
+        )
+
+    def test_card_attachment_uploaded_by_is_nullable(self):
+        """CardAttachment.uploaded_by is a SET_NULL FK — a deleted uploader yields null."""
+        self.assertTrue(
+            self._prop("CardAttachment", "uploaded_by").get("nullable"),
+            "CardAttachment.uploaded_by must be nullable: the FK is SET_NULL with null=True",
+        )
+
+    def test_notification_actor_is_nullable(self):
+        """Notification.actor is a SET_NULL FK — system-generated notifications have none."""
+        self.assertTrue(
+            self._prop("Notification", "actor").get("nullable"),
+            "Notification.actor must be nullable: the FK is SET_NULL with null=True",
+        )
+
+    def test_public_card_assignee_is_nullable(self):
+        """PublicCard.assignee (public share-link view): unassigned cards are the common case."""
+        self.assertTrue(
+            self._prop("PublicCard", "assignee").get("nullable"),
+            "PublicCard.assignee must be nullable: Card.assignee is a SET_NULL FK with null=True",
+        )
+
     def test_card_movement_denormalized_names_are_not_nullable(self):
         """The mirror image: these are `null=False, blank=True` CharFields.
 
@@ -178,25 +210,25 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
 
 
 class UnpublishedSerializerFieldNullabilityTests(SimpleTestCase):
-    """#1192: `allow_null=True` on the 4 sites (of the issue's original 4, plus a 5th
-    found during the sweep) whose serializers `drf-spectacular` does not currently
-    emit as a named schema component at all.
+    """#1192 (superseded by #1209): `allow_null=True` on the 4 sites (of the issue's
+    original 4, plus a 5th found during the sweep) whose serializers `drf-spectacular`
+    did not, at the time, emit as a named schema component at all.
 
     `CardActivitySerializer`, `CardAttachmentSerializer`, `PublicCardSerializer`, and
     `NotificationSerializer` back endpoints (`CardViewSet.activities`/`.attachments`,
-    the public share-link view, and the bare-`APIView` notifications list) that have
-    no `serializer_class`/`@extend_schema` response wiring, so `SchemaGenerator` either
-    guesses the wrong component entirely (`Card`, for the two `@action` endpoints) or
-    publishes no response body at all. `SerializerSchemaAnnotationTests._prop()` above
-    has nothing to inspect for these four, so — unlike `CardComment.author` or
-    `BoardExportLog.actor`, which DO get a real component — a schema-level assertion
-    here would be a no-op. These tests instead assert directly on the field instance,
-    which is what `allow_null=True` actually sets and is exactly what a revert (e.g.
-    a bad merge-conflict resolution) would undo, regardless of whether the published
-    schema currently reflects it.
+    the public share-link view, and the bare-`APIView` notifications list) that, before
+    #1209, had no `serializer_class`/`@extend_schema` response wiring, so
+    `SchemaGenerator` either guessed the wrong component entirely (`Card`, for the two
+    `@action` endpoints) or published no response body at all. #1209 wired all four
+    (`CardActivity`, `CardAttachment`, `Notification`, `PublicCard` are now real
+    components), so `SerializerSchemaAnnotationTests` above now has the equivalent
+    schema-level assertions for all four fields this class covers.
 
-    Wiring these four endpoints for real schema publication is a separate, materially
-    larger issue than this one's four-site nullability fix; not undertaken here.
+    Kept as a supplement rather than deleted: these assert directly on the field
+    instance, which is what `allow_null=True` actually sets and is exactly what a
+    revert (e.g. a bad merge-conflict resolution, or a future endpoint refactor that
+    drops the response wiring again) would undo, independent of whatever the schema
+    currently reflects.
     """
 
     def test_card_activity_actor_field_allows_null(self):

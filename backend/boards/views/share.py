@@ -1,8 +1,9 @@
 """ShareBoardView — public read-only board access via share token."""
 
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiResponse
 from rest_framework.generics import get_object_or_404
 from django.utils import timezone
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.throttling import SimpleRateThrottle
 from rest_framework.views import APIView
@@ -69,6 +70,20 @@ class ShareBoardView(APIView):
     authentication_classes = []
     throttle_classes = [ShareLinkThrottle, ShareLinkTokenThrottle]
 
+    @extend_schema(
+        summary="Get a public read-only board by its share token",
+        description="No authentication required. The UUID token is the sole credential.",
+        responses={
+            200: PublicBoardSerializer,
+            404: OpenApiResponse(
+                description="Token is not a valid UUID, or no board has that share token.",
+            ),
+            410: OpenApiResponse(
+                description="The share link has expired.",
+                response=inline_serializer(name="ShareLinkExpired", fields={"detail": serializers.CharField()}),
+            ),
+        },
+    )
     def get(self, request, token):
         import uuid as _uuid
         try:
