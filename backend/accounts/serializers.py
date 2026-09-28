@@ -1,4 +1,5 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
@@ -91,6 +92,77 @@ class RegistrationSerializer(RegisterSerializer):
         required=False,
         validators=[UsernameFormatValidator()],
     )
+
+
+class LoginSerializer(DjRestAuthLoginSerializer):
+    """Authenticate through allauth's adapter instead of bare Django auth (#1199).
+
+    dj-rest-auth's own ``authenticate()`` calls ``django.contrib.auth.authenticate()``
+    directly. That bypasses ``allauth.account.adapter.DefaultAccountAdapter
+    .pre_authenticate()`` — the only place ``ACCOUNT_RATE_LIMITS["login_failed"]`` is
+    ever consumed — so the per-account lockout allauth is configured for never
+    actually engaged on this endpoint (the SPA/API login path every real client
+    uses). Only the coarser, per-IP ``LoginRateThrottle`` (#924) applied, which does
+    nothing against a distributed attacker spreading failed attempts across many
+    source IPs at one target account.
+
+    Routing through ``get_adapter(request).authenticate()`` instead reuses allauth's
+    own pre_authenticate -> authenticate -> rollback-on-success sequence, so this
+    view now shares the same per-account bucket allauth's own login views consume.
+    It also sidesteps the missing-``AUTHENTICATION_BACKENDS``-entry half of the bug:
+    the adapter still ultimately calls Django's ``authenticate()`` for the actual
+    credential check, so backend registration is unchanged from before, but the
+    rate-limit consult/rollback bookkeeping around it no longer depends on it.
+
+    On lockout, ``pre_authenticate()`` raises ``django.core.exceptions.
+    ValidationError`` (code ``too_many_login_attempts``) *before* the password is
+    checked at all, with allauth's own generic "too many attempts" message -- it
+    never reveals whether the account exists, and the account/email used as the
+    rate-limit key is SHA-256-hashed by allauth before it ever reaches the cache,
+    so nothing PII-bearing is logged. DRF's default field validation converts that
+    Django-style ``ValidationError`` into a plain 400 response automatically, same
+    as any other login validation failure.
+
+    Demo-mode carve-out (#1199 gate finding): when ``DEMO_MODE`` is on, the demo
+    login page publishes ``DEMO_LOGIN_USERNAME``'s password to every visitor
+    (that publication is the whole point of a public demo — see
+    visiban/settings.py's "Hosted demo mode" block). A per-account lockout on a
+    published credential protects nothing — everyone already has the password —
+    and instead becomes a trivial, repeatable DoS lever: any anonymous visitor
+    can send 5 wrong passwords for that one shared username and lock out every
+    other visitor for 5 minutes, indefinitely. So for that one identifier only,
+    ``authenticate()`` skips the allauth adapter (and its per-account
+    ``login_failed`` consult) and falls back to plain Django ``authenticate()``.
+    The per-IP ``LoginRateThrottle`` (#924) still applies regardless, and every
+    other account on a demo instance — including any real user accounts — keeps
+    the full per-account lockout.
+    """
+
+    def authenticate(self, **kwargs):
+        from allauth.account.adapter import get_adapter
+        from django.conf import settings
+        from django.contrib.auth import authenticate as django_authenticate
+
+        request = self.context["request"]
+        if settings.DEMO_MODE and self._is_demo_account(kwargs):
+            return django_authenticate(request, **kwargs)
+        return get_adapter(request).authenticate(request, **kwargs)
+
+    @staticmethod
+    def _is_demo_account(credentials):
+        """Whether these credentials target the published demo account.
+
+        Mirrors allauth's own key normalization in
+        ``DefaultAccountAdapter._get_login_attempts_cache_key`` (email takes
+        precedence over username, then lowercased) so the carve-out matches
+        exactly what the allauth lockout would otherwise key on — plus a strip,
+        since a demo visitor pasting the published credential is more likely to
+        pick up incidental whitespace than a real login attempt.
+        """
+        from django.conf import settings
+
+        identifier = credentials.get("email", credentials.get("username", ""))
+        return identifier.strip().lower() == settings.DEMO_LOGIN_USERNAME.strip().lower()
 
 
 class VisibanPasswordResetSerializer(PasswordResetSerializer):

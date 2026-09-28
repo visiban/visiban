@@ -83,6 +83,14 @@ def _require_group_member(user, group):
 class GroupViewSet(viewsets.ModelViewSet):
     """CRUD endpoints for groups, scoped to groups the requesting user is a member of."""
 
+    # Groups are only ever addressed by integer pk (no slug/uid lookup field
+    # exists or is exposed to clients). Constraining the router's pk segment
+    # to digits prevents a literal sibling path under the same "groups/"
+    # prefix — e.g. groups/join/<token>/ — from being swallowed by a detail
+    # route (groups/<pk>/star/, /boards/, /members/, ...) whenever the token
+    # or path segment happens to match an action name (#1202).
+    lookup_value_regex = r"\d+"
+
     # Explicitly enumerate the global default permission chain (#989) so that
     # any future @action(permission_classes=[...]) override is visibly diffed
     # against the baseline rather than silently dropping the pending-change
