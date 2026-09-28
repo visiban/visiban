@@ -276,7 +276,7 @@ class LoginPerAccountLockoutTests(TestCase):
     #1199 closes.
     """
 
-    PASSWORD = "correct-horse-battery-staple-1"
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
 
     def setUp(self):
         self.client = APIClient()
@@ -446,7 +446,7 @@ class AllauthHtmlLoginPerIpThrottleTests(TestCase):
     both rates must allow a request through.
     """
 
-    PASSWORD = "correct-horse-battery-staple-1"
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
 
     def setUp(self):
         # enforce_csrf_checks=False: this view renders and posts a real CSRF
