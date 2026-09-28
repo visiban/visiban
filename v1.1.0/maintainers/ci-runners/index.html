@@ -3432,6 +3432,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#dependency-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dependency Proxy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related-open-items" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3729,6 +3740,58 @@ than hardcoding credentials again.</p>
 misdiagnose as one — see <a href="../known-ci-failures/#oidc-smoke-did-not-become-ready-within-240s">Known CI Failures</a>
 for the actual root cause (an IPv6/HTTPS-required mismatch, not a slow boot or a runner
 problem).</p>
+<h2 id="dependency-proxy">Dependency Proxy<a class="headerlink" href="#dependency-proxy" title="Permanent link">&para;</a></h2>
+<p>Every Docker Hub <code>image:</code>/<code>services:</code> reference in <code>.gitlab-ci.yml</code> and <code>.gitlab/ghcr-push.yml</code>
+(and the kaniko <code>FROM</code> pulls, via each Dockerfile's <code>BASE_REGISTRY</code> build arg) resolves through
+<code>${DOCKERHUB_MIRROR}</code> rather than pulling <code>docker.io</code> anonymously — see
+<a href="../known-ci-failures/#docker-hub-429-too-many-requests-on-image-pulls">Known CI Failures</a>
+(#1198) for why. This requires:</p>
+<ol>
+<li><strong>The Dependency Proxy enabled for the <code>visiban</code> group</strong> — Settings → Packages and
+   Registries → Dependency Proxy. This is a one-time, human-applied group setting; nothing in
+   this repo can turn it on, and a fresh group (or a self-hosted GitLab instance forking this
+   project) needs it enabled before CI will go green.</li>
+<li><strong>No runner configuration change for <code>image:</code>/<code>services:</code> pulls</strong> — the runner
+   authenticates to <code>${DOCKERHUB_MIRROR}</code> (which resolves to
+   <code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code> by default — see below) automatically using the
+   predefined <code>CI_DEPENDENCY_PROXY_*</code> variables GitLab injects into every job; there is nothing
+   to add to a runner's <code>config.toml</code> for this.</li>
+<li><strong>A job that pulls images itself, rather than via <code>image:</code>/<code>services:</code>, must log in
+   explicitly.</strong> kaniko's <code>/kaniko/.docker/config.json</code> and the helm-drill <code>docker:dind</code>
+   daemon (<code>.helm-drill-base</code> before_script:
+   <code>echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u
+   "$CI_DEPENDENCY_PROXY_USER" --password-stdin</code> — <code>--password-stdin</code>, never <code>-p</code>, which leaves
+   the token readable in the container's own process list) both do this, guarded on
+   <code>CI_DEPENDENCY_PROXY_SERVER</code> being non-empty (see point 4). A new job added later that shells
+   out to <code>docker pull</code>/<code>docker build</code> against a Docker Hub image needs the same treatment, or
+   it will silently fall back to an anonymous pull.</li>
+<li><strong>Forks and self-hosted instances with no working group Dependency Proxy need a project
+   variable.</strong> The Dependency Proxy is a <strong>group-level-only</strong> GitLab feature — it does not exist
+   for personal namespaces at all — so <code>CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX</code> (and
+   <code>CI_DEPENDENCY_PROXY_SERVER</code>/<code>_USER</code>/<code>_PASSWORD</code>) are empty on, most notably, an external
+   contributor's personal-namespace fork pipeline. <code>.gitlab-ci.yml</code>'s top-level <code>variables:</code>
+   defines <code>DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>; a <code>script:</code>/
+   <code>before_script:</code> usage of it (the kaniko jobs' <code>--build-arg BASE_REGISTRY</code>,
+   <code>scripts/helm-install-drill.sh</code>, <code>scripts/helm-netpol-drill.sh</code>) falls back automatically with
+   real shell syntax (<code>${DOCKERHUB_MIRROR:-docker.io/library}</code>), because those run in an actual
+   shell. The bare <code>image:</code>/<code>services:</code>/<code>name:</code> keyword usages <strong>cannot</strong> self-heal this way —
+   GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
+   bash's <code>:-</code> fallback operator — so with an empty <code>DOCKERHUB_MIRROR</code> they'd resolve to a
+   leading-slash <code>/python:3.12-slim</code> and fail outright. A fork or self-hosted project without a
+   working group Dependency Proxy <strong>must</strong> set its own project CI/CD variable
+   <code>DOCKERHUB_MIRROR</code> (Settings → CI/CD → Variables) — e.g. <code>docker.io</code> to pull Docker Hub
+   directly (project variables take precedence over the <code>.gitlab-ci.yml</code> default), or its own
+   pull-through mirror.</li>
+</ol>
+<p>Third-party registries (<code>quay.io</code>'s Keycloak image, <code>ghcr.io</code>/<code>gcr.io</code> for trivy/kaniko,
+<code>mcr.microsoft.com</code>'s Playwright image) are out of scope — GitLab's Dependency Proxy only
+mirrors Docker Hub, so these keep pulling directly regardless of <code>DOCKERHUB_MIRROR</code>.</p>
+<p><strong>Not yet covered — arm64 release jobs (#1204):</strong> <code>.arm64-docker-push-base</code>,
+<code>backend-docker-push-arm64</code>, and <code>frontend-docker-push-arm64</code> (#1084, see "Docker image push"
+above) still pull their Docker Hub base images directly rather than through
+<code>${DOCKERHUB_MIRROR}</code>. Left out of #1198 deliberately: those jobs are being rewritten by the
+separate, still-open <strong>!964</strong>, and rewriting them here first would just create a conflict.
+Tracked as <strong>#1204</strong>, to apply once !964 merges.</p>
 <h2 id="related-open-items">Related open items<a class="headerlink" href="#related-open-items" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>#1084</strong> — resolved: native arm64 image publishing restored via <code>Max1-Runner-Visiban</code> +

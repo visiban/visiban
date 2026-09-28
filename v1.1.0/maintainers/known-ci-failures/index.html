@@ -3481,6 +3481,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#docker-hub-429-too-many-requests-on-image-pulls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docker Hub 429 Too Many Requests on image pulls
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3667,6 +3678,49 @@ main pipelines were red for exactly this reason (#1165).</p>
 the serializer or annotation fixed. Replay with the pipeline variable <code>FUZZ_SEED=&lt;n&gt;</code> or
 <code>st replay &lt;id&gt;</code>. Full triage steps: <a href="../../api/openapi/#a-red-backend-schema-fuzz-job-is-never-a-flake"><code>docs/api/openapi.md</code></a>.
 Known still-open defects it can hit: #1166.</p>
+<h2 id="docker-hub-429-too-many-requests-on-image-pulls">Docker Hub <code>429 Too Many Requests</code> on image pulls<a class="headerlink" href="#docker-hub-429-too-many-requests-on-image-pulls" title="Permanent link">&para;</a></h2>
+<p><strong>Signature:</strong> a job fails resolving a Docker Hub image, e.g.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>ERROR: failed to solve: python:3.12-slim: failed to resolve source metadata for
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docker.io/library/python:3.12-slim: unexpected status from HEAD request to
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>https://registry-1.docker.io/v2/library/python/manifests/3.12-slim: 429 Too Many Requests
+</code></pre></div>
+<p>Observed on <code>helm-install</code> and <code>helm-netpol</code> (job 16766757152/153, 2026-09-27), but the same
+signature can surface on any job that pulls a Docker Hub image — a runner <code>image:</code>/<code>services:</code>
+entry, a kaniko <code>FROM</code>, or a live pull inside a <code>helm-install</code>/<code>helm-netpol</code> kind cluster.</p>
+<p><strong>Root cause:</strong> self-hosted runners pull Docker Hub images <strong>anonymously</strong> from a shared IP,
+which hits Docker Hub's anonymous-pull rate limit. The helm drills are the worst offender:
+each one boots a fresh <code>docker:dind</code> daemon with no credentials and no image cache, then pulls
+the full base-image + <code>kindest/node</code> + in-cluster (postgres/valkey) set again from the runner's
+IP.</p>
+<p><strong>Fix (#1198):</strong> every <code>image:</code>/<code>services:</code> entry in <code>.gitlab-ci.yml</code> and
+<code>.gitlab/ghcr-push.yml</code> that points at Docker Hub now resolves through <code>${DOCKERHUB_MIRROR}/
+&lt;image&gt;</code>, which defaults to the GitLab Dependency Proxy prefix
+(<code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>) and which the runner authenticates to
+automatically. The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default <code>docker.io/library</code>,
+unchanged for local/contributor builds) that CI's kaniko jobs point at the same mirror. The
+<code>.helm-drill-base</code> before_script logs the dind daemon itself in to
+<code>$CI_DEPENDENCY_PROXY_SERVER</code> (skipped when that's empty — see below), and
+<code>scripts/helm-install-drill.sh</code> / <code>scripts/helm-netpol-drill.sh</code> pull <code>kindest/node</code> and the
+in-cluster postgres/valkey/busybox images through the mirror before side-loading them with
+<code>kind load docker-image</code>, so nothing inside the kind cluster does a live Docker Hub pull either.</p>
+<p><strong>Requires:</strong> the Dependency Proxy enabled for the <code>visiban</code> group (Settings → Packages and
+Registries → Dependency Proxy) — a one-time, human-applied group setting, not something a
+pipeline can turn on. If this signature reappears, check that setting first before assuming the
+proxy rewrite regressed. Third-party registries (<code>quay.io</code>, <code>ghcr.io</code>, <code>gcr.io</code>,
+<code>mcr.microsoft.com</code>) are <strong>not</strong> routed through the proxy — GitLab's Dependency Proxy only
+mirrors Docker Hub — so a 429 from one of those is a different problem. See
+<a href="../ci-runners/#dependency-proxy">CI Runners</a> for the runner-side requirement.</p>
+<p><strong>On a fork or self-hosted instance:</strong> the Dependency Proxy is a group-level-only GitLab
+feature — it doesn't exist for personal namespaces — so a personal-namespace fork pipeline gets
+<code>CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX</code> (and therefore <code>DOCKERHUB_MIRROR</code>) empty. <code>image:</code>/
+<code>services:</code>/<code>name:</code> YAML keyword usages of <code>DOCKERHUB_MIRROR</code> cannot fall back on their own (no
+shell, no <code>:-</code> operator); set a project CI/CD variable <code>DOCKERHUB_MIRROR=docker.io</code> (or your own
+mirror) to fix those. <code>BASE_REGISTRY</code>/script usages fall back to <code>docker.io/library</code>
+automatically with no configuration needed. See
+<a href="../ci-runners/#dependency-proxy">CI Runners</a> point 4 for the full explanation.</p>
+<p><strong>Not yet covered:</strong> the arm64 release jobs (<code>.arm64-docker-push-base</code>,
+<code>backend-docker-push-arm64</code>, <code>frontend-docker-push-arm64</code>, #1084) still pull Docker Hub images
+directly — deferred to <strong>#1204</strong>, to apply once !964 (which rewrites those jobs) merges.</p>
 
 
 
