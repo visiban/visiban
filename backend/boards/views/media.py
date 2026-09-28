@@ -97,7 +97,15 @@ class ServeMediaView(APIView):
             resolved = os.path.realpath(os.path.join(media_root, path))
             if os.path.commonpath([media_root, resolved]) != media_root:
                 raise Http404
-            resp = FileResponse(open(resolved, "rb"), content_type=content_type)
+            try:
+                fh = open(resolved, "rb")
+            except FileNotFoundError:
+                # The row exists but its file does not: e.g. the public demo's
+                # seed runs in its own pod, so a seeded attachment has no file on
+                # the serving pod (#1180), or a media volume was lost. A missing
+                # file is a 404, not an unhandled 500.
+                raise Http404
+            resp = FileResponse(fh, content_type=content_type)
             resp["Content-Disposition"] = disposition
             return resp
 

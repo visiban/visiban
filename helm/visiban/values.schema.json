@@ -76,6 +76,11 @@
               "description": "VISIBAN_IMPORT_MAX_SIZE — maximum Trello JSON export size for the board import wizard, in bytes. Also feeds the derived transport limits.",
               "type": "integer",
               "minimum": 1
+            },
+            "numProxies": {
+              "description": "NUM_PROXIES (#1180): reverse proxies in front of the backend that append to X-Forwarded-For. null (default) renders nothing and keeps the backend default of 1; 2 behind a Cloudflare Tunnel (values-demo.yaml).",
+              "type": ["integer", "null"],
+              "minimum": 0
             }
           }
         },
@@ -414,6 +419,85 @@
                   "string",
                   "integer"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "demo": {
+      "description": "Public demo mode (#1180). Off by default; nothing renders unless enabled. The cross-field rules (a published login is required, charset limits, no SSO/SMTP/media PVC, NetworkPolicy on) are render-time guards in templates/_validate.tpl.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "loginHint": {
+          "description": "The PUBLISHED visitor credential, printed on the login page.",
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "username": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "adminPassword": { "description": "Demo site admin password. Never published.", "type": "string" },
+        "memberPassword": { "description": "Password of the seeded member accounts. Not published.", "type": "string" },
+        "reset": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "schedule": {
+              "description": "Minute/hour cron expression, always evaluated in UTC. Also rendered as the backend's DEMO_RESET_SCHEDULE, which drives the visitor countdown.",
+              "type": "string",
+              "minLength": 1
+            },
+            "startingDeadlineSeconds": { "type": "integer", "minimum": 10 },
+            "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+            "backoffLimit": { "type": "integer", "minimum": 0 },
+            "successfulJobsHistoryLimit": { "type": "integer", "minimum": 0 },
+            "failedJobsHistoryLimit": {
+              "description": "At least 1, so a failed reset stays visible to an operator.",
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "seed": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "activeDeadlineSeconds": { "type": "integer", "minimum": 1 },
+            "backoffLimit": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "resources": {
+          "description": "Seed hook and reset pods. Passed through with toYaml.",
+          "type": "object"
+        },
+        "throttle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "userRate": {
+              "description": "DEMO_USER_THROTTLE_RATE: ceiling on the one shared visitor account's `user` throttle scope. Empty keeps the normal rate.",
+              "type": "string"
+            }
+          }
+        },
+        "resourceQuota": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "hard": { "description": "ResourceQuota .spec.hard, passed through with toYaml.", "type": "object" },
+            "containerDefaults": {
+              "description": "LimitRange defaults for containers that declare no requests/limits.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "requests": { "type": "object" },
+                "limits": { "type": "object" }
               }
             }
           }

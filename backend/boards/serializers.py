@@ -17,7 +17,10 @@ from accounts.serializers import BoardUserSerializer
 # does, but lazily, inside its methods).
 from groups.serializers import GroupBriefSerializer
 
-from .permissions import MODERATOR_BEARING_EVENTS, ROLES_WITH_MODERATOR_VISIBILITY
+from .permissions import (
+    MODERATOR_BEARING_EVENTS,
+    moderator_field_visible,
+)
 
 from .models import (
     Board, BoardEvent, BoardExportLog, BoardMembership, BoardTemplate, Column, Swimlane, Label, Card,
@@ -47,13 +50,21 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Strip ``is_moderator`` from the response when the requesting user is
-        not an admin or site_admin (#920).
+        not an admin/site_admin and not the row's own subject (#920/#1173).
 
         Moderator status is an internal trust tier — admins promote a member to
         moderator so they can edit/delete other members' content.  Exposing the
         flag to viewers and members reveals organisational signal that should
-        not be visible at those roles.  Admin reads (members panel, member POST
-        response) keep the field.
+        not be visible at those roles, on rows that belong to someone else.
+        Admin reads (members panel, member POST response) keep the field on
+        every row; a non-admin sees it only on their own row — the same rule
+        ``moderator_field_visible()`` applies for ``BoardFullSerializer``,
+        ``BoardConsumer``, and ``BoardEventSerializer`` (#1191). This
+        serializer's only caller (the admin-only members POST endpoint,
+        ``views/boards.py``) always resolves ``role`` to admin/site_admin
+        before instantiating this serializer, so the self-row branch is inert
+        there today — but a future non-admin-readable caller gets the correct
+        behavior for free rather than restating the tuple check.
 
         The broadcast surface (``member.added`` / ``member.updated`` events)
         does not filter at the serializer layer because it has no
@@ -65,17 +76,21 @@ class BoardMembershipSerializer(serializers.ModelSerializer):
         view) or falls back to ``get_board_role`` when a request and board are
         available in context.  In contexts where the role cannot be resolved
         (e.g. broadcast payloads built without a request) the field is kept —
-        the consumer-layer filter is the second line of defense.
+        the consumer-layer filter is the second line of defense. Once a role
+        *is* known, visibility is decided by ``moderator_field_visible()``,
+        which fails closed if the viewer id cannot be resolved.
         """
         data = super().to_representation(instance)
-        from .permissions import get_board_role, SITE_ADMIN
+        from .permissions import get_board_role
         role = self.context.get("role")
         request = self.context.get("request")
         board = self.context.get("board")
         if role is None and request and board and request.user.is_authenticated:
             role = get_board_role(request.user, board)
-        if role is not None and role not in (BoardMembership.Role.ADMIN, SITE_ADMIN):
-            data.pop("is_moderator", None)
+        if role is not None:
+            viewer_id = request.user.id if request and request.user.is_authenticated else None
+            if not moderator_field_visible(role, viewer_id, instance.user_id):
+                data.pop("is_moderator", None)
         return data
 
 
@@ -119,13 +134,25 @@ class BoardEventSerializer(serializers.ModelSerializer):
         when the role is unknown — it can afford to, because the consumer layer
         is its second line of defense. The feed has no second line, so an
         unknown role here must mean "show less", never "show more".
+
+        A non-admin reader still sees the flag on the row that is their OWN
+        membership (#1191, mirroring the /full/ self-row exception from
+        #1173) — every other row stays stripped. The reader's id arrives as
+        ``context["reader_id"]``; a missing or anonymous reader fails closed,
+        same as an unknown role.
         """
         data = super().to_representation(instance)
         if instance.event in MODERATOR_BEARING_EVENTS:
             role = self.context.get("role")
-            if role not in ROLES_WITH_MODERATOR_VISIBILITY:
-                payload = data.get("data")
-                if isinstance(payload, dict) and "is_moderator" in payload:
+            reader_id = self.context.get("reader_id")
+            payload = data.get("data")
+            if isinstance(payload, dict) and "is_moderator" in payload:
+                # The feed replays arbitrarily old rows, so `user` is whatever
+                # shape was stored at write time — never assume it is a dict
+                # (a malformed/legacy row must fail closed, not 500).
+                subject = payload.get("user")
+                subject_user_id = subject.get("id") if isinstance(subject, dict) else None
+                if not moderator_field_visible(role, reader_id, subject_user_id):
                     data["data"] = {k: v for k, v in payload.items() if k != "is_moderator"}
         return data
 
@@ -791,7 +818,15 @@ def _normalize_custom_field_value(definition, raw):
             )
         return text
 
-    return text
+    # TEXT falls through to here, as does any field type this function does not
+    # special-case above. Unlike NUMBER/DATE/CHECKBOX/DROPDOWN, none of which can
+    # carry a NUL past their own parsing, free text can — and Postgres refuses to
+    # store a string containing "\x00" outright (DataError, not a ValidationError),
+    # the same gap #1184 closed on the definition serializers (see
+    # reject_nul_byte's docstring). CardSerializer's and SwimlaneSerializer's
+    # writable custom_field_values both funnel through this one function, so this
+    # single check covers both write paths (#1188).
+    return reject_nul_byte(text, field_label=definition.name)
 
 
 def _run_custom_field_validator_hooks(definition, value, *, hook_name="CUSTOM_FIELD_VALIDATORS"):
@@ -2327,12 +2362,11 @@ class BoardFullSerializer(serializers.ModelSerializer):
 
         # Hide is_moderator from non-admin viewers (#920).  Resolve the
         # requesting user's role once here rather than in the per-row loop.
-        from .permissions import get_board_role, SITE_ADMIN
+        from .permissions import get_board_role
         viewer_role = self.context.get("role")
         request = self.context.get("request")
         if viewer_role is None and request and request.user.is_authenticated:
             viewer_role = get_board_role(request.user, obj)
-        is_admin_viewer = viewer_role in (BoardMembership.Role.ADMIN, SITE_ADMIN)
 
         requesting_user_id = request.user.id if request and request.user.is_authenticated else None
 
@@ -2346,20 +2380,20 @@ class BoardFullSerializer(serializers.ModelSerializer):
                 "role": entry["role"],
                 "joined_at": entry["joined_at"],
             }
-            if is_admin_viewer or entry["user"].pk == requesting_user_id:
-                # #920 hides is_moderator from non-admin viewers because it's an
-                # internal trust tier that shouldn't leak to OTHER members. But
-                # hiding it on the requester's OWN row breaks the feature it
-                # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
-                # BulkActionToolbar.tsx) check `is_moderator` on the current
-                # user's row to decide whether to show moderator-only UI, so a
-                # non-admin member promoted to moderator would never see their
-                # own moderator controls (#1173). Reveal it only for the row
-                # that is the requesting user; every other non-admin-visible
-                # row still omits it. The WS member.* broadcasts and the
-                # change-feed reader (BoardEventSerializer) have the same
-                # self-row gap and do not yet have this exception — tracked
-                # separately as #1191.
+            # #920 hides is_moderator from non-admin viewers because it's an
+            # internal trust tier that shouldn't leak to OTHER members. But
+            # hiding it on the requester's OWN row breaks the feature it
+            # gates: frontend consumers (CardDetail.tsx, ArchivedCardsPanel.tsx,
+            # BulkActionToolbar.tsx) check `is_moderator` on the current
+            # user's row to decide whether to show moderator-only UI, so a
+            # non-admin member promoted to moderator would never see their
+            # own moderator controls (#1173). moderator_field_visible() reveals
+            # it only for the row that is the requesting user; every other
+            # non-admin-visible row still omits it. BoardMembershipSerializer,
+            # BoardConsumer.board_event, and BoardEventSerializer.to_representation
+            # call the same helper, so all four surfaces share one definition
+            # of the rule (#1191).
+            if moderator_field_visible(viewer_role, requesting_user_id, entry["user"].pk):
                 row["is_moderator"] = entry["is_moderator"]
             result.append(row)
         return result

@@ -51,6 +51,22 @@ class RegistrationAdapter(DefaultAccountAdapter):
             raise PermissionDenied("Registration is closed.")
         return super().save_user(request, user, form, commit)
 
+    def get_client_ip(self, request) -> str:
+        """Key allauth's per-IP rate limits on the same address DRF throttles on (#1180).
+
+        allauth resolves the client itself (``ALLAUTH_TRUSTED_PROXY_COUNT``,
+        default 0), which behind the bundled nginx means REMOTE_ADDR — the nginx
+        pod — so every allauth ``ip`` rate-limit bucket (``login_failed``,
+        signup, password reset, ...) was one bucket shared by every client.
+        Delegating to ``visiban.utils.get_client_ip`` makes allauth honor the
+        same ``NUM_PROXIES`` as the DRF throttles, so the two controls always
+        agree on who the client is. The fallback address is never empty, so
+        the base class's "unable to determine client IP" refusal cannot fire.
+        """
+        from visiban.utils import get_client_ip
+
+        return get_client_ip(request)
+
     def get_email_confirmation_url(self, request, emailconfirmation):
         """Build the email-confirmation link pointing at the frontend SPA.
 

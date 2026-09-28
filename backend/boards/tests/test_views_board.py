@@ -221,6 +221,20 @@ class BoardMembersTests(TestCase):
         )
 
     @patch(PATCH_BROADCAST)
+    def test_add_member_response_keeps_is_moderator_for_admin_caller(self, _):
+        """The members POST endpoint requires admin, so its response must
+        always carry is_moderator regardless of the #1191 refactor that routed
+        BoardMembershipSerializer through the shared moderator_field_visible()
+        rule — this caller's role is always admin/site_admin."""
+        r = self.client.post(
+            f"/api/v1/boards/{self.board.id}/members/",
+            {"user_id": self.target.id, "role": "member", "is_moderator": True},
+        )
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED)
+        self.assertIn("is_moderator", r.data)
+        self.assertTrue(r.data["is_moderator"])
+
+    @patch(PATCH_BROADCAST)
     def test_admin_can_remove_member(self, _):
         BoardMembership.objects.create(board=self.board, user=self.target, role=BoardMembership.Role.MEMBER)
         r = self.client.delete(f"/api/v1/boards/{self.board.id}/members/{self.target.id}/")
@@ -238,6 +252,43 @@ class BoardMembersTests(TestCase):
             {"user_id": self.target.id, "role": "member"},
         )
         self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_serializer_self_row_exception_for_non_admin_context(self):
+        """Direct unit check on the shared rule (#1191): given a non-admin
+        role context, BoardMembershipSerializer still reveals is_moderator on
+        the row belonging to the requesting user. The endpoint that actually
+        uses this serializer never resolves a non-admin role (it requires
+        admin to reach this serializer at all) — this pins the serializer's
+        own correctness independent of that caller."""
+        from rest_framework.test import APIRequestFactory
+        from boards.serializers import BoardMembershipSerializer
+
+        membership = BoardMembership.objects.create(
+            board=self.board, user=self.target, role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        request = APIRequestFactory().get("/")
+        request.user = self.target
+        data = BoardMembershipSerializer(
+            membership, context={"role": "member", "board": self.board, "request": request},
+        ).data
+        self.assertIn("is_moderator", data)
+        self.assertTrue(data["is_moderator"])
+
+    def test_serializer_still_strips_other_rows_for_non_admin_context(self):
+        """The self-row exception above must not leak to a row about someone else."""
+        from rest_framework.test import APIRequestFactory
+        from boards.serializers import BoardMembershipSerializer
+
+        membership = BoardMembership.objects.create(
+            board=self.board, user=self.target, role=BoardMembership.Role.MEMBER, is_moderator=True,
+        )
+        other = User.objects.create_user(username="other_row", password="pass")
+        request = APIRequestFactory().get("/")
+        request.user = other
+        data = BoardMembershipSerializer(
+            membership, context={"role": "viewer", "board": self.board, "request": request},
+        ).data
+        self.assertNotIn("is_moderator", data)
 
     def test_cannot_modify_site_admin_membership(self):
         site_admin = User.objects.create_user(username="sa", password="pass", is_site_admin=True)

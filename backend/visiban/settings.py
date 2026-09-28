@@ -297,6 +297,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SITE_ID = 1
 
+# Trusted reverse-proxy depth (#1180). Strictly parsed: a typo refuses to boot
+# rather than silently collapsing every visitor into one throttle bucket (or
+# letting clients choose their own). Unset keeps the pre-#1180 value of 1.
+from visiban.utils import parse_num_proxies as _parse_num_proxies  # noqa: E402
+
+_NUM_PROXIES = _parse_num_proxies(os.environ.get("NUM_PROXIES"))
+
 # DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -333,9 +340,15 @@ REST_FRAMEWORK = {
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
     "DEFAULT_VERSION": "v1",
     "ALLOWED_VERSIONS": ["v1"],
-    # Tell DRF to trust exactly one proxy (Nginx) when parsing X-Forwarded-For
-    # for rate limiting and IP detection. Prevents IP spoofing via header injection.
-    "NUM_PROXIES": 1,
+    # How many reverse proxies in front of Django append to X-Forwarded-For.
+    # DRF keys every per-IP throttle on the entry this many hops from the right,
+    # and visiban.utils.get_client_ip (admin allowlist, allauth rate limits)
+    # reads the same value. Default 1 = the bundled nginx alone. A deployment
+    # behind another proxy layer (the public demo's Cloudflare Tunnel, #1180)
+    # must raise it, or every visitor shares the tunnel's address and one
+    # client exhausts the login/anon throttles for everyone. Raising it past
+    # the real chain lets a client pick its own bucket via a spoofed header.
+    "NUM_PROXIES": _NUM_PROXIES,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -646,7 +659,8 @@ APP_VERSION = normalize_app_version(env("APP_VERSION", default="dev"))
 # on, the public /api/v1/auth/site-config/ endpoint publishes the demo login
 # credentials so the login page can show them — that publication is the whole
 # point of a public demo, so ONLY ever enable this on a throwaway instance with
-# its own database (see deploy/demo/README.md). The credentials come from env,
+# its own database (see docs/administration/demo-data.md; the supported deploy
+# is the Helm chart's `demo:` mode, #1180). The credentials come from env,
 # never from source; the seeder (`seed_demo_data --demo-site`) reads the same
 # variables so what is published always matches what was seeded.
 #
@@ -656,6 +670,7 @@ APP_VERSION = normalize_app_version(env("APP_VERSION", default="dev"))
 # it as False) while the login page still publishes a credential.
 from visiban.demo import parse_demo_mode as _parse_demo_mode  # noqa: E402
 from visiban.demo import parse_demo_reset_schedule as _parse_demo_reset_schedule  # noqa: E402
+from visiban.demo import DEFAULT_DEMO_RESET_SCHEDULE  # noqa: E402
 
 DEMO_MODE = _parse_demo_mode(os.environ.get("DEMO_MODE"))
 # The PUBLISHED account (#1179): a non-admin "visitor", MEMBER on every seeded
@@ -673,9 +688,21 @@ DEMO_MEMBER_PASSWORD = env("DEMO_MEMBER_PASSWORD", default="")
 # from one Helm value). Drives `demo_next_reset_at`, the countdown the login
 # page and the in-app demo bar show. Validated at boot only while DEMO_MODE is
 # on: a schedule the backend cannot evaluate would publish a wrong countdown.
-DEMO_RESET_SCHEDULE = env("DEMO_RESET_SCHEDULE", default="0 * * * *")
+#
+# UNSET and SET-BUT-EMPTY mean different things, deliberately (#1180). Unset
+# keeps the hourly default, so a demo run outside the chart behaves as it did
+# in #1179. Empty means "no reset is scheduled": the Helm chart renders it
+# empty when `demo.reset.enabled` is false, and the login page and demo bar
+# must then promise no reset at all rather than an hourly one that never runs
+# (TruePPM ADR-1197 D9). `os.environ.get`, not `env()`, because the default
+# must apply only when the variable is absent.
+_raw_demo_reset_schedule = os.environ.get("DEMO_RESET_SCHEDULE")
+DEMO_RESET_SCHEDULE = (
+    DEFAULT_DEMO_RESET_SCHEDULE if _raw_demo_reset_schedule is None else _raw_demo_reset_schedule.strip()
+)
 if DEMO_MODE:
-    _parse_demo_reset_schedule(DEMO_RESET_SCHEDULE)
+    if DEMO_RESET_SCHEDULE:
+        _parse_demo_reset_schedule(DEMO_RESET_SCHEDULE)
 elif os.environ.get("DEMO_LOGIN_USERNAME") or os.environ.get("DEMO_LOGIN_PASSWORD"):
     # A warning, not a crash: a leftover variable on a real install publishes
     # nothing (SiteConfigView gates on DEMO_MODE), but it usually means the
@@ -686,6 +713,15 @@ elif os.environ.get("DEMO_LOGIN_USERNAME") or os.environ.get("DEMO_LOGIN_PASSWOR
         "DEMO_LOGIN_USERNAME/DEMO_LOGIN_PASSWORD is set but DEMO_MODE is off: "
         "the demo write fence is NOT armed and no credential is published."
     )
+
+# #1180: the `user` throttle re-aimed for the demo's one shared account (see
+# visiban.demo.parse_demo_user_throttle_rate for why). Applied only while
+# DEMO_MODE is on, so a leftover variable cannot loosen a real install's limits.
+from visiban.demo import parse_demo_user_throttle_rate as _parse_demo_user_throttle_rate  # noqa: E402
+
+_DEMO_USER_THROTTLE_RATE = _parse_demo_user_throttle_rate(os.environ.get("DEMO_USER_THROTTLE_RATE"))
+if DEMO_MODE and _DEMO_USER_THROTTLE_RATE:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["user"] = _DEMO_USER_THROTTLE_RATE
 
 # Email backend — console in development (prints to stdout), SMTP in production.
 # Set EMAIL_BACKEND explicitly to override (e.g. for testing or third-party relay).

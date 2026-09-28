@@ -40,4 +40,10 @@ paths = [
   '''(^|/)frontend/src/test/accessTokensTab\.test\.tsx$''',
   '''(^|/)frontend/src/test/adminPage\.test\.tsx$''',
   '''(^|/)frontend/src/test/apiAuth\.test\.ts$''',
+  # CI drill script (#1180): hardcoded demo-mode fixture passwords
+  # (netpol-visitor-pw-1, etc.), passed via --set-string only to satisfy the
+  # Helm chart's own render guards while proving the egress NetworkPolicy
+  # under a real kind+Calico cluster. Never a real credential — the whole
+  # point of the drill is that these are thrown away with the cluster.
+  '''(^|/)scripts/helm-netpol-drill\.sh$''',
 ]

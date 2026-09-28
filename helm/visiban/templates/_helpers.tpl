@@ -170,3 +170,177 @@ thing the chart tells an operator to run.
 {{- define "visiban.frontend.selectorArg" -}}
 app.kubernetes.io/name={{ include "visiban.name" . }},app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=frontend
 {{- end }}
+
+{{/*
+Public demo mode helpers (#1180).
+
+Nil-safe on purpose. `helm upgrade --reuse-values` from a release that predates
+the `demo:` block carries no `.Values.demo` at all, and `.Values.demo.enabled`
+on a missing map is a raw nil-pointer render error on every upgrade — so every
+template that decides WHETHER to render demo objects asks visiban.demoEnabled
+instead of dereferencing the map. The loginHint halves are nil-safe for the
+same reason TruePPM's are: `--set demo.loginHint=null` must reach the guard's
+crafted message in _validate.tpl, not a Go nil-pointer error.
+*/}}
+{{- define "visiban.demoEnabled" -}}
+{{- if (.Values.demo | default dict).enabled -}}true{{- end -}}
+{{- end }}
+
+{{- define "visiban.demoLoginUsername" -}}
+{{- (dig "loginHint" "username" "" (.Values.demo | default dict)) | toString -}}
+{{- end }}
+
+{{- define "visiban.demoLoginPassword" -}}
+{{- (dig "loginHint" "password" "" (.Values.demo | default dict)) | toString -}}
+{{- end }}
+
+{{/*
+"true" when the scheduled reset CronJob renders. Default true inside demo mode,
+matching values.yaml, so a hand-written `demo:` block that omits `reset` still
+gets the reset the login page will promise.
+*/}}
+{{- define "visiban.demoResetEnabled" -}}
+{{- if and (include "visiban.demoEnabled" .) (dig "reset" "enabled" true (.Values.demo | default dict)) -}}true{{- end -}}
+{{- end }}
+
+{{/*
+The ONE statement of the reset cadence. Rendered into the CronJob's `schedule`
+AND into the backend's DEMO_RESET_SCHEDULE (which drives the countdown), and
+empty when the reset is disabled so the login page promises nothing that is not
+running (TruePPM ADR-1197 D9, as amended 2026-09-21).
+*/}}
+{{- define "visiban.demoResetSchedule" -}}
+{{- if include "visiban.demoResetEnabled" . -}}
+{{- dig "reset" "schedule" "0 * * * *" (.Values.demo | default dict) | toString | trim -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+The demo Secret: the published visitor password, and the admin and member
+passwords that are never published. Separate from the runtime Secret so it is
+chart-managed even when secret.existingSecret is set.
+*/}}
+{{- define "visiban.demoSecretName" -}}
+{{- printf "%s-demo" (include "visiban.fullname" .) -}}
+{{- end }}
+
+{{- define "visiban.demoSecretData" -}}
+demo-login-password: {{ include "visiban.demoLoginPassword" . | quote }}
+demo-admin-password: {{ .Values.demo.adminPassword | toString | quote }}
+demo-member-password: {{ .Values.demo.memberPassword | toString | quote }}
+{{- end }}
+
+{{/*
+Components whose pods open a datastore connection — the single list both the
+datastore ingress allow-lists and the demo egress policy are built from, so the
+two can never disagree about who is a datastore client. `demo-seed` is the demo
+seed hook AND the reset CronJob (templates/demo-seed-job.yaml,
+templates/demo-reset-cronjob.yaml). It is added only while demo mode is on, so
+a release without it renders exactly the policies it did before #1180.
+scripts/helm-structure-check.sh section 7 asserts every rendered workload is on
+the list or deliberately excluded, for the default AND the demo render.
+*/}}
+{{- define "visiban.datastoreClients" -}}
+backend scheduler{{ if include "visiban.demoEnabled" . }} demo-seed{{ end }}
+{{- end }}
+
+{{/*
+Pod spec shared by the demo seed hook and the demo reset CronJob (#1180).
+
+ONE definition on purpose: the reset must be exactly the install-time seed, run
+on a timer. If the two drifted, the published password or the seed state after
+a reset could differ from what a fresh install produces, and the login hint
+could end up pointing at an account that no longer opens.
+scripts/helm-structure-check.sh section 9 asserts both renders stay identical.
+
+  - `migrate` init container first: Helm does not wait for the backend to be
+    Ready before firing a post-install hook unless --wait is passed, and a reset
+    can land mid-upgrade, so the seed must never run against an unmigrated
+    schema. `migrate_with_lock` serializes it with the backend pod's own migrate
+    init container on the same PostgreSQL advisory lock (#1117).
+  - `seed_demo_data --force --wipe --demo-site --reset-database`: empties EVERY
+    table (sessions included, so every visitor is signed out, as the login page
+    warns), then reseeds, re-applying the published visitor password from
+    DEMO_LOGIN_PASSWORD on every run. `--demo-site` refuses to run unless
+    DEMO_MODE is on, so this command cannot empty a non-demo database.
+  - Pods carry `app.kubernetes.io/component: demo-seed`, which is on the
+    datastore allow-list and in the demo egress policy (networkpolicy.yaml).
+  - No readiness coupling: nothing in the backend depends on this pod
+    succeeding. A failed reset leaves the previous (stale) demo data up and a
+    failed Job to `kubectl logs`; it never takes the demo down (TruePPM ADR-1197
+    D9).
+*/}}
+{{- define "visiban.demoSeedPodSpec" -}}
+restartPolicy: Never
+automountServiceAccountToken: false
+securityContext:
+  runAsNonRoot: true
+  # The backend image's `visiban` user (backend/Dockerfile). Numeric because the
+  # kubelet cannot verify runAsNonRoot against a user NAME.
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+volumes:
+  - name: tmp
+    emptyDir: {}
+  # The base demo board seeds one small attachment, and the root filesystem is
+  # read-only. The file lands in this pod's own scratch volume, NOT in the
+  # backend pod's media (demo mode has no shared media volume by design: the
+  # media PVC is refused), so that one seeded attachment has no file behind it
+  # on the served instance and its download answers 404.
+  - name: media
+    emptyDir: {}
+initContainers:
+  - name: migrate
+    image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+    imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+    command: ["python", "manage.py", "migrate_with_lock"]
+    env:
+      {{- include "visiban.backendEnv" . | nindent 6 }}
+      - name: VISIBAN_MIGRATE_CONNECT_TIMEOUT
+        value: {{ .Values.backend.migrate.connectTimeout | int | quote }}
+      - name: VISIBAN_MIGRATE_LOCK_TIMEOUT
+        value: {{ .Values.backend.migrate.lockTimeout | int | quote }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    volumeMounts:
+      - name: tmp
+        mountPath: /tmp
+    resources:
+      {{- toYaml .Values.demo.resources | nindent 6 }}
+containers:
+  - name: demo-seed
+    image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+    imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+    command: ["python", "manage.py", "seed_demo_data", "--force", "--wipe", "--demo-site", "--reset-database"]
+    env:
+      {{- include "visiban.backendEnv" . | nindent 6 }}
+      # Seed-only: the backend never needs these two, so they are not in
+      # visiban.demoEnv and never reach the serving pod.
+      - name: DEMO_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "visiban.demoSecretName" . }}
+            key: demo-admin-password
+      - name: DEMO_MEMBER_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: {{ include "visiban.demoSecretName" . }}
+            key: demo-member-password
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+    volumeMounts:
+      - name: tmp
+        mountPath: /tmp
+      - name: media
+        mountPath: /app/media
+    resources:
+      {{- toYaml .Values.demo.resources | nindent 6 }}
+{{- end }}

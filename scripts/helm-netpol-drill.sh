@@ -42,6 +42,19 @@
 #             PostgreSQL (so "denied" came from the policy, not from Calico
 #             being misconfigured or the datastore being down)
 #
+# Then PUBLIC DEMO MODE (#1180): the release is upgraded to values-demo.yaml,
+# which adds an EGRESS policy for every datastore client (TruePPM ADR-1197 D7):
+#   POSITIVE  the demo seed hook itself reached PostgreSQL through both the
+#             ingress allow-list and the egress policy (the upgrade completes)
+#   POSITIVE  backend- and demo-seed-labeled pods still reach PostgreSQL and
+#             Valkey BY SERVICE NAME (so DNS is allowed too)
+#   NEGATIVE  the same pods cannot open a connection to an address outside the
+#             pod network (the kind node's API server port, which needs no
+#             internet access to be reachable, so the drill is deterministic)
+#   CONTROL   an unlabeled pod CAN reach that same address (so "denied" meant
+#             the egress policy, not an unreachable target), and after the
+#             policies are deleted a backend-labeled pod can too
+#
 # Without those two controls a completely broken CNI scores a perfect run, and
 # the drill would be worse than nothing: it would testify to isolation it never
 # observed.
@@ -271,6 +284,42 @@ expect DENIED "$(probe probe-migrate-pg "${NAME_LABEL},${INSTANCE_LABEL},app.kub
   "retired 'migrate' component -> PostgreSQL (#1117)"
 
 # ---------------------------------------------------------------------------
+step "DEMO MODE — upgrade to values-demo.yaml, egress is denied (#1180)"
+# ---------------------------------------------------------------------------
+# The upgrade is itself the first demo assertion: its post-upgrade seed hook
+# (component demo-seed) must migrate and seed THROUGH the enforced ingress
+# allow-lists and the new egress policy, or `--wait` times out on the hook.
+# shellcheck disable=SC2046  # release_args is deliberately word-split
+helm upgrade "$RELEASE" "$CHART" $(release_args) \
+  -f "$CHART/values-demo.yaml" \
+  --set-string demo.loginHint.password=netpol-visitor-pw-1 \
+  --set-string demo.adminPassword=netpol-admin-password-1 \
+  --set-string demo.memberPassword=netpol-member-password-1 \
+  --wait --timeout 12m \
+  || die "the demo upgrade did not complete under enforced NetworkPolicy — the demo-seed hook could not reach a datastore (allow-list or egress policy)"
+ok "demo seed hook ran under enforced ingress AND egress policy"
+
+# An address outside the pod network that any pod can normally reach without
+# internet access: the kind control-plane node's API server port.
+NODE_IP="$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')"
+[ -n "$NODE_IP" ] || die "could not read the node's InternalIP for the egress probe"
+
+expect ALLOWED "$(probe probe-demo-control-external "drill=unlabeled" "$NODE_IP" 6443)" \
+  "unlabeled pod -> ${NODE_IP}:6443 (control: the target is reachable)"
+for component in backend demo-seed; do
+  expect ALLOWED "$(probe "probe-demo-${component}-pg" "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=${component}" "$PG_SVC" 5432)" \
+    "demo: ${component} -> PostgreSQL by Service name (DNS + datastore egress allowed)"
+  expect ALLOWED "$(probe "probe-demo-${component}-valkey" "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=${component}" "$VALKEY_SVC" 6379)" \
+    "demo: ${component} -> Valkey"
+  expect DENIED "$(probe "probe-demo-${component}-external" "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=${component}" "$NODE_IP" 6443)" \
+    "demo: ${component} -> ${NODE_IP}:6443 (outside the cluster's pod network)"
+done
+# A backend pod in demo mode must not reach the frontend either: the egress
+# policy allows DNS and the datastores, nothing else.
+expect DENIED "$(probe probe-demo-backend-frontend "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=backend" "$FRONTEND_SVC" 80)" \
+  "demo: backend -> frontend"
+
+# ---------------------------------------------------------------------------
 step "CONTROL 1 — a denied pod still has working networking"
 # ---------------------------------------------------------------------------
 # The frontend policy has no `from` clause, so anything may reach it on :80. If
@@ -291,10 +340,12 @@ kubectl -n "$NAMESPACE" delete networkpolicy --all >/dev/null
 sleep 10
 expect ALLOWED "$(probe probe-control-nopolicy "drill=unlabeled" "$PG_SVC" 5432)" \
   "unlabeled pod -> PostgreSQL with policies removed (control)"
+expect ALLOWED "$(probe probe-control-demo-egress "${NAME_LABEL},${INSTANCE_LABEL},app.kubernetes.io/component=backend" "$NODE_IP" 6443)" \
+  "backend-labeled pod -> ${NODE_IP}:6443 with policies removed (control: the demo denial was the egress policy)"
 
 echo
 if [ "$FAILURES" -gt 0 ]; then
   echo "FAILED: $FAILURES NetworkPolicy enforcement violation(s)" >&2
   exit 1
 fi
-echo "PASSED: the chart's NetworkPolicies are enforced, allow exactly the intended clients, and deny the rest"
+echo "PASSED: the chart's NetworkPolicies are enforced, allow exactly the intended clients, deny the rest, and in demo mode deny egress beyond DNS and the datastores"

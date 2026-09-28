@@ -1,0 +1,62 @@
+{{- /*
+Public demo mode: the scheduled reset (#1180; ported from TruePPM's
+templates/demo-reset-cronjob.yaml, ADR-1197 D9).
+
+Re-runs the install-time seed (the same visiban.demoSeedPodSpec) on
+`demo.reset.schedule`, default every hour on the hour. It empties every table,
+so it also ends every session: visitors are told so on the login page, warned
+five minutes before by the in-app demo bar, and land back on the login page.
+It re-applies the published visitor password on every run, so the login hint
+never points at a dead account.
+
+The reset is CONTAINMENT, NOT A CONTROL. The write fence (DemoModeMiddleware,
+#1179) is the control; the reset only bounds how long anything unexpected stays
+visible. Never cite it as the mitigation for a finding.
+
+Kept separate from templates/cronjobs.yaml (`scheduledJobs`) on purpose: that
+list holds routine maintenance an operator may enable on any install, while
+this job is destructive and exists only in demo mode. It follows the same
+shape (#1157): concurrencyPolicy Forbid (two overlapping wipes would delete each
+other's rows mid-insert), activeDeadlineSeconds, backoffLimit, a starting
+deadline, and a fixed time zone.
+
+timeZone is ALWAYS Etc/UTC, not configurable: the backend computes the
+countdown visitors see (demo_next_reset_at) in UTC from the same schedule
+string (visiban.demoResetSchedule), so a CronJob in any other zone would reset
+at a different time than the one the login page announces.
+
+A failed run stays visible to an operator (failedJobsHistoryLimit keeps the
+Job and its pod logs) and is never a readiness signal: the backend does not
+know it happened, and the previous seed stays up.
+*/ -}}
+{{- if include "visiban.demoResetEnabled" . }}
+{{- $schedule := include "visiban.demoResetSchedule" . }}
+{{- $suffix := "demo-reset" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  {{- /* CronJob names are capped at 52 characters (see cronjobs.yaml). */}}
+  name: {{ printf "%s-%s" (include "visiban.fullname" . | trunc (int (sub 51 (len $suffix))) | trimSuffix "-") $suffix }}
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: demo-seed
+spec:
+  schedule: {{ $schedule | quote }}
+  timeZone: "Etc/UTC"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: {{ .Values.demo.reset.startingDeadlineSeconds | int }}
+  successfulJobsHistoryLimit: {{ .Values.demo.reset.successfulJobsHistoryLimit | int }}
+  failedJobsHistoryLimit: {{ .Values.demo.reset.failedJobsHistoryLimit | int }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.demo.reset.backoffLimit | int }}
+      activeDeadlineSeconds: {{ .Values.demo.reset.activeDeadlineSeconds | int }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ include "visiban.name" . }}
+            app.kubernetes.io/instance: {{ .Release.Name }}
+            app.kubernetes.io/component: demo-seed
+        spec:
+          {{- include "visiban.demoSeedPodSpec" . | nindent 10 }}
+{{- end }}

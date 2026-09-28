@@ -149,4 +149,54 @@ Invocation: {{ include "visiban.backendEnv" . }}
 - name: FORCE_INSECURE_COOKIES
   value: "true"
 {{- end }}
+{{- /*
+  NUM_PROXIES (#1180) — only when the operator set it, so a default render is
+  unchanged and the backend keeps its own default of 1. `kindIs "invalid"` is
+  how a template sees YAML null (and a key missing under --reuse-values).
+*/}}
+{{- if not (kindIs "invalid" $ctx.Values.backend.settings.numProxies) }}
+- name: NUM_PROXIES
+  value: {{ $ctx.Values.backend.settings.numProxies | int | toString | quote }}
+{{- end }}
+{{- include "visiban.demoEnv" $ctx }}
+{{- end }}
+
+{{/*
+Public demo mode env (#1180). Renders NOTHING unless demo.enabled, so the
+default render is byte-identical to a chart without demo mode.
+
+Included by visiban.backendEnv, so every container that imports Django settings
+gets it: the backend's migrate/collectstatic/bootstrap init containers and app
+container, the scheduled-job pods, and the demo seed and reset pods. That is
+deliberate — DEMO_MODE is what arms the write fence, and a pod that serves or
+seeds the demo without it is the #3932 shape in TruePPM (a chart that rendered
+demo mode and set the variable nowhere).
+
+DEMO_RESET_SCHEDULE is rendered from the SAME value the reset CronJob's
+`schedule` uses, and rendered EMPTY when the reset is disabled, so the login
+page and the countdown bar can never state a cadence that is not running
+(TruePPM ADR-1197 D9). The backend reads empty as "no reset scheduled".
+
+The visitor password reaches the pod through the demo Secret, never as a
+literal: it is published on the login page by design, but a values file is
+copied and adapted far more often than it is read.
+*/}}
+{{- define "visiban.demoEnv" -}}
+{{- if include "visiban.demoEnabled" . }}
+- name: DEMO_MODE
+  value: "true"
+- name: DEMO_LOGIN_USERNAME
+  value: {{ include "visiban.demoLoginUsername" . | quote }}
+- name: DEMO_LOGIN_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "visiban.demoSecretName" . }}
+      key: demo-login-password
+- name: DEMO_RESET_SCHEDULE
+  value: {{ include "visiban.demoResetSchedule" . | quote }}
+{{- with .Values.demo.throttle.userRate }}
+- name: DEMO_USER_THROTTLE_RATE
+  value: {{ . | quote }}
+{{- end }}
+{{- end }}
 {{- end }}

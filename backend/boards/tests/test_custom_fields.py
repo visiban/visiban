@@ -563,6 +563,22 @@ class CustomFieldValueWriteTests(CustomFieldTestBase):
         r = self._set_values([{"field_definition": self.date.id, "value": "2026-13-01"}])
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_nul_byte_in_a_text_value_is_a_400_not_a_500(self):
+        """The value-write twin of #1184's definition-side fix.
+
+        `_normalize_custom_field_value`'s TEXT branch (the bare `return text`
+        fallback) had no NUL guard, so a NUL byte submitted through
+        `CardSerializer`'s writable `custom_field_values` reached Postgres as
+        an unhandled `DataError` 500 instead of the 400 every other invalid
+        value on this field returns (#1188).
+        """
+        r = self._set_values(
+            [{"field_definition": self.text.id, "value": "two\x00shelves"}]
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("custom_field_values", r.data)
+        self.assertFalse(CustomFieldValue.objects.exists())
+
     def test_dropdown_rejects_a_value_outside_its_choices(self):
         r = self._set_values(
             [{"field_definition": self.dropdown.id, "value": "raid0"}]

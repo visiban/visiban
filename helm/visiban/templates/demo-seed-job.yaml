@@ -1,0 +1,45 @@
+{{- /*
+Public demo mode: the seed hook (#1180; ported from TruePPM's
+templates/demo-seed-job.yaml, ADR-1197).
+
+A post-install/post-upgrade Helm hook, so a `demo.enabled` release comes up
+seeded — and every `helm upgrade` resets the demo, exactly like the scheduled
+reset (templates/demo-reset-cronjob.yaml), which runs the same pod spec
+(visiban.demoSeedPodSpec in _helpers.tpl — read its notes before changing it).
+
+Why a POST-install hook and not the pre-install shape #1117 removed: the #1117
+bug was a hook that ran BEFORE Helm created the database it needed. A
+post-install hook runs after the whole release is applied, and its migrate init
+container waits for the database, so it cannot hit that. It stays a hook rather
+than a plain Job because a Job's pod template is immutable — a plain Job would
+make every `helm upgrade` that changes the image tag fail to apply.
+
+hook-delete-policy includes hook-succeeded, so a successful seed leaves nothing
+behind (Helm does not track hook resources, so a kept Job would outlive
+`helm uninstall`). A FAILED seed Job is kept for `kubectl logs`, and Helm
+reports the install/upgrade as failed — the right signal for an operator.
+*/ -}}
+{{- if include "visiban.demoEnabled" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "visiban.fullname" . | trunc 53 | trimSuffix "-" }}-demo-seed
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: demo-seed
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.demo.seed.backoffLimit | int }}
+  activeDeadlineSeconds: {{ .Values.demo.seed.activeDeadlineSeconds | int }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "visiban.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: demo-seed
+    spec:
+      {{- include "visiban.demoSeedPodSpec" . | nindent 6 }}
+{{- end }}
