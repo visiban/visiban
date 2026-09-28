@@ -251,7 +251,13 @@ dockerfile-lint:
 #     renders it via scripts/render-nginx-hsts.sh (#1201).
 #
 # Each runs its `--self-test` first, per #1093: a gate observed only on a clean
-# tree is indistinguishable from one that always passes.
+# tree is indistinguishable from one that always passes. render-nginx-hsts.sh
+# also gets a real invocation against the TRACKED template
+# (`--check nginx/app.conf.template`), matching the other two scripts in this
+# job — a completeness-check finding on #1201 noted that `--self-test` alone
+# only proves the rendering logic works against synthetic fixtures; it cannot
+# catch the old hardcoded header being re-committed verbatim to the real file,
+# since --self-test never reads it.
 
 compose-hygiene:
   stage: lint
@@ -274,6 +280,7 @@ compose-hygiene:
     - bash scripts/check-compose-project-names.sh --self-test
     - bash scripts/check-compose-project-names.sh
     - bash scripts/render-nginx-hsts.sh --self-test
+    - bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 

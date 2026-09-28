@@ -41,12 +41,28 @@
 #     SECURE_HSTS_SECONDS from the environment (the same var Django's
 #     SecurityMiddleware reads — see backend/visiban/settings.py).
 #
+#   scripts/render-nginx-hsts.sh --check <template-file>
+#     Read-only. Asserts three things against the TRACKED template (does not
+#     modify it): (1) exactly one __HSTS_HEADER_PLACEHOLDER__ line and no
+#     literal, hardcoded `add_header Strict-Transport-Security` directive
+#     anywhere else — the negative control this closes is the old bug
+#     reappearing verbatim, which --self-test's synthetic fixtures cannot
+#     catch because they never touch the real file; (2) every `location`
+#     block containing `proxy_pass` also contains
+#     `proxy_hide_header Strict-Transport-Security`, so Django's own copy of
+#     the header never doubles up with nginx's; (3) dry-renders scratch
+#     copies for TLS_MODE=letsencrypt and TLS_MODE=selfsigned with
+#     SECURE_HSTS_SECONDS unset (the default path every fresh install takes)
+#     and checks the rendered output — exactly one HSTS line for
+#     letsencrypt, none for selfsigned, no placeholder left in either.
+#
 #   scripts/render-nginx-hsts.sh --self-test
-#     Exercises the rendering logic against synthetic templates in a temp
-#     directory. Touches nothing in this repository, needs no network.
+#     Exercises the rendering logic AND --check against synthetic templates
+#     in a temp directory. Touches nothing in this repository, needs no
+#     network.
 #
 # Exit codes: 0 success · 1 invalid SECURE_HSTS_SECONDS, missing placeholder,
-#             or usage error.
+#             a --check violation, or usage error.
 
 set -euo pipefail
 
@@ -121,9 +137,130 @@ render_into_file() {
   mv "$tmp" "$template_file"
 }
 
-# --self-test: covers every scenario the #1201 gate batch named, plus the
-# leading-zero / octal footgun the batch actually found. Touches nothing in
-# this repository — all fixtures live under a throwaway temp directory.
+# A real, uncommented add_header directive for the header — as opposed to the
+# `__HSTS_HEADER_PLACEHOLDER__` token, or prose in a comment that merely
+# mentions "Strict-Transport-Security" (e.g. this script's own header, or the
+# explanatory comment above the placeholder in the template).
+_HARDCODED_HSTS_RE='^[[:space:]]*add_header[[:space:]]+Strict-Transport-Security'
+
+# check_template <template-file>
+#
+# Read-only. Prints violations to stderr and returns 1 if any are found; does
+# not modify <template-file>. See the --check usage note above for what each
+# of the three checks covers and why --self-test's synthetic fixtures cannot
+# substitute for running this against the real, tracked template.
+check_template() {
+  local file="$1" violations=0
+
+  if [[ ! -f "$file" ]]; then
+    echo "ERROR: $file not found." >&2
+    return 1
+  fi
+
+  # 1. Exactly one placeholder, and no hardcoded HSTS add_header anywhere —
+  # this is the negative control: re-introducing the original bug verbatim
+  # (a bare `add_header Strict-Transport-Security "max-age=63072000..."`
+  # line back in the template) must fail this check even though it would
+  # still pass --self-test, since --self-test never reads this file.
+  local placeholder_count hardcoded
+  placeholder_count="$(grep -c '__HSTS_HEADER_PLACEHOLDER__' "$file" || true)"
+  if [[ "$placeholder_count" -ne 1 ]]; then
+    echo "VIOLATION: $file has ${placeholder_count} __HSTS_HEADER_PLACEHOLDER__ line(s); expected exactly 1." >&2
+    violations=$((violations + 1))
+  fi
+  hardcoded="$(grep -nE "$_HARDCODED_HSTS_RE" "$file" || true)"
+  if [[ -n "$hardcoded" ]]; then
+    echo "VIOLATION: $file has a literal, hardcoded Strict-Transport-Security add_header line — it must be rendered via __HSTS_HEADER_PLACEHOLDER__ instead:" >&2
+    echo "$hardcoded" >&2
+    violations=$((violations + 1))
+  fi
+
+  # 2. Every location block that proxy_passes to the backend must hide
+  # Django's own independently-computed copy of the header — otherwise the
+  # client gets two Strict-Transport-Security headers on that response,
+  # which RFC 6797 §8.1 says browsers must then ignore entirely.
+  # NOTE: matches on "location" followed by whitespace, not a `\b` word
+  # boundary — `\b` is a GNU-awk extension (it means a literal backspace to
+  # POSIX/BSD awk, including the busybox awk these CI jobs actually run
+  # under), so a `\b`-based pattern here silently matches nothing.
+  local block_violations
+  block_violations="$(awk '
+    /^[[:space:]]*location[[:space:]]/ { in_loc=1; depth=0; has_pass=0; has_hide=0; name=$0 }
+    in_loc {
+      if ($0 ~ /proxy_pass/) has_pass=1
+      if ($0 ~ /proxy_hide_header[ \t]+Strict-Transport-Security/) has_hide=1
+      depth += gsub(/\{/, "{")
+      depth -= gsub(/\}/, "}")
+      if (depth == 0) {
+        if (has_pass && !has_hide) print name
+        in_loc=0
+      }
+    }
+  ' "$file")"
+  if [[ -n "$block_violations" ]]; then
+    echo "VIOLATION: location block(s) proxy_pass to the backend without a proxy_hide_header Strict-Transport-Security line:" >&2
+    echo "$block_violations" >&2
+    violations=$((violations + 1))
+  fi
+
+  # 3. Dry-render scratch copies for the two TLS modes that actually render
+  # this header, with SECURE_HSTS_SECONDS unset (the default path every
+  # fresh install takes), and check the output. Copies only — the tracked
+  # file itself is never modified by --check.
+  local tmp_le tmp_ss le_count ss_count
+  tmp_le="$(mktemp)"
+  tmp_ss="$(mktemp)"
+  cp "$file" "$tmp_le"
+  cp "$file" "$tmp_ss"
+
+  if ! ( unset SECURE_HSTS_SECONDS 2>/dev/null; render_into_file "$tmp_le" "letsencrypt" ); then
+    echo "VIOLATION: dry-render of $file for TLS_MODE=letsencrypt (SECURE_HSTS_SECONDS unset) failed." >&2
+    violations=$((violations + 1))
+  else
+    le_count="$(grep -cE "${_HARDCODED_HSTS_RE}.*max-age=63072000" "$tmp_le" || true)"
+    if [[ "$le_count" -ne 1 ]]; then
+      echo "VIOLATION: letsencrypt default dry-render produced ${le_count} HSTS line(s) with max-age=63072000; expected exactly 1." >&2
+      violations=$((violations + 1))
+    fi
+    if grep -q '__HSTS_HEADER_PLACEHOLDER__' "$tmp_le"; then
+      echo "VIOLATION: letsencrypt default dry-render left the placeholder unrendered." >&2
+      violations=$((violations + 1))
+    fi
+  fi
+
+  if ! ( unset SECURE_HSTS_SECONDS 2>/dev/null; render_into_file "$tmp_ss" "selfsigned" ); then
+    echo "VIOLATION: dry-render of $file for TLS_MODE=selfsigned (SECURE_HSTS_SECONDS unset) failed." >&2
+    violations=$((violations + 1))
+  else
+    ss_count="$(grep -cE "$_HARDCODED_HSTS_RE" "$tmp_ss" || true)"
+    if [[ "$ss_count" -ne 0 ]]; then
+      echo "VIOLATION: selfsigned default dry-render sent ${ss_count} HSTS line(s); expected 0 (no HSTS by default)." >&2
+      violations=$((violations + 1))
+    fi
+    if grep -q '__HSTS_HEADER_PLACEHOLDER__' "$tmp_ss"; then
+      echo "VIOLATION: selfsigned default dry-render left the placeholder unrendered." >&2
+      violations=$((violations + 1))
+    fi
+  fi
+
+  rm -f "$tmp_le" "$tmp_ss"
+
+  if [[ "$violations" -gt 0 ]]; then
+    return 1
+  fi
+  echo "OK: $file — one placeholder, no hardcoded HSTS line, every proxy_pass location hides Django's copy, and both TLS-mode dry-renders match the documented defaults."
+}
+
+# --self-test: covers every scenario the #1201 gate batch and completeness-
+# check named, plus the leading-zero / octal footgun the batch actually
+# found. Touches nothing in this repository — all fixtures live under a
+# throwaway temp directory. Cases 1-9 exercise render_into_file; cases 10-12
+# exercise check_template, including the negative controls proving it catches
+# what synthetic fixtures alone cannot (the old hardcoded header reappearing
+# in, and a proxy_pass location missing proxy_hide_header in, the ACTUAL
+# tracked template — see the compose-hygiene CI job, which runs
+# `--check nginx/app.conf.template` right after this self-test for exactly
+# that reason).
 self_test() {
   # Deliberately not `local` — the EXIT trap below still needs to read $tmp
   # after this function returns (bash removes `local`s from scope on
@@ -148,6 +285,64 @@ self_test() {
     # content that "the placeholder line is gone afterward" is a meaningful
     # assertion, not trivially true of an empty file.
     printf 'server {\n    listen 443 ssl;\n    __HSTS_HEADER_PLACEHOLDER__\n    add_header X-Frame-Options "DENY" always;\n}\n' > "$1"
+  }
+
+  # Fixtures for check_template — these add proxied `location` blocks, which
+  # the plain `fixture` above deliberately omits (it only exercises
+  # render_into_file, not the location-block scan).
+  fixture_good() {
+    printf '%s\n' \
+      'server {' \
+      '    listen 443 ssl;' \
+      '    __HSTS_HEADER_PLACEHOLDER__' \
+      '    add_header X-Frame-Options "DENY" always;' \
+      '' \
+      '    location /api/ {' \
+      '        proxy_pass http://backend:8000;' \
+      '        proxy_hide_header  Strict-Transport-Security;' \
+      '    }' \
+      '' \
+      '    location /admin/ {' \
+      '        proxy_pass http://backend:8000;' \
+      '        proxy_hide_header Strict-Transport-Security;' \
+      '    }' \
+      '}' \
+      > "$1"
+  }
+
+  # The exact regression check_template exists to catch: the old hardcoded
+  # header reappears verbatim in place of the placeholder — something
+  # render_into_file's own tests above can never exercise, since they run
+  # against synthetic fixtures, never the tracked template.
+  fixture_hardcoded() {
+    printf '%s\n' \
+      'server {' \
+      '    listen 443 ssl;' \
+      '    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;' \
+      '    add_header X-Frame-Options "DENY" always;' \
+      '' \
+      '    location /api/ {' \
+      '        proxy_pass http://backend:8000;' \
+      '        proxy_hide_header  Strict-Transport-Security;' \
+      '    }' \
+      '}' \
+      > "$1"
+  }
+
+  # A proxied location that forgot proxy_hide_header — Django's own HSTS
+  # header would then double up with nginx's on that path.
+  fixture_missing_hide() {
+    printf '%s\n' \
+      'server {' \
+      '    listen 443 ssl;' \
+      '    __HSTS_HEADER_PLACEHOLDER__' \
+      '    add_header X-Frame-Options "DENY" always;' \
+      '' \
+      '    location /api/ {' \
+      '        proxy_pass http://backend:8000;' \
+      '    }' \
+      '}' \
+      > "$1"
   }
 
   echo "=== render-nginx-hsts.sh --self-test ==="
@@ -221,6 +416,34 @@ self_test() {
   check "a template with no placeholder line is rejected with a nonzero exit" \
     "$([ "$rc" -ne 0 ] && echo 0 || echo 1)"
 
+  # 10. check_template positive control: a well-formed template (one
+  # placeholder, every proxy_pass location hides the header, both dry-render
+  # defaults come out as documented) passes clean.
+  fixture_good "$tmp/case10.conf"
+  rc=0
+  check_template "$tmp/case10.conf" >/dev/null 2>&1 || rc=$?
+  check "check_template passes a well-formed template (positive control)" \
+    "$([ "$rc" -eq 0 ] && echo 0 || echo 1)"
+
+  # 11. check_template negative control #1 — the actual completeness-check
+  # finding: --self-test's synthetic fixtures never read nginx/app.conf.template,
+  # so re-hardcoding the old 2-year header directly in that file would pass
+  # --self-test cleanly while shipping the original bug. check_template must
+  # catch this by reading the real file, which is what --check is for.
+  fixture_hardcoded "$tmp/case11.conf"
+  rc=0
+  check_template "$tmp/case11.conf" >/dev/null 2>&1 || rc=$?
+  check "check_template fails when the old hardcoded HSTS line reappears" \
+    "$([ "$rc" -ne 0 ] && echo 0 || echo 1)"
+
+  # 12. check_template negative control #2 — a proxied location missing
+  # proxy_hide_header would double up nginx's and Django's HSTS headers.
+  fixture_missing_hide "$tmp/case12.conf"
+  rc=0
+  check_template "$tmp/case12.conf" >/dev/null 2>&1 || rc=$?
+  check "check_template fails when a proxy_pass location is missing proxy_hide_header" \
+    "$([ "$rc" -ne 0 ] && echo 0 || echo 1)"
+
   echo ""
   echo "render-nginx-hsts.sh --self-test: ${pass} passed, ${fail} failed."
   if [[ "$fail" -gt 0 ]]; then
@@ -235,12 +458,20 @@ case "${1:-}" in
     self_test
     exit 0
     ;;
+  --check)
+    if [[ $# -ne 2 ]]; then
+      echo "Usage: $0 --check <template-file>" >&2
+      exit 1
+    fi
+    check_template "$2"
+    ;;
   -h|--help)
     grep '^#' "$0" | sed 's/^# \{0,1\}//'
     exit 0
     ;;
   "")
     echo "Usage: $0 <template-file> <tls-mode>" >&2
+    echo "       $0 --check <template-file>" >&2
     echo "       $0 --self-test" >&2
     exit 1
     ;;

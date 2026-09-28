@@ -484,9 +484,25 @@ touched — so it is zero-downtime and requires no operator action.
       way to back out early. Set `SECURE_HSTS_SECONDS` explicitly in `.env` if you want the
       header on a selfsigned deployment anyway.
 
-    After upgrading, re-run `./init-prod.sh` to re-render `nginx/active.conf.template`, then
+    **This step is required, not optional.** After upgrading, re-run `./init-prod.sh` to
+    re-render `nginx/active.conf.template`, then
     `docker compose -f docker-compose.prod.yml up -d --force-recreate nginx` — a plain
-    `up -d`/`pull` does not notice that the bind-mounted nginx config content changed.
+    `up -d`/`pull` does not notice that the bind-mounted nginx config content changed, so nginx
+    keeps running whatever it already had on disk from before the upgrade.
+
+    If you skip this step, both problems this release fixes silently persist, with no error and
+    no visible difference until someone inspects the response headers directly: nginx keeps
+    serving its **old** rendered config — the one still carrying the original hardcoded
+    `max-age=63072000` line unconditionally on both modes, and none of the new
+    `proxy_hide_header Strict-Transport-Security` lines. So `TLS_MODE=selfsigned` keeps sending
+    the 2-year header exactly as before (the docs mismatch this release exists to fix stays
+    unfixed), and every proxied path (`/api/`, `/admin/`, `/media/`, etc.) keeps stacking
+    nginx's hardcoded header on top of Django's own independently-computed one — two
+    `Strict-Transport-Security` headers on the same response, which per RFC 6797 §8.1 means
+    browsers ignore HSTS entirely on those paths. Pulling the new backend/frontend images and
+    restarting those containers has no effect on this: nginx's config is a bind-mounted file
+    this repo's `init-prod.sh` renders once, on the host, not something baked into the nginx
+    image the containers pull.
 
 ### Upgrading to 1.1.x
 
