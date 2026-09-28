@@ -649,9 +649,10 @@ backend-schema-validate:
 #   - 12 admin-only operations returned only 403: expected — #1080 requires
 #     provision_fuzz_token to refuse an admin/superuser account, so this job's
 #     token can never reach `/api/v1/admin/*`. Accepted as documented residual
-#     scope rather than adding a second admin-scoped pass: only 9 operations
-#     sit behind IsSiteAdmin (accounts/admin_views.py's `_ADMIN_PERMISSIONS`),
-#     all with dedicated coverage already (accounts/tests/test_admin_api.py,
+#     scope rather than adding a second admin-scoped pass: only 10 operations
+#     sit behind IsSiteAdmin (accounts/admin_views.py's `_ADMIN_PERMISSIONS`;
+#     was 9 before #1203 added AdminUserClearLockoutView), all with
+#     dedicated coverage already (accounts/tests/test_admin_api.py,
 #     test_invite_links.py, test_pat_scopes.py) — a second full fuzz pass for
 #     that surface is disproportionate to what's actually gated.
 #
