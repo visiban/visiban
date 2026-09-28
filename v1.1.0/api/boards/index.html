@@ -6501,7 +6501,7 @@ belonging to another board are silently ignored rather than reordered or exposed
 </tr>
 </tbody>
 </table>
-<p>Card objects in the public payload use <code>uid</code> as the identifier (not <code>id</code>) and do not include a database <code>id</code>. The <code>assignee</code> field contains <code>display_name</code> only; email, username, and avatar are omitted. Comments and checklist item text are not included; only <code>checklist_total</code> and <code>checklist_done</code> counts are present. The <code>is_stale</code> field is <code>true</code> when the card has not moved within the board's <code>staleness_threshold_days</code> window.</p>
+<p>Card objects in the public payload use <code>uid</code> as the identifier (not <code>id</code>) and do not include a database <code>id</code>. The <code>assignee</code> field contains <code>display_name</code> only (email, username, and avatar are omitted), or <code>null</code> for an unassigned card. Comments and checklist item text are not included; only <code>checklist_total</code> and <code>checklist_done</code> counts are present. The <code>is_stale</code> field is <code>true</code> when the card has not moved within the board's <code>staleness_threshold_days</code> window.</p>
 <p><code>blocker_count</code> (since 1.2) is the number of active cards blocking this one — see <a href="../cards/#relations-since-12">Card relations</a>. The count is included, but the relation list is not: relations are same-board only, so every blocker is a card this payload already carries, whereas the relation rows themselves carry the creating user and a timestamp that this payload deliberately excludes.</p>
 
 
