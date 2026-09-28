@@ -1452,6 +1452,76 @@ helm-netpol:
   script:
     - bash scripts/helm-netpol-drill.sh
 
+# ─── Compose — production boot drill ─────────────────────────────────────────
+#
+# The Compose counterpart to helm-install above (#1152). Visiban drilled the
+# Helm deploy path and not the docker-compose one, even though
+# docker-compose.prod.yml + init-prod.sh is the path
+# docs/getting-started/installation.md and docs/administration/upgrade.md
+# tell a single-server operator to run — the most-followed deployment path in
+# the docs and, until this job, the least-tested one in CI. See
+# scripts/prod-compose-drill.sh for what it asserts and why.
+
+.compose-drill-base: &compose-drill-base
+  stage: test
+  interruptible: false
+  image: ${DOCKERHUB_MIRROR}/docker:27-cli
+  services:
+    # Explicit name: + alias: (#1198 gate finding, same reasoning as
+    # .helm-drill-base below) — the daemon must be reachable at exactly the
+    # hostname PROBE_HOST defaults to.
+    - name: ${DOCKERHUB_MIRROR}/docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "/certs/client"
+  before_script:
+    - apk add --no-cache bash curl openssl
+    - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
+    - |
+      # See .helm-drill-base's identical block below for the full rationale:
+      # this dind daemon is fresh and unauthenticated per job, and every pull
+      # scripts/prod-compose-drill.sh does through the Dependency Proxy relies
+      # on this login.
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin
+      fi
+
+compose-prod-drill:
+  <<: *compose-drill-base
+  timeout: 20m
+  rules:
+    # Advisory EVERYWHERE for now, not just on schedule (unlike
+    # helm-install/helm-netpol, whose MR/main rules are blocking) — main
+    # currently fails this drill for real (the nginx command-folding crash
+    # and the backend healthcheck Host-header 400 named in #1152 are both
+    # still present), and this job's `changes:` includes `.gitlab-ci.yml`
+    # itself, so leaving it blocking would hard-fail any unrelated MR that
+    # happens to touch that file. Drop `allow_failure: true` from the
+    # merge_request_event/default-branch legs below once fix/compose-prod-install
+    # merges and a scheduled run goes green — tracked on #1152, which stays
+    # open until then.
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes: &compose-prod-paths
+        - docker-compose.prod.yml
+        - init-prod.sh
+        - .env.example
+        - backend/Dockerfile.prod
+        - frontend/Dockerfile.prod
+        - nginx/**/*
+        - scripts/prod-compose-drill.sh
+        - .gitlab-ci.yml
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *compose-prod-paths
+      allow_failure: true
+  script:
+    - bash scripts/prod-compose-drill.sh
+
 # ─── Frontend — lint ──────────────────────────────────────────────────────────
 
 # ESLint + TypeScript type checking in a single job — both need npm ci so

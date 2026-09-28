@@ -85,6 +85,7 @@ own header — is never mistaken for a real exemption.
 |---|---|
 | `scripts/helm-install-drill.sh` | Live kind-cluster boot drill — a synthetic self-test would need to boot a second real cluster. Its own NEGATIVE case (a placeholder-`SECRET_KEY` install must be rejected) already is a known-bad-input assertion, run against the real chart. |
 | `scripts/helm-netpol-drill.sh` | Live Calico kind-cluster NetworkPolicy enforcement drill, same reasoning — its NEGATIVE/CONTROL pairs are the known-bad/known-good proof, against real Calico rather than a fixture. |
+| `scripts/prod-compose-drill.sh` | Live Docker Compose boot drill for the production stack — a synthetic self-test would need to boot a second real stack. Its own NEGATIVE case (a boot with the placeholder `DJANGO_SECRET_KEY` must be rejected) is the known-bad-input assertion, run against the real `docker-compose.prod.yml` instead of a fixture. See [#1152](https://gitlab.com/visiban/visiban/-/issues/1152). |
 | `scripts/oidc_provision.py` | Provisioning against a live Keycloak Admin REST API — setup, not detection logic. Its correctness is exercised end-to-end by `oidc_smoke_test.py`. |
 | `scripts/oidc_smoke_test.py` | End-to-end smoke test against a live Keycloak instance — a synthetic self-test would need a mock IdP and would not exercise the real risk (discovery/token-exchange/claim-mapping drift). |
 
