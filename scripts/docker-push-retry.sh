@@ -32,13 +32,18 @@
 # Knobs (env):
 #   DOCKER_PUSH_MAX_ATTEMPTS  attempts before giving up (default 4)
 #   DOCKER_PUSH_BACKOFF_UNIT  seconds multiplied by attempt number (default 5)
-#   DOCKER_PUSH_CMD           command standing in for `docker` (self-test only)
+#
+# The self-test swaps `docker` for a stub via the shell variable _DPR_PUSH_CMD.
+# It is unset whenever this file is sourced, so a CI/pipeline variable of that
+# name can never replace the binary that runs next to the logged-in credentials.
+
+unset _DPR_PUSH_CMD
 
 push_with_retry() {
   local ref="$1"
   local max="${DOCKER_PUSH_MAX_ATTEMPTS:-4}"
   local unit="${DOCKER_PUSH_BACKOFF_UNIT:-5}"
-  local cmd="${DOCKER_PUSH_CMD:-docker}"
+  local cmd="${_DPR_PUSH_CMD:-docker}"
   local attempt=1
 
   while :; do
@@ -95,7 +100,7 @@ exit 1
 STUB
   chmod +x "$tmp/stub"
 
-  export DOCKER_PUSH_CMD="$tmp/stub"
+  _DPR_PUSH_CMD="$tmp/stub"
   export DOCKER_PUSH_BACKOFF_UNIT=0
 
   # Case 1: succeeds on the 3rd attempt — the loop must keep going and win.

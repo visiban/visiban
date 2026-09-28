@@ -2551,8 +2551,8 @@ arm64-runner-preflight:
       fi
       # --password-stdin, never -p: on this persistent shared host a password in
       # argv is readable via `ps` by anything else running there (#1205).
-      echo "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
-      echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+      printf '%s' "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
 backend-docker-push-arm64:
   extends: .arm64-docker-push-base
@@ -2776,7 +2776,7 @@ helm-publish:
         exit 1
       fi
       echo "appVersion check passed: $APP_VERSION"
-    - echo "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GHCR_USER" --password-stdin
+    - printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GHCR_USER" --password-stdin
     - helm package helm/visiban --destination /tmp
     - |
       CHART_FILE="$(ls /tmp/visiban-*.tgz)"

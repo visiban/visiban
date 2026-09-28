@@ -54,7 +54,10 @@
 #                        prints one architecture per line found in its
 #                        manifest list to stdout (empty output for a
 #                        single-platform manifest). Defaults to
-#                        `crane manifest | jq -r '.manifests[]?.platform.architecture'`.
+#                        `crane manifest | jq -r '.manifests[]?.platform.architecture // empty'`.
+#                        A non-zero exit is reported PROBE-ERROR, not
+#                        ARCH-MISSING, so a transient registry failure never
+#                        points the operator at the manifest jobs.
 #                        Overridable for --self-test, same reasoning as
 #                        RELEASE_IMAGE_PROBE above.
 # ACCEPTED_GAPS          space-separated "<registry>/<image>:<tag>" full
@@ -211,8 +214,13 @@ verify_images() {
       if is_accepted_gap "$ref"; then
         echo "  SKIP    $ref (accepted gap, see ACCEPTED_GAPS)"
       elif probe_image "$ref"; then
-        local arches want missing_arch=""
-        arches="$(probe_arches "$ref" 2>/dev/null || true)"
+        local arches want missing_arch="" arch_rc=0
+        arches="$(probe_arches "$ref" 2>/dev/null)" || arch_rc=$?
+        if [ "$arch_rc" -ne 0 ]; then
+          echo "  PROBE-ERROR $ref (could not read its manifest's platform list)"
+          missing="${missing} ${ref}(probe-error)"
+          continue
+        fi
         for want in $RELEASE_REQUIRED_ARCHES; do
           if ! printf '%s\n' "$arches" | grep -qx "$want"; then
             missing_arch="${missing_arch} ${want}"
@@ -247,7 +255,9 @@ verify_images() {
     echo "again. For an ARCH-MISSING image, the manifest-assembly job" >&2
     echo "(backend-manifest / frontend-manifest)" >&2
     echo "silently dropped a platform leg — re-run it, or the whole tag" >&2
-    echo "pipeline's publish jobs, to restore." >&2
+    echo "pipeline's publish jobs, to restore. A PROBE-ERROR means the" >&2
+    echo "image exists but its manifest could not be read — re-run this job" >&2
+    echo "before touching any publish job." >&2
     return 1
   fi
 
@@ -292,11 +302,13 @@ SH
   # the dedicated arch-missing cases further down flip this).
   cat > "$tmp/arch_probe.sh" <<'SH'
 #!/usr/bin/env bash
+[ -e "$ARCH_PROBE_FAIL" ] && exit 1
 cat "$ARCHES_FILE" 2>/dev/null || true
 SH
   chmod +x "$tmp/arch_probe.sh"
   export RELEASE_ARCH_PROBE="$tmp/arch_probe.sh"
   export ARCHES_FILE="$tmp/arches"
+  export ARCH_PROBE_FAIL="$tmp/arch_probe_fail"
 
   arches() { : > "$ARCHES_FILE"; local a; for a in "$@"; do echo "$a" >> "$ARCHES_FILE"; done; }
   arches amd64 arm64
@@ -351,6 +363,15 @@ SH
   check "points at the manifest-assembly job as the next step" \
     "$(echo "$out" | grep -qi 'backend-manifest' && echo 0 || echo 1)"
   arches amd64 arm64  # restore full coverage for the remaining cases
+
+  echo "case: image exists but its manifest can't be read (transient registry error)"
+  : > "$ARCH_PROBE_FAIL"
+  rc=0
+  out="$(verify_images "v1.2.0" 2>&1)" || rc=$?
+  check "exits 1 when the arch probe itself fails" "$([ "$rc" -eq 1 ] && echo 0 || echo 1)"
+  check "reports PROBE-ERROR, not ARCH-MISSING" \
+    "$(echo "$out" | grep -q '  PROBE-ERROR ' && ! echo "$out" | grep -q '  ARCH-MISSING ' && echo 0 || echo 1)"
+  rm -f "$ARCH_PROBE_FAIL"
 
   echo "case: no registry configured (explicit empty override)"
   RELEASE_REGISTRIES=""
