@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/getting-started/first-boot/">
+        <link rel="canonical" href="https://docs.visiban.com/v1.1.0/administration/issue-board-lens-usage/">
       
       
-        <link rel="prev" href="../kubernetes/">
+        <link rel="prev" href="../maintenance-mode/">
       
       
-        <link rel="next" href="../oauth/">
+        <link rel="next" href="../scheduled-jobs/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>First Boot - Visiban</title>
+        <title>Issue Board Lens Usage - Visiban</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#first-boot" class="md-skip">
+        <a href="#issue-board-lens-usage" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              First Boot
+              Issue Board Lens Usage
             
           </span>
         </div>
@@ -244,13 +244,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
           
   
   
@@ -334,11 +332,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../administration/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -471,8 +471,6 @@
       
   
   
-    
-  
   
   
     
@@ -502,23 +500,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -536,13 +531,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -562,7 +557,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../why-visiban/" class="md-nav__link">
+      <a href="../../getting-started/why-visiban/" class="md-nav__link">
         
   
   
@@ -590,7 +585,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -618,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kubernetes/" class="md-nav__link">
+      <a href="../../getting-started/kubernetes/" class="md-nav__link">
         
   
   
@@ -643,37 +638,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    First Boot
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../getting-started/first-boot/" class="md-nav__link">
         
   
   
@@ -689,137 +657,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#automatic-admin-bootstrap" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Automatic admin bootstrap
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Automatic admin bootstrap">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#retrieving-the-password" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Retrieving the password
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#kubernetes-helm" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Kubernetes / Helm
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changing-the-password" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changing the password
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#customising-the-bootstrap-account" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Customising the bootstrap account
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subsequent-boots" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Subsequent boots
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inviting-your-team" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Inviting your team
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Inviting your team">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#generating-invite-links-invite-only-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Generating invite links (Invite-only mode)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-accounts-manually-closed-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Creating accounts manually (Closed mode)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -832,7 +669,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../oauth/" class="md-nav__link">
+      <a href="../../getting-started/oauth/" class="md-nav__link">
         
   
   
@@ -860,7 +697,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../board-setup/" class="md-nav__link">
+      <a href="../../getting-started/board-setup/" class="md-nav__link">
         
   
   
@@ -888,7 +725,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../sample-boards/" class="md-nav__link">
+      <a href="../../getting-started/sample-boards/" class="md-nav__link">
         
   
   
@@ -916,7 +753,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../onboarding-tour/" class="md-nav__link">
+      <a href="../../getting-started/onboarding-tour/" class="md-nav__link">
         
   
   
@@ -2897,6 +2734,8 @@
       
   
   
+    
+  
   
   
     
@@ -2938,20 +2777,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../administration/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -2969,13 +2811,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2995,7 +2837,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -3023,7 +2865,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/site-admins/" class="md-nav__link">
+      <a href="../site-admins/" class="md-nav__link">
         
   
   
@@ -3051,7 +2893,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/admin-panel/" class="md-nav__link">
+      <a href="../admin-panel/" class="md-nav__link">
         
   
   
@@ -3079,7 +2921,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/maintenance-mode/" class="md-nav__link">
+      <a href="../maintenance-mode/" class="md-nav__link">
         
   
   
@@ -3104,10 +2946,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../administration/issue-board-lens-usage/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Issue Board Lens Usage
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -3123,6 +2992,98 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-usage-report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The usage report
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The usage report">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#outbound-call-outcomes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Outbound call outcomes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#board-request-outcomes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Board request outcomes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retention-and-accuracy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retention and accuracy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-outbound-log-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The outbound log line
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-the-traffic-is-bounded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the traffic is bounded
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -3135,7 +3096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/scheduled-jobs/" class="md-nav__link">
+      <a href="../scheduled-jobs/" class="md-nav__link">
         
   
   
@@ -3163,7 +3124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/authentication/" class="md-nav__link">
+      <a href="../authentication/" class="md-nav__link">
         
   
   
@@ -3191,7 +3152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/demo-data/" class="md-nav__link">
+      <a href="../demo-data/" class="md-nav__link">
         
   
   
@@ -3219,7 +3180,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/django-admin/" class="md-nav__link">
+      <a href="../django-admin/" class="md-nav__link">
         
   
   
@@ -3247,7 +3208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/media-security/" class="md-nav__link">
+      <a href="../media-security/" class="md-nav__link">
         
   
   
@@ -3275,7 +3236,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/container-image-retention/" class="md-nav__link">
+      <a href="../container-image-retention/" class="md-nav__link">
         
   
   
@@ -3303,7 +3264,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/secret-rotation/" class="md-nav__link">
+      <a href="../secret-rotation/" class="md-nav__link">
         
   
   
@@ -3331,7 +3292,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/upgrade/" class="md-nav__link">
+      <a href="../upgrade/" class="md-nav__link">
         
   
   
@@ -3359,7 +3320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../administration/zero-downtime-upgrade/" class="md-nav__link">
+      <a href="../zero-downtime-upgrade/" class="md-nav__link">
         
   
   
@@ -3598,150 +3559,211 @@
   
 
 
-<h1 id="first-boot">First Boot<a class="headerlink" href="#first-boot" title="Permanent link">&para;</a></h1>
-<h2 id="automatic-admin-bootstrap">Automatic admin bootstrap<a class="headerlink" href="#automatic-admin-bootstrap" title="Permanent link">&para;</a></h2>
-<p>On the very first startup — when no site admin exists — Visiban creates an admin account and writes the one-time password to a file (<code>/tmp/visiban_admin_password</code> by default). The password is <strong>not</strong> printed to stdout to prevent it appearing in container log aggregators such as CloudWatch, Datadog, or the Docker log driver.</p>
-<p>The stdout output looks like this:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>============================================================
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  VISIBAN INITIAL ADMIN CREDENTIALS
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>============================================================
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  Created site admin: admin
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  Password:           [REDACTED — written to /tmp/visiban_admin_password]
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>============================================================
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>  Retrieve the password, then delete the file.
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  You will be required to change it on first login.
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>============================================================
-</code></pre></div>
-<h3 id="retrieving-the-password">Retrieving the password<a class="headerlink" href="#retrieving-the-password" title="Permanent link">&para;</a></h3>
-<p><strong>Docker Compose (development):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<p><strong>Docker Compose (production):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<p>Delete the file after retrieving it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>rm<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<div class="admonition note">
-<p class="admonition-title">Password file not found?</p>
-<p>If the file does not exist, the admin account was already created on a previous boot (the password is only written once). Reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<p>For production:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.prod.yml<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-</div>
-<p><strong>Local development (bare metal / venv):</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>cat<span class="w"> </span>/tmp/visiban_admin_password
-</code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The password is on its own line. If your shell displays a <code>%</code> immediately after it, that is a zsh prompt indicator — it is <strong>not</strong> part of the password. Copy only the characters before the <code>%</code>.</p>
-</div>
-<h3 id="kubernetes-helm">Kubernetes / Helm<a class="headerlink" href="#kubernetes-helm" title="Permanent link">&para;</a></h3>
-<p><code>ensure_site_admin</code> runs automatically as a <code>bootstrap</code> init container on every deploy. The password is written to <code>/run/visiban/admin_password</code> inside a shared volume that persists into the running backend pod.</p>
-<p>Retrieve the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>cat<span class="w"> </span>/run/visiban/admin_password
-</code></pre></div>
-<p>Delete it once you have it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>rm<span class="w"> </span>/run/visiban/admin_password
-</code></pre></div>
-<p>If the admin already exists (e.g. the pod restarted before you retrieved the password), reset the password with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>visiban<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/component<span class="o">=</span>backend<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.items[0].metadata.name}'</span><span class="k">)</span><span class="w"> </span>--<span class="w"> </span>python<span class="w"> </span>manage.py<span class="w"> </span>changepassword<span class="w"> </span>admin
-</code></pre></div>
-<h2 id="changing-the-password">Changing the password<a class="headerlink" href="#changing-the-password" title="Permanent link">&para;</a></h2>
-<p>On first login you will be shown a password change screen. You cannot access the application until a new password (minimum 12 characters) is set. The temporary password cannot be reused.</p>
-<p>Once SMTP is configured, regular users (not just admins) can reset their own passwords via <strong>Forgot password?</strong> on the login page — no administrator intervention required. See <a href="../../administration/authentication/#forgot-password-self-service-password-reset">Authentication — Forgot password</a> for SMTP setup notes.</p>
-<h2 id="customising-the-bootstrap-account">Customising the bootstrap account<a class="headerlink" href="#customising-the-bootstrap-account" title="Permanent link">&para;</a></h2>
-<p>Set these environment variables <strong>before</strong> the first boot:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">DJANGO_SUPERUSER_USERNAME</span><span class="o">=</span>admin
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">DJANGO_SUPERUSER_EMAIL</span><span class="o">=</span>admin@example.com
-</code></pre></div>
-<h2 id="subsequent-boots">Subsequent boots<a class="headerlink" href="#subsequent-boots" title="Permanent link">&para;</a></h2>
-<p><code>ensure_site_admin</code> is a no-op once a site admin exists. Credentials are never printed again.</p>
+<h1 id="issue-board-lens-usage">Issue Board Lens Usage<a class="headerlink" href="#issue-board-lens-usage" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Added in 1.2</strong></p>
+</blockquote>
 <div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>If you lose the temporary password before changing it, reset it via the Django shell:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">accounts.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">User</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">u</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">username</span><span class="o">=</span><span class="s2">"admin"</span><span class="p">)</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">u</span><span class="o">.</span><span class="n">set_password</span><span class="p">(</span><span class="s2">"new-temporary-password"</span><span class="p">)</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">u</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
-</code></pre></div></p>
+<p class="admonition-title">Experimental feature</p>
+<p>The <a href="../../features/issue-board-lens/">Issue Board Lens</a> is experimental. The usage report's fields may change while the feature is experimental.</p>
 </div>
-<h2 id="inviting-your-team">Inviting your team<a class="headerlink" href="#inviting-your-team" title="Permanent link">&para;</a></h2>
-<p>Before inviting anyone, decide how new users can join the instance. Go to <strong>Admin → Settings</strong> and set the registration mode:</p>
+<p>The Issue Board Lens reads GitHub and GitLab on behalf of the people viewing a lens board. GitLab reads are anonymous, so they count against your <strong>instance's</strong> IP address and the rate limit gitlab.com applies to it. GitHub reads use each viewer's own token. This page explains how to see how much upstream traffic the lens actually generates, and why that traffic has a hard upper bound.</p>
+<p>Two surfaces are available only while <code>GIT_LENS_ENABLED=true</code>:</p>
+<ul>
+<li>an admin-only <strong>usage report</strong>, served over the API, and</li>
+<li>one <strong>structured log line</strong> for every outbound GitHub/GitLab HTTP call.</li>
+</ul>
+<hr />
+<h2 id="the-usage-report">The usage report<a class="headerlink" href="#the-usage-report" title="Permanent link">&para;</a></h2>
+<p>Site admins can read <code>GET /api/v1/admin/git-lens/usage/</code>. From a shell, pass a <a href="../../features/personal-access-tokens/">personal access token</a> that carries the <code>admin</code> scope:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Token vbn_..."</span><span class="w"> </span>https://visiban.example.com/api/v1/admin/git-lens/usage/
+</code></pre></div>
+<p>The report has three parts:</p>
 <table>
 <thead>
 <tr>
-<th>Mode</th>
-<th>Who can create an account</th>
+<th>Section</th>
+<th>What it tells you</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Open</strong></td>
-<td>Anyone who reaches the login page can self-register — no action required from an admin</td>
+<td><code>last_24h</code> / <code>current_hour</code></td>
+<td>For each provider: <code>outbound_calls</code> (total HTTP requests made to GitHub or GitLab), <code>outbound_by_kind</code> (the same calls broken down by what was read, <code>issues</code>, <code>branches</code>, <code>merge_requests</code> or <code>milestones</code>, and by outcome), and <code>board_requests</code> (how each lens board load was answered).</td>
 </tr>
 <tr>
-<td><strong>Invite-only</strong></td>
-<td>New users must follow a valid invite link generated by a site admin; attempts to register without a link are rejected</td>
+<td><code>hourly</code></td>
+<td>Outbound calls per provider for each of the last 24 hours, oldest first.</td>
 </tr>
 <tr>
-<td><strong>Closed</strong></td>
-<td>Self-registration is disabled entirely; site admins create accounts manually from <strong>Admin → Users → Add user</strong></td>
+<td><code>bounds</code></td>
+<td>The fixed limits that cap the traffic (see <a href="#why-the-traffic-is-bounded">Why the traffic is bounded</a>).</td>
 </tr>
 </tbody>
 </table>
-<p>The change takes effect immediately with no restart required. Existing sessions and OAuth-linked accounts are never affected.</p>
-<h3 id="generating-invite-links-invite-only-mode">Generating invite links (Invite-only mode)<a class="headerlink" href="#generating-invite-links-invite-only-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is set to Invite-only, go to <strong>Admin → Invite Links</strong> to create links for new users.</p>
-<p>Invite links work for both password-based and OAuth registration. When a user follows an invite link and chooses to sign up via Google, GitHub, GitLab, or OIDC, the token is carried through the OAuth redirect and consumed on successful signup — no manual token entry required.</p>
-<p><strong>To create a link:</strong></p>
-<ol>
-<li>Open the <strong>Admin</strong> panel (<code>/admin</code>) and go to the <strong>Invite Links</strong> tab.</li>
-<li>Click <strong>Generate invite link</strong>.</li>
-<li>Choose an expiry window: <strong>1 day</strong>, <strong>7 days</strong>, <strong>30 days</strong>, or <strong>Never expires</strong>.</li>
-<li>Optionally enable <strong>Single-use</strong> — the link is consumed after the first registration and cannot be reused.</li>
-<li>Copy the generated token and share it with the new user via a secure channel.</li>
-</ol>
-<p>The raw token value is shown only once at creation — it is not stored in plain text and cannot be retrieved later. If a link is lost before it is used, revoke it and generate a new one.</p>
-<p><strong>Link statuses:</strong></p>
+<h3 id="outbound-call-outcomes">Outbound call outcomes<a class="headerlink" href="#outbound-call-outcomes" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Status</th>
+<th>Outcome</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Pending</td>
-<td>Valid and not yet used</td>
+<td><code>ok</code></td>
+<td>The provider answered successfully.</td>
 </tr>
 <tr>
-<td>Used</td>
-<td>Consumed by a registration (single-use links only)</td>
+<td><code>not_found</code></td>
+<td>The repository does not exist or is not public.</td>
 </tr>
 <tr>
-<td>Expired</td>
-<td>Past the expiry date</td>
+<td><code>auth_error</code></td>
+<td>The provider rejected the credential. A viewer's GitHub token may have expired.</td>
 </tr>
 <tr>
-<td>Revoked</td>
-<td>Manually invalidated by a site admin</td>
+<td><code>rate_limited</code></td>
+<td>The provider is throttling. If this count rises steadily for <code>gitlab</code>, the instance's IP is at gitlab.com's anonymous limit.</td>
+</tr>
+<tr>
+<td><code>http_error</code></td>
+<td>Any other non-success response from the provider.</td>
+</tr>
+<tr>
+<td><code>network_error</code></td>
+<td>Timeout, DNS or connection failure. The provider was never reached.</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>A maximum of 50 active (pending, non-expired) invite links can exist at one time per instance. Revoke unused links to stay below this limit.</p>
-</div>
-<h3 id="creating-accounts-manually-closed-mode">Creating accounts manually (Closed mode)<a class="headerlink" href="#creating-accounts-manually-closed-mode" title="Permanent link">&para;</a></h3>
-<p>When registration mode is Closed, use <strong>Admin → Users → Add user</strong> to create accounts directly. Set a temporary password and enable <strong>Force password reset</strong> so the user chooses their own password on first login.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Copy the temporary password before closing the Create User dialog — it is not shown again. Share it with the new user via a secure channel.</p>
-</div>
+<h3 id="board-request-outcomes">Board request outcomes<a class="headerlink" href="#board-request-outcomes" title="Permanent link">&para;</a></h3>
+<p><code>board_requests</code> shows how much of the viewing load the lens cache absorbed. Only the <code>fetched</code>, <code>error</code> and <code>error_stale</code> outcomes contacted the provider.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cache_fresh</code></td>
+<td>Served from cache. No provider call was made.</td>
+</tr>
+<tr>
+<td><code>cache_stale_locked</code></td>
+<td>Another request was already refreshing the same board, so the cached copy was served.</td>
+</tr>
+<tr>
+<td><code>budget_exhausted_stale</code></td>
+<td>The viewer hit their fetch limit, so the cached copy was served.</td>
+</tr>
+<tr>
+<td><code>budget_exhausted_429</code></td>
+<td>The viewer hit their fetch limit and nothing was cached, so the request was refused with <code>429</code>.</td>
+</tr>
+<tr>
+<td><code>fetched</code></td>
+<td>Fresh data was fetched from the provider.</td>
+</tr>
+<tr>
+<td><code>error_stale</code></td>
+<td>The provider fetch failed, so the last good copy was served.</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>The provider fetch failed and nothing was cached, so the viewer saw an error.</td>
+</tr>
+</tbody>
+</table>
+<p>A healthy instance shows <code>cache_fresh</code> well ahead of <code>fetched</code>.</p>
+<h3 id="retention-and-accuracy">Retention and accuracy<a class="headerlink" href="#retention-and-accuracy" title="Permanent link">&para;</a></h3>
+<p>The counters are kept in the Redis/Valkey cache as hourly buckets for 24 hours. They are <strong>operational telemetry, not an audit log</strong>. They are approximate, they are not attributed to users, and they reset if the cache is flushed or restarted. For longer history, collect the log lines described below with your normal log pipeline.</p>
+<hr />
+<h2 id="the-outbound-log-line">The outbound log line<a class="headerlink" href="#the-outbound-log-line" title="Permanent link">&para;</a></h2>
+<p>Every GitHub or GitLab HTTP request the lens makes writes one <code>INFO</code> line to the backend's standard output, on the logger <code>git_lens.outbound</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git_lens outbound provider=gitlab kind=issues outcome=ok status=200 duration_ms=184 repo=acme/backend
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td><code>github</code> or <code>gitlab</code></td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td><code>issues</code>, <code>branches</code>, <code>merge_requests</code> or <code>milestones</code></td>
+</tr>
+<tr>
+<td><code>outcome</code></td>
+<td>Same values as the outbound outcomes above</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>HTTP status code, or <code>-</code> when no response was received</td>
+</tr>
+<tr>
+<td><code>duration_ms</code></td>
+<td>Wall-clock time of the request</td>
+</tr>
+<tr>
+<td><code>repo</code></td>
+<td>The public repository slug a board admin configured</td>
+</tr>
+</tbody>
+</table>
+<p>The same fields are attached to the log record as <code>lens_provider</code>, <code>lens_kind</code>, <code>lens_outcome</code>, <code>lens_status</code>, <code>lens_duration_ms</code> and <code>lens_repo</code>, so a JSON log formatter can emit them as structured fields.</p>
+<p>The line never contains a token, an <code>Authorization</code> header, the request URL, or query parameters. Filter values such as assignee usernames are never logged.</p>
+<p>To quiet the line without affecting the usage report, set:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">GIT_LENS_OUTBOUND_LOG_LEVEL</span><span class="o">=</span>WARNING
+</code></pre></div>
+<p>The default is <code>INFO</code>. The logger has nothing to emit while <code>GIT_LENS_ENABLED</code> is off.</p>
+<hr />
+<h2 id="why-the-traffic-is-bounded">Why the traffic is bounded<a class="headerlink" href="#why-the-traffic-is-bounded" title="Permanent link">&para;</a></h2>
+<p>The lens cannot generate unbounded upstream traffic, however many people view it or how they filter. The <code>bounds</code> section of the report shows the live values:</p>
+<table>
+<thead>
+<tr>
+<th>Limit</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shared cache (<code>cache_soft_ttl_seconds</code>)</td>
+<td>60 s</td>
+<td>Everyone viewing the same GitLab repository, pivot and filter shares one fetch per minute. GitHub is cached per viewer.</td>
+</tr>
+<tr>
+<td>Calls per fetch (<code>max_outbound_calls_per_fetch</code>)</td>
+<td>8</td>
+<td>At most 3 issue pages, 2 branch pages, 2 merge-request pages and 1 milestone page.</td>
+</tr>
+<tr>
+<td>Fetches per user per repository (<code>fetch_budget_per_user_repo</code>)</td>
+<td>12 per 5 min</td>
+<td>Covers refreshes, pivots and new filter values alike.</td>
+</tr>
+<tr>
+<td>Fetches per user across all repositories (<code>fetch_budget_per_user</code>)</td>
+<td>48 per 5 min</td>
+<td>Stops one account from multiplying its budget by pointing boards at many repositories.</td>
+</tr>
+<tr>
+<td>Calls per user (<code>max_outbound_calls_per_user_per_window</code>)</td>
+<td>384 per 5 min</td>
+<td>The product of the two lines above: the most one account can cause, whatever it does.</td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="../../api/git-lens/#refresh-and-rate-limits">Refresh and rate limits</a> for how these limits behave from a viewer's point of view.</p>
 
 
 
