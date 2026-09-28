@@ -6,7 +6,6 @@ from .broadcast import EVT_MEMBER_REMOVED, EVT_PING
 from .models import Board
 from .permissions import (
     MODERATOR_BEARING_EVENTS,
-    ROLES_WITH_MODERATOR_VISIBILITY,
     get_board_role,
     moderator_field_visible,
 )
@@ -16,16 +15,19 @@ from .permissions import (
 # 60–120 s of silence; 30 s keeps connections alive through most of them.
 PING_INTERVAL = 30
 
-# Roles that may receive `is_moderator` on member.* broadcast payloads.
-# All other roles get the field stripped at the consumer (#978) — the
-# REST surface already strips it via BoardMembershipSerializer.to_representation
-# (#920), but broadcasts are fan-out without per-subscriber filtering and the
-# serializer cannot know the recipient's role at send time.
+# `is_moderator` visibility on member.* broadcast payloads is decided per
+# subscriber by moderator_field_visible() (boards.permissions): admin/site_admin
+# subscribers see it on every row; everyone else sees it only on the row that
+# is their OWN membership, and it is stripped on every other row (#920/#1173/
+# #1191). Broadcasts are fan-out without per-subscriber filtering, so this
+# consumer applies the gate itself rather than relying on the REST-response
+# stripping in BoardMembershipSerializer.to_representation, which cannot know
+# the recipient's role at send time.
 #
-# Defined in boards.permissions since #1114 so this consumer and the change-feed
-# reader (BoardEventSerializer) apply one gate rather than two copies of it.
-# Re-exported under the old private name so nothing that reached for it breaks.
-_ROLES_WITH_MODERATOR_VISIBILITY = ROLES_WITH_MODERATOR_VISIBILITY
+# moderator_field_visible() is defined in boards.permissions since #1114 so
+# this consumer, the change-feed reader (BoardEventSerializer), and the two
+# REST serializers (BoardFullSerializer.get_members, BoardMembershipSerializer)
+# all call the same function rather than each restating the rule.
 
 
 class BoardConsumer(AsyncWebsocketConsumer):
