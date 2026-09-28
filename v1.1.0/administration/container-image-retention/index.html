@@ -3626,12 +3626,15 @@ every tag and protected none. Its daily sweep deleted the released <code>v0.3.0-
 install of the current release was possible, and rollback was impossible. The publish jobs
 had gone green; the policy that erased their output afterward lived entirely in the GitLab
 UI, asserted by nothing in the repo.</p>
-<p>Separately, Red-team finding M17 in the same audit: the documented production compose path
-defaulted <code>APP_VERSION</code> to <code>latest</code> — a mutable tag — while every release image was scanned,
-SBOM'd and signed <strong>by digest</strong>. Pulling <code>latest</code> in production could never be verified
-against that signature or rolled back to a specific artifact. See
-<a href="../upgrade/#upgrading-to-12x">Upgrading → <code>APP_VERSION</code> is now required</a> for how Visiban
-closed that half; this page covers the registry-retention half and digest pinning.</p>
+<p>Separately, Red-team finding M17 in the same audit was against TruePPM's own release path:
+its documented production compose defaulted <code>APP_VERSION</code> to <code>latest</code> — a mutable tag — while
+its release images were scanned, SBOM'd and signed by digest, so pulling <code>latest</code> in
+production could never be verified against that signature or rolled back to a specific
+artifact. Visiban's <code>APP_VERSION</code> half of the same gap is now closed — see
+<a href="../upgrade/#upgrading-to-12x">Upgrading → <code>APP_VERSION</code> is now required</a>. Visiban's own
+release images are <strong>not yet</strong> scanned, SBOM'd, or signed the way TruePPM's are; that work is
+tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1153">#1153</a>. This page covers the
+registry-retention half and digest pinning, both of which apply regardless of #1153's status.</p>
 <h2 id="gitlab-container-registry">GitLab container registry<a class="headerlink" href="#gitlab-container-registry" title="Permanent link">&para;</a></h2>
 <p>Recorded 2026-09-27 via:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>glab<span class="w"> </span>api<span class="w"> </span><span class="s2">"projects/visiban%2Fvisiban"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.container_expiration_policy'</span>
@@ -3751,10 +3754,12 @@ supposed to be.</p>
 <code>values.yaml</code>'s <code>tag:</code>). A tag is a mutable pointer — even a <code>v1.1.0</code> tag that is never
 intentionally overwritten, but registries let it be recreated (an operator who suspects a
 GHCR/GitLab-side re-push, or who wants the strongest possible guarantee that the image bytes
-they run are the exact ones that were scanned and signed, can pin by <strong>digest</strong> instead.</p>
+they run are the exact ones that were built and pushed, can pin by <strong>digest</strong> instead.</p>
 <p>Every release image is content-addressed by its digest (a <code>sha256:...</code> hash of the image
-manifest) at the point it is pushed — that digest is what CI's SBOM/scan/sign steps actually
-operate on, and it cannot change without the digest itself changing.</p>
+manifest) at the point it is pushed, and it cannot change without the digest itself changing.
+CI does not yet attach an SBOM or signature to that digest — see
+<a href="https://gitlab.com/visiban/visiban/-/issues/1153">#1153</a> — but once it does, the digest is
+what those attestations will target, independent of whichever tag currently points at it.</p>
 <h3 id="finding-the-digest-for-a-release">Finding the digest for a release<a class="headerlink" href="#finding-the-digest-for-a-release" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Via crane (no docker pull required):</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>crane<span class="w"> </span>digest<span class="w"> </span>ghcr.io/visiban/visiban/backend:v1.1.0
