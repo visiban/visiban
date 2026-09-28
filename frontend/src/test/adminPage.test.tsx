@@ -381,6 +381,38 @@ describe('AdminPage — Users tab', () => {
 
     expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
   })
+
+  it('shows the server detail message when clearAdminUserLockout fails (#1203)', async () => {
+    mockClearAdminUserLockout.mockRejectedValue({
+      response: { data: { detail: 'Account is not currently locked out.' } },
+    })
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getAllByText('Clear lockout'))
+    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByText('Confirm'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Account is not currently locked out.')).toBeInTheDocument()
+    })
+  })
+
+  it('falls back to a generic error message when clearAdminUserLockout fails without detail (#1203)', async () => {
+    mockClearAdminUserLockout.mockRejectedValue(new Error('network error'))
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getAllByText('Clear lockout'))
+    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByText('Confirm'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Action failed. Please try again.')).toBeInTheDocument()
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

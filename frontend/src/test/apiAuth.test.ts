@@ -10,7 +10,7 @@ vi.mock('../api/client', () => ({
 }))
 
 import client from '../api/client'
-import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, verifyEmail, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
+import { getCurrentUser, getVersion, updateCurrentUser, logout, login, register, getAuthProviders, changePassword, getSiteConfig, listTokens, createToken, revokeToken, getAdminInviteLinks, createAdminInviteLink, revokeAdminInviteLink, deactivateAdminUser, clearAdminUserLockout, verifyEmail, completeTour, resetTour, updateDefaultBoard, searchUsers } from '../api/auth'
 
 const mockGet = client.get as ReturnType<typeof vi.fn>
 const mockPost = client.post as ReturnType<typeof vi.fn>
@@ -193,6 +193,14 @@ describe('admin invite link API', () => {
     mockPost.mockResolvedValue({ data: { id: 5, is_active: false } })
     await deactivateAdminUser(5)
     expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/users/5/deactivate/', { transfers: [] })
+  })
+
+  it('clearAdminUserLockout calls POST /api/admin/users/:id/clear-lockout/', async () => {
+    const user = { id: 5, username: 'bob', is_active: true }
+    mockPost.mockResolvedValue({ data: user })
+    const result = await clearAdminUserLockout(5)
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/admin/users/5/clear-lockout/', {})
+    expect(result).toEqual(user)
   })
 })
 
