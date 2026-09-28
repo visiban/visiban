@@ -82,14 +82,15 @@ the CI file is the source of truth for the current job definitions.
 
 A job's `timeout:` only bounds execution time *after* a runner has picked it up — it does
 nothing for a job stuck `pending` because no runner matches its `tags:`. GitLab has no native
-"pending too long" job failure. `arm64-runner-preflight` queries the Runners API
-(`GET /projects/:id/runners?scope=online&tag_list=arm64`, the same read
-`glab api "projects/visiban%2Fvisiban/runners?type=group_type"` performs by hand) and fails
-immediately if it finds no online `arm64`-tagged runner, before `backend-docker-push-arm64` /
-`frontend-docker-push-arm64` are even scheduled. This needs `RUNNERS_READ_TOKEN`, a
-`read_api`-scope PAT — the Runners API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint
-set, so a job token can't make this call. See
-[Tokens and Rotation](tokens-and-rotation.md#runners_read_token).
+"pending too long" job failure. `arm64-runner-preflight` queries the **group** Runners API
+(`GET /groups/visiban/runners?scope=online&tag_list=arm64` — a different read from the
+project-scoped `glab api "projects/visiban%2Fvisiban/runners?type=group_type"` performed by
+hand above, though both surface the same group runner) and fails immediately if it finds no
+online `arm64`-tagged runner, before `backend-docker-push-arm64` /
+`frontend-docker-push-arm64` are even scheduled. This needs `RUNNER_STATUS_TOKEN`, a
+fine-grained PAT with the `read_runner` permission scoped to the `visiban` group — the Runners
+API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
+call. See [Tokens and Rotation](tokens-and-rotation.md#runner_status_token).
 
 ## Distributed CI cache (MinIO)
 

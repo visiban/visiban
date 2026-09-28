@@ -200,8 +200,11 @@ verify_images() {
     echo "cleanup/retention policy — see" >&2
     echo "docs/administration/container-image-retention.md — its keep-regex" >&2
     echo "must protect release tags (^v.*\$|^latest\$), or a scheduled sweep" >&2
-    echo "will delete them again. Re-run the tag pipeline's publish jobs" >&2
-    echo "(backend-docker-push / frontend-docker-push) to restore." >&2
+    echo "will delete them again. To restore, re-run the FULL tag pipeline's" >&2
+    echo "publish chain — backend-docker-push/frontend-docker-push alone only" >&2
+    echo "push amd64-suffixed intermediate tags on a release tag; the real" >&2
+    echo "names come back only once backend-manifest/frontend-manifest (and" >&2
+    echo "the arm64 legs they need) also complete. See #1084." >&2
     return 1
   fi
 
