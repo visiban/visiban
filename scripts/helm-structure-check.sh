@@ -924,11 +924,24 @@ check_demo_guards() {
 VALKEY_GUARD_CASES=(
   "replication architecture|the bundled Valkey is standalone only|--set=valkey.architecture=replication"
   "auth enabled|valkey.auth.enabled is true|--set=valkey.auth.enabled=true"
-  "Bitnami registry key|valkey.image points at a Bitnami image|--set=valkey.image.registry=docker.io"
-  "Bitnami repository|valkey.image points at a Bitnami image|--set=valkey.image.repository=bitnamilegacy/valkey"
-  "latest tag|/valkey/image/tag|--set=valkey.image.tag=latest"
-  "empty tag|/valkey/image/tag|--set-string=valkey.image.tag="
+  "non-Docker-Hub registry key|valkey.image.registry is|--set=valkey.image.registry=quay.io"
+  "Bitnami repository|a Bitnami image|--set=valkey.image.repository=bitnamilegacy/valkey"
+  "latest tag|valkey.image must name a repository and a pinned tag|--set=valkey.image.tag=latest"
+  "empty tag|valkey.image must name a repository and a pinned tag|--set-string=valkey.image.tag="
   "null tag|valkey.image must name a repository and a pinned tag|--set-json=valkey.image.tag=null"
+  "reuse-values from a subchart release|a Bitnami image|--set=valkey.image.registry=registry-1.docker.io|--set=valkey.image.repository=bitnami/valkey|--set=valkey.image.tag=latest"
+)
+
+# The other half of the guards' contract: the fix a guard PRINTS must clear it.
+# `helm upgrade --reuse-values` from a subchart-era release carries the
+# subchart's registry-1.docker.io / bitnami/valkey / latest, and before this
+# case the printed fix left the registry behind and the guard looped on it.
+VALKEY_GUARD_FIX_ARGS=(
+  --set valkey.image.registry=registry-1.docker.io
+  --set valkey.image.repository=bitnami/valkey
+  --set valkey.image.tag=latest
+  --set valkey.image.repository=valkey/valkey
+  --set valkey.image.tag=8-alpine
 )
 
 unpinned_images() {
@@ -1004,8 +1017,15 @@ check_image_pins() {
       gbad=1
     fi
   done
+  if ! helm template "$RELEASE" "$CHART_UNDER_TEST" \
+         --set-string secret.djangoSecretKey=structure-check-not-a-real-secret \
+         --set backend.settings.allowedHosts=structure-check.visiban.local \
+         "${VALKEY_GUARD_FIX_ARGS[@]}" > "$out" 2>/tmp/helm-valkey-guard-err.txt; then
+    fail "the fix the Valkey image guard prints does not clear it on a --reuse-values-shaped render: $(grep -m1 'Visiban:' /tmp/helm-valkey-guard-err.txt)"
+    gbad=1
+  fi
   rm -f "$out"
-  [ "$gbad" -eq 0 ] && pass "all ${#VALKEY_GUARD_CASES[@]} bundled-Valkey guards refuse their render, each with its own message"
+  [ "$gbad" -eq 0 ] && pass "all ${#VALKEY_GUARD_CASES[@]} bundled-Valkey guards refuse their render, each with its own message, and the printed fix clears them"
 }
 
 run_all_checks() {

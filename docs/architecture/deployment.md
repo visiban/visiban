@@ -317,6 +317,13 @@ kubectl port-forward -n visiban svc/<release-name>-backend 8000:8000
 helm upgrade visiban helm/visiban --reuse-values
 ```
 
+The first `--reuse-values` upgrade onto chart 0.5.0 or later, from a release that
+used the Bitnami Valkey subchart, also needs
+`--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine`
+(or `--reset-then-reuse-values` on Helm 3.14+). Otherwise the subchart's reused
+`bitnami/valkey:latest` defaults stop the render. See the
+[upgrade guide](../administration/upgrade.md#upgrading-to-12x).
+
 ### Upgrading PostgreSQL major versions
 
 The bundled PostgreSQL subchart does not perform in-place major version upgrades. If you have an existing deployment on PostgreSQL 16 and are upgrading to a chart version that bundles PostgreSQL 17, you must migrate your data manually:

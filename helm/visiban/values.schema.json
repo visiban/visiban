@@ -274,12 +274,10 @@
         "image": {
           "type": "object",
           "properties": {
-            "repository": { "type": "string", "minLength": 1 },
+            "repository": { "type": "string" },
             "tag": {
-              "description": "A pinned tag -- never empty, never latest (#1200).",
-              "type": "string",
-              "minLength": 1,
-              "not": { "const": "latest" }
+              "description": "A pinned tag -- never empty, never latest (#1200). Enforced by _validate.tpl rather than here, deliberately: a schema failure is an opaque path, and `helm upgrade --reuse-values` from a subchart-era release carries the subchart's tag `latest`, so that operator needs the guard's message saying what to pass instead.",
+              "type": "string"
             },
             "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
           }

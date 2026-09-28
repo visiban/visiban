@@ -132,7 +132,7 @@ The channel layer also serves as the Django cache backend, using a separate data
 
 Valkey is a BSD-3-licensed fork of Redis created by contributors from AWS, Google, Snap, and others under the Linux Foundation. It is wire-compatible with Redis 7+ (same RESP protocol, same command set), so the switch is a drop-in replacement at the infrastructure layer — no code changes to `channels_redis`, the `redis-py` client, the Django `RedisCache` backend, or any other dependency are required. `REDIS_URL`, `REDIS_CACHE_URL`, and the `redis://` scheme are all unchanged.
 
-The Bitnami Valkey subchart in the Helm chart is pinned for reproducibility. Unversioned upstream chart dependencies have caused unexpected breakage in the past when charts are updated between deploys.
+The Helm chart runs Valkey as its own StatefulSet on the official `valkey/valkey:8-alpine` image, the same major as `docker-compose.prod.yml`. It first used the Bitnami `valkey` subchart, but pinning the subchart did not pin the image: its default was the floating `bitnami/valkey:latest` (Bitnami no longer publishes versioned tags), so a Helm install could change Valkey major on any pod reschedule (#1200). `scripts/helm-structure-check.sh` now fails any rendered image that is untagged or tagged `latest`.
 
 Persistence is intentionally disabled for the channel layer. A Valkey restart drops in-flight WebSocket messages, but clients reconnect automatically and resync board state from the REST API. The alternative — persisting the channel layer — would complicate the operational model without meaningful benefit: board state is the source of truth in PostgreSQL, not Valkey.
 

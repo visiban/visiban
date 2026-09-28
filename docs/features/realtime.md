@@ -218,7 +218,7 @@ Valkey is included in the default `docker-compose.yml` — no extra setup needed
 
 ### Production / Helm
 
-Set `REDIS_URL` to your Valkey DSN, or use the bundled Bitnami Valkey subchart:
+Set `REDIS_URL` to your Valkey DSN, or use the bundled Valkey: the chart's own StatefulSet on the official, pinned `valkey/valkey:8-alpine` image (see [Bundled Valkey](../getting-started/kubernetes.md#bundled-valkey)):
 
 ```yaml
 valkey:
