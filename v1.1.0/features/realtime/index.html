@@ -4073,7 +4073,7 @@
 <h3 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h3>
 <p>Valkey is included in the default <code>docker-compose.yml</code> — no extra setup needed.</p>
 <h3 id="production-helm">Production / Helm<a class="headerlink" href="#production-helm" title="Permanent link">&para;</a></h3>
-<p>Set <code>REDIS_URL</code> to your Valkey DSN, or use the bundled Bitnami Valkey subchart:</p>
+<p>Set <code>REDIS_URL</code> to your Valkey DSN, or use the bundled Valkey: the chart's own StatefulSet on the official, pinned <code>valkey/valkey:8-alpine</code> image (see <a href="../../getting-started/kubernetes/#bundled-valkey">Bundled Valkey</a>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">valkey</span><span class="p">:</span>
 <a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>

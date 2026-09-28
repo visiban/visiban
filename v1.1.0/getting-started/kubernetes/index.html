@@ -805,6 +805,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bundled-valkey" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled Valkey
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#network-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4050,6 +4061,57 @@ verify the same invariant.</p>
 <a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/0"</span>
 <a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="w">  </span><span class="nt">cacheUrl</span><span class="p">:</span><span class="w"> </span><span class="s">"redis://valkey.example.com:6379/1"</span>
 </code></pre></div>
+<h2 id="bundled-valkey">Bundled Valkey<a class="headerlink" href="#bundled-valkey" title="Permanent link">&para;</a></h2>
+<p>With <code>valkey.enabled: true</code> (the default) the chart runs Valkey itself: a
+single-replica StatefulSet on the official <code>valkey/valkey:8-alpine</code> image, the
+same major as <code>docker-compose.prod.yml</code>, as a non-root user with a read-only
+root filesystem and no Linux capabilities. The backend reaches it at
+<code>&lt;release&gt;-valkey-primary:6379</code>.</p>
+<p>Valkey holds only the real-time (Channels) layer and the Django cache, so it
+runs without persistence by default. The values it reads:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>valkey.image.repository</code> / <code>valkey.image.tag</code></td>
+<td><code>valkey/valkey</code> / <code>8-alpine</code></td>
+<td>The image. The chart refuses an empty or <code>latest</code> tag.</td>
+</tr>
+<tr>
+<td><code>valkey.primary.persistence.enabled</code> / <code>.size</code> / <code>.storageClass</code></td>
+<td><code>false</code> / <code>1Gi</code> / unset</td>
+<td>Keep the append-only file in a PVC across restarts.</td>
+</tr>
+<tr>
+<td><code>valkey.primary.resources</code></td>
+<td>100m / 128Mi requests, 150m / 192Mi limits</td>
+<td>Container resources.</td>
+</tr>
+<tr>
+<td><code>valkey.commonConfiguration</code></td>
+<td>AOF on, RDB snapshots off</td>
+<td>Extra <code>valkey.conf</code> lines.</td>
+</tr>
+</tbody>
+</table>
+<p>The bundled Valkey has no password: access is restricted by the
+<a href="#network-policies">network policies</a> below. For a password-protected instance,
+use an <a href="#external-database-and-valkey">external Valkey</a> with the password in
+<code>externalRedis.url</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Chart 0.5.0 replaced the Bitnami subchart</p>
+<p>Earlier development builds of the 1.2 chart ran Valkey through the Bitnami
+<code>valkey</code> subchart, whose default image was the floating
+<code>bitnami/valkey:latest</code>. See the
+<a href="../../administration/upgrade/#upgrading-to-12x">upgrade note</a> for what
+<code>helm upgrade</code> does to an existing install.</p>
+</div>
 <h2 id="network-policies">Network policies<a class="headerlink" href="#network-policies" title="Permanent link">&para;</a></h2>
 <p>Enable network policies to restrict pod-to-pod traffic to only the paths Visiban needs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>helm<span class="w"> </span>install<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span><span class="se">\</span>

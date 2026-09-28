@@ -3787,7 +3787,7 @@
 <tr>
 <td>Valkey</td>
 <td>8</td>
-<td>Bitnami <code>valkey</code> subchart (pinned)</td>
+<td>Built-in StatefulSet using the official <code>valkey/valkey:8-alpine</code> image (the same major as <code>docker-compose.prod.yml</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -3796,10 +3796,11 @@
 <p><strong>Note:</strong> Both the Docker Compose and Kubernetes/Helm stacks run <strong>PostgreSQL 17</strong>. If you are migrating an existing deployment from an older release that used PostgreSQL 16, you must export your data first — PostgreSQL major version upgrades are not performed in-place. See <a href="#upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions</a>.</p>
 </blockquote>
 <h3 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Valkey uses the Bitnami subchart — add the repo and fetch dependencies</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>bitnami<span class="w"> </span>https://charts.bitnami.com/bitnami
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># The only remaining subchart is the opt-in Bitnami PostgreSQL one</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># (postgresql.subchartEnabled). Valkey is part of the chart itself since 0.5.0.</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>helm<span class="w"> </span>repo<span class="w"> </span>add<span class="w"> </span>bitnami<span class="w"> </span>https://charts.bitnami.com/bitnami
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>helm<span class="w"> </span>repo<span class="w"> </span>update
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>helm<span class="w"> </span>dependency<span class="w"> </span>update<span class="w"> </span>helm/visiban
 </code></pre></div>
 <p>Create a secret values file (never committed — <code>values.secret.yaml</code> is gitignored):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>cp<span class="w"> </span>helm/visiban/values.secret.yaml.example<span class="w"> </span>helm/visiban/values.secret.yaml
@@ -4035,6 +4036,16 @@
 <td>Use bundled Valkey 8; set <code>false</code> to use <code>externalRedis.url</code></td>
 </tr>
 <tr>
+<td><code>valkey.image.tag</code></td>
+<td><code>8-alpine</code></td>
+<td>Official <code>valkey/valkey</code> image tag. Never <code>latest</code> or empty — the chart refuses both</td>
+</tr>
+<tr>
+<td><code>valkey.primary.persistence.enabled</code></td>
+<td><code>false</code></td>
+<td>Keep Valkey's AOF in a PVC across restarts. Not needed: Valkey holds only rebuildable data</td>
+</tr>
+<tr>
 <td><code>externalRedis.url</code></td>
 <td><code>""</code></td>
 <td>External Valkey (or Redis-compatible) DSN (used when <code>valkey.enabled: false</code>) — <strong>must be set</strong> when using an external instance</td>
@@ -4124,6 +4135,12 @@
 <h3 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>visiban<span class="w"> </span>helm/visiban<span class="w"> </span>--reuse-values
 </code></pre></div>
+<p>The first <code>--reuse-values</code> upgrade onto chart 0.5.0 or later, from a release that
+used the Bitnami Valkey subchart, also needs
+<code>--set valkey.image.repository=valkey/valkey --set valkey.image.tag=8-alpine</code>
+(or <code>--reset-then-reuse-values</code> on Helm 3.14+). Otherwise the subchart's reused
+<code>bitnami/valkey:latest</code> defaults stop the render. See the
+<a href="../../administration/upgrade/#upgrading-to-12x">upgrade guide</a>.</p>
 <h3 id="upgrading-postgresql-major-versions">Upgrading PostgreSQL major versions<a class="headerlink" href="#upgrading-postgresql-major-versions" title="Permanent link">&para;</a></h3>
 <p>The bundled PostgreSQL subchart does not perform in-place major version upgrades. If you have an existing deployment on PostgreSQL 16 and are upgrading to a chart version that bundles PostgreSQL 17, you must migrate your data manually:</p>
 <ol>
