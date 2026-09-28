@@ -119,6 +119,7 @@ main pipelines were red for exactly this reason (#1165).
 5xx is an endpoint bug; an undocumented 4xx needs the response declared; a schema mismatch needs
 the serializer or annotation fixed. Replay with the pipeline variable `FUZZ_SEED=<n>` or
 `st replay <id>`. Full triage steps: [`docs/api/openapi.md`](../api/openapi.md#a-red-backend-schema-fuzz-job-is-never-a-flake).
+Known still-open defects it can hit: #1166.
 
 ## Docker Hub `429 Too Many Requests` on image pulls
 
@@ -168,4 +169,7 @@ shell, no `:-` operator); set a project CI/CD variable `DOCKERHUB_MIRROR=docker.
 mirror) to fix those. `BASE_REGISTRY`/script usages fall back to `docker.io/library`
 automatically with no configuration needed. See
 [CI Runners](ci-runners.md#dependency-proxy) point 4 for the full explanation.
-Known still-open defects it can hit: #1166.
+
+**Not yet covered:** the arm64 release jobs (`.arm64-docker-push-base`,
+`backend-docker-push-arm64`, `frontend-docker-push-arm64`, #1084) still pull Docker Hub images
+directly — deferred to **#1204**, to apply once !964 (which rewrites those jobs) merges.

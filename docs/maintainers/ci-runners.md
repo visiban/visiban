@@ -171,6 +171,13 @@ Third-party registries (`quay.io`'s Keycloak image, `ghcr.io`/`gcr.io` for trivy
 `mcr.microsoft.com`'s Playwright image) are out of scope — GitLab's Dependency Proxy only
 mirrors Docker Hub, so these keep pulling directly regardless of `DOCKERHUB_MIRROR`.
 
+**Not yet covered — arm64 release jobs (#1204):** `.arm64-docker-push-base`,
+`backend-docker-push-arm64`, and `frontend-docker-push-arm64` (#1084, see "Docker image push"
+above) still pull their Docker Hub base images directly rather than through
+`${DOCKERHUB_MIRROR}`. Left out of #1198 deliberately: those jobs are being rewritten by the
+separate, still-open **!964**, and rewriting them here first would just create a conflict.
+Tracked as **#1204**, to apply once !964 merges.
+
 ## Related open items
 
 - **#1084** — resolved: native arm64 image publishing restored via `Max1-Runner-Visiban` +
