@@ -390,9 +390,13 @@ REST_FRAMEWORK = {
         # operator-level observability and consistency with the rest of the auth surface.
         "verify_email": "9999/hour" if DEBUG else "20/hour",
         # Login: defense-in-depth ceiling applied alongside the allauth
-        # ACCOUNT_RATE_LIMITS gate (5 failed attempts / 5 min PER ACCOUNT, #1199 —
-        # this throttle is the separate per-IP layer, not "on top of" a per-IP
-        # allauth gate as previously described here).
+        # ACCOUNT_RATE_LIMITS gate below — itself two rates: 10 failed
+        # attempts/min per IP, and 5 failed attempts/5 min per account (#1199).
+        # This throttle is a separate, SPA/API-only per-IP layer, not "on top
+        # of" a single per-IP allauth gate as previously described here — see
+        # ACCOUNT_RATE_LIMITS's own comment for why allauth's per-IP rate is
+        # still needed independently (it is what protects allauth's own HTML
+        # login view, which this throttle does not wrap at all).
         # 20/hour matches the verify_email pattern and prevents an attacker from
         # rotating across many usernames within the global anon throttle (#924).
         "login": "9999/hour" if DEBUG else "20/hour",
@@ -566,16 +570,37 @@ if not DEBUG and not (
         "Set FRONTEND_URL to your public frontend origin before starting."
     )
 # Explicit login rate limits — locks in brute-force protection independent of
-# allauth version defaults. 5 failed attempts per 5 minutes, per account
-# (the "/key" suffix — allauth's rate strings default to per-IP when no scope
-# is given, which is what this looked like before #1199: the string parsed as
-# an IP-scoped limit, not the per-account lockout the comment claimed). This is
-# the ONLY per-account defense against a distributed brute-force attacker
-# (many source IPs, one target account) — see accounts.serializers.LoginSerializer
-# for why it previously never engaged at all on the real login endpoint, and
-# LoginRateThrottle in accounts/views.py for the separate, coarser per-IP cap.
+# allauth version defaults. Two comma-separated rates (allauth's own
+# multi-rate syntax, confirmed against allauth.core.internal.ratelimit
+# .parse_rates in 65.14.3 — ALL listed rates must allow a request through, so
+# this is "AND", not "first match wins"):
+#   - "10/m/ip"     — per-IP: 10 failed logins/minute from any one IP, across
+#                     ANY number of accounts. This is the ONLY rate limit on
+#                     allauth's own HTML login view (/accounts/login/, live —
+#                     it is not behind ThrottledLoginView/LoginRateThrottle,
+#                     which only wraps the SPA's /api/v1/auth/login/), so
+#                     without it an attacker gets unlimited cross-account
+#                     credential stuffing from a single IP there (a right/wrong
+#                     password oracle: wrong -> 200 re-render, right -> 302).
+#                     A prior version of this setting was a single "5/300s"
+#                     rate, which allauth parses as per-IP by default (no "/key"
+#                     suffix) — so it accidentally provided this same per-IP
+#                     protection under a different number, until #1199 changed
+#                     it to "5/300s/key" and silently dropped the per-IP layer.
+#                     This is allauth's own upstream default value for this rate
+#                     (see allauth.account.app_settings.RATE_LIMITS).
+#   - "5/300s/key"  — per-account: 5 failed attempts / 5 minutes, keyed on the
+#                     submitted email/username (the "/key" suffix — omitting it
+#                     defaults to "/ip", which is NOT a per-account limit despite
+#                     what an earlier version of this comment claimed). This is
+#                     the only defense against a distributed attacker spreading
+#                     failed attempts across many source IPs at one account —
+#                     see accounts.serializers.LoginSerializer for why it never
+#                     engaged at all on the SPA login endpoint before #1199.
+# See accounts/views.py's LoginRateThrottle for the separate, SPA-only per-IP
+# throttle that sits alongside (not instead of) the per-IP rate here.
 ACCOUNT_RATE_LIMITS = {
-    "login_failed": "5/300s/key",
+    "login_failed": "10/m/ip,5/300s/key",
 }
 
 SOCIALACCOUNT_PROVIDERS = {

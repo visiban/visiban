@@ -16,7 +16,7 @@ Token authentication covers two token types that share the same `Authorization: 
 Log in to get your API token. The token is permanent until you log out or it is revoked.
 
 !!! note
-    The `username` field accepts either a username or an email address. Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username.
+    The `username` field takes the account's actual, exact-case username — it does **not** accept an email address (verified directly: posting an email in `username`, or posting it in a separate `email` field instead, both return `400 Bad Request`). Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username, but a real username still exists and is what this endpoint requires.
 
 === "curl"
     ```bash
@@ -40,6 +40,14 @@ Log in to get your API token. The token is permanent until you log out or it is 
 ```
 
 Store the `key` value — this is your API token.
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `400 Bad Request` | Wrong username or password — `{"non_field_errors": ["Unable to log in with provided credentials."]}` |
+| `400 Bad Request` | Account is locked out after 5 failed attempts within 5 minutes (per account, not per IP — see [Rate limiting](../architecture/deployment.md#rate-limiting)) — `{"non_field_errors": ["Too many failed login attempts. Try again later."]}`. The correct password is refused too while this is active; there is no way to clear it early ([#1203](https://gitlab.com/visiban/visiban/-/issues/1203)). |
+| `429 Too Many Requests` | Per-IP request-volume ceiling exceeded (`LoginRateThrottle`, independent of the per-account lockout above) |
 
 ---
 
