@@ -3660,6 +3660,14 @@ paste a credential, stop and describe where it lives instead.</p>
 <td><code>arm64-runner-preflight</code> job (#1084) — queries <code>GET /projects/:id/runners?scope=online&amp;tag_list=arm64</code> to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang <code>pending</code> with no matching runner</td>
 <td>Not tracked here — record on issue when created</td>
 </tr>
+<tr>
+<td>Docker Hub PAT (<code>DOCKERHUB_TOKEN</code>)</td>
+<td>Docker Hub personal access token, "Public Repo Read-only" scope (view/search/pull public images only — no push access)</td>
+<td>TBD — confirm current owner before rotating</td>
+<td>GitLab CI/CD variables <code>DOCKERHUB_USERNAME</code> / <code>DOCKERHUB_TOKEN</code> (masked, protected — only injected on <code>main</code> and <code>v*</code> tag pipelines)</td>
+<td><code>backend-docker-build</code> / <code>frontend-docker-build</code> (MR-time, <code>--no-push</code> build verification) and <code>.kaniko-push-common</code> / <code>backend-docker-push</code>, <code>frontend-docker-push</code> (main/tag pushes) — populates kaniko's <code>/kaniko/.docker/config.json</code> so Docker Hub <code>FROM</code> base-image pulls (<code>python:3.12-slim</code>, <code>node:20-alpine</code>, <code>nginx:1.27-alpine</code>) use the authenticated 200-pulls/hour tier instead of the 100/hour anonymous tier shared across the runner's IP (#1198). Being <code>protected</code>, it does <strong>not</strong> reach MR pipelines from unprotected branches — those still pull anonymously.</td>
+<td>TBD — confirm expiry set on Docker Hub</td>
+</tr>
 </tbody>
 </table>
 <h2 id="runners_read_token"><code>RUNNERS_READ_TOKEN</code><a class="headerlink" href="#runners_read_token" title="Permanent link">&para;</a></h2>
