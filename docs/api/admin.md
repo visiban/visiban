@@ -4,6 +4,9 @@ All endpoints in this section require **site admin** authentication. Non-admin u
 
 See [Admin Panel](../administration/admin-panel.md) for the equivalent UI and [Site Admins](../administration/site-admins.md) for first-boot setup.
 
+The Issue Board Lens has its own admin-only usage endpoint, documented separately: see
+[Issue Board Lens API → Admin usage](git-lens.md#admin-usage).
+
 ---
 
 ## Site settings
