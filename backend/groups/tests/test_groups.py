@@ -27,6 +27,16 @@ class GroupCRUDTests(TestCase):
         ids = [g["id"] for g in r.json()["results"]]
         self.assertIn(self.group.id, ids)
 
+    def test_nonnumeric_group_id_on_detail_route_returns_json_404(self):
+        """#1202 — GroupViewSet.lookup_value_regex = r"\\d+" means a
+        non-numeric id segment under /groups/ never matches the router at
+        all, so it falls through to ApiNotFoundView's JSON 404 instead of
+        reaching the view (and, before the digit constraint, potentially
+        matching an unrelated detail action)."""
+        r = self.client.get("/api/v1/groups/abc/star/")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(r.json(), {"detail": "Not found."})
+
     def test_create_group(self):
         r = self.client.post("/api/v1/groups/", {"name": "New Group"})
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
@@ -572,10 +582,43 @@ class JoinGroupViewTests(TestCase):
 
     def test_token_matching_viewset_action_name_reaches_join_view(self):
         """A token equal to a GroupViewSet detail-action name must not be routed
-        to that action with pk="join" (schema fuzz: GET groups/join/star/ → 405)."""
-        for token in ("star", "labels", "invite-links", "board-defaults"):
+        to that action with pk="join" (schema fuzz: GET groups/join/star/ → 405).
+
+        Covers every GroupViewSet detail-action url_path, not just the
+        originally-reported "star" (schemathesis case KEVGL2, seed
+        5006854264336111242) — the router's ordering fix (main) closes the
+        instance, and GroupViewSet.lookup_value_regex = r"\\d+" (#1202) closes
+        the bug class regardless of ordering.
+        """
+        action_names = [
+            "star",
+            "boards",
+            "members",
+            "subgroups",
+            "labels",
+            "invite-links",
+            "board-defaults",
+            "transfer-ownership",
+            "descendant-boards",
+        ]
+        documented_statuses = {
+            status.HTTP_200_OK,
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        }
+        for token in action_names:
             with self.subTest(token=token):
                 r = self.client.get(f"/api/v1/groups/join/{token}/")
+                self.assertNotEqual(
+                    r.status_code,
+                    status.HTTP_405_METHOD_NOT_ALLOWED,
+                    f"token '{token}' was swallowed by the GroupViewSet router",
+                )
+                self.assertIn(r.status_code, documented_statuses)
+                # No real invite link has this token, so JoinGroupView itself
+                # reports it as not found — confirms we reached the view.
                 self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_inactive_link_returns_404(self):
