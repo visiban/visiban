@@ -191,6 +191,17 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
             "PublicCard.assignee must be nullable: Card.assignee is a SET_NULL FK with null=True",
         )
 
+    def test_notification_card_title_and_board_name_are_nullable(self):
+        """A notification with no card/board (e.g. board_invite) genuinely serializes
+        these as null today (DRF's dotted-source lookup falls back to `default=None`);
+        found by regression-check while auditing #1209's NotificationListView wiring."""
+        for field in ("card_title", "board_name"):
+            with self.subTest(field=field):
+                self.assertTrue(
+                    self._prop("Notification", field).get("nullable"),
+                    f"Notification.{field} must be nullable: it has no card/board on some notification types",
+                )
+
     def test_card_movement_denormalized_names_are_not_nullable(self):
         """The mirror image: these are `null=False, blank=True` CharFields.
 

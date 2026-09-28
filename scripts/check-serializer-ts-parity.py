@@ -167,10 +167,15 @@ EXIT_USAGE = 2
 # and leaving either out would be a coverage hole the gate's own name check
 # cannot see.
 #
-# Two #821 pairs are deliberately absent because the schema has no component
-# to diff against — `CardActivity` and `CardAttachment`. That is a
-# missing component, not a passing check; see the coverage table in
-# `docs/development/serializer-ts-parity.md`.
+# `CardActivity`, `CardAttachment`, `Notification`, and `PublicCard` were added
+# by #1209, which wired real response schemas for the endpoints backing them
+# (CardViewSet.activities/.attachments, NotificationListView, ShareBoardView) —
+# before that they either had no schema component at all or resolved to the
+# wrong one, so this map could not diff them. `PublicBoard`, the wrapper
+# ShareBoardView actually returns, has no TypeScript interface of its own
+# (`frontend/src/api/*` has no caller that needs the raw public-board shape as
+# distinct from `PublicCard`), so it stays unmapped for the same reason
+# `CardQuery` does below.
 #
 # `CardQuery` (CardQuerySerializer, backing GET /api/v1/cards/, #1112) is also
 # absent, for a different reason: the schema HAS a component, but there is no
@@ -193,6 +198,8 @@ COMPONENT_MAP = {
     "BoardMembership": "BoardMembership",
     "BoardUser": "BoardUser",
     "Card": "Card",
+    "CardActivity": "CardActivity",
+    "CardAttachment": "CardAttachment",
     "CardChecklist": "CardChecklistItem",
     "CardComment": "CardComment",
     "CardMovement": "CardMovement",
@@ -206,6 +213,8 @@ COMPONENT_MAP = {
     "GroupBrief": "GroupBrief",
     "GroupLabel": "GroupLabel",
     "Label": "Label",
+    "Notification": "Notification",
+    "PublicCard": "PublicCard",
     "Swimlane": "Swimlane",
     "SwimlaneCustomFieldDefinition": "SwimlaneCustomFieldDefinition",
 }

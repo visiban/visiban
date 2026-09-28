@@ -10,13 +10,14 @@ either one covers your change.**
 | Check | Source of truth | Covers | Checks |
 |---|---|---|---|
 | `backend/boards/tests/test_ts_serializer_drift.py` (#821, since 1.1) | The serializer classes (`instance.fields`) | **14** pairs, incl. `BoardFull`, `CardActivity`, `CardAttachment` | Field **names**, both directions |
-| `serializer-ts-parity` CI job (#1079 + #1139, this page) | The **generated OpenAPI document** | **20** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
+| `serializer-ts-parity` CI job (#1079 + #1139 + #1209, this page) | The **generated OpenAPI document** | **24** pairs — every pair that has a schema component | Names, **types**, nullability, enum membership |
 
-Neither supersedes the other, and a green run of one says nothing about the other — but since
-#1139 the coverage gap is down to a single, structural difference: **#821 reaches two pairs
-this gate cannot, because `drf-spectacular` emits no component for them** (a third, `BoardFull`,
-gained a component in #1137). See
-[Coverage](#coverage) for the pair-by-pair table.
+Neither supersedes the other, and a green run of one says nothing about the other. Through
+#1139 the coverage gap was a structural one — #821 reached two pairs this gate could not,
+because `drf-spectacular` emitted no component for them (a third, `BoardFull`, gained a
+component in #1137). #1209 wired real response schemas for the endpoints behind `CardActivity`,
+`CardAttachment`, and two more pairs #821 does not reach at all (`Notification`, `PublicCard`),
+closing that gap. See [Coverage](#coverage) for the pair-by-pair table.
 
 Until #1139, this gate type-checked only five pairs while #821 name-checked fourteen, so a
 green job read as much broader assurance than it delivered. Widening it to eighteen turned up
@@ -85,6 +86,8 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `BoardMembership` | `BoardMembership` | yes |
 | `BoardUser` | `BoardUser` | yes |
 | `Card` | `Card` | yes |
+| `CardActivity` | `CardActivity` | yes |
+| `CardAttachment` | `CardAttachment` | yes |
 | `CardChecklist` | `CardChecklistItem` | yes |
 | `CardComment` | `CardComment` | yes |
 | `CardMovement` | `CardMovement` | yes |
@@ -98,6 +101,8 @@ the "only present under some conditions" meaning — an `?expand=` payload, for 
 | `GroupBrief` | `GroupBrief` | no |
 | `GroupLabel` | `GroupLabel` | no |
 | `Label` | `Label` | yes |
+| `Notification` | `Notification` | no |
+| `PublicCard` | `PublicCard` | no |
 | `Swimlane` | `Swimlane` | yes |
 | `SwimlaneCustomFieldDefinition` | `SwimlaneCustomFieldDefinition` | yes |
 
@@ -108,24 +113,22 @@ out would be a hole the gate's own name check cannot see.
 
 ### What is not covered, and why
 
-Two pairs #821 name-checks are absent here, both for the same structural reason: the schema
-has no component to diff against, so there is nothing this gate could compare.
+Until #1209, two pairs #821 name-checks were absent here for a structural reason: the schema
+had no component to diff against, so there was nothing this gate could compare. `CardActivity`
+and `CardAttachment` backed endpoints (`CardViewSet.activities`/`.attachments`) that fell back
+to the viewset's default `CardSerializer` with no dedicated response wiring, so
+`drf-spectacular` published the wrong component entirely rather than none. #1209 gave both
+endpoints real `@extend_schema` response annotations, so both are now mapped and checked (see
+[Coverage](#coverage)). The same issue also wired `NotificationListView` and `ShareBoardView`
+for the first time, adding `Notification` and `PublicCard` to the map.
 
-| Pair | Why excluded |
-|---|---|
-| `CardActivity` | No component emitted. |
-| `CardAttachment` | No component emitted. |
-
-That is a **missing component, not a passing check** — the two are unchecked here, and the
-gate says nothing about their published types. Making them checkable means getting
-`drf-spectacular` to emit components for them, which needs its own issue.
-
-One further pair is absent for the opposite reason — the schema has a component but there is
-no TypeScript interface to diff it against:
+Two pairs are absent for the opposite reason — the schema has a component but there is no
+TypeScript interface to diff it against:
 
 | Pair | Why excluded |
 |---|---|
 | `CardQuery` (`CardQuerySerializer`, `GET /api/v1/cards/`, #1112) | No TypeScript interface exists — `frontend/src/api/cards.ts` has no caller of this endpoint yet. Mapping it to the closest interface, `Card`, would not work: `CardQuery` sends every `Card` field plus `board` by design (a cross-board list must say which board each row is on), so the pair would report a permanent `missing_in_ts: board` finding that is not real drift. Revisit once a frontend consumer exists and needs its own interface (#1172). |
+| `PublicBoard` (`PublicBoardSerializer`, `GET /api/share/{token}/`, #1209) | No TypeScript interface exists — the SPA's share-link view only reads the nested `cards` list, for which `PublicCard` (mapped above) already exists. Revisit if a frontend consumer needs the outer `{uid, name, columns, swimlanes, labels, cards}` shape as its own type. |
 
 Everything else is deliberately in scope and mapped. There is no pair that has a component, an
 interface, and is simply not checked.
@@ -281,7 +284,7 @@ would assert a correspondence that does not exist. That union stays hand-maintai
 [#1078](https://gitlab.com/visiban/visiban/-/issues/1078) covers WebSocket event reachability
 separately.
 
-**Pairs with no schema component.** `CardActivity` and `CardAttachment` — see
+**Pairs with a component but no TypeScript interface.** `CardQuery` and `PublicBoard` — see
 [What is not covered, and why](#what-is-not-covered-and-why).
 
 **Request bodies.** `SPECTACULAR_SETTINGS` sets `COMPONENT_SPLIT_REQUEST: True`, so the schema
