@@ -437,8 +437,10 @@ touched — so it is zero-downtime and requires no operator action.
     (`${APP_VERSION:?APP_VERSION must be set in .env — see .env.example}`), matching the
     `DB_PASSWORD`/`REDIS_PASSWORD`/`DOMAIN` pattern the rest of the file already uses. This
     closes the gap TruePPM's audit named directly (#1074): the documented production path
-    pulled a mutable tag that could not be verified or rolled back, while every release image
-    is scanned, SBOM'd and signed **by digest**.
+    pulled a mutable tag that could not be verified or rolled back. Release images are
+    content-addressed by digest, but are not yet scanned, SBOM'd, or signed against that
+    digest — that work is tracked separately in
+    [#1153](https://gitlab.com/visiban/visiban/-/issues/1153).
 
     **If your `.env` already sets `APP_VERSION`** — the documented path since `.env.example`
     has always shipped one — this changes nothing; `docker compose pull`/`up` resolve to the
