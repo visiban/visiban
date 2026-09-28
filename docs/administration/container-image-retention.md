@@ -154,11 +154,25 @@ whenever the next release attempt failed to pull.
 
 If this job goes red, it means a released, documented version is not pullable from the named
 registry. Check that registry's retention/cleanup policy first (see the sections above), then
-re-run that tag's publish jobs to restore the image — `backend-docker-push` /
-`frontend-docker-push` (amd64) and, since #1084, also `backend-docker-push-arm64` /
-`frontend-docker-push-arm64` and `backend-manifest` / `frontend-manifest`, or the referenced
-tag will come back as an amd64-only single-arch manifest rather than the multi-arch list it's
-supposed to be.
+re-run the FULL tag pipeline's publish chain to restore the image: `backend-docker-push` /
+`frontend-docker-push` alone (amd64) is **not** sufficient — as of the 2026-09-28 #1084
+re-audit, those jobs only push `-amd64`-suffixed intermediate tags on a release tag, never the
+real `:<tag>`/`:latest` names directly. The real names are written exclusively by
+`backend-manifest` / `frontend-manifest`, which `needs:` both the amd64 leg above and the
+arm64 leg (`backend-docker-push-arm64` / `frontend-docker-push-arm64`). Re-running only the
+amd64 leg will not bring the tag back at all — all six jobs (`arm64-runner-preflight`,
+`backend-docker-push` + `backend-docker-push-arm64`, `frontend-docker-push` +
+`frontend-docker-push-arm64`, and `backend-manifest` + `frontend-manifest`) must complete for
+the real, multi-arch tag to exist again.
+
+**Caution if you're restoring an OLD release's tag** (not the newest one): both manifest jobs
+always pass `--tags latest` (and `:MAJOR.MINOR` for a stable release) to `manifest-tool`, with
+no check that the tag being rebuilt is actually the newest release. Re-running the full chain
+for an old tag will move the real `:latest` (and `:MAJOR.MINOR`) reference back to that old
+release on both registries, not just restore the specific `:<tag>` this check flagged. Confirm
+that's intended — or restore the missing tag by other means (e.g. re-pushing the specific
+digest, if still available on the other registry) — before re-running the chain for anything
+other than the current newest release.
 
 ## Digest pinning
 

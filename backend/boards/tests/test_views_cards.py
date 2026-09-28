@@ -313,6 +313,18 @@ class CardMovementsActivitiesTests(TestCase):
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual(len(r.json()), 1)
 
+    def test_get_activities_with_null_actor_reports_null(self):
+        """#1192: actor is a SET_NULL FK — an activity row whose actor has since
+        been deleted must serialize with `actor: null` rather than omitting the
+        field or erroring."""
+        CardActivity.objects.create(
+            card=self.card, event_type=CardActivity.EventType.TITLE_CHANGE,
+            from_value="Old", to_value="New", actor=None,
+        )
+        r = self.client.get(f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/activities/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIsNone(r.json()[0]["actor"])
+
 
 class CardChecklistTests(TestCase):
     def setUp(self):
