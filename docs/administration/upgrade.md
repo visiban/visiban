@@ -314,7 +314,9 @@ touched — so it is zero-downtime and requires no operator action.
 
     Blocks handed to a subchart or to `toYaml` stay open and accept any key:
     `global`, `postgresql`, `valkey`, `ingress.annotations`,
-    `backend.resources`, `frontend.resources`.
+    `backend.resources`, `frontend.resources`, `backend.securityContext.pod` /
+    `.container`, `postgresql.securityContext.pod` / `.container` (chart
+    0.6.0, #1210).
 
 !!! note "Upload limits are now derived from one value"
     `backend.settings.maxUploadSizeBytes` (default 10 MB) now drives the
@@ -478,6 +480,46 @@ touched — so it is zero-downtime and requires no operator action.
     **Rolling back** with `helm rollback` to a pre-0.5.0 revision recreates the
     subchart's StatefulSet; a persistence claim you have not deleted is
     reattached.
+
+!!! warning "Helm: backend and PostgreSQL pods now run hardened, like Valkey (chart 0.6.0)"
+    Chart 0.6.0 brings the backend Deployment (its `migrate`, `collectstatic`
+    and `bootstrap` init containers included) and the bundled PostgreSQL
+    StatefulSet up to the same hardening the bundled Valkey StatefulSet has run
+    with since chart 0.5.0 (#1200): a non-root user, `seccompProfile:
+    RuntimeDefault`, `allowPrivilegeEscalation: false`, a **read-only root
+    filesystem**, every Linux capability dropped, and no mounted
+    ServiceAccount token (#1210). See
+    [Pod security](../getting-started/kubernetes.md#pod-security) for the full
+    list and the values that control it.
+
+    **This is a default change for existing installs, not an opt-in.** A
+    `helm upgrade` to chart 0.6.0 replaces every backend and PostgreSQL pod
+    with one running under the new `securityContext` — no values change
+    required to pick it up.
+
+    **What could break:** a custom backend image that writes somewhere other
+    than `/tmp`, `STATIC_ROOT` (`/app/staticfiles`) or the already-mounted
+    media/admin-password volumes, or a custom PostgreSQL image that writes
+    somewhere other than `PGDATA`, `/var/run/postgresql` or `/tmp`, will fail
+    to start under a read-only root filesystem. The stock images ship with the
+    chart do not do this — the chart's own `scripts/helm-install-drill.sh` and
+    `scripts/helm-netpol-drill.sh` boot both hardened pods on a real cluster —
+    but an overridden `backend.image` or `postgresql.image` should be verified
+    against a staging release first.
+
+    **If your image cannot run under this hardening**, relax just the field
+    that conflicts rather than disabling the whole block — for example, to
+    keep a writable root filesystem on a custom PostgreSQL image:
+
+    ```bash
+    helm upgrade visiban helm/visiban --reuse-values \
+      --set postgresql.securityContext.container.readOnlyRootFilesystem=false
+    ```
+
+    (A full block replaces, rather than merges with, the chart default — pass
+    every key in `container` you need, not just the one you are changing, if
+    you override at the `postgresql.securityContext.container` level instead
+    of a single leaf with `--set`.)
 
 !!! note "Scheduled jobs ship in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,
