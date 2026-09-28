@@ -7,6 +7,7 @@ Guides for running and maintaining a Visiban instance.
 | [Configuration](configuration.md) | Required credentials reference for local development, CI pipeline, and production |
 | [Admin Panel](admin-panel.md) | Managing users, registration mode, and instance settings via the `/admin` UI |
 | [Maintenance Mode](maintenance-mode.md) | Putting the instance into read-only mode for an upgrade or migration |
+| [Issue Board Lens Usage](issue-board-lens-usage.md) | Monitoring the lens's outbound GitHub/GitLab API calls: admin usage report, structured log line, and the limits that bound them |
 | [Scheduled Jobs](scheduled-jobs.md) | Running the notification scans and retention prunes: Compose `scheduler` profile, Helm CronJobs, or host cron |
 | [Site Admins](site-admins.md) | What site admins can do, how to grant and revoke site admin access |
 | [Django Admin](django-admin.md) | Using the built-in Django `/django-admin` panel for direct data management |
