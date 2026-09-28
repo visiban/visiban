@@ -17,12 +17,15 @@ install of the current release was possible, and rollback was impossible. The pu
 had gone green; the policy that erased their output afterward lived entirely in the GitLab
 UI, asserted by nothing in the repo.
 
-Separately, Red-team finding M17 in the same audit: the documented production compose path
-defaulted `APP_VERSION` to `latest` — a mutable tag — while every release image was scanned,
-SBOM'd and signed **by digest**. Pulling `latest` in production could never be verified
-against that signature or rolled back to a specific artifact. See
-[Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x) for how Visiban
-closed that half; this page covers the registry-retention half and digest pinning.
+Separately, Red-team finding M17 in the same audit was against TruePPM's own release path:
+its documented production compose defaulted `APP_VERSION` to `latest` — a mutable tag — while
+its release images were scanned, SBOM'd and signed by digest, so pulling `latest` in
+production could never be verified against that signature or rolled back to a specific
+artifact. Visiban's `APP_VERSION` half of the same gap is now closed — see
+[Upgrading → `APP_VERSION` is now required](upgrade.md#upgrading-to-12x). Visiban's own
+release images are **not yet** scanned, SBOM'd, or signed the way TruePPM's are; that work is
+tracked in [#1153](https://gitlab.com/visiban/visiban/-/issues/1153). This page covers the
+registry-retention half and digest pinning, both of which apply regardless of #1153's status.
 
 ## GitLab container registry
 
@@ -177,11 +180,13 @@ Both `docker-compose.prod.yml` and the Helm chart select images by **tag** (`APP
 `values.yaml`'s `tag:`). A tag is a mutable pointer — even a `v1.1.0` tag that is never
 intentionally overwritten, but registries let it be recreated (an operator who suspects a
 GHCR/GitLab-side re-push, or who wants the strongest possible guarantee that the image bytes
-they run are the exact ones that were scanned and signed, can pin by **digest** instead.
+they run are the exact ones that were built and pushed, can pin by **digest** instead.
 
 Every release image is content-addressed by its digest (a `sha256:...` hash of the image
-manifest) at the point it is pushed — that digest is what CI's SBOM/scan/sign steps actually
-operate on, and it cannot change without the digest itself changing.
+manifest) at the point it is pushed, and it cannot change without the digest itself changing.
+CI does not yet attach an SBOM or signature to that digest — see
+[#1153](https://gitlab.com/visiban/visiban/-/issues/1153) — but once it does, the digest is
+what those attestations will target, independent of whichever tag currently points at it.
 
 ### Finding the digest for a release
 

@@ -114,6 +114,8 @@ Lint and test jobs run on every pipeline (branches and MRs). Security, build ver
 
 The pipeline must pass before an MR can be merged. Security and license jobs are non-blocking (`allow_failure: true`) — they surface warnings but do not prevent merges.
 
+**Running the pipeline on your own fork:** the main repo's CI pulls Docker Hub base images through the GitLab Dependency Proxy (`DOCKERHUB_MIRROR`, defaulting to `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`) to avoid Docker Hub's anonymous-pull rate limit — see [`docs/maintainers/ci-runners.md`](docs/maintainers/ci-runners.md#dependency-proxy). The Dependency Proxy is a **group-level-only** GitLab feature, so it does not exist for a personal-namespace fork. If your fork's pipeline fails with an image pull error like `/python:3.12-slim: not found` or similar, set a project CI/CD variable `DOCKERHUB_MIRROR=docker.io` (Settings → CI/CD → Variables) to pull directly from Docker Hub instead.
+
 ---
 
 ## Submitting a merge request

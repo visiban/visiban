@@ -164,15 +164,43 @@ done
 # ---------------------------------------------------------------------------
 step "Building images from the working tree (tag $TAG)"
 # ---------------------------------------------------------------------------
-docker build -q -t "visiban-netpol/backend:${TAG}"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
-docker build -q -t "visiban-netpol/frontend:${TAG}" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "visiban-netpol/backend:${TAG}"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "visiban-netpol/frontend:${TAG}" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
 ok "images built"
+
+# ---------------------------------------------------------------------------
+step "Pre-pulling cluster images through DOCKERHUB_MIRROR (#1198)"
+# ---------------------------------------------------------------------------
+# See scripts/helm-install-drill.sh for the full rationale: DOCKERHUB_MIRROR
+# defaults to the GitLab Dependency Proxy prefix, the dind daemon this script
+# talks to has no credentials of its own, CI's .helm-drill-base before_script
+# logs it in when there's a proxy to log in to, and locally (DOCKERHUB_MIRROR
+# unset) this whole step is a no-op.
+KIND_IMAGE_ARGS=()
+EXTRA_LOAD_IMAGES=()
+if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
+  KINDEST_NODE_TAG="${KINDEST_NODE_TAG:-v1.31.2}"  # matches KUBECTL_VERSION's minor
+  docker pull -q "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}"
+  docker tag "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}" "kindest/node:${KINDEST_NODE_TAG}"
+  KIND_IMAGE_ARGS=(--image "kindest/node:${KINDEST_NODE_TAG}")
+
+  # In-cluster images: the chart's own postgres/valkey defaults (see
+  # helm-install-drill.sh), plus this drill's own busybox probe pods below.
+  docker pull -q "${DOCKERHUB_MIRROR}/postgres:17"
+  docker tag "${DOCKERHUB_MIRROR}/postgres:17" "postgres:17"
+  docker pull -q "${DOCKERHUB_MIRROR}/bitnami/valkey:latest"
+  docker tag "${DOCKERHUB_MIRROR}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
+  docker pull -q "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}"
+  docker tag "${DOCKERHUB_MIRROR}/${PROBE_IMAGE}" "${PROBE_IMAGE}"
+  EXTRA_LOAD_IMAGES=("postgres:17" "registry-1.docker.io/bitnami/valkey:latest" "${PROBE_IMAGE}")
+  ok "kindest/node, postgres, valkey, busybox pulled via the Dependency Proxy"
+fi
 
 # ---------------------------------------------------------------------------
 step "Creating kind cluster '$CLUSTER' with NO default CNI, then installing Calico"
 # ---------------------------------------------------------------------------
 kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true
-cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 60s
+cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 60s "${KIND_IMAGE_ARGS[@]}"
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -193,7 +221,7 @@ kubectl -n kube-system rollout status daemonset/calico-node --timeout=300s >/dev
 kubectl wait --for=condition=Ready nodes --all --timeout=300s >/dev/null
 ok "Calico is enforcing"
 
-kind load docker-image "visiban-netpol/backend:${TAG}" "visiban-netpol/frontend:${TAG}" --name "$CLUSTER"
+kind load docker-image "visiban-netpol/backend:${TAG}" "visiban-netpol/frontend:${TAG}" "${EXTRA_LOAD_IMAGES[@]}" --name "$CLUSTER"
 
 # ---------------------------------------------------------------------------
 step "Installing the chart with networkPolicy.enabled=true"
