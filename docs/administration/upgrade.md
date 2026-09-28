@@ -289,6 +289,21 @@ Migration `boards/0059_add_swimlane_custom_fields` adds two new tables
 feature. Both operations are `CreateModel` — no existing table, index, or constraint is
 touched — so it is zero-downtime and requires no operator action.
 
+!!! warning "Compose: `DOMAIN` must be listed in `ALLOWED_HOSTS`"
+    The production Compose backend healthcheck now sends `Host: $DOMAIN` instead
+    of `Host: localhost`. An install whose `ALLOWED_HOSTS` holds `localhost` or
+    an alias but not the exact `DOMAIN` value never turns healthy after the
+    upgrade, and nginx (which waits on it) does not start. Check that
+    `ALLOWED_HOSTS` in `.env` contains `DOMAIN` before running `up -d`.
+
+!!! warning "Helm: give `externalDatabase.password` verbatim"
+    The chart now percent-encodes the database username and password when it
+    builds the connection URL, so a password containing `/` no longer breaks it.
+    If you percent-encoded `externalDatabase.password` (or
+    `postgresql.auth.password`) by hand to work around that, put the plain value
+    back before `helm upgrade` — otherwise it is encoded twice and
+    authentication fails.
+
 !!! warning "Helm values are now schema-validated — an unknown key fails the upgrade"
     Chart 0.4.0 ships `values.schema.json` with `additionalProperties: false` on
     the chart's own blocks. A values key the chart does not read — a typo, or a

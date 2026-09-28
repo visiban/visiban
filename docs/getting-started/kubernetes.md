@@ -274,15 +274,14 @@ externalDatabase:
   port: 5432
   database: visiban
   username: visiban
+  # The chart percent-encodes the username and password when it builds the
+  # connection URL, so give them verbatim. (Before this was fixed, a password
+  # containing "/" broke the URL; if you percent-encoded yours by hand to work
+  # around that, put the plain value back before upgrading, or it is encoded twice.)
   password: "strong-password"
 
 valkey:
   enabled: false
-
-# The chart percent-encodes the username and password when it builds the
-# connection URL, so give them verbatim. (Before this was fixed, a password
-# containing "/" broke the URL; if you percent-encoded yours by hand to work
-# around that, put the plain value back before upgrading, or it is encoded twice.)
 
 externalRedis:
   url: "redis://valkey.example.com:6379/0"

@@ -102,6 +102,10 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/0
       REDIS_CACHE_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set in .env}@valkey:6379/1
       DEBUG: "false"
+      # Read by the healthcheck below. Set explicitly (not only via env_file) so
+      # a DOMAIN exported in the shell but missing from .env fails closed here
+      # instead of as a KeyError in the probe that keeps nginx from starting.
+      DOMAIN: ${DOMAIN:?DOMAIN must be set in .env}
     volumes:
       - mediafiles:/app/media
     depends_on:
@@ -171,8 +175,10 @@ services:
       - /var/run
       - /tmp
       # The rendered config is written here at startup; the rest of the root
-      # filesystem stays read-only.
-      - /etc/nginx/conf.d
+      # filesystem stays read-only. mode=0755, not Docker's default 1777: the
+      # root master reloads conf.d/*.conf every 6 hours (below), so a
+      # world-writable directory would let a compromised worker plant config.
+      - /etc/nginx/conf.d:mode=0755
     ports:
       - "80:80"
       - "443:443"

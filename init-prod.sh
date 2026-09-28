@@ -36,16 +36,20 @@ set +a
 
 # docker-compose.prod.yml splices these passwords raw into postgres:// and
 # redis:// URLs, and Compose cannot percent-encode. A "/", "?", "#" or "%" (or
-# whitespace) moves the host into the path and the backend cannot start.
+# whitespace) moves the host into the path and the backend cannot start; "[" or
+# "]" make the URL parser read the password as an IPv6 address.
 # `openssl rand -base64` emits "/" in about half of its outputs, so refuse early
-# with the fix rather than after the images are pulled.
+# with the fix rather than after the images are pulled. The pattern lives in a
+# variable because a bracket expression containing "]" cannot be written inline
+# in [[ =~ ]]; "]" must come first to be literal.
+_unsafe_url_chars='[][/?#%[:space:]]'
 for var in DB_PASSWORD REDIS_PASSWORD; do
   if [[ -z "${!var:-}" ]]; then
     echo "ERROR: Set ${var} in .env — generate one with: openssl rand -hex 32"
     exit 1
   fi
-  if [[ "${!var}" =~ [/?#%[:space:]] ]]; then
-    echo "ERROR: ${var} contains a character (/ ? # % or whitespace) that breaks the"
+  if [[ "${!var}" =~ $_unsafe_url_chars ]]; then
+    echo "ERROR: ${var} contains a character (/ ? # % [ ] or whitespace) that breaks the"
     echo "       connection URL it is placed into. Regenerate it with: openssl rand -hex 32"
     exit 1
   fi

@@ -340,7 +340,7 @@ Open `.env` in a text editor and set the following values. Every line marked **r
 !!! warning "Use hex, not base64, for `DB_PASSWORD` and `REDIS_PASSWORD`"
     `docker-compose.prod.yml` places both passwords inside connection URLs
     (`postgres://visiban:<DB_PASSWORD>@db…`), and Compose cannot escape them. A
-    `/`, `?`, `#`, `%` or space in either one breaks the URL and the backend
+    `/`, `?`, `#`, `%`, `[`, `]` or space in either one breaks the URL and the backend
     refuses to start — and `openssl rand -base64` puts a `/` in about half of
     its outputs. `openssl rand -hex 32` is just as strong and URL-safe.
     `init-prod.sh` rejects an unsafe value before starting anything.

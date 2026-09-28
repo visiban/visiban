@@ -68,7 +68,7 @@ class ConnectionUrlGuardTests(SimpleTestCase):
                 result = self._load(
                     DATABASE_URL=f"postgres://visiban:{_SECRET_FRAGMENT}{char}rest@db:5432/visiban"
                 )
-                if char == "/":
+                if char in "/?":
                     self._assert_refused_without_leak(result, "DATABASE_URL")
                 else:
                     # These do not break the port parse (":" and "@" even
@@ -76,6 +76,19 @@ class ConnectionUrlGuardTests(SimpleTestCase):
                     # the last "@"). Whether one fails at import or at connect
                     # time, the password must never reach the log.
                     self.assertNotIn(_SECRET_FRAGMENT, result.stderr)
+
+    def test_brackets_in_database_password_never_echo_it(self):
+        result = self._load(
+            DATABASE_URL=f"postgres://visiban:Sek[{_SECRET_FRAGMENT}]x@db:5432/visiban"
+        )
+        self.assertNotIn(_SECRET_FRAGMENT, result.stderr)
+
+    def test_schemeless_database_url_is_refused_without_echoing_config(self):
+        # django-environ does not raise here: it warns with the parsed config
+        # dict (PASSWORD included) and returns {}. The guard must swallow that
+        # warning and refuse the URL itself.
+        result = self._load(DATABASE_URL=f"//visiban:{_SECRET_FRAGMENT}@db/visiban")
+        self._assert_refused_without_leak(result, "DATABASE_URL")
 
     def test_percent_encoded_database_password_is_accepted(self):
         password = f"{_SECRET_FRAGMENT}/+=@:"
@@ -85,11 +98,20 @@ class ConnectionUrlGuardTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, msg=result.stderr)
         self.assertTrue(result.stdout.startswith("db "), msg=result.stdout)
 
-    def test_slash_in_redis_password_fails_closed_without_echoing_it(self):
+    def test_reserved_chars_in_redis_password_fail_closed_without_echoing_it(self):
+        passwords = {
+            "/": f"{_SECRET_FRAGMENT}/rest",
+            "?": f"{_SECRET_FRAGMENT}?rest",
+            "#": f"{_SECRET_FRAGMENT}#rest",
+            # urlparse validates "[...]" as an IPv6 literal and its ValueError
+            # quotes the bracketed text.
+            "[]": f"Sek[{_SECRET_FRAGMENT}]x",
+        }
         for name in ("REDIS_URL", "REDIS_CACHE_URL"):
-            with self.subTest(name=name):
-                result = self._load(**{name: f"redis://:{_SECRET_FRAGMENT}/rest@valkey:6379/0"})
-                self._assert_refused_without_leak(result, name)
+            for label, password in passwords.items():
+                with self.subTest(name=name, char=label):
+                    result = self._load(**{name: f"redis://:{password}@valkey:6379/0"})
+                    self._assert_refused_without_leak(result, name)
 
     def test_percent_encoded_redis_password_is_accepted(self):
         encoded = quote(f"{_SECRET_FRAGMENT}/+=", safe="")
