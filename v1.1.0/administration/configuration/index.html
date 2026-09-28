@@ -2975,6 +2975,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reverse-proxies-and-the-client-ip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reverse proxies and the client IP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#import-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3478,6 +3489,8 @@
       
         
       
+        
+      
     
     
     
@@ -3603,6 +3616,34 @@
     
   
     Known CI Failures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../maintainers/demo-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosted Demo
   
 
     
@@ -3949,6 +3990,35 @@
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--set<span class="w"> </span>frontend.image.tag<span class="o">=</span><span class="s2">"v1.0.0"</span>
 </code></pre></div>
 <hr />
+<h2 id="reverse-proxies-and-the-client-ip">Reverse proxies and the client IP<a class="headerlink" href="#reverse-proxies-and-the-client-ip" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Added in 1.2</strong> (#1180).</p>
+</blockquote>
+<p>Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's failed-login lockout) and the <code>/admin/</code> IP allowlist all need the visitor's real address. Behind proxies, Visiban reads it from <code>X-Forwarded-For</code>, trusting the entry that the configured number of proxies appended. Everything to the left of those entries is client-supplied.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NUM_PROXIES</code></td>
+<td><code>1</code></td>
+<td>Number of reverse proxies in front of the backend that append to <code>X-Forwarded-For</code>. The default of <code>1</code> counts this chart's own frontend nginx, which is correct for Docker Compose and for a bare Helm install with nothing else in front of the frontend Service. A non-negative integer. Anything else refuses to start. Helm: <code>backend.settings.numProxies</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Set it to the real depth of your proxy chain:</p>
+<ul>
+<li><strong>Too low</strong>: every client appears to come from the nearest proxy. One client exhausts the login and anonymous throttles for everyone.</li>
+<li><strong>Too high</strong>: a client can choose its own address by sending its own <code>X-Forwarded-For</code>, and so escape per-IP limits.</li>
+</ul>
+<p><strong>Behind an ingress controller, <code>1</code> is too low.</strong> This chart's frontend nginx always appends one hop (<code>proxy_add_x_forwarded_for</code>); an ingress controller in front of it appends its own, so the real chain is two hops deep, not one. Count every proxy between the internet and the frontend Service, including the frontend nginx itself.</p>
+<p>The hosted demo behind a Cloudflare Tunnel uses <code>2</code> (Cloudflare appends the visitor, then the frontend nginx appends the tunnel pod). See <a href="../demo-data/#public-demo-mode-helm">Public demo mode</a>.</p>
+<hr />
 <h2 id="import-limits">Import limits<a class="headerlink" href="#import-limits" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -4197,7 +4267,12 @@ error until a real sender address is set — by either method.</p>
 <tr>
 <td><code>DEMO_RESET_SCHEDULE</code></td>
 <td><code>0 * * * *</code></td>
-<td>Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be <code>*</code>. An expression the backend cannot evaluate refuses to start while <code>DEMO_MODE</code> is on.</td>
+<td>Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be <code>*</code>. An expression the backend cannot evaluate refuses to start while <code>DEMO_MODE</code> is on. Set but <strong>empty</strong> means no reset is scheduled: the login page and the demo bar then promise no reset and show no countdown. The Helm chart renders it empty when <code>demo.reset.enabled</code> is false.</td>
+</tr>
+<tr>
+<td><code>DEMO_USER_THROTTLE_RATE</code></td>
+<td><em>(empty)</em></td>
+<td>Replaces the rate of the <code>user</code> throttle scope while <code>DEMO_MODE</code> is on, e.g. <code>60000/hour</code>. Every visitor signs in as the one published account, so this scope is a single budget shared by all of them. Format <code>&lt;n&gt;/&lt;second\|minute\|hour\|day&gt;</code>; anything else refuses to start. Ignored when <code>DEMO_MODE</code> is off.</td>
 </tr>
 </tbody>
 </table>
@@ -4206,7 +4281,7 @@ error until a real sender address is set — by either method.</p>
 <p class="admonition-title">The credentials are public by design</p>
 <p>When <code>DEMO_MODE</code> is on, <code>DEMO_LOGIN_USERNAME</code> and <code>DEMO_LOGIN_PASSWORD</code> are returned to anyone by <code>GET /api/v1/auth/site-config/</code>. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.</p>
 </div>
-<p>See <a href="../demo-data/#hosted-demo-instance">Demo data</a> for seeding.</p>
+<p>See <a href="../demo-data/#hosted-demo-instance">Demo data</a> for seeding, and <a href="../demo-data/#public-demo-mode-helm">Public demo mode</a> for the Helm deployment that sets all of these.</p>
 <h2 id="health-check-endpoints">Health check endpoints<a class="headerlink" href="#health-check-endpoints" title="Permanent link">&para;</a></h2>
 <p>The backend exposes two health check endpoints for use by load balancers, monitoring systems, and Kubernetes probes:</p>
 <table>
