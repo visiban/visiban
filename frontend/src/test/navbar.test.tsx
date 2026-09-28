@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from '../components/Layout/Navbar'
 import type { User } from '../types'
 
@@ -12,9 +12,12 @@ vi.mock('../api/notifications', () => ({
   markRead: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { getUnreadCount } from '../api/notifications'
+import { getUnreadCount, listNotifications, markAllRead, markRead } from '../api/notifications'
 
 const mockGetUnreadCount = getUnreadCount as ReturnType<typeof vi.fn>
+const mockListNotifications = listNotifications as ReturnType<typeof vi.fn>
+const mockMarkAllRead = markAllRead as ReturnType<typeof vi.fn>
+const mockMarkRead = markRead as ReturnType<typeof vi.fn>
 
 const fakeUser: User = {
   id: 1,
@@ -37,6 +40,30 @@ function renderNavbar(props: Partial<React.ComponentProps<typeof Navbar>> = {}) 
         onUserUpdated={vi.fn()}
         {...props}
       />
+    </MemoryRouter>
+  )
+}
+
+// Test-only marker that renders the current route so a test can assert a
+// navigate() call actually landed, rather than trusting a mocked useNavigate
+// was merely called with the right string.
+function LocationDisplay() {
+  const location = useLocation()
+  return <div data-testid="location-display">{location.pathname}{location.search}</div>
+}
+
+function renderNavbarWithRoutes(props: Partial<React.ComponentProps<typeof Navbar>> = {}) {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Navbar
+        user={fakeUser}
+        onLogout={vi.fn()}
+        onUserUpdated={vi.fn()}
+        {...props}
+      />
+      <Routes>
+        <Route path="*" element={<LocationDisplay />} />
+      </Routes>
     </MemoryRouter>
   )
 }
@@ -230,5 +257,54 @@ describe('Navbar — global search entry (#852 / #869)', () => {
     const bell = screen.getByTitle('Notifications')
     // Compare document position — search button precedes the bell.
     expect(btn.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('Navbar — hosted demo (#1193)', () => {
+  const demoUser: User = { ...fakeUser, demo_mode: true }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetUnreadCount.mockResolvedValue(0)
+    mockListNotifications.mockResolvedValue([
+      { id: 1, verb: 'moved a card', actor: null, card_id: 5, card_title: 'Card', board_id: 9, board_name: 'Board', action_type: 'card_moved', read: false, created_at: new Date().toISOString() },
+    ])
+  })
+
+  it('"Mark all read" is aria-disabled, keyboard-reachable, explains why, and does not call the API', async () => {
+    const user = userEvent.setup()
+    renderNavbar({ user: demoUser })
+    await user.click(screen.getByTitle('Notifications'))
+    const markAll = await screen.findByRole('button', { name: /Mark all read/ })
+    expect(markAll).toHaveAttribute('aria-disabled', 'true')
+    expect(markAll).not.toBeDisabled()
+    expect(markAll).toHaveAccessibleName("Mark all read. This is a shared demo — notifications can't be marked read here.")
+    markAll.focus()
+    expect(markAll).toHaveFocus()
+    await user.click(markAll)
+    expect(mockMarkAllRead).not.toHaveBeenCalled()
+  })
+
+  it('clicking an unread notification still navigates but skips the mark-read call (background save, not a control the visitor clicked)', async () => {
+    const user = userEvent.setup()
+    renderNavbarWithRoutes({ user: demoUser })
+    expect(screen.getByTestId('location-display')).toHaveTextContent('/')
+    await user.click(screen.getByTitle('Notifications'))
+    const item = await screen.findByText('moved a card')
+    await user.click(item)
+    // The click's primary purpose — navigating to the related card — must
+    // still happen; aria-disabling the row would have blocked it too. Only
+    // the mark-read side effect is skipped.
+    expect(screen.getByTestId('location-display')).toHaveTextContent('/boards/9?card=5')
+    expect(mockMarkRead).not.toHaveBeenCalled()
+  })
+
+  it('outside demo mode, clicking an unread notification still calls markRead (no regression)', async () => {
+    const user = userEvent.setup()
+    renderNavbar({ user: fakeUser })
+    await user.click(screen.getByTitle('Notifications'))
+    const item = await screen.findByText('moved a card')
+    await user.click(item)
+    expect(mockMarkRead).toHaveBeenCalledWith([1])
   })
 })

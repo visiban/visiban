@@ -8,6 +8,7 @@ import type {
   CardRelationDirection,
 } from "../../types";
 import RelationCardPicker from "./RelationCardPicker";
+import { DEMO_ADD_RELATION_REASON } from "../../constants/demoCopy";
 
 interface Props {
   board: BoardFull;
@@ -27,6 +28,17 @@ interface Props {
    * waiting for the WebSocket round trip.
    */
   onBlockerCountChange: (delta: number) => void;
+  /**
+   * Hosted demo (#1193): neither POST nor DELETE on the relations endpoints
+   * is on DEMO_ALLOWED_WRITES, so a visitor's "+ Add relation" would always
+   * 403 and fall through to DemoWriteBlockedToast. "Remove relation" is
+   * unreachable today (add is refused fleet-wide, so no demo board can ever
+   * have a relation to remove) but is gated defensively anyway — hidden
+   * outright, same as card delete — so a future seed-data change that adds
+   * example relations cannot silently reopen this gap without a matching
+   * frontend change (ux-review, #1193).
+   */
+  demoMode?: boolean;
 }
 
 /** Rendered top to bottom: what blocks me, what I block, loose associations. */
@@ -67,6 +79,7 @@ export default function CardRelationsSection({
   card,
   canEdit,
   onBlockerCountChange,
+  demoMode = false,
 }: Props) {
   const [relations, setRelations] = useState<CardRelation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,7 +228,13 @@ export default function CardRelationsSection({
                               key={rel.id}
                               rel={rel}
                               columnName={columnName(rel.card.column)}
-                              canEdit={canEdit}
+                              // #1193: DELETE is refused too, and no demo board
+                              // can seed a relation today (add is refused
+                              // fleet-wide), so this is defensive rather than
+                              // reachable — hidden outright like card delete,
+                              // so a future seed change that adds relations
+                              // does not silently reopen a fallback-toast gap.
+                              canEdit={canEdit && !demoMode}
                               onRemove={() => handleRemove(rel)}
                             />
                           ))}
@@ -237,7 +256,27 @@ export default function CardRelationsSection({
               offering an add flow that cannot dedupe would push those errors
               onto a server round trip for no reason. */}
           {canEdit && !loadError &&
-            (addOpen ? (
+            (demoMode ? (
+              // #1193: refuse up front rather than opening the picker only to
+              // have addCardRelation 403 once a card is chosen. Sub-pattern
+              // (A) — the section has room for a visible reason line, same as
+              // the comment composer and attachment upload in CardDetail.
+              <>
+                <button
+                  ref={addButtonRef}
+                  type="button"
+                  aria-disabled="true"
+                  aria-describedby="card-relation-demo-reason"
+                  onClick={(e) => e.preventDefault()}
+                  className="text-xs text-fg-muted border border-dashed border-line-strong rounded px-2.5 py-1 opacity-40 cursor-not-allowed self-start focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
+                >
+                  + Add relation
+                </button>
+                <p id="card-relation-demo-reason" className="text-xs text-fg-muted">
+                  {DEMO_ADD_RELATION_REASON}
+                </p>
+              </>
+            ) : addOpen ? (
               <RelationCardPicker
                 boardId={board.id}
                 columns={board.columns}

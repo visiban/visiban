@@ -58,7 +58,15 @@ export function ThemeServerSync({
       if (!sentinel) {
         // First load after upgrade. Local choice wins — push it to the server.
         localStorage.setItem(SYNC_SENTINEL_KEY, "1");
-        if (localTheme !== serverTheme) {
+        // Hosted demo (#1193): PATCH /auth/user/ is not on DEMO_ALLOWED_WRITES,
+        // so this would always 403 into DemoWriteBlockedToast for a save the
+        // visitor never asked for — nothing here is a control they clicked.
+        // The local theme still applies via ThemeContext/localStorage; skip
+        // only the server round trip, same treatment as the onboarding tour's
+        // completion save (seed_demo_data seeds the visitor's tour complete
+        // so that save never fires at all; this one can't be avoided that way
+        // since every visitor's browser starts with no sentinel).
+        if (localTheme !== serverTheme && user.demo_mode !== true) {
           lastServerPushRef.current = localTheme;
           updateCurrentUser({ theme: localTheme })
             .then((updated) => onUserUpdated(updated))
@@ -80,12 +88,16 @@ export function ThemeServerSync({
     // In-session change via setPreference — propagate to the server.
     if (lastServerPushRef.current === preference) return;
     lastServerPushRef.current = preference;
-    updateCurrentUser({ theme: preference })
-      .then((updated) => onUserUpdated(updated))
-      .catch(() => {
-        // Swallow — the preference still applies locally. A retry will happen
-        // the next time the user changes the setting.
-      });
+    // Hosted demo (#1193): same skip as the initial sync above — an in-session
+    // theme toggle still applies locally, it just never reaches the server.
+    if (user.demo_mode !== true) {
+      updateCurrentUser({ theme: preference })
+        .then((updated) => onUserUpdated(updated))
+        .catch(() => {
+          // Swallow — the preference still applies locally. A retry will happen
+          // the next time the user changes the setting.
+        });
+    }
     // user and setPreference are intentionally stable across renders — user
     // changes would re-fire a full sync that the current design does not cover.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- user/setPreference intentionally excluded, see comment above
