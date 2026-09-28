@@ -358,11 +358,17 @@ In production (`DEBUG=False`), the API enforces the following request rate limit
 |---|---|---|
 | Anonymous requests | 300 / hour | Applies to unauthenticated API calls |
 | Authenticated users | 5000 / hour | Polling endpoints (notifications, version check) each fire every 15–30 s, so a single active user easily uses 500+ per hour |
-| Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | Defense-in-depth on top of the allauth gate (5 failed attempts / 5 min per IP). Stops an attacker rotating across many usernames within the global anon ceiling |
+| Login (`/api/v1/auth/login/`) (1.1+) | 20 / hour per IP | This DRF throttle only wraps the SPA/API endpoint. Alongside it, allauth's own `login_failed` gate (`ACCOUNT_RATE_LIMITS = "10/m/ip,5/300s/key"`) applies to **both** `/api/v1/auth/login/` (the SPA goes through allauth's rate-limited adapter, #1199) and allauth's own HTML view at `/accounts/login/` (which this DRF throttle does not wrap at all — the allauth gate is its only rate limit). That gate is two rates, both enforced everywhere it applies: 10 failed attempts / minute per IP (across any accounts), and 5 failed attempts / 5 min per account (across any IPs) |
 | User search (`/api/v1/users/search/`) | 30 / minute | Tighter limit to prevent username enumeration |
 | Invite link redemption (`/api/v1/groups/.../join/`) | 10 / hour | Low ceiling to prevent invite token brute-force scanning |
 
-Clients that exceed a limit receive `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set — clients should implement exponential backoff.
+Clients that exceed one of the DRF throttle scopes above receive `HTTP 429 Too Many Requests`. The standard `Retry-After` header is not set — clients should implement exponential backoff. Neither `login_failed` lockout above is a DRF throttle, and neither follows this shape: either one returns `HTTP 400 Bad Request` with `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` — identical wording, so the response alone doesn't say which rate tripped. See [API Authentication](../api/authentication.md#1-obtain-a-token) for the full set of login error responses.
 
 !!! note
     These limits are generous for normal interactive use. If you run a very large team or integrate Visiban with automation that makes frequent API calls, monitor your request volume and raise the `user` limit in `DEFAULT_THROTTLE_RATES` in `settings.py` if needed.
+
+!!! note
+    Because the per-IP `login_failed` rate (10 failed attempts/minute) is shared across every account attempted from that IP, a shared-NAT deployment (an office, a school, a carrier-grade NAT) can trip it on behalf of accounts that never failed a login themselves — a correct password from that IP is refused alongside the ones that were actually wrong, for up to the ~1-minute window. This is the tradeoff for closing the SPA credential-stuffing gap the per-account rate alone doesn't cover (many accounts, one IP); it is allauth's own default shape for this rate.
+
+!!! note
+    While the per-account login lockout is active, even the **correct** password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window. Unlike allauth's own built-in views, a password reset does **not** clear it early here: Visiban's reset-confirm endpoint goes through dj-rest-auth's `PasswordResetConfirmSerializer` (a plain Django `SetPasswordForm`), which never calls allauth's `finalize_password_reset` / `_delete_login_attempts_cached_email` — verified directly, a reset account's lockout persists for the rest of the 5-minute window even with the new password. A locked-out user has no way to skip the wait (tracked in [#1203](https://gitlab.com/visiban/visiban/-/issues/1203)).

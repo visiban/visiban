@@ -16,7 +16,7 @@ Token authentication covers two token types that share the same `Authorization: 
 Log in to get your API token. The token is permanent until you log out or it is revoked.
 
 !!! note
-    The `username` field accepts either a username or an email address. Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username.
+    The `username` field takes the account's actual, exact-case username — it does **not** accept an email address (verified directly: posting an email in `username`, or posting it in a separate `email` field instead, both return `400 Bad Request`). Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username, but a real username still exists and is what this endpoint requires.
 
 === "curl"
     ```bash
@@ -40,6 +40,14 @@ Log in to get your API token. The token is permanent until you log out or it is 
 ```
 
 Store the `key` value — this is your API token.
+
+**Errors**
+
+| Status | Cause |
+|---|---|
+| `400 Bad Request` | Wrong username or password — `{"non_field_errors": ["Unable to log in with provided credentials."]}` |
+| `400 Bad Request` | Locked out — either the per-account rate (5 failed attempts / 5 min for that account) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped; both return the same `{"non_field_errors": ["Too many failed login attempts. Try again later."]}` and there's no way to tell which from the response (see [Rate limiting](../architecture/deployment.md#rate-limiting)). The correct password is refused too while either is active — including for an account that never itself failed, if it shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. There is no way to clear either early ([#1203](https://gitlab.com/visiban/visiban/-/issues/1203)). |
+| `429 Too Many Requests` | Per-IP request-volume ceiling exceeded (`LoginRateThrottle`, 20/hour — a separate DRF throttle, independent of the two `login_failed` lockouts above) |
 
 ---
 

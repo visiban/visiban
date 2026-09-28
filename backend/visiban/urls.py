@@ -130,8 +130,9 @@ urlpatterns = [
     # method signatures do not need to declare a 'version' parameter.
     # request.version is set to "v1" (the DEFAULT_VERSION) by URLPathVersioning.
     # Requests to any other /api/vN/ prefix are caught by the 406 catch-all below.
-    # Override the default LoginView with our rate-limited subclass — applies
-    # a per-IP ceiling on top of the allauth ACCOUNT_RATE_LIMITS gate (#924).
+    # Override the default LoginView with our rate-limited subclass — adds a
+    # per-IP ceiling alongside the per-account allauth ACCOUNT_RATE_LIMITS gate
+    # (#924, #1199 — the two are complementary layers, not "primary" + "on top").
     # Registered before dj_rest_auth.urls so Django's URL resolver picks this
     # throttled subclass instead of the default LoginView.
     path("api/v1/auth/login/", ThrottledLoginView.as_view()),
