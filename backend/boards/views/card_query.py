@@ -33,8 +33,9 @@ from visiban.pagination import CardQueryCursorPagination
 
 from ..models import Card
 from ..serializers import (
-    CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer, _blocker_count,
-    _card_queryset,
+    CustomFieldValueSerializer, ExternalRefSerializer, LabelSerializer,
+    ParkedCustomFieldValueListSerializer, _blocker_count, _card_attachments,
+    _card_checklist_items, _card_movements, _card_queryset,
 )
 from ._helpers import BoundedDateTimeFilter, BoundedIdFilter, get_accessible_boards_queryset
 
@@ -88,7 +89,12 @@ class CardQuerySerializer(serializers.ModelSerializer):
     # this field set to stay in step with CardSerializer's readable fields —
     # values carry no exposure a reader of the card does not already have, and
     # _card_queryset() already prefetches them, so this costs no extra query.
-    custom_field_values = CustomFieldValueSerializer(many=True, read_only=True)
+    # The Parked* list serializer reads the to_attr list _card_queryset()
+    # parks the rows on (#1212); a plain many=True would call .all() on the
+    # manager, miss that list, and query once per card.
+    custom_field_values = ParkedCustomFieldValueListSerializer(
+        child=CustomFieldValueSerializer(), read_only=True,
+    )
     last_moved_at = serializers.SerializerMethodField()
     attachment_count = serializers.SerializerMethodField()
     checklist_total = serializers.SerializerMethodField()
@@ -120,17 +126,19 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # — this serializer duplicates CardSerializer's method fields (see
         # the class docstring) but was added after #1108 and didn't inherit
         # its type hints.
-        movements = obj.movements.all()
+        # The _card_* accessors read the lists _card_queryset() parks with
+        # to_attr (#1212) — obj.<relation>.all() would miss them.
+        movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
 
     def get_attachment_count(self, obj) -> int:
-        return len(obj.attachments.all())
+        return len(_card_attachments(obj))
 
     def get_checklist_total(self, obj) -> int:
-        return len(obj.checklist_items.all())
+        return len(_card_checklist_items(obj))
 
     def get_checklist_done(self, obj) -> int:
-        return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+        return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
 
     def get_blocker_count(self, obj) -> int:
         # Present because CardQuerySerializerFieldParityTests requires this
@@ -152,7 +160,7 @@ class CardQuerySerializer(serializers.ModelSerializer):
         # guard.
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = obj.movements.all()
+        movements = _card_movements(obj)
         if movements:
             return movements[0].moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold

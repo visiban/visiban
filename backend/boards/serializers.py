@@ -923,13 +923,20 @@ class CustomFieldValuesField(serializers.Field):
         kwargs.setdefault("required", False)
         super().__init__(**kwargs)
 
+    def get_attribute(self, instance):
+        # Read the list _card_queryset() parks with to_attr (#1212) instead of
+        # the related manager: .all() on the manager re-clones a QuerySet per
+        # card even on a prefetch-cache hit. The accessor falls back to the
+        # manager for cards that did not come through _card_queryset().
+        return _card_custom_field_values(instance)
+
     def to_representation(self, value):
-        # `value` is the reverse related manager. .all() reads the prefetch
-        # cache populated by _card_queryset(); .filter()/.order_by() here would
-        # bypass it and issue one query per card.
+        # `value` is the parked list (or, on the cold path, a QuerySet that
+        # reads any plain prefetch cache). .filter()/.order_by() here would
+        # bypass both and issue one query per card.
         return [
             {"field_definition": row.field_definition_id, "value": row.value}
-            for row in value.all()
+            for row in value
         ]
 
     def to_internal_value(self, data):
@@ -1476,6 +1483,72 @@ def _blocker_count(card) -> int:
     ).count()
 
 
+# ── Parked prefetches (#1212) ─────────────────────────────────────────────────
+#
+# ``_card_queryset`` parks the per-card relations the serializers read on plain
+# list attributes via ``Prefetch(..., to_attr=...)``, the same pattern
+# ``_active_blockers_prefetch`` established. The reason is CPU, not SQL: calling
+# ``.all()`` on a related manager runs ``RelatedManager.get_queryset()`` ->
+# ``_apply_rel_filters()``, which clones and filters a brand-new QuerySet on
+# *every* call, before it ever consults the prefetch cache. No query is issued,
+# but on ``/full/`` that is ~2,400 cards x several ``.all()`` calls each, and
+# cProfile put it at roughly 300ms of the endpoint's p95 (#1212). Reading a
+# plain list attribute skips that machinery entirely.
+#
+# Every reader goes through the accessors below rather than touching the
+# attribute directly, so a card that did *not* come from ``_card_queryset``
+# (a cold single-card path, or a caller with its own plain prefetch such as
+# the checklist endpoint) still works: the accessor falls back to the manager,
+# which reads a plain prefetch cache if there is one and queries otherwise —
+# exactly the behavior the serializers had before the conversion.
+
+_PARKED_ATTACHMENTS = "_prefetched_attachments"
+_PARKED_CHECKLIST_ITEMS = "_prefetched_checklist_items"
+_PARKED_MOVEMENTS = "_prefetched_movements"
+_PARKED_CUSTOM_FIELD_VALUES = "_prefetched_custom_field_values"
+
+
+def _parked_or_manager(card, to_attr, relation):
+    parked = getattr(card, to_attr, None)
+    if parked is not None:
+        return parked
+    return getattr(card, relation).all()
+
+
+def _card_attachments(card):
+    return _parked_or_manager(card, _PARKED_ATTACHMENTS, "attachments")
+
+
+def _card_checklist_items(card):
+    return _parked_or_manager(card, _PARKED_CHECKLIST_ITEMS, "checklist_items")
+
+
+def _card_movements(card):
+    """Movements newest-first when parked by ``_card_queryset``/the public
+    board path, so ``[0]`` is the most recent one (the prefetch queryset's
+    ``order_by("-moved_at")`` is applied before the list is parked)."""
+    return _parked_or_manager(card, _PARKED_MOVEMENTS, "movements")
+
+
+def _card_custom_field_values(card):
+    return _parked_or_manager(card, _PARKED_CUSTOM_FIELD_VALUES, "custom_field_values")
+
+
+class ParkedCustomFieldValueListSerializer(serializers.ListSerializer):
+    """``many=True`` list of :class:`CustomFieldValueSerializer` rows that reads
+    the parked ``custom_field_values`` prefetch (#1212).
+
+    A plain ``CustomFieldValueSerializer(many=True)`` resolves its source to
+    the related manager and calls ``.all()`` on it — which, once
+    ``_card_queryset`` parks the rows with ``to_attr``, would miss the cache
+    and issue one query per card. Only ``get_attribute`` is overridden, so the
+    rendered shape and the generated OpenAPI schema are unchanged.
+    """
+
+    def get_attribute(self, instance):
+        return _card_custom_field_values(instance)
+
+
 #: Sentinel for "key not supplied" — distinct from an explicit ``null``.
 _OMITTED = object()
 
@@ -1487,8 +1560,14 @@ def _card_queryset(qs, stale_cutoff=None):
     action all use identical prefetches — avoids drift that reintroduces N+1s.
 
     Movements are prefetched ordered by -moved_at so that serializer methods
-    that need the most-recent movement can use movements.all()[0] without
-    issuing an additional ORDER BY + LIMIT 1 query per card.
+    that need the most-recent movement can use ``_card_movements(card)[0]``
+    without issuing an additional ORDER BY + LIMIT 1 query per card.
+
+    attachments, checklist_items, movements and custom_field_values are parked
+    on plain list attributes with ``to_attr`` (#1212) — read them through the
+    ``_card_*`` accessors above, never ``card.<relation>.all()``, which would
+    miss the parked list and query once per card. See the "Parked prefetches"
+    comment above for why.
 
     When ``stale_cutoff`` is provided, an ``is_stale`` boolean annotation is
     added at the SQL level (one query, not one per card) so
@@ -1505,14 +1584,26 @@ def _card_queryset(qs, stale_cutoff=None):
         # query as a LEFT JOIN rather than costing a prefetch round-trip.
         .select_related("board", "column", "swimlane", "assignee", "created_by", "external_ref")
         .prefetch_related(
+            # `labels` is deliberately still a plain prefetch — deferred, not
+            # infeasible: its nested LabelSerializer(many=True) field could
+            # read a parked list the same way ParkedCustomFieldValueListSerializer
+            # does, but it is also the M2M the write path (label_ids) and
+            # services.cards re-prefetch by name, so converting it is kept out
+            # of #1212's scope. The four below are parked with to_attr (#1212)
+            # — see the "Parked prefetches" comment above _card_attachments().
             "labels",
-            "attachments",
-            Prefetch("checklist_items", queryset=CardChecklist.objects.select_related("created_by")),
+            Prefetch("attachments", to_attr=_PARKED_ATTACHMENTS),
+            Prefetch(
+                "checklist_items",
+                queryset=CardChecklist.objects.select_related("created_by"),
+                to_attr=_PARKED_CHECKLIST_ITEMS,
+            ),
             Prefetch(
                 "movements",
                 queryset=_CM.objects.select_related(
                     "moved_by", "from_column", "to_column", "from_swimlane", "to_swimlane"
                 ).order_by("-moved_at"),
+                to_attr=_PARKED_MOVEMENTS,
             ),
             # Custom field values (#371). One query for the whole page, with the
             # definition joined so CardSerializer never resolves a per-row FK,
@@ -1526,6 +1617,7 @@ def _card_queryset(qs, stale_cutoff=None):
                 queryset=CustomFieldValue.objects.select_related(
                     "field_definition"
                 ).order_by("field_definition__position", "field_definition_id"),
+                to_attr=_PARKED_CUSTOM_FIELD_VALUES,
             ),
             # Card relations (#449). One query for the whole page, feeding the
             # scalar `blocker_count` on the card face. Only the *blocked*
@@ -1733,29 +1825,38 @@ class CardSerializer(serializers.ModelSerializer):
         # to the client.
         if hasattr(card, "_prefetched_objects_cache"):
             card._prefetched_objects_cache.pop("custom_field_values", None)
+        # Same for the to_attr list _card_queryset() parks the rows on (#1212);
+        # without this the accessor would keep serving the pre-edit list.
+        card.__dict__.pop(_PARKED_CUSTOM_FIELD_VALUES, None)
+
+    # The method fields below read the lists _card_queryset() parks with
+    # to_attr (#1212), via the _card_* accessors — never obj.<relation>.all(),
+    # which re-clones a QuerySet per call even on a prefetch hit and, once the
+    # rows are parked, would miss the cache entirely. checklist_total and
+    # checklist_done read the same parked list.
 
     def get_last_moved_at(self, obj) -> datetime.datetime | None:
-        # Use .all() not .first() — .first() bypasses the prefetch cache and
-        # issues a new query with ORDER BY + LIMIT 1 for every card.
+        # Index the prefetched list, not .first() — .first() bypasses the
+        # prefetch and issues ORDER BY + LIMIT 1 for every card.
         # Return type is annotated (#1108): a never-moved card returns None,
         # and without the hint drf-spectacular defaulted this to a
         # non-nullable "string", producing a schema that a strict client
         # (e.g. a generated TS type) would reject on every unmoved card.
-        movements = obj.movements.all()
+        movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
 
     def get_attachment_count(self, obj) -> int:
-        # len() on a prefetched relation uses the in-memory cache; .count() does not.
-        return len(obj.attachments.all())
+        # len() on the prefetched rows uses memory; .count() would query.
+        return len(_card_attachments(obj))
 
     def get_blocker_count(self, obj) -> int:
         return _blocker_count(obj)
 
     def get_checklist_total(self, obj) -> int:
-        return len(obj.checklist_items.all())
+        return len(_card_checklist_items(obj))
 
     def get_checklist_done(self, obj) -> int:
-        return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+        return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
 
     def get_is_stale(self, obj) -> bool:
         # Fast path: use the queryset-level annotation when it was pre-computed
@@ -1766,10 +1867,10 @@ class CardSerializer(serializers.ModelSerializer):
         # Fallback: per-row logic for callers that built the queryset without a
         # stale_cutoff (e.g. single-card re-fetch after a move or archive).
         # obj.board requires select_related("board") on the queryset.
-        # obj.movements.all() uses the prefetch cache (ordered by -moved_at).
+        # _card_movements() reads the parked prefetch (ordered by -moved_at).
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = obj.movements.all()
+        movements = _card_movements(obj)
         if movements:
             return movements[0].moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
@@ -2629,12 +2730,16 @@ class PublicCardSerializer(serializers.ModelSerializer):
             "last_moved_at", "is_stale", "blocker_count",
         ]
 
+    # checklist_items and movements are parked with to_attr by get_cards()
+    # below and read through the same _card_* accessors as CardSerializer
+    # (#1212) — see the "Parked prefetches" comment above _card_attachments().
+
     def get_checklist_total(self, obj):
-        # len() on a prefetched relation uses the in-memory cache; .count() does not.
-        return len(obj.checklist_items.all())
+        # len() on the prefetched rows uses memory; .count() would query.
+        return len(_card_checklist_items(obj))
 
     def get_checklist_done(self, obj):
-        return sum(1 for item in obj.checklist_items.all() if item.is_checked)
+        return sum(1 for item in _card_checklist_items(obj) if item.is_checked)
 
     def get_blocker_count(self, obj) -> int:
         # Same helper as CardSerializer so the authenticated and anonymous
@@ -2643,7 +2748,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
 
     def get_last_moved_at(self, obj):
         # movements are prefetched ordered by -moved_at; index [0] is the most recent.
-        movements = obj.movements.all()
+        movements = _card_movements(obj)
         return movements[0].moved_at if movements else None
 
     def get_is_stale(self, obj):
@@ -2656,7 +2761,7 @@ class PublicCardSerializer(serializers.ModelSerializer):
         # via select_related("board") in the public get_cards() prefetch.
         threshold = obj.board.staleness_threshold_days
         cutoff = timezone.now() - datetime.timedelta(days=threshold)
-        movements = obj.movements.all()
+        movements = _card_movements(obj)
         if movements:
             return movements[0].moved_at < cutoff
         return (timezone.now() - obj.created_at).days >= threshold
@@ -2688,10 +2793,15 @@ class PublicBoardSerializer(serializers.ModelSerializer):
             .select_related("assignee", "board")
             .prefetch_related(
                 "labels",
-                "checklist_items",
+                # Parked with to_attr, same as _card_queryset (#1212).
+                Prefetch("checklist_items", to_attr=_PARKED_CHECKLIST_ITEMS),
                 # Ordered newest-first so index [0] gives the most recent movement,
                 # matching the logic in get_last_moved_at / get_is_stale.
-                Prefetch("movements", queryset=CardMovement.objects.order_by("-moved_at")),
+                Prefetch(
+                    "movements",
+                    queryset=CardMovement.objects.order_by("-moved_at"),
+                    to_attr=_PARKED_MOVEMENTS,
+                ),
                 # Shared with _card_queryset so the public board's blocked
                 # indicator matches the authenticated one exactly (#449).
                 # Without this the public path would issue one COUNT(*) per
