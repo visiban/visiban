@@ -3709,14 +3709,15 @@ the CI file is the source of truth for the current job definitions.</p>
 <h3 id="fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout">Fail-loud, not hang: why a preflight job instead of a <code>timeout:</code><a class="headerlink" href="#fail-loud-not-hang-why-a-preflight-job-instead-of-a-timeout" title="Permanent link">&para;</a></h3>
 <p>A job's <code>timeout:</code> only bounds execution time <em>after</em> a runner has picked it up — it does
 nothing for a job stuck <code>pending</code> because no runner matches its <code>tags:</code>. GitLab has no native
-"pending too long" job failure. <code>arm64-runner-preflight</code> queries the Runners API
-(<code>GET /projects/:id/runners?scope=online&amp;tag_list=arm64</code>, the same read
-<code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code> performs by hand) and fails
-immediately if it finds no online <code>arm64</code>-tagged runner, before <code>backend-docker-push-arm64</code> /
-<code>frontend-docker-push-arm64</code> are even scheduled. This needs <code>RUNNERS_READ_TOKEN</code>, a
-<code>read_api</code>-scope PAT — the Runners API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint
-set, so a job token can't make this call. See
-<a href="../tokens-and-rotation/#runners_read_token">Tokens and Rotation</a>.</p>
+"pending too long" job failure. <code>arm64-runner-preflight</code> queries the <strong>group</strong> Runners API
+(<code>GET /groups/visiban/runners?scope=online&amp;tag_list=arm64</code> — a different read from the
+project-scoped <code>glab api "projects/visiban%2Fvisiban/runners?type=group_type"</code> performed by
+hand above, though both surface the same group runner) and fails immediately if it finds no
+online <code>arm64</code>-tagged runner, before <code>backend-docker-push-arm64</code> /
+<code>frontend-docker-push-arm64</code> are even scheduled. This needs <code>RUNNER_STATUS_TOKEN</code>, a
+fine-grained PAT with the <code>read_runner</code> permission scoped to the <code>visiban</code> group — the Runners
+API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
+call. See <a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</p>
 <h2 id="distributed-ci-cache-minio">Distributed CI cache (MinIO)<a class="headerlink" href="#distributed-ci-cache-minio" title="Permanent link">&para;</a></h2>
 <p>The <code>.npm-cache</code> / pip cache templates use a MinIO S3-compatible backend so all runners share
 a warm cache (<code>.gitlab-ci.yml</code>, "Cache templates" section). This requires both:</p>
@@ -3741,7 +3742,7 @@ misdiagnose as one — see <a href="../known-ci-failures/#oidc-smoke-did-not-bec
 for the actual root cause (an IPv6/HTTPS-required mismatch, not a slow boot or a runner
 problem).</p>
 <h2 id="dependency-proxy">Dependency Proxy<a class="headerlink" href="#dependency-proxy" title="Permanent link">&para;</a></h2>
-<p>Every Docker Hub <code>image:</code>/<code>services:</code> reference in <code>.gitlab-ci.yml</code> and <code>.gitlab/ghcr-push.yml</code>
+<p>Every Docker Hub <code>image:</code>/<code>services:</code> reference in <code>.gitlab-ci.yml</code>
 (and the kaniko <code>FROM</code> pulls, via each Dockerfile's <code>BASE_REGISTRY</code> build arg) resolves through
 <code>${DOCKERHUB_MIRROR}</code> rather than pulling <code>docker.io</code> anonymously — see
 <a href="../known-ci-failures/#docker-hub-429-too-many-requests-on-image-pulls">Known CI Failures</a>

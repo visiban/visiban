@@ -3410,10 +3410,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#runners_read_token" class="md-nav__link">
+  <a href="#runner_status_token" class="md-nav__link">
     <span class="md-ellipsis">
       
-        RUNNERS_READ_TOKEN
+        RUNNER_STATUS_TOKEN
       
     </span>
   </a>
@@ -3633,7 +3633,7 @@ paste a credential, stop and describe where it lives instead.</p>
 <td>GitHub PAT, scope <code>write:packages</code></td>
 <td>TBD — confirm current owner before rotating</td>
 <td>GitLab CI/CD variable <code>GHCR_TOKEN</code> (masked), paired with <code>GHCR_USER</code> (masked)</td>
-<td><code>.kaniko-push-common</code> / <code>backend-docker-push</code>, <code>frontend-docker-push</code>, <code>ghcr-push-backend</code>, <code>ghcr-push-frontend</code> — pushes images to <code>ghcr.io/visiban/visiban/*</code></td>
+<td><code>.kaniko-push-common</code> / <code>backend-docker-push</code>, <code>frontend-docker-push</code>, <code>.arm64-docker-push-base</code> / <code>backend-docker-push-arm64</code>, <code>frontend-docker-push-arm64</code>, <code>.manifest-tool-common</code> / <code>backend-manifest</code>, <code>frontend-manifest</code> — pushes images and multi-arch manifests to <code>ghcr.io/visiban/visiban/*</code></td>
 <td><strong>UNKNOWN</strong> — see below</td>
 </tr>
 <tr>
@@ -3653,12 +3653,12 @@ paste a credential, stop and describe where it lives instead.</p>
 <td>Not tracked here — internal-only MinIO instance, not internet-exposed (per issue #141)</td>
 </tr>
 <tr>
-<td><code>RUNNERS_READ_TOKEN</code></td>
-<td>GitLab PAT, scope <code>read_api</code>, at least Reporter on the group</td>
-<td>TBD — a maintainer with Reporter+ on the group</td>
-<td>GitLab CI/CD variable (masked, protected)</td>
-<td><code>arm64-runner-preflight</code> job (#1084) — queries <code>GET /projects/:id/runners?scope=online&amp;tag_list=arm64</code> to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang <code>pending</code> with no matching runner</td>
-<td>Not tracked here — record on issue when created</td>
+<td><code>RUNNER_STATUS_TOKEN</code></td>
+<td>GitLab fine-grained PAT, <code>read_runner</code> permission, scoped to the <code>visiban</code> group (id 126306686)</td>
+<td><code>kellyhair</code></td>
+<td>GitLab CI/CD variable (masked, protected, description "ARM64")</td>
+<td><code>arm64-runner-preflight</code> job (#1084) — queries <code>GET /groups/visiban/runners?scope=online&amp;tag_list=arm64</code> to fail loud before scheduling the arm64 Docker push legs, instead of letting them hang <code>pending</code> with no matching runner</td>
+<td><strong>2027-09-26</strong></td>
 </tr>
 <tr>
 <td>Docker Hub PAT (<code>DOCKERHUB_TOKEN</code>)</td>
@@ -3670,17 +3670,39 @@ paste a credential, stop and describe where it lives instead.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="runners_read_token"><code>RUNNERS_READ_TOKEN</code><a class="headerlink" href="#runners_read_token" title="Permanent link">&para;</a></h2>
+<h2 id="runner_status_token"><code>RUNNER_STATUS_TOKEN</code><a class="headerlink" href="#runner_status_token" title="Permanent link">&para;</a></h2>
 <p>Added in <strong>#1084</strong> for <code>arm64-runner-preflight</code>. The GitLab Runners API is not part of the
 CI_JOB_TOKEN-allowed endpoint set, so this job cannot authenticate with the ambient
 <code>CI_JOB_TOKEN</code> the way most other jobs in this file do for registry pushes — it needs an
-actual PAT with <code>read_api</code> scope, owned by someone with at least Reporter access to the
-group (so the read covers the group-level <code>Max1-Runner-Visiban</code> runner). Create it at
-GitLab → Settings → Access Tokens (or a personal access token, if no suitable group/project
-token type covers <code>read_api</code> at group scope), store it as a masked + protected CI/CD
-variable named <code>RUNNERS_READ_TOKEN</code>, and record its expiry in the inventory row above in the
-same MR that creates it — do not leave this row's expiry blank the way the two GitHub PATs'
-were.</p>
+actual PAT. It is a <strong>fine-grained</strong> PAT with the <code>read_runner</code> permission, scoped to the
+<code>visiban</code> <strong>group</strong> — not a classic <code>read_api</code>/Reporter-role PAT, and not project-scoped. The
+job queries the group Runners endpoint (<code>/groups/visiban/runners</code>) to match.</p>
+<p><strong>Corrected 2026-09-28:</strong> three separate mistakes found in the same #1084 re-audit:</p>
+<ol>
+<li>This page and <code>.gitlab-ci.yml</code> both originally called this variable <code>RUNNERS_READ_TOKEN</code>
+   and described it as still needing to be created. It was, in fact, already created — just
+   as <code>RUNNER_STATUS_TOKEN</code> (confirmed present via the project variables API: masked,
+   protected, description "ARM64") — and the name never got reconciled between the variable
+   that was actually set up and the code/docs that expected a different one. Because a
+   missing variable and a wrong variable name both fail the same way (<code>... not set</code>), this
+   went unnoticed through #1084's original review. No release tag had actually been cut since
+   that merge, so this had not yet failed a real pipeline — but the next one would have,
+   skipping both arm64 legs and the manifest jobs silently.</li>
+<li>The scope/type description above was also wrong (originally "<code>read_api</code>-scope PAT, at
+   least Reporter on the group") — the token's own metadata (personal access tokens API)
+   shows it is actually a fine-grained PAT with <code>read_runner</code>, scoped to the <code>visiban</code> group,
+   not a classic PAT with <code>read_api</code>.</li>
+<li>The job queried <code>/projects/${CI_PROJECT_ID}/runners</code>, a project-scoped endpoint, while the
+   token's grant is group-scoped. Verified directly (<code>glab api
+   "groups/visiban/runners?tag_list=arm64"</code> returns <code>Max1-Runner-Visiban</code>) that the group
+   endpoint is what this token can actually authenticate against — <code>.gitlab-ci.yml</code> now
+   queries that endpoint instead.</li>
+</ol>
+<p><code>.gitlab-ci.yml</code> now references <code>RUNNER_STATUS_TOKEN</code> against <code>/groups/visiban/runners</code>, to
+match what's actually configured and granted. If this variable is ever rotated or recreated,
+keep the name as <code>RUNNER_STATUS_TOKEN</code>, the <code>read_runner</code> group-scoped permission, and the
+group endpoint — do not reintroduce <code>RUNNERS_READ_TOKEN</code> or point it back at the project
+endpoint.</p>
 <h2 id="correction-the-github-release-ci-variable-is-gh_token-not-github_token">Correction: the GitHub-release CI variable is <code>GH_TOKEN</code>, not <code>GITHUB_TOKEN</code><a class="headerlink" href="#correction-the-github-release-ci-variable-is-gh_token-not-github_token" title="Permanent link">&para;</a></h2>
 <p>Some earlier notes (including this page's source issue) refer to the GitHub release token as
 <code>GITHUB_TOKEN</code>. That name is wrong for this repo. Verified directly against
@@ -3737,16 +3759,26 @@ its <code>config.toml</code> follows the interpolated form — do not hardcode t
 <li><code>GH_TOKEN</code> / <code>github-release</code>: only runs on a version-tag pipeline, so test via a
     pre-release tag or by re-running a past <code>github-release</code> job with the new variable
     value.</li>
-<li><code>GHCR_TOKEN</code> / <code>GHCR_USER</code>: trigger the manual <code>ghcr-push-backend</code> or
-    <code>ghcr-push-frontend</code> job (CI/CD → Pipelines → play button on the deploy stage).</li>
+<li><code>GHCR_TOKEN</code> / <code>GHCR_USER</code>: there is no on-demand job for this anymore
+    (<code>ghcr-push-backend</code> / <code>ghcr-push-frontend</code> were removed 2026-09-28 — they had no
+    <code>rules:</code> restricting them to a specific pipeline and could overwrite the multi-arch
+    GHCR <code>:latest</code> manifest with a single-arch amd64 image from any pipeline's deploy
+    stage). Test via a pre-release tag (e.g. <code>v1.2.0-rc.1</code>) instead — it exercises
+    <code>backend-docker-push</code> / <code>frontend-docker-push</code> (kaniko, pushes <code>-amd64</code>-suffixed GHCR
+    tags) and, if the arm64 leg and preflight also pass, <code>backend-manifest</code> /
+    <code>frontend-manifest</code> (assembles the real GHCR <code>:&lt;tag&gt;</code>/<code>:latest</code>). <strong>Caveat, pre-existing
+    and not specific to this token:</strong> a pre-release tag's <code>TAGS_ARG</code> includes <code>latest</code>
+    (<code>.gitlab-ci.yml</code> <code>backend-manifest</code>/<code>frontend-manifest</code>), so this test moves the real
+    <code>:latest</code> reference to the rc build on both registries — expected for an actual rc
+    release, but worth knowing before using it purely as a credential smoke test.</li>
 <li><code>DOCS_DEPLOY_TOKEN</code>: run the <code>docs-deploy</code> job manually on <code>main</code> with a
     <code>DOCS_VERSION</code> set (see the job's comment block in <code>.gitlab-ci.yml</code>).</li>
 <li>Mirror bot PAT: push any commit to <code>main</code> and confirm it appears on
     <code>visiban/visiban-enterprise</code> shortly after.</li>
-<li><code>RUNNERS_READ_TOKEN</code>: re-run a past <code>arm64-runner-preflight</code> job (CI/CD → Pipelines →
+<li><code>RUNNER_STATUS_TOKEN</code>: re-run a past <code>arm64-runner-preflight</code> job (CI/CD → Pipelines →
     find a release-tag pipeline → retry that job), or trigger a new pipeline on a
     pre-release tag; it should log "OK: N online runner(s) tagged arm64" rather than the
-    "RUNNERS_READ_TOKEN not set" or Runners-API-error message.</li>
+    "RUNNER_STATUS_TOKEN not set" or Runners-API-error message.</li>
 </ul>
 </li>
 <li>Record the new expiry in this page's inventory table in the same MR that rotates the

@@ -3744,11 +3744,24 @@ whenever the next release attempt failed to pull.</p>
 </ul>
 <p>If this job goes red, it means a released, documented version is not pullable from the named
 registry. Check that registry's retention/cleanup policy first (see the sections above), then
-re-run that tag's publish jobs to restore the image — <code>backend-docker-push</code> /
-<code>frontend-docker-push</code> (amd64) and, since #1084, also <code>backend-docker-push-arm64</code> /
-<code>frontend-docker-push-arm64</code> and <code>backend-manifest</code> / <code>frontend-manifest</code>, or the referenced
-tag will come back as an amd64-only single-arch manifest rather than the multi-arch list it's
-supposed to be.</p>
+re-run the FULL tag pipeline's publish chain to restore the image: <code>backend-docker-push</code> /
+<code>frontend-docker-push</code> alone (amd64) is <strong>not</strong> sufficient — as of the 2026-09-28 #1084
+re-audit, those jobs only push <code>-amd64</code>-suffixed intermediate tags on a release tag, never the
+real <code>:&lt;tag&gt;</code>/<code>:latest</code> names directly. The real names are written exclusively by
+<code>backend-manifest</code> / <code>frontend-manifest</code>, which <code>needs:</code> both the amd64 leg above and the
+arm64 leg (<code>backend-docker-push-arm64</code> / <code>frontend-docker-push-arm64</code>). Re-running only the
+amd64 leg will not bring the tag back at all — all six jobs (<code>arm64-runner-preflight</code>,
+<code>backend-docker-push</code> + <code>backend-docker-push-arm64</code>, <code>frontend-docker-push</code> +
+<code>frontend-docker-push-arm64</code>, and <code>backend-manifest</code> + <code>frontend-manifest</code>) must complete for
+the real, multi-arch tag to exist again.</p>
+<p><strong>Caution if you're restoring an OLD release's tag</strong> (not the newest one): both manifest jobs
+always pass <code>--tags latest</code> (and <code>:MAJOR.MINOR</code> for a stable release) to <code>manifest-tool</code>, with
+no check that the tag being rebuilt is actually the newest release. Re-running the full chain
+for an old tag will move the real <code>:latest</code> (and <code>:MAJOR.MINOR</code>) reference back to that old
+release on both registries, not just restore the specific <code>:&lt;tag&gt;</code> this check flagged. Confirm
+that's intended — or restore the missing tag by other means (e.g. re-pushing the specific
+digest, if still available on the other registry) — before re-running the chain for anything
+other than the current newest release.</p>
 <h2 id="digest-pinning">Digest pinning<a class="headerlink" href="#digest-pinning" title="Permanent link">&para;</a></h2>
 <p>Both <code>docker-compose.prod.yml</code> and the Helm chart select images by <strong>tag</strong> (<code>APP_VERSION</code> /
 <code>values.yaml</code>'s <code>tag:</code>). A tag is a mutable pointer — even a <code>v1.1.0</code> tag that is never

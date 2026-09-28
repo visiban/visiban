@@ -3640,8 +3640,8 @@ arm64 leg is scheduled and fails within seconds with a clear message if no runne
 <code>arm64</code> is online, instead of letting the pipeline hang. If it fires, bring the runner back
 online (check the host's power/network and that the <code>gitlab-runner</code> service is running) and
 re-run the pipeline — do not raise a job <code>timeout:</code> to work around this, it will not help.
-If the preflight job itself fails with a <code>RUNNERS_READ_TOKEN</code>-related error, see
-<a href="../tokens-and-rotation/#runners_read_token">Tokens and Rotation</a>.</p>
+If the preflight job itself fails with a <code>RUNNER_STATUS_TOKEN</code>-related error, see
+<a href="../tokens-and-rotation/#runner_status_token">Tokens and Rotation</a>.</p>
 <p><strong>Do not misread the runner's reported architecture:</strong> GitLab's Runners API reports
 <code>architecture: amd64</code> for this runner (the <code>gitlab-runner</code> binary runs under Rosetta) even
 though the host and every image it builds are genuinely native arm64 — this is a red herring,
@@ -3692,9 +3692,9 @@ which hits Docker Hub's anonymous-pull rate limit. The helm drills are the worst
 each one boots a fresh <code>docker:dind</code> daemon with no credentials and no image cache, then pulls
 the full base-image + <code>kindest/node</code> + in-cluster (postgres/valkey) set again from the runner's
 IP.</p>
-<p><strong>Fix (#1198):</strong> every <code>image:</code>/<code>services:</code> entry in <code>.gitlab-ci.yml</code> and
-<code>.gitlab/ghcr-push.yml</code> that points at Docker Hub now resolves through <code>${DOCKERHUB_MIRROR}/
-&lt;image&gt;</code>, which defaults to the GitLab Dependency Proxy prefix
+<p><strong>Fix (#1198):</strong> every <code>image:</code>/<code>services:</code> entry in <code>.gitlab-ci.yml</code> that points at Docker Hub
+now resolves through <code>${DOCKERHUB_MIRROR}/&lt;image&gt;</code>, which defaults to the GitLab Dependency
+Proxy prefix
 (<code>${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}</code>) and which the runner authenticates to
 automatically. The Dockerfiles take a <code>BASE_REGISTRY</code> build arg (default <code>docker.io/library</code>,
 unchanged for local/contributor builds) that CI's kaniko jobs point at the same mirror. The
