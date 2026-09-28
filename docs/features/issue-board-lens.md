@@ -44,6 +44,8 @@ backend:
 
 When the variable is not set or is set to `false`, the feature is completely absent from the UI and API. No restart of the frontend is required — the UI reads a capability flag from the backend on load.
 
+To monitor how many GitHub/GitLab API calls the lens makes on your instance, see [Issue Board Lens Usage](../administration/issue-board-lens-usage.md).
+
 ---
 
 ## Configuring the lens on a board

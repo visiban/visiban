@@ -265,6 +265,17 @@ AGENT_REVIEWED: dict[str, str] = {
         "then grants the membership the token names. Role-ladder reasoning does "
         "not apply to a capability grant."
     ),
+    "backend/git_lens/views.py::LensUsageAdminView": (
+        "Site-admin lens usage telemetry (#1061). permission_classes is "
+        "_ADMIN_PERMISSIONS imported from accounts.admin_views -- the same list "
+        "object every /api/v1/admin/ route uses (IsSiteAdmin, both #1110 "
+        "forced-flow gates, TokenHasScope, whose admin scope is derived from "
+        "IsSiteAdmin by introspection), which this checker cannot resolve "
+        "across modules. GET-only, no path or query params, and the payload is "
+        "aggregated hourly counters plus static bounds -- no tokens, repo slugs, "
+        "users, or per-board data, so no IDOR surface. test_usage_admin.py pins "
+        "the list identity and covers anon/non-admin/forced-flow/405."
+    ),
 }
 
 
@@ -762,10 +773,17 @@ def run(root: Path, *, quiet: bool = False) -> Report:
                     f"the chain explicitly (#989/#1050)."
                 )
             elif perms.names is None and perms.dynamic:
-                rep.defers.append(
-                    f"{key}: permission_classes is computed at run time — this "
-                    f"checker cannot read the auth gate."
-                )
+                # A recorded agent review is the hand-off this defer asks for
+                # (e.g. a chain imported from another module, which only list
+                # aliases defined in the same module can resolve) — honor it here
+                # too, or the documented fix for this defer could never clear it.
+                # Either way the chain is unreadable, so the empty-chain test
+                # below must not run on it.
+                if key not in AGENT_REVIEWED:
+                    rep.defers.append(
+                        f"{key}: permission_classes is computed at run time — this "
+                        f"checker cannot read the auth gate."
+                    )
             elif not has_auth:
                 rep.findings.append(
                     f"{key}: permission_classes {perms.names or '[]'} does not "
@@ -1151,6 +1169,20 @@ def self_test() -> int:
             None,
             "cannot read the auth gate",
             {},
+        ),
+        (
+            "unreadable permission_classes clears once AGENT_REVIEWED records it",
+            _mutate(
+                "backend/git_lens/views.py",
+                "    permission_classes = _BOARD_PERMISSIONS",
+                "    permission_classes = build_permissions()",
+            ),
+            None,
+            None,
+            {"reviewed": {
+                "backend/git_lens/views.py::LensConnectionView":
+                    "fixture: chain reviewed by the rbac-check agent."
+            }},
         ),
         (
             "gate possibly held by another module defers instead of passing",

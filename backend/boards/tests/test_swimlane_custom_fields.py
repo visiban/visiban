@@ -337,6 +337,21 @@ class SwimlaneCustomFieldValueWriteTests(SwimlaneCustomFieldTestBase):
         r = self._patch_value(definition, True)
         self.assertEqual(r.data["custom_field_values"][0]["value"], "true")
 
+    def test_nul_byte_in_a_text_value_is_a_400_not_a_500(self):
+        """The value-write twin of #1184's definition-side fix.
+
+        `_normalize_custom_field_value` is shared with `CardSerializer`; its
+        TEXT branch (the bare `return text` fallback) had no NUL guard, so a
+        NUL byte submitted through the swimlane endpoint's writable
+        `custom_field_values` reached Postgres as an unhandled `DataError` 500
+        instead of a 400 (#1188).
+        """
+        definition = _definition(self.board, name="Region")
+        r = self._patch_value(definition, "EM\x00EA")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.data)
+        self.assertIn("custom_field_values", r.data)
+        self.assertEqual(SwimlaneCustomFieldValue.objects.count(), 0)
+
     def test_dropdown_rejects_a_value_outside_its_choices(self):
         definition = _definition(
             self.board, name="Tier", field_type=T.DROPDOWN,

@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
+import time
 from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import quote
@@ -24,6 +25,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 
+from . import metrics
 from .types import (
     LensAxis,
     LensConfig,
@@ -227,18 +229,68 @@ def _link_pipeline(issues: list[NormalizedIssue], branch_names: list[str], prs: 
             )
 
 
-def _paginate(url, headers, base_params, raise_for, cap=MAX_AUX_PAGES) -> list[dict]:
+_OUTCOME_BY_ERROR = (
+    # Most specific first: every class below subclasses LensError.
+    (LensRateLimited, "rate_limited"),
+    (LensNotFound, "not_found"),
+    (LensAuthError, "auth_error"),
+    (LensError, "http_error"),
+)
+
+
+def _provider_get(url, *, headers, params, raise_for, provider, kind, repo):
+    """The ONE place the lens makes an outbound HTTP request (#1061).
+
+    Every upstream leg goes through here so that none can escape the admin usage
+    counters or the ``git_lens.outbound`` log line — a leg added later with a bare
+    ``requests.get`` would make the admin view under-report, which is worse than
+    no view at all. ``test_every_outbound_call_goes_through_provider_get`` enforces
+    that no bare ``requests.get`` remains elsewhere in this module.
+
+    The ``requests.get`` call itself is a pure pass-through (same url, headers,
+    params and timeout), and ``raise_for`` still runs here, so behavior is
+    unchanged; this only observes. ``repo`` is the board-admin-configured public
+    slug. The token lives only inside ``headers``, which are never logged.
+    """
+    started = time.monotonic()
+    status_code = None
+    outcome = "ok"
+    try:
+        resp = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
+        status_code = getattr(resp, "status_code", None)
+        raise_for(resp)
+        return resp
+    except requests.RequestException:
+        outcome = "network_error"
+        raise
+    except LensError as exc:
+        outcome = next(o for cls, o in _OUTCOME_BY_ERROR if isinstance(exc, cls))
+        raise
+    finally:
+        metrics.record_outbound(
+            provider,
+            kind,
+            outcome,
+            status_code=status_code if isinstance(status_code, int) else None,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            repo=repo,
+        )
+
+
+def _paginate(url, headers, base_params, raise_for, *, provider, kind, repo, cap=MAX_AUX_PAGES) -> list[dict]:
     """Fetch a paginated list endpoint up to ``cap`` pages, raising on upstream
     errors via the provider's ``raise_for``. Shared by the branch/MR aux fetches."""
     items: list[dict] = []
     for page in range(1, cap + 1):
-        resp = requests.get(
+        resp = _provider_get(
             url,
             headers=headers,
             params={**base_params, "per_page": PER_PAGE, "page": page},
-            timeout=REQUEST_TIMEOUT,
+            raise_for=raise_for,
+            provider=provider,
+            kind=kind,
+            repo=repo,
         )
-        raise_for(resp)
         batch = resp.json()
         if not batch:
             break
@@ -462,7 +514,7 @@ def _github_issue(raw: dict) -> NormalizedIssue:
     )
 
 
-def _github_milestone_map(repo_path: str, headers: dict, token: str | None) -> tuple[dict[str, int], bool]:
+def _github_milestone_map(repo_path: str, headers: dict, token: str | None, repo: str = "") -> tuple[dict[str, int], bool]:
     """Return ``(title -> number, roster_is_complete)`` for the repo's milestones.
 
     GitHub's issues API filters by milestone *number*, never by title, so a
@@ -501,13 +553,15 @@ def _github_milestone_map(repo_path: str, headers: dict, token: str | None) -> t
         if cached is not None:
             return cached["map"], cached["complete"]
 
-    resp = requests.get(
+    resp = _provider_get(
         f"https://api.github.com/repos/{repo_path}/milestones",
         headers=headers,
         params={"state": "all", "per_page": PER_PAGE},
-        timeout=REQUEST_TIMEOUT,
+        raise_for=_raise_for_github,
+        provider="github",
+        kind="milestones",
+        repo=repo or repo_path,
     )
-    _raise_for_github(resp)
     batch = resp.json() or []
     # Same untrusted-shape discipline as _as_str_or_none: a milestone whose title
     # or number isn't the type we expect is dropped, not coerced.
@@ -562,7 +616,7 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     if filters.milestone == _NONE:
         base_params["milestone"] = "none"
     elif filters.milestone:
-        roster, roster_complete = _github_milestone_map(repo_path, headers, token)
+        roster, roster_complete = _github_milestone_map(repo_path, headers, token, repo)
         number = roster.get(filters.milestone)
         if number is not None:
             base_params["milestone"] = str(number)
@@ -583,13 +637,15 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     issues: list[NormalizedIssue] = []
     truncated = False
     for page in range(1, MAX_PAGES + 1):
-        resp = requests.get(
+        resp = _provider_get(
             f"https://api.github.com/repos/{repo_path}/issues",
             headers=headers,
             params={**base_params, "page": page},
-            timeout=REQUEST_TIMEOUT,
+            raise_for=_raise_for_github,
+            provider="github",
+            kind="issues",
+            repo=repo,
         )
-        _raise_for_github(resp)
         batch = resp.json()
         if not batch:
             break
@@ -608,22 +664,25 @@ def github_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
         truncated = True
 
     if config.column_dim == "pipeline":
-        _enrich_github_pipeline(issues, repo_path, headers)
+        _enrich_github_pipeline(issues, repo_path, headers, repo)
 
     return _finalize(issues, truncated, "github", repo, source_url, config)
 
 
-def _enrich_github_pipeline(issues, repo_path, headers) -> None:
+def _enrich_github_pipeline(issues, repo_path, headers, repo="") -> None:
     """Fetch the repo's branches and open PRs and link them to issues so the
     pipeline columns can place Doing (has branch) / Review (open PR)."""
+    repo = repo or repo_path
     branches = _paginate(
-        f"https://api.github.com/repos/{repo_path}/branches", headers, {}, _raise_for_github
+        f"https://api.github.com/repos/{repo_path}/branches", headers, {}, _raise_for_github,
+        provider="github", kind="branches", repo=repo,
     )
     pulls = _paginate(
         f"https://api.github.com/repos/{repo_path}/pulls",
         headers,
         {"state": "open"},
         _raise_for_github,
+        provider="github", kind="merge_requests", repo=repo,
     )
     prs = [
         _PR(
@@ -706,13 +765,15 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
     issues: list[NormalizedIssue] = []
     truncated = False
     for page in range(1, MAX_PAGES + 1):
-        resp = requests.get(
+        resp = _provider_get(
             f"{base}/issues",
             headers=headers,
             params={**base_params, "page": page},
-            timeout=REQUEST_TIMEOUT,
+            raise_for=_raise_for_gitlab,
+            provider="gitlab",
+            kind="issues",
+            repo=repo,
         )
-        _raise_for_gitlab(resp)
         batch = resp.json()
         if not batch:
             break
@@ -723,19 +784,21 @@ def gitlab_fetch(token: str | None, repo: str, config: LensConfig, filters: Lens
         truncated = True
 
     if config.column_dim == "pipeline":
-        _enrich_gitlab_pipeline(issues, base, headers)
+        _enrich_gitlab_pipeline(issues, base, headers, repo)
 
     return _finalize(issues, truncated, "gitlab", repo, f"{GITLAB_BASE}/{repo}", config)
 
 
-def _enrich_gitlab_pipeline(issues, project_base, headers) -> None:
+def _enrich_gitlab_pipeline(issues, project_base, headers, repo="") -> None:
     """Fetch the project's branches and open MRs and link them to issues so the
     pipeline columns can place Doing (has branch) / Review (open MR)."""
     branches = _paginate(
-        f"{project_base}/repository/branches", headers, {}, _raise_for_gitlab
+        f"{project_base}/repository/branches", headers, {}, _raise_for_gitlab,
+        provider="gitlab", kind="branches", repo=repo,
     )
     mrs = _paginate(
-        f"{project_base}/merge_requests", headers, {"state": "opened"}, _raise_for_gitlab
+        f"{project_base}/merge_requests", headers, {"state": "opened"}, _raise_for_gitlab,
+        provider="gitlab", kind="merge_requests", repo=repo,
     )
     prs = [
         _PR(

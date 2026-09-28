@@ -1,4 +1,0 @@
-# /etc/cron.d/visiban-demo-reset — nightly demo reset at 00:00 UTC (#1034).
-# Adjust /opt/visiban to wherever the repo is cloned on the demo host.
-CRON_TZ=UTC
-0 0 * * * root /opt/visiban/deploy/demo/reset.sh >> /var/log/visiban-demo-reset.log 2>&1

@@ -216,6 +216,15 @@ class ServeMediaXAccelRedirectTests(TestCase):
         body = b"".join(r.streaming_content) if r.streaming else r.content
         self.assertTrue(body.startswith(b"\x89PNG"))
 
+    @override_settings(DEBUG=False, USE_X_ACCEL_REDIRECT=False)
+    def test_missing_file_behind_a_row_is_404_not_500(self):
+        """#1180: the Helm public demo seeds in its own pod, so a seeded
+        attachment row can exist with no file on the serving pod. Opening it
+        must answer 404, not raise FileNotFoundError as an unhandled 500."""
+        self.attachment.file.storage.delete(self.attachment.file.name)
+        r = self.client.get(f"/media/{self.attachment.file.name}")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
     @override_settings(DEBUG=False, USE_X_ACCEL_REDIRECT=True)
     def test_x_accel_refuses_path_escaping_media_root(self):
         """Defense-in-depth (#1050): if a stored attachment path ever escapes

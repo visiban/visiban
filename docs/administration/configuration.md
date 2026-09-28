@@ -110,6 +110,27 @@ helm upgrade --install visiban ./helm/visiban \
 
 ---
 
+## Reverse proxies and the client IP
+
+> **Added in 1.2** (#1180).
+
+Per-IP rate limits (the login throttle, the anonymous request ceiling, allauth's failed-login lockout) and the `/admin/` IP allowlist all need the visitor's real address. Behind proxies, Visiban reads it from `X-Forwarded-For`, trusting the entry that the configured number of proxies appended. Everything to the left of those entries is client-supplied.
+
+| Variable | Default | Description |
+|---|---|---|
+| `NUM_PROXIES` | `1` | Number of reverse proxies in front of the backend that append to `X-Forwarded-For`. The default of `1` counts this chart's own frontend nginx, which is correct for Docker Compose and for a bare Helm install with nothing else in front of the frontend Service. A non-negative integer. Anything else refuses to start. Helm: `backend.settings.numProxies`. |
+
+Set it to the real depth of your proxy chain:
+
+- **Too low**: every client appears to come from the nearest proxy. One client exhausts the login and anonymous throttles for everyone.
+- **Too high**: a client can choose its own address by sending its own `X-Forwarded-For`, and so escape per-IP limits.
+
+**Behind an ingress controller, `1` is too low.** This chart's frontend nginx always appends one hop (`proxy_add_x_forwarded_for`); an ingress controller in front of it appends its own, so the real chain is two hops deep, not one. Count every proxy between the internet and the frontend Service, including the frontend nginx itself.
+
+The hosted demo behind a Cloudflare Tunnel uses `2` (Cloudflare appends the visitor, then the frontend nginx appends the tunnel pod). See [Public demo mode](demo-data.md#public-demo-mode-helm).
+
+---
+
 ## Import limits
 
 | Variable | Description | Default |
@@ -275,14 +296,15 @@ Demo mode turns an instance into a public, shared demo: the login page offers a 
 | `DEMO_LOGIN_PASSWORD` | *(empty)* | Password of the published account, shown on the login page. With no value no credential is shown. |
 | `DEMO_ADMIN_PASSWORD` | *(empty)* | Password of the seeded site admin (`admin`). **Never published**, and must differ from `DEMO_LOGIN_PASSWORD`. Required by `seed_demo_data --demo-site`. |
 | `DEMO_MEMBER_PASSWORD` | *(empty)* | Password for the two seeded member accounts. Never published. Required by `seed_demo_data --demo-site`. |
-| `DEMO_RESET_SCHEDULE` | `0 * * * *` | Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be `*`. An expression the backend cannot evaluate refuses to start while `DEMO_MODE` is on. |
+| `DEMO_RESET_SCHEDULE` | `0 * * * *` | Cron expression (UTC) of the reset job. Drives the countdown on the login page and in the app. Only minute and hour fields are evaluated; the other three must be `*`. An expression the backend cannot evaluate refuses to start while `DEMO_MODE` is on. Set but **empty** means no reset is scheduled: the login page and the demo bar then promise no reset and show no countdown. The Helm chart renders it empty when `demo.reset.enabled` is false. |
+| `DEMO_USER_THROTTLE_RATE` | *(empty)* | Replaces the rate of the `user` throttle scope while `DEMO_MODE` is on, e.g. `60000/hour`. Every visitor signs in as the one published account, so this scope is a single budget shared by all of them. Format `<n>/<second\|minute\|hour\|day>`; anything else refuses to start. Ignored when `DEMO_MODE` is off. |
 
 If `DEMO_LOGIN_USERNAME` or `DEMO_LOGIN_PASSWORD` is set while `DEMO_MODE` is off, startup logs a warning: nothing is published, but the fence is not armed either.
 
 !!! danger "The credentials are public by design"
     When `DEMO_MODE` is on, `DEMO_LOGIN_USERNAME` and `DEMO_LOGIN_PASSWORD` are returned to anyone by `GET /api/v1/auth/site-config/`. Enable it only on a dedicated, throwaway instance with its own database, no SSO or real SMTP, and a scheduled reset. Never enable it on an instance with real data.
 
-See [Demo data](demo-data.md#hosted-demo-instance) for seeding.
+See [Demo data](demo-data.md#hosted-demo-instance) for seeding, and [Public demo mode](demo-data.md#public-demo-mode-helm) for the Helm deployment that sets all of these.
 
 ## Health check endpoints
 

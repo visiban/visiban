@@ -461,3 +461,131 @@ tail that is far less likely to be re-read.
 
 Refresh is available to **every** board role including viewers — the lens is a read-only surface
 whose main audience is viewers, so the cap is on rate, not on role.
+
+---
+
+## Admin usage
+
+### `GET /api/v1/admin/git-lens/usage/`
+
+Return the lens's outbound GitHub/GitLab API call counters and cache outcomes over the last 24
+hours, plus the static limits that bound them. This is operational telemetry, not an audit log:
+counters are approximate, cache-backed, bucketed hourly, and retained for 24 hours — they are not
+attributed to individual users and reset if the cache is flushed or restarted.
+
+See [Issue Board Lens Usage](../administration/issue-board-lens-usage.md) for what each outcome
+means and how to interpret the report; this page only documents the response shape.
+
+**Permissions:** Site admin only. This route carries the same permission chain as every other
+`/api/v1/admin/` endpoint — `IsSiteAdmin`, plus the forced-password-change and
+forced-username-change gates, plus `TokenHasScope` — so a personal access token must also carry
+the `admin` scope (see [Scopes](authentication.md#scopes)).
+
+**Query parameters:** None. The endpoint is read-only.
+
+**Response — 200 OK**
+
+The example below trims `outbound_by_kind` to a single provider (`github`) and kind (`issues`)
+for brevity. The real response repeats `outbound_by_kind` for every kind
+(`issues`, `branches`, `merge_requests`, `milestones`) and every outcome
+(`ok`, `not_found`, `auth_error`, `rate_limited`, `http_error`, `network_error`), and
+`board_requests` for both `github` and `gitlab`, in `current_hour` and `last_24h` alike.
+
+```json
+{
+  "generated_at": "2026-09-27T14:00:03.512819+00:00",
+  "window_hours": 24,
+  "bucket_seconds": 3600,
+  "current_hour": {
+    "github": {
+      "outbound_calls": 14,
+      "outbound_by_kind": {
+        "issues": {
+          "ok": 12,
+          "not_found": 0,
+          "auth_error": 0,
+          "rate_limited": 0,
+          "http_error": 1,
+          "network_error": 0
+        }
+      },
+      "board_requests": {
+        "cache_fresh": 41,
+        "cache_stale_locked": 2,
+        "budget_exhausted_stale": 0,
+        "budget_exhausted_429": 0,
+        "fetched": 5,
+        "error_stale": 1,
+        "error": 0
+      }
+    }
+  },
+  "last_24h": {
+    "github": {
+      "outbound_calls": 302,
+      "outbound_by_kind": {
+        "issues": {
+          "ok": 288,
+          "not_found": 1,
+          "auth_error": 2,
+          "rate_limited": 0,
+          "http_error": 4,
+          "network_error": 7
+        }
+      },
+      "board_requests": {
+        "cache_fresh": 940,
+        "cache_stale_locked": 22,
+        "budget_exhausted_stale": 0,
+        "budget_exhausted_429": 1,
+        "fetched": 96,
+        "error_stale": 6,
+        "error": 0
+      }
+    }
+  },
+  "hourly": [
+    { "hour": "2026-09-26T15:00:00+00:00", "outbound_calls": { "github": 11, "gitlab": 2 } },
+    { "hour": "2026-09-27T14:00:00+00:00", "outbound_calls": { "github": 14, "gitlab": 3 } }
+  ],
+  "bounds": {
+    "fetch_budget_per_user_repo": 12,
+    "fetch_budget_per_user": 48,
+    "fetch_budget_window_seconds": 300,
+    "force_refresh_cooldown_seconds": 30,
+    "cache_soft_ttl_seconds": 60,
+    "cache_hard_ttl_seconds": 600,
+    "cache_filtered_hard_ttl_seconds": 180,
+    "max_issue_pages": 3,
+    "max_aux_pages": 2,
+    "per_page": 100,
+    "request_timeout_seconds": 10,
+    "max_outbound_calls_per_fetch": 8,
+    "max_outbound_calls_per_user_per_window": 384
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `generated_at` | string | ISO 8601 timestamp of when the report was generated |
+| `window_hours` | integer | Retention window in hours (`24`) |
+| `bucket_seconds` | integer | Size of each counter bucket in seconds (`3600`) |
+| `current_hour` | object | Same shape as `last_24h`, scoped to the current hour's bucket only |
+| `last_24h` | object | Keyed by provider (`github`, `gitlab`). Each value has `outbound_calls` (integer total), `outbound_by_kind` (object keyed by kind, each an object of outcome → count), and `board_requests` (object of board-read outcome → count) |
+| `hourly` | array | One entry per hour in the window, oldest first — `{ hour, outbound_calls: { github, gitlab } }` |
+| `bounds` | object | The static limits that make the lens's outbound rate provably bounded — mirrors the constants enforced by `GET /api/v1/git-lens/board/{board_id}/` (see [Refresh and rate limits](#refresh-and-rate-limits)) so an admin can compare "what happened" against "the most that can happen" without reading source |
+
+**Errors**
+
+| Status | Condition |
+|---|---|
+| `401 Unauthorized` | Request is not authenticated |
+| `403 Forbidden` | Caller is authenticated but not a site admin, has a pending forced password or username change, or the token lacks the `admin` scope |
+| `404 Not Found` | `GIT_LENS_ENABLED` is not set — the route is not mounted |
+| `405 Method Not Allowed` | Any method other than `GET` |
+
+```bash
+curl -H "Authorization: Token vbn_..." \
+  https://visiban.example.com/api/v1/admin/git-lens/usage/
+```

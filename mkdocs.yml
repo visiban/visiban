@@ -131,6 +131,7 @@ nav:
     - Site Admins: administration/site-admins.md
     - Admin Panel: administration/admin-panel.md
     - Maintenance Mode: administration/maintenance-mode.md
+    - Issue Board Lens Usage: administration/issue-board-lens-usage.md
     - Scheduled Jobs: administration/scheduled-jobs.md
     - Authentication: administration/authentication.md
     - Demo Data: administration/demo-data.md
@@ -145,4 +146,5 @@ nav:
     - CI Runners: maintainers/ci-runners.md
     - Tokens and Rotation: maintainers/tokens-and-rotation.md
     - Known CI Failures: maintainers/known-ci-failures.md
+    - Hosted Demo: maintainers/demo-deploy.md
   - Changelog: changelog.md

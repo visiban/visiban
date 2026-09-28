@@ -22,6 +22,7 @@ no settings reads at import time.
 from __future__ import annotations
 
 import datetime
+import re
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -102,6 +103,8 @@ DEMO_ALLOWED_WRITES: frozenset[tuple[str, str]] = frozenset(
 #: from the real reset.
 DEFAULT_DEMO_RESET_SCHEDULE = "0 * * * *"
 
+_THROTTLE_RATE_RE = re.compile(r"^[1-9][0-9]*/(s|sec|second|m|min|minute|h|hour|d|day)$")
+
 _TRUE_WORDS = frozenset({"true", "1", "yes", "on"})
 _FALSE_WORDS = frozenset({"false", "0", "no", "off", ""})
 
@@ -130,6 +133,29 @@ def parse_demo_mode(raw: str | None) -> bool:
         "yes/no, on/off). Refusing to start: a misspelled value would otherwise "
         "leave a public demo writable while looking fenced."
     )
+
+
+def parse_demo_user_throttle_rate(raw: str | None) -> str | None:
+    """Parse ``DEMO_USER_THROTTLE_RATE`` (#1180); None when unset or blank.
+
+    DRF's ``user`` scope counts per ACCOUNT, and on a public demo every visitor
+    signs in as the one published account, so the normal 5000/hour becomes a
+    single budget the whole internet shares — a handful of visitors polling
+    the board exhaust it and everyone gets 429 (TruePPM ADR-1197 D6). The
+    Helm chart re-aims it through this variable as a shared-fate ceiling that
+    protects the node, not as a per-visitor limit. Parsed strictly: DRF only
+    reads the first letter of the period and would take ``100/fortnight`` as
+    100 per *day*... after crashing on a malformed number at request time.
+    """
+    if raw is None or not raw.strip():
+        return None
+    value = raw.strip()
+    if not _THROTTLE_RATE_RE.match(value):
+        raise ImproperlyConfigured(
+            f"DEMO_USER_THROTTLE_RATE={raw!r} is not a throttle rate. Use <n>/<period> "
+            "with period second, minute, hour or day, e.g. '60000/hour'."
+        )
+    return value
 
 
 def _parse_cron_field(field: str, low: int, high: int) -> frozenset[int]:
@@ -164,7 +190,10 @@ def parse_demo_reset_schedule(raw: str | None) -> tuple[str, frozenset[int], fro
     Anything else raises: unlike TruePPM, which only displays the cadence,
     Visiban derives ``demo_next_reset_at`` from it and promises visitors a
     countdown — a schedule we cannot evaluate would publish a wrong time.
-    Unset or blank means the hourly default.
+    ``None`` or blank parses as the hourly default. Note that the *setting*
+    layer never passes a blank here: in ``settings.py`` a set-but-empty
+    ``DEMO_RESET_SCHEDULE`` means "no reset scheduled" (#1180), and
+    ``demo_next_reset_at_iso`` returns None for it before calling this.
     """
     expr = (raw or "").strip() or DEFAULT_DEMO_RESET_SCHEDULE
     expr = _CRON_ALIASES.get(expr, expr)
@@ -209,18 +238,35 @@ def next_reset_at(
     raise AssertionError("unreachable: a non-empty cron schedule always has a next slot")
 
 
+def demo_reset_schedule() -> str | None:
+    """The reset cron expression visitors are told about, or None.
+
+    None when ``DEMO_MODE`` is off (a stray value on a real install is never
+    published) and when the schedule is empty — the Helm chart renders it
+    empty when ``demo.reset.enabled`` is false (#1180), and a demo whose reset
+    is not running must not promise one (TruePPM ADR-1197 D9).
+    """
+    from django.conf import settings
+
+    if not settings.DEMO_MODE:
+        return None
+    return (settings.DEMO_RESET_SCHEDULE or "").strip() or None
+
+
 def demo_next_reset_at_iso(now: datetime.datetime | None = None) -> str | None:
     """ISO 8601 UTC of the next reset while ``DEMO_MODE`` is on, else None.
 
     Gated on ``DEMO_MODE`` in code — same shape as
     ``SiteConfigView._demo_login`` — so a stray ``DEMO_RESET_SCHEDULE`` on a
-    real install never reaches the anonymous site-config endpoint.
+    real install never reaches the anonymous site-config endpoint. Also None
+    when no reset is scheduled (empty ``DEMO_RESET_SCHEDULE``, #1180), which
+    is what makes the SPA drop the countdown and the "will be erased" copy.
     """
-    from django.conf import settings
     from django.utils import timezone
 
-    if not settings.DEMO_MODE:
+    expr = demo_reset_schedule()
+    if expr is None:
         return None
-    schedule = parse_demo_reset_schedule(settings.DEMO_RESET_SCHEDULE)
+    schedule = parse_demo_reset_schedule(expr)
     when = next_reset_at(schedule, now or timezone.now())
     return when.isoformat().replace("+00:00", "Z")

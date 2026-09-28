@@ -69,15 +69,28 @@ Usage:
         MEMBER on every board, never a site or board admin, and the instance
         is seeded with uploads off and registration closed. See
         docs/administration/demo-data.md.
+
+    python manage.py seed_demo_data --force --wipe --demo-site --reset-database
+        The hosted demo's reset (#1180: the Helm chart's demo seed hook and
+        hourly reset CronJob run exactly this). Empties EVERY table first
+        (Django's ``flush``), which also deletes every session, so each
+        visitor is signed out, and removes rows a per-board ``--wipe`` cannot
+        reach (``BoardEvent.board_id`` is deliberately not a foreign key).
+        Only valid with --demo-site, which itself refuses to run unless
+        DEMO_MODE is on.
 """
 
 import csv
 import datetime
 import json
+import os
 import random
 from django.conf import settings
+from django.contrib.sites.models import Site
+from django.core.management import call_command
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from accounts.models import SiteSetting, User
 from boards.notifications_email import suppress_notification_email
@@ -533,6 +546,16 @@ class Command(BaseCommand):
             ),
         )
         parser.add_argument(
+            "--reset-database",
+            action="store_true",
+            help=(
+                "Hosted demo reset (#1180): empty EVERY table (Django's flush — "
+                "sessions included, so every visitor is signed out) before "
+                "seeding. Only valid with --demo-site, which requires "
+                "DEMO_MODE=true. Never use on an instance holding real data."
+            ),
+        )
+        parser.add_argument(
             "--with-notifications",
             action="store_true",
             help=(
@@ -598,10 +621,51 @@ class Command(BaseCommand):
                 )
             if options["export"] or options["scale"] != 1:
                 raise CommandError("--demo-site cannot be combined with --export or --scale.")
-        with suppress_notification_email():
-            self._seed(*args, **options)
-            if demo_site:
-                self._seed_demo_site(options)
+        if options.get("reset_database"):
+            # Scoped to the demo so a copy-pasted command can never empty a real
+            # install: --demo-site (validated above) already demands DEMO_MODE.
+            if not demo_site:
+                raise CommandError("--reset-database is only valid with --demo-site.")
+            # --force is required unconditionally (not just when DEBUG is False):
+            # DEBUG-gating this was a latent foot-gun (security-review, #1180) — a
+            # destructive flush should never be one flag away from running just
+            # because DEBUG happens to be on, on any deployment shape.
+            if not options["force"]:
+                raise CommandError(
+                    "Refusing to reset the database: --reset-database requires --force "
+                    "(only safe on a dedicated demo instance)."
+                )
+            # completeness-check (#1180): the flush and the reseed must be one
+            # transaction, or a failure between them (an OOM kill, the Job's
+            # activeDeadlineSeconds, any exception in _seed/_seed_demo_site)
+            # leaves the database flushed but not reseeded — the published
+            # login dead and most boards missing, exactly the "reset takes the
+            # demo down" outcome the docs promise cannot happen. Wrapping in
+            # atomic() means a mid-run failure rolls back to the PRE-reset
+            # state (the old data, the old still-working login) rather than a
+            # half-flushed one. PostgreSQL TRUNCATE (what `flush` issues) is
+            # fully transactional and nests under an outer atomic() as a
+            # savepoint, so this does not change flush's own behavior.
+            # suppress_notification_email() must be the OUTER context manager
+            # (re-check of the first fix, #1180): atomic()'s on_commit callbacks
+            # fire at the moment the transaction commits, which is when the
+            # atomic() block exits. If suppress_notification_email() were
+            # nested inside atomic() instead, it would reset _suppressed to
+            # False on its own __exit__ before atomic() commits and fires
+            # those callbacks, so any notification queued via on_commit during
+            # the seed would send for real. Wrapping it outside keeps
+            # suppression active through the commit.
+            with suppress_notification_email():
+                with transaction.atomic():
+                    self._reset_database()
+                    self._seed(*args, **options)
+                    if demo_site:
+                        self._seed_demo_site(options)
+        else:
+            with suppress_notification_email():
+                self._seed(*args, **options)
+                if demo_site:
+                    self._seed_demo_site(options)
 
     def _seed(self, *args, **options):
         random.seed(options["seed"])
@@ -709,6 +773,31 @@ class Command(BaseCommand):
             self._export(board, columns, swimlanes, labels, cards)
 
     # ── Hosted demo site (#1034) ───────────────────────────────────────────────
+
+    def _reset_database(self):
+        """Empty every table, then restore the one row the seed does not create.
+
+        Why a whole-database flush rather than ``--wipe`` alone (#1180): the
+        hosted demo's reset must end every session (sessions are
+        database-backed, and the login page promises visitors they will be
+        signed out) and must not leak rows across resets — ``--wipe`` deletes
+        the seeded boards by name, which leaves sessions, ``BoardEvent`` rows
+        (``board_id`` is deliberately not a foreign key) and anything a
+        visitor created elsewhere. The retired Compose demo got the same
+        effect from ``docker compose down -v``.
+
+        ``flush`` re-runs post_migrate, which restores content types, the
+        board templates and a placeholder Site. The Site's domain is what
+        ``ensure_site_admin`` keeps in sync with SITE_DOMAIN at pod start, so
+        it is re-applied here rather than left as example.com until the next
+        backend restart.
+        """
+        call_command("flush", interactive=False, verbosity=0)
+        Site.objects.update_or_create(
+            id=settings.SITE_ID,
+            defaults={"domain": os.environ.get("SITE_DOMAIN", "localhost:8000"), "name": "Visiban"},
+        )
+        self.stdout.write("Reset the database: every table emptied, every session ended.")
 
     def _seed_demo_site(self, options):
         """Seed the try.visiban.com boards and accounts.

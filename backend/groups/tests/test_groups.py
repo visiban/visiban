@@ -570,6 +570,14 @@ class JoinGroupViewTests(TestCase):
         r = self.client.post("/api/v1/groups/join/invalid-token/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_token_matching_viewset_action_name_reaches_join_view(self):
+        """A token equal to a GroupViewSet detail-action name must not be routed
+        to that action with pk="join" (schema fuzz: GET groups/join/star/ → 405)."""
+        for token in ("star", "labels", "invite-links", "board-defaults"):
+            with self.subTest(token=token):
+                r = self.client.get(f"/api/v1/groups/join/{token}/")
+                self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_inactive_link_returns_404(self):
         self.link.is_active = False
         self.link.save()
