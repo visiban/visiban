@@ -1,10 +1,12 @@
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from dj_rest_auth.serializers import LoginSerializer as DjRestAuthLoginSerializer
+from dj_rest_auth.serializers import PasswordResetConfirmSerializer as DjRestAuthPasswordResetConfirmSerializer
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.core.validators import EmailValidator
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from .adapter import clear_login_lockout
 from .models import (
     PAT_SCOPES,
     PersonalAccessToken,
@@ -172,6 +174,32 @@ class VisibanPasswordResetSerializer(PasswordResetSerializer):
     @property
     def password_reset_form_class(self):
         return VisibanPasswordResetForm
+
+
+class VisibanPasswordResetConfirmSerializer(DjRestAuthPasswordResetConfirmSerializer):
+    """Clears the per-account login lockout on a successful password reset (#1203).
+
+    dj-rest-auth's stock ``PasswordResetConfirmSerializer.save()`` calls Django's
+    plain ``SetPasswordForm.save()`` and nothing else — it never touches
+    allauth's ``login_failed`` rate-limit bucket. Only allauth's own reset flow
+    (``finalize_password_reset``) does that, and Visiban's reset-confirm
+    endpoint never runs it (see ``accounts.adapter.clear_login_lockout`` for
+    the full explanation, including why both the username and email keys are
+    cleared). Without this override, a user locked out by 5 failed login
+    attempts (#1199) who then successfully reset their password was still
+    refused login — including with the brand-new, correct password — until the
+    5-minute window expired on its own.
+
+    ``self.user`` and ``self.context["request"]`` are both set by the base
+    class's ``validate()`` (the user from the decoded ``uid``/``token``; the
+    request via DRF's ``GenericAPIView.get_serializer`` context) before
+    ``save()`` ever runs, so both are guaranteed present here.
+    """
+
+    def save(self):
+        result = super().save()
+        clear_login_lockout(self.context["request"], self.user)
+        return result
 
 
 class PublicUserSerializer(serializers.ModelSerializer):

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEscapeStack } from "../hooks/useEscapeStack";
 import {
+  clearAdminUserLockout,
   createAdminUser,
   deactivateAdminUser,
   getAdminInviteLinks,
@@ -1049,6 +1050,22 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     );
   };
 
+  const handleClearLockout = (user: AdminUser) => {
+    confirmAndRun(
+      `Clear the login lockout for ${user.display_name || user.username}? They will be able to log in immediately, even if they are currently locked out.`,
+      async () => {
+        setActionError(null);
+        try {
+          const updated = await clearAdminUserLockout(user.id);
+          setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+        } catch (err: unknown) {
+          const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
+          setActionError(data?.detail ?? "Action failed. Please try again.");
+        }
+      }
+    );
+  };
+
   const handleRevokeContentAccess = (user: AdminUser) => {
     confirmAndRun(
       `Revoke all-content access from ${user.display_name || user.username}? They will only see boards they are a member of.`,
@@ -1214,6 +1231,18 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                             Force reset
                           </button>
                         )}
+
+                        {/* Clear login lockout (#1203) — always available; a
+                            no-op server-side if the account isn't currently
+                            locked out, so there's no lockout-state field to
+                            gate this on. */}
+                        <button
+                          onClick={() => handleClearLockout(u)}
+                          title="Clear this user's login lockout, if they have one, so they can log in immediately"
+                          className="text-xs text-fg-tertiary hover:text-info transition"
+                        >
+                          Clear lockout
+                        </button>
                       </div>
                     </td>
                   </tr>

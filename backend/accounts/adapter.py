@@ -20,8 +20,88 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "RegistrationAdapter",
     "SocialRegistrationAdapter",
+    "clear_login_lockout",
     "invalidate_registration_mode_cache",
 ]
+
+
+def clear_login_lockout(request, user) -> None:
+    """Clear the per-account (``/key``-scoped) half of allauth's ``login_failed``
+    rate limit for ``user`` — never the per-IP (``/ip``-scoped) half.
+
+    Shared by two callers: the password-reset-confirm flow (#1203) and the
+    site-admin "clear lockout" action, so both get identical, correct behavior
+    instead of two slightly different reimplementations.
+
+    Why this exists instead of allauth's own recovery path
+    --------------------------------------------------------
+    allauth ships exactly one way to clear this bucket early:
+    ``allauth.account.internal.flows.password_reset.finalize_password_reset``,
+    which iterates the user's ``EmailAddress`` rows and clears the bucket keyed
+    on each one. Visiban's password-reset-confirm endpoint never runs it — it
+    goes through dj-rest-auth's ``PasswordResetConfirmSerializer``, a thin
+    wrapper around Django's plain ``SetPasswordForm``, which knows nothing
+    about allauth's rate limiter at all (verified against the running code,
+    #1199's review; this was the gap #1203 tracks).
+
+    Why BOTH the username and the email key are cleared
+    -----------------------------------------------------
+    Even allauth's own recovery path above only clears the email-keyed
+    bucket. That is incomplete here: ``ACCOUNT_LOGIN_METHODS = {"username",
+    "email"}`` (visiban/settings.py) means a login attempt — and therefore the
+    lockout it can trip — is keyed on whichever identifier was actually
+    submitted (see ``DefaultAccountAdapter._get_login_attempts_cache_key``:
+    email takes precedence over username only when both are present in the
+    same call, otherwise whichever one was given). There is no record here of
+    which identifier a locked-out attacker (or the legitimate user) used, so
+    both keys are cleared unconditionally. Clearing a bucket that was never
+    populated — e.g. this user has never been locked out under their email —
+    is a no-op: deleting a cache key that doesn't exist is safe and costs
+    nothing.
+
+    Why this does NOT use allauth's public ``ratelimit.clear()``
+    ----------------------------------------------------------------
+    ``ACCOUNT_RATE_LIMITS["login_failed"]`` configures TWO rates —
+    ``"10/m/ip,5/300s/key"`` (visiban/settings.py) — and allauth's
+    ``ratelimit.clear(request, action=..., key=...)`` clears the cache bucket
+    for *every* configured rate of that action in one call (confirmed against
+    ``allauth.core.internal.ratelimit.clear`` in 65.14.3), computing the
+    per-IP rate's cache key from ``request``'s OWN client IP regardless of the
+    ``key`` argument passed in. Calling it here would therefore also delete
+    the per-IP bucket for whoever is making *this* request — the resetting
+    user's IP on a password reset, or the admin's IP on the admin unlock
+    endpoint — as an undocumented side effect on every call, silently
+    weakening the "10/m/ip" credential-stuffing protection that rate exists
+    for. That's a real, separate control (see AllauthHtmlLoginPerIpThrottleTests
+    in accounts/tests/test_password_reset.py) and clearing it here is never
+    correct, so only the key-scoped rate(s) are targeted explicitly below —
+    using allauth's own (non-underscored, but internal-module) cache-key
+    builder to stay byte-identical with what ``pre_authenticate()`` wrote,
+    rather than reimplementing the sha256 hashing ourselves.
+    """
+    # Deferred: this module is wired in as ACCOUNT_ADAPTER, which Django can
+    # resolve while apps are still loading — importing django.contrib.sites
+    # (get_current_site queries the Site model) at module level risks
+    # AppRegistryNotReady at startup. The allauth imports are deferred
+    # alongside it purely for locality: they are only ever used here.
+    from allauth.account.app_settings import RATE_LIMITS as ACCOUNT_RATE_LIMITS_RUNTIME
+    from allauth.core.internal.ratelimit import get_cache_key, parse_rates
+    from django.contrib.sites.shortcuts import get_current_site
+    from django.core.cache import cache
+
+    key_rates = [
+        rate for rate in parse_rates(ACCOUNT_RATE_LIMITS_RUNTIME.get("login_failed"))
+        if rate.per == "key"
+    ]
+    if not key_rates:
+        return
+
+    site_domain = get_current_site(request).domain
+    identifiers = {value.lower() for value in (user.username, user.email) if value}
+    for identifier in identifiers:
+        cache_key_seed = f"{site_domain}:{identifier}"
+        for rate in key_rates:
+            cache.delete(get_cache_key(request, action="login_failed", rate=rate, key=cache_key_seed))
 
 # Session key used to pass an invite token through the OAuth redirect flow.
 # The frontend appends ?invite_token=vbnl_xxx to the OAuth login URL; middleware

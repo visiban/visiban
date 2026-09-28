@@ -1,6 +1,7 @@
 """Tests for #211/#212: site admin API endpoints."""
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
@@ -938,3 +939,133 @@ class AdminDeactivatePATRevocationTests(TestCase):
             1,
             "PATs belonging to other users must not be deleted.",
         )
+
+
+# ---------------------------------------------------------------------------
+# AdminUserClearLockoutView (#1203)
+# ---------------------------------------------------------------------------
+
+class AdminUserClearLockoutViewTests(TestCase):
+    """POST /api/v1/admin/users/{pk}/clear-lockout/
+
+    Gives a site admin an early-recovery lever for a locked-out account (5
+    failed logins / 5 min, #1199) that doesn't depend on the user completing a
+    password reset (see ``accounts.tests.test_password_reset
+    .LoginLockoutEarlyRecoveryTests`` for that path).
+    """
+
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
+
+    def setUp(self):
+        self.admin = make_admin()
+        self.target = make_user(
+            username="lockout_admin_target", email="lockoutadmin@example.com", password=self.PASSWORD
+        )
+        self.client = APIClient()
+        # Same isolation reasoning as LoginPerAccountLockoutTests: allauth's
+        # ratelimit bucket lives in Django's default cache, not per-TestCase state.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _post_login(self, username, password, ip):
+        anon = APIClient()
+        return anon.post(
+            "/api/v1/auth/login/",
+            {"username": username, "password": password},
+            format="json",
+            HTTP_X_FORWARDED_FOR=ip,
+            REMOTE_ADDR=ip,
+        )
+
+    def _lock_out_target(self):
+        for i in range(5):
+            r = self._post_login(self.target.username, "wrong-password", f"192.0.2.{i + 1}")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        locked = self._post_login(self.target.username, self.PASSWORD, "192.0.2.99")
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST, locked.content)
+
+    def test_admin_can_clear_lockout(self):
+        self._lock_out_target()
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(f"/api/v1/admin/users/{self.target.pk}/clear-lockout/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertEqual(r.json()["id"], self.target.pk)
+
+        # The previously locked-out user can now log in immediately with
+        # their (unchanged) correct password.
+        r2 = self._post_login(self.target.username, self.PASSWORD, "192.0.2.201")
+        self.assertEqual(r2.status_code, status.HTTP_200_OK, r2.content)
+
+    def test_non_admin_gets_403(self):
+        self._lock_out_target()
+        reg = make_user(username="lockout_not_admin")
+        self.client.force_authenticate(reg)
+
+        r = self.client.post(f"/api/v1/admin/users/{self.target.pk}/clear-lockout/")
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+        # The lockout must be untouched by the rejected attempt.
+        still_locked = self._post_login(self.target.username, self.PASSWORD, "192.0.2.202")
+        self.assertEqual(still_locked.status_code, status.HTTP_400_BAD_REQUEST, still_locked.content)
+
+    def test_unauthenticated_gets_401_or_403(self):
+        r = self.client.post(f"/api/v1/admin/users/{self.target.pk}/clear-lockout/")
+        self.assertIn(r.status_code, [status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN])
+
+    def test_unknown_user_returns_404(self):
+        self.client.force_authenticate(self.admin)
+        r = self.client.post("/api/v1/admin/users/999999/clear-lockout/")
+        self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_clearing_a_non_locked_out_account_is_a_harmless_no_op(self):
+        """Idempotency: nothing to clear must not error."""
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(f"/api/v1/admin/users/{self.target.pk}/clear-lockout/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_unlock_is_recorded(self):
+        self._lock_out_target()
+        self.client.force_authenticate(self.admin)
+
+        with self.assertLogs("accounts.admin_views", level="INFO") as captured:
+            r = self.client.post(f"/api/v1/admin/users/{self.target.pk}/clear-lockout/")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        matching = [
+            msg for msg in captured.output
+            if "user.lockout_cleared" in msg and f"pk={self.target.pk}" in msg
+            and f"cleared_by={self.admin.pk}" in msg
+        ]
+        self.assertTrue(matching, captured.output)
+        # CLAUDE.md: never log PII (username/email) in a log statement.
+        for msg in captured.output:
+            self.assertNotIn(self.target.username, msg)
+            self.assertNotIn(self.target.email, msg)
+
+    def test_does_not_clear_the_admins_own_per_ip_rate_limit(self):
+        """The admin's own request has an IP too — the per-IP `login_failed`
+        rate (10 failed attempts/minute, across any accounts) computed from
+        THAT IP must not be cleared as a side effect of calling this
+        endpoint. See accounts.adapter.clear_login_lockout's docstring: only
+        the per-account (/key) rate is ever cleared, deliberately never the
+        per-IP one, regardless of whose request triggers the clear."""
+        admin_ip = "203.0.113.77"
+        for i in range(10):
+            make_user(username=f"admin_ip_user{i}")
+            r = self._post_login(f"admin_ip_user{i}", "wrong-password", admin_ip)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(
+            f"/api/v1/admin/users/{self.target.pk}/clear-lockout/",
+            REMOTE_ADDR=admin_ip,
+            HTTP_X_FORWARDED_FOR=admin_ip,
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        # The per-IP bucket for the admin's own IP must still be tripped.
+        untouched = make_user(username="admin_ip_untouched", password=self.PASSWORD)
+        r = self._post_login(untouched.username, self.PASSWORD, admin_ip)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))
