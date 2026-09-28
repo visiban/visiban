@@ -366,6 +366,11 @@ describe('LoginPage', () => {
       registration_open: true,
       demo_mode: true,
       demo_login: { username: 'visitor', password: 'pw-from-config' },
+      // A scheduled reset always carries a real cron string alongside next_reset_at
+      // (#1180) — this fixture used to omit it and rely on cadenceText's now-removed
+      // `=== null` fallback defaulting to "hourly", which masked exactly the bug
+      // #1180 fixed at a different call site.
+      demo_reset_schedule: '0 * * * *',
       demo_next_reset_at: '2026-09-27T13:00:00Z',
     })
     renderLoginPage()
@@ -395,6 +400,24 @@ describe('LoginPage', () => {
     expect(banner).toHaveTextContent('Resets on a regular schedule')
     expect(banner).not.toHaveTextContent('every hour')
     expect(banner).toHaveTextContent(`next reset at ${formatClockTime('2026-09-28T00:00:00Z')}`)
+  })
+
+  it('promises no reset when none is scheduled (#1180)', async () => {
+    mockGetSiteConfig.mockResolvedValue({
+      registration_open: false,
+      demo_mode: true,
+      demo_login: { username: 'visitor', password: 'pw' },
+      demo_reset_schedule: null,
+      demo_next_reset_at: null,
+    })
+    renderLoginPage()
+    const banner = await screen.findByTestId('demo-banner')
+    expect(banner).toHaveTextContent(
+      'This is a shared demo. Other visitors can see and change everything here, and it is never reset.',
+    )
+    expect(banner).not.toHaveTextContent('Resets')
+    expect(banner).not.toHaveTextContent('erased')
+    expect(banner).not.toHaveTextContent('signed out')
   })
 
   it('"Explore the demo" signs in with the published credential in one click (#1179)', async () => {

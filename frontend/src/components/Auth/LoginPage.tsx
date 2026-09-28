@@ -176,10 +176,12 @@ export default function LoginPage({ onLogin }: Props) {
   const nextResetLabel = demoNextResetAt ? formatClockTime(demoNextResetAt) : "";
   // The cadence sentence is derived from the server's cron, never assumed:
   // only the hourly schedule may promise "every hour, on the hour". Any other
-  // schedule (e.g. the nightly Compose path) falls back to a cadence-neutral
-  // sentence; the exact next reset time below is always accurate.
+  // schedule falls back to a cadence-neutral sentence; the exact next reset
+  // time below is always accurate. No `=== null` fallback here (#1180): an
+  // absent schedule now means "no reset scheduled" and is handled entirely by
+  // the nextResetLabel branch below, not by assuming an hourly cadence.
   const cadenceText =
-    demoResetSchedule === null || demoResetSchedule === "0 * * * *" || demoResetSchedule === "@hourly"
+    demoResetSchedule === "0 * * * *" || demoResetSchedule === "@hourly"
       ? "Resets every hour, on the hour"
       : "Resets on a regular schedule";
 
@@ -218,12 +220,20 @@ export default function LoginPage({ onLogin }: Props) {
             data-testid="demo-banner"
             className="mb-5 rounded border border-primary-emphasis/30 bg-primary-emphasis/10 px-3 py-2.5 text-sm text-fg-secondary"
           >
+            {/* No next reset means none is scheduled (#1180: the Helm chart's
+                demo.reset.enabled=false renders DEMO_RESET_SCHEDULE empty), so
+                the banner must not promise an erase or a sign-out that never
+                comes. */}
             <p>
-              <strong className="font-semibold text-fg">This is a shared demo.</strong> {cadenceText}
-              {nextResetLabel && (
-                <> — next reset at <strong className="font-semibold text-fg">{nextResetLabel}</strong> (your local time)</>
+              <strong className="font-semibold text-fg">This is a shared demo.</strong>{" "}
+              {nextResetLabel ? (
+                <>
+                  {cadenceText} — next reset at <strong className="font-semibold text-fg">{nextResetLabel}</strong> (your
+                  local time). Everything you change is erased and you will be signed out.
+                </>
+              ) : (
+                <>Other visitors can see and change everything here, and it is never reset.</>
               )}
-              . Everything you change is erased and you will be signed out.
             </p>
             <button
               type="button"

@@ -1,0 +1,211 @@
+{{- /*
+Public demo mode verification hook (#1180; ported from TruePPM's
+templates/tests/demo-read-only.yaml, ADR-1197).
+
+`helm test <release>` proves, in one pass and with no internet access, the
+things that must hold AT THE SAME TIME for a public demo to be both usable and
+safe:
+
+  1. The seed ran and produced the published account: signing in with
+     demo.loginHint answers 200. This is a `helm test` hook that an operator and
+     CI run, deliberately NOT a readiness probe: a failed reset must degrade the
+     demo to stale data, never take it down (TruePPM ADR-1197 D9).
+  2. DEMO_MODE reached the backend and the fence is in the stack: an
+     AUTHENTICATED `POST /api/v1/boards/` answers 403 AND carries the
+     `demo_read_only` code. Status alone is not enough — a 403 from a permission
+     class looks identical and proves nothing about the fence. Board create is
+     the sharpest case: any authenticated user may create a board and becomes
+     its ADMIN, so it is precisely the write no seeded role can stop.
+  3. The fence is not a blanket refusal: moving a seeded card (the demo's reason
+     to exist, on the #1179 allowlist) succeeds.
+  4. `site-config` publishes `demo_next_reset_at` when a reset is scheduled, and
+     publishes none when demo.reset.enabled is false — the countdown and the
+     CronJob come from one value.
+
+Everything goes THROUGH THE FRONTEND SERVICE, i.e. the nginx a visitor's
+request crosses behind the tunnel, not straight to the backend. It uses the
+backend image because the flow needs a JSON parser and a session: Visiban signs
+in with dj-rest-auth SESSION + CSRF (not TruePPM's JWT), so the script carries
+`sessionid` and `csrftoken` by hand. It does not use a cookie jar on purpose:
+production cookies are `Secure`, and a standards-following jar will not send
+them over this in-cluster plain-HTTP hop.
+
+The credential comes from the demo Secret and a plain env value, never from
+text interpolated into this script; _validate.tpl constrains both halves anyway.
+
+What this does NOT check: the Cloudflare Tunnel, the edge WAF/rate-limit rules,
+or anything else in front of the frontend Service.
+*/ -}}
+{{- if include "visiban.demoEnabled" . }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "visiban.fullname" . }}-test-demo-read-only
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    # After the connection probe, so "the app is not up" is reported by the test
+    # that is about that, not by this one.
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: demo-read-only
+      image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+      imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      # Literal, for the same reason as the connection probe's.
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+      env:
+        - name: FRONTEND
+          value: "http://{{ include "visiban.fullname" . }}-frontend:{{ .Values.frontend.service.port }}"
+        - name: DEMO_LOGIN_USERNAME
+          value: {{ include "visiban.demoLoginUsername" . | quote }}
+        - name: DEMO_LOGIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "visiban.demoSecretName" . }}
+              key: demo-login-password
+        - name: EXPECT_RESET
+          value: {{ if include "visiban.demoResetEnabled" . }}"true"{{ else }}"false"{{ end }}
+        - name: RETRIES
+          value: {{ .Values.tests.retries | int | quote }}
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+      command:
+        - python
+        - -c
+        - |
+          import json, os, sys, time, urllib.error, urllib.request
+          from http.cookies import SimpleCookie
+
+          base = os.environ["FRONTEND"]
+          cookies = {}
+
+          def call(method, path, body=None, headers=None):
+              h = {"Host": "localhost", "Accept": "application/json"}
+              if cookies:
+                  h["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+              if "csrftoken" in cookies:
+                  h["X-CSRFToken"] = cookies["csrftoken"]
+              data = None
+              if body is not None:
+                  data = json.dumps(body).encode()
+                  h["Content-Type"] = "application/json"
+              h.update(headers or {})
+              req = urllib.request.Request(base + path, data=data, method=method, headers=h)
+              try:
+                  resp = urllib.request.urlopen(req, timeout=15)
+              except urllib.error.HTTPError as e:
+                  resp = e
+              for raw in resp.headers.get_all("Set-Cookie") or []:
+                  jar = SimpleCookie()
+                  jar.load(raw)
+                  for k, morsel in jar.items():
+                      cookies[k] = morsel.value
+              text = resp.read().decode("utf-8", "replace")
+              try:
+                  payload = json.loads(text) if text else None
+              except ValueError:
+                  payload = None
+              return resp.status, payload, text
+
+          def fail(msg, text=""):
+              print("FAIL: " + msg)
+              if text:
+                  print("      body: " + text[:500])
+              sys.exit(1)
+
+          # (1) The published login works. Retry only while the edge is still
+          # coming up (connection errors, 502/503) — never on 4xx, which would
+          # burn the per-IP login throttle (#924) and then blame the seed.
+          user = os.environ["DEMO_LOGIN_USERNAME"]
+          status = None
+          for attempt in range(int(os.environ["RETRIES"])):
+              try:
+                  status, payload, text = call(
+                      "POST", "/api/v1/auth/login/",
+                      {"username": user, "password": os.environ["DEMO_LOGIN_PASSWORD"]},
+                  )
+              except OSError as exc:
+                  status, text = None, str(exc)
+              if status not in (None, 502, 503, 504):
+                  break
+              time.sleep(2)
+          if status == 429:
+              fail("sign-in returned 429: the per-IP login throttle, not the seed. Wait and re-run `helm test`.")
+          if status != 200:
+              fail(f"sign-in as {user} through the frontend returned {status}, expected 200. Either the seed "
+                   "hook did not produce the account, or demo.loginHint.password is not what it seeded.", text)
+          if "sessionid" not in cookies:
+              fail("sign-in answered 200 but set no session cookie")
+          print(f"OK: signed in as {user} through the frontend (200, session established)")
+
+          # (2) An AUTHENTICATED write is refused by the deployment, not by a role.
+          status, payload, text = call("POST", "/api/v1/boards/", {"name": "helm-test-demo-read-only"})
+          if status != 403:
+              fail(f"authenticated POST /api/v1/boards/ returned {status}, expected 403. "
+                   "The demo write fence is NOT in force. Do not expose this instance.", text)
+          if not isinstance(payload, dict) or payload.get("code") != "demo_read_only":
+              fail("POST /api/v1/boards/ was refused with 403 but NOT with code demo_read_only, so "
+                   "something other than the fence refused it and the fence itself is unproven.", text)
+          print("OK: authenticated board create refused 403 demo_read_only")
+
+          # (3) Moving a seeded card succeeds: the #1179 allowlist is open.
+          status, payload, text = call("GET", "/api/v1/boards/")
+          boards = payload.get("results", payload) if isinstance(payload, dict) else payload
+          if status != 200 or not boards:
+              fail(f"GET /api/v1/boards/ returned {status} with no boards; the seed produced nothing visible", text)
+          card = None
+          for board in boards:
+              status, full, text = call("GET", f"/api/v1/boards/{board['id']}/full/")
+              if status == 200 and full.get("cards"):
+                  card = (board["id"], full["cards"][0])
+                  break
+          if card is None:
+              fail("no seeded card is visible to the published account")
+          board_id, c = card
+          status, payload, text = call(
+              "POST", f"/api/v1/boards/{board_id}/cards/{c['id']}/move/",
+              {"column_id": c["column"], "swimlane_id": c["swimlane"], "position": 0, "version": c.get("version")},
+          )
+          if status != 200:
+              fail(f"moving seeded card {c['id']} returned {status}, expected 200. The fence or the "
+                   "board permissions refuse the demo's core interaction.", text)
+          print(f"OK: moved seeded card {c['id']} (200)")
+
+          # (4) The countdown matches the CronJob.
+          status, payload, text = call("GET", "/api/v1/auth/site-config/")
+          if status != 200 or not isinstance(payload, dict):
+              fail(f"GET /api/v1/auth/site-config/ returned {status}", text)
+          if payload.get("demo_mode") is not True:
+              fail("site-config reports demo_mode false", text)
+          nxt = payload.get("demo_next_reset_at")
+          if os.environ["EXPECT_RESET"] == "true" and not nxt:
+              fail("the reset CronJob is enabled but site-config publishes no demo_next_reset_at", text)
+          if os.environ["EXPECT_RESET"] != "true" and nxt:
+              fail("the reset is disabled but site-config still promises one at " + str(nxt), text)
+          print(f"OK: site-config demo_next_reset_at = {nxt}")
+          print("OK: published login works, the fence refuses writes, card moves go through, and the "
+                "countdown matches the reset. The tunnel and edge rules in front are NOT checked here.")
+{{- end }}

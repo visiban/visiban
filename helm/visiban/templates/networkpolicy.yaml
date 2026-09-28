@@ -23,8 +23,13 @@ them. Adding `migrate` back would select nothing.
 `scheduler` is the pods of the scheduled-job CronJobs (templates/cronjobs.yaml,
 #1157): they run management commands that read and write PostgreSQL. Listed
 even when scheduledJobs is off — a label that selects no pod widens nothing.
+
+`demo-seed` (#1180) is the demo seed hook and the reset CronJob; it is on the
+list only while demo mode is on. The list itself lives in _helpers.tpl
+(visiban.datastoreClients) because the demo EGRESS policy at the bottom of this
+file selects the same pods.
 */ -}}
-{{- $datastoreClients := list "backend" "scheduler" }}
+{{- $datastoreClients := splitList " " (include "visiban.datastoreClients" .) }}
 {{- $backendClients := list "frontend" "test" }}
 # Default deny all ingress — pods must be explicitly allowed.
 apiVersion: networking.k8s.io/v1
@@ -141,5 +146,90 @@ spec:
       ports:
         - port: 6379
           protocol: TCP
+{{- end }}
+{{- if include "visiban.demoEnabled" . }}
+{{- /*
+Public demo mode: EGRESS deny for every datastore client (#1180, TruePPM
+ADR-1197 D7).
+
+Every other deployment shape leaves egress unrestricted, because a real install
+talks to things the chart cannot know — its IdP, its SMTP relay, a GitLab for
+the lens. A public demo with a published login needs none of them: no SSO and
+no real SMTP (both refused by _validate.tpl in this mode), no uploads, no lens.
+So this allows DNS and the release's own PostgreSQL and Valkey, and nothing
+else — which also closes, at the network layer, every outbound path a visitor
+could otherwise reach through the app: the lens's outbound fetch (#1086), mail,
+and any call site someone adds later. Same deny-by-default shape as the write
+fence, one layer down the stack.
+
+It selects the backend pod (and so its migrate, collectstatic and bootstrap
+init containers), the scheduled-job pods and the demo seed/reset pods: the
+same visiban.datastoreClients list the ingress allow-lists above use.
+
+Only a claim if the CNI enforces NetworkPolicy. scripts/helm-netpol-drill.sh
+proves it on Calico; on the real node, see the enforcement check in
+docs/maintainers/demo-deploy.md.
+
+DNS is allowed to any pod in any namespace on port 53 (CoreDNS's labels vary by
+distribution; k3s and kind both run it as a pod). A `to` of pod/namespace
+selectors never matches an address outside the cluster, so this opens nothing
+external.
+*/}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "visiban.fullname" . }}-demo-egress
+  labels:
+    {{- include "visiban.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "visiban.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values:
+          {{- range $component := $datastoreClients }}
+          - {{ $component }}
+          {{- end }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.postgresql.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- if .Values.postgresql.subchartEnabled }}
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              {{- else }}
+              app.kubernetes.io/name: {{ include "visiban.name" . }}
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: postgresql
+              {{- end }}
+      ports:
+        - port: 5432
+          protocol: TCP
+    {{- end }}
+    {{- if .Values.valkey.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: valkey
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - port: 6379
+          protocol: TCP
+    {{- end }}
 {{- end }}
 {{- end }}

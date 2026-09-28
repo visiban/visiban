@@ -13,6 +13,7 @@ belong here, committed and versioned, not in a private notes file.
 | [CI Runners](ci-runners.md) | Self-hosted runner inventory, which jobs need them and why, the untagged-fallthrough trap |
 | [Tokens and Rotation](tokens-and-rotation.md) | Every PAT and CI credential: scope, owner, storage, expiry, and how to rotate it |
 | [Known CI Failures](known-ci-failures.md) | Failure signature → root cause → fix, so the next person greps instead of re-deriving |
+| [Hosted Demo](demo-deploy.md) | try.visiban.com: where it runs, the out-of-band preconditions CI cannot check, install, tunnel, and the deployment record |
 
 ## Release checklist
 

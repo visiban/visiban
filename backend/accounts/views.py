@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from visiban.demo import demo_next_reset_at_iso
+from visiban.demo import demo_next_reset_at_iso, demo_reset_schedule
 from visiban.permissions import (
     MustNotHavePendingPasswordChange,
     MustNotHavePendingUsernameChange,
@@ -383,7 +383,8 @@ class SiteConfigView(APIView):
             # instant is computed server-side from the same cron value the
             # reset CronJob runs on, so the login-page countdown cannot drift
             # from the real reset and the SPA needs no cron parser.
-            "demo_reset_schedule": settings.DEMO_RESET_SCHEDULE if settings.DEMO_MODE else None,
+            # #1180: also null when the reset is disabled (empty schedule).
+            "demo_reset_schedule": demo_reset_schedule(),
             "demo_next_reset_at": demo_next_reset_at_iso(),
         })
 

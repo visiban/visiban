@@ -48,6 +48,13 @@ backend:
     # (default 25 MB). Wired to VISIBAN_IMPORT_MAX_SIZE. The transport limits
     # are derived from the LARGER of this and maxUploadSizeBytes.
     importMaxSizeBytes: 26214400
+    # Number of reverse proxies in front of the backend that append to
+    # X-Forwarded-For (NUM_PROXIES). Unset (null) keeps the backend default of
+    # 1: the frontend nginx alone. Raise it only when another proxy sits in
+    # front of the frontend Service, e.g. 2 behind a Cloudflare Tunnel
+    # (values-demo.yaml). Too low and every client shares one throttle bucket;
+    # too high and a client can choose its own via a spoofed header.
+    numProxies: null
 
   # SMTP / email backend.  Required to send password reset and email
   # verification messages.  When backend == "console" emails are written to
@@ -313,6 +320,101 @@ scheduledJobs:
     enabled: false
     schedule: "30 3 * * *"
     args: []
+
+# -- Public demo mode (#1180): the chart side of a hosted, internet-facing demo
+# such as try.visiban.com. OFF by default, and nothing below renders unless
+# `demo.enabled` is true, so `helm upgrade` on an existing release changes
+# nothing. Start from values-demo.yaml rather than switching this on by hand,
+# and read "Public demo mode" in docs/administration/demo-data.md first.
+#
+# `demo.enabled` renders DEMO_MODE=true on every backend container, which arms
+# the write fence (DemoModeMiddleware, #1179): every unsafe request is refused
+# with 403 `demo_read_only` except sign-in/out and card-content edits. That
+# fence is the security control. Everything else here (the reset, the egress
+# policy, the quota) is containment around it.
+#
+# NEVER enable this on an instance holding real data: the seed hook and the
+# reset CronJob EMPTY EVERY TABLE of the database (Django's flush) on every
+# install, every upgrade and every scheduled run.
+demo:
+  enabled: false
+  # The PUBLISHED visitor credential. It is printed on the login page by design
+  # ("Explore the demo" signs in with it), so it is not a secret, but it still
+  # reaches the pods through the chart's demo Secret. Both halves are required
+  # when demo.enabled is true and refused when it is false (a published login
+  # on a writable instance). username: letters, digits and . _ @ + - (max 150);
+  # it must not be `admin`, `maya` or `jordan`, which the seed uses for other
+  # accounts. password: 8-128 characters of letters, digits and
+  # . _ @ + ~ ! * = : , ; ? - (the `helm test` hook sends it as JSON).
+  loginHint:
+    username: ""
+    password: ""
+  # The demo site admin's password. NEVER published and must differ from
+  # loginHint.password; the fence refuses admin writes anyway. Required.
+  adminPassword: ""
+  # Password of the two seeded member accounts (maya, jordan). Not published.
+  # Required.
+  memberPassword: ""
+  # The scheduled reset: the same seed as the install hook, on a timer. It
+  # empties every table, so it also signs every visitor out; visitors are
+  # warned on the login page and five minutes before. `schedule` is ALSO
+  # rendered to the backend as DEMO_RESET_SCHEDULE, which drives the countdown
+  # visitors see, so the two cannot drift. Only minute/hour cron fields are
+  # supported (day, month and weekday must be `*`), and the CronJob always
+  # runs in UTC because the backend computes the countdown in UTC. With
+  # `enabled: false` the CronJob is not rendered and DEMO_RESET_SCHEDULE is
+  # rendered EMPTY, so the login page stops promising a reset.
+  reset:
+    enabled: true
+    schedule: "0 * * * *"
+    # A slot the controller could not start within this window is skipped.
+    startingDeadlineSeconds: 300
+    # A run still going after this is killed and marked failed.
+    activeDeadlineSeconds: 900
+    backoffLimit: 1
+    successfulJobsHistoryLimit: 1
+    # Failed runs are KEPT so `kubectl logs job/...` can say why. A failed
+    # reset leaves the previous (stale) demo data up; it never affects backend
+    # readiness.
+    failedJobsHistoryLimit: 3
+  # The post-install/post-upgrade seed hook.
+  seed:
+    activeDeadlineSeconds: 900
+    backoffLimit: 2
+  # Resources of the seed hook and reset pods.
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+  throttle:
+    # DRF's `user` throttle scope counts per ACCOUNT, and every visitor shares
+    # the one published account, so in demo mode it is a shared-fate ceiling
+    # on the whole demo, not a per-visitor limit (TruePPM ADR-1197 D6). Empty
+    # keeps the normal rate (5000/hour). Format: <n>/<second|minute|hour|day>.
+    userRate: ""
+  # Optional namespace guardrails for a demo sharing a node with other
+  # workloads: a ResourceQuota capping the whole namespace, plus a LimitRange
+  # that gives every container without its own requests/limits a default (a
+  # quota on requests/limits rejects any pod that does not declare them).
+  # Only enable this in a namespace dedicated to the demo release.
+  resourceQuota:
+    enabled: false
+    hard:
+      requests.cpu: "1"
+      requests.memory: 2Gi
+      limits.cpu: "6"
+      limits.memory: 5Gi
+      pods: "15"
+    containerDefaults:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
 
 # `helm test <release>` connection probe (templates/tests/api-connection.yaml).
 # Only instantiated by `helm test` — never deployed by install or upgrade.
