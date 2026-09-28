@@ -2170,6 +2170,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#post-apiv1adminusersidclear-lockout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /api/v1/admin/users/{id}/clear-lockout/
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4534,6 +4545,34 @@ return <code>{"error": {"code": "maintenance_mode", "detail": "…"}}</code>. MC
 <tr>
 <td><code>409 Conflict</code></td>
 <td>User owns one or more boards and no <code>transfers</code> were provided</td>
+</tr>
+</tbody>
+</table>
+<h3 id="post-apiv1adminusersidclear-lockout"><code>POST /api/v1/admin/users/{id}/clear-lockout/</code><a class="headerlink" href="#post-apiv1adminusersidclear-lockout" title="Permanent link">&para;</a></h3>
+<p>Clear the target user's per-account login lockout early (#1203). The per-account <code>login_failed</code> lockout (5 failed attempts / 5 minutes — see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>) normally expires on its own; this endpoint gives a site admin a way to lift it immediately, for the case where a user can't wait it out and either can't complete a password reset (the other early-recovery path, which clears the lockout automatically) or hasn't needed to change their password at all.</p>
+<p><strong>Permission:</strong> <code>IsSiteAdmin</code>.</p>
+<p>Idempotent — calling it on an account that isn't currently locked out succeeds and changes nothing. Clears both the username-keyed and the email-keyed lockout bucket, since Visiban accepts login by either identifier and the live lockout could be keyed on whichever one was actually used at login time.</p>
+<p><strong>Request body:</strong> none.</p>
+<p><strong>Response</strong> <code>200 OK</code> — the user object (same shape as <code>GET /api/v1/admin/users/</code>).</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Body</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>403 Forbidden</code></td>
+<td><code>{"detail": "..."}</code></td>
+<td>Caller is not a site admin.</td>
+</tr>
+<tr>
+<td><code>404 Not Found</code></td>
+<td><code>{"detail": "User not found."}</code></td>
+<td>No user exists with that ID.</td>
 </tr>
 </tbody>
 </table>

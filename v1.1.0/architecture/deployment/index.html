@@ -4207,7 +4207,11 @@
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>While the per-account login lockout is active, even the <strong>correct</strong> password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window. Unlike allauth's own built-in views, a password reset does <strong>not</strong> clear it early here: Visiban's reset-confirm endpoint goes through dj-rest-auth's <code>PasswordResetConfirmSerializer</code> (a plain Django <code>SetPasswordForm</code>), which never calls allauth's <code>finalize_password_reset</code> / <code>_delete_login_attempts_cached_email</code> — verified directly, a reset account's lockout persists for the rest of the 5-minute window even with the new password. A locked-out user has no way to skip the wait (tracked in <a href="https://gitlab.com/visiban/visiban/-/issues/1203">#1203</a>).</p>
+<p>While the per-account login lockout is active, even the <strong>correct</strong> password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window unless they use one of the two early-recovery paths below (#1203).</p>
+<ul>
+<li><strong>A successful password reset clears it.</strong> Visiban's reset-confirm endpoint (dj-rest-auth's <code>PasswordResetConfirmSerializer</code>) doesn't go through allauth's own reset flow, so it doesn't get allauth's built-in lockout-clearing for free — Visiban's <code>VisibanPasswordResetConfirmSerializer</code> clears it explicitly after a successful reset instead. It clears <strong>both</strong> the username-keyed and the email-keyed lockout bucket, since <code>ACCOUNT_LOGIN_METHODS = {"username", "email"}</code> means the live lockout could be keyed on either identifier and there's no way to tell which from the reset request alone.</li>
+<li><strong>A site admin can clear it directly</strong>, without the user needing to complete a reset at all — <code>POST /api/v1/admin/users/{id}/clear-lockout/</code> (site-admin only). See <a href="../../api/authentication/#1-obtain-a-token">API Authentication</a> for the endpoint contract.</li>
+</ul>
 </div>
 
 
