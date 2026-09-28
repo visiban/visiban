@@ -4009,7 +4009,7 @@
 <p>Log in to get your API token. The token is permanent until you log out or it is revoked.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <code>username</code> field accepts either a username or an email address. Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username.</p>
+<p>The <code>username</code> field takes the account's actual, exact-case username — it does <strong>not</strong> accept an email address (verified directly: posting an email in <code>username</code>, or posting it in a separate <code>email</code> field instead, both return <code>400 Bad Request</code>). Accounts created via the web registration form have auto-generated usernames (derived from the email address) — the signup form no longer prompts for a username, but a real username still exists and is what this endpoint requires.</p>
 </div>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">curl</label><label for="__tabbed_1_2">httpie</label></div>
 <div class="tabbed-content">
@@ -4033,6 +4033,29 @@
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">}</span>
 </code></pre></div></p>
 <p>Store the <code>key</code> value — this is your API token.</p>
+<p><strong>Errors</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>Wrong username or password — <code>{"non_field_errors": ["Unable to log in with provided credentials."]}</code></td>
+</tr>
+<tr>
+<td><code>400 Bad Request</code></td>
+<td>Locked out — either the per-account rate (5 failed attempts / 5 min for that account) or the per-IP rate (10 failed attempts / min from that IP, across ANY accounts) tripped; both return the same <code>{"non_field_errors": ["Too many failed login attempts. Try again later."]}</code> and there's no way to tell which from the response (see <a href="../../architecture/deployment/#rate-limiting">Rate limiting</a>). The correct password is refused too while either is active — including for an account that never itself failed, if it shares an IP (e.g. behind a NAT) with one that tripped the per-IP rate. There is no way to clear either early (<a href="https://gitlab.com/visiban/visiban/-/issues/1203">#1203</a>).</td>
+</tr>
+<tr>
+<td><code>429 Too Many Requests</code></td>
+<td>Per-IP request-volume ceiling exceeded (<code>LoginRateThrottle</code>, 20/hour — a separate DRF throttle, independent of the two <code>login_failed</code> lockouts above)</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h3 id="2-make-authenticated-requests">2. Make authenticated requests<a class="headerlink" href="#2-make-authenticated-requests" title="Permanent link">&para;</a></h3>
 <p>Pass the token in the <code>Authorization</code> header using the <code>Token</code> scheme.</p>
