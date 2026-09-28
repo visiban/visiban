@@ -4103,7 +4103,7 @@
 <tr>
 <td><code>SECURE_HSTS_SECONDS</code></td>
 <td style="text-align: center;">No</td>
-<td>HTTP Strict-Transport-Security max-age in seconds (default: <code>0</code> in development, <code>31536000</code> — 1 year — in production when <code>DEBUG=false</code>). <strong>Warning:</strong> setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. <code>300</code>) when first enabling HTTPS, then increase once you confirm everything works.</td>
+<td>HTTP Strict-Transport-Security max-age in seconds (default: <code>0</code> in development, <code>31536000</code> — 1 year — in production when <code>DEBUG=false</code>). <strong>In the production Docker Compose stack, this value also drives the <code>Strict-Transport-Security</code> header <code>init-prod.sh</code> renders into nginx</strong> (<code>TLS_MODE=letsencrypt</code> defaults to <code>63072000</code> — 2 years — when unset, to preserve the header value existing installs already got; <code>TLS_MODE=selfsigned</code> sends no header unless you set this explicitly). Nginx is the only thing that actually sends the header in that stack — see <a href="#tls-modes">TLS modes</a>. For the Compose stack specifically, the value must be <code>0</code> or a positive integer with <strong>no leading zero</strong> and at most 10 digits (e.g. <code>300</code>, not <code>0300</code>) — <code>init-prod.sh</code> fails closed with an error rather than guessing at a malformed value; Django's own parsing elsewhere is more lenient. <strong>Warning:</strong> setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. <code>300</code>) when first enabling HTTPS, then increase once you confirm everything works.</td>
 </tr>
 <tr>
 <td><code>DJANGO_ADMIN_ALLOWED_IPS</code></td>
@@ -4207,8 +4207,19 @@
 </table>
 <div class="admonition warning">
 <p class="admonition-title">Security warnings for non-default modes</p>
-<p><strong><code>selfsigned</code></strong> — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert. Intended for internal or staging use only.</p>
+<p><strong><code>selfsigned</code></strong> — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert — set <code>SECURE_HSTS_SECONDS</code> explicitly in <code>.env</code> if you want it anyway (e.g. a staging host with a long-lived trusted cert). Intended for internal or staging use only.</p>
 <p><strong><code>none</code></strong> — All traffic including session cookies and API calls is unencrypted. The init script automatically sets <code>FORCE_INSECURE_COOKIES=true</code> so Django does not require HTTPS for cookies. <strong>Do not use this for deployments reachable from the public internet.</strong></p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">HSTS is rendered by nginx, once</p>
+<p><code>init-prod.sh</code> writes the <code>Strict-Transport-Security</code> header directly into the active nginx
+config from <code>SECURE_HSTS_SECONDS</code> (<code>nginx/app.conf.template</code>), and every location that
+proxies to the backend hides Django's own copy of the same header
+(<code>proxy_hide_header</code>) so exactly one <code>Strict-Transport-Security</code> header ever reaches the
+browser, on every path — the SPA document included. After changing <code>SECURE_HSTS_SECONDS</code> in
+<code>.env</code>, re-run <code>./init-prod.sh</code> to re-render the template, then
+<code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code> — a plain <code>up -d</code>
+does not notice that the bind-mounted config file changed.</p>
 </div>
 <h3 id="pre-flight-security-checklist">Pre-flight security checklist<a class="headerlink" href="#pre-flight-security-checklist" title="Permanent link">&para;</a></h3>
 <p>Before starting the production stack, confirm each item below. The backend will refuse to start if any of these are wrong — this is intentional.</p>

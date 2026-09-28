@@ -4246,6 +4246,47 @@ both the GitLab registry and GHCR — see
 <a href="../container-image-retention/">Container image retention</a>. How often that actually is
 depends on the project's configured pipeline schedule(s), not on this code.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title"><code>TLS_MODE=selfsigned</code> no longer sends a 2-year HSTS header</p>
+<p>The bundled <code>nginx/app.conf.template</code> used to hardcode
+<code>Strict-Transport-Security: max-age=63072000; includeSubDomains</code> for <strong>both</strong>
+<code>TLS_MODE=letsencrypt</code> and <code>TLS_MODE=selfsigned</code>, contradicting the docs (which have always
+said selfsigned disables HSTS by default) and ignoring an operator-set <code>SECURE_HSTS_SECONDS</code>.
+<code>init-prod.sh</code> now renders the header itself from <code>SECURE_HSTS_SECONDS</code>, and nginx hides
+Django's own copy of the header on every proxied path so exactly one is ever sent (#1201).</p>
+<p><strong>What changes for an existing install:</strong></p>
+<ul>
+<li><strong><code>TLS_MODE=letsencrypt</code></strong> — no change if you don't set <code>SECURE_HSTS_SECONDS</code>: the header
+  still defaults to 2 years with <code>includeSubDomains</code>. If you already set
+  <code>SECURE_HSTS_SECONDS</code> in <code>.env</code>, nginx now actually honors it (previously it was silently
+  ignored in favor of the hardcoded 2-year value).</li>
+<li><strong><code>TLS_MODE=selfsigned</code></strong> — the 2-year header is <strong>removed</strong>; no <code>Strict-Transport-Security</code>
+  header is sent by default. This is the intended fix, not a regression: browsers only
+  enforce HSTS on a connection they already trust, so the practical effect was limited to
+  operators who manually trust the self-signed cert (a common staging setup) — those browsers
+  were being pinned to HTTPS for two years, including on all subdomains, with no documented
+  way to back out early. Set <code>SECURE_HSTS_SECONDS</code> explicitly in <code>.env</code> if you want the
+  header on a selfsigned deployment anyway.</li>
+</ul>
+<p><strong>This step is required, not optional.</strong> After upgrading, re-run <code>./init-prod.sh</code> to
+re-render <code>nginx/active.conf.template</code>, then
+<code>docker compose -f docker-compose.prod.yml up -d --force-recreate nginx</code> — a plain
+<code>up -d</code>/<code>pull</code> does not notice that the bind-mounted nginx config content changed, so nginx
+keeps running whatever it already had on disk from before the upgrade.</p>
+<p>If you skip this step, both problems this release fixes silently persist, with no error and
+no visible difference until someone inspects the response headers directly: nginx keeps
+serving its <strong>old</strong> rendered config — the one still carrying the original hardcoded
+<code>max-age=63072000</code> line unconditionally on both modes, and none of the new
+<code>proxy_hide_header Strict-Transport-Security</code> lines. So <code>TLS_MODE=selfsigned</code> keeps sending
+the 2-year header exactly as before (the docs mismatch this release exists to fix stays
+unfixed), and every proxied path (<code>/api/</code>, <code>/admin/</code>, <code>/media/</code>, etc.) keeps stacking
+nginx's hardcoded header on top of Django's own independently-computed one — two
+<code>Strict-Transport-Security</code> headers on the same response, which per RFC 6797 §8.1 means
+browsers ignore HSTS entirely on those paths. Pulling the new backend/frontend images and
+restarting those containers has no effect on this: nginx's config is a bind-mounted file
+this repo's <code>init-prod.sh</code> renders once, on the host, not something baked into the nginx
+image the containers pull.</p>
+</div>
 <h3 id="upgrading-to-11x">Upgrading to 1.1.x<a class="headerlink" href="#upgrading-to-11x" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">Removed env-var aliases — rename before upgrading</p>
