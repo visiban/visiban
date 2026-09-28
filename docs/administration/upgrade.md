@@ -61,10 +61,13 @@ This starts a one-off container, applies all pending migrations, and exits. The 
 ### 4. Restart the services
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-This replaces the running backend container with the new image. Nginx and the database are unaffected.
+This recreates every service whose image changed with `APP_VERSION` — `backend-init` (which
+re-checks migrations), `backend`, `frontend-build` (which copies the new SPA into place) and, if
+enabled, `scheduler`. Recreating only `backend` would leave the old frontend and scheduler
+running against the new API. Nginx and the database are unaffected.
 
 ### 5. Verify
 

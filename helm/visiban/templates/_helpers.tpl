@@ -86,9 +86,9 @@ Uses an existing Secret if postgresql.auth.existingSecret is set.
 {{/*
 Database URL — built from postgresql subchart or externalDatabase values.
 
-The credentials are percent-encoded: a password containing "/", "@", ":", "?"
-or "#" otherwise splits the URL in the wrong place, and the backend dies at
-import with an error that quotes part of the password. `openssl rand -base64`
+The credentials are percent-encoded: a password containing "/", "?", "#", "["
+or "]" otherwise splits the URL in the wrong place, and the backend refuses to
+start ("%" and spaces would be mis-decoded). `openssl rand -base64`
 emits "/" in roughly half of its outputs. urlquery encodes a space as "+",
 which the backend's URL parser would keep literally, so it is rewritten to
 %20 (a literal "+" is already %2B by then). Alphanumeric credentials render

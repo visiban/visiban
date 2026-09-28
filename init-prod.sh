@@ -106,6 +106,12 @@ case "${TLS_MODE}" in
       echo "==> Requesting Let's Encrypt certificate for ${DOMAIN}..."
       echo "    (certbot will briefly bind port 80 to complete the ACME challenge)"
       mkdir -p certbot/conf certbot/www
+      # Standalone issuance binds :80 itself. When this script is re-run to
+      # switch from TLS_MODE=none/selfsigned, the nginx container from the
+      # earlier run still holds :80 and `docker run -p 80:80` fails with "port
+      # is already allocated". Stop it first; the `up -d` and restart below
+      # bring it back on the new config.
+      docker compose -f docker-compose.prod.yml stop nginx >/dev/null 2>&1 || true
       docker run --rm \
         -p 80:80 \
         -v "$(pwd)/certbot/conf:/etc/letsencrypt" \

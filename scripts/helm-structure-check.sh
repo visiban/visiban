@@ -29,10 +29,10 @@
 # and asserts the corresponding section rejects it.
 #
 # SCOPE, stated plainly because a self-test that looks comprehensive and is not
-# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11
-# and 12. Section 5 (probe paths) is asserted against the real chart only, and
-# section 7 (NetworkPolicy client coverage) is fixture-covered only through the
-# demo render in section 9 — see the notes on those sections.
+# is worse than none: the fixtures cover sections 1, 2, 3, 4, 6, 8, 9, 10, 11,
+# 12 and 13. Section 5 (probe paths) is asserted against the real chart only,
+# and section 7 (NetworkPolicy client coverage) is fixture-covered only
+# through the demo render in section 9 — see the notes on those sections.
 
 set -euo pipefail
 
@@ -1103,6 +1103,61 @@ check_pod_hardening() {
   [ "$bad" -eq 0 ] && pass "every non-frontend pod in the main and demo renders sets runAsNonRoot and drops ALL capabilities ($checked containers checked)"
 }
 
+# ---------------------------------------------------------------------------
+# 13. Database credentials are percent-encoded into database-url.
+# ---------------------------------------------------------------------------
+# The chart splices the database username and password into a postgres:// URL.
+# Raw, a "/" (about half of all `openssl rand -base64` outputs) or "?", "#",
+# "[", "]" splits it in the wrong place and the backend refuses to start; "%"
+# and a space are mis-decoded. visiban.urlCredential encodes them. Asserted on
+# both the bundled-PostgreSQL and externalDatabase branches, against a password
+# holding every character class that matters — including "+", which urlquery
+# already escapes and a space, which urlquery turns into "+" and the helper must
+# rewrite to %20.
+check_database_url_encoding() {
+  section "13. Database credentials are percent-encoded in database-url"
+
+  local vals out got expected_pw bad=0
+  vals="$(mktemp)"; out="$(mktemp)"
+  # Single-quoted YAML so every character reaches the chart verbatim.
+  cat > "$vals" <<'VALUES'
+postgresql:
+  auth:
+    username: 'us er'
+    password: 'a/b+c d@e:f?g#h%i[j]k'
+externalDatabase:
+  host: db.example.com
+  port: 5432
+  database: visiban
+  username: 'us er'
+  password: 'a/b+c d@e:f?g#h%i[j]k'
+VALUES
+  expected_pw='a%2Fb%2Bc%20d%40e%3Af%3Fg%23h%25i%5Bj%5Dk'
+
+  local mode extra expected
+  for mode in bundled external; do
+    if [ "$mode" = bundled ]; then
+      extra=()
+      expected="postgres://us%20er:${expected_pw}@${RELEASE}-postgresql:5432/"
+    else
+      extra=(--set postgresql.enabled=false)
+      expected="postgres://us%20er:${expected_pw}@db.example.com:5432/visiban"
+    fi
+    if ! helm template "$RELEASE" "$CHART_UNDER_TEST" "${RENDER_ARGS[@]}" -f "$vals" \
+          ${extra[@]+"${extra[@]}"} > "$out" 2>/tmp/helm-dburl-err.txt; then
+      fail "database-url render ($mode) failed: $(head -2 /tmp/helm-dburl-err.txt | tr '\n' ' ')"
+      bad=1; continue
+    fi
+    got="$(yq 'select(.kind == "Secret" and (.metadata.name | test("visiban$"))) | .stringData."database-url"' "$out")"
+    case "$got" in
+      "$expected"*) ;;
+      *) fail "database-url ($mode) is not percent-encoded as expected: want prefix '$expected', got '$got'"; bad=1 ;;
+    esac
+  done
+  rm -f "$vals" "$out"
+  [ "$bad" -eq 0 ] && pass "database-url percent-encodes the username and password on the bundled and external branches"
+}
+
 run_all_checks() {
   check_migrate_placement
   check_secret_rotation_reaches_migrate
@@ -1116,6 +1171,7 @@ run_all_checks() {
   check_demo_guards
   check_image_pins
   check_pod_hardening
+  check_database_url_encoding
 }
 
 # ---------------------------------------------------------------------------
@@ -1190,6 +1246,10 @@ self_test() {
     # 12 (#1210): both hardened workloads (backend, postgresql) lose their
     # capability drop through their shared values.yaml default at once.
     "12 capabilities.drop ALL removed from values|values.yaml|s/drop: \[\"ALL\"\]/drop: []/"
+    # 13: the credential helper stops encoding — the pre-fix behavior.
+    "13 database credentials spliced raw|templates/_helpers.tpl|s/{{- . | urlquery | replace \"+\" \"%20\" }}/{{- . }}/"
+    # 13: the space rewrite is dropped, so a space decodes as a literal "+".
+    "13 space left as + in database-url|templates/_helpers.tpl|s/ | replace \"+\" \"%20\" }}/ }}/"
   )
 
   for fixture in "${fixtures[@]}"; do

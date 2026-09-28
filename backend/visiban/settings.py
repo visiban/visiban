@@ -211,7 +211,7 @@ if _TESTING:
 else:
     _REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
     _REDIS_CACHE_URL = env("REDIS_CACHE_URL", default="redis://localhost:6379/1")
-    # A password containing "/", "@", ":", "?" or "#" spliced raw into the URL
+    # A password containing "/", "?", "#" or "[" / "]" spliced raw into the URL
     # (docker-compose.prod.yml builds these from REDIS_PASSWORD) moves the host
     # into the path. Nothing fails here — the backend just boots pointing at no
     # host and every WebSocket and cache call fails later, far from the cause.
@@ -235,7 +235,7 @@ else:
         if _bad:
             raise ImproperlyConfigured(
                 f"{_name} could not be parsed into a host. If its password contains "
-                "any of / @ : ? # % [ ] or a space, percent-encode them, or generate the "
+                "any of / ? # % [ ] or a space, percent-encode them, or generate the "
                 "password with `openssl rand -hex 32`."
             )
     CHANNEL_LAYERS = {
@@ -267,7 +267,7 @@ else:
 # url: {config}" — the parsed dict, PASSWORD included — and returns {}.
 _DB_URL_ERROR = (
     "DATABASE_URL could not be parsed. If its password contains any of "
-    "/ @ : ? # % [ ] or a space, percent-encode them, or generate the password "
+    "/ ? # % [ ] or a space, percent-encode them, or generate the password "
     "with `openssl rand -hex 32`."
 )
 try:
