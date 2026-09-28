@@ -222,7 +222,7 @@ A template with comments is at `frontend/.env.local.example`.
 | `DJANGO_SUPERUSER_USERNAME` | No | Override bootstrap admin username (default: `admin`) |
 | `DJANGO_SUPERUSER_EMAIL` | No | Override bootstrap admin email (default: `admin@localhost`) |
 | `EMAIL_VERIFICATION` | No | Email verification mode: `optional` (default — sends verification email but allows login without it), `none` (no verification required, works without SMTP), or `mandatory` (blocks login until email is verified). The old alias `ACCOUNT_EMAIL_VERIFICATION` was removed in 1.1 — use `EMAIL_VERIFICATION` only. |
-| `SECURE_HSTS_SECONDS` | No | HTTP Strict-Transport-Security max-age in seconds (default: `0` in development, `31536000` — 1 year — in production when `DEBUG=false`). **Warning:** setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. `300`) when first enabling HTTPS, then increase once you confirm everything works. |
+| `SECURE_HSTS_SECONDS` | No | HTTP Strict-Transport-Security max-age in seconds (default: `0` in development, `31536000` — 1 year — in production when `DEBUG=false`). **In the production Docker Compose stack, this value also drives the `Strict-Transport-Security` header `init-prod.sh` renders into nginx** (`TLS_MODE=letsencrypt` defaults to `63072000` — 2 years — when unset, to preserve the header value existing installs already got; `TLS_MODE=selfsigned` sends no header unless you set this explicitly). Nginx is the only thing that actually sends the header in that stack — see [TLS modes](#tls-modes). For the Compose stack specifically, the value must be `0` or a positive integer with **no leading zero** and at most 10 digits (e.g. `300`, not `0300`) — `init-prod.sh` fails closed with an error rather than guessing at a malformed value; Django's own parsing elsewhere is more lenient. **Warning:** setting this incorrectly locks browsers into HTTPS for the full duration with no easy rollback. Set to a small value (e.g. `300`) when first enabling HTTPS, then increase once you confirm everything works. |
 | `DJANGO_ADMIN_ALLOWED_IPS` | No | Comma-separated list of IP addresses (or CIDR blocks) allowed to access `/admin/`. In production the default is loopback only (`127.0.0.1`, `::1`). Set this to your management network range if you need non-loopback access. Also documented in [Secret Rotation](../administration/secret-rotation.md). |
 | `OIDC_CLIENT_ID` | No | OIDC provider client ID — required when using generic OIDC / OpenID Connect SSO (e.g. Keycloak, Authentik). All three `OIDC_*` vars must be set together to enable OIDC login. See [OAuth Setup](oauth.md). |
 | `OIDC_CLIENT_SECRET` | No | OIDC provider client secret. The old alias `OIDC_SECRET` was removed in 1.1 — only `OIDC_CLIENT_SECRET` is read. |
@@ -259,9 +259,19 @@ The production stack supports three TLS modes, controlled by the `TLS_MODE` envi
 | `none` | Serve over plain HTTP — no TLS | Air-gapped networks or deployments behind an external load balancer that terminates TLS |
 
 !!! warning "Security warnings for non-default modes"
-    **`selfsigned`** — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert. Intended for internal or staging use only.
+    **`selfsigned`** — Browsers will show a certificate warning on every visit. HSTS is disabled by default to prevent browsers from permanently rejecting the self-signed cert — set `SECURE_HSTS_SECONDS` explicitly in `.env` if you want it anyway (e.g. a staging host with a long-lived trusted cert). Intended for internal or staging use only.
 
     **`none`** — All traffic including session cookies and API calls is unencrypted. The init script automatically sets `FORCE_INSECURE_COOKIES=true` so Django does not require HTTPS for cookies. **Do not use this for deployments reachable from the public internet.**
+
+!!! note "HSTS is rendered by nginx, once"
+    `init-prod.sh` writes the `Strict-Transport-Security` header directly into the active nginx
+    config from `SECURE_HSTS_SECONDS` (`nginx/app.conf.template`), and every location that
+    proxies to the backend hides Django's own copy of the same header
+    (`proxy_hide_header`) so exactly one `Strict-Transport-Security` header ever reaches the
+    browser, on every path — the SPA document included. After changing `SECURE_HSTS_SECONDS` in
+    `.env`, re-run `./init-prod.sh` to re-render the template, then
+    `docker compose -f docker-compose.prod.yml up -d --force-recreate nginx` — a plain `up -d`
+    does not notice that the bind-mounted config file changed.
 
 ### Pre-flight security checklist
 

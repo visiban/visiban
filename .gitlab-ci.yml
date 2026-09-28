@@ -235,8 +235,8 @@ dockerfile-lint:
 
 # ─── Compose — shipped-stack hygiene ──────────────────────────────────────────
 #
-# Two gates over the compose files an operator actually runs. Both are cheap,
-# both cover a defect that was live in this repo, and neither is visible in a
+# Gates over the compose/nginx files an operator actually runs. All are cheap,
+# all cover a defect that was live in this repo, and none is visible in a
 # diff review:
 #
 #   * image pins — `certbot/certbot` shipped untagged in docker-compose.prod.yml
@@ -245,9 +245,19 @@ dockerfile-lint:
 #   * project names — docker-compose.prod.yml pinned no `name:` and dev defaulted
 #     to `visiban`, so on a default clone both resolved to the same project,
 #     sharing `visiban_pgdata` and the `db`/`valkey`/`backend` service names.
+#   * nginx HSTS rendering — nginx/app.conf.template hardcoded a 2-year HSTS
+#     header for both TLS_MODE=letsencrypt and selfsigned, contradicting the
+#     docs and ignoring an operator-set SECURE_HSTS_SECONDS; init-prod.sh now
+#     renders it via scripts/render-nginx-hsts.sh (#1201).
 #
 # Each runs its `--self-test` first, per #1093: a gate observed only on a clean
-# tree is indistinguishable from one that always passes.
+# tree is indistinguishable from one that always passes. render-nginx-hsts.sh
+# also gets a real invocation against the TRACKED template
+# (`--check nginx/app.conf.template`), matching the other two scripts in this
+# job — a completeness-check finding on #1201 noted that `--self-test` alone
+# only proves the rendering logic works against synthetic fixtures; it cannot
+# catch the old hardcoded header being re-committed verbatim to the real file,
+# since --self-test never reads it.
 
 compose-hygiene:
   stage: lint
@@ -257,6 +267,9 @@ compose-hygiene:
     - changes:
         - docker-compose*.yml
         - scripts/check-compose-*.sh
+        - nginx/app.conf.template
+        - init-prod.sh
+        - scripts/render-nginx-hsts.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
@@ -266,6 +279,8 @@ compose-hygiene:
     - bash scripts/check-compose-image-pins.sh
     - bash scripts/check-compose-project-names.sh --self-test
     - bash scripts/check-compose-project-names.sh
+    - bash scripts/render-nginx-hsts.sh --self-test
+    - bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
@@ -2511,8 +2526,11 @@ arm64-runner-preflight:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
-    - apk add --no-cache curl jq
+    - apk add --no-cache bash curl jq
   script:
+    # The arm64 legs source scripts/docker-push-retry.sh rather than invoke it;
+    # its daemon-free self-test runs here, ahead of them (gate-selftest-parity).
+    - bash scripts/docker-push-retry.sh --self-test
     - |
       # `set -eu` only, not `-o pipefail` — alpine's default /bin/sh (busybox
       # ash) doesn't support that option and errors out immediately on it,
@@ -2578,8 +2596,10 @@ arm64-runner-preflight:
         echo "this cannot proceed silently."
         exit 1
       fi
-      docker login -u "${CI_REGISTRY_USER}" -p "${CI_REGISTRY_PASSWORD}" "${CI_REGISTRY}"
-      echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+      # --password-stdin, never -p: on this persistent shared host a password in
+      # argv is readable via `ps` by anything else running there (#1205).
+      printf '%s' "${CI_REGISTRY_PASSWORD}" | docker login -u "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+      printf '%s' "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
 backend-docker-push-arm64:
   extends: .arm64-docker-push-base
@@ -2592,6 +2612,7 @@ backend-docker-push-arm64:
       TAG="${CI_COMMIT_TAG}"
       GL_REF="${CI_REGISTRY_IMAGE}/backend:${TAG}-arm64"
       GH_REF="ghcr.io/visiban/visiban/backend:${TAG}-arm64"
+      . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
       docker build \
         --provenance=false \
         --sbom=false \
@@ -2604,9 +2625,9 @@ backend-docker-push-arm64:
         echo "This runner may no longer be the Apple Silicon host — see docs/maintainers/ci-runners.md."
         exit 1
       fi
-      docker push "${GL_REF}"
+      push_with_retry "${GL_REF}"
       docker tag "${GL_REF}" "${GH_REF}"
-      docker push "${GH_REF}"
+      push_with_retry "${GH_REF}"
   after_script:
     - docker rmi "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/backend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
@@ -2623,6 +2644,7 @@ frontend-docker-push-arm64:
       TAG="${CI_COMMIT_TAG}"
       GL_REF="${CI_REGISTRY_IMAGE}/frontend:${TAG}-arm64"
       GH_REF="ghcr.io/visiban/visiban/frontend:${TAG}-arm64"
+      . "${CI_PROJECT_DIR}/scripts/docker-push-retry.sh"
       docker build \
         --provenance=false \
         --sbom=false \
@@ -2636,9 +2658,9 @@ frontend-docker-push-arm64:
         echo "This runner may no longer be the Apple Silicon host — see docs/maintainers/ci-runners.md."
         exit 1
       fi
-      docker push "${GL_REF}"
+      push_with_retry "${GL_REF}"
       docker tag "${GL_REF}" "${GH_REF}"
-      docker push "${GH_REF}"
+      push_with_retry "${GH_REF}"
   after_script:
     - docker rmi "${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_TAG}-arm64" "ghcr.io/visiban/visiban/frontend:${CI_COMMIT_TAG}-arm64" 2>/dev/null || true
     - docker logout "${CI_REGISTRY}" || true
@@ -2819,7 +2841,7 @@ helm-publish:
         exit 1
       fi
       echo "appVersion check passed: $APP_VERSION"
-    - helm registry login ghcr.io -u "$GHCR_USER" -p "$GHCR_TOKEN"
+    - printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io -u "$GHCR_USER" --password-stdin
     - helm package helm/visiban --destination /tmp
     - |
       CHART_FILE="$(ls /tmp/visiban-*.tgz)"
@@ -2887,7 +2909,7 @@ check-release-images:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - apk add --no-cache bash git crane
+    - apk add --no-cache bash git crane jq
     - |
       mkdir -p "$HOME/.docker"
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }

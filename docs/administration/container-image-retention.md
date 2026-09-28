@@ -141,6 +141,11 @@ whenever the next release attempt failed to pull.
 - **`ACCEPTED_GAPS`** is the escape hatch for a documented, permanent, single-reference
   exception (e.g. an old pre-release image intentionally never republished) — set per-entry
   by the CI job with a comment naming the decision issue, never defaulted in the script.
+- **Every required architecture, not just presence (#1197).** A tag that resolves but whose
+  manifest is not a list covering every entry in `RELEASE_REQUIRED_ARCHES` (default
+  `amd64 arm64`) is reported `ARCH-MISSING` and fails the job the same as a missing image —
+  that is what a `backend-manifest` / `frontend-manifest` run that silently dropped the arm64
+  leg would publish.
 - The probe itself uses `crane manifest <ref>` (no daemon, no image pull, no `docker:dind`) —
   consistent with the rest of this repo's kaniko-based, daemonless registry tooling.
 

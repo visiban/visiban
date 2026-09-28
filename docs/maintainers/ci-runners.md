@@ -74,6 +74,11 @@ the same runner as the stale `53511568` — they were (re-)registered on 2026-09
 assume the old "Runner-03-NUC" staleness note still describes the current runner with that
 name.
 
+Because this runner is persistent and shared, the arm64 legs log in with `--password-stdin`
+(a password passed with `-p` sits in `ps` output for anything else on the host) and push
+through `scripts/docker-push-retry.sh`, which retries the transient cross-repo blob-mount
+failure a long-lived Docker daemon can hit (#1205).
+
 See `.gitlab-ci.yml` around the `.kaniko-push-common`, `.arm64-docker-push-base`, and
 `.manifest-tool-common` templates for the full history in comments — this page summarizes it,
 the CI file is the source of truth for the current job definitions.
