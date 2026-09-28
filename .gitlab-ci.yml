@@ -62,6 +62,35 @@ stages:
   - security
   - deploy
 
+# ─── Docker Hub mirror (#1198) ─────────────────────────────────────────────────
+#
+# Every Docker Hub image:/services:/name: reference in this file, and every
+# Dockerfile's BASE_REGISTRY build arg, is written as ${DOCKERHUB_MIRROR}/<image>
+# rather than a bare docker.io reference, to avoid the anonymous-pull rate limit
+# (see docs/maintainers/known-ci-failures.md#docker-hub-429-too-many-requests-on-image-pulls).
+#
+# Defaults to the GitLab Dependency Proxy for this group, which the Dependency
+# Proxy is enabled for. A project with NO working group Dependency Proxy — most
+# notably an external contributor's personal-namespace fork; the Dependency
+# Proxy is a group-level-only GitLab feature and does not exist for personal
+# namespaces — gets CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX empty, which would
+# otherwise turn every image reference into a leading-slash "/python:3.12-slim"
+# and fail the whole pipeline.
+#
+# BASE_REGISTRY / script usages of this variable fall back automatically with
+# real shell `${DOCKERHUB_MIRROR:-docker.io/library}` syntax (see the kaniko
+# jobs and scripts/helm-*-drill.sh) — those self-heal with zero configuration.
+# The bare `image:`/`services:`/`name:` keyword usages below CANNOT: GitLab's
+# own variable expansion for those keywords is plain substitution, not a shell,
+# so it has no equivalent of bash's `:-` fallback operator. A fork (or a
+# self-hosted instance) with no group Dependency Proxy MUST set its own
+# project CI/CD variable `DOCKERHUB_MIRROR` (e.g. `docker.io`, or its own
+# pull-through mirror) to keep those jobs' own image:/services: pulls working —
+# project variables take precedence over this default. See
+# docs/maintainers/ci-runners.md#dependency-proxy.
+variables:
+  DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}
+
 # Auto-retry on runner infrastructure failures (pod watcher sync, stuck
 # cleanup, image pull transients). Only retries on runner_system_failure
 # and stuck_or_timeout_failure — never on script failures.
@@ -142,7 +171,7 @@ default:
 cache-warm-pip:
   stage: deploy
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   cache:
@@ -159,7 +188,7 @@ cache-warm-pip:
 cache-warm-pip-test:
   stage: deploy
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   variables:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   cache:
@@ -176,7 +205,7 @@ cache-warm-pip-test:
 cache-warm-npm:
   stage: deploy
   needs: [frontend-test]
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   variables:
     npm_config_cache: "$CI_PROJECT_DIR/.npm"
   cache:
@@ -200,7 +229,7 @@ cache-warm-npm:
 
 shellcheck:
   stage: lint
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   before_script:
     - apk add --no-cache shellcheck
   rules:
@@ -219,7 +248,7 @@ shellcheck:
 dockerfile-lint:
   stage: lint
   image:
-    name: hadolint/hadolint:v2.15.1-alpine
+    name: ${DOCKERHUB_MIRROR}/hadolint/hadolint:v2.15.1-alpine
     entrypoint: [""]
   rules:
     - changes:
@@ -262,7 +291,7 @@ dockerfile-lint:
 compose-hygiene:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - changes:
         - docker-compose*.yml
@@ -290,7 +319,7 @@ compose-hygiene:
 backend-lint:
   extends: .pip-cache
   stage: lint
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -329,7 +358,7 @@ backend-test:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   parallel: 3
   rules:
     - changes:
@@ -338,9 +367,9 @@ backend-test:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -402,7 +431,7 @@ backend-test:
 backend-test-coverage:
   stage: test
   needs: [backend-test, backend-test-git-lens, backend-test-mcp]
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -452,7 +481,7 @@ backend-diff-coverage:
   extends: .pip-cache
   stage: test
   needs: [backend-test-coverage]
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -482,14 +511,14 @@ migration-check:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -525,7 +554,7 @@ migration-check:
 migration-numbering-check:
   stage: test
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -546,7 +575,7 @@ backend-schema-validate:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -690,7 +719,7 @@ backend-schema-fuzz:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   allow_failure: false
   # Baseline identities include the *check name*, and one failure class can come
   # from more than one check: an empty-body response trips MissingContentType under
@@ -718,9 +747,9 @@ backend-schema-fuzz:
         - backend/**/urls.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -834,7 +863,7 @@ backend-test-git-lens:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   # Runs whenever backend-test-coverage runs, not only on git_lens changes.
   # The coverage combine job `needs` this job's data file; if it were absent
   # from the pipeline, every git_lens line would score 0% and the total would
@@ -847,9 +876,9 @@ backend-test-git-lens:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
+    - name: ${DOCKERHUB_MIRROR}/redis:7-alpine
       alias: redis
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -901,7 +930,7 @@ backend-test-mcp:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -909,9 +938,9 @@ backend-test-mcp:
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: redis:7-alpine
+    - name: ${DOCKERHUB_MIRROR}/redis:7-alpine
       alias: redis
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -977,7 +1006,7 @@ oidc-smoke:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/accounts/**/*
@@ -995,9 +1024,9 @@ oidc-smoke:
       variables:
         KEYCLOAK_ADMIN: admin
         KEYCLOAK_ADMIN_PASSWORD: admin
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -1100,7 +1129,7 @@ oidc-smoke:
 helm-lint:
   stage: lint
   image:
-    name: alpine/helm:3.16.4
+    name: ${DOCKERHUB_MIRROR}/alpine/helm:3.16.4
     entrypoint: [""]
   <<: *rules-helm
   variables:
@@ -1157,7 +1186,7 @@ helm-lint:
 helm-template:
   stage: lint
   image:
-    name: alpine/helm:3.16.4
+    name: ${DOCKERHUB_MIRROR}/alpine/helm:3.16.4
     entrypoint: [""]
   <<: *rules-helm
   variables:
@@ -1250,9 +1279,16 @@ helm-template:
 .helm-drill-base: &helm-drill-base
   stage: test
   interruptible: false
-  image: docker:27-cli
+  image: ${DOCKERHUB_MIRROR}/docker:27-cli
   services:
-    - docker:27-dind
+    # Explicit name: + alias: (#1198 gate finding): GitLab derives a service's
+    # DNS alias from a bare image string (`- docker:27-dind`), but that
+    # derivation is not something to lean on once the image string carries a
+    # registry prefix — DOCKER_HOST/APISERVER_HOST below hardcode `docker` and
+    # a silently-wrong alias hangs the drill until timeout rather than failing
+    # loudly.
+    - name: ${DOCKERHUB_MIRROR}/docker:27-dind
+      alias: docker
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_HOST: "tcp://docker:2376"
@@ -1286,6 +1322,27 @@ helm-template:
     - curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz" | tar -xz -C /tmp linux-amd64/helm && mv /tmp/linux-amd64/helm /usr/local/bin/helm
     - kind version && kubectl version --client=true 2>/dev/null | head -1 && helm version --short
     - until docker info >/dev/null 2>&1; do echo "waiting for dind..."; sleep 2; done
+    - |
+      # This dind daemon is a fresh, un-authenticated container per job
+      # (#1198) — unlike the runner's own image:/services: pulls, which the
+      # runner authenticates to the Dependency Proxy automatically, nothing
+      # logs THIS daemon in. Base images, kindest/node, and in-cluster chart
+      # images are all pulled here anonymously otherwise.
+      # helm-install-drill.sh and helm-netpol-drill.sh rely on this login for
+      # every docker pull they do through the proxy.
+      #
+      # CI_DEPENDENCY_PROXY_SERVER is empty on a project with no working
+      # group Dependency Proxy (e.g. a personal-namespace fork — the
+      # Dependency Proxy is a group-level-only feature), so this is a no-op
+      # there rather than a hard failure; DOCKERHUB_MIRROR's own fallback
+      # (see the drill scripts) is what keeps such a fork building at all.
+      #
+      # --password-stdin, not -p: an argv-visible token is readable from the
+      # container's own process list for the life of the command (#1084
+      # fixup convention).
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin
+      fi
 
 helm-install:
   # Boots the chart and asserts it SERVES. ONE `helm install --wait` of the
@@ -1368,7 +1425,7 @@ helm-netpol:
 frontend-lint:
   extends: .npm-cache
   stage: lint
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   variables:
     # Cap below available RAM so V8 GCs aggressively instead of OOM-killing.
     # 1500 MB caused exit 137 on the 2 GB runner; 512 MB forces earlier GC.
@@ -1399,7 +1456,7 @@ frontend-lint:
 gate-selftest-parity:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1421,7 +1478,7 @@ gate-selftest-parity:
 docs-version-accuracy:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1438,7 +1495,7 @@ frontend-test:
   extends: .npm-cache
   stage: test
   needs: []
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   variables:
     # Match frontend-lint: cap below available RAM so V8 GCs before OOM-kill.
     NODE_OPTIONS: "--max-old-space-size=512"
@@ -1491,7 +1548,7 @@ serializer-ts-parity:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - changes:
         - backend/**/*
@@ -1532,7 +1589,7 @@ serializer-ts-parity:
 frontend-diff-coverage:
   stage: test
   needs: [frontend-test]
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1572,7 +1629,7 @@ added-files-coverage-check:
     - job: frontend-test
       artifacts: true
       optional: true
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1598,7 +1655,7 @@ added-files-coverage-check:
 added-files-coverage-check-self-test:
   stage: test
   needs: []
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1669,7 +1726,7 @@ playwright-e2e:
 ws-event-reachability:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1710,7 +1767,7 @@ ws-event-reachability:
 rbac-coverage:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1759,7 +1816,7 @@ rbac-coverage:
 broadcast-deferral:
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1806,7 +1863,7 @@ broadcast-deferral:
 changelog-check:
   extends: .on-mr
   stage: lint
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   before_script:
     - apk add --no-cache git
   script:
@@ -1890,7 +1947,7 @@ changelog-check:
 suppressions-check:
   stage: lint
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -1915,7 +1972,7 @@ suppressions-check:
 kaizen-yield-watch:
   stage: lint
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   allow_failure: true
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $KAIZEN_YIELD_WATCH == "true"'
@@ -1950,7 +2007,7 @@ backend-sast:
   # waiting for the whole stage (including the 40-45min helm drills) to
   # finish first.
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -1999,7 +2056,7 @@ frontend-sast:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2048,7 +2105,7 @@ backend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2074,7 +2131,7 @@ frontend-dep-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       changes:
@@ -2104,7 +2161,7 @@ backend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   before_script:
     - pip install --quiet -r backend/requirements.txt pip-licenses
   script:
@@ -2116,7 +2173,7 @@ frontend-license-check:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: node:20-alpine
+  image: ${DOCKERHUB_MIRROR}/node:20-alpine
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -2212,7 +2269,7 @@ dep-scan-osv:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: alpine:3.20
+  image: ${DOCKERHUB_MIRROR}/alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -2261,7 +2318,7 @@ gitleaks-scan:
   stage: security
   # See backend-sast above — source-only, no test dependency.
   needs: []
-  image: alpine:3.20
+  image: ${DOCKERHUB_MIRROR}/alpine:3.20
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -2299,15 +2356,26 @@ backend-docker-build:
   before_script:
     - mkdir -p /kaniko/.docker
     - |
-      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        printf '{"auths":{"https://index.docker.io/v1/":{"auth":"%s"}}}' \
-          "$(printf '%s:%s' "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')" \
-          > /kaniko/.docker/config.json
-      else
-        printf '{}' > /kaniko/.docker/config.json
+      # The Dockerfile's FROM now resolves through DOCKERHUB_MIRROR (#1198)
+      # via --build-arg BASE_REGISTRY below, which is the GitLab Dependency
+      # Proxy on a project where it's enabled, so kaniko needs proxy
+      # credentials to pull it. CI_DEPENDENCY_PROXY_SERVER is empty on a
+      # project with no working group Dependency Proxy (e.g. a
+      # personal-namespace fork), hence the guard — DOCKERHUB_USERNAME/TOKEN
+      # is kept as a fallback auth entry in case a FROM line is ever pointed
+      # back at docker.io directly.
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS=""
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
       fi
+      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+        [ -n "$AUTHS" ] && AUTHS="${AUTHS},"
+        AUTHS="${AUTHS}\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push --snapshot-mode=redo
+    - /kaniko/executor --context=backend --dockerfile=backend/Dockerfile --no-push --snapshot-mode=redo --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
 
 frontend-docker-build:
   stage: test
@@ -2323,15 +2391,20 @@ frontend-docker-build:
   before_script:
     - mkdir -p /kaniko/.docker
     - |
-      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
-        printf '{"auths":{"https://index.docker.io/v1/":{"auth":"%s"}}}' \
-          "$(printf '%s:%s' "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" | base64 | tr -d '\n')" \
-          > /kaniko/.docker/config.json
-      else
-        printf '{}' > /kaniko/.docker/config.json
+      # See backend-docker-build above: the Dockerfile's FROM now resolves
+      # through DOCKERHUB_MIRROR (#1198) via --build-arg BASE_REGISTRY below.
+      b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+      AUTHS=""
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        AUTHS="\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
       fi
+      if [ -n "${DOCKERHUB_USERNAME}" ] && [ -n "${DOCKERHUB_TOKEN}" ]; then
+        [ -n "$AUTHS" ] && AUTHS="${AUTHS},"
+        AUTHS="${AUTHS}\"https://index.docker.io/v1/\":{\"auth\":\"$(b64 "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}")\"}"
+      fi
+      printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
   script:
-    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512
+    - /kaniko/executor --context=frontend --dockerfile=frontend/Dockerfile --no-push --snapshot-mode=redo --build-arg NODE_OPTIONS=--max-old-space-size=512 --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}
 
 # ─── Docker push (amd64 + arm64) ───────────────────────────────────────────────
 #
@@ -2374,9 +2447,11 @@ frontend-docker-build:
 # On main-branch merges: :latest and :<short-sha> to the GitLab registry
 # (amd64 only — arm64 and the manifest jobs run on release tags only, see
 # their `rules:`).
-# On release tags: additionally :<tag> and, for stable releases, the
-#   :MAJOR.MINOR alias — on both the GitLab registry and GHCR, as multi-arch
-#   (linux/amd64 + linux/arm64) manifest lists.
+# On release tags: this leg pushes only arch-suffixed intermediate tags (see
+# the destinations() comment below) — the real :<tag>, :latest, and (for
+# stable releases) :MAJOR.MINOR alias are written exclusively by
+# `*-manifest`, on both the GitLab registry and GHCR, as multi-arch
+# (linux/amd64 + linux/arm64) manifest lists.
 
 .kaniko-push-common:
   stage: deploy
@@ -2387,12 +2462,20 @@ frontend-docker-build:
     - mkdir -p /kaniko/.docker
     - |
       # Assemble a docker config covering every registry a push job may touch:
-      # the GitLab registry (push), GHCR (push on tags), and Docker Hub (pull —
-      # the Dockerfiles' base images; anonymous pulls are rate limited). Each
-      # entry is added only when its credentials are present, so a fork without
-      # GHCR_TOKEN still builds and pushes to its own registry.
+      # the GitLab registry (push), GHCR (push on tags), the GitLab Dependency
+      # Proxy (pull — the Dockerfiles' base images now resolve through it via
+      # --build-arg BASE_REGISTRY, #1198), and Docker Hub directly as a
+      # fallback. Each entry is added only when its credentials are present,
+      # so a fork without GHCR_TOKEN still builds and pushes to its own
+      # registry.
       b64() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
       AUTHS="\"${CI_REGISTRY}\":{\"auth\":\"$(b64 "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}")\"}"
+      # CI_DEPENDENCY_PROXY_SERVER is empty on a project with no working group
+      # Dependency Proxy (e.g. a personal-namespace fork) — guarded so that
+      # case doesn't inject an empty-keyed auth entry.
+      if [ -n "${CI_DEPENDENCY_PROXY_SERVER:-}" ]; then
+        AUTHS="${AUTHS},\"${CI_DEPENDENCY_PROXY_SERVER}\":{\"auth\":\"$(b64 "${CI_DEPENDENCY_PROXY_USER}" "${CI_DEPENDENCY_PROXY_PASSWORD}")\"}"
+      fi
       if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_TOKEN}" ]; then
         AUTHS="${AUTHS},\"ghcr.io\":{\"auth\":\"$(b64 "${GHCR_USER}" "${GHCR_TOKEN}")\"}"
       fi
@@ -2401,34 +2484,50 @@ frontend-docker-build:
       fi
       printf '{"auths":{%s}}' "${AUTHS}" > /kaniko/.docker/config.json
     - |
-      # Emit the --destination flags for one image, matching the tag set the
-      # buildx jobs published. $1 = image name under each registry root.
-      # Stable releases (no pre-release suffix) also get the :MAJOR.MINOR alias,
-      # which is what users should pin to for production stability.
+      # Emit the --destination flags for one image. $1 = image name under
+      # each registry root.
       #
-      # On a release tag, also emit a `-amd64` suffixed destination on both
-      # registries (#1084) — this is the amd64 half of the source pair
-      # `*-manifest` (below) combines with the arm64 leg's `-arm64` suffixed
-      # tag into the real multi-arch `:<tag>` manifest list. The unsuffixed
-      # `:<tag>`/`:latest`/`:MINOR` destinations below remain too: they land
-      # as a transient amd64-only manifest the same pipeline's `*-manifest`
-      # job overwrites before the pipeline completes, and they are what
-      # main-branch merges (no arm64 leg, no manifest job) publish as-is.
+      # Corrected 2026-09-28 (#1084 re-audit): this used to push the real,
+      # unsuffixed `:<tag>`/`:latest`/`:MINOR` names directly on a release tag,
+      # on BOTH registries, in addition to the `-amd64`-suffixed intermediate
+      # tags — on the theory that `*-manifest` below would immediately
+      # overwrite them with the real multi-arch manifest. It does, when the
+      # arm64 leg succeeds. But `*-manifest` `needs:` the arm64 leg, so if
+      # that leg (or `arm64-runner-preflight` above it) ever fails — which it
+      # would have on the very next release tag after #1084 first merged, see
+      # the token fix above; no tag had actually been cut yet when this was
+      # caught — the amd64-only push here would have ALREADY landed under the
+      # real tag names on both registries, including GHCR `:latest`, with
+      # nothing to roll it back. The pipeline goes red; the bad image is
+      # already live.
+      #
+      # Now: on a release tag, this leg pushes ONLY `-amd64`-suffixed
+      # destinations, on both registries. `*-manifest` (which needs both this
+      # job and the arm64 leg) is the ONLY thing that ever writes the real
+      # `:<tag>`/`:latest`/`:MINOR` names — so a failed or skipped arm64 leg
+      # leaves whatever was already published under those names (the previous
+      # release, or the last main-branch merge's amd64 image) untouched,
+      # rather than silently replacing it with an incomplete one.
+      #
+      # On an ordinary main-branch merge (no tag), nothing changes: plain
+      # amd64-only :latest/:<short-sha> to the GitLab registry only — no
+      # arm64 leg or manifest job runs off a branch push (see their `rules:`
+      # — release tags only), so there is no multi-arch alternative to defer
+      # to here, and GHCR is untouched by main-branch merges as before.
       destinations() {
         img="$1"
-        echo "--destination=${CI_REGISTRY_IMAGE}/${img}:latest"
-        echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_SHORT_SHA}"
         if [ -n "${CI_COMMIT_TAG}" ]; then
-          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_TAG}"
+          # Only the exact-tag `-amd64` destination — no `${MINOR}-amd64`
+          # (removed 2026-09-28, #1084 re-audit): `*-manifest`'s
+          # `manifest-tool` call below builds the multi-arch manifest from
+          # `${TAG}-ARCH` sources only and aliases `:latest`/`:MINOR` onto
+          # that SAME manifest via `--tags`, so a separate `${MINOR}-ARCH`
+          # source was never read by anything — dead registry clutter.
           echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_TAG}-amd64"
-          echo "--destination=ghcr.io/visiban/visiban/${img}:${CI_COMMIT_TAG}"
           echo "--destination=ghcr.io/visiban/visiban/${img}:${CI_COMMIT_TAG}-amd64"
-          echo "--destination=ghcr.io/visiban/visiban/${img}:latest"
-          if echo "${CI_COMMIT_TAG}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            MINOR="$(echo "${CI_COMMIT_TAG}" | grep -oE '^v[0-9]+\.[0-9]+' | tr -d 'v')"
-            echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${MINOR}"
-            echo "--destination=ghcr.io/visiban/visiban/${img}:${MINOR}"
-          fi
+        else
+          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:latest"
+          echo "--destination=${CI_REGISTRY_IMAGE}/${img}:${CI_COMMIT_SHORT_SHA}"
         fi
       }
 
@@ -2445,6 +2544,7 @@ backend-docker-push:
         --context=backend \
         --dockerfile=backend/Dockerfile \
         --snapshot-mode=redo \
+        --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library} \
         $(destinations backend)
 
 frontend-docker-push:
@@ -2460,6 +2560,7 @@ frontend-docker-push:
         --dockerfile=frontend/Dockerfile \
         --snapshot-mode=redo \
         --build-arg NODE_OPTIONS=--max-old-space-size=512 \
+        --build-arg BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library} \
         $(destinations frontend)
 
 # ─── Docker push — arm64 preflight (#1084) ────────────────────────────────────
@@ -2473,15 +2574,29 @@ frontend-docker-push:
 # `no_matching_runner` hang this feature was deliberately left out of !852 to
 # avoid re-introducing.
 #
-# Queries the Runners API directly instead (same read the human-run
-# `glab api "projects/visiban%2Fvisiban/runners?type=group_type"` in
-# docs/maintainers/ci-runners.md performs) and fails within seconds if no
-# runner tagged `arm64` is online, before either arm64 leg is scheduled.
+# Queries the group Runners API directly (`GET /groups/visiban/runners`, same
+# read the human-run `glab api "projects/visiban%2Fvisiban/runners?type=group_type"`
+# in docs/maintainers/ci-runners.md approximates from the project side) and
+# fails within seconds if no runner tagged `arm64` is online, before either
+# arm64 leg is scheduled.
 #
-# Needs RUNNERS_READ_TOKEN: a `read_api`-scope PAT with at least Reporter
-# access to the group (Settings → CI/CD → Variables, masked + protected) — the
-# Runners API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a
-# job token cannot make this call. See docs/maintainers/tokens-and-rotation.md.
+# Needs RUNNER_STATUS_TOKEN: a fine-grained PAT with the `read_runner`
+# permission, scoped to the `visiban` group (id 126306686) — the Runners API
+# is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token
+# cannot make this call. See docs/maintainers/tokens-and-rotation.md.
+#
+# Corrected 2026-09-28: this job originally referenced a variable named
+# RUNNERS_READ_TOKEN, which was never actually created — only RUNNER_STATUS_TOKEN
+# (same purpose, described "ARM64") exists as a configured project variable. No
+# release tag had been cut since #1084 first merged, so the mismatch had not
+# yet failed a real pipeline, but the next one would have — this preflight would
+# have skipped both arm64 legs and the manifest jobs silently (see the
+# destinations() fix below for why that's worse than it sounds). Also corrected
+# here: the query now hits `/groups/visiban/runners`, not
+# `/projects/${CI_PROJECT_ID}/runners` — RUNNER_STATUS_TOKEN's `read_runner`
+# grant is scoped to the group, not the project, and verified directly
+# (`glab api "groups/visiban/runners?tag_list=arm64"` returns
+# Max1-Runner-Visiban) against the endpoint this job actually calls.
 #
 # Do NOT use the runner's reported `architecture` field to sanity-check
 # anything beyond "is it online" — `Max1-Runner-Visiban` reports `amd64`
@@ -2489,7 +2604,7 @@ frontend-docker-push:
 # host and every image it builds being genuinely native arm64.
 arm64-runner-preflight:
   stage: deploy
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
@@ -2504,15 +2619,15 @@ arm64-runner-preflight:
       # ash) doesn't support that option and errors out immediately on it,
       # matching every other inline script in this file (none use pipefail).
       set -eu
-      if [ -z "${RUNNERS_READ_TOKEN:-}" ]; then
-        echo "ERROR: RUNNERS_READ_TOKEN not set — cannot verify an arm64 runner is online"
-        echo "before scheduling the arm64 build jobs. Configure a read_api-scope PAT"
-        echo "(Reporter+ on the group) under Settings -> CI/CD -> Variables (Masked + Protected)."
-        echo "See docs/maintainers/tokens-and-rotation.md."
+      if [ -z "${RUNNER_STATUS_TOKEN:-}" ]; then
+        echo "ERROR: RUNNER_STATUS_TOKEN not set — cannot verify an arm64 runner is online"
+        echo "before scheduling the arm64 build jobs. Configure a fine-grained PAT with the"
+        echo "read_runner permission, scoped to the visiban group, under Settings -> CI/CD ->"
+        echo "Variables (Masked + Protected). See docs/maintainers/tokens-and-rotation.md."
         exit 1
       fi
-      ONLINE_ARM64="$(curl -sSf --header "PRIVATE-TOKEN: ${RUNNERS_READ_TOKEN}" \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/runners?scope=online&tag_list=arm64" \
+      ONLINE_ARM64="$(curl -sSf --header "PRIVATE-TOKEN: ${RUNNER_STATUS_TOKEN}" \
+        "${CI_API_V4_URL}/groups/visiban/runners?scope=online&tag_list=arm64" \
         | jq 'map(select(.online == true)) | length')"
       if [ "${ONLINE_ARM64:-0}" -lt 1 ]; then
         echo "ERROR: no online runner tagged 'arm64' found (expected Max1-Runner-Visiban,"
@@ -2656,7 +2771,7 @@ frontend-docker-push-arm64:
 # hardcoded path.
 .manifest-tool-common:
   stage: deploy
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   before_script:
@@ -2754,8 +2869,26 @@ frontend-manifest:
 helm-publish:
   stage: deploy
   image:
-    name: alpine/helm:3.16.4
+    name: ${DOCKERHUB_MIRROR}/alpine/helm:3.16.4
     entrypoint: [""]
+  # needs the manifest jobs (added 2026-09-28, #1084 re-audit): the chart's
+  # appVersion check below only confirms Chart.yaml matches the release tag,
+  # not that an image actually exists at that tag on GHCR. Before this, a
+  # failed/skipped arm64 leg could leave the real :<tag> image unpublished
+  # while this job still ran unconditionally, signed, and pushed a chart
+  # pointing at an image reference that doesn't exist — the same "published
+  # something that points at nothing" failure class this whole branch fixes,
+  # just one hop further downstream (see backend-manifest/frontend-manifest).
+  #
+  # docs-version-accuracy is included here too, deliberately: before this
+  # `needs:` existed, this job (stage: deploy) implicitly wouldn't start
+  # until every `stage: lint` job — including docs-version-accuracy, which
+  # exists "so a bad release is caught at tag time" — had passed, via
+  # GitLab's default stage ordering. Adding an explicit `needs:` list
+  # replaces that implicit ordering rather than adding to it, so leaving
+  # docs-version-accuracy off here would have silently dropped a gate this
+  # job used to have.
+  needs: [backend-manifest, frontend-manifest, docs-version-accuracy]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
   id_tokens:
@@ -2802,37 +2935,31 @@ helm-publish:
       CHART_DIGEST="$(awk '/Digest: /{print $2}' /tmp/helm-push.log)"
       cosign sign --yes "ghcr.io/visiban/charts/${CHART_NAME}@${CHART_DIGEST}"
 
-# ─── GHCR manual push ─────────────────────────────────────────────────────────
+# ─── GHCR manual push — REMOVED (2026-09-28, #1084 re-audit) ──────────────────
 #
-# Pushes :latest to GHCR on demand without running the full CI suite. Click the
-# play button on any pipeline's deploy stage to trigger.
+# `ghcr-push-backend` / `ghcr-push-frontend` used to push :latest to GHCR
+# on demand (kaniko, amd64-only) via the play button on any pipeline's
+# deploy stage. Removed: since #1084 restored multi-arch publishing, GHCR
+# `:latest` is a real linux/amd64+arm64 manifest list between release tags
+# (see the "Docker push" comment block above) — these jobs had no `rules:`
+# restricting them to any particular pipeline, so clicking either one on
+# ANY pipeline would silently overwrite that multi-arch manifest with a
+# single-arch amd64 image, with no arm64 leg or manifest-assembly step to
+# put it back. A manual job nobody remembers exists is exactly how that
+# regression ships. There is no arch-safe on-demand equivalent yet — an
+# on-demand GHCR push would need the same runner-preflight + per-arch +
+# manifest-assembly shape as the real release path above, for a job whose
+# entire reason to exist was being cheaper than that. If one is needed
+# again, it must be arch-proofed the same way, not resurrected as a bare
+# kaniko destination. See docs/maintainers/tokens-and-rotation.md for the
+# GHCR_TOKEN rotation test this removal changes.
 #
-# Builds from the commit the pipeline is running on. To push from a specific
-# branch, trigger a pipeline on that branch (glab ci run -b <branch>) and
-# click play here.
-
-ghcr-push-backend:
-  extends: .kaniko-push-common
-  when: manual
-  allow_failure: true
-  script:
-    - /kaniko/executor
-        --context=backend
-        --dockerfile=backend/Dockerfile
-        --snapshot-mode=redo
-        --destination=ghcr.io/visiban/visiban/backend:latest
-
-ghcr-push-frontend:
-  extends: .kaniko-push-common
-  when: manual
-  allow_failure: true
-  script:
-    - /kaniko/executor
-        --context=frontend
-        --dockerfile=frontend/Dockerfile
-        --snapshot-mode=redo
-        --build-arg NODE_OPTIONS=--max-old-space-size=512
-        --destination=ghcr.io/visiban/visiban/frontend:latest
+# `.gitlab/ghcr-push.yml`, a standalone alternate-config pipeline with the
+# same amd64-only kaniko-to-`:latest` shape, was removed alongside these for
+# the same reason — it wasn't included in this file's pipeline and no
+# schedule targeted it, but a maintainer running it manually (CI/CD → Run
+# pipeline → select that config file) would have hit the identical
+# regression.
 
 # ─── Scheduled — release image survival ───────────────────────────────────────
 #
@@ -2861,7 +2988,7 @@ ghcr-push-frontend:
 check-release-images:
   stage: deploy
   needs: []
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
@@ -2894,7 +3021,7 @@ check-release-images:
 
 github-release:
   stage: deploy
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: [backend-docker-push, frontend-docker-push, backend-manifest, frontend-manifest]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/'
@@ -2949,7 +3076,7 @@ github-release:
 
 docs-deploy:
   stage: deploy
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   needs: []
   variables:
     DOCS_VERSION: ""
@@ -3038,7 +3165,7 @@ docs-deploy:
 
 cleanup-merged-branches:
   stage: deploy
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
   before_script:
     - apk add --no-cache git
@@ -3085,7 +3212,7 @@ cleanup-merged-branches:
 seed-demo-data:
   stage: deploy
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   environment:
     name: demo
     deployment_tier: staging
@@ -3135,11 +3262,11 @@ seed-export-check:
   extends: .pip-cache
   stage: lint
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -3193,11 +3320,11 @@ nightly-load-test:
   extends: .pip-cache
   stage: test
   needs: []
-  image: python:3.12-slim
+  image: ${DOCKERHUB_MIRROR}/python:3.12-slim
   services:
-    - name: postgres:17-alpine
+    - name: ${DOCKERHUB_MIRROR}/postgres:17-alpine
       alias: postgres
-    - name: valkey/valkey:8-alpine
+    - name: ${DOCKERHUB_MIRROR}/valkey/valkey:8-alpine
       alias: valkey
   variables:
     POSTGRES_DB: "${CI_POSTGRES_DB}"
@@ -3267,7 +3394,7 @@ nightly-load-test:
 # The job name must be exactly "pages" for GitLab Pages to pick it up.
 pages:
   stage: deploy
-  image: alpine:3.19
+  image: ${DOCKERHUB_MIRROR}/alpine:3.19
   needs: []
   script:
     - cp -r . public
