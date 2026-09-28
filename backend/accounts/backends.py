@@ -122,9 +122,20 @@ class EmailBackend(ModelBackend):
             return None
         user_model = get_user_model()
         user = resolve_login_user(identifier, request)
-        if user is not None and user.get_username() == identifier:
-            # A username — ModelBackend already ruled on it. Run the throwaway
-            # hash anyway so this path costs the same as the others.
+        if user is not None and username is not None and user.get_username() == identifier:
+            # A username submitted via the `username` field — ModelBackend
+            # already ruled on it. Run the throwaway hash anyway so this path
+            # costs the same as the others.
+            #
+            # The `username is not None` guard matters: an identifier
+            # submitted via the `email` field that happens to equal an
+            # account's username (someone's username IS their email address)
+            # resolves here too via resolve_login_user()'s rule 1, but
+            # ModelBackend was never given a `username` kwarg to check it
+            # against (Django's ModelBackend.authenticate() returns
+            # immediately, with no hash, when `username` is None) — so
+            # without this guard, this backend would defer to a check that
+            # never ran and the login would always fail 400 in that case.
             user = None
         if user is None:
             user_model().set_password(password)

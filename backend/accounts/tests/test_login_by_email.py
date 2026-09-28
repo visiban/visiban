@@ -107,6 +107,30 @@ class LoginByEmailTests(_LoginMixin, TestCase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
         self.assertIn(GENERIC_FAILURE, str(r.json()))
 
+    def test_email_field_works_when_identifier_equals_the_account_username(self):
+        """completeness-check finding (#1206): an identifier submitted via the
+        `email` field that happens to equal the account's username (a username
+        that is itself an email address) must still authenticate.
+
+        ``EmailBackend`` defers to ``ModelBackend`` whenever the resolved
+        account's username textually equals the identifier — correct when
+        that identifier arrived via the `username` field (ModelBackend already
+        checked it), but wrong when it arrived via `email`: ModelBackend's
+        `authenticate()` returns immediately, without checking anything, when
+        its `username` kwarg is None. Without the `username is not None` guard
+        in `EmailBackend.authenticate()`, this deferral fires anyway and the
+        login always fails, even with the correct password.
+        """
+        User.objects.create_user(username="dana@example.com", email="dana@example.com", password=PASSWORD)
+        r = self._post({"email": "dana@example.com", "password": PASSWORD})
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        # Also confirm this doesn't regress the case-insensitive email path,
+        # which happens to differ from the username by case (and so never hit
+        # the buggy deferral, since `get_username() == identifier` is a
+        # case-sensitive comparison).
+        r = self._post({"email": "DANA@example.com", "password": PASSWORD}, ip="203.0.113.14")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
     def test_model_backend_stays_first_for_existing_sessions(self):
         """Existing sessions record ModelBackend as their backend; it must stay
         listed or every user is logged out on upgrade."""

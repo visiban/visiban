@@ -157,12 +157,14 @@ class LoginSerializer(DjRestAuthLoginSerializer):
     def _is_demo_account(credentials, request=None):
         """Whether these credentials target the published demo account.
 
-        Mirrors allauth's own key normalization in
-        ``DefaultAccountAdapter._get_login_attempts_cache_key`` (email takes
-        precedence over username, then lowercased) so the carve-out matches
-        exactly what the allauth lockout would otherwise key on — plus a strip,
-        since a demo visitor pasting the published credential is more likely to
-        pick up incidental whitespace than a real login attempt.
+        Mirrors the identifier-precedence order (email over username) that
+        ``RegistrationAdapter._get_login_attempts_cache_key`` (#1206) uses to
+        *resolve* which account a login attempt is against — the lockout
+        itself now keys on that resolved account's pk, not on the identifier
+        string, but this carve-out only needs to know which credentials name
+        the demo account, so it reuses the same resolution order — plus a
+        strip, since a demo visitor pasting the published credential is more
+        likely to pick up incidental whitespace than a real login attempt.
         """
         from django.conf import settings
 

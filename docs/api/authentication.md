@@ -24,6 +24,7 @@ Log in to get your API token. The token is permanent until you log out or it is 
     - An email address shared by more than one active account logs into **none** of them — it fails with the same generic error as a wrong password. Those users can still log in by username. Deactivated accounts don't count toward the match.
     - Failed attempts by username and by email count toward one lockout for the account. A deliberate consequence: someone who already knows an account's username and has locked it out can tell whether a candidate email belongs to that same account, because it gets the "Too many failed login attempts" error instead of the generic one. This is the accepted cost of not letting an attacker double their guesses by switching identifiers, and it is still bounded by the per-IP rate.
     - Accounts created via the web registration form have auto-generated usernames (derived from the email address); either identifier works for them.
+    - **Known limitation** (tracked in #1221): usernames and emails are not cross-checked against each other. Because a username match always wins, another account can register a username equal to someone's email address (or set its own profile email to it) and disable *that person's email login* — the affected person can still always log in with their own username, and the other account never gains access to theirs. This is a denial of the convenience path only, never an account takeover.
 
 === "curl"
     ```bash
