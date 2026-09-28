@@ -325,6 +325,43 @@ class LoginPerAccountLockoutTests(TestCase):
         self.assertNotIn(self.victim.username, detail)
         self.assertNotIn(self.victim.email, detail)
 
+    def test_demo_mode_published_account_is_exempt_from_lockout(self):
+        """#1199 gate finding: the demo account's password is published to every
+        visitor, so a per-account lockout on it protects nothing and is instead a
+        repeatable DoS lever — 5 wrong passwords from anyone locks out every other
+        visitor for 5 minutes. With DEMO_MODE on, the published account must keep
+        working even after many failed attempts."""
+        with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME="demovisitor"):
+            User.objects.create_user(username="demovisitor", password=self.PASSWORD)
+            for i in range(6):
+                r = self._post_login("demovisitor", "wrong-password", f"192.0.2.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login("demovisitor", self.PASSWORD, "192.0.2.200")
+            self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_demo_mode_does_not_exempt_other_accounts(self):
+        """The carve-out is scoped to DEMO_LOGIN_USERNAME only — every other
+        account on a demo instance, including a real user's, keeps the full
+        per-account lockout."""
+        with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME="demovisitor"):
+            for i in range(5):
+                r = self._post_login(self.victim.username, "wrong-password", f"203.0.113.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login(self.victim.username, self.PASSWORD, "203.0.113.200")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_demo_username_locks_normally_when_demo_mode_is_off(self):
+        """The carve-out only applies while DEMO_MODE is actually on — an
+        install that merely reuses "visitor" as a real username, with demo mode
+        off, gets the ordinary per-account lockout."""
+        with override_settings(DEMO_MODE=False, DEMO_LOGIN_USERNAME="demovisitor"):
+            User.objects.create_user(username="demovisitor", password=self.PASSWORD)
+            for i in range(5):
+                r = self._post_login("demovisitor", "wrong-password", f"198.18.0.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login("demovisitor", self.PASSWORD, "198.18.0.200")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
     def test_other_account_is_unaffected_by_a_locked_account(self):
         for i in range(5):
             self._post_login(self.victim.username, "wrong-password", f"192.0.2.{i + 1}")

@@ -366,3 +366,6 @@ Clients that exceed a limit receive `HTTP 429 Too Many Requests`. The standard `
 
 !!! note
     These limits are generous for normal interactive use. If you run a very large team or integrate Visiban with automation that makes frequent API calls, monitor your request volume and raise the `user` limit in `DEFAULT_THROTTLE_RATES` in `settings.py` if needed.
+
+!!! note
+    While the per-account login lockout is active, even the **correct** password is refused — the lockout is on the account, not on wrong guesses specifically, so a locked-out legitimate user must wait out the 5-minute window. Unlike allauth's own built-in views, a password reset does **not** clear it early here: Visiban's reset-confirm endpoint goes through dj-rest-auth's `PasswordResetConfirmSerializer` (a plain Django `SetPasswordForm`), which never calls allauth's `finalize_password_reset` / `_delete_login_attempts_cached_email` — verified directly, a reset account's lockout persists for the rest of the 5-minute window even with the new password. A locked-out user has no way to skip the wait.
