@@ -1,6 +1,12 @@
+# BASE_REGISTRY lets CI rewrite the Docker Hub pulls below to the GitLab
+# Dependency Proxy (--build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX},
+# #1198) without touching local/contributor builds, which get the Docker Hub
+# default with no arguments needed.
+ARG BASE_REGISTRY=docker.io/library
+
 # ── Stage 1: Builder ─────────────────────────────────────────────────────────
 # Installs all deps and compiles the React SPA to /app/dist.
-FROM node:20-alpine AS builder
+FROM ${BASE_REGISTRY}/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -26,7 +32,7 @@ RUN npm run build
 # ── Stage 2: Development ──────────────────────────────────────────────────────
 # Used by docker-compose.yml (build.target: dev). Runs the Vite dev server
 # with hot reload. Source is mounted as a volume so no COPY needed here.
-FROM node:20-alpine AS dev
+FROM ${BASE_REGISTRY}/node:20-alpine AS dev
 
 WORKDIR /app
 
@@ -45,7 +51,7 @@ EXPOSE 5173
 # build it by default when no --target is specified.
 # nginx base image CMD keeps the process in the foreground:
 #   nginx -g "daemon off;"
-FROM nginx:1.27-alpine
+FROM ${BASE_REGISTRY}/nginx:1.27-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

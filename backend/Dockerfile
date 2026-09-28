@@ -1,6 +1,12 @@
+# BASE_REGISTRY lets CI rewrite the Docker Hub pull to the GitLab Dependency
+# Proxy (--build-arg BASE_REGISTRY=${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX},
+# #1198) without touching local/contributor builds, which get the Docker Hub
+# default with no arguments needed.
+ARG BASE_REGISTRY=docker.io/library
+
 # ── Stage 1: Build wheels ────────────────────────────────────────────────────
 # Installs gcc and compiles any C-extension wheels (psycopg2, etc.).
-FROM python:3.12-slim AS builder
+FROM ${BASE_REGISTRY}/python:3.12-slim AS builder
 
 WORKDIR /build
 
@@ -14,7 +20,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 # No compiler — only the PostgreSQL client library and pre-built wheels.
-FROM python:3.12-slim
+FROM ${BASE_REGISTRY}/python:3.12-slim
 
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \

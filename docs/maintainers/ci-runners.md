@@ -87,14 +87,15 @@ the CI file is the source of truth for the current job definitions.
 
 A job's `timeout:` only bounds execution time *after* a runner has picked it up — it does
 nothing for a job stuck `pending` because no runner matches its `tags:`. GitLab has no native
-"pending too long" job failure. `arm64-runner-preflight` queries the Runners API
-(`GET /projects/:id/runners?scope=online&tag_list=arm64`, the same read
-`glab api "projects/visiban%2Fvisiban/runners?type=group_type"` performs by hand) and fails
-immediately if it finds no online `arm64`-tagged runner, before `backend-docker-push-arm64` /
-`frontend-docker-push-arm64` are even scheduled. This needs `RUNNERS_READ_TOKEN`, a
-`read_api`-scope PAT — the Runners API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint
-set, so a job token can't make this call. See
-[Tokens and Rotation](tokens-and-rotation.md#runners_read_token).
+"pending too long" job failure. `arm64-runner-preflight` queries the **group** Runners API
+(`GET /groups/visiban/runners?scope=online&tag_list=arm64` — a different read from the
+project-scoped `glab api "projects/visiban%2Fvisiban/runners?type=group_type"` performed by
+hand above, though both surface the same group runner) and fails immediately if it finds no
+online `arm64`-tagged runner, before `backend-docker-push-arm64` /
+`frontend-docker-push-arm64` are even scheduled. This needs `RUNNER_STATUS_TOKEN`, a
+fine-grained PAT with the `read_runner` permission scoped to the `visiban` group — the Runners
+API is not part of GitLab's CI_JOB_TOKEN-allowed endpoint set, so a job token can't make this
+call. See [Tokens and Rotation](tokens-and-rotation.md#runner_status_token).
 
 ## Distributed CI cache (MinIO)
 
@@ -122,6 +123,61 @@ than hardcoding credentials again.
 misdiagnose as one — see [Known CI Failures](known-ci-failures.md#oidc-smoke-did-not-become-ready-within-240s)
 for the actual root cause (an IPv6/HTTPS-required mismatch, not a slow boot or a runner
 problem).
+
+## Dependency Proxy
+
+Every Docker Hub `image:`/`services:` reference in `.gitlab-ci.yml`
+(and the kaniko `FROM` pulls, via each Dockerfile's `BASE_REGISTRY` build arg) resolves through
+`${DOCKERHUB_MIRROR}` rather than pulling `docker.io` anonymously — see
+[Known CI Failures](known-ci-failures.md#docker-hub-429-too-many-requests-on-image-pulls)
+(#1198) for why. This requires:
+
+1. **The Dependency Proxy enabled for the `visiban` group** — Settings → Packages and
+   Registries → Dependency Proxy. This is a one-time, human-applied group setting; nothing in
+   this repo can turn it on, and a fresh group (or a self-hosted GitLab instance forking this
+   project) needs it enabled before CI will go green.
+2. **No runner configuration change for `image:`/`services:` pulls** — the runner
+   authenticates to `${DOCKERHUB_MIRROR}` (which resolves to
+   `${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}` by default — see below) automatically using the
+   predefined `CI_DEPENDENCY_PROXY_*` variables GitLab injects into every job; there is nothing
+   to add to a runner's `config.toml` for this.
+3. **A job that pulls images itself, rather than via `image:`/`services:`, must log in
+   explicitly.** kaniko's `/kaniko/.docker/config.json` and the helm-drill `docker:dind`
+   daemon (`.helm-drill-base` before_script:
+   `echo "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u
+   "$CI_DEPENDENCY_PROXY_USER" --password-stdin` — `--password-stdin`, never `-p`, which leaves
+   the token readable in the container's own process list) both do this, guarded on
+   `CI_DEPENDENCY_PROXY_SERVER` being non-empty (see point 4). A new job added later that shells
+   out to `docker pull`/`docker build` against a Docker Hub image needs the same treatment, or
+   it will silently fall back to an anonymous pull.
+4. **Forks and self-hosted instances with no working group Dependency Proxy need a project
+   variable.** The Dependency Proxy is a **group-level-only** GitLab feature — it does not exist
+   for personal namespaces at all — so `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX` (and
+   `CI_DEPENDENCY_PROXY_SERVER`/`_USER`/`_PASSWORD`) are empty on, most notably, an external
+   contributor's personal-namespace fork pipeline. `.gitlab-ci.yml`'s top-level `variables:`
+   defines `DOCKERHUB_MIRROR: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}`; a `script:`/
+   `before_script:` usage of it (the kaniko jobs' `--build-arg BASE_REGISTRY`,
+   `scripts/helm-install-drill.sh`, `scripts/helm-netpol-drill.sh`) falls back automatically with
+   real shell syntax (`${DOCKERHUB_MIRROR:-docker.io/library}`), because those run in an actual
+   shell. The bare `image:`/`services:`/`name:` keyword usages **cannot** self-heal this way —
+   GitLab's variable expansion for those keywords is plain substitution, with no equivalent of
+   bash's `:-` fallback operator — so with an empty `DOCKERHUB_MIRROR` they'd resolve to a
+   leading-slash `/python:3.12-slim` and fail outright. A fork or self-hosted project without a
+   working group Dependency Proxy **must** set its own project CI/CD variable
+   `DOCKERHUB_MIRROR` (Settings → CI/CD → Variables) — e.g. `docker.io` to pull Docker Hub
+   directly (project variables take precedence over the `.gitlab-ci.yml` default), or its own
+   pull-through mirror.
+
+Third-party registries (`quay.io`'s Keycloak image, `ghcr.io`/`gcr.io` for trivy/kaniko,
+`mcr.microsoft.com`'s Playwright image) are out of scope — GitLab's Dependency Proxy only
+mirrors Docker Hub, so these keep pulling directly regardless of `DOCKERHUB_MIRROR`.
+
+**Not yet covered — arm64 release jobs (#1204):** `.arm64-docker-push-base`,
+`backend-docker-push-arm64`, and `frontend-docker-push-arm64` (#1084, see "Docker image push"
+above) still pull their Docker Hub base images directly rather than through
+`${DOCKERHUB_MIRROR}`. Left out of #1198 deliberately: those jobs are being rewritten by the
+separate, still-open **!964**, and rewriting them here first would just create a conflict.
+Tracked as **#1204**, to apply once !964 merges.
 
 ## Related open items
 
