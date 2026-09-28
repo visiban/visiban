@@ -1042,3 +1042,30 @@ class AdminUserClearLockoutViewTests(TestCase):
         for msg in captured.output:
             self.assertNotIn(self.target.username, msg)
             self.assertNotIn(self.target.email, msg)
+
+    def test_does_not_clear_the_admins_own_per_ip_rate_limit(self):
+        """The admin's own request has an IP too — the per-IP `login_failed`
+        rate (10 failed attempts/minute, across any accounts) computed from
+        THAT IP must not be cleared as a side effect of calling this
+        endpoint. See accounts.adapter.clear_login_lockout's docstring: only
+        the per-account (/key) rate is ever cleared, deliberately never the
+        per-IP one, regardless of whose request triggers the clear."""
+        admin_ip = "203.0.113.77"
+        for i in range(10):
+            make_user(username=f"admin_ip_user{i}")
+            r = self._post_login(f"admin_ip_user{i}", "wrong-password", admin_ip)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        self.client.force_authenticate(self.admin)
+        r = self.client.post(
+            f"/api/v1/admin/users/{self.target.pk}/clear-lockout/",
+            REMOTE_ADDR=admin_ip,
+            HTTP_X_FORWARDED_FOR=admin_ip,
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        # The per-IP bucket for the admin's own IP must still be tripped.
+        untouched = make_user(username="admin_ip_untouched", password=self.PASSWORD)
+        r = self._post_login(untouched.username, self.PASSWORD, admin_ip)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))

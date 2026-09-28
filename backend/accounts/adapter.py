@@ -26,7 +26,8 @@ __all__ = [
 
 
 def clear_login_lockout(request, user) -> None:
-    """Clear allauth's per-account ``login_failed`` rate-limit bucket for ``user``.
+    """Clear the per-account (``/key``-scoped) half of allauth's ``login_failed``
+    rate limit for ``user`` — never the per-IP (``/ip``-scoped) half.
 
     Shared by two callers: the password-reset-confirm flow (#1203) and the
     site-admin "clear lockout" action, so both get identical, correct behavior
@@ -55,22 +56,52 @@ def clear_login_lockout(request, user) -> None:
     which identifier a locked-out attacker (or the legitimate user) used, so
     both keys are cleared unconditionally. Clearing a bucket that was never
     populated — e.g. this user has never been locked out under their email —
-    is a no-op: allauth's ``ratelimit.clear()`` deletes a cache key that may
-    not exist, which is safe and costs nothing.
-    """
-    from allauth.core.ratelimit import clear
-    from django.contrib.sites.shortcuts import get_current_site
+    is a no-op: deleting a cache key that doesn't exist is safe and costs
+    nothing.
 
-    # Mirrors _get_login_attempts_cache_key's own key shape exactly
-    # (f"{site.domain}:{login.lower()}") so `clear()` targets the same cache
-    # entry `pre_authenticate()` would have written to — using allauth's
-    # public `ratelimit.clear()` entry point rather than reaching for the
-    # private `_delete_login_attempts_cached_email` helper, which only ever
-    # covers the email key (see above).
+    Why this does NOT use allauth's public ``ratelimit.clear()``
+    ----------------------------------------------------------------
+    ``ACCOUNT_RATE_LIMITS["login_failed"]`` configures TWO rates —
+    ``"10/m/ip,5/300s/key"`` (visiban/settings.py) — and allauth's
+    ``ratelimit.clear(request, action=..., key=...)`` clears the cache bucket
+    for *every* configured rate of that action in one call (confirmed against
+    ``allauth.core.internal.ratelimit.clear`` in 65.14.3), computing the
+    per-IP rate's cache key from ``request``'s OWN client IP regardless of the
+    ``key`` argument passed in. Calling it here would therefore also delete
+    the per-IP bucket for whoever is making *this* request — the resetting
+    user's IP on a password reset, or the admin's IP on the admin unlock
+    endpoint — as an undocumented side effect on every call, silently
+    weakening the "10/m/ip" credential-stuffing protection that rate exists
+    for. That's a real, separate control (see AllauthHtmlLoginPerIpThrottleTests
+    in accounts/tests/test_password_reset.py) and clearing it here is never
+    correct, so only the key-scoped rate(s) are targeted explicitly below —
+    using allauth's own (non-underscored, but internal-module) cache-key
+    builder to stay byte-identical with what ``pre_authenticate()`` wrote,
+    rather than reimplementing the sha256 hashing ourselves.
+    """
+    # Deferred: this module is wired in as ACCOUNT_ADAPTER, which Django can
+    # resolve while apps are still loading — importing django.contrib.sites
+    # (get_current_site queries the Site model) at module level risks
+    # AppRegistryNotReady at startup. The allauth imports are deferred
+    # alongside it purely for locality: they are only ever used here.
+    from allauth.account.app_settings import RATE_LIMITS as ACCOUNT_RATE_LIMITS_RUNTIME
+    from allauth.core.internal.ratelimit import get_cache_key, parse_rates
+    from django.contrib.sites.shortcuts import get_current_site
+    from django.core.cache import cache
+
+    key_rates = [
+        rate for rate in parse_rates(ACCOUNT_RATE_LIMITS_RUNTIME.get("login_failed"))
+        if rate.per == "key"
+    ]
+    if not key_rates:
+        return
+
     site_domain = get_current_site(request).domain
     identifiers = {value.lower() for value in (user.username, user.email) if value}
     for identifier in identifiers:
-        clear(request, action="login_failed", key=f"{site_domain}:{identifier}")
+        cache_key_seed = f"{site_domain}:{identifier}"
+        for rate in key_rates:
+            cache.delete(get_cache_key(request, action="login_failed", rate=rate, key=cache_key_seed))
 
 # Session key used to pass an invite token through the OAuth redirect flow.
 # The frontend appends ?invite_token=vbnl_xxx to the OAuth login URL; middleware

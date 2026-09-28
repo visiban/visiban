@@ -533,6 +533,60 @@ class LoginLockoutEarlyRecoveryTests(TestCase):
         r = self._post_login("username", bystander.username, self.PASSWORD, "203.0.113.200")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
 
+    def test_reset_does_not_clear_the_per_ip_rate_limit(self):
+        """The per-IP ``login_failed`` rate (10 failed attempts/minute, across
+        ANY accounts — #1199) must survive a password reset completed from
+        that same IP. allauth's own public ``ratelimit.clear()`` would clear
+        BOTH configured rates for the action in one call, including the
+        per-IP one computed from the reset request's own client IP — that
+        would silently reopen the single-IP credential-stuffing gap #1199
+        closed, every time anyone completes a reset. See
+        ``accounts.adapter.clear_login_lockout``'s docstring for why this is
+        scoped to the per-account (``/key``) rate only.
+        """
+        ip = "192.0.2.50"
+        # Trip the per-IP bucket: 10 failed attempts across 10 different
+        # accounts, all from the same IP the reset below is submitted from.
+        for i in range(10):
+            User.objects.create_user(username=f"perip_reset_user{i}", password=self.PASSWORD)
+            r = self._post_login("username", f"perip_reset_user{i}", "wrong-password", ip)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        r = self.client.post(
+            "/api/v1/auth/password/reset/confirm/",
+            self._reset_confirm_payload(),
+            REMOTE_ADDR=ip,
+            HTTP_X_FORWARDED_FOR=ip,
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        # The per-IP bucket must still be tripped: an 11th account that never
+        # itself failed, logging in with its correct password from that same
+        # IP, is still refused.
+        untouched = User.objects.create_user(username="perip_reset_untouched", password=self.PASSWORD)
+        r = self._post_login("username", untouched.username, self.PASSWORD, ip)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))
+
+    def test_failed_reset_attempt_does_not_clear_the_lockout(self):
+        """security-review finding on #1203: an invalid/expired token must
+        never reach ``VisibanPasswordResetConfirmSerializer.save()`` at all
+        (dj-rest-auth's ``validate()`` raises before ``save()`` runs), so a
+        rejected reset attempt must leave an existing lockout untouched —
+        it must not become a way to clear a lockout without proving email
+        access via a valid token."""
+        self._lock_out_via("username", self.user.username, "198.18.0")
+
+        payload = self._reset_confirm_payload()
+        payload["token"] = "invalid-token-xyz"
+        r = self.client.post("/api/v1/auth/password/reset/confirm/", payload)
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        # Still locked out — including with the (unchanged) correct password.
+        r = self._post_login("username", self.user.username, self.PASSWORD, "198.18.0.200")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))
+
 
 class AllauthHtmlLoginPerIpThrottleTests(TestCase):
     """#1199 completeness-check BLOCKER: allauth's own HTML login view,
