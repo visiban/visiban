@@ -294,3 +294,17 @@ class ExportHistoryEndpointTests(TestCase):
             set(entry.keys()),
             {"id", "actor", "actor_role_label", "export_format", "row_count", "created_at"},
         )
+
+    def test_history_with_null_actor_reports_null(self):
+        """#1192: actor is a SET_NULL FK — an export row whose actor has since
+        been deleted must serialize with `actor: null` rather than omitting the
+        field or erroring."""
+        BoardExportLog.objects.create(
+            board=self.board, actor=None,
+            role_at_export="member", export_format="json", row_count=1,
+        )
+        r = self._get(self.admin)
+        data = r.json()
+        entries = data["results"] if isinstance(data, dict) and "results" in data else data
+        null_actor_entries = [e for e in entries if e["actor"] is None]
+        self.assertEqual(len(null_actor_entries), 1)
