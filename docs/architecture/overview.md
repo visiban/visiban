@@ -29,7 +29,7 @@
 | Backend | Python 3.12, Django 5, Django REST Framework |
 | ASGI server | daphne (required for WebSocket support) |
 | Database | PostgreSQL 17 |
-| Cache / Pub-Sub | Valkey 8 (Docker Compose and Helm — Bitnami subchart) |
+| Cache / Pub-Sub | Valkey 8 (Docker Compose; Helm — built-in StatefulSet on `valkey/valkey:8-alpine`) |
 | Real-time | Django Channels 4, channels-redis |
 | Auth | django-allauth (Google / GitHub / GitLab OAuth) + dj-rest-auth |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS 3 |
