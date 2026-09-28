@@ -482,6 +482,30 @@ class DemoConfigEndpointTests(TestCase):
         now = datetime.datetime.now(datetime.timezone.utc)
         self.assertTrue(now < when <= now + datetime.timedelta(hours=1))
 
+    @override_settings(DEMO_MODE=True, DEMO_RESET_SCHEDULE="")
+    def test_empty_schedule_means_no_reset_is_promised(self):
+        """#1180: the chart renders DEMO_RESET_SCHEDULE empty when the reset is off.
+
+        Before #1180 a blank value parsed as the hourly default, so a demo whose
+        reset CronJob was disabled still told visitors it resets every hour and
+        showed a countdown to a reset that never came (TruePPM ADR-1197 D9).
+        """
+        body = APIClient().get("/api/v1/auth/site-config/").json()
+        self.assertIs(body["demo_mode"], True)
+        self.assertIsNone(body["demo_reset_schedule"])
+        self.assertIsNone(body["demo_next_reset_at"])
+
+        user = User.objects.create_user(username="u-empty", password=PASSWORD)
+        client = APIClient()
+        client.force_authenticate(user)
+        self.assertIsNone(client.get("/api/v1/auth/user/").json()["demo_next_reset_at"])
+
+    @override_settings(DEMO_MODE=True, DEMO_RESET_SCHEDULE="   ")
+    def test_whitespace_schedule_is_empty_too(self):
+        body = APIClient().get("/api/v1/auth/site-config/").json()
+        self.assertIsNone(body["demo_reset_schedule"])
+        self.assertIsNone(body["demo_next_reset_at"])
+
     def test_current_user_demo_fields(self):
         user = User.objects.create_user(username="u", password=PASSWORD)
         client = APIClient()

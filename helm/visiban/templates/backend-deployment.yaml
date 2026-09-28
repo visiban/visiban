@@ -12,8 +12,10 @@ spec:
       {{- include "visiban.backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- if not .Values.secret.existingSecret }}
+      {{- if or (not .Values.secret.existingSecret) (include "visiban.demoEnabled" .) }}
       annotations:
+      {{- end }}
+      {{- if not .Values.secret.existingSecret }}
         {{- /*
         Rotating a value in the chart-managed Secret changes no field of this pod
         template, so without this checksum `helm upgrade` would write the new
@@ -28,6 +30,15 @@ spec:
         manages the Secret out of band restarts the Deployment out of band too.
         */}}
         checksum/secret: {{ include "visiban.secretData" . | sha256sum }}
+      {{- end }}
+      {{- if include "visiban.demoEnabled" . }}
+        {{- /*
+        Same reason as checksum/secret, for the demo Secret (#1180): the backend
+        publishes DEMO_LOGIN_PASSWORD on the login page, so rotating
+        demo.loginHint.password must replace the pods or the page keeps
+        advertising the old password while the seed sets the new one.
+        */}}
+        checksum/demo-secret: {{ include "visiban.demoSecretData" . | sha256sum }}
       {{- end }}
       labels:
         {{- include "visiban.backend.selectorLabels" . | nindent 8 }}

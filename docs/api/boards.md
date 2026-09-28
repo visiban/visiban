@@ -84,7 +84,7 @@ Board change feed — committed board mutations in ascending `id` order, so an o
 
 **Response:** `{ "results": [{ id, event, data, actor_id, created_at }, ...], "next": <int|null> }`. `next` is the cursor for the following page, or `null` when the caller is caught up.
 
-**Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it.
+**Permissions:** any board role, the same gate as `/full/` and the WebSocket handshake — the feed replays events the caller could already have streamed. `is_moderator` is stripped from `member.*` payloads for roles below `admin`, exactly as the WebSocket consumer strips it — except on the row belonging to the reader themselves, which always carries the field (#1191).
 
 **`410 Gone`:** the cursor has aged out of the retention window (`BOARD_EVENT_RETENTION_DAYS`, default 30 days) and newer events exist. Re-sync via `/full/` and resume from the newest `event_id` seen after that.
 
@@ -838,7 +838,7 @@ Add or update a board member. Requires board admin.
 | `role` | | Role to assign (default: `"member"`). Valid: `admin`, `member`, `collaborator`, `viewer` |
 | `is_moderator` | | Boolean. Grants content-moderation rights (delete/archive others' content). Only valid for `member` and `admin` roles — setting `true` on a collaborator or viewer returns `400 Bad Request`. Automatically cleared when demoting to collaborator or viewer. |
 
-**Visibility of `is_moderator` in board responses (since 1.1; self-row exception since 1.2):** the `is_moderator` field is included in the `members` array of `GET /api/v1/boards/{id}/full/` for `admin` and `site_admin` requesters, on every row. A lower-role requester (`member`, `collaborator`, `viewer`) receives the field only on the row belonging to themselves — so a member promoted to moderator can see their own entitlement — and every other row omits it. Mutation responses on this endpoint and `member.added` / `member.updated` WebSocket payloads continue to carry the field for backward compatibility.
+**Visibility of `is_moderator` in board responses (since 1.1; self-row exception since 1.2):** the `is_moderator` field is included in the `members` array of `GET /api/v1/boards/{id}/full/` for `admin` and `site_admin` requesters, on every row. A lower-role requester (`member`, `collaborator`, `viewer`) receives the field only on the row belonging to themselves — so a member promoted to moderator can see their own entitlement — and every other row omits it. This endpoint's own response always carries the field, since it requires board admin. The `member.added` / `member.updated` WebSocket broadcast and the [change feed](events.md) apply the identical self-row rule per recipient (#1191): the subscriber's/reader's own row always carries the field, every other non-admin-visible row omits it.
 
 ### `DELETE /api/v1/boards/{id}/members/{user_id}/`
 Remove a member. Requires board admin. Cannot remove a site admin.

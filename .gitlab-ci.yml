@@ -235,8 +235,8 @@ dockerfile-lint:
 
 # ─── Compose — shipped-stack hygiene ──────────────────────────────────────────
 #
-# Two gates over the compose files an operator actually runs. Both are cheap,
-# both cover a defect that was live in this repo, and neither is visible in a
+# Gates over the compose/nginx files an operator actually runs. All are cheap,
+# all cover a defect that was live in this repo, and none is visible in a
 # diff review:
 #
 #   * image pins — `certbot/certbot` shipped untagged in docker-compose.prod.yml
@@ -245,9 +245,19 @@ dockerfile-lint:
 #   * project names — docker-compose.prod.yml pinned no `name:` and dev defaulted
 #     to `visiban`, so on a default clone both resolved to the same project,
 #     sharing `visiban_pgdata` and the `db`/`valkey`/`backend` service names.
+#   * nginx HSTS rendering — nginx/app.conf.template hardcoded a 2-year HSTS
+#     header for both TLS_MODE=letsencrypt and selfsigned, contradicting the
+#     docs and ignoring an operator-set SECURE_HSTS_SECONDS; init-prod.sh now
+#     renders it via scripts/render-nginx-hsts.sh (#1201).
 #
 # Each runs its `--self-test` first, per #1093: a gate observed only on a clean
-# tree is indistinguishable from one that always passes.
+# tree is indistinguishable from one that always passes. render-nginx-hsts.sh
+# also gets a real invocation against the TRACKED template
+# (`--check nginx/app.conf.template`), matching the other two scripts in this
+# job — a completeness-check finding on #1201 noted that `--self-test` alone
+# only proves the rendering logic works against synthetic fixtures; it cannot
+# catch the old hardcoded header being re-committed verbatim to the real file,
+# since --self-test never reads it.
 
 compose-hygiene:
   stage: lint
@@ -257,6 +267,9 @@ compose-hygiene:
     - changes:
         - docker-compose*.yml
         - scripts/check-compose-*.sh
+        - nginx/app.conf.template
+        - init-prod.sh
+        - scripts/render-nginx-hsts.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   before_script:
@@ -266,6 +279,8 @@ compose-hygiene:
     - bash scripts/check-compose-image-pins.sh
     - bash scripts/check-compose-project-names.sh --self-test
     - bash scripts/check-compose-project-names.sh
+    - bash scripts/render-nginx-hsts.sh --self-test
+    - bash scripts/render-nginx-hsts.sh --check nginx/app.conf.template
 
 # ─── Backend — lint ───────────────────────────────────────────────────────────
 
@@ -1109,6 +1124,15 @@ helm-lint:
         --set backend.settings.allowedHosts=ci.visiban.local \
         --set backend.email.fromAddress=noreply@visiban.local \
         --set backend.email.host=smtp.visiban.local
+    # Public demo overlay (#1180). It deliberately ships without its secrets, so
+    # the render guards refuse it until they are supplied — exactly what CI
+    # supplies here, and nothing else, so the committed file is what is linted.
+    - |
+      helm lint helm/visiban -f helm/visiban/values-demo.yaml \
+        --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+        --set-string demo.loginHint.password=ci-visitor-pw-1 \
+        --set-string demo.adminPassword=ci-admin-password-1 \
+        --set-string demo.memberPassword=ci-member-password-1
 
 # ─── Helm — template (deploy contract) ───────────────────────────────────────
 #
@@ -1182,6 +1206,21 @@ helm-template:
         --set backend.email.host=smtp.visiban.local \
         > /tmp/rendered-prod.yaml
     - kubeconform -strict -summary -ignore-missing-schemas /tmp/rendered-prod.yaml
+    # Public demo overlay (#1180): the seed hook Job, the reset CronJob, the demo
+    # Secret, the egress NetworkPolicy, the ResourceQuota/LimitRange and the
+    # demo `helm test` Pod all only render here. Rendered twice: as shipped, and
+    # with the reset off (no CronJob, empty DEMO_RESET_SCHEDULE).
+    - |
+      for reset in true false; do
+        helm template visiban helm/visiban -f helm/visiban/values-demo.yaml \
+          --set-string secret.djangoSecretKey=ci-not-a-real-secret \
+          --set-string demo.loginHint.password=ci-visitor-pw-1 \
+          --set-string demo.adminPassword=ci-admin-password-1 \
+          --set-string demo.memberPassword=ci-member-password-1 \
+          --set demo.reset.enabled=$reset \
+          > /tmp/rendered-demo-$reset.yaml
+        kubeconform -strict -summary -ignore-missing-schemas /tmp/rendered-demo-$reset.yaml
+      done
     # Self-test FIRST (#1093). This gate's failure mode is a GREEN pipeline over
     # a chart that no longer holds the contract, so "it passed" is not evidence
     # that it can still fail. The fixtures replay the #1038 shapes.
@@ -1259,7 +1298,11 @@ helm-install:
   # DJANGO_SECRET_KEY rotation applied in a single `helm upgrade` takes effect
   # AND replaces the pods — #1038 blocker 2 on the path that actually broke —
   # three replicas migrate without deadlocking on the advisory lock, and
-  # `helm uninstall` leaves nothing behind. See scripts/helm-install-drill.sh.
+  # `helm uninstall` leaves nothing behind. Then the public demo (#1180): a
+  # fresh install of values-demo.yaml seeds itself, `helm test` proves the
+  # fence (sign-in 200, board create 403 demo_read_only, card move 200), a
+  # reset from the CronJob succeeds and the published login survives it.
+  # See scripts/helm-install-drill.sh.
   <<: *helm-drill-base
   timeout: 40m
   # Only the static chart check (helm-template), not the whole `lint` stage —
@@ -1293,6 +1336,10 @@ helm-netpol:
   #
   # Separate rather than a flag on helm-install so the common deploy smoke test
   # stays fast and two unrelated failure modes stay uncoupled.
+  #
+  # Also upgrades to values-demo.yaml and asserts the demo EGRESS policy
+  # (#1180): backend and demo-seed pods reach DNS and the datastores and nothing
+  # outside the pod network.
   #
   # Scoped to the whole chart, not just networkpolicy.yaml: the policies name
   # their clients by `app.kubernetes.io/component`, so ADDING a template that

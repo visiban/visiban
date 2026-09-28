@@ -61,6 +61,14 @@ if [[ "${TLS_MODE}" == "none" ]]; then
   cp nginx/app-http.conf.template nginx/active.conf.template
 else
   cp nginx/app.conf.template nginx/active.conf.template
+
+  # Render the Strict-Transport-Security header (#1201) — see
+  # scripts/render-nginx-hsts.sh for the full rationale, the
+  # SECURE_HSTS_SECONDS validation rules, and its --self-test. nginx's copy
+  # of the header is the one that actually reaches the client
+  # (app.conf.template hides Django's own copy on every proxied path with
+  # proxy_hide_header), so this is the only place the value is computed.
+  scripts/render-nginx-hsts.sh nginx/active.conf.template "${TLS_MODE}"
 fi
 
 # ---------------------------------------------------------------------------

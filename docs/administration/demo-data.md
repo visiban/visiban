@@ -91,7 +91,19 @@ It also turns file uploads off and sets registration to **closed**.
 
 Passwords come only from the environment and are re-applied on every run. The command refuses to run unless `DEMO_MODE=true` and `DEMO_LOGIN_PASSWORD`, `DEMO_ADMIN_PASSWORD` and `DEMO_MEMBER_PASSWORD` are all set, refuses an admin password equal to the published one, refuses a `DEMO_LOGIN_USERNAME` that names another seeded account, and cannot be combined with `--export` or `--scale`. The onboarding tour is marked **completed** for the published visitor on every run: finishing the tour saves a profile flag, which the demo fence refuses, so an auto-running tour would end every visitor's first minute on a refusal. The unpublished accounts have the flag reset on every run, so the tour starts on their first login after each reset.
 
-See [Demo mode](configuration.md#demo-mode) for the settings. The deployment itself — the hourly reset CronJob, the egress NetworkPolicy and the post-deploy fence check — ships in the Helm chart (#1180).
+### Resetting the whole database
+
+```bash
+python manage.py seed_demo_data --force --wipe --demo-site --reset-database
+```
+
+> **Added in 1.2** (#1180).
+
+`--reset-database` empties **every table** first, using Django's `flush`, and then seeds. This is the hosted demo's reset. The Helm chart's seed hook and hourly reset CronJob run exactly this command. A per-board `--wipe` is not enough for a public demo. It leaves sessions behind, so visitors would stay signed in across a reset the login page says signs them out. It also leaves rows that deleting boards does not reach (`BoardEvent.board_id` is deliberately not a foreign key) and anything a visitor created elsewhere. After the flush the command re-applies the Sites domain from `SITE_DOMAIN`.
+
+The flag is valid only with `--demo-site`, which refuses to run unless `DEMO_MODE=true`. The command therefore cannot empty the database of a normal install.
+
+See [Demo mode](configuration.md#demo-mode) for the settings, and [Public demo mode (Helm)](#public-demo-mode-helm) for the supported deployment.
 
 ### Threat model
 
@@ -101,6 +113,7 @@ A public demo publishes a working login. Everything that account can do, the who
 
 - **Role is not a control.** `POST /api/v1/boards/` and `POST /api/v1/groups/{id}/boards/` make *any* authenticated caller the ADMIN of the board they create. A published credential of any role is therefore one request away from owning something. Seeding a harmless role cannot hold.
 - **The guarantee is a deployment mode.** With `DEMO_MODE=true`, `DemoModeMiddleware` refuses every request whose method is not `GET`, `HEAD` or `OPTIONS` — including `TRACE` and unknown verbs — for **every caller**, a site admin and anonymous clients included, unless it is on a short, pinned allowlist. A route added in a later release is refused by construction until someone deliberately adds it. The same rule covers allauth's `/accounts/` tree, `/admin/`, and `/mcp` (every MCP write tool is refused).
+- **A published credential turns a per-account lockout into a DoS lever.** The login endpoint locks an account out for 5 minutes after 5 failed passwords — a real defense on a normal install (see [Rate limiting](../architecture/deployment.md#rate-limiting)), but on a demo instance the published account's password is public, so *anyone* can send 5 wrong passwords and lock out every other visitor sharing that credential, repeatably. `accounts.serializers.LoginSerializer` exempts `DEMO_LOGIN_USERNAME` specifically from the per-account lockout while `DEMO_MODE` is on (#1199) — the per-IP throttle still applies, and every other account (including a real user's, if one exists on a demo instance) keeps the full lockout.
 
 A refusal is `403` with a stable body:
 
@@ -112,7 +125,61 @@ A refusal is `403` with a stable body:
 
 **What a visitor cannot do:** create, rename or delete boards, columns, swimlanes, labels or custom fields; delete cards; comment; upload attachments; add card relations; change their profile, password or preferences; mint personal access tokens; register, request a password reset (so the demo cannot be used as an email relay), or use invites and groups; connect a lens; import; or reach anything under the admin API. The SPA disables the most visible of these controls up front with the reason ("This is a shared demo — …"), and shows a toast if any other refusal reaches it.
 
-**The reset is containment, not a control.** Every hour, on the hour (`DEMO_RESET_SCHEDULE`), the reset job wipes the **whole database** and reseeds it. That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example `BoardEvent`, whose `board_id` is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.
+**The reset is containment, not a control.** Every hour, on the hour (`DEMO_RESET_SCHEDULE`), the reset job wipes the **whole database** and reseeds it (`--reset-database`). That also ends every session, because sessions are database-backed — visitors are told so on the login page and in the in-app demo bar, get a warning five minutes before, and land back on the login page with a "demo was reset" notice. The reset must stay a whole-database wipe: some tables (for example `BoardEvent`, whose `board_id` is deliberately not a foreign key) are not cleaned up by deleting boards, so a per-row reset would leak rows across resets.
+
+## Public demo mode (Helm)
+
+> **Added in 1.2** (#1180). This replaces the Docker Compose demo stack (`deploy/demo/`), which was never released.
+
+The Helm chart is the supported way to run a public demo. Enable it with the `demo:` block, starting from the shipped `helm/visiban/values-demo.yaml`. The block is **off by default**, and with it off the chart renders exactly what it did before, so `helm upgrade` on an existing release changes nothing.
+
+```bash
+helm upgrade --install visiban-demo ./helm/visiban \
+  --namespace visiban-demo --create-namespace \
+  -f helm/visiban/values-demo.yaml \
+  -f demo-secrets.yaml          # never committed: see the SECRETS block in values-demo.yaml
+helm test visiban-demo -n visiban-demo --logs
+```
+
+!!! danger "Never on an instance with real data"
+    The seed hook and the reset **empty every table** on every install, every upgrade and every scheduled run.
+
+### Values
+
+| Key | Default | Description |
+|---|---|---|
+| `demo.enabled` | `false` | Renders `DEMO_MODE=true` on every backend container, which arms the write fence. Also renders the seed hook, the reset CronJob, the demo Secret, the egress NetworkPolicy and the demo `helm test`. |
+| `demo.loginHint.username` / `.password` | *(empty)* | The **published** visitor credential shown on the login page. Both are required when the demo is on, and refused when it is off. Username: letters, digits and `. _ @ + -`, not `admin`, `maya` or `jordan`. Password: 8 to 128 characters of letters, digits and `. _ @ + ~ ! * = : , ; ? -`. |
+| `demo.adminPassword` | *(empty)* | The demo site admin's password. **Never published.** Required, and must differ from the published password. |
+| `demo.memberPassword` | *(empty)* | The two seeded member accounts' password. Required, and must differ from the published password. |
+| `demo.reset.enabled` | `true` | Renders the reset CronJob. When `false`, `DEMO_RESET_SCHEDULE` is rendered empty and the login page promises no reset. |
+| `demo.reset.schedule` | `0 * * * *` | When to reset, always in UTC. The same value becomes the backend's `DEMO_RESET_SCHEDULE`, which drives the countdown visitors see, so the two cannot drift. Minute and hour fields only; the other three must be `*`. |
+| `demo.reset.*` | | `startingDeadlineSeconds`, `activeDeadlineSeconds`, `backoffLimit`, `successfulJobsHistoryLimit`, `failedJobsHistoryLimit` (at least 1, so a failed run stays visible). |
+| `demo.seed.*` | | `activeDeadlineSeconds` and `backoffLimit` of the install/upgrade seed hook. |
+| `demo.throttle.userRate` | *(empty)* | `DEMO_USER_THROTTLE_RATE`. It re-aims the `user` throttle scope, which every visitor shares because they all use one account. `values-demo.yaml` sets `60000/hour` as a ceiling that protects the node, not a per-visitor limit. |
+| `demo.resourceQuota.*` | off | A ResourceQuota and a LimitRange for the release's namespace, for a demo that shares a node. Only use it in a namespace dedicated to the demo. |
+| `backend.settings.numProxies` | *required, ≥ 1* | `NUM_PROXIES`, [the client-IP depth](configuration.md#reverse-proxies-and-the-client-ip). `values-demo.yaml` sets `2` for a Cloudflare Tunnel. |
+
+The chart **refuses to render** a demo that could publish a credential, reach out, or silently collapse its per-visitor throttles. It fails when `loginHint` is set while the demo is off, when a `loginHint` half is missing or outside its character set, when SSO/OAuth or real SMTP is configured, when the media PVC is enabled, when `backend.settings.debug` is anything django-environ's parser treats as true — not just the literal `true`, but also `on`/`ok`/`y`/`yes` and any nonzero integer string like `1` or `-1` — when `networkPolicy.enabled` is off, when the bundled PostgreSQL or Valkey is replaced by an external one, when `backend.settings.numProxies` is unset or below `1`, when the schedule is one the backend cannot evaluate, and when `demo.throttle.userRate` is malformed.
+
+### What the chart guarantees, and what it does not
+
+- **The fence is the control.** `DEMO_MODE` arms `DemoModeMiddleware` (see [Threat model](#threat-model)). The chart's job is to guarantee that the variable reaches every container that imports Django settings: the backend and its init containers, the seed and reset pods, and scheduled jobs.
+- **`helm test` proves it after every deploy.** Through the frontend Service, the path a visitor's request takes, it signs in with the published credential (expects `200`), creates a board (expects `403` with `demo_read_only` in the body; a `403` from a permission check does not count), moves a seeded card (expects `200`), and checks that `site-config` publishes `demo_next_reset_at` if and only if the reset runs. It does not check the tunnel or anything else in front of the frontend.
+- **The reset is containment, not a control.** The seed hook (post-install and post-upgrade) and the reset CronJob run the same pod: `migrate_with_lock`, then `seed_demo_data --force --wipe --demo-site --reset-database`. Every run signs every visitor out and re-applies the published password, so the login hint never points at a dead account. The CronJob runs with `concurrencyPolicy: Forbid`. A failed run keeps its Job for `kubectl logs` and leaves the previous data up. It is never a readiness signal, so a failed reset cannot take the demo down. The seed runs in its own pod, and demo mode has no shared media volume. The one small attachment the base demo board seeds therefore has no file on the serving pod, and downloading it answers `404`.
+- **Egress is denied at the pod.** A NetworkPolicy limits the backend, the seed and reset pods and the scheduled-job pods to DNS and the release's own PostgreSQL and Valkey. That closes, at the network layer, every outbound path a visitor could reach through the app: the lens, mail, and any future call site. It is only real if the cluster's CNI enforces NetworkPolicy. CI proves it on Calico. On your cluster, check it yourself (see the maintainer runbook's [enforcement check](../maintainers/demo-deploy.md#2-networkpolicy-is-enforced-on-the-node)).
+
+### Preconditions outside the chart
+
+These cannot be expressed in values, and no CI job can verify them:
+
+- **Expose only the frontend Service**, for example through a Cloudflare Tunnel public hostname. The chart renders no Ingress in `values-demo.yaml`.
+- **Count your proxies.** Behind a tunnel, set `backend.settings.numProxies` to the real number of hops that append to `X-Forwarded-For` — including this chart's own frontend nginx, which always adds one. The chart refuses to render below `1` (every visitor sharing one login/anonymous throttle bucket is caught at render time, not left as a silent risk), but it cannot know your actual proxy depth: get the count right, not just non-zero.
+- **Per-visitor rate limiting after sign-in** has to come from in front of the host, such as a Cloudflare IP rate-limit rule. Every visitor shares one account, so the `user` throttle cannot tell them apart.
+- **The host must not run CI jobs** (TruePPM ADR-1197 D10).
+- **Kubernetes 1.27 or later**, for the CronJob `timeZone` field.
+
+The runbook for try.visiban.com itself, including the deployment record, is [Hosted Demo](../maintainers/demo-deploy.md).
 
 ## Demo data and real data
 

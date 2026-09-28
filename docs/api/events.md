@@ -133,8 +133,10 @@ Two consequences worth knowing:
 
 - `is_moderator` is stripped from `member.added` and `member.updated` payloads
   for readers below `admin`, exactly as the WebSocket consumer strips it per
-  subscriber (#978). Replaying from the feed cannot surface a field the socket
-  withheld.
+  subscriber (#978) — except on the row belonging to the reader themselves,
+  which always carries the field (#1191, mirroring the `/full/` self-row
+  exception from #1173). Replaying from the feed cannot surface a field the
+  socket withheld from that same reader.
 - `is_starred`, on `board.*` payloads, reflects the **actor's** state at the time
   of the event, not the reader's. This matches the WebSocket surface, where the
   same payload is fanned out to every subscriber. Read a board's own

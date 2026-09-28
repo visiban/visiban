@@ -4,7 +4,8 @@ from unittest.mock import MagicMock, patch
 
 from allauth.account.forms import default_token_generator
 from allauth.account.utils import user_pk_to_url_str
-from django.test import TestCase, override_settings
+from django.core.cache import cache
+from django.test import Client, TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -259,3 +260,240 @@ class LoginThrottleStructureTests(TestCase):
         match = resolve("/api/v1/auth/login/")
         view_cls = getattr(match.func, "view_class", None) or getattr(match.func, "cls", None)
         self.assertIs(view_cls, ThrottledLoginView)
+
+
+class LoginPerAccountLockoutTests(TestCase):
+    """#1199 — the allauth per-account ``login_failed`` lockout must actually
+    engage on ``POST /api/v1/auth/login/``.
+
+    Before #1199, dj-rest-auth's ``LoginSerializer.authenticate()`` called
+    ``django.contrib.auth.authenticate()`` directly, which never reached
+    allauth's ``pre_authenticate()`` / ``ratelimit.consume(action="login_failed")``
+    hook. These tests exercise the real endpoint end-to-end and vary the source
+    IP per attempt specifically to prove the lockout is keyed on the account,
+    not the caller's IP (NUM_PROXIES=1, so the IP DRF/allauth resolve is the
+    last hop of X-Forwarded-For) — a distributed attacker is exactly the gap
+    #1199 closes.
+    """
+
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
+
+    def setUp(self):
+        self.client = APIClient()
+        self.victim = User.objects.create_user(
+            username="lockout_victim", email="victim@example.com", password=self.PASSWORD
+        )
+        self.other = User.objects.create_user(
+            username="lockout_other", email="other@example.com", password=self.PASSWORD
+        )
+        # allauth's ratelimit.consume() reads/writes Django's default cache
+        # directly (not DRF's throttle cache) — clear it so no prior test's
+        # login_failed usage bleeds into these, and clear again after so this
+        # test's lockout state doesn't bleed into whatever runs next.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _post_login(self, username, password, ip):
+        return self.client.post(
+            "/api/v1/auth/login/",
+            {"username": username, "password": password},
+            format="json",
+            HTTP_X_FORWARDED_FOR=ip,
+            REMOTE_ADDR=ip,
+        )
+
+    def test_successful_login_still_works(self):
+        r = self._post_login(self.other.username, self.PASSWORD, "203.0.113.1")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertIn("key", r.json())
+
+    def test_failed_attempts_from_many_ips_lock_the_account(self):
+        # ACCOUNT_RATE_LIMITS["login_failed"] = "5/300s/key" — 5 failed attempts
+        # exhausts the bucket. Each attempt comes from a distinct IP.
+        for i in range(5):
+            r = self._post_login(self.victim.username, "wrong-password", f"198.51.100.{i + 1}")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        # A 6th attempt, from yet another new IP, with the CORRECT password —
+        # must still be refused because the account (not the IP) is locked.
+        r = self._post_login(self.victim.username, self.PASSWORD, "198.51.100.99")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        detail = str(r.json())
+        self.assertIn("Too many", detail)
+        # No user-enumeration signal: the lockout message must not name the
+        # account or otherwise differ from what an unknown username would get.
+        self.assertNotIn(self.victim.username, detail)
+        self.assertNotIn(self.victim.email, detail)
+
+    def test_many_accounts_from_one_ip_trip_the_per_ip_limit(self):
+        """Completeness-check re-check finding: allauth's per-IP rate
+        ("10/m/ip") applies here too, not just on the HTML login view — the
+        SPA endpoint now goes through the same rate-limited adapter (#1199).
+        10 failed attempts across 10 *different* accounts, all from one IP,
+        trip the per-IP bucket; an 11th attempt from that IP — even with a
+        correct password, for an account that never itself failed — is also
+        refused. This is a deliberate tradeoff to close single-IP,
+        many-account credential stuffing against the SPA; it can briefly
+        (up to the ~1-minute window) refuse a correct login sharing that IP
+        (see docs/architecture/deployment.md's shared-NAT note)."""
+        for i in range(10):
+            User.objects.create_user(username=f"perip_spauser{i}", password=self.PASSWORD)
+            r = self._post_login(f"perip_spauser{i}", "wrong-password", "10.10.10.10")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        untouched = User.objects.create_user(username="perip_spauser_untouched", password=self.PASSWORD)
+        r = self._post_login(untouched.username, self.PASSWORD, "10.10.10.10")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))
+
+    def test_demo_mode_published_account_is_exempt_from_lockout(self):
+        """#1199 gate finding: the demo account's password is published to every
+        visitor, so a per-account lockout on it protects nothing and is instead a
+        repeatable DoS lever — 5 wrong passwords from anyone locks out every other
+        visitor for 5 minutes. With DEMO_MODE on, the published account must keep
+        working even after many failed attempts."""
+        with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME="demovisitor"):
+            User.objects.create_user(username="demovisitor", password=self.PASSWORD)
+            for i in range(6):
+                r = self._post_login("demovisitor", "wrong-password", f"192.0.2.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login("demovisitor", self.PASSWORD, "192.0.2.200")
+            self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_demo_mode_does_not_exempt_other_accounts(self):
+        """The carve-out is scoped to DEMO_LOGIN_USERNAME only — every other
+        account on a demo instance, including a real user's, keeps the full
+        per-account lockout."""
+        with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME="demovisitor"):
+            for i in range(5):
+                r = self._post_login(self.victim.username, "wrong-password", f"203.0.113.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login(self.victim.username, self.PASSWORD, "203.0.113.200")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_demo_username_locks_normally_when_demo_mode_is_off(self):
+        """The carve-out only applies while DEMO_MODE is actually on — an
+        install that merely reuses "visitor" as a real username, with demo mode
+        off, gets the ordinary per-account lockout."""
+        with override_settings(DEMO_MODE=False, DEMO_LOGIN_USERNAME="demovisitor"):
+            User.objects.create_user(username="demovisitor", password=self.PASSWORD)
+            for i in range(5):
+                r = self._post_login("demovisitor", "wrong-password", f"198.18.0.{i + 1}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login("demovisitor", self.PASSWORD, "198.18.0.200")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_demo_carve_out_normalizes_case_and_whitespace(self):
+        """#1199 completeness-check gap: the carve-out must match
+        DEMO_LOGIN_USERNAME the same way allauth normalizes its own lockout
+        key (lowercased), plus a strip — not an exact string match.
+
+        The account itself is always logged into with its real, exact-case
+        username ("demovisitor") — Django's username lookup is case-sensitive,
+        so varying the *submitted* login's case would confound this with an
+        unrelated "wrong username" failure. What actually needs to tolerate
+        case/whitespace is DEMO_LOGIN_USERNAME itself (an operator-supplied
+        env var), so that's what's varied here: removing either normalization
+        step in ``_is_demo_account`` would make one of these configured values
+        fail to recognize the real demo account and start failing this test.
+        """
+        User.objects.create_user(username="demovisitor", password=self.PASSWORD)
+        for configured in ("DEMOVISITOR", " demovisitor ", "DemoVisitor"):
+            with self.subTest(configured=configured):
+                with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME=configured):
+                    cache.clear()
+                    for i in range(6):
+                        r = self._post_login("demovisitor", "wrong-password", f"192.0.2.{i + 1}")
+                        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+                    r = self._post_login("demovisitor", self.PASSWORD, "192.0.2.200")
+                    self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_empty_demo_login_username_exempts_nobody(self):
+        """A misconfigured (empty/unset) DEMO_LOGIN_USERNAME must not
+        accidentally exempt every account by comparing two empty strings —
+        it should just never match, so the ordinary lockout still applies."""
+        with override_settings(DEMO_MODE=True, DEMO_LOGIN_USERNAME=""):
+            for i in range(5):
+                r = self._post_login(self.victim.username, "wrong-password", f"203.0.113.{i + 10}")
+                self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+            r = self._post_login(self.victim.username, self.PASSWORD, "203.0.113.201")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+    def test_other_account_is_unaffected_by_a_locked_account(self):
+        for i in range(5):
+            self._post_login(self.victim.username, "wrong-password", f"192.0.2.{i + 1}")
+        # Confirm the victim account is indeed locked before checking isolation.
+        locked = self._post_login(self.victim.username, self.PASSWORD, "192.0.2.99")
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST, locked.content)
+
+        r = self._post_login(self.other.username, self.PASSWORD, "192.0.2.100")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+        self.assertIn("key", r.json())
+
+
+class AllauthHtmlLoginPerIpThrottleTests(TestCase):
+    """#1199 completeness-check BLOCKER: allauth's own HTML login view,
+    ``/accounts/login/`` (registered live via ``path("accounts/",
+    include("allauth.urls"))``), is not behind ``ThrottledLoginView`` /
+    ``LoginRateThrottle`` — that DRF throttle only wraps the SPA's
+    ``/api/v1/auth/login/``. Before #1199, ``ACCOUNT_RATE_LIMITS["login_failed"]``
+    was a bare ``"5/300s"``, which allauth happens to parse as a per-IP rate
+    (no "/key" suffix), so this route was accidentally protected. Changing it
+    to ``"5/300s/key"`` for the per-account fix removed that per-IP layer
+    entirely, leaving this view an unlimited cross-account credential-stuffing
+    oracle from a single IP (wrong password -> 200 re-render, right -> 302).
+    ``ACCOUNT_RATE_LIMITS["login_failed"]`` is now ``"10/m/ip,5/300s/key"`` —
+    both rates must allow a request through.
+    """
+
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
+
+    def setUp(self):
+        # enforce_csrf_checks=False: this view renders and posts a real CSRF
+        # token in normal use, but the throttle behavior under test doesn't
+        # depend on CSRF at all, and disabling it keeps the test focused on
+        # the rate limit rather than token plumbing.
+        self.client = Client(enforce_csrf_checks=False)
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _post_html_login(self, login, password, ip):
+        return self.client.post(
+            "/accounts/login/",
+            {"login": login, "password": password},
+            REMOTE_ADDR=ip,
+        )
+
+    def test_normal_login_still_works(self):
+        User.objects.create_user(username="htmlloginuser", password=self.PASSWORD)
+        r = self._post_html_login("htmlloginuser", self.PASSWORD, "203.0.113.50")
+        self.assertEqual(r.status_code, 302, r.content)
+
+    def test_many_accounts_from_one_ip_are_throttled(self):
+        """The reviewer's probe: 12 failed attempts across 12 different
+        accounts, all from one IP, then a real password for a 13th account
+        from that same IP — must be refused. Before the fix this succeeded
+        (302): unlimited cross-account credential stuffing from a single IP."""
+        for i in range(12):
+            User.objects.create_user(username=f"stuffuser{i}", password=self.PASSWORD)
+            r = self._post_html_login(f"stuffuser{i}", "wrong-password", "198.51.100.200")
+            self.assertEqual(r.status_code, 200, r.content)
+
+        target = User.objects.create_user(username="stuffuser_target", password=self.PASSWORD)
+        r = self._post_html_login(target.username, self.PASSWORD, "198.51.100.200")
+        # Refused by the per-IP rate, not a login failure or a lockout on
+        # `target` specifically — it never had a failed attempt of its own.
+        self.assertNotEqual(r.status_code, 302, r.content)
+
+    def test_five_failures_from_five_ips_still_locks_the_html_login_account(self):
+        """The per-IP "10/m/ip" rate added alongside the per-account "/key"
+        rate must not interfere with the #1199 per-account scenario: 5 failed
+        attempts from 5 *different* IPs (well under the per-IP ceiling each)
+        must still lock the account via the per-account rate, same as
+        LoginPerAccountLockoutTests exercises against the SPA endpoint."""
+        User.objects.create_user(username="fiveipsuser", password=self.PASSWORD)
+        for i in range(5):
+            r = self._post_html_login("fiveipsuser", "wrong-password", f"192.0.2.{i + 1}")
+            self.assertEqual(r.status_code, 200, r.content)
+        r = self._post_html_login("fiveipsuser", self.PASSWORD, "192.0.2.99")
+        self.assertEqual(r.status_code, 200, r.content)
