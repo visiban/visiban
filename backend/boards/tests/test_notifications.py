@@ -166,6 +166,20 @@ class NotificationListViewTests(TestCase):
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]["action_type"], "assigned")
 
+    def test_list_reports_null_actor_for_system_generated_notification(self):
+        """#1192: actor is a SET_NULL FK — a system-generated notification (e.g.
+        stale-card alerts, created with actor=None) must serialize with
+        `actor: null` rather than omitting the field or erroring."""
+        Notification.objects.create(
+            recipient=self.user, verb="Card went stale", board=self.board, read=False,
+            action_type=Notification.ActionType.STALE, actor=None,
+        )
+
+        resp = self.client.get("/api/v1/notifications/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+        self.assertIsNone(resp.data[0]["actor"])
+
     def test_mark_all_read_then_list_is_empty(self):
         Notification.objects.create(
             recipient=self.user, verb="will be read", board=self.board, read=False,

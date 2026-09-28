@@ -22,6 +22,11 @@ schema directly, with no second side to move.
 from django.test import SimpleTestCase
 from drf_spectacular.generators import SchemaGenerator
 
+from boards.serializers import (
+    CardActivitySerializer, CardAttachmentSerializer, PublicCardSerializer,
+)
+from boards.views.notifications import NotificationSerializer
+
 
 class SerializerSchemaAnnotationTests(SimpleTestCase):
     @classmethod
@@ -93,6 +98,14 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
             "CardQuery.created_by must be nullable: the FK is SET_NULL with null=True",
         )
 
+    def test_board_export_log_actor_is_nullable(self):
+        """BoardExportLog.actor is a SET_NULL FK — an export whose actor has
+        since been deleted yields null (#1192)."""
+        self.assertTrue(
+            self._prop("BoardExportLog", "actor").get("nullable"),
+            "BoardExportLog.actor must be nullable: the FK is SET_NULL with null=True",
+        )
+
     def test_group_brief_parent_name_is_nullable(self):
         """A root group has no parent, so `source="parent.name"` resolves to None."""
         self.assertTrue(
@@ -162,3 +175,50 @@ class SerializerSchemaAnnotationTests(SimpleTestCase):
                     prop.get("nullable", False),
                     f"CardMovement.{field} is NOT NULL with a '' default; it never returns null",
                 )
+
+
+class UnpublishedSerializerFieldNullabilityTests(SimpleTestCase):
+    """#1192: `allow_null=True` on the 4 sites (of the issue's original 4, plus a 5th
+    found during the sweep) whose serializers `drf-spectacular` does not currently
+    emit as a named schema component at all.
+
+    `CardActivitySerializer`, `CardAttachmentSerializer`, `PublicCardSerializer`, and
+    `NotificationSerializer` back endpoints (`CardViewSet.activities`/`.attachments`,
+    the public share-link view, and the bare-`APIView` notifications list) that have
+    no `serializer_class`/`@extend_schema` response wiring, so `SchemaGenerator` either
+    guesses the wrong component entirely (`Card`, for the two `@action` endpoints) or
+    publishes no response body at all. `SerializerSchemaAnnotationTests._prop()` above
+    has nothing to inspect for these four, so — unlike `CardComment.author` or
+    `BoardExportLog.actor`, which DO get a real component — a schema-level assertion
+    here would be a no-op. These tests instead assert directly on the field instance,
+    which is what `allow_null=True` actually sets and is exactly what a revert (e.g.
+    a bad merge-conflict resolution) would undo, regardless of whether the published
+    schema currently reflects it.
+
+    Wiring these four endpoints for real schema publication is a separate, materially
+    larger issue than this one's four-site nullability fix; not undertaken here.
+    """
+
+    def test_card_activity_actor_field_allows_null(self):
+        self.assertTrue(
+            CardActivitySerializer().fields["actor"].allow_null,
+            "CardActivitySerializer.actor must allow_null: CardActivity.actor is SET_NULL, null=True",
+        )
+
+    def test_card_attachment_uploaded_by_field_allows_null(self):
+        self.assertTrue(
+            CardAttachmentSerializer().fields["uploaded_by"].allow_null,
+            "CardAttachmentSerializer.uploaded_by must allow_null: CardAttachment.uploaded_by is SET_NULL, null=True",
+        )
+
+    def test_public_card_assignee_field_allows_null(self):
+        self.assertTrue(
+            PublicCardSerializer().fields["assignee"].allow_null,
+            "PublicCardSerializer.assignee must allow_null: Card.assignee is SET_NULL, null=True",
+        )
+
+    def test_notification_actor_field_allows_null(self):
+        self.assertTrue(
+            NotificationSerializer().fields["actor"].allow_null,
+            "NotificationSerializer.actor must allow_null: Notification.actor is SET_NULL, null=True",
+        )
