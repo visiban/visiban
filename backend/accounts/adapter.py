@@ -20,8 +20,57 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "RegistrationAdapter",
     "SocialRegistrationAdapter",
+    "clear_login_lockout",
     "invalidate_registration_mode_cache",
 ]
+
+
+def clear_login_lockout(request, user) -> None:
+    """Clear allauth's per-account ``login_failed`` rate-limit bucket for ``user``.
+
+    Shared by two callers: the password-reset-confirm flow (#1203) and the
+    site-admin "clear lockout" action, so both get identical, correct behavior
+    instead of two slightly different reimplementations.
+
+    Why this exists instead of allauth's own recovery path
+    --------------------------------------------------------
+    allauth ships exactly one way to clear this bucket early:
+    ``allauth.account.internal.flows.password_reset.finalize_password_reset``,
+    which iterates the user's ``EmailAddress`` rows and clears the bucket keyed
+    on each one. Visiban's password-reset-confirm endpoint never runs it — it
+    goes through dj-rest-auth's ``PasswordResetConfirmSerializer``, a thin
+    wrapper around Django's plain ``SetPasswordForm``, which knows nothing
+    about allauth's rate limiter at all (verified against the running code,
+    #1199's review; this was the gap #1203 tracks).
+
+    Why BOTH the username and the email key are cleared
+    -----------------------------------------------------
+    Even allauth's own recovery path above only clears the email-keyed
+    bucket. That is incomplete here: ``ACCOUNT_LOGIN_METHODS = {"username",
+    "email"}`` (visiban/settings.py) means a login attempt — and therefore the
+    lockout it can trip — is keyed on whichever identifier was actually
+    submitted (see ``DefaultAccountAdapter._get_login_attempts_cache_key``:
+    email takes precedence over username only when both are present in the
+    same call, otherwise whichever one was given). There is no record here of
+    which identifier a locked-out attacker (or the legitimate user) used, so
+    both keys are cleared unconditionally. Clearing a bucket that was never
+    populated — e.g. this user has never been locked out under their email —
+    is a no-op: allauth's ``ratelimit.clear()`` deletes a cache key that may
+    not exist, which is safe and costs nothing.
+    """
+    from allauth.core.ratelimit import clear
+    from django.contrib.sites.shortcuts import get_current_site
+
+    # Mirrors _get_login_attempts_cache_key's own key shape exactly
+    # (f"{site.domain}:{login.lower()}") so `clear()` targets the same cache
+    # entry `pre_authenticate()` would have written to — using allauth's
+    # public `ratelimit.clear()` entry point rather than reaching for the
+    # private `_delete_login_attempts_cached_email` helper, which only ever
+    # covers the email key (see above).
+    site_domain = get_current_site(request).domain
+    identifiers = {value.lower() for value in (user.username, user.email) if value}
+    for identifier in identifiers:
+        clear(request, action="login_failed", key=f"{site_domain}:{identifier}")
 
 # Session key used to pass an invite token through the OAuth redirect flow.
 # The frontend appends ?invite_token=vbnl_xxx to the OAuth login URL; middleware

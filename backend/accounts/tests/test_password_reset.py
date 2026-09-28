@@ -431,6 +431,109 @@ class LoginPerAccountLockoutTests(TestCase):
         self.assertIn("key", r.json())
 
 
+class LoginLockoutEarlyRecoveryTests(TestCase):
+    """#1203 — a successful password reset clears the per-account
+    ``login_failed`` lockout early, instead of forcing a locked-out user to
+    wait out the full 5-minute window even with their brand-new, correct
+    password.
+
+    Covers both identifier keys allauth's lockout can be keyed on
+    (``ACCOUNT_LOGIN_METHODS = {"username", "email"}``) — see
+    ``accounts.adapter.clear_login_lockout`` for why both must be cleared
+    unconditionally.
+    """
+
+    PASSWORD = "correct-horse-battery-staple-1"  # gitleaks:allow -- test-only fixture password, not a credential
+    NEW_PASSWORD = "NewPass9876"  # gitleaks:allow -- test-only fixture password, not a credential
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="lockout_reset_user", email="lockoutreset@example.com", password=self.PASSWORD
+        )
+        # Same reasoning as LoginPerAccountLockoutTests.setUp: allauth's
+        # ratelimit.consume()/clear() read and write Django's default cache
+        # directly, so it must be isolated per test.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def _post_login(self, field, value, password, ip):
+        return self.client.post(
+            "/api/v1/auth/login/",
+            {field: value, "password": password},
+            format="json",
+            HTTP_X_FORWARDED_FOR=ip,
+            REMOTE_ADDR=ip,
+        )
+
+    def _lock_out_via(self, field, value, ip_prefix):
+        for i in range(5):
+            r = self._post_login(field, value, "wrong-password", f"{ip_prefix}.{i + 1}")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        # Confirm the account is actually locked (even the correct password is
+        # refused) before testing recovery from it.
+        locked = self._post_login(field, value, self.PASSWORD, f"{ip_prefix}.99")
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST, locked.content)
+
+    def _reset_confirm_payload(self):
+        uid = user_pk_to_url_str(self.user)
+        token = default_token_generator.make_token(self.user)
+        return {
+            "uid": uid,
+            "token": token,
+            "new_password1": self.NEW_PASSWORD,
+            "new_password2": self.NEW_PASSWORD,
+        }
+
+    def test_reset_clears_lockout_keyed_on_username(self):
+        self._lock_out_via("username", self.user.username, "192.0.2")
+
+        r = self.client.post("/api/v1/auth/password/reset/confirm/", self._reset_confirm_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        r = self._post_login("username", self.user.username, self.NEW_PASSWORD, "192.0.2.200")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+    def test_reset_clears_lockout_keyed_on_email(self):
+        self._lock_out_via("email", self.user.email, "198.51.100")
+
+        r = self.client.post("/api/v1/auth/password/reset/confirm/", self._reset_confirm_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        # Logging in with a bare `email` field never actually succeeds in this
+        # app today, independent of this fix: only ModelBackend is registered
+        # in AUTHENTICATION_BACKENDS (verified directly — settings.py has no
+        # explicit setting, so Django's default applies), and it matches on
+        # USERNAME_FIELD ("username") only, so it never resolves a user from
+        # an `email` kwarg. accounts.serializers.LoginSerializer's docstring
+        # calls this out by name as "the missing-AUTHENTICATION_BACKENDS-entry
+        # half" of #1199's original bug, left deliberately unaddressed there —
+        # fixing it is out of scope for #1203 too. What's asserted below is
+        # narrower and squarely in scope: the lockout itself ("Too many failed
+        # login attempts") must be gone — proving the email-keyed rate-limit
+        # bucket was actually cleared — even though the credential check that
+        # runs after it still fails for that unrelated, pre-existing reason.
+        r = self._post_login("email", self.user.email, self.NEW_PASSWORD, "198.51.100.200")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertNotIn("Too many", str(r.json()))
+
+    def test_reset_does_not_clear_a_different_accounts_lockout(self):
+        """The clear must be scoped to the resetting user — a locked-out
+        bystander's lockout must survive an unrelated account's reset."""
+        bystander = User.objects.create_user(
+            username="lockout_bystander", email="bystander@example.com", password=self.PASSWORD
+        )
+        for i in range(5):
+            r = self._post_login("username", bystander.username, "wrong-password", f"203.0.113.{i + 1}")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        r = self.client.post("/api/v1/auth/password/reset/confirm/", self._reset_confirm_payload())
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.content)
+
+        r = self._post_login("username", bystander.username, self.PASSWORD, "203.0.113.200")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+
 class AllauthHtmlLoginPerIpThrottleTests(TestCase):
     """#1199 completeness-check BLOCKER: allauth's own HTML login view,
     ``/accounts/login/`` (registered live via ``path("accounts/",

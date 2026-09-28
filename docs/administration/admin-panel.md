@@ -119,6 +119,14 @@ These two flags — `is_site_admin` (admin panel access) and `can_access_all_con
 
 Sets `must_change_password = true` on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise.
 
+#### Clear lockout
+
+> **Added in 1.2**
+
+Clears the per-account login lockout (5 failed login attempts within 5 minutes — see [Rate limiting](../architecture/deployment.md#rate-limiting)) immediately, letting the user log in again without waiting out the rest of the 5-minute window.
+
+A successful password reset already clears this automatically, so **Clear lockout** is for the case where that isn't an option — for example the user contacts support directly instead of using the reset-password flow, or reset emails aren't reaching them. It is safe to click at any time: if the account isn't currently locked out, nothing happens.
+
 ## Invite Links tab
 
 > **Added in 1.0**

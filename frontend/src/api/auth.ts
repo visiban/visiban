@@ -132,6 +132,11 @@ export const deactivateAdminUser = (
 ) =>
   client.post<AdminUser>(`/api/v1/admin/users/${id}/deactivate/`, { transfers }).then((r) => r.data);
 
+// Clears the per-account login lockout (5 failed attempts / 5 min) early —
+// idempotent, a no-op if the account isn't currently locked out (#1203).
+export const clearAdminUserLockout = (id: number) =>
+  client.post<AdminUser>(`/api/v1/admin/users/${id}/clear-lockout/`, {}).then((r) => r.data);
+
 export const getAdminInviteLinks = () =>
   client.get<AdminInviteLink[]>("/api/v1/admin/invite-links/").then((r) => r.data);
 

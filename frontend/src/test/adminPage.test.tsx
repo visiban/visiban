@@ -36,6 +36,7 @@ const mockPatchAdminUser = vi.fn()
 const mockGetAdminInviteLinks = vi.fn()
 const mockCreateAdminInviteLink = vi.fn()
 const mockDeactivateAdminUser = vi.fn()
+const mockClearAdminUserLockout = vi.fn()
 const mockRevokeAdminInviteLink = vi.fn()
 const mockGetAdminEmailSettings = vi.fn()
 const mockPatchAdminEmailSettings = vi.fn()
@@ -50,6 +51,7 @@ vi.mock('../api/auth', () => ({
   getAdminInviteLinks: (...args: unknown[]) => mockGetAdminInviteLinks(...args),
   createAdminInviteLink: (...args: unknown[]) => mockCreateAdminInviteLink(...args),
   deactivateAdminUser: (...args: unknown[]) => mockDeactivateAdminUser(...args),
+  clearAdminUserLockout: (...args: unknown[]) => mockClearAdminUserLockout(...args),
   revokeAdminInviteLink: (...args: unknown[]) => mockRevokeAdminInviteLink(...args),
   getAdminEmailSettings: (...args: unknown[]) => mockGetAdminEmailSettings(...args),
   patchAdminEmailSettings: (...args: unknown[]) => mockPatchAdminEmailSettings(...args),
@@ -348,6 +350,36 @@ describe('AdminPage — Users tab', () => {
         { must_change_password: true }
       )
     })
+  })
+
+  it('calls clearAdminUserLockout after confirming the clear-lockout action (#1203)', async () => {
+    mockClearAdminUserLockout.mockResolvedValue(fakeAdminUsers[1])
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getAllByText('Clear lockout'))
+    const clearBtns = screen.getAllByText('Clear lockout')
+    fireEvent.click(clearBtns[0])
+
+    // The action is confirm-gated — it must not fire before the dialog is confirmed.
+    expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByText('Confirm'))
+
+    await waitFor(() => {
+      expect(mockClearAdminUserLockout).toHaveBeenCalledWith(expect.any(Number))
+    })
+  })
+
+  it('does not call clearAdminUserLockout if the confirm dialog is canceled', async () => {
+    renderAdminPage()
+    fireEvent.click(screen.getByText('Users'))
+    await waitFor(() => screen.getAllByText('Clear lockout'))
+    fireEvent.click(screen.getAllByText('Clear lockout')[0])
+
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByText('Cancel'))
+
+    expect(mockClearAdminUserLockout).not.toHaveBeenCalled()
   })
 })
 

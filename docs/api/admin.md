@@ -457,6 +457,25 @@ After a successful deactivation with transfers, `owned_boards` will be `[]` — 
 | `400 Bad Request` | A board in the `transfers` list does not belong to this user |
 | `409 Conflict` | User owns one or more boards and no `transfers` were provided |
 
+### `POST /api/v1/admin/users/{id}/clear-lockout/`
+
+Clear the target user's per-account login lockout early (#1203). The per-account `login_failed` lockout (5 failed attempts / 5 minutes — see [Rate limiting](../architecture/deployment.md#rate-limiting)) normally expires on its own; this endpoint gives a site admin a way to lift it immediately, for the case where a user can't wait it out and either can't complete a password reset (the other early-recovery path, which clears the lockout automatically) or hasn't needed to change their password at all.
+
+**Permission:** `IsSiteAdmin`.
+
+Idempotent — calling it on an account that isn't currently locked out succeeds and changes nothing. Clears both the username-keyed and the email-keyed lockout bucket, since Visiban accepts login by either identifier and the live lockout could be keyed on whichever one was actually used at login time.
+
+**Request body:** none.
+
+**Response** `200 OK` — the user object (same shape as `GET /api/v1/admin/users/`).
+
+**Errors**
+
+| Status | Body | When |
+|---|---|---|
+| `403 Forbidden` | `{"detail": "..."}` | Caller is not a site admin. |
+| `404 Not Found` | `{"detail": "User not found."}` | No user exists with that ID. |
+
 ---
 
 ## Invite links
