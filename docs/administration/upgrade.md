@@ -516,10 +516,14 @@ touched — so it is zero-downtime and requires no operator action.
       --set postgresql.securityContext.container.readOnlyRootFilesystem=false
     ```
 
-    (A full block replaces, rather than merges with, the chart default — pass
-    every key in `container` you need, not just the one you are changing, if
-    you override at the `postgresql.securityContext.container` level instead
-    of a single leaf with `--set`.)
+    Helm deep-merges nested maps, so a single-leaf `--set` like the one above
+    (or a `-f` file that sets only `readOnlyRootFilesystem`) keeps the chart's
+    other defaults (`allowPrivilegeEscalation`, `capabilities.drop`) for the
+    rest of the `container` block — you never need to repeat every key. To
+    remove a key the chart sets rather than change its value, set it to
+    `null` explicitly (`--set postgresql.securityContext.container.foo=null`);
+    an override file that simply omits a key leaves the chart default in
+    place, it does not clear it.
 
 !!! note "Scheduled jobs ship in 1.2 — off by default"
     1.2 adds a scheduler for `notify_due_soon`, `notify_stale_cards`,

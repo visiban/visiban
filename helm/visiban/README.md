@@ -124,7 +124,7 @@ writable root filesystem. `scripts/helm-structure-check.sh` asserts
 `runAsNonRoot` and a full capability drop on every workload except the
 frontend (nginx) Deployment, which does not carry this hardening yet — its
 base image's default user and writable paths have not been audited for it,
-and it is tracked as a separate follow-up.
+and it is tracked separately in #1224.
 
 ## Scheduled jobs
 

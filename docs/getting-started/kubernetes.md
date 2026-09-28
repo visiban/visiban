@@ -331,10 +331,12 @@ runs:
 - with every Linux capability dropped (`capabilities.drop: [ALL]`)
 - with no mounted ServiceAccount token (`automountServiceAccountToken: false`)
 
-Scratch space each image still needs to write — `/tmp` on every container,
-PostgreSQL's `/var/run/postgresql` socket directory, and the backend's
-`collectstatic` output (`STATIC_ROOT`) — is an `emptyDir` volume, never the
-read-only root filesystem itself.
+Scratch space each image still needs to write — `/tmp` on the backend's four
+containers and on PostgreSQL, PostgreSQL's `/var/run/postgresql` socket
+directory, and the backend's `collectstatic` output (`STATIC_ROOT`) — is an
+`emptyDir` volume, never the read-only root filesystem itself. (The bundled
+Valkey needs no `/tmp` mount — it only ever writes to `/data` and
+`/etc/valkey`, both already `emptyDir`/`ConfigMap` mounts from #1200.)
 
 The bundled Valkey's hardening (chart 0.5.0, #1200) is fixed. The backend
 Deployment's and the bundled PostgreSQL StatefulSet's (chart 0.6.0, #1210) are
@@ -372,8 +374,8 @@ drop on every rendered pod except the frontend (nginx) Deployment.
     Unlike the other workloads above, the frontend Deployment carries no
     pod- or container-level `securityContext`. Its base image's default user
     and the paths nginx writes to at runtime have not been audited for a
-    read-only root filesystem, so bringing it up to the same bar is tracked as
-    a separate follow-up rather than folded into #1210.
+    read-only root filesystem, so bringing it up to the same bar is tracked
+    separately in #1224 rather than folded into #1210.
 
 ## Network policies
 

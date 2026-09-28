@@ -32,12 +32,12 @@ spec:
       # sets postgresql.securityContext.pod / .container in their values.
       automountServiceAccountToken: false
       securityContext:
-        {{- toYaml .Values.postgresql.securityContext.pod | nindent 8 }}
+        {{- include "visiban.postgresql.securityContext.pod" (.Values.postgresql.securityContext | default dict) | nindent 8 }}
       containers:
         - name: postgresql
           image: {{ .Values.postgresql.image | quote }}
           securityContext:
-            {{- toYaml .Values.postgresql.securityContext.container | nindent 12 }}
+            {{- include "visiban.postgresql.securityContext.container" (.Values.postgresql.securityContext | default dict) | nindent 12 }}
           ports:
             - name: postgresql
               containerPort: 5432

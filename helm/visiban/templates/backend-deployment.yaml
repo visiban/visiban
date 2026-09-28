@@ -50,7 +50,7 @@ spec:
       # sets backend.securityContext.pod / .container in their values.
       automountServiceAccountToken: false
       securityContext:
-        {{- toYaml .Values.backend.securityContext.pod | nindent 8 }}
+        {{- include "visiban.backend.securityContext.pod" (.Values.backend.securityContext | default dict) | nindent 8 }}
       {{- if gt (int .Values.backendReplicaCount) 1 }}
       affinity:
         podAntiAffinity:
@@ -80,7 +80,10 @@ spec:
         # no effect on the running backend container before this change; this
         # volume only gives the command somewhere writable to point at now
         # that the root filesystem is read-only, and does not change that
-        # pre-existing behavior.
+        # pre-existing behavior. The pre-existing gap itself (Django admin's
+        # static assets likely broken on Helm installs, since the backend
+        # container never receives collectstatic's manifest) is tracked in
+        # #1228, out of scope for #1210.
         - name: static
           emptyDir: {}
         {{- if .Values.backend.mediaPersistence.enabled }}
@@ -124,7 +127,7 @@ spec:
             - name: VISIBAN_MIGRATE_LOCK_TIMEOUT
               value: {{ .Values.backend.migrate.lockTimeout | int | quote }}
           securityContext:
-            {{- toYaml .Values.backend.securityContext.container | nindent 12 }}
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -137,7 +140,7 @@ spec:
           env:
             {{- include "visiban.backendEnv" . | nindent 12 }}
           securityContext:
-            {{- toYaml .Values.backend.securityContext.container | nindent 12 }}
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -154,7 +157,7 @@ spec:
             - name: VISIBAN_ADMIN_PASSWORD_FILE
               value: /run/visiban/admin_password
           securityContext:
-            {{- toYaml .Values.backend.securityContext.container | nindent 12 }}
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: admin-password
               mountPath: /run/visiban
@@ -174,7 +177,7 @@ spec:
             - name: VISIBAN_ADMIN_PASSWORD_FILE
               value: /run/visiban/admin_password
           securityContext:
-            {{- toYaml .Values.backend.securityContext.container | nindent 12 }}
+            {{- include "visiban.backend.securityContext.container" (.Values.backend.securityContext | default dict) | nindent 12 }}
           volumeMounts:
             - name: admin-password
               mountPath: /run/visiban

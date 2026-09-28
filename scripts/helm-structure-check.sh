@@ -1040,8 +1040,9 @@ check_image_pins() {
 # next new template does not quietly regress below it.
 #
 # SCOPE: the frontend (nginx) Deployment is deliberately EXCLUDED. It was
-# already below the bar before #1210 and stays there — bringing it up is a
-# separate follow-up, not something to sweep silently into this section.
+# already below the bar before #1210 and stays there — bringing it up is
+# tracked separately in #1224, not something to sweep silently into this
+# section.
 #
 # Checked on the main render (every optional workload on, including the
 # scheduledJobs CronJobs) AND the demo render (the demo seed Job and reset
