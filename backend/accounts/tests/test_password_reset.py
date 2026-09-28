@@ -325,6 +325,27 @@ class LoginPerAccountLockoutTests(TestCase):
         self.assertNotIn(self.victim.username, detail)
         self.assertNotIn(self.victim.email, detail)
 
+    def test_many_accounts_from_one_ip_trip_the_per_ip_limit(self):
+        """Completeness-check re-check finding: allauth's per-IP rate
+        ("10/m/ip") applies here too, not just on the HTML login view — the
+        SPA endpoint now goes through the same rate-limited adapter (#1199).
+        10 failed attempts across 10 *different* accounts, all from one IP,
+        trip the per-IP bucket; an 11th attempt from that IP — even with a
+        correct password, for an account that never itself failed — is also
+        refused. This is a deliberate tradeoff to close single-IP,
+        many-account credential stuffing against the SPA; it can briefly
+        (up to the ~1-minute window) refuse a correct login sharing that IP
+        (see docs/architecture/deployment.md's shared-NAT note)."""
+        for i in range(10):
+            User.objects.create_user(username=f"perip_spauser{i}", password=self.PASSWORD)
+            r = self._post_login(f"perip_spauser{i}", "wrong-password", "10.10.10.10")
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+
+        untouched = User.objects.create_user(username="perip_spauser_untouched", password=self.PASSWORD)
+        r = self._post_login(untouched.username, self.PASSWORD, "10.10.10.10")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST, r.content)
+        self.assertIn("Too many", str(r.json()))
+
     def test_demo_mode_published_account_is_exempt_from_lockout(self):
         """#1199 gate finding: the demo account's password is published to every
         visitor, so a per-account lockout on it protects nothing and is instead a
@@ -464,7 +485,7 @@ class AllauthHtmlLoginPerIpThrottleTests(TestCase):
         # `target` specifically — it never had a failed attempt of its own.
         self.assertNotEqual(r.status_code, 302, r.content)
 
-    def test_five_failures_from_five_ips_still_locks_the_spa_account(self):
+    def test_five_failures_from_five_ips_still_locks_the_html_login_account(self):
         """The per-IP "10/m/ip" rate added alongside the per-account "/key"
         rate must not interfere with the #1199 per-account scenario: 5 failed
         attempts from 5 *different* IPs (well under the per-IP ceiling each)
@@ -476,4 +497,3 @@ class AllauthHtmlLoginPerIpThrottleTests(TestCase):
             self.assertEqual(r.status_code, 200, r.content)
         r = self._post_html_login("fiveipsuser", self.PASSWORD, "192.0.2.99")
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertNotEqual(r.status_code, 302)
