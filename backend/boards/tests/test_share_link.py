@@ -189,6 +189,19 @@ class PublicBoardEndpointTests(TestCase):
         self.assertNotIn("username", assignee)
         self.assertNotIn("email", assignee)
 
+    def test_unassigned_card_reports_null_assignee(self):
+        """#1192: Card.assignee is a SET_NULL FK — an unassigned card (the
+        common case) must serialize with `assignee: null` rather than omitting
+        the field or erroring."""
+        Card.objects.create(
+            board=self.board, column=self.col, swimlane=self.lane,
+            title="Unassigned card", priority="medium", assignee=None,
+            created_by=self.admin, position=1,
+        )
+        r = self.anon.get(self._url())
+        card = next(c for c in r.data["cards"] if c["title"] == "Unassigned card")
+        self.assertIsNone(card["assignee"])
+
     def test_no_comments_in_public_card_payload(self):
         r = self.anon.get(self._url())
         card = next(c for c in r.data["cards"] if c["title"] == "My card")

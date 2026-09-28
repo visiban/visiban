@@ -20,9 +20,44 @@ from rest_framework.views import APIView
 
 from . import broadcast as _group_broadcast
 from .models import Group, GroupFavorite, GroupLabel, GroupMembership, GroupInviteLink
-from .serializers import GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer, GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer
+from .serializers import (
+    GroupSerializer, GroupDetailSerializer, GroupLabelSerializer, GroupMembershipSerializer,
+    GroupInviteLinkSerializer, GroupInviteLinkCreateSerializer,
+    _ALLOWED_PRIORITY_SLUGS, _MAX_ALLOWED_PRIORITIES_LENGTH,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_group_allowed_priorities(value):
+    """Bound and clean a group's allowed_priorities before copying it onto a new board.
+
+    ``GroupSerializer.validate_allowed_priorities`` caps, dedupes, and validates
+    every ``allowed_priorities`` value written through the API since #1169 — but
+    a ``Group`` row saved *before* that validator existed can still hold raw,
+    unbounded, undeduped, or invalid-slug data, and ``GroupViewSet.boards()``
+    reads that field straight off the model via ``group.get_allowed_priorities()``,
+    bypassing the validator entirely (#1187). Without this, a pre-#1169 group
+    would keep propagating its bad data onto every new board created in it until
+    the group itself is next saved through ``GroupSerializer``. Not a new attack
+    surface introduced by #1169 — this is residual data hygiene on rows that
+    predate the fix, so invalid entries are silently dropped instead of raising:
+    this path creates a board, it doesn't validate a client-submitted group write.
+
+    Slicing to the cap *before* iterating (rather than after) keeps this O(cap)
+    even against a pathologically long stale row, mirroring the L1 hardening
+    note in ``GroupSerializer.validate_allowed_priorities``.
+    """
+    if not isinstance(value, list):
+        return []
+    valid = set(_ALLOWED_PRIORITY_SLUGS)
+    seen = set()
+    deduped = []
+    for p in value[:_MAX_ALLOWED_PRIORITIES_LENGTH]:
+        if isinstance(p, str) and p in valid and p not in seen:
+            seen.add(p)
+            deduped.append(p)
+    return deduped
 
 
 def _require_group_admin(user, group):
@@ -555,7 +590,11 @@ class GroupViewSet(viewsets.ModelViewSet):
                     for gl in group_labels
                 ], ignore_conflicts=True)
 
-            allowed = group.get_allowed_priorities()
+            # Sanitized rather than copied raw (#1187) — see
+            # _sanitize_group_allowed_priorities for why a raw model-level
+            # save here would bypass BoardSerializer.validate_allowed_priorities
+            # and could propagate a pre-#1169 group's unbounded/undeduped data.
+            allowed = _sanitize_group_allowed_priorities(group.get_allowed_priorities())
             if allowed != ["low", "medium", "high", "urgent"]:
                 board.allowed_priorities = allowed
                 board.save(update_fields=["allowed_priorities"])

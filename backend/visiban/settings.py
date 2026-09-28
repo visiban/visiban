@@ -680,6 +680,13 @@ REST_AUTH = {
     # SPA rather than reversing 'password_reset_confirm' (a Django built-in URL
     # name that Visiban does not register).
     "PASSWORD_RESET_SERIALIZER": "accounts.serializers.VisibanPasswordResetSerializer",
+    # dj-rest-auth's default PasswordResetConfirmSerializer.save() never clears
+    # allauth's login_failed lockout bucket — only allauth's own reset flow
+    # does that, and this endpoint doesn't go through it. Our subclass clears
+    # the lockout (both the username and email keys) after a successful reset
+    # so a locked-out user can log back in immediately instead of waiting out
+    # the window (#1203).
+    "PASSWORD_RESET_CONFIRM_SERIALIZER": "accounts.serializers.VisibanPasswordResetConfirmSerializer",
     # dj-rest-auth's default LoginSerializer.authenticate() calls Django's bare
     # authenticate(), bypassing allauth's ratelimit-consuming adapter entirely —
     # the per-account login_failed lockout below never fired on this endpoint

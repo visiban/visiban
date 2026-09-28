@@ -227,10 +227,48 @@ done
 # ---------------------------------------------------------------------------
 step "Building images from the working tree (tag $TAG)"
 # ---------------------------------------------------------------------------
-docker build -q -t "$BACKEND_IMAGE"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$BACKEND_IMAGE"  -f "$REPO_ROOT/backend/Dockerfile"  "$REPO_ROOT/backend"  >/dev/null
 ok "backend built"
-docker build -q -t "$FRONTEND_IMAGE" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
+docker build -q --build-arg "BASE_REGISTRY=${DOCKERHUB_MIRROR:-docker.io/library}" -t "$FRONTEND_IMAGE" -f "$REPO_ROOT/frontend/Dockerfile" "$REPO_ROOT/frontend" >/dev/null
 ok "frontend built"
+
+# ---------------------------------------------------------------------------
+step "Pre-pulling cluster images through DOCKERHUB_MIRROR (#1198)"
+# ---------------------------------------------------------------------------
+# DOCKERHUB_MIRROR defaults to the GitLab Dependency Proxy prefix
+# (.gitlab-ci.yml's top-level `variables:`); the dind daemon this script talks
+# to has no credentials of its own, and CI's .helm-drill-base before_script
+# logs it in to CI_DEPENDENCY_PROXY_SERVER when that's non-empty. On a project
+# with no working group Dependency Proxy (a personal-namespace fork, or a
+# project variable override), DOCKERHUB_MIRROR may instead be `docker.io` or
+# unset — pulls below just go straight to Docker Hub in that case. Locally
+# DOCKERHUB_MIRROR is unset, so this whole step is a no-op and kind/kubelet
+# fall back to pulling docker.io directly, exactly as before #1198 — no new
+# pin on a contributor's local kind/kubectl version.
+KIND_IMAGE_ARGS=()
+EXTRA_LOAD_IMAGES=()
+if [ -n "${DOCKERHUB_MIRROR:-}" ]; then
+  # Matches KUBECTL_VERSION's minor (.gitlab-ci.yml .helm-drill-base). Pinned
+  # explicitly via --image below rather than left to kind's own embedded
+  # default, so the exact tag we pull through the proxy is the one used.
+  KINDEST_NODE_TAG="${KINDEST_NODE_TAG:-v1.31.2}"
+  docker pull -q "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}"
+  docker tag "${DOCKERHUB_MIRROR}/kindest/node:${KINDEST_NODE_TAG}" "kindest/node:${KINDEST_NODE_TAG}"
+  KIND_IMAGE_ARGS=(--image "kindest/node:${KINDEST_NODE_TAG}")
+
+  # In-cluster datastore images the chart's own defaults pull: the built-in
+  # PostgreSQL StatefulSet's `postgresql.image` (values.yaml, official image —
+  # postgresql.subchartEnabled is false) and the bundled bitnami/valkey
+  # subchart's default (valkey.enabled: true). Kept in sync with those
+  # defaults by hand; both set pullPolicy: IfNotPresent, so kind-loading the
+  # exact reference here means kubelet never attempts a live pull.
+  docker pull -q "${DOCKERHUB_MIRROR}/postgres:17"
+  docker tag "${DOCKERHUB_MIRROR}/postgres:17" "postgres:17"
+  docker pull -q "${DOCKERHUB_MIRROR}/bitnami/valkey:latest"
+  docker tag "${DOCKERHUB_MIRROR}/bitnami/valkey:latest" "registry-1.docker.io/bitnami/valkey:latest"
+  EXTRA_LOAD_IMAGES=("postgres:17" "registry-1.docker.io/bitnami/valkey:latest")
+  ok "kindest/node, postgres, valkey pulled via the Dependency Proxy"
+fi
 
 # ---------------------------------------------------------------------------
 step "Creating kind cluster '$CLUSTER'"
@@ -238,7 +276,7 @@ step "Creating kind cluster '$CLUSTER'"
 kind delete cluster --name "$CLUSTER" >/dev/null 2>&1 || true
 # apiServerAddress 0.0.0.0 so the API server is reachable from outside the
 # Docker host — required under kind-in-dind, harmless locally.
-cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 120s
+cat <<EOF | kind create cluster --name "$CLUSTER" --config=- --wait 120s "${KIND_IMAGE_ARGS[@]}"
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -246,7 +284,7 @@ networking:
 EOF
 retarget_kubeconfig "$CLUSTER"
 kubectl cluster-info >/dev/null || die "the cluster came up but is not reachable from this container"
-kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" --name "$CLUSTER"
+kind load docker-image "$BACKEND_IMAGE" "$FRONTEND_IMAGE" "${EXTRA_LOAD_IMAGES[@]}" --name "$CLUSTER"
 ok "cluster up, reachable, images side-loaded"
 
 # ---------------------------------------------------------------------------

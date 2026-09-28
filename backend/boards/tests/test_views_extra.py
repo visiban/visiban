@@ -3,6 +3,7 @@ import datetime
 import io
 from unittest.mock import patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
@@ -10,7 +11,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import SiteSetting, User
 from boards.models import (
-    Board, BoardMembership, Card, CardActivity, CardMovement,
+    Board, BoardMembership, Card, CardActivity, CardAttachment, CardMovement,
     Column, Swimlane, Label,
 )
 from groups.models import Group, GroupMembership
@@ -302,6 +303,20 @@ class CardAttachmentTests(TestCase):
             {},
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_list_attachments_with_null_uploaded_by_reports_null(self):
+        """#1192: uploaded_by is a SET_NULL FK — an attachment whose uploader has
+        since been deleted must serialize with `uploaded_by: null` rather than
+        omitting the field or erroring."""
+        f = SimpleUploadedFile("orphan.txt", b"data", content_type="text/plain")
+        CardAttachment.objects.create(
+            card=self.card, file=f, filename="orphan.txt", size=4, uploaded_by=None,
+        )
+        r = self.client.get(
+            f"/api/v1/boards/{self.board.id}/cards/{self.card.id}/attachments/"
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        self.assertIsNone(r.json()[0]["uploaded_by"])
 
     def test_delete_attachment(self):
         # Upload first

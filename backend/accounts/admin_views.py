@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from boards.permissions import get_board_role
+from .adapter import clear_login_lockout
 from visiban.mail import (
     ERROR_BACKEND_PINNED,
     EmailConfigUnusable,
@@ -1030,4 +1031,42 @@ class AdminUserDeactivateView(APIView):
             target.pk, request.user.pk,
             [(t["board_id"], t["transfer_to"]) for t in transfers],
         )
+        return Response(AdminUserSerializer(target).data)
+
+
+class AdminUserClearLockoutView(APIView):
+    """POST /api/admin/users/{pk}/clear-lockout/ — clear a user's login lockout (#1203).
+
+    A locked-out user (5 failed attempts / 5 min, per account — #1199) has no
+    way to recover before the window expires on their own; a correct password
+    reset now clears this automatically (see
+    ``accounts.serializers.VisibanPasswordResetConfirmSerializer``), but that
+    still requires working email delivery and the user actually completing the
+    flow. This gives a site admin an early-recovery lever for the case where
+    neither applies — e.g. the user calls support directly.
+
+    Idempotent: clearing an account that isn't currently locked out is a
+    harmless no-op (``clear_login_lockout`` deletes cache keys that may not
+    exist), so this endpoint never needs to first check lockout state.
+    """
+
+    permission_classes = _ADMIN_PERMISSIONS
+
+    def post(self, request, pk):
+        try:
+            target = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        clear_login_lockout(request, target)
+
+        # Same user-targeted admin-action logging shape as
+        # AdminUserDeactivateView above: pk-only, no username/email (CLAUDE.md
+        # forbids logging PII), recorded so an incident retrospective can see
+        # who cleared a lockout and when.
+        logger.info(
+            "user.lockout_cleared pk=%d cleared_by=%d",
+            target.pk, request.user.pk,
+        )
+
         return Response(AdminUserSerializer(target).data)

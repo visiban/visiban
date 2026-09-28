@@ -5,6 +5,7 @@ import { listNotifications, getUnreadCount, markAllRead, markRead } from "../../
 import UserMenu from "./UserMenu";
 import { formatShortcut } from "../../utils/platform";
 import { useNavbarSearchLabel } from "../../hooks/useNavbarSearchLabel";
+import { DEMO_MARK_READ_REASON } from "../../constants/demoCopy";
 
 interface BreadcrumbItem {
   label: string;
@@ -21,6 +22,8 @@ interface Props {
 }
 
 export default function Navbar({ user, breadcrumb, onLogout }: Props) {
+  // Hosted demo (#1193): mark-read is not on DEMO_ALLOWED_WRITES.
+  const demoMode = user.demo_mode === true;
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showBell, setShowBell] = useState(false);
@@ -47,13 +50,23 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
   };
 
   const handleMarkAll = async () => {
+    if (demoMode) return;
     await markAllRead();
     setNotifications([]);
     setUnreadCount(0);
   };
 
   const handleClickNotification = async (n: Notification) => {
-    if (!n.read) {
+    // Hosted demo (#1193): clicking a notification is primarily a navigation
+    // action — the visitor asked to see the related card, not to manage read
+    // state — so the row itself stays a live link rather than becoming
+    // aria-disabled, which would also block the one way into the card from
+    // here. Marking it read is a background side effect of that click, not a
+    // control the visitor reached for; DEMO_ALLOWED_WRITES refuses it either
+    // way, so skip the request rather than let it 403 into the fallback
+    // toast for something the visitor never asked to save. See the Mark all
+    // read button below for the one explicit, standalone control here.
+    if (!n.read && !demoMode) {
       await markRead([n.id]);
       setNotifications((prev) => prev.filter((x) => x.id !== n.id));
       setUnreadCount((c) => Math.max(0, c - 1));
@@ -195,9 +208,17 @@ export default function Navbar({ user, breadcrumb, onLogout }: Props) {
               <div className="absolute right-0 top-8 w-80 bg-surface rounded-lg shadow-xl border border-line-strong z-50">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-line">
                   <span className="text-xs font-semibold text-fg-secondary">Notifications</span>
+                  {/* Hosted demo (#1193): mark-read is refused by the server
+                      fence; sub-pattern (B) — a compact panel-header button,
+                      reason folded into title + aria-label. */}
                   <button
                     onClick={handleMarkAll}
-                    className="text-xs text-info hover:text-info focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded"
+                    aria-disabled={demoMode ? true : undefined}
+                    aria-label={demoMode ? `Mark all read. ${DEMO_MARK_READ_REASON}` : undefined}
+                    title={demoMode ? `Mark all read. ${DEMO_MARK_READ_REASON}` : undefined}
+                    className={`text-xs focus:outline-none focus:ring-2 focus:ring-primary-emphasis rounded ${
+                      demoMode ? "text-fg-muted opacity-40 cursor-not-allowed" : "text-info hover:text-info"
+                    }`}
                   >
                     Mark all read
                   </button>

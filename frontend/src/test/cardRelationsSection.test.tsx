@@ -391,6 +391,42 @@ describe('CardRelationsSection — backend error codes map to copy', () => {
   })
 })
 
+describe('CardRelationsSection — hosted demo (#1193)', () => {
+  it('"+ Add relation" is aria-disabled up front, with a visible reason, and never opens the picker', async () => {
+    renderSection({ demoMode: true })
+    const addRelation = await screen.findByRole('button', { name: '+ Add relation' })
+    expect(addRelation).toHaveAttribute('aria-disabled', 'true')
+    expect(addRelation).not.toBeDisabled()
+    expect(addRelation).toHaveAccessibleDescription("This is a shared demo — card relations can't be added here.")
+    addRelation.focus()
+    expect(addRelation).toHaveFocus()
+    await userEvent.click(addRelation)
+    expect(mockAdd).not.toHaveBeenCalled()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('does not render the demo affordance for a reader (canEdit false)', async () => {
+    renderSection({ demoMode: true, canEdit: false })
+    await waitFor(() => expect(mockGet).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: '+ Add relation' })).not.toBeInTheDocument()
+  })
+
+  it('outside demo mode, still opens the picker normally (no regression)', async () => {
+    renderSection({ demoMode: false })
+    const addRelation = await screen.findByRole('button', { name: '+ Add relation' })
+    expect(addRelation).not.toHaveAttribute('aria-disabled')
+    await userEvent.click(addRelation)
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+
+  it('hides "Remove relation" outright — defensive, since no demo board can seed one today, but protects against a future seed-data change', async () => {
+    mockGet.mockResolvedValue([makeRelation()])
+    renderSection({ demoMode: true })
+    expect(await screen.findByText('Blocker card')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Remove relation/ })).not.toBeInTheDocument()
+  })
+})
+
 describe('CardRelationsSection — navigation and escape', () => {
   it('dispatches visiban:open-card when a relation title is clicked', async () => {
     mockGet.mockResolvedValue([makeRelation()])

@@ -8,7 +8,7 @@ from .admin_views import (
     AdminActionLogView, AdminSettingsView, AdminUsersView, AdminUserDetailView,
     AdminEmailSettingsView, AdminEmailTestView,
     AdminInviteLinkListCreateView, AdminInviteLinkRevokeView,
-    AdminUserDeactivateView,
+    AdminUserClearLockoutView, AdminUserDeactivateView,
 )
 
 urlpatterns = [
@@ -29,6 +29,7 @@ urlpatterns = [
     path("admin/users/", AdminUsersView.as_view()),
     path("admin/users/<int:pk>/", AdminUserDetailView.as_view()),
     path("admin/users/<int:pk>/deactivate/", AdminUserDeactivateView.as_view()),
+    path("admin/users/<int:pk>/clear-lockout/", AdminUserClearLockoutView.as_view()),
     path("admin/invite-links/", AdminInviteLinkListCreateView.as_view()),
     path("admin/invite-links/<int:pk>/", AdminInviteLinkRevokeView.as_view()),
 ]
