@@ -857,6 +857,17 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        # Issue Board Lens outbound-call log (#1061): one INFO line per GitHub/
+        # GitLab HTTP request, so admins can see the feature's upstream traffic.
+        # Configured explicitly because the root logger is unconfigured here and
+        # would otherwise drop INFO. Silent in practice unless GIT_LENS_ENABLED is
+        # on (nothing emits to it otherwise). Set GIT_LENS_OUTBOUND_LOG_LEVEL=WARNING
+        # to quiet it; the admin usage counters are unaffected.
+        "git_lens.outbound": {
+            "handlers": ["console"],
+            "level": env("GIT_LENS_OUTBOUND_LOG_LEVEL", default="INFO"),
+            "propagate": False,
+        },
     },
 }
 

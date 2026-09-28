@@ -1,0 +1,1 @@
+- Group invite-link join URLs (`/api/v1/groups/join/<token>/`) no longer get routed to a group action when the token matches an action name such as `star` or `labels`; they now always reach the join endpoint.
