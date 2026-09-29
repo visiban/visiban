@@ -224,8 +224,9 @@ cache-warm-npm:
 # ─── Shell scripts — lint ────────────────────────────────────────────────────
 #
 # shellcheck catches common shell bugs: unquoted variables, missing set -e,
-# portability issues, and incorrect conditionals. Runs on every MR that touches
-# scripts/ and always on main.
+# portability issues, and incorrect conditionals. Runs on any change to
+# scripts/*.sh, MR or main (#1266: no unconditional main fallback — nothing
+# needs this job, so a merge that didn't touch scripts/ doesn't rerun it).
 
 shellcheck:
   stage: lint
@@ -236,6 +237,8 @@ shellcheck:
     - changes:
         - scripts/*.sh
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - scripts/*.sh
   script:
     - shellcheck --severity=warning scripts/*.sh
 
@@ -243,7 +246,8 @@ shellcheck:
 #
 # hadolint enforces Dockerfile best practices (layer ordering, missing WORKDIR,
 # ADD vs COPY, etc.). DL3008 (pin apt versions) is ignored — rationale in
-# .hadolint.yaml. Runs on every MR that touches a Dockerfile and always on main.
+# .hadolint.yaml. Runs on any change to a Dockerfile, MR or main (#1266: no
+# unconditional main fallback — nothing needs this job).
 
 dockerfile-lint:
   stage: lint
@@ -255,6 +259,9 @@ dockerfile-lint:
         - "**/Dockerfile*"
         - .hadolint.yaml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - "**/Dockerfile*"
+        - .hadolint.yaml
   script:
     - hadolint --config .hadolint.yaml
         backend/Dockerfile
@@ -292,8 +299,9 @@ compose-hygiene:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
-    - changes:
+    - changes: &compose-hygiene-paths
         - docker-compose*.yml
         - scripts/check-compose-*.sh
         - nginx/app.conf.template
@@ -301,6 +309,7 @@ compose-hygiene:
         - scripts/render-nginx-hsts.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *compose-hygiene-paths
   before_script:
     - apk add --no-cache bash grep sed
   script:
@@ -320,11 +329,13 @@ backend-lint:
   extends: .pip-cache
   stage: lint
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
-    - changes:
+    - changes: &backend-lint-paths
         - backend/**/*
         - requirements*.txt
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *backend-lint-paths
   before_script:
     # Pinned: unpinned installs silently picked up ruff 0.16's much larger
     # default rule set, surfacing 600+ pre-existing findings (mostly RUF012 on
@@ -1123,8 +1134,12 @@ oidc-smoke:
 # can fail here.
 #
 # Dependency tarballs are committed under helm/visiban/charts/ so no network
-# access is required. Runs on any change to the chart or values, and always
-# on main so a bad chart never reaches the deploy stage undetected.
+# access is required. Runs on any change to the chart or values. The
+# main-branch leg reuses the same `changes: *helm-paths` filter as
+# helm-install/helm-netpol below (#1266) rather than an unconditional
+# fallback: nothing needs helm-lint, and helm-template is needed only with
+# `optional: true`, so neither has to rerun against a main commit that
+# provably didn't touch anything they check.
 
 .rules-helm: &rules-helm
   rules:
@@ -1136,6 +1151,7 @@ oidc-smoke:
         - scripts/helm-netpol-drill.sh
         - .gitlab-ci.yml
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *helm-paths
 
 helm-lint:
   stage: lint
@@ -1441,10 +1457,13 @@ frontend-lint:
     # Cap below available RAM so V8 GCs aggressively instead of OOM-killing.
     # 1500 MB caused exit 137 on the 2 GB runner; 512 MB forces earlier GC.
     NODE_OPTIONS: "--max-old-space-size=512"
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
     - changes:
         - frontend/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - frontend/**/*
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -1468,12 +1487,14 @@ gate-selftest-parity:
   stage: lint
   needs: []
   image: ${DOCKERHUB_MIRROR}/alpine:3.19
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
+      changes: &gate-selftest-parity-paths
         - .gitlab-ci.yml
         - scripts/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *gate-selftest-parity-paths
   before_script:
     - apk add --no-cache bash grep
   script:
@@ -1560,12 +1581,14 @@ serializer-ts-parity:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
-    - changes:
+    - changes: &serializer-ts-parity-paths
         - backend/**/*
         - frontend/src/types/index.ts
         - scripts/check-serializer-ts-parity.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *serializer-ts-parity-paths
   variables:
     # Schema generation only introspects serializers — Django never opens a
     # connection — so a syntactically valid DATABASE_URL is all this needs.
@@ -1697,10 +1720,15 @@ playwright-e2e:
   needs: []
   image: mcr.microsoft.com/playwright:v1.59.1-noble
   allow_failure: true
+  # No unconditional main fallback (#1266) — nothing needs this job, and it's
+  # one of the more expensive ones to run needlessly (browser image pull +
+  # full e2e suite).
   rules:
     - changes:
         - frontend/**/*
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
+        - frontend/**/*
   before_script:
     - cd frontend
     - npm ci --prefer-offline
@@ -1738,9 +1766,10 @@ ws-event-reachability:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
+      changes: &ws-event-reachability-paths
         - backend/boards/**/*
         - backend/groups/**/*
         - backend/git_lens/**/*
@@ -1750,6 +1779,7 @@ ws-event-reachability:
         - docs/api/websockets.md
         - scripts/check-ws-event-reachability.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *ws-event-reachability-paths
   script:
     # Prove the detection logic fires against known-bad input before trusting
     # this job's verdict on the real tree.
@@ -1779,9 +1809,10 @@ rbac-coverage:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
+      changes: &rbac-coverage-paths
         - backend/boards/views/**/*
         - backend/boards/models.py
         - backend/boards/permissions.py
@@ -1789,6 +1820,7 @@ rbac-coverage:
         - backend/git_lens/views.py
         - scripts/check-rbac-coverage.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *rbac-coverage-paths
   script:
     # Prove the detection logic fires against known-bad input before trusting
     # this job's verdict on the real tree.
@@ -1828,15 +1860,17 @@ broadcast-deferral:
   stage: test
   needs: []
   image: ${DOCKERHUB_MIRROR}/python:3.12-slim
+  # No unconditional main fallback (#1266) — nothing needs this job.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      changes:
+      changes: &broadcast-deferral-paths
         - backend/boards/**/*
         - backend/groups/**/*
         - backend/git_lens/**/*
         - scripts/check-broadcast-deferral.py
         - scripts/check-rbac-coverage.py
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes: *broadcast-deferral-paths
   script:
     - python scripts/check-broadcast-deferral.py --self-test
     - |
