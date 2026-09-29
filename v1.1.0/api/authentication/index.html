@@ -4653,44 +4653,74 @@
 <p><strong>Response</strong> <code>200 OK</code> on success; <code>400 Bad Request</code> with field errors on failure.</p>
 <hr />
 <h3 id="post-apiv1authpasswordchange"><code>POST /api/v1/auth/password/change/</code><a class="headerlink" href="#post-apiv1authpasswordchange" title="Permanent link">&para;</a></h3>
-<p>dj-rest-auth's stock password-change endpoint. Requires authentication. It is
-a <strong>distinct URL and request shape</strong> from <code>POST /api/v1/auth/change-password/</code>
-above — the two are not aliases and do not accept the same body.</p>
+<p>dj-rest-auth's password-change endpoint. Requires authentication (session or
+token). It is a <strong>distinct URL and request shape</strong> from
+<code>POST /api/v1/auth/change-password/</code> above — the two are not aliases and do
+not accept the same body — but since 1.2 they enforce the same rules.</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"new_password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span><span class="p">,</span><span class="w"> </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">"old_password"</span><span class="p">:</span><span class="w"> </span><span class="s2">"current-password"</span><span class="p">,</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">"new_password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span><span class="p">,</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">  </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"new-password"</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="p">}</span>
 </code></pre></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>old_password</code></td>
+<td>Yes (see below)</td>
+<td>The account's current password.</td>
+</tr>
+<tr>
+<td><code>new_password1</code></td>
+<td>Yes</td>
+<td>The new password — minimum 12 characters, plus the standard <code>AUTH_PASSWORD_VALIDATORS</code> checks (not too similar to the user's other profile fields, not a common password, not entirely numeric).</td>
+</tr>
+<tr>
+<td><code>new_password2</code></td>
+<td>Yes</td>
+<td>Must match <code>new_password1</code>.</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Changed in 1.2: <code>old_password</code> is now required</p>
+<p>Before 1.2 this endpoint did not check the current password at all — any
+authenticated caller, including one holding only a Personal Access Token,
+could change the account's password without knowing it (#1257). It now
+requires <code>old_password</code> and returns <code>400</code> if it is missing or wrong, exactly
+as <code>/auth/change-password/</code> does with <code>current_password</code>. This is a
+deliberate, security-driven exception to the rule that new request fields
+are optional: an integration that omits <code>old_password</code> must be updated to
+send it. Social-only accounts (no usable password yet) may still omit it to
+set their first password, matching <code>/auth/change-password/</code>.</p>
+</div>
 <ul>
-<li><strong>No <code>current_password</code> field, and none is checked</strong> (tracked as #1257).
-  Visiban does not set dj-rest-auth's <code>OLD_PASSWORD_FIELD_ENABLED</code> option,
-  which defaults to <code>False</code>, so this endpoint changes the password for any
-  authenticated caller without proving knowledge of the current one.
-  (<code>/auth/change-password/</code> above does require it, except for social-only
-  accounts.) A stray <code>old_password</code> field in the request body is silently
-  ignored.</li>
-<li>Minimum 8 characters — Django's default <code>MinimumLengthValidator</code>, which is
-  lower than <code>/auth/change-password/</code>'s explicit 12-character minimum
-  (tracked as #1258). The rest of <code>AUTH_PASSWORD_VALIDATORS</code> also applies
-  (not too similar to the user's other profile fields, not a common password,
-  not entirely numeric).</li>
+<li><strong>Minimum 12 characters</strong> (changed in 1.2, #1258). Previously this endpoint
+  accepted 8, Django's default. The minimum now comes from the instance-wide
+  password policy, so it matches every other password-set path.</li>
 <li>The current session is kept alive after the change (same as
   <code>/auth/change-password/</code>) — the caller is not logged out.</li>
 <li>All of the user's Personal Access Tokens are revoked on success, same as
   <code>/auth/change-password/</code> — see <a href="#personal-access-tokens">Personal Access Tokens</a>
-  above. This closes the gap #1110's security review found: dj-rest-auth's
-  stock view left tokens alive after a password change, so the "rotate your
-  password to cut off a leaked token" guarantee held only for whichever of
-  the two endpoints the caller happened to use.</li>
-<li><strong>Does not clear <code>must_change_password</code></strong> (tracked as #1259). Unlike
-  <code>/auth/change-password/</code>, a successful call here leaves a pending
-  forced-password-change flag set — the caller remains blocked from every
-  other endpoint until they also call <code>/auth/change-password/</code> (or an admin
-  clears the flag). Use <code>/auth/change-password/</code> to satisfy a forced password
+  above.</li>
+<li><strong>Clears <code>must_change_password</code> on success</strong> (changed in 1.2, #1259), same
+  as <code>/auth/change-password/</code>. Either endpoint satisfies a forced password
   change.</li>
 </ul>
 <p><strong>Response</strong> <code>200 OK { "detail": "New password has been saved." }</code> on success.</p>
 <p>Validation errors use DRF's per-field shape, not <code>/auth/change-password/</code>'s
 <code>{"detail": ...}</code> shape:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"The two password fields didn’t match."</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"old_password"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Your old password was entered incorrectly. Please enter it again."</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"new_password2"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"This password is too short. It must contain at least 12 characters."</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -4702,7 +4732,7 @@ above — the two are not aliases and do not accept the same body.</p>
 <tbody>
 <tr>
 <td><code>400 Bad Request</code></td>
-<td><code>new_password1</code> / <code>new_password2</code> missing, mismatched, or failing an <code>AUTH_PASSWORD_VALIDATORS</code> check</td>
+<td><code>old_password</code> missing or incorrect; <code>new_password1</code> / <code>new_password2</code> missing, mismatched, or failing an <code>AUTH_PASSWORD_VALIDATORS</code> check</td>
 </tr>
 <tr>
 <td><code>401 Unauthorized</code></td>
@@ -4712,12 +4742,10 @@ above — the two are not aliases and do not accept the same body.</p>
 </table>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Prefer <code>POST /api/v1/auth/change-password/</code> for anything user-facing —
-it enforces the current-password check and the 12-character minimum, and
-clears <code>must_change_password</code>. This endpoint exists so that a client
-which discovers it from the OpenAPI schema still gets correct
-token-revocation behavior, not as the recommended integration point. The
-three gaps above are tracked as #1257, #1258, and #1259.</p>
+<p>Prefer <code>POST /api/v1/auth/change-password/</code> for anything user-facing — the
+SPA uses it, and its single-sentence <code>{"detail": ...}</code> errors are simpler to
+display. This endpoint is kept for clients that discover it from the OpenAPI
+schema; since 1.2 it is equally safe to use.</p>
 </div>
 <hr />
 <h2 id="choose-username">Choose username<a class="headerlink" href="#choose-username" title="Permanent link">&para;</a></h2>
@@ -4727,7 +4755,7 @@ when <code>must_change_username</code> is <code>true</code> — the user's previ
 auto-generated by allauth and collided (case-insensitively) with another
 account during the uniqueness enforcement migration.</p>
 <p><strong>Request</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"desired-username"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"desired-username"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div></p>
 <ul>
 <li>Username must be 1-150 characters; only letters, digits, and <code>@/./ +/-/_</code></li>
@@ -4832,15 +4860,15 @@ actually bootstraps from) returns the identical shape — both are served by
 </tbody>
 </table>
 <p><strong>Example response (excerpt)</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="p">{</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice@example.com"</span><span class="p">,</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="p">,</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">  </span><span class="nt">"timezone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"America/New_York"</span><span class="p">,</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">  </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="p">{</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="p">,</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice@example.com"</span><span class="p">,</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span><span class="nt">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Alice Smith"</span><span class="p">,</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="p">,</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span><span class="nt">"timezone"</span><span class="p">:</span><span class="w"> </span><span class="s2">"America/New_York"</span><span class="p">,</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">  </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="p">}</span>
 </code></pre></div>
 <h3 id="patch-apiv1authme"><code>PATCH /api/v1/auth/me/</code><a class="headerlink" href="#patch-apiv1authme" title="Permanent link">&para;</a></h3>
 <p>Update the authenticated user's profile. All fields are optional.</p>
@@ -4879,12 +4907,12 @@ actually bootstraps from) returns the identical shape — both are served by
 </table>
 <p><strong><code>default_board_id</code></strong> — set the board to redirect to after login. Accepts a board <code>id</code> (integer) or <code>null</code> to clear. The value must be a board the requesting user is a member of; supplying a foreign board ID returns <code>400 Bad Request</code>. This prevents enumeration of boards the user has no access to.</p>
 <p><strong>Example — set theme</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"theme"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dark"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Example — set default board</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="err">PATCH</span><span class="w"> </span><span class="err">/api/v</span><span class="mi">1</span><span class="err">/au</span><span class="kc">t</span><span class="err">h/me/</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"default_board_id"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><strong>Errors</strong></p>
 <table>
@@ -4914,14 +4942,14 @@ actually bootstraps from) returns the identical shape — both are served by
 <h3 id="get-apiv1authsite-config"><code>GET /api/v1/auth/site-config/</code><a class="headerlink" href="#get-apiv1authsite-config" title="Permanent link">&para;</a></h3>
 <p>Returns site-level configuration. This endpoint is public — no authentication required.</p>
 <p><strong>Response</strong>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="p">{</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">"registration_open"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">"registration_mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span><span class="nt">"demo_mode"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="w">  </span><span class="nt">"demo_login"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="w">  </span><span class="nt">"demo_reset_schedule"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a><span class="w">  </span><span class="nt">"demo_next_reset_at"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a><span class="p">}</span>
 </code></pre></div></p>
 <table>
 <thead>
@@ -5010,14 +5038,14 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="p">{</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
-<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"key"</span><span class="p">:</span><span class="w"> </span><span class="s2">"9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b"</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p>The returned <code>key</code> is an API token that can be used immediately in the <code>Authorization: Token &lt;key&gt;</code> header.</p>
 <h4 id="invite-only-mode">Invite-only mode<a class="headerlink" href="#invite-only-mode" title="Permanent link">&para;</a></h4>
@@ -5059,12 +5087,12 @@ actually bootstraps from) returns the identical shape — both are served by
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
-<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
-<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">  </span><span class="nt">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"newuser@example.com"</span><span class="p">,</span>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="w">  </span><span class="nt">"password1"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="w">  </span><span class="nt">"password2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"securepassword123"</span><span class="p">,</span>
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a><span class="w">  </span><span class="nt">"invite_token"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kT2vNa8f3b1c9e2d7f4a0b5c6d8e1f2a3b4c5d6e7"</span>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><strong>Response</strong> <code>201 Created</code> — same shape as open mode: <code>{ "key": "&lt;token&gt;" }</code>.</p>
 <p><strong>Errors</strong></p>
@@ -5139,7 +5167,7 @@ actually bootstraps from) returns the identical shape — both are served by
 <tr>
 <td><code>403 Forbidden</code> (<code>must_change_password</code>)</td>
 <td>Admin set a forced password-change flag on this account</td>
-<td>Call <code>POST /api/v1/auth/change-password/</code> to clear the flag; all other endpoints are blocked until then</td>
+<td>Change the password via <code>POST /api/v1/auth/change-password/</code> (or <code>POST /api/v1/auth/password/change/</code>) to clear the flag; all other endpoints are blocked until then</td>
 </tr>
 <tr>
 <td><code>403 Forbidden</code> (<code>must_change_username</code>)</td>

@@ -4570,6 +4570,27 @@ restarting those containers has no effect on this: nginx's config is a bind-moun
 this repo's <code>init-prod.sh</code> renders once, on the host, not something baked into the nginx
 image the containers pull.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">12-character password minimum now applies to every password-set path</p>
+<p>1.2 raises Django's <code>MinimumLengthValidator</code> from its default of 8 to 12 characters
+(<code>PASSWORD_MIN_LENGTH</code> in <code>visiban/settings.py</code>), so the 12-character policy that the
+in-app change-password form and the admin "create user" form already enforced now also
+applies to self-registration, invite-link registration, the password-reset link,
+<code>POST /api/v1/auth/password/change/</code>, the Django admin's set-password form, and the
+interactive <code>createsuperuser</code> / <code>changepassword</code> management commands (#1258). It is not configurable.
+<strong>No one is locked out:</strong> the rule is checked only when a password is <em>set</em>, so existing
+accounts with a shorter password keep logging in and are asked for 12+ characters only the
+next time they change it. No migration is involved.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title"><code>POST /api/v1/auth/password/change/</code> now requires <code>old_password</code></p>
+<p>This dj-rest-auth endpoint previously changed the password for any authenticated caller
+without checking the current one (#1257). Any script or integration that calls it must now
+send <code>old_password</code>; requests without it return <code>400</code>. The endpoint also now clears a
+pending forced password change on success (#1259). The Visiban web app does not use this
+endpoint and is unaffected. See
+<a href="../../api/authentication/#post-apiv1authpasswordchange">Authentication API</a>.</p>
+</div>
 <h3 id="upgrading-to-11x">Upgrading to 1.1.x<a class="headerlink" href="#upgrading-to-11x" title="Permanent link">&para;</a></h3>
 <div class="admonition warning">
 <p class="admonition-title">Removed env-var aliases — rename before upgrading</p>
