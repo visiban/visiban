@@ -170,6 +170,12 @@ mirror) to fix those. `BASE_REGISTRY`/script usages fall back to `docker.io/libr
 automatically with no configuration needed. See
 [CI Runners](ci-runners.md#dependency-proxy) point 4 for the full explanation.
 
-**Not yet covered:** the arm64 release jobs (`.arm64-docker-push-base`,
-`backend-docker-push-arm64`, `frontend-docker-push-arm64`, #1084) still pull Docker Hub images
-directly — deferred to **#1204**, to apply once !964 (which rewrites those jobs) merges.
+**arm64 release jobs (#1204):** the arm64 release jobs (`.arm64-docker-push-base`,
+`backend-docker-push-arm64`, `frontend-docker-push-arm64`, #1084) were deliberately left out of
+the initial #1198 rollout — they were being rewritten by the separate !964, and !964 has since
+merged. Both jobs' `docker build` calls now pass the same
+`--build-arg BASE_REGISTRY="${DOCKERHUB_MIRROR:-docker.io/library}"` the amd64 kaniko legs use.
+Because these run on a real Docker daemon (shell executor) rather than kaniko, they need their
+own `docker login "$CI_DEPENDENCY_PROXY_SERVER"` in `before_script` (guarded on that variable
+being non-empty) and a matching `docker logout` in `after_script` — see
+[CI Runners](ci-runners.md#dependency-proxy) for the full detail.
