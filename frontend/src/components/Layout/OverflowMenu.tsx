@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { MENU_ITEM_FOCUS_RING, MENU_ITEM_FOCUS_RING_DANGER } from "../Common/menuItemFocusRing";
 
 export interface OverflowItem {
   /** Stable identity (used for key + for test hooks). */
@@ -204,10 +205,10 @@ export default function OverflowMenu({
               setOpen(false);
             }}
             onKeyDown={(e) => handleItemKeyDown(e, i)}
-            className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`w-full flex items-center gap-3 px-3 py-1.5 text-sm transition disabled:opacity-40 disabled:cursor-not-allowed ${
               item.danger
-                ? "text-danger hover:bg-danger-bg/20 focus:bg-danger-bg/20"
-                : "text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover"
+                ? `text-danger hover:bg-danger-bg/20 focus:bg-danger-bg/20 ${MENU_ITEM_FOCUS_RING_DANGER}`
+                : `text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover ${MENU_ITEM_FOCUS_RING}`
             }`}
           >
             {item.icon !== undefined && (

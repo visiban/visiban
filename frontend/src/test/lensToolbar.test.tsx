@@ -71,6 +71,17 @@ describe('LensToolbar', () => {
     expect(onToggleLayout).toHaveBeenCalled()
   })
 
+  it('Collapse menu menuitems carry a visible keyboard-focus ring (#1234)', async () => {
+    // Roving-tabindex menuitems are real tab stops; `focus:bg-surface-hover`
+    // alone is invisible to a keyboard user who arrowed onto an item without
+    // touching the mouse.
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'Collapse menu' }))
+    expect(screen.getByRole('menuitem', { name: 'Hide all swimlanes' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+    expect(screen.getByRole('menuitem', { name: 'Show all swimlanes' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+  })
+
   describe('responsive fold (#1064 parity)', () => {
     it('shows the layout toggle inline and no kebab at lg and above', () => {
       setup()

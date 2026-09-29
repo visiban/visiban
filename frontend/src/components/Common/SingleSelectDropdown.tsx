@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useDropdownEscape } from "../../hooks/useDropdownEscape";
+import { MENU_ITEM_FOCUS_RING } from "./menuItemFocusRing";
 
 export interface SingleSelectDropdownProps<T extends string | number> {
   label: string;
@@ -167,8 +168,10 @@ export default function SingleSelectDropdown<T extends string | number>({
             // focus — `hover:` alone is invisible to a keyboard user who
             // arrowed here without touching the mouse. Pre-existing gap,
             // fixed here because #1140 newly routes modal-hosted dropdowns
-            // through this primitive.
-            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition focus:outline-none focus:ring-2 focus:ring-primary-emphasis ${
+            // through this primitive. Shared with every other menuitem site
+            // via MENU_ITEM_FOCUS_RING (see menuItemFocusRing.ts) so it can't
+            // drift a third time (#1234).
+            className={`w-full text-left px-3 py-1.5 hover:bg-surface-hover text-sm transition ${MENU_ITEM_FOCUS_RING} ${
               selected === opt.value ? "text-info" : "text-fg-secondary"
             }`}
           >

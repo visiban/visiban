@@ -72,6 +72,7 @@ import { todayInTimezone } from "../../utils/date";
 import { useGridOverlayPref } from "../../hooks/useGridOverlayPref";
 import { NONE_OVERLAY_ID, getGridOverlay, listGridOverlays, resolveGridOverlayId } from "../../gridOverlays/registry";
 import SingleSelectDropdown from "../Common/SingleSelectDropdown";
+import { MENU_ITEM_FOCUS_RING } from "../Common/menuItemFocusRing";
 import { buildGridOverlayState } from "../../gridOverlays/slot";
 import GridOverlayLegend from "./GridOverlay/GridOverlayLegend";
 import { filterCards, hasActiveClientFilters } from "../../utils/filterCards";
@@ -1868,7 +1869,7 @@ export default function BoardView({ onBoardDeleted, userTimezone = "", userDateF
                     onClick();
                     close();
                   }}
-                  className="w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover focus:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  className={`w-full text-left px-3 py-1.5 text-sm text-fg-secondary hover:bg-surface-hover focus:bg-surface-hover transition disabled:opacity-40 disabled:cursor-not-allowed ${MENU_ITEM_FOCUS_RING}`}
                 >
                   {label}
                 </button>

@@ -1118,6 +1118,16 @@ describe('BoardView', () => {
       expect(screen.getByRole('menuitem', { name: 'Show all columns' })).toBeDisabled()
       expect(screen.getByRole('menuitem', { name: 'Show everything' })).toBeDisabled()
     })
+
+    it('menuitems carry a visible keyboard-focus ring (#1234)', async () => {
+      // Roving-tabindex menuitems are real tab stops; `focus:bg-surface-hover`
+      // alone is invisible to a keyboard user who arrowed onto an item
+      // without touching the mouse.
+      render(<BoardView {...defaultProps()} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse menu' }))
+      expect(screen.getByRole('menuitem', { name: 'Hide all swimlanes' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+      expect(screen.getByRole('menuitem', { name: 'Hide everything' }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
+    })
   })
 
   describe('Overflow kebab + . shortcut (#853)', () => {
@@ -1138,6 +1148,12 @@ describe('BoardView', () => {
       render(<BoardView currentUser={null} />)
       await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
       expect(screen.queryByRole('menuitem', { name: /Replay onboarding tour/ })).not.toBeInTheDocument()
+    })
+
+    it('overflow menuitems carry a visible keyboard-focus ring (#1234)', async () => {
+      render(<BoardView currentUser={fakeUser} />)
+      await userEvent.setup().click(screen.getByRole('button', { name: 'More board actions' }))
+      expect(screen.getByRole('menuitem', { name: /Export board/ }).className).toMatch(/focus:ring-2 focus:ring-primary-emphasis/)
     })
 
     it('. key opens the overflow menu when no input is focused', () => {
