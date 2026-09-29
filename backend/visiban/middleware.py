@@ -1,3 +1,5 @@
+import ipaddress
+import logging
 import os
 
 from django.conf import settings
@@ -12,14 +14,15 @@ from visiban.demo import (
 )
 from visiban.utils import get_client_ip
 
+logger = logging.getLogger(__name__)
 
 # Addresses trusted by default when no DJANGO_ADMIN_ALLOWED_IPS env var is set.
 # Loopback addresses only — matches both IPv4 and the IPv6 loopback.
-_LOOPBACK_IPS = {"127.0.0.1", "::1"}
+_LOOPBACK_IPS = ("127.0.0.1", "::1")
 
 
 class AdminIPRestrictionMiddleware:
-    """Block access to /admin/ for any IP not in the allowlist.
+    """Block access to /admin/ for any IP (or CIDR range) not in the allowlist.
 
     In DEBUG mode all IPs are allowed so local development is not affected.
     In production the allowlist is populated from the DJANGO_ADMIN_ALLOWED_IPS
@@ -29,27 +32,70 @@ class AdminIPRestrictionMiddleware:
     This provides defence-in-depth: the Nginx config already blocks external
     access to /admin/ at the network layer, but this middleware ensures that
     even if Nginx is misconfigured or bypassed the endpoint remains locked down.
+
+    Entries are parsed as IP *networks* (``ipaddress.ip_network(..., strict=False)``),
+    not exact strings: the Helm chart feeds the same
+    ``backend.settings.adminAllowedIPs`` value to both this middleware and the
+    frontend Nginx allowlist (`frontend-configmap.yaml`), and Nginx's
+    `geo`/`allow` directives already accept CIDR ranges there. A CIDR entry
+    that passes Nginx but is then rejected here (exact string match only) is a
+    silent misconfiguration that fails closed — the request is blocked rather
+    than leaked, but the allowlisted admin access an operator configured
+    simply does not work. Parsing as a network makes a bare IP and a CIDR
+    range behave identically (`ip_network("10.0.0.1", strict=False)` is a
+    single-address /32 or /128 network), so this is a strict superset of the
+    old exact-match behaviour.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
+        # Parsed once at process start, not per request: the env var does not
+        # change at runtime, and re-parsing on every /admin/ request would be
+        # pure waste on a hot path that already has to run before every other
+        # check.
+        self._allowed_networks = self._parse_allowed_networks()
+
+    @staticmethod
+    def _parse_allowed_networks():
+        allowed_ips_env = os.environ.get("DJANGO_ADMIN_ALLOWED_IPS", "")
+        entries = [ip.strip() for ip in allowed_ips_env.split(",") if ip.strip()]
+        if not entries:
+            entries = list(_LOOPBACK_IPS)
+
+        networks = []
+        for entry in entries:
+            try:
+                networks.append(ipaddress.ip_network(entry, strict=False))
+            except ValueError:
+                # Logged once at startup, and deliberately WITHOUT any
+                # per-request client IP — this is the operator-supplied
+                # DJANGO_ADMIN_ALLOWED_IPS config value, not request data, so
+                # logging it here does not log a client IP.
+                logger.warning(
+                    "Ignoring invalid DJANGO_ADMIN_ALLOWED_IPS entry: %r", entry
+                )
+        return networks
 
     def __call__(self, request):
         if request.path.startswith("/admin/") and not getattr(settings, "DEBUG", False):
-            allowed_ips_env = os.environ.get("DJANGO_ADMIN_ALLOWED_IPS", "")
-            if allowed_ips_env.strip():
-                allowed_ips = {ip.strip() for ip in allowed_ips_env.split(",") if ip.strip()}
-            else:
-                allowed_ips = _LOOPBACK_IPS
-
             client_ip = get_client_ip(request)
-            if client_ip not in allowed_ips:
+            if not self._is_allowed(client_ip):
                 return HttpResponseForbidden(
                     "Access to the admin interface is restricted. "
                     "Set DJANGO_ADMIN_ALLOWED_IPS to grant access."
                 )
 
         return self.get_response(request)
+
+    def _is_allowed(self, client_ip: str) -> bool:
+        try:
+            address = ipaddress.ip_address(client_ip)
+        except ValueError:
+            # An unparseable client IP (e.g. get_client_ip()'s "unknown"
+            # fallback, or a malformed X-Forwarded-For entry) fails closed
+            # rather than being compared against the allowlist as a string.
+            return False
+        return any(address in network for network in self._allowed_networks)
 
 
 # ---------------------------------------------------------------------------

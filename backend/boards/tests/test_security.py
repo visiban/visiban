@@ -81,11 +81,18 @@ class AdminIPRestrictionMiddlewareTests(TestCase):
 
     @override_settings(DEBUG=False)
     def test_custom_allowed_ips_env_var(self):
-        """DJANGO_ADMIN_ALLOWED_IPS overrides the default loopback-only set."""
+        """DJANGO_ADMIN_ALLOWED_IPS overrides the default loopback-only set.
+
+        The env var is parsed once in __init__ (#1274), so the middleware
+        instance must be constructed *inside* the patched environment — a
+        pre-existing instance (like self.middleware from setUp) would keep
+        its already-parsed allowlist.
+        """
         request = self.factory.get("/admin/")
         request.META["REMOTE_ADDR"] = "10.10.1.5"
         with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.10.1.5,10.10.1.6"}):
-            response = self.middleware(request)
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
         self.assertEqual(response.status_code, 200)
 
     @override_settings(DEBUG=False)
@@ -93,7 +100,109 @@ class AdminIPRestrictionMiddlewareTests(TestCase):
         request = self.factory.get("/admin/")
         request.META["REMOTE_ADDR"] = "10.10.1.99"
         with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.10.1.5,10.10.1.6"}):
-            response = self.middleware(request)
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 403)
+
+    # ------------------------------------------------------------------
+    # CIDR entries (#1274) — Nginx already accepts CIDRs for the same
+    # backend.settings.adminAllowedIPs value, so the Django middleware must
+    # too, for both IPv4 and IPv6.
+    # ------------------------------------------------------------------
+
+    @override_settings(DEBUG=False)
+    def test_cidr_ipv4_entry_matches_address_in_range(self):
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "10.0.5.17"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.0/8"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(DEBUG=False)
+    def test_cidr_ipv4_entry_rejects_address_outside_range(self):
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "203.0.113.42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.0.0.0/8"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(DEBUG=False)
+    def test_cidr_ipv6_entry_matches_address_in_range(self):
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "2001:db8::42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "2001:db8::/32"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(DEBUG=False)
+    def test_cidr_ipv6_entry_rejects_address_outside_range(self):
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "2001:db9::42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "2001:db8::/32"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(DEBUG=False)
+    def test_mixed_single_ip_and_cidr_entries(self):
+        """Single IPs and CIDR ranges can be mixed in the same env var."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "192.168.42.100"
+        with patch.dict(
+            os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "10.10.1.5,192.168.42.0/24"}
+        ):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(DEBUG=False)
+    def test_invalid_entry_is_ignored_not_fatal(self):
+        """An unparseable entry is logged and skipped; valid entries still work."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "10.10.1.5"
+        with patch.dict(
+            os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "not-an-ip,10.10.1.5"}
+        ):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(DEBUG=False)
+    def test_invalid_entry_alone_falls_back_to_deny(self):
+        """An allowlist consisting only of invalid entries denies everything."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "127.0.0.1"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": "not-an-ip"}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(DEBUG=False)
+    def test_unparseable_client_ip_denied(self):
+        """A client IP that isn't a valid address fails closed, not open."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "unknown"
+        response = self.middleware(request)
+        self.assertEqual(response.status_code, 403)
+
+    @override_settings(DEBUG=False)
+    def test_empty_env_var_defaults_to_loopback(self):
+        """An empty (but set) DJANGO_ADMIN_ALLOWED_IPS still defaults to loopback only."""
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "127.0.0.1"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": ""}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
+        self.assertEqual(response.status_code, 200)
+
+        request = self.factory.get("/admin/")
+        request.META["REMOTE_ADDR"] = "203.0.113.42"
+        with patch.dict(os.environ, {"DJANGO_ADMIN_ALLOWED_IPS": ""}):
+            middleware = AdminIPRestrictionMiddleware(_make_response)
+            response = middleware(request)
         self.assertEqual(response.status_code, 403)
 
     # ------------------------------------------------------------------
