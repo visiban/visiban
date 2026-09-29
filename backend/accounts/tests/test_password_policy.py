@@ -9,6 +9,9 @@ rules, and pin the 12-character minimum on every other password-set path that
 runs AUTH_PASSWORD_VALIDATORS.
 """
 
+from unittest import mock
+
+from dj_rest_auth.app_settings import api_settings
 from django.conf import settings
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
@@ -85,10 +88,17 @@ class DjRestAuthPasswordChangeOldPasswordTests(APITestCase):
 
     def test_enforced_even_if_the_rest_auth_flag_is_turned_off(self):
         """The serializer forces the check; a REST_AUTH edit cannot reopen #1257."""
-        rest_auth = {**settings.REST_AUTH, "OLD_PASSWORD_FIELD_ENABLED": False}
-        with self.settings(REST_AUTH=rest_auth):
+        # dj-rest-auth reads REST_AUTH once at import and ignores setting_changed,
+        # so override_settings() would never reach the serializer — patch the
+        # already-loaded api_settings object instead.
+        with mock.patch.object(api_settings, "OLD_PASSWORD_FIELD_ENABLED", False):
             r = self.client.post(DJ_URL, _dj_body(TWELVE, old="not-the-password"))
-        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("old_password", r.json())
+            r = self.client.post(DJ_URL, _dj_body(TWELVE))
+            self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(CURRENT))
 
     def test_social_only_account_may_set_first_password_without_old(self):
         """Matches ChangePasswordView: no usable password means nothing to prove."""
