@@ -953,7 +953,19 @@ function UsersTab({ currentUser }: { currentUser: User }) {
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [offboardingUser, setOffboardingUser] = useState<AdminUser | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Generic success feedback for row actions that need to confirm they worked
+  // (currently only Restart onboarding tour) — auto-clears like the
+  // self-service confirmation in SettingsPage's tour-restart handler.
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const actionMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-user in-flight guard for the tour-restart action, so a slow request
+  // can't be fired twice for the same user from a stray double-click.
+  const [restartingTourIds, setRestartingTourIds] = useState<Set<number>>(new Set());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => { if (actionMessageTimerRef.current) clearTimeout(actionMessageTimerRef.current); };
+  }, []);
 
   const fetchUsers = useCallback(
     async (searchVal: string, offsetVal: number) => {
@@ -1073,6 +1085,34 @@ function UsersTab({ currentUser }: { currentUser: User }) {
     );
   };
 
+  const handleRestartTour = async (user: AdminUser) => {
+    if (restartingTourIds.has(user.id)) return;
+    setActionError(null);
+    setActionMessage(null);
+    setRestartingTourIds((prev) => new Set(prev).add(user.id));
+    try {
+      const updated = await patchAdminUser(user.id, { has_completed_tour: false });
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
+      setActionMessage(
+        `Tour will restart for ${user.display_name || user.username} on their next visit to a board.`
+      );
+      if (actionMessageTimerRef.current) clearTimeout(actionMessageTimerRef.current);
+      actionMessageTimerRef.current = setTimeout(() => {
+        setActionMessage(null);
+        actionMessageTimerRef.current = null;
+      }, 4000);
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: { detail?: string } } }).response?.data;
+      setActionError(data?.detail ?? "Action failed. Please try again.");
+    } finally {
+      setRestartingTourIds((prev) => {
+        const next = new Set(prev);
+        next.delete(user.id);
+        return next;
+      });
+    }
+  };
+
   const totalPages = Math.ceil(total / pageSize);
   const currentPage = pageSize > 0 ? Math.floor(offset / pageSize) + 1 : 1;
 
@@ -1098,6 +1138,9 @@ function UsersTab({ currentUser }: { currentUser: User }) {
 
       {actionError && (
         <p className="text-sm text-danger">{actionError}</p>
+      )}
+      {actionMessage && (
+        <p className="text-sm text-success">{actionMessage}</p>
       )}
 
       {loading ? (
@@ -1167,14 +1210,14 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           u.is_active ? (
                             <button
                               onClick={() => handleDeactivate(u)}
-                              className="text-xs text-fg-tertiary hover:text-danger transition"
+                              className="text-xs text-fg-tertiary hover:text-danger transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                             >
                               Deactivate
                             </button>
                           ) : (
                             <button
                               onClick={() => applyPatch(u.id, { is_active: true })}
-                              className="text-xs text-fg-tertiary hover:text-success transition"
+                              className="text-xs text-fg-tertiary hover:text-success transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                             >
                               Reactivate
                             </button>
@@ -1186,7 +1229,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           u.is_site_admin ? (
                             <button
                               onClick={() => handleDemote(u)}
-                              className="text-xs text-fg-tertiary hover:text-warning transition"
+                              className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-danger-emphasis"
                             >
                               Demote admin
                             </button>
@@ -1196,7 +1239,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                                 `Grant site admin to ${u.display_name || u.username}? They will have full access to this admin panel.`,
                                 () => applyPatch(u.id, { is_site_admin: true })
                               )}
-                              className="text-xs text-fg-tertiary hover:text-info transition"
+                              className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                             >
                               Make admin
                             </button>
@@ -1208,7 +1251,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           <button
                             onClick={() => handleRevokeContentAccess(u)}
                             title="Revoke access to all boards and groups"
-                            className="text-xs text-fg-tertiary hover:text-warning transition"
+                            className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                           >
                             Revoke all-content
                           </button>
@@ -1216,7 +1259,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                           <button
                             onClick={() => handleGrantContentAccess(u)}
                             title="Grants read/write access to all boards and groups regardless of membership"
-                            className="text-xs text-fg-tertiary hover:text-accent-violet transition"
+                            className="text-xs text-fg-tertiary hover:text-accent-violet transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                           >
                             Grant all-content
                           </button>
@@ -1226,23 +1269,27 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                         {!u.must_change_password && (
                           <button
                             onClick={() => applyPatch(u.id, { must_change_password: true })}
-                            className="text-xs text-fg-tertiary hover:text-warning transition"
+                            className="text-xs text-fg-tertiary hover:text-warning transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                           >
                             Force reset
                           </button>
                         )}
 
-                        {/* Reset onboarding tour (#1280) — mirrors the Force
+                        {/* Restart onboarding tour (#1280) — mirrors the Force
                             reset pattern above: hidden once the user is
                             already in the target state (tour not completed),
-                            since there's nothing left to reset. */}
+                            since there's nothing left to reset. Copy matches
+                            the self-service "Restart onboarding tour" button
+                            in SettingsPage.tsx, per the shared-copy rule in
+                            frontend/CLAUDE.md. */}
                         {u.has_completed_tour && (
                           <button
-                            onClick={() => applyPatch(u.id, { has_completed_tour: false })}
+                            onClick={() => handleRestartTour(u)}
+                            disabled={restartingTourIds.has(u.id)}
                             title="Show the onboarding tour again the next time this user opens a board"
-                            className="text-xs text-fg-tertiary hover:text-info transition"
+                            className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis disabled:opacity-40 disabled:cursor-not-allowed"
                           >
-                            Reset onboarding tour
+                            {restartingTourIds.has(u.id) ? "Restarting…" : "Restart onboarding tour"}
                           </button>
                         )}
 
@@ -1253,7 +1300,7 @@ function UsersTab({ currentUser }: { currentUser: User }) {
                         <button
                           onClick={() => handleClearLockout(u)}
                           title="Clear this user's login lockout, if they have one, so they can log in immediately"
-                          className="text-xs text-fg-tertiary hover:text-info transition"
+                          className="text-xs text-fg-tertiary hover:text-info transition rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis"
                         >
                           Clear lockout
                         </button>

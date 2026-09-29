@@ -126,11 +126,11 @@ These two flags — `is_site_admin` (admin panel access) and `can_access_all_con
 
 Sets `must_change_password = true` on the user. The next time they log in, they are presented with a password-change dialog before accessing the application. Useful after a suspected credential compromise.
 
-#### Reset onboarding tour
+#### Restart onboarding tour
 
 > **Added in 1.2**
 
-Clears `has_completed_tour` for a user, so they see the [onboarding tour](../getting-started/onboarding-tour.md) again the next time they open a board. Only shown when the user has already completed the tour — there is nothing to reset otherwise. No data is changed beyond the flag.
+Clears `has_completed_tour` for a user, so they see the [onboarding tour](../getting-started/onboarding-tour.md) again the next time they open a board — the admin-initiated equivalent of the self-service **Restart onboarding tour** button in Settings → Behavior. Only shown when the user has already completed the tour — there is nothing to reset otherwise. No data is changed beyond the flag.
 
 #### Clear lockout
 

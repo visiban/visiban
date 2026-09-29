@@ -42,6 +42,12 @@ Three variants — use no others:
 
 **Why `--button-primary` is a separate token from `--primary`:** CTAs use `blue-900` (`#1e3a8a`, 10.36:1 on white) in light mode for comfortable AAA contrast, while `--primary` stays `blue-600` for brand-tint surfaces (avatars, active tabs, toggle tracks, saved-filter tabs). Do not consolidate these back into a single token — issue #855 intentionally split them so primary CTAs read as strong actions without desaturating the app's blue accents. Dark mode assigns both tokens the same blue-600 value; the split only matters on light backgrounds. Never use `bg-primary` on a button-shaped element, and never use `text-fg` on a `bg-button-primary` fill — `text-on-primary` is the only permitted text color on primary CTAs.
 
+- **Every per-row text-button action in an admin table must carry the full button compliance set — `rounded focus:outline-none focus:ring-2 focus:ring-primary-emphasis` (or `focus:ring-danger-emphasis` for a destructive action) — even though it renders as bare text, not a filled button.** The Admin → Users per-row actions cell (`AdminPage.tsx`: Deactivate/Reactivate, Make/Demote admin, Grant/Revoke all-content, Force reset, Restart onboarding tour, Clear lockout) is the reference: every button there carries this set, with `focus:ring-danger-emphasis` reserved for Deactivate and Demote admin (the two that remove access). A bare-text action is still a real button and needs a visible focus indicator and consistent corner radius like any other (#1280).
+
+## Feature parity between self-service and admin-initiated equivalents
+
+When a feature has both a self-service control (Settings) and an admin-initiated equivalent (Admin panel) — e.g. "Restart onboarding tour" in `SettingsPage.tsx` and the matching per-user action in `AdminPage.tsx` — both use **identical action copy** and **the same success/error feedback pattern** (inline `text-success`/`text-danger` message, same auto-clear timing). Do not let the two surfaces drift into different wording or different feedback mechanisms for what is, from the affected user's perspective, the exact same state change (#1280).
+
 ## Inputs and textareas
 
 - `bg-surface border border-line rounded px-3 py-1.5 text-sm text-fg-secondary`
