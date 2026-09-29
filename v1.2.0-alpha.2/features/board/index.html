@@ -1190,6 +1190,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#touch-screens" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Touch screens
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#board-panning" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4161,7 +4172,7 @@
 <p>The kanban grid, its cards, and the settings that shape them — the core workspace for anyone who works a board day to day, from quick status checks to full admin control.</p>
 <div class="admonition note">
 <p class="admonition-title">Small screens</p>
-<p>Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. Drag-and-drop and column/swimlane resizing are easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See <a href="../navigation/#mobile-behavior">Navigation → Mobile behavior</a>.</p>
+<p>Visiban works on phones and tablets: below 1024 px the sidebar becomes a hamburger drawer and the board grid scrolls horizontally. On a touch screen, press and hold a card to drag it (see <a href="#touch-screens">Touch screens</a>). Column/swimlane resizing is easiest with a pointer, so a desktop browser is still the best fit for heavy board editing. See <a href="../navigation/#mobile-behavior">Navigation → Mobile behavior</a>.</p>
 </div>
 <h2 id="board-creation">Board creation<a class="headerlink" href="#board-creation" title="Permanent link">&para;</a></h2>
 <p>Pick a template in the <strong>Create Board</strong> modal — ten are available (Sales Pipeline, Customer Support, Product Roadmap, Project Delivery, Hiring &amp; Recruiting, and more), each with a tailored column layout and a first swimlane so you can start working right away.</p>
@@ -4444,6 +4455,13 @@
 <h2 id="drag-and-drop">Drag and drop<a class="headerlink" href="#drag-and-drop" title="Permanent link">&para;</a></h2>
 <p>Cards are dragged between cells using @dnd-kit. Updates are <strong>optimistic</strong> — the UI moves the card immediately and rolls back if the API call fails.</p>
 <p>Every drag that changes column or swimlane creates a <code>CardMovement</code> audit record automatically.</p>
+<h3 id="touch-screens">Touch screens<a class="headerlink" href="#touch-screens" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>Changed in 1.2</strong></p>
+</blockquote>
+<p>On a tablet or phone, <strong>press and hold</strong> a card for about a quarter of a second, then drag it. A quick swipe scrolls the board instead, so you can still pan a wide board with one finger. The same press-and-hold picks up a column header or swimlane handle (board admins) and reorders custom fields in Board Settings.</p>
+<p>To move a card without dragging, open it and tap <strong>Move</strong> next to the column name at the top of the panel. On touch screens this button is larger and shows its label.</p>
+<p>A Bluetooth mouse paired with a tablet drags exactly as on a desktop.</p>
 <h3 id="board-panning">Board panning<a class="headerlink" href="#board-panning" title="Permanent link">&para;</a></h3>
 <p>Hold <strong>Space</strong> and drag to pan the board in any direction. This is useful on dense boards where the visible area is smaller than the full grid. Release Space to return to normal drag-to-move mode.</p>
 <h2 id="bulk-card-operations">Bulk card operations<a class="headerlink" href="#bulk-card-operations" title="Permanent link">&para;</a></h2>
