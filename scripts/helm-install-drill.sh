@@ -26,6 +26,12 @@
 #      verify one invariant rather than two drifting approximations of it.
 #   3. The one-time admin password is retrievable from the shared emptyDir, which
 #      is the documented way an operator gets their first login.
+#   3b. Django admin static assets actually resolve (#1228): `/admin/login/`
+#      returns 200 and a hashed `/static/admin/...` href pulled from that page
+#      also returns 200 — proving the `collectstatic` init container's output
+#      (CompressedManifestStaticFilesStorage's staticfiles.json included)
+#      reached the `backend` container's filesystem via the shared `static`
+#      volume, not just its own now-discarded init-container filesystem.
 #   4. NEGATIVE: an install carrying the chart's placeholder SECRET_KEY is
 #      REJECTED. A guard that stopped firing looks exactly like one that never
 #      fires, so the fail-closed path is asserted, not assumed.
@@ -336,6 +342,53 @@ ADMIN_PW="$(kubectl -n "$NAMESPACE" exec "$BACKEND_POD" -c backend -- \
 [ -n "$ADMIN_PW" ] \
   || die "admin password file is empty or absent at /run/visiban/admin_password — the shared emptyDir between the bootstrap init container and the backend container is broken, and a fresh install has no reachable login"
 ok "admin password retrievable (${#ADMIN_PW} chars)"
+
+# ---------------------------------------------------------------------------
+step "3b. Django admin static assets resolve (#1228)"
+# ---------------------------------------------------------------------------
+# The `collectstatic` init container's output only reaches the running
+# `backend` process if they share a volume for STATIC_ROOT — Kubernetes
+# containers never share a root filesystem without one. Hit the backend
+# directly (same Host: localhost the liveness/readiness probes use, always
+# appended to ALLOWED_HOSTS by _backend-env.tpl) rather than going through
+# nginx, so a broken static mount fails HERE and not somewhere the ingress
+# path could mask it. Two assertions: /admin/login/ itself must not 500
+# (whitenoise.storage.CompressedManifestStaticFilesStorage raises ValueError
+# on a missing staticfiles.json manifest entry under DEBUG=false), and a
+# hashed /static/admin/... href pulled out of that page must itself resolve —
+# proving the actual file, not just the manifest, made it into the container.
+STATIC_CHECK_OUT="$(kubectl -n "$NAMESPACE" exec "$BACKEND_POD" -c backend -- python3 -c '
+import re, urllib.error, urllib.request
+
+def fetch(path):
+    req = urllib.request.Request("http://localhost:8000" + path, headers={"Host": "localhost"})
+    try:
+        resp = urllib.request.urlopen(req, timeout=10)
+        return resp.status, resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+
+status, body = fetch("/admin/login/")
+print("ADMIN_STATUS=" + str(status))
+m = re.search(r"href=\"(/static/admin/[^\"]+)\"", body)
+href = m.group(1) if m else ""
+print("STATIC_HREF=" + href)
+if href:
+    static_status, _ = fetch(href)
+    print("STATIC_STATUS=" + str(static_status))
+else:
+    print("STATIC_STATUS=")
+')"
+ADMIN_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^ADMIN_STATUS=' | cut -d= -f2)"
+STATIC_HREF="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_HREF=' | cut -d= -f2-)"
+STATIC_STATUS="$(printf '%s\n' "$STATIC_CHECK_OUT" | grep '^STATIC_STATUS=' | cut -d= -f2)"
+[ "$ADMIN_STATUS" = "200" ] \
+  || die "/admin/login/ returned $ADMIN_STATUS, not 200 — Django admin is not serving (#1228: likely 'Missing staticfiles manifest entry' if STATIC_ROOT is not shared with the backend container)"
+[ -n "$STATIC_HREF" ] \
+  || die "/admin/login/ returned 200 but no /static/admin/... href was found in the page — cannot verify the asset itself resolves"
+[ "$STATIC_STATUS" = "200" ] \
+  || die "admin static asset $STATIC_HREF returned $STATIC_STATUS, not 200 — the collectstatic init container's output is not reaching the backend container (#1228)"
+ok "Django admin static assets resolve: /admin/login/ 200, $STATIC_HREF 200"
 
 # ---------------------------------------------------------------------------
 step "4. NEGATIVE: the placeholder SECRET_KEY guard fails closed"

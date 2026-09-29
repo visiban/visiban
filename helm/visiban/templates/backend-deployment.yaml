@@ -74,16 +74,19 @@ spec:
         - name: tmp
           emptyDir: {}
         # `collectstatic` writes STATIC_ROOT (/app/staticfiles, settings.py)
-        # inside its OWN init-container filesystem, not a filesystem shared
-        # with the `backend` container — Kubernetes containers never share a
-        # root filesystem without an explicit volume. That write already had
-        # no effect on the running backend container before this change; this
-        # volume only gives the command somewhere writable to point at now
-        # that the root filesystem is read-only, and does not change that
-        # pre-existing behavior. The pre-existing gap itself (Django admin's
-        # static assets likely broken on Helm installs, since the backend
-        # container never receives collectstatic's manifest) is tracked in
-        # #1228, out of scope for #1210.
+        # here, and the `backend` container mounts the SAME volume read-only
+        # below — Kubernetes containers never share a root filesystem without
+        # an explicit volume, so without this the manifest CompressedManifest-
+        # StaticFilesStorage needs to resolve `{% static %}` (e.g. every
+        # Django admin template) never reaches the process serving /admin/
+        # (#1228: 500 on /admin/login/, `ValueError: Missing staticfiles
+        # manifest entry`, reproduced against these settings before this fix).
+        # WhiteNoise scans STATIC_ROOT once at daphne startup, so the
+        # collectstatic init container completing before `backend` starts
+        # (ordering already guaranteed: init containers run to completion
+        # before any container in `containers` is created) is what makes a
+        # read-only mount on `backend` sufficient — it never needs to write
+        # here itself.
         - name: static
           emptyDir: {}
         {{- if .Values.backend.mediaPersistence.enabled }}
@@ -144,8 +147,8 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-            # See the `static` volume's note above: STATIC_ROOT needs to be
-            # writable in THIS container only.
+            # See the `static` volume's note above: this is the one container
+            # that writes STATIC_ROOT.
             - name: static
               mountPath: /app/staticfiles
         - name: bootstrap
@@ -185,6 +188,12 @@ spec:
               mountPath: /app/media
             - name: tmp
               mountPath: /tmp
+            # See the `static` volume's note above (#1228): reads what the
+            # `collectstatic` init container wrote. Read-only — the backend
+            # never writes here — to keep #1210's read-only-root-fs intent.
+            - name: static
+              mountPath: /app/staticfiles
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /api/health/liveness/
