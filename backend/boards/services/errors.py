@@ -306,13 +306,15 @@ class CardCreationNotAllowed(CardServiceError):
 
 
 class UseMoveEndpoint(CardServiceError):
-    """A plain update tried to change ``column`` or ``swimlane`` (#1106).
+    """A plain update tried to change ``column``, ``swimlane``, or ``position``
+    (#1106, #1275).
 
-    Either would bypass WIP/weight enforcement and the ``CardMovement`` audit
-    trail, which only the move transition evaluates. This lives in the service
-    rather than the adapter on purpose: a future non-HTTP caller passing a
-    ``column`` field to :func:`boards.services.cards.update_card` would
-    otherwise reintroduce exactly the bug #1106 fixed.
+    Any of the three would bypass WIP/weight enforcement and the
+    ``CardMovement`` audit trail, which only the move transition evaluates.
+    This lives in the service rather than the adapter on purpose: a future
+    non-HTTP caller passing a ``column``/``swimlane``/``position`` field to
+    :func:`boards.services.cards.update_card` would otherwise reintroduce
+    exactly the bug #1106 fixed.
     """
 
     status = 400

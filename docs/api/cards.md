@@ -127,7 +127,7 @@ The following fields are returned for every card object in this endpoint, `POST 
 | `label_ids` | integer[] | write-only | no | Write-only list of label PKs; omitted from responses |
 | `due_date` | string / null | no | yes | ISO 8601 date (e.g. `"2026-04-01"`) or `null` |
 | `weight` | integer | no | no | Story-point weight; default `1` |
-| `position` | integer | no | no | Sort order within the column/swimlane cell (0-based) |
+| `position` | integer | no | no | Sort order within the column/swimlane cell (0-based); update via the [move endpoint](#move) only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
 | `created_by` | object / null | yes | yes | User who created the card — same shape as `assignee`; `null` for cards created before the field was added |
 | `created_at` | string | yes | no | ISO 8601 creation timestamp |
 | `updated_at` | string | yes | no | ISO 8601 timestamp of last field update |

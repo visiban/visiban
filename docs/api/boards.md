@@ -944,7 +944,7 @@ Column objects returned by all endpoints include the following fields:
 |---|---|---|
 | `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
 | `name` | string | Column name |
-| `position` | integer | Display order (0-based) |
+| `position` | integer | Display order (0-based); update via `reorder/` only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
 | `color` | string | Hex color code |
 | `wip_limit` | integer / null | Maximum number of cards; `null` means unlimited |
 | `weight_limit` | integer / null | Maximum total card weight; `null` means unlimited |
@@ -997,7 +997,7 @@ Swimlane response objects include the following fields:
 |---|---|---|
 | `id`, `uid` | integer, string | Database ID and stable 16-char hex UID (read-only) |
 | `name` | string | Swimlane name |
-| `position` | integer | Display order (0-based) |
+| `position` | integer | Display order (0-based); update via `reorder/` only — a `PATCH`/`PUT` that changes `position` returns `400 Bad Request` (since 1.2, #1275). Echoing the current value back is accepted. |
 | `color` | string | Hex color code |
 | `is_collapsed` | boolean | Whether the swimlane row is collapsed in the board view |
 | `created_at` | string | ISO 8601 timestamp of swimlane creation |
